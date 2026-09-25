@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive FIRE projections for a couple in Canada (Ontario or BC), including RRSP/TFSA, taxes, housing, CPP/OAS, pension, healthcare, and long-term care.">
+  <title>FIRE Couple Planner — Canada</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1320'/%3E%3Cpath d='M32 10c7 10 15 17 15 29 0 10-7 17-15 17S17 49 17 39c0-8 4-14 10-20 0 8 3 12 7 15-1-8 0-15-2-24z' fill='%23f59e0b'/%3E%3Cpath d='M32 35c5 5 7 9 7 13 0 5-3 8-7 8s-7-3-7-8c0-4 2-8 7-13z' fill='%23fde68a'/%3E%3C/svg%3E">
+  <style>
+    :root{--ink:#0b1320;--muted:#627083;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--shadow:0 12px 36px rgba(15,23,42,.08)}
+    *{box-sizing:border-box}html{font-size:16px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
+    button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh}.topbar{background:var(--ink);color:white;padding:18px clamp(18px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:18px;position:sticky;top:0;z-index:20;box-shadow:0 5px 20px rgba(0,0,0,.16)}
+    .brand{display:flex;align-items:center;gap:12px}.mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fbbf24,#ea580c);display:grid;place-items:center;font-weight:900;color:#23140b}.brand h1{font-size:1.08rem;margin:0;letter-spacing:-.02em}.brand small{display:block;color:#aeb9c8;font-size:.76rem;margin-top:1px}
+    .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--ink)}
+    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}
+    .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
+    .group{padding:16px 20px;border-bottom:1px solid #edf1f5}.group:last-child{border:0}.group h3{margin:0 0 12px;color:#526174;text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:#263548}.field label small{display:block;color:#7c8999;font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid #cfd8e3;background:#fbfcfd;border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
+    details.group summary{margin:0 0 12px;color:#526174;text-transform:uppercase;letter-spacing:.1em;font-size:.7rem;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
+    details.group summary::-webkit-details-marker{display:none}
+    details.group summary::after{content:'▾';font-size:.85rem;color:#93a0b3;transition:transform .15s ease;flex-shrink:0;margin-left:8px}
+    details.group:not([open]) summary{margin-bottom:0}
+    details.group:not([open]) summary::after{transform:rotate(-90deg)}
+    details.group summary:hover{color:#17324d}
+    .range-field{margin:13px 0 17px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:#eef3ff;color:#1d4ed8;padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue)}.field select{width:100%;border:1px solid #cfd8e3;background:#fbfcfd;border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
+    .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:#edf2f7;border:1px solid #d8e0e9;border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:#637286;border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:#fff;color:#17324d;box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
+    .content{display:grid;gap:18px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:var(--ink);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
+    .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:#526174}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
+    .chart-view-toggle{display:flex;gap:4px;background:#edf2f7;border:1px solid #d8e0e9;border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:#637286;border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:#fff;color:#17324d;box-shadow:0 2px 7px rgba(15,23,42,.11)}
+    .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:#778497;font-size:.72rem;margin-top:5px;gap:10px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid #e7ecf1;font-size:.8rem;white-space:nowrap}th{background:#f7f9fb;color:#607084;text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:#f8fbff}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}
+    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:#f5f8fb;color:#526174;font-size:.76rem}.callout b{color:#253448}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}
+    .range-note{display:block;color:#748195;font-size:.72rem;margin-top:5px}.footer-note{color:#748195;font-size:.73rem;margin:16px 2px 0}.footer-note a{color:#315fbb;text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}
+    @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
+    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:0;background:white;z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}}
+    @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Couple Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V1</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div style="display:flex;gap:10px;align-items:center"><span class="save-status" id="saveStatus">Saved on this device</span><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="view-toggle" role="radiogroup" aria-label="Dollar view"><button id="realBtn" class="active" role="radio" aria-checked="true">Real $</button><button id="nominalBtn" role="radio" aria-checked="false">Nominal $</button></div></div>
+  </header>
+  <main>
+    <div class="workspace">
+      <aside class="panel" aria-label="Projection assumptions">
+        <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
+        <details class="group" open>
+          <summary>Timeline & income</summary>
+          <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
+          <div class="field"><label for="ageA">Partner A starting age</label><input id="ageA" type="number" min="18" max="70" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="retireAgeA">Partner A retirement age</label><span class="range-value" id="retireAgeAOut"></span></div><input id="retireAgeA" type="range" min="18" max="70" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income</label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
+          <div class="field"><label for="matchA">Partner A employer RRSP match<small>Percentage of annual pay; modeled as an additional RRSP contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
+          <div class="range-field"><div class="range-head"><label for="rrspPctA">Partner A RRSP contribution</label><span class="range-value" id="rrspPctAOut"></span></div><input id="rrspPctA" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="tfsaPctA">Partner A TFSA contribution</label><span class="range-value" id="tfsaPctAOut"></span></div><input id="tfsaPctA" type="range" min="0" max="100" step="1"></div>
+          <div id="partnerBFields" data-partner-b>
+          <div class="field"><label for="ageB">Partner B starting age</label><input id="ageB" type="number" min="18" max="70" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="retireAgeB">Partner B retirement age</label><span class="range-value" id="retireAgeBOut"></span></div><input id="retireAgeB" type="range" min="18" max="70" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="incomeB">Partner B income</label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
+          <div class="field"><label for="matchB">Partner B employer RRSP match<small>Percentage of annual pay; modeled as an additional RRSP contribution</small></label><input id="matchB" type="number" min="0" max="100" step="0.1"></div>
+          <div class="range-field"><div class="range-head"><label for="rrspPctB">Partner B RRSP contribution</label><span class="range-value" id="rrspPctBOut"></span></div><input id="rrspPctB" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="tfsaPctB">Partner B TFSA contribution</label><span class="range-value" id="tfsaPctBOut"></span></div><input id="tfsaPctB" type="range" min="0" max="100" step="1"></div>
+          </div>
+          <div class="field"><label for="spending">Annual household spending<small>Include property tax and home insurance here; excludes mortgage, rent, maintenance, healthcare & retirement saving</small></label><input id="spending" type="number" min="0" step="1000"></div>
+          <div class="group" style="padding:12px 0 0;border:0">
+            <p class="range-note">Optional: add up to five sequential spending changes, each triggered once Partner A reaches a given age (e.g. mortgage payoff, an empty nest, or slowing down in your 80s). Each new tier fully replaces the household spending figure above once active.</p>
+            <div id="spendingTierFields"></div>
+          </div>
+          <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
+          <div class="field"><label for="inflation">Inflation</label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
+        </details>
+        <details class="group" open>
+          <summary>Starting assets</summary>
+          <div class="field"><label for="taxable">Taxable brokerage</label><input id="taxable" type="number" min="0" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
+          <div class="field"><label for="traditional">RRSP balance</label><input id="traditional" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="roth">TFSA balance</label><input id="roth" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" min="0" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
+          <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
+          <div class="field"><label for="returnRate">Investment return</label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
+          <div class="field"><label for="bondReturn">Bond return</label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
+          <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
+        </details>
+        <details class="group" open>
+          <summary>Housing</summary>
+          <div class="choice" style="grid-template-columns:1fr 1fr 1fr" role="radiogroup" aria-label="Housing status"><button type="button" id="ownBtn" role="radio" aria-checked="true" class="active">Own</button><button type="button" id="rentBtn" role="radio" aria-checked="false">Rent</button><button type="button" id="buyLaterBtn" role="radio" aria-checked="false">Rent → Buy</button></div>
+          <div class="tenure-fields" id="homeValueFields">
+            <div class="field"><label for="homeValue" id="homeValueLabel">Real estate value</label><input id="homeValue" type="number" min="0" step="5000"></div>
+            <div class="field"><label for="homeGrowth">Home appreciation</label><input id="homeGrowth" type="number" min="-5" max="15" step="0.1"></div>
+            <div class="field"><label for="mortgageRate" id="mortgageRateLabel">Mortgage interest rate</label><input id="mortgageRate" type="number" min="0" max="20" step="0.001"></div>
+            <div class="field"><label for="maintenance">Annual home maintenance<small id="maintenanceHint">Applies once you own</small></label><input id="maintenance" type="number" min="0" step="500"></div>
+          </div>
+          <div class="tenure-fields" id="ownerFields">
+            <div class="field"><label for="mortgage">Remaining principal</label><input id="mortgage" type="number" min="0" step="1000"></div>
+            <div class="field"><label for="mortgageYears">Years remaining</label><input id="mortgageYears" type="number" min="0" max="40" step="1"></div>
+            <div class="range-field"><div class="range-head"><label for="extraPrincipal">Extra monthly principal</label><span class="range-value" id="extraPrincipalOut"></span></div><input id="extraPrincipal" type="range" min="0" max="5000" step="100"><small class="range-note" id="payoffHint"></small></div>
+          </div>
+          <div class="tenure-fields" id="renterFieldsShared" hidden>
+            <div class="field"><label for="rent">Current monthly rent<small>After rent and the cash-reserve target, surplus cash flows to brokerage</small></label><input id="rent" type="number" min="0" step="100"></div>
+            <div class="field"><label for="rentGrowth">Annual rent growth</label><input id="rentGrowth" type="number" min="-5" max="15" step="0.1"></div>
+          </div>
+          <div class="tenure-fields" id="buyLaterFields" hidden>
+            <div class="field"><label for="buyAge">Buy at Partner A age</label><input id="buyAge" type="number" min="18" max="100" step="1"></div>
+            <div class="field"><label for="fhsa">Starting FHSA balance<small>First Home Savings Account — tax-deductible in, tax-free out when used for this purchase. $8,000/year and $40,000 lifetime cap per person.</small></label><input id="fhsa" type="number" min="0" step="500"></div>
+            <div class="range-field"><div class="range-head"><label for="fhsaPctA">Partner A FHSA contribution</label><span class="range-value" id="fhsaPctAOut"></span></div><input id="fhsaPctA" type="range" min="0" max="100" step="1"></div>
+            <div data-partner-b class="range-field"><div class="range-head"><label for="fhsaPctB">Partner B FHSA contribution</label><span class="range-value" id="fhsaPctBOut"></span></div><input id="fhsaPctB" type="range" min="0" max="100" step="1"></div>
+            <p class="range-note">Contributions stop once the home is purchased. Any leftover balance at purchase (beyond what's needed for the down payment and closing costs) rolls tax-free into the TFSA balance below.</p>
+            <div class="choice" role="radiogroup" aria-label="Purchase financing"><button type="button" id="buyMortgageBtn" role="radio" aria-checked="true" class="active">Mortgage</button><button type="button" id="buyCashBtn" role="radio" aria-checked="false">Cash</button></div>
+            <div id="buyMortgageFields">
+              <div class="range-field"><div class="range-head"><label for="buyDownPct">Down payment</label><span class="range-value" id="buyDownPctOut"></span></div><input id="buyDownPct" type="range" min="0" max="100" step="1"></div>
+              <div class="range-field"><div class="range-head"><label for="buyClosingPct">Closing costs</label><span class="range-value" id="buyClosingPctOut"></span></div><input id="buyClosingPct" type="range" min="0" max="10" step="0.5"></div>
+              <div class="field"><label for="buyTerm15"><input id="buyTerm15" type="checkbox"> 15-year mortgage<small>Unchecked uses a 30-year term. Uses the mortgage interest rate above.</small></label></div>
+              <div class="range-field"><div class="range-head"><label for="buyExtraPrincipal">Extra monthly principal</label><span class="range-value" id="buyExtraPrincipalOut"></span></div><input id="buyExtraPrincipal" type="range" min="0" max="5000" step="100"><small class="range-note" id="buyPayoffHint"></small></div>
+            </div>
+          </div>
+        </details>
+        <details class="group">
+          <summary>Other loans</summary>
+          <p class="range-note">Add up to five amortizing loans. Payments and remaining balances are included in the projection.</p>
+          <div id="loanFields"></div>
+        </details>
+        <details class="group" open>
+          <summary>Later-life income & costs</summary>
+          <div class="field"><label for="cppMonthlyA">Partner A CPP / month</label><input id="cppMonthlyA" type="number" min="0" step="50"></div>
+          <div class="field"><label for="cppStartAgeA">Partner A CPP start age<small>60–70; earlier means a reduced benefit, later means an enhanced one</small></label><input id="cppStartAgeA" type="number" min="60" max="70" step="1"></div>
+          <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>Defaults to the 2026 maximum (ages 65–74)</small></label><input id="oasMonthlyA" type="number" min="0" step="25"></div>
+          <div class="field"><label for="oasStartAgeA">Partner A OAS start age<small>65–70; deferring past 65 increases the benefit ~0.6%/month</small></label><input id="oasStartAgeA" type="number" min="65" max="70" step="1"></div>
+          <div data-partner-b class="field"><label for="cppMonthlyB">Partner B CPP / month</label><input id="cppMonthlyB" type="number" min="0" step="50"></div>
+          <div data-partner-b class="field"><label for="cppStartAgeB">Partner B CPP start age</label><input id="cppStartAgeB" type="number" min="60" max="70" step="1"></div>
+          <div data-partner-b class="field"><label for="oasMonthlyB">Partner B OAS / month</label><input id="oasMonthlyB" type="number" min="0" step="25"></div>
+          <div data-partner-b class="field"><label for="oasStartAgeB">Partner B OAS start age</label><input id="oasStartAgeB" type="number" min="65" max="70" step="1"></div>
+          <div class="field"><label>Pension coverage</label><div class="choice" role="radiogroup" aria-label="Pension coverage"><button type="button" id="pensionNoneBtn" role="radio">None</button><button type="button" id="pensionABtn" role="radio">A only</button><button type="button" id="pensionBBtn" role="radio">B only</button><button type="button" id="pensionBothBtn" role="radio">Both</button></div></div>
+          <div class="field"><label for="pensionYearlyA">Partner A annual pension</label><input id="pensionYearlyA" type="number" min="0" step="500"></div>
+          <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
+          <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual pension</label><input id="pensionYearlyB" type="number" min="0" step="500"></div>
+          <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
+          <div class="field"><label for="healthcare">Annual post-retirement extra health/dental insurance<small id="healthcareHint">Supplemental private coverage; provincial healthcare (OHIP/MSP) itself is universal and not modeled as a cost</small></label><input id="healthcare" type="number" min="0" step="500"></div>
+          <div class="field"><label for="ltcYearlyA">Partner A annual LTC cost<span id="ltcLabelSuffix" hidden></span></label><input id="ltcYearlyA" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="ltcAgeA">Partner A LTC start age</label><input id="ltcAgeA" type="number" min="60" max="100" step="1"></div>
+          <div data-partner-b class="field"><label for="ltcYearlyB">Partner B annual LTC cost</label><input id="ltcYearlyB" type="number" min="0" step="1000"></div>
+          <div data-partner-b class="field"><label for="ltcAgeB">Partner B LTC start age</label><input id="ltcAgeB" type="number" min="60" max="100" step="1"></div>
+        </details>
+        <details class="group">
+          <summary>Bridge / part-time income</summary>
+          <p class="range-note">Consulting, part-time, or barista-FIRE income earned after leaving full-time work. Taxed as ordinary income with CPP contributions; not eligible for RRSP/TFSA room beyond the usual limits.</p>
+          <div class="field"><label for="bridgeIncomeA">Partner A bridge income / year</label><input id="bridgeIncomeA" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="bridgeStartAgeA">Partner A bridge income start age</label><input id="bridgeStartAgeA" type="number" min="18" max="100" step="1"></div>
+          <div class="field"><label for="bridgeEndAgeA">Partner A bridge income end age</label><input id="bridgeEndAgeA" type="number" min="18" max="100" step="1"></div>
+          <div data-partner-b class="field"><label for="bridgeIncomeB">Partner B bridge income / year</label><input id="bridgeIncomeB" type="number" min="0" step="1000"></div>
+          <div data-partner-b class="field"><label for="bridgeStartAgeB">Partner B bridge income start age</label><input id="bridgeStartAgeB" type="number" min="18" max="100" step="1"></div>
+          <div data-partner-b class="field"><label for="bridgeEndAgeB">Partner B bridge income end age</label><input id="bridgeEndAgeB" type="number" min="18" max="100" step="1"></div>
+        </details>
+        <details class="group">
+          <summary>Additional income</summary>
+          <p class="range-note">Optional: up to three recurring household income sources over a chosen age window (e.g. rental income, alimony) taxed as ordinary income attributed to Partner A. Amounts are in today's dollars.</p>
+          <div id="incomeSourceFields"></div>
+          <p class="range-note">Optional: up to three one-time, tax-free lump sums received at a specific age (e.g. an inheritance or a home-sale windfall). Added directly to cash in the year received; amounts are in today's dollars.</p>
+          <div id="oneTimeIncomeFields"></div>
+        </details>
+        <details class="group">
+          <summary>RRSP meltdown ladder</summary>
+          <div class="field"><label for="meltdownEnabled"><input id="meltdownEnabled" type="checkbox"> Enable RRSP meltdown ladder<small>Withdraws from RRSP each year in the window below, filling Partner A's taxable income up to the top of the selected federal bracket, then moves the net proceeds to TFSA.</small></label></div>
+          <div class="field"><label for="meltdownStartAge">Start at Partner A age</label><input id="meltdownStartAge" type="number" min="18" max="100" step="1"></div>
+          <div class="field"><label for="meltdownEndAge">End at Partner A age</label><input id="meltdownEndAge" type="number" min="18" max="100" step="1"></div>
+          <div class="field"><label for="meltdownBracket">Fill to top of federal bracket</label><select id="meltdownBracket"><option value="14">14%</option><option value="20.5">20.5%</option><option value="26">26%</option><option value="29.29">29.29%</option><option value="33">33%</option></select></div>
+        </details>
+        <details class="group" open>
+          <summary>Pension income splitting</summary>
+          <div class="field"><label for="pensionSplitEnabled"><input id="pensionSplitEnabled" type="checkbox"> Enable pension income splitting<small>Reallocates up to 50% of eligible pension/RRIF income (RRIF from age 65, employer pension at any age) to whichever spouse minimizes combined federal + provincial tax each year. CPP, OAS, and RRSP lump-sum withdrawals are not eligible.</small></label></div>
+        </details>
+        <details class="group" open>
+          <summary>Province of residence</summary>
+          <div class="field"><label>Province<small>2026 planning estimate for Ontario or British Columbia; local/municipal taxes and provincial credits beyond the basic personal amount are excluded.</small></label><div class="choice" role="radiogroup" aria-label="Province"><button type="button" id="onBtn" role="radio">Ontario</button><button type="button" id="bcBtn" role="radio">British Columbia</button></div></div>
+        </details>
+      </aside>
+
+      <section class="content" aria-live="polite">
+        <div class="metrics">
+          <div class="metric"><div class="kicker">Investable at retirement</div><strong id="retireAssets">—</strong><small id="retireAssetsSub"></small></div>
+          <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
+          <div class="metric"><div class="kicker">Portfolio lasts to</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
+          <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
+          <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.</p></div><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div class="chart-view-toggle" role="radiogroup" aria-label="Chart comparison view"><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">Real CAGR 0–7%</button><button id="chartViewHistBtn" role="radio" aria-checked="false">Historical (S&P 500)</button></div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#526174;margin:2px 0 12px"><input id="logScaleToggle" type="checkbox">Log scale</label>
+          </div>
+          <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Projected total assets by age for three retirement dates"></canvas></div>
+          <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartAgeNote">Chart age refers to Partner A.</span><span id="chartViewNote"></span></div>
+        </div>
+
+        <div class="result-card">
+          <div class="result-head"><div><h2>Selected retirement timeline</h2><p>Account balances and housing position at milestone ages.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th id="ageAHead">Partner A age</th><th id="ageBHead">Partner B age</th><th>Status</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Loan balances</th><th>Net assets</th></tr></thead><tbody id="projectionRows"></tbody></table></div>
+          <div class="assumptions">
+            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute to RRSP and TFSA while employed, subject to earned income; in single-person mode, only Partner A's limits and income are used. RRSP contribution room is approximated as 18% of current-year wages up to the 2026 dollar maximum ($33,810); unused room is not tracked or carried forward, a simplification versus real CRA room accumulation. TFSA room is a flat $7,000/year per person (2026), also not tracked cumulatively. Employer RRSP matches are calculated as the selected percentage of each working person's salary and added to the RRSP without reducing take-home pay. Optional bridge/part-time/consulting income (per partner, with its own age window) is taxed as ordinary income with CPP contributions but doesn't add extra RRSP/TFSA room. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded first from any FHSA balance, then by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new 15- or 30-year mortgage with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. In this mode, each partner can also contribute a percentage of wages to an FHSA (First Home Savings Account) up until the purchase year, subject to the real $8,000/year and (non-indexed) $40,000 lifetime per-person caps; contributions are deducted from taxable income like an RRSP contribution, the balance grows tax-free, and at the purchase year it's applied tax-free toward the down payment and closing costs — any leftover rolls tax-free into the TFSA balance (a simplification of the CRA rule that also allows a tax-free RRSP rollover instead). The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The bond reserve is built one projected expense-year at a time and split evenly between taxable and RRSP accounts. An optional RRSP meltdown ladder withdraws from RRSP each year within a chosen age window, solving for the amount that fills Partner A's taxable income up to the top of a selected federal bracket (after any required RRIF minimum), and moves the net proceeds to TFSA (sufficient TFSA room is assumed). CPP, OAS, and pension income offset expenses first; withdrawals then use taxable, RRSP, TFSA, cash, the protected bond reserve, and finally home equity.</div>
+            <div class="callout" id="stateTaxNote" aria-live="polite"></div>
+            <div class="callout"><b>Tax treatment.</b> Canada requires each spouse to file an individual return, so this model always computes federal + provincial tax per person rather than jointly; pooled taxable and RRSP withdrawals are split 50/50 between partners for tax purposes unless pension splitting reallocates income between them. Capital gains use the standard 50% inclusion rate — half of each modeled brokerage gain is added to ordinary taxable income and taxed at that person's marginal rate, with no separate preferential bracket. CPP and OAS are fully taxable ordinary income for whoever receives them (OAS is also subject to the separate clawback described below). This is still a planning estimate: provincial credits beyond the basic personal amount, dividend tax credits, the high-income federal BPA phase-out, and CPP/QPP-specific rules outside Ontario/BC are not modeled. RRSP funds are assumed split 50/50 between partners, and RRIF minimum withdrawals begin at each partner's own age 71 using the CRA's prescribed factor table. Brokerage withdrawals use the selected cost-basis ratio to estimate the taxable gain portion.</div>
+            <div class="callout full"><b>CPP, OAS clawback & healthcare.</b> CPP and OAS each start whenever selected (CPP 60–70, OAS 65–70) and are added in full to that person's taxable income. OAS is separately subject to the federal recovery tax ("clawback"): 15% of net income (including OAS itself) above the 2026 threshold ($95,323), up to the full OAS amount — modeled using the same year's income as a planning-level approximation rather than CRA's actual one-year lookback. Since Canada has universal provincial healthcare (OHIP in Ontario, MSP in BC), the "extra health/dental insurance" figure only represents supplemental private coverage many retirees carry — there's no premium-subsidy or income-tested surcharge system to model the way the US does with ACA/Medicare. Ontario's own health premium (up to $900/year, income-tested) is folded into the Ontario provincial tax estimate instead, since it's collected through the tax return.</div>
+            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested, US CPI inflation, and 10-year US Treasury bond total returns, all from the Damodaran/NYU Stern dataset — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond pool is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond pool only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → RRSP → TFSA and any bond-pool shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, bridge income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
+          </div>
+        </div>
+        <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal/provincial tax parameters are held constant in real terms and increase with inflation in nominal projections. EI premiums are not modeled. Sources: <a href="https://www.taxtips.ca/taxrates/canada.htm" target="_blank" rel="noreferrer">2026 federal brackets</a>, <a href="https://www.taxtips.ca/taxrates/on.htm" target="_blank" rel="noreferrer">2026 Ontario brackets & health premium</a>, <a href="https://www.taxtips.ca/taxrates/bc.htm" target="_blank" rel="noreferrer">2026 BC brackets</a>, <a href="https://www.canada.ca/en/employment-social-development/programs/pensions/pension/statistics/2026-quarterly-january-march.html" target="_blank" rel="noreferrer">2026 CPP/OAS amounts</a>, <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/about-your-tax-return/tax-return/completing-a-tax-return/deductions-credits-expenses/line-23200-other-deductions/repayment-cpp-benefits/oas-recovery-tax.html" target="_blank" rel="noreferrer">OAS recovery tax rules</a>, <a href="https://www.canada.ca/en/revenue-agency/services/tax/registered-plans-administrators/pspa/rrsp-dpsp-pension-plan-limits.html" target="_blank" rel="noreferrer">2026 RRSP/TFSA limits</a>, <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/first-home-savings-account.html" target="_blank" rel="noreferrer">FHSA rules & limits</a>, <a href="https://www.canada.ca/en/revenue-agency/services/tax/registered-plans-administrators/pension-plan-administration/minimum-amount-from-a-rrif.html" target="_blank" rel="noreferrer">CRA RRIF minimum withdrawal factors</a>, <a href="https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/about-your-tax-return/tax-return/completing-a-tax-return/deductions-credits-expenses/line-21000-deduction-elected-split-pension-amount.html" target="_blank" rel="noreferrer">pension income splitting rules</a>, and <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histretSP.html" target="_blank" rel="noreferrer">Damodaran/NYU Stern historical S&P 500 &amp; inflation data</a>.</p>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+(() => {
+  const defaults={singlePerson:false,province:'on',basisRatio:50,rrspPctA:100,rrspPctB:100,tfsaPctA:0,tfsaPctB:0,ageA:48,ageB:43,retireAgeA:55,retireAgeB:55,incomeA:100000,incomeB:100000,matchA:0,matchB:0,spending:60000,incomeGrowth:3,inflation:2.5,taxable:50000,traditional:200000,roth:50000,cash:50000,cashReserve:30000,bondYears:5,returnRate:7,bondReturn:4,hysaRate:4,tenure:'own',homeValue:450000,homeGrowth:3,mortgage:300000,mortgageRate:5.5,mortgageYears:25,extraPrincipal:0,maintenance:6000,rent:2500,rentGrowth:3,cppMonthlyA:1200,cppStartAgeA:65,cppMonthlyB:1200,cppStartAgeB:65,oasMonthlyA:742,oasStartAgeA:65,oasMonthlyB:742,oasStartAgeB:65,pensionCoverage:'none',pensionYearlyA:0,pensionStartAgeA:67,pensionYearlyB:0,pensionStartAgeB:67,healthcare:3000,ltcYearlyA:50000,ltcAgeA:82,ltcYearlyB:50000,ltcAgeB:82,pensionSplitEnabled:true,bridgeIncomeA:0,bridgeStartAgeA:65,bridgeEndAgeA:70,bridgeIncomeB:0,bridgeStartAgeB:65,bridgeEndAgeB:70,meltdownEnabled:false,meltdownStartAge:60,meltdownEndAge:70,meltdownBracket:20.5,buyAge:50,buyCash:false,buyDownPct:20,buyClosingPct:4,buyTerm15:false,buyExtraPrincipal:0,fhsa:0,fhsaPctA:0,fhsaPctB:0,loans:Array.from({length:5},()=>({principal:0,balance:0,rate:0,term:0,extra:0})),spendingTiers:Array.from({length:5},()=>({enabled:false,age:65,amount:60000})),incomeSources:Array.from({length:3},()=>({enabled:false,amount:0,startAge:65,endAge:75})),oneTimeIncome:Array.from({length:3},()=>({enabled:false,age:65,amount:0}))};
+  const storageKey='fireCouplePlanner.canadaOffline.v1',legacyStorageKey='fireCouplePlanner.v3',storage=null;
+  let state={...defaults,loans:defaults.loans.map(l=>({...l}))},mode='real',chartView='3yr',logScale=false;
+  try{storage?.removeItem(legacyStorageKey);const saved=JSON.parse(storage?.getItem(storageKey)||'null');if(saved?.state)state={...state,...saved.state};if(['real','nominal'].includes(saved?.mode))mode=saved.mode;}catch{}
+  if(!['own','rent','rentThenBuy'].includes(state.tenure))state.tenure='own';
+  if(!['on','bc'].includes(state.province))state.province='on';
+  state.retireAgeA=Math.max(state.ageA,Number(state.retireAgeA??state.retireAge??state.ageA));state.retireAgeB=Math.max(state.ageB,Number(state.retireAgeB??state.retireAge??state.ageB));
+  const ids=['ageA','ageB','retireAgeA','retireAgeB','incomeA','incomeB','matchA','matchB','rrspPctA','rrspPctB','tfsaPctA','tfsaPctB','spending','incomeGrowth','inflation','taxable','basisRatio','traditional','roth','cash','cashReserve','bondYears','returnRate','bondReturn','hysaRate','homeValue','homeGrowth','mortgage','mortgageRate','mortgageYears','extraPrincipal','maintenance','rent','rentGrowth','cppMonthlyA','cppStartAgeA','cppMonthlyB','cppStartAgeB','oasMonthlyA','oasStartAgeA','oasMonthlyB','oasStartAgeB','pensionYearlyA','pensionStartAgeA','pensionYearlyB','pensionStartAgeB','healthcare','ltcYearlyA','ltcAgeA','ltcYearlyB','ltcAgeB','bridgeIncomeA','bridgeStartAgeA','bridgeEndAgeA','bridgeIncomeB','bridgeStartAgeB','bridgeEndAgeB','meltdownStartAge','meltdownEndAge','buyAge','buyDownPct','buyClosingPct','buyExtraPrincipal','fhsa','fhsaPctA','fhsaPctB'];
+  state.loans=Array.from({length:5},(_,i)=>({...defaults.loans[i],...(Array.isArray(state.loans)?state.loans[i]:{})}));
+  state.spendingTiers=Array.from({length:5},(_,i)=>({...defaults.spendingTiers[i],...(Array.isArray(state.spendingTiers)?state.spendingTiers[i]:{})}));
+  state.incomeSources=Array.from({length:3},(_,i)=>({...defaults.incomeSources[i],...(Array.isArray(state.incomeSources)?state.incomeSources[i]:{})}));
+  state.oneTimeIncome=Array.from({length:3},(_,i)=>({...defaults.oneTimeIncome[i],...(Array.isArray(state.oneTimeIncome)?state.oneTimeIncome[i]:{})}));
+  const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0,notation:Math.abs(n)>=1e7?'compact':'standard'}).format(n||0);
+  const compact=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',notation:'compact',maximumFractionDigits:1}).format(n||0);
+  const pct=n=>(n||0)/100;
+  // S&P 500 calendar-year total returns (dividends reinvested), US CPI
+  // inflation, and 10-year US Treasury bond total returns, 1928-2025.
+  // Source: Damodaran/NYU Stern historical returns dataset.
+  // [year, nominal S&P500 total return %, CPI inflation %, 10yr T-Bond total return %].
+  const HIST=[[1928,43.61,-1.16,0.84],[1929,-8.42,0.58,4.20],[1930,-24.9,-6.4,4.54],[1931,-43.34,-9.32,-2.56],[1932,-8.19,-10.27,8.79],[1933,53.99,0.76,1.86],[1934,-1.44,1.52,7.96],[1935,47.67,2.99,4.47],[1936,33.92,1.45,5.02],[1937,-35.03,2.86,1.38],[1938,31.12,-2.78,4.21],[1939,-0.41,0.0,4.41],[1940,-9.78,0.71,5.40],[1941,-11.59,9.93,-2.02],[1942,20.34,9.03,2.29],[1943,25.9,2.96,2.49],[1944,19.75,2.3,2.58],[1945,36.44,2.25,3.80],[1946,-8.07,18.13,3.13],[1947,5.71,8.84,0.92],[1948,5.5,2.99,1.95],[1949,18.79,-2.07,4.66],[1950,31.71,5.93,0.43],[1951,24.02,6.0,-0.30],[1952,18.37,0.75,2.27],[1953,-0.99,0.75,4.14],[1954,52.62,-0.74,3.29],[1955,31.56,0.37,-1.34],[1956,6.56,2.99,-2.26],[1957,-10.78,2.9,6.80],[1958,43.36,1.76,-2.10],[1959,11.96,1.73,-2.65],[1960,0.47,1.36,11.64],[1961,26.89,0.67,2.06],[1962,-8.73,1.33,5.69],[1963,22.8,1.64,1.68],[1964,16.48,0.97,3.73],[1965,12.45,1.92,0.72],[1966,-10.06,3.46,2.91],[1967,23.98,3.04,-1.58],[1968,11.06,4.72,3.27],[1969,-8.5,6.2,-5.01],[1970,4.01,5.57,16.75],[1971,14.31,3.27,9.79],[1972,18.98,3.41,2.82],[1973,-14.66,8.71,3.66],[1974,-26.47,12.34,1.99],[1975,37.2,6.94,3.61],[1976,23.84,4.86,15.98],[1977,-7.18,6.7,1.29],[1978,6.56,9.02,-0.78],[1979,18.44,13.29,0.67],[1980,32.42,12.52,-2.99],[1981,-4.91,8.92,8.20],[1982,21.55,3.83,32.81],[1983,22.56,3.79,3.20],[1984,6.27,3.95,13.73],[1985,31.73,3.8,25.71],[1986,18.67,1.1,24.28],[1987,5.25,4.43,-4.96],[1988,16.61,4.42,8.22],[1989,31.69,4.65,17.69],[1990,-3.1,6.11,6.24],[1991,30.47,3.06,15.00],[1992,7.62,2.9,9.36],[1993,10.08,2.75,14.21],[1994,1.32,2.67,-8.04],[1995,37.58,2.54,23.48],[1996,22.96,3.32,1.43],[1997,33.36,1.7,9.94],[1998,28.58,1.61,14.92],[1999,21.04,2.68,-8.25],[2000,-9.1,3.39,16.66],[2001,-11.89,1.55,5.57],[2002,-22.1,2.38,15.12],[2003,28.68,1.88,0.38],[2004,10.88,3.26,4.49],[2005,4.91,3.42,2.87],[2006,15.79,2.54,1.96],[2007,5.49,4.06,10.21],[2008,-37.0,0.11,20.10],[2009,26.46,2.72,-11.12],[2010,15.06,1.5,8.46],[2011,2.11,2.96,16.04],[2012,16.0,1.74,2.97],[2013,32.39,1.5,-9.10],[2014,13.69,0.76,10.75],[2015,1.38,0.73,1.28],[2016,11.96,2.07,0.69],[2017,21.83,2.11,2.80],[2018,-4.38,1.91,-0.02],[2019,31.49,2.29,9.64],[2020,18.4,1.36,11.33],[2021,28.71,7.04,-4.42],[2022,-18.11,6.45,-17.83],[2023,26.29,3.35,3.88],[2024,25.02,2.89,-1.64],[2025,17.88,2.68,7.80]];
+      const clamp=(n,min=0,max=Infinity)=>Math.min(max,Math.max(min,n));
+  function getBondYears(){const v=Number(state.bondYears);return Number.isFinite(v)?clamp(v,0,15):5;}
+
+  function progressiveTax(income,brackets){let tax=0,prev=0;for(const [cap,rate] of brackets){const slice=Math.min(Math.max(0,income-prev),cap-prev);tax+=slice*rate;prev=cap;if(income<=cap)break;}return tax}
+  // 2026 federal brackets (CRA), basic personal amount held constant in real
+  // terms like the rest of this planner's tax parameters. The high-income
+  // BPA phase-out (reduces to a lower minimum amount above ~$181k) is not
+  // modeled; the full basic personal amount is used at every income level.
+  function federalTaxCA(income,yearIndex){
+    const factor=Math.pow(1+pct(state.inflation),yearIndex);
+    const brackets=[[58523,.14],[117045,.205],[181440,.26],[258482,.2929],[Infinity,.33]].map(([cap,rate])=>[cap===Infinity?Infinity:cap*factor,rate]);
+    const bpa=14829*factor;
+    return progressiveTax(Math.max(0,income-bpa),brackets);
+  }
+  // 2026 provincial brackets and basic personal amounts for Ontario and
+  // British Columbia. Ontario additionally applies its two-tier surtax (on
+  // Ontario tax payable, not income) and the Ontario Health Premium; BC has
+  // no equivalent premium. Provincial credits beyond the basic personal
+  // amount, and any interaction with federal non-refundable credits, are not
+  // modeled.
+  function ontarioHealthPremium(taxableIncome,factor){
+    const i=Math.max(0,taxableIncome);
+    if(i<=20000*factor)return 0;
+    if(i<=25000*factor)return (i-20000*factor)*.06;
+    if(i<=36000*factor)return 300*factor;
+    if(i<=38500*factor)return 300*factor+(i-36000*factor)*.06;
+    if(i<=48000*factor)return 450*factor;
+    if(i<=48600*factor)return 450*factor+(i-48000*factor)*.25;
+    if(i<=72000*factor)return 600*factor;
+    if(i<=72600*factor)return 600*factor+(i-72000*factor)*.25;
+    if(i<=200000*factor)return 750*factor;
+    if(i<=200600*factor)return 750*factor+(i-200000*factor)*.25;
+    return 900*factor;
+  }
+  function provincialTaxCA(income,yearIndex){
+    const factor=Math.pow(1+pct(state.inflation),yearIndex);
+    if(state.province==='bc'){
+      const brackets=[[50363,.056],[100728,.077],[115648,.105],[140430,.1229],[190405,.147],[265545,.168],[Infinity,.205]].map(([cap,rate])=>[cap===Infinity?Infinity:cap*factor,rate]);
+      const bpa=13216*factor;
+      return progressiveTax(Math.max(0,income-bpa),brackets);
+    }
+    const brackets=[[53891,.0505],[107785,.0915],[150000,.1116],[220000,.1216],[Infinity,.1316]].map(([cap,rate])=>[cap===Infinity?Infinity:cap*factor,rate]);
+    const bpa=12989*factor,taxable=Math.max(0,income-bpa),base=progressiveTax(taxable,brackets);
+    const surtaxT1=5818*factor,surtaxT2=7446*factor,surtax=Math.max(0,base-surtaxT1)*.20+Math.max(0,base-surtaxT2)*.16;
+    return base+surtax+ontarioHealthPremium(taxable,factor);
+  }
+  function provinceTaxTreatmentNote(){
+    const name=state.province==='bc'?'British Columbia':'Ontario';
+    const capGainsText='Capital gains use the standard 50% inclusion rate and are taxed at each person\'s marginal federal + provincial rate, alongside CPP, OAS, RRIF/RRSP withdrawals, and pension income.';
+    if(state.province==='bc')return `<b>British Columbia provincial tax.</b> The model applies BC's 2026 provincial brackets and basic personal amount on top of federal tax. BC eliminated its Medical Services Plan premium in 2020, so no separate provincial health premium is modeled. ${capGainsText} Provincial credits beyond the basic personal amount are not modeled.`;
+    return `<b>Ontario provincial tax.</b> The model applies Ontario's 2026 provincial brackets, basic personal amount, the two-tier Ontario surtax (20%/36% on Ontario tax payable above its thresholds), and the income-tested Ontario Health Premium (up to $900/year) on top of federal tax. ${capGainsText} Provincial credits beyond the basic personal amount are not modeled.`;
+  }
+  // RRIF minimum withdrawal factors (CRA prescribed factors). An RRSP must be
+  // converted to a RRIF by the end of the year the holder turns 71; ages
+  // 65-70 use the 1/(90-age) formula for a RRIF opened voluntarily before
+  // then, though this planner only applies the minimum starting at 71 to
+  // match its simplified single conversion-age assumption.
+  function rrifMinPct(age){
+    if(age<71)return 0;
+    const table={71:.0528,72:.054,73:.0553,74:.0567,75:.0582,76:.0598,77:.0617,78:.0636,79:.0658,80:.0682,81:.0708,82:.0738,83:.0771,84:.0808,85:.0851,86:.0899,87:.0955,88:.1021,89:.1099,90:.1192,91:.1306,92:.1449,93:.1634,94:.1879};
+    return age>=95?.20:(table[age]||.20);
+  }
+  // OAS recovery tax ("clawback"): 15% of net income (including OAS itself)
+  // above the 2026 threshold, up to the full OAS amount received. Modeled
+  // using the same year's income rather than CRA's actual one-year lookback,
+  // as a planning-level simplification (similar in spirit to the US
+  // planner's IRMAA lookback approximation).
+  function oasClawback(netIncomeInclOas,oasReceived,yearIndex){
+    if(oasReceived<=0)return 0;
+    const factor=Math.pow(1+pct(state.inflation),yearIndex),threshold=95323*factor;
+    return Math.min(oasReceived,Math.max(0,(netIncomeInclOas-threshold)*.15));
+  }
+  // Federal + provincial tax for one person. Capital gains use the 50%
+  // inclusion rate (added directly to taxable ordinary income) rather than a
+  // separate preferential bracket, per Canadian tax treatment. CPP and OAS
+  // (gross, before any clawback) are fully taxable ordinary income.
+  function personTaxCA(ordinaryIncome,gains,yearIndex){
+    const taxableIncome=Math.max(0,ordinaryIncome+Math.max(0,gains)*0.5);
+    return federalTaxCA(taxableIncome,yearIndex)+provincialTaxCA(taxableIncome,yearIndex);
+  }
+  function taxFor(profile,gains=0,traditionalExtra=0){
+    if(profile.singlePerson){
+      return personTaxCA(profile.otherA+traditionalExtra,gains,profile.year);
+    }
+    const gainA=gains/2,gainB=gains/2,tradA=traditionalExtra/2,tradB=traditionalExtra/2;
+    return personTaxCA(profile.otherA+tradA,gainA,profile.year)+personTaxCA(profile.otherB+tradB,gainB,profile.year);
+  }
+  function drawTaxable(pool,basis,need,profile,priorGains=0,priorTraditionalExtra=0){
+    if(pool<=0||need<=0)return {taken:0,net:0,gain:0,basisTaken:0};
+    const gainRatio=clamp(1-basis/pool,0,1),basisRatio=1-gainRatio;
+    let lo=need,hi=need*3+1;
+    const incrementalTax=gross=>taxFor(profile,priorGains+gross*gainRatio,priorTraditionalExtra)-taxFor(profile,priorGains,priorTraditionalExtra);
+    for(let i=0;i<24;i++){const mid=(lo+hi)/2,net=mid-incrementalTax(mid);if(net<need)lo=mid;else hi=mid;}
+    const taken=Math.min(pool,hi),net=taken-incrementalTax(taken);return {taken,net,gain:taken*gainRatio,basisTaken:taken*basisRatio};
+  }
+  // RRSP meltdown ladder — withdraws from RRSP each year in the chosen
+  // window, solving for the gross withdrawal that fills that person's
+  // taxable income up to the top of the selected federal bracket. Net
+  // proceeds are assumed moved to TFSA (sufficient TFSA room is assumed,
+  // consistent with this planner's simplified-limits approach elsewhere).
+  // Unlike a US Roth conversion, no bisection is needed: CPP/OAS are fully
+  // taxable with no nonlinear provisional-income step, so income is linear
+  // in the withdrawal amount.
+  function federalBracketCeilingCA(pctTarget){
+    const brackets=[[14,58523],[20.5,117045],[26,181440],[29.29,258482],[33,258482]];
+    const found=brackets.find(([p])=>p===pctTarget);
+    return found?found[1]:brackets[brackets.length-1][1];
+  }
+  function solveMeltdown(otherIncome,maxAvailable,yearIndex){
+    if(maxAvailable<=0)return 0;
+    const factor=Math.pow(1+pct(state.inflation),yearIndex),bpa=14829*factor;
+    const targetGross=federalBracketCeilingCA(state.meltdownBracket)*factor+bpa;
+    if(otherIncome>=targetGross)return 0;
+    return Math.min(maxAvailable,targetGross-otherIncome);
+  }
+  // Pension income splitting — up to 50% of one spouse's eligible pension
+  // income (RRIF/RRSP annuity from age 65, employer pension at any age; CPP,
+  // OAS, and RRSP lump-sum withdrawals are not eligible) may be reallocated
+  // to the other spouse's return. Solved by ternary search since combined
+  // tax is convex in the amount transferred between two progressive-tax
+  // filers.
+  function solvePensionSplit(otherA,otherB,eligibleA,eligibleB,yearIndex){
+    const maxAtoB=0.5*eligibleA,maxBtoA=0.5*eligibleB;
+    let lo=-maxBtoA,hi=maxAtoB;
+    if(lo>=hi)return 0;
+    const combinedTax=x=>personTaxCA(otherA-x,0,yearIndex)+personTaxCA(otherB+x,0,yearIndex);
+    for(let i=0;i<40;i++){
+      const m1=lo+(hi-lo)/3,m2=hi-(hi-lo)/3;
+      if(combinedTax(m1)<combinedTax(m2))hi=m2;else lo=m1;
+    }
+    return (lo+hi)/2;
+  }
+  // CPP contributions (employee side): 5.95% on earnings between the basic
+  // exemption and the YMPE, plus 4% (CPP2) between the YMPE and YAMPE. EI
+  // premiums are not modeled.
+  function cppContribution(wages,yearIndex){
+    const f=Math.pow(1+pct(state.inflation),yearIndex),ympe=74600*f,yampe=85000*f,exemption=3500*f;
+    const cpp1=Math.max(0,Math.min(wages,ympe)-exemption)*.0595,cpp2=Math.max(0,Math.min(wages,yampe)-ympe)*.04;
+    return cpp1+cpp2;
+  }
+  function mortgagePayment(principal,annualRate,years){if(!principal||!years)return 0;const r=annualRate/12,n=years*12;return r?principal*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1):principal/n;}
+  function loanSchedules(){return state.loans.map(loan=>{let balance=Math.max(0,Number(loan.balance)||0),rate=pct(Number(loan.rate)||0)/12,term=Math.max(0,Number(loan.term)||0),scheduled=mortgagePayment(balance,Number(loan.rate)||0,term),payments=[],balances=[];for(let year=0;year<=70;year++){let paid=0;for(let month=0;month<12&&balance>0&&year<term;month++){let interest=balance*rate,principal=Math.min(balance,Math.max(0,scheduled-interest)+(Number(loan.extra)||0));balance-=principal;paid+=interest+principal;}payments.push(paid);balances.push(Math.max(0,balance));}return {payments,balances};});}
+  // Builds a payment/balance schedule for a mortgage that doesn't start
+  // until startYear (used for a future home purchase), indexed 0..maxYear
+  // so it lines up directly with the main simulation loop; zero before
+  // startYear and after payoff.
+  function buildDeferredMortgage(principal,annualRate,termYears,extraMonthly,startYear,maxYear){
+    const payments=Array(maxYear+1).fill(0),balances=Array(maxYear+1).fill(0);
+    if(principal<=0||termYears<=0)return{payments,balances};
+    let balance=principal;
+    const scheduled=mortgagePayment(principal,annualRate,termYears),rate=annualRate/12;
+    for(let year=startYear;year<=maxYear;year++){
+      let paid=0;
+      if(year-startYear<termYears){
+        for(let month=0;month<12&&balance>0;month++){const interest=balance*rate,scheduledPrincipal=Math.max(0,scheduled-interest),princ=Math.min(balance,scheduledPrincipal+extraMonthly);balance-=princ;paid+=interest+princ;}
+      }
+      payments[year]=paid;balances[year]=Math.max(0,balance);
+    }
+    return{payments,balances};
+  }
+  // Precomputes the mechanics of a future rent-to-buy purchase: the home's
+  // value at the purchase year (today's homeValue input, appreciated
+  // forward), the one-time cash outlay (full price if paying cash, or down
+  // payment + closing costs if financing), and the resulting mortgage
+  // schedule.
+  function futureHomePurchase(homeGrowth){
+    const buyYear=Math.max(0,Math.round(state.buyAge-state.ageA));
+    const homeValueAtPurchase=state.homeValue*Math.pow(1+homeGrowth,buyYear);
+    const downPayment=state.buyCash?homeValueAtPurchase:homeValueAtPurchase*pct(state.buyDownPct);
+    const closingCosts=state.buyCash?0:homeValueAtPurchase*pct(state.buyClosingPct);
+    const loanPrincipal=state.buyCash?0:Math.max(0,homeValueAtPurchase-downPayment);
+    const purchaseCash=downPayment+closingCosts;
+    const buyTermYears=state.buyTerm15?15:30;
+    const buySchedule=buildDeferredMortgage(loanPrincipal,pct(state.mortgageRate),buyTermYears,state.buyExtraPrincipal,buyYear,100);
+    const payoffIdx=buySchedule.balances.findIndex((b,i)=>i>=buyYear&&b<1);
+    return{buyYear,homeValueAtPurchase,purchaseCash,buySchedule,payoffYear:payoffIdx<0?null:payoffIdx};
+  }
+  function mortgageSchedule(){
+    const payments=[],balances=[];let balance=state.tenure==='own'?state.mortgage:0;
+    const scheduled=mortgagePayment(balance,pct(state.mortgageRate),state.mortgageYears),rate=pct(state.mortgageRate)/12,maxYears=Math.max(0,state.mortgageYears);
+    for(let year=0;year<=Math.max(70,maxYears);year++){
+      let paid=0;
+      for(let month=0;month<12&&balance>0&&year<maxYears;month++){const interest=balance*rate,scheduledPrincipal=Math.max(0,scheduled-interest),principal=Math.min(balance,scheduledPrincipal+state.extraPrincipal);balance-=principal;paid+=interest+principal;}
+      payments.push(paid);balances.push(Math.max(0,balance));
+    }
+    const payoffYear=balances.findIndex(b=>b<1);
+    return {payments,balances,payoffYear:payoffYear<0?null:payoffYear};
+  }
+  function displayValue(n,yearIndex){return mode==='real'?n/Math.pow(1+pct(state.inflation),yearIndex):n;}
+
+  function simulate(retireAgeA=state.retireAgeA,retireAgeB=state.retireAgeB){
+    const singlePerson=!!state.singlePerson;
+    if(singlePerson)retireAgeB=retireAgeA;
+    const nominalReturn=pct(state.returnRate),bondYield=pct(state.bondReturn),hysa=pct(state.hysaRate),infl=pct(state.inflation),wageGrowth=pct(state.incomeGrowth),homeGrowth=pct(state.homeGrowth);
+    const futureBuy=state.tenure==='rentThenBuy'?futureHomePurchase(homeGrowth):null;
+    let taxable=state.taxable,taxableBasis=state.taxable*pct(state.basisRatio),bondTaxable=0,bondTaxableBasis=0,bondTraditional=0,bondRoth=0,traditional=state.traditional,roth=state.roth,cash=state.cash,home=state.tenure==='own'?state.homeValue:0,mortgage=state.tenure==='own'?state.mortgage:0,fhsa=state.fhsa,fhsaUsedA=0,fhsaUsedB=0;
+    const schedule=mortgageSchedule(),loans=loanSchedules(),rows=[],magiHistory=[];
+    let depletedAge=null,firstWithdrawal=0;
+    const activeSpending=(ageA)=>{
+      const applicable=state.spendingTiers.filter(t=>t.enabled&&ageA>=t.age).sort((a,b)=>b.age-a.age);
+      return applicable.length?applicable[0].amount:state.spending;
+    };
+    const projectedExpense=(year)=>{
+      const factor=Math.pow(1+infl,year);
+      let shelter;
+      if(state.tenure==='rent')shelter=state.rent*12*Math.pow(1+pct(state.rentGrowth),year);
+      else if(state.tenure==='own')shelter=(schedule.payments[year]||0)+state.maintenance*factor;
+      else if(year<futureBuy.buyYear)shelter=state.rent*12*Math.pow(1+pct(state.rentGrowth),year);
+      else shelter=(futureBuy.buySchedule.payments[year]||0)+state.maintenance*factor+(year===futureBuy.buyYear?futureBuy.purchaseCash:0);
+      const ageA=state.ageA+year,ageB=state.ageB+year;
+      const healthcare=singlePerson?(ageA>=retireAgeA?state.healthcare:0)*factor:((ageA>=retireAgeA?state.healthcare/2:0)*factor+(ageB>=retireAgeB?state.healthcare/2:0)*factor);
+      const ltc=(ageA>=state.ltcAgeA?state.ltcYearlyA:0)*factor+(!singlePerson&&ageB>=state.ltcAgeB?state.ltcYearlyB:0)*factor;
+      return activeSpending(ageA)*factor+healthcare+ltc+shelter;
+    };
+    const retirementYear=singlePerson?Math.max(0,retireAgeA-state.ageA):Math.max(0,retireAgeA-state.ageA,retireAgeB-state.ageB);
+    const bondYears=getBondYears(),bondYearsCeil=Math.max(0,Math.ceil(bondYears)),bondWhole=Math.floor(bondYears),bondFrac=bondYears-bondWhole;
+    const ladderTranches=Array.from({length:bondWhole},(_,i)=>projectedExpense(retirementYear+i));
+    if(bondFrac>0)ladderTranches.push(projectedExpense(retirementYear+bondWhole)*bondFrac);
+    const ladderTarget=ladderTranches.reduce((a,b)=>a+b,0);
+    const rotationStartYear=Math.max(0,retirementYear-bondYearsCeil),rotationEndYear=retirementYear>=1?retirementYear-1:Math.max(0,bondYearsCeil-1);
+    const projectionYears=singlePerson?Math.max(0,100-state.ageA):Math.max(0,100-state.ageA,100-state.ageB);
+    for(let age=state.ageA,year=0;year<=projectionYears;age++,year++){
+      const ageB=singlePerson?null:state.ageB+year,factor=Math.pow(1+infl,year),workingA=age<retireAgeA,workingB=!singlePerson&&ageB<retireAgeB,working=workingA||workingB;
+      const incomeFactor=Math.pow(1+wageGrowth,year);
+      const wageA=workingA?state.incomeA*incomeFactor:0,wageB=workingB?state.incomeB*incomeFactor:0,matchA=workingA?wageA*pct(state.matchA):0,matchB=workingB?wageB*pct(state.matchB):0,employerMatch=matchA+matchB;
+      const bridgeA=(!workingA&&age>=state.bridgeStartAgeA&&age<=state.bridgeEndAgeA)?state.bridgeIncomeA*incomeFactor:0;
+      const bridgeB=(!singlePerson&&!workingB&&ageB>=state.bridgeStartAgeB&&ageB<=state.bridgeEndAgeB)?state.bridgeIncomeB*incomeFactor:0;
+      const extraIncome=state.incomeSources.filter(s=>s.enabled&&age>=s.startAge&&age<=s.endAge).reduce((sum,s)=>sum+s.amount*factor,0);
+      const oneTimeAmount=state.oneTimeIncome.filter(o=>o.enabled&&Math.round(o.age)===age).reduce((sum,o)=>sum+o.amount*factor,0);
+      const wages=wageA+wageB+bridgeA+bridgeB+extraIncome;
+      const limitFactor=Math.pow(1+infl,year);
+      const rrspRoomA=Math.min(wageA*.18,33810*limitFactor),rrspRoomB=Math.min(wageB*.18,33810*limitFactor);
+      const rrspContribA=Math.min(wageA,rrspRoomA)*pct(state.rrspPctA),rrspContribB=Math.min(wageB,rrspRoomB)*pct(state.rrspPctB);
+      const tfsaLimit=7000*limitFactor,tfsaContribA=Math.min(wageA*pct(state.tfsaPctA),tfsaLimit),tfsaContribB=Math.min(wageB*pct(state.tfsaPctB),tfsaLimit);
+      const traditionalContrib=rrspContribA+rrspContribB,rothContrib=tfsaContribA+tfsaContribB;
+      const fhsaAnnualCap=8000*limitFactor,fhsaLifetimeCap=40000;
+      const fhsaEligible=state.tenure==='rentThenBuy'&&year<futureBuy.buyYear;
+      const fhsaContribA=fhsaEligible?Math.max(0,Math.min(wageA*pct(state.fhsaPctA),fhsaAnnualCap,fhsaLifetimeCap-fhsaUsedA)):0;
+      const fhsaContribB=fhsaEligible?Math.max(0,Math.min(wageB*pct(state.fhsaPctB),fhsaAnnualCap,fhsaLifetimeCap-fhsaUsedB)):0;
+      fhsaUsedA+=fhsaContribA;fhsaUsedB+=fhsaContribB;
+      const fhsaContrib=fhsaContribA+fhsaContribB;
+      const cppA=(age>=state.cppStartAgeA?state.cppMonthlyA*12:0)*factor,cppB=singlePerson?0:(ageB>=state.cppStartAgeB?state.cppMonthlyB*12:0)*factor;
+      const oasGrossA=(age>=state.oasStartAgeA?state.oasMonthlyA*12:0)*factor,oasGrossB=singlePerson?0:(ageB>=state.oasStartAgeB?state.oasMonthlyB*12:0)*factor;
+      const pensionA=((singlePerson||state.pensionCoverage==='a'||state.pensionCoverage==='both')&&age>=state.pensionStartAgeA?state.pensionYearlyA:0)*factor,pensionB=(!singlePerson&&(state.pensionCoverage==='b'||state.pensionCoverage==='both')&&ageB>=state.pensionStartAgeB?state.pensionYearlyB:0)*factor,pension=pensionA+pensionB;
+      const traditionalBeforeRmd=traditional+bondTraditional,traditionalShare=singlePerson?traditionalBeforeRmd:traditionalBeforeRmd/2;
+      const rrifA=rrifMinPct(age)*traditionalShare,rrifB=!singlePerson?rrifMinPct(ageB)*traditionalShare:0;
+      const rmd=Math.min(traditionalBeforeRmd,rrifA+rrifB);
+      let housing;
+      if(state.tenure==='own'){
+        const annualPI=schedule.payments[year]||0;mortgage=schedule.balances[year]||0;
+        housing=annualPI+state.maintenance*factor;
+      }else if(state.tenure==='rent'){
+        housing=state.rent*12*Math.pow(1+pct(state.rentGrowth),year);
+      }else if(year<futureBuy.buyYear){
+        housing=state.rent*12*Math.pow(1+pct(state.rentGrowth),year);
+      }else{
+        const buyAnnualPI=futureBuy.buySchedule.payments[year]||0;
+        mortgage=futureBuy.buySchedule.balances[year]||0;
+        let purchaseCashNet=year===futureBuy.buyYear?futureBuy.purchaseCash:0;
+        if(year===futureBuy.buyYear){
+          const fromFhsa=Math.min(fhsa,purchaseCashNet);
+          purchaseCashNet-=fromFhsa;
+          roth+=fhsa-fromFhsa; // leftover FHSA rolls tax-free into TFSA (simplified; CRA also allows a tax-free RRSP rollover)
+          fhsa=0;
+        }
+        housing=buyAnnualPI+state.maintenance*factor+purchaseCashNet;
+        if(year===futureBuy.buyYear)home=futureBuy.homeValueAtPurchase;
+      }
+      const loanPayment=loans.reduce((sum,l)=>sum+(l.payments[year]||0),0);
+      const otherA=Math.max(0,wageA-rrspContribA-fhsaContribA)+bridgeA+pensionA+rrifA+extraIncome,otherB=Math.max(0,wageB-rrspContribB-fhsaContribB)+bridgeB+pensionB+rrifB;
+      // Pension income splitting: up to 50% of eligible pension/RRIF income
+      // may be reallocated between spouses to minimize combined federal +
+      // provincial tax. CPP, OAS, wages, and bridge income are not eligible.
+      const totalA=otherA+cppA+oasGrossA,totalB=singlePerson?0:otherB+cppB+oasGrossB;
+      const eligibleA=pensionA+(age>=65?rrifA:0),eligibleB=singlePerson?0:pensionB+(ageB>=65?rrifB:0);
+      const splitTransfer=(state.pensionSplitEnabled&&!singlePerson)?solvePensionSplit(totalA,totalB,eligibleA,eligibleB,year):0;
+      const splitA=totalA-splitTransfer,splitB=totalB+splitTransfer;
+      const profile={otherA:splitA,otherB:splitB,ageA:age,ageB,singlePerson,year};
+      let meltdownAmount=0;
+      if(state.meltdownEnabled&&age>=state.meltdownStartAge&&age<=state.meltdownEndAge){
+        meltdownAmount=solveMeltdown(profile.otherA,Math.max(0,traditionalBeforeRmd-rmd),year);
+      }
+      const clawbackA=oasClawback(splitA,oasGrossA,year),clawbackB=singlePerson?0:oasClawback(splitB,oasGrossB,year);
+      const oasNetA=oasGrossA-clawbackA,oasNetB=oasGrossB-clawbackB;
+      const baseSpend=activeSpending(age)*factor;
+      const healthcare=singlePerson?(workingA?0:state.healthcare)*factor:((workingA?0:state.healthcare/2)*factor+(workingB?0:state.healthcare/2)*factor);
+      const ltc=(age>=state.ltcAgeA?state.ltcYearlyA:0)*factor+(!singlePerson&&ageB>=state.ltcAgeB?state.ltcYearlyB:0)*factor;
+      const tax=taxFor(profile,0,meltdownAmount)+cppContribution(wageA,year)+cppContribution(wageB,year)+cppContribution(bridgeA,year)+cppContribution(bridgeB,year);
+      let flow=wages+cppA+cppB+oasNetA+oasNetB+pension+rmd-baseSpend-healthcare-ltc-housing-loanPayment-tax-traditionalContrib-rothContrib-fhsaContrib;
+      taxable*=1+nominalReturn;bondTaxable*=1+bondYield;bondTraditional*=1+bondYield;bondRoth*=1+bondYield;traditional*=1+nominalReturn;roth*=1+nominalReturn;cash*=1+hysa;fhsa*=1+nominalReturn;if(state.tenure==='own'||state.tenure==='rentThenBuy')home*=1+homeGrowth;
+      const rmdFromTraditional=Math.min(traditional,rmd);traditional=Math.max(0,traditional-rmdFromTraditional);bondTraditional=Math.max(0,bondTraditional-(rmd-rmdFromTraditional));
+      if(meltdownAmount>0){const fromTradMelt=Math.min(traditional,meltdownAmount);traditional-=fromTradMelt;bondTraditional=Math.max(0,bondTraditional-(meltdownAmount-fromTradMelt));roth+=meltdownAmount;}
+      cash+=oneTimeAmount;
+      const reserveTarget=state.cashReserve*factor;
+      if(cash>reserveTarget){const moved=cash-reserveTarget;taxable+=moved;taxableBasis+=moved;cash=reserveTarget;}
+      // Ramp linearly over whatever time is actually available before
+      // retirement, so the full target is always reached by rotationEndYear
+      // (retirement itself) regardless of how large bondYears is set.
+      if(year>=rotationStartYear&&year<=rotationEndYear){
+        const windowLen=rotationEndYear-rotationStartYear+1,progress=windowLen>0?(year-rotationStartYear+1)/windowLen:1;
+        const target=ladderTarget*progress,halfTarget=target/2;
+        const taxableMove=Math.min(taxable,Math.max(0,halfTarget-bondTaxable)),movedBasis=taxable?taxableBasis*(taxableMove/taxable):0;taxable-=taxableMove;taxableBasis-=movedBasis;bondTaxable+=taxableMove;bondTaxableBasis+=movedBasis;
+        const traditionalMove=Math.min(traditional,Math.max(0,halfTarget-bondTraditional));traditional-=traditionalMove;bondTraditional+=traditionalMove;
+      }
+      if(flow>=0){const cashTopUp=Math.min(flow,Math.max(0,reserveTarget-cash)),toTaxable=flow-cashTopUp;cash+=cashTopUp;taxable+=toTaxable;taxableBasis+=toTaxable;traditional+=traditionalContrib+employerMatch;roth+=rothContrib;fhsa+=fhsaContrib;}
+      else{
+        let need=-flow;if(!working&&year===retirementYear)firstWithdrawal=need;
+        let traditionalGross=meltdownAmount;
+        const taxableDraw=drawTaxable(taxable,taxableBasis,need,profile,0,traditionalGross);taxable-=taxableDraw.taken;taxableBasis-=taxableDraw.basisTaken;need-=taxableDraw.net;let taxableGainGross=taxableDraw.gain;
+        if(need>0){
+          const baseTax=taxFor(profile,taxableGainGross,traditionalGross);let lo=need,hi=need*6+1;
+          for(let i=0;i<24;i++){const mid=(lo+hi)/2,net=mid-(taxFor(profile,taxableGainGross,traditionalGross+mid)-baseTax);if(net<need)lo=mid;else hi=mid;}
+          const fromTrad=Math.min(traditional,hi),tradNet=fromTrad-(taxFor(profile,taxableGainGross,traditionalGross+fromTrad)-baseTax);traditional-=fromTrad;traditionalGross+=fromTrad;need=Math.max(0,need-tradNet);
+        }
+        const fromRoth=Math.min(roth,need);roth-=fromRoth;need-=fromRoth;
+        const fromCash=Math.min(cash,need);cash-=fromCash;need-=fromCash;
+        // Bonds are held as a protected sequence-risk reserve and are tapped
+        // only after taxable, traditional, Roth, and cash are exhausted.
+        const bondTaxableDraw=drawTaxable(bondTaxable,bondTaxableBasis,need,profile,taxableGainGross,traditionalGross);bondTaxable-=bondTaxableDraw.taken;bondTaxableBasis-=bondTaxableDraw.basisTaken;need-=bondTaxableDraw.net;taxableGainGross+=bondTaxableDraw.gain;
+        if(need>0&&bondTraditional>0){
+          const baseTax=taxFor(profile,taxableGainGross,traditionalGross);let lo=need,hi=need*6+1;
+          for(let i=0;i<24;i++){const mid=(lo+hi)/2,net=mid-(taxFor(profile,taxableGainGross,traditionalGross+mid)-baseTax);if(net<need)lo=mid;else hi=mid;}
+          const fromBondTrad=Math.min(bondTraditional,hi),net=fromBondTrad-(taxFor(profile,taxableGainGross,traditionalGross+fromBondTrad)-baseTax);bondTraditional-=fromBondTrad;traditionalGross+=fromBondTrad;need=Math.max(0,need-net);
+        }
+        const fromBondRoth=Math.min(bondRoth,need);bondRoth-=fromBondRoth;need-=fromBondRoth;
+        if(need>0&&(state.tenure==='own'||state.tenure==='rentThenBuy')){const fromHome=Math.min(Math.max(0,home-mortgage),need);home-=fromHome;need-=fromHome;}
+        if(need>1&&!depletedAge)depletedAge=age;
+        traditional+=traditionalContrib+employerMatch;roth+=rothContrib;fhsa+=fhsaContrib;
+      }
+      mortgage=Math.max(0,mortgage);
+      const loanBalance=loans.reduce((sum,l)=>sum+(l.balances[year]||0),0),bonds=bondTaxable+bondTraditional+bondRoth,investable=taxable+bonds+traditional+roth+cash+fhsa,homeEquity=(state.tenure==='own'||state.tenure==='rentThenBuy')?Math.max(0,home-mortgage):0,total=investable+homeEquity-loanBalance;
+      rows.push({age,ageB,year,taxable,bonds,traditional,roth,cash:cash+fhsa,homeEquity,loanBalance,investable,total,working,workingA,workingB});
+    }
+    return {rows,depletedAge,firstWithdrawal,retirementYear,retirementExpense:ladderTranches[0],ladderTarget,payoffAge:state.tenure==='rentThenBuy'?(futureBuy.payoffYear===null?null:state.ageA+futureBuy.payoffYear):(schedule.payoffYear===null?null:state.ageA+schedule.payoffYear),buyAge:state.tenure==='rentThenBuy'?state.buyAge:null};
+  }
+
+  // Historical S&P 500 backtest. Reuses the same income/contribution/tax/
+  // ACA/IRMAA/Roth-conversion mechanics as simulate(), but drives stock
+  // returns, inflation, and bond returns from the actual 1928-2025 historical
+  // sequence starting at HIST index startIdx, and replaces the standard
+  // withdrawal waterfall with a cash+bonds "bucket strategy": expenses in a
+  // market-down year are paid from cash then the bond pool only; in an
+  // up year, expenses are paid from taxable -> traditional -> Roth and the
+  // bond pool is topped back up from the same order. Cash/HYSA and mortgage
+  // still use the assumed fixed rates from the sidebar, since no historical
+  // series is loaded for either.
+  function simulateHistorical(startIdx,retireAgeA=state.retireAgeA,retireAgeB=state.retireAgeB){
+    const singlePerson=!!state.singlePerson;
+    if(singlePerson)retireAgeB=retireAgeA;
+    const hysa=pct(state.hysaRate),wageGrowth=pct(state.incomeGrowth),homeGrowth=pct(state.homeGrowth);
+    const futureBuy=state.tenure==='rentThenBuy'?futureHomePurchase(homeGrowth):null;
+    let taxable=state.taxable,taxableBasis=state.taxable*pct(state.basisRatio),bondTaxable=0,bondTaxableBasis=0,bondTraditional=0,bondRoth=0,traditional=state.traditional,roth=state.roth,cash=state.cash,home=state.tenure==='own'?state.homeValue:0,mortgage=state.tenure==='own'?state.mortgage:0,fhsa=state.fhsa,fhsaUsedA=0,fhsaUsedB=0;
+    const schedule=mortgageSchedule(),loans=loanSchedules(),rows=[],magiHistory=[];
+    let depletedAge=null,cumFactor=1;
+    const bondYears=getBondYears();
+    const activeSpending=(ageA)=>{
+      const applicable=state.spendingTiers.filter(t=>t.enabled&&ageA>=t.age).sort((a,b)=>b.age-a.age);
+      return applicable.length?applicable[0].amount:state.spending;
+    };
+    const projectionYears=singlePerson?Math.max(0,100-state.ageA):Math.max(0,100-state.ageA,100-state.ageB);
+    for(let age=state.ageA,year=0;year<=projectionYears;age++,year++){
+      const histRow=HIST[startIdx+year],yearReturn=histRow[1]/100,yearInflation=histRow[2]/100,yearBondReturn=histRow[3]/100;
+      const ageB=singlePerson?null:state.ageB+year,factor=cumFactor,limitFactor=cumFactor,workingA=age<retireAgeA,workingB=!singlePerson&&ageB<retireAgeB,working=workingA||workingB;
+      const incomeFactor=Math.pow(1+wageGrowth,year);
+      const wageA=workingA?state.incomeA*incomeFactor:0,wageB=workingB?state.incomeB*incomeFactor:0,matchA=workingA?wageA*pct(state.matchA):0,matchB=workingB?wageB*pct(state.matchB):0,employerMatch=matchA+matchB;
+      const bridgeA=(!workingA&&age>=state.bridgeStartAgeA&&age<=state.bridgeEndAgeA)?state.bridgeIncomeA*incomeFactor:0;
+      const bridgeB=(!singlePerson&&!workingB&&ageB>=state.bridgeStartAgeB&&ageB<=state.bridgeEndAgeB)?state.bridgeIncomeB*incomeFactor:0;
+      const extraIncome=state.incomeSources.filter(s=>s.enabled&&age>=s.startAge&&age<=s.endAge).reduce((sum,s)=>sum+s.amount*factor,0);
+      const oneTimeAmount=state.oneTimeIncome.filter(o=>o.enabled&&Math.round(o.age)===age).reduce((sum,o)=>sum+o.amount*factor,0);
+      const wages=wageA+wageB+bridgeA+bridgeB+extraIncome;
+      const rrspRoomA=Math.min(wageA*.18,33810*limitFactor),rrspRoomB=Math.min(wageB*.18,33810*limitFactor);
+      const rrspContribA=Math.min(wageA,rrspRoomA)*pct(state.rrspPctA),rrspContribB=Math.min(wageB,rrspRoomB)*pct(state.rrspPctB);
+      const tfsaLimit=7000*limitFactor,tfsaContribA=Math.min(wageA*pct(state.tfsaPctA),tfsaLimit),tfsaContribB=Math.min(wageB*pct(state.tfsaPctB),tfsaLimit);
+      const traditionalContrib=rrspContribA+rrspContribB,rothContrib=tfsaContribA+tfsaContribB;
+      const fhsaAnnualCap=8000*limitFactor,fhsaLifetimeCap=40000;
+      const fhsaEligible=state.tenure==='rentThenBuy'&&year<futureBuy.buyYear;
+      const fhsaContribA=fhsaEligible?Math.max(0,Math.min(wageA*pct(state.fhsaPctA),fhsaAnnualCap,fhsaLifetimeCap-fhsaUsedA)):0;
+      const fhsaContribB=fhsaEligible?Math.max(0,Math.min(wageB*pct(state.fhsaPctB),fhsaAnnualCap,fhsaLifetimeCap-fhsaUsedB)):0;
+      fhsaUsedA+=fhsaContribA;fhsaUsedB+=fhsaContribB;
+      const fhsaContrib=fhsaContribA+fhsaContribB;
+      const cppA=(age>=state.cppStartAgeA?state.cppMonthlyA*12:0)*factor,cppB=singlePerson?0:(ageB>=state.cppStartAgeB?state.cppMonthlyB*12:0)*factor;
+      const oasGrossA=(age>=state.oasStartAgeA?state.oasMonthlyA*12:0)*factor,oasGrossB=singlePerson?0:(ageB>=state.oasStartAgeB?state.oasMonthlyB*12:0)*factor;
+      const pensionA=((singlePerson||state.pensionCoverage==='a'||state.pensionCoverage==='both')&&age>=state.pensionStartAgeA?state.pensionYearlyA:0)*factor,pensionB=(!singlePerson&&(state.pensionCoverage==='b'||state.pensionCoverage==='both')&&ageB>=state.pensionStartAgeB?state.pensionYearlyB:0)*factor,pension=pensionA+pensionB;
+      const traditionalBeforeRmd=traditional+bondTraditional,traditionalShare=singlePerson?traditionalBeforeRmd:traditionalBeforeRmd/2;
+      const rrifA=rrifMinPct(age)*traditionalShare,rrifB=!singlePerson?rrifMinPct(ageB)*traditionalShare:0;
+      const rmd=Math.min(traditionalBeforeRmd,rrifA+rrifB);
+      let housing;
+      if(state.tenure==='own'){
+        const annualPI=schedule.payments[year]||0;mortgage=schedule.balances[year]||0;
+        housing=annualPI+state.maintenance*factor;
+      }else if(state.tenure==='rent'){
+        housing=state.rent*12*Math.pow(1+pct(state.rentGrowth),year);
+      }else if(year<futureBuy.buyYear){
+        housing=state.rent*12*Math.pow(1+pct(state.rentGrowth),year);
+      }else{
+        const buyAnnualPI=futureBuy.buySchedule.payments[year]||0;
+        mortgage=futureBuy.buySchedule.balances[year]||0;
+        let purchaseCashNet=year===futureBuy.buyYear?futureBuy.purchaseCash:0;
+        if(year===futureBuy.buyYear){
+          const fromFhsa=Math.min(fhsa,purchaseCashNet);
+          purchaseCashNet-=fromFhsa;
+          roth+=fhsa-fromFhsa; // leftover FHSA rolls tax-free into TFSA (simplified; CRA also allows a tax-free RRSP rollover)
+          fhsa=0;
+        }
+        housing=buyAnnualPI+state.maintenance*factor+purchaseCashNet;
+        if(year===futureBuy.buyYear)home=futureBuy.homeValueAtPurchase;
+      }
+      const loanPayment=loans.reduce((sum,l)=>sum+(l.payments[year]||0),0);
+      const otherA=Math.max(0,wageA-rrspContribA-fhsaContribA)+bridgeA+pensionA+rrifA+extraIncome,otherB=Math.max(0,wageB-rrspContribB-fhsaContribB)+bridgeB+pensionB+rrifB;
+      const totalA=otherA+cppA+oasGrossA,totalB=singlePerson?0:otherB+cppB+oasGrossB;
+      const eligibleA=pensionA+(age>=65?rrifA:0),eligibleB=singlePerson?0:pensionB+(ageB>=65?rrifB:0);
+      const splitTransfer=(state.pensionSplitEnabled&&!singlePerson)?solvePensionSplit(totalA,totalB,eligibleA,eligibleB,year):0;
+      const splitA=totalA-splitTransfer,splitB=totalB+splitTransfer;
+      const profile={otherA:splitA,otherB:splitB,ageA:age,ageB,singlePerson,year};
+      let meltdownAmount=0;
+      if(state.meltdownEnabled&&age>=state.meltdownStartAge&&age<=state.meltdownEndAge){
+        meltdownAmount=solveMeltdown(profile.otherA,Math.max(0,traditionalBeforeRmd-rmd),year);
+      }
+      const clawbackA=oasClawback(splitA,oasGrossA,year),clawbackB=singlePerson?0:oasClawback(splitB,oasGrossB,year);
+      const oasNetA=oasGrossA-clawbackA,oasNetB=oasGrossB-clawbackB;
+      const baseSpend=activeSpending(age)*factor;
+      const healthcare=singlePerson?(workingA?0:state.healthcare)*factor:((workingA?0:state.healthcare/2)*factor+(workingB?0:state.healthcare/2)*factor);
+      const ltc=(age>=state.ltcAgeA?state.ltcYearlyA:0)*factor+(!singlePerson&&ageB>=state.ltcAgeB?state.ltcYearlyB:0)*factor;
+      const tax=taxFor(profile,0,meltdownAmount)+cppContribution(wageA,year)+cppContribution(wageB,year)+cppContribution(bridgeA,year)+cppContribution(bridgeB,year);
+      const totalExpense=baseSpend+healthcare+ltc+housing+loanPayment;
+      let flow=wages+cppA+cppB+oasNetA+oasNetB+pension+rmd-totalExpense-tax-traditionalContrib-rothContrib-fhsaContrib;
+      taxable*=1+yearReturn;traditional*=1+yearReturn;roth*=1+yearReturn;bondTaxable*=1+yearBondReturn;bondTraditional*=1+yearBondReturn;bondRoth*=1+yearBondReturn;cash*=1+hysa;fhsa*=1+yearReturn;if(state.tenure==='own'||state.tenure==='rentThenBuy')home*=1+homeGrowth;
+      const rmdFromTraditional=Math.min(traditional,rmd);traditional=Math.max(0,traditional-rmdFromTraditional);bondTraditional=Math.max(0,bondTraditional-(rmd-rmdFromTraditional));
+      if(meltdownAmount>0){const fromTradMelt=Math.min(traditional,meltdownAmount);traditional-=fromTradMelt;bondTraditional=Math.max(0,bondTraditional-(meltdownAmount-fromTradMelt));roth+=meltdownAmount;}
+      cash+=oneTimeAmount;
+      const reserveTarget=state.cashReserve*factor;
+      if(cash>reserveTarget){const moved=cash-reserveTarget;taxable+=moved;taxableBasis+=moved;cash=reserveTarget;}
+      const bondTarget=totalExpense*bondYears;
+      let taxableGainGross=0,traditionalGross=meltdownAmount;
+      const stepCash=need=>{const from=Math.min(cash,need);cash-=from;return need-from;};
+      const stepTaxable=need=>{if(taxable<=0)return need;const d=drawTaxable(taxable,taxableBasis,need,profile,taxableGainGross,traditionalGross);taxable-=d.taken;taxableBasis-=d.basisTaken;taxableGainGross+=d.gain;return need-d.net;};
+      const stepTraditional=need=>{if(traditional<=0)return need;const baseTax=taxFor(profile,taxableGainGross,traditionalGross);let lo=need,hi=need*6+1;for(let i=0;i<24;i++){const mid=(lo+hi)/2,net=mid-(taxFor(profile,taxableGainGross,traditionalGross+mid)-baseTax);if(net<need)lo=mid;else hi=mid;}const from=Math.min(traditional,hi),net=from-(taxFor(profile,taxableGainGross,traditionalGross+from)-baseTax);traditional-=from;traditionalGross+=from;return Math.max(0,need-net);};
+      const stepRoth=need=>{const from=Math.min(roth,need);roth-=from;return need-from;};
+      const stepBondTaxable=need=>{if(bondTaxable<=0)return need;const d=drawTaxable(bondTaxable,bondTaxableBasis,need,profile,taxableGainGross,traditionalGross);bondTaxable-=d.taken;bondTaxableBasis-=d.basisTaken;taxableGainGross+=d.gain;return need-d.net;};
+      const stepBondTraditional=need=>{if(bondTraditional<=0)return need;const baseTax=taxFor(profile,taxableGainGross,traditionalGross);let lo=need,hi=need*6+1;for(let i=0;i<24;i++){const mid=(lo+hi)/2,net=mid-(taxFor(profile,taxableGainGross,traditionalGross+mid)-baseTax);if(net<need)lo=mid;else hi=mid;}const from=Math.min(bondTraditional,hi),net=from-(taxFor(profile,taxableGainGross,traditionalGross+from)-baseTax);bondTraditional-=from;traditionalGross+=from;return Math.max(0,need-net);};
+      const stepBondRoth=need=>{const from=Math.min(bondRoth,need);bondRoth-=from;return need-from;};
+      const stepHome=need=>{if(state.tenure!=='own'&&state.tenure!=='rentThenBuy')return need;const from=Math.min(Math.max(0,home-mortgage),need);home-=from;return need-from;};
+      if(flow>=0){
+        const cashTopUp=Math.min(flow,Math.max(0,reserveTarget-cash));cash+=cashTopUp;let remainder=flow-cashTopUp;
+        // Only steer new surplus into the bond pool in an up year, so a down
+        // year's savings buy (cheaper) stocks instead — consistent with the
+        // same up/down rule used for withdrawals below.
+        if(yearReturn>=0){
+          const bondDeficit=Math.max(0,bondTarget-(bondTaxable+bondTraditional+bondRoth)),toBonds=Math.min(remainder,bondDeficit);
+          bondTaxable+=toBonds;bondTaxableBasis+=toBonds;remainder-=toBonds;
+        }
+        taxable+=remainder;taxableBasis+=remainder;
+        traditional+=traditionalContrib+employerMatch;roth+=rothContrib;fhsa+=fhsaContrib;
+      }else{
+        let need=-flow;
+        if(yearReturn<0){
+          // Down year: protect equities. Pay from cash, then the bond pool;
+          // only fall back to selling taxable/traditional/Roth if both run out.
+          [stepCash,stepBondTaxable,stepBondTraditional,stepBondRoth,stepTaxable,stepTraditional,stepRoth,stepHome].forEach(step=>{if(need>0)need=step(need)});
+        }else{
+          // Up year: fund spending from the growth portfolio, then use any
+          // leftover from that same order to top the bond pool back up.
+          [stepTaxable,stepTraditional,stepRoth,stepCash,stepBondTaxable,stepBondTraditional,stepBondRoth,stepHome].forEach(step=>{if(need>0)need=step(need)});
+          const bondDeficit=Math.max(0,bondTarget-(bondTaxable+bondTraditional+bondRoth));
+          if(bondDeficit>0){
+            const fromTaxable=Math.min(taxable,bondDeficit),basisPortion=taxable?taxableBasis*(fromTaxable/taxable):0;
+            taxable-=fromTaxable;taxableBasis-=basisPortion;bondTaxable+=fromTaxable;bondTaxableBasis+=basisPortion;
+            let remaining=bondDeficit-fromTaxable;
+            if(remaining>0){const fromTrad=Math.min(traditional,remaining);traditional-=fromTrad;bondTraditional+=fromTrad;remaining-=fromTrad;}
+            if(remaining>0){const fromRoth=Math.min(roth,remaining);roth-=fromRoth;bondRoth+=fromRoth;}
+          }
+        }
+        if(need>1&&!depletedAge)depletedAge=age;
+        traditional+=traditionalContrib+employerMatch;roth+=rothContrib;fhsa+=fhsaContrib;
+      }
+      mortgage=Math.max(0,mortgage);
+      const loanBalance=loans.reduce((sum,l)=>sum+(l.balances[year]||0),0),bonds=bondTaxable+bondTraditional+bondRoth,investable=taxable+bonds+traditional+roth+cash+fhsa,homeEquity=(state.tenure==='own'||state.tenure==='rentThenBuy')?Math.max(0,home-mortgage):0,total=investable+homeEquity-loanBalance;
+      rows.push({age,ageB,year,taxable,bonds,traditional,roth,cash:cash+fhsa,homeEquity,loanBalance,investable,total,working,workingA,workingB,cumFactor});
+      cumFactor*=1+yearInflation;
+    }
+    return {rows,depletedAge,startYear:HIST[startIdx][0],payoffAge:state.tenure==='rentThenBuy'?(futureBuy.payoffYear===null?null:state.ageA+futureBuy.payoffYear):(schedule.payoffYear===null?null:state.ageA+schedule.payoffYear),buyAge:state.tenure==='rentThenBuy'?state.buyAge:null};
+  }
+
+  // Runs every historical start year with a full run of data available for
+  // the current projection length and returns each cycle's outcome plus the
+  // resulting success rate.
+  function runHistoricalCycles(){
+    const projectionYears=state.singlePerson?Math.max(0,100-state.ageA):Math.max(0,100-state.ageA,100-state.ageB);
+    const lastStart=HIST.length-1-projectionYears;
+    if(lastStart<0)return {cycles:[],successRate:null,projectionYears};
+    const cycles=[];
+    for(let i=0;i<=lastStart;i++)cycles.push(simulateHistorical(i));
+    const successRate=cycles.filter(c=>!c.depletedAge).length/cycles.length;
+    return {cycles,successRate,projectionYears};
+  }
+
+  function render(){
+    document.body.classList.toggle('single-person',!!state.singlePerson);
+    const selected=simulate();
+    const retirement=selected.rows.find(r=>r.year===selected.retirementYear)||selected.rows[0],end=selected.rows.at(-1);
+    document.getElementById('retireAssets').textContent=compact(displayValue(retirement.investable,retirement.year));
+    document.getElementById('retireNW').textContent=compact(displayValue(retirement.total,retirement.year));
+    document.getElementById('retireAssetsSub').textContent=state.singlePerson?`when retired at age ${retirement.age}`:`when both retire (A ${retirement.age} / B ${retirement.ageB})`;
+    const lasts=document.getElementById('lastsTo');lasts.textContent=selected.depletedAge?`Age ${selected.depletedAge}`:'Age 100+';lasts.className=selected.depletedAge?'negative':'positive';
+    document.getElementById('lastsSub').textContent=selected.depletedAge?'Projected shortfall begins':'No projected depletion';
+    const preRetirement=selected.rows.find(r=>r.year===selected.retirementYear-1),bondRow=preRetirement||retirement,bondAtRetirement=bondRow.bonds;
+    document.getElementById('bondLadder').textContent=compact(displayValue(bondAtRetirement,bondRow.year));
+    const fundedYears=selected.ladderTarget?bondAtRetirement/(selected.ladderTarget/getBondYears()):0;
+    document.getElementById('bondLadderSub').textContent=`${fundedYears.toFixed(1)} years of projected costs funded`;
+    document.getElementById('payoffHint').textContent=state.tenure==='own'?(selected.payoffAge===null?'Mortgage remains after the projection':`Estimated payoff around age ${selected.payoffAge}`):'';
+    if(state.tenure==='rentThenBuy'){
+      if(state.buyCash)document.getElementById('buyPayoffHint').textContent=`Purchased for cash at age ${state.buyAge}`;
+      else if(selected.payoffAge===null)document.getElementById('buyPayoffHint').textContent=`Mortgage starts at age ${state.buyAge}; remains after the projection`;
+      else document.getElementById('buyPayoffHint').textContent=`Mortgage starts at age ${state.buyAge}; estimated payoff around age ${selected.payoffAge}`;
+    }else{
+      document.getElementById('buyPayoffHint').textContent='';
+    }
+    document.getElementById('stateTaxNote').innerHTML=provinceTaxTreatmentNote();
+    document.getElementById('viewCaption').textContent=mode==='real'?'Values shown in inflation-adjusted 2026 dollars.':'Future nominal dollars; expenses rise with inflation each year.';
+    document.getElementById('chartAgeNote').textContent=state.singlePerson?'Chart age refers to you.':'Chart age refers to Partner A.';
+    renderChartView(selected);renderTable(selected);
+    window.fireProjection={mode,retirementAgeA:state.retireAgeA,retirementAgeB:state.retireAgeB,mortgagePayoffAge:selected.payoffAge,investableAtRetirement:displayValue(retirement.investable,retirement.year),netWorthAtRetirement:displayValue(retirement.total,retirement.year),depletedAge:selected.depletedAge,endAssets:displayValue(end.total,end.year)};
+  }
+
+  // Real-CAGR sweep: temporarily overrides the nominal investment return with
+  // the nominal rate equivalent to the given real CAGR compounded on top of
+  // the current inflation input, then restores it. Bond/HYSA yields and
+  // retirement dates are left untouched, so this isolates sensitivity to the
+  // main portfolio return assumption alone.
+  function simulateAtRealCagr(realCagrPct){
+    const infl=pct(state.inflation),nominal=((1+realCagrPct/100)*(1+infl)-1)*100,saved=state.returnRate;
+    state.returnRate=nominal;
+    const result=simulate();
+    state.returnRate=saved;
+    return result;
+  }
+  const cagrColors=['#b91c1c','#dc2626','#ea580c','#d97706','#65a30d','#16a34a','#0d9488','#0e7490'];
+  function renderChartView(selected){
+    const titleEl=document.getElementById('chartTitle'),subEl=document.getElementById('chartSub'),legend=document.getElementById('chartLegend'),noteEl=document.getElementById('chartViewNote'),canvas=document.getElementById('chart'),histCard=document.getElementById('histSuccessCard');
+    histCard.hidden=chartView!=='hist';
+    if(chartView==='hist'){
+      const {cycles,successRate,projectionYears}=runHistoricalCycles();
+      const rate=document.getElementById('histSuccessRate'),sub=document.getElementById('histSuccessSub');
+      if(!cycles.length){
+        rate.textContent='—';rate.className='';sub.textContent=`Not enough of the 1928–2025 record (98 years) to cover a ${projectionYears}-year projection.`;
+        titleEl.textContent='Historical S&P 500 backtest';subEl.textContent='';legend.innerHTML='';noteEl.textContent='';
+        return;
+      }
+      rate.textContent=`${(successRate*100).toFixed(0)}%`;rate.className=successRate===1?'positive':successRate<0.9?'negative':'warning';
+      sub.textContent=`Portfolio survived to the end of the projection in ${cycles.filter(c=>!c.depletedAge).length} of ${cycles.length} historical starting years (${cycles[0].startYear}–${cycles.at(-1).startYear}).`;
+      titleEl.textContent='Total assets across every historical starting year';
+      subEl.textContent=`Same inputs, replayed starting from each calendar year 1928–2025 that has a full ${projectionYears}-year run of actual S&P 500 returns, inflation, and bond returns available.`;
+      legend.innerHTML=`<span><i class="swatch" style="background:#0e9f9a"></i><span>Survived</span></span><span><i class="swatch" style="background:#dc2626"></i><span>Depleted</span></span>`;
+      noteEl.textContent=`Bond pool sized to ${getBondYears()} years of expenses: down years draw cash then bonds only; up years pay from taxable→traditional→Roth and refill the bond pool the same way. Bond/HYSA/mortgage rates stay at your entered values — only stock growth and inflation follow history.`;
+      canvas.setAttribute('aria-label',`Projected total assets by age across ${cycles.length} historical starting years`);
+      const series=cycles.map(c=>({sim:c,color:c.depletedAge?'#dc2626':'#0e9f9a'}));
+      renderChart(series,r=>mode==='real'?r.total/r.cumFactor:r.total);
+      return;
+    }
+    if(chartView==='cagr'){
+      titleEl.textContent='Total assets across real investment returns';
+      subEl.textContent='Same retirement dates and inflation input; investment growth swept from 0% to 7% real, in 1% steps.';
+      const currentReal=clamp(Math.round(((1+pct(state.returnRate))/(1+pct(state.inflation))-1)*100),0,7);
+      const series=Array.from({length:8},(_,i)=>({sim:simulateAtRealCagr(i),color:cagrColors[i],highlight:i===currentReal,label:`${i}%${i===currentReal?' (current)':''}`}));
+      legend.innerHTML=series.map((s,i)=>`<span><i class="swatch" style="background:${s.color}"></i><span>${i}%${i===currentReal?' (current)':''}</span></span>`).join('');
+      noteEl.textContent=`Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. ${state.inflation}% inflation applied on top of each real rate.`;
+      canvas.setAttribute('aria-label','Projected total assets by age across 0% to 7% real investment returns');
+      renderChart(series);
+    }else{
+      const yrs=chartView==='1yr'?1:3,label=`${yrs} yr${yrs>1?'s':''}`;
+      const early=simulate(Math.max(state.ageA,state.retireAgeA-yrs),Math.max(state.ageB,state.retireAgeB-yrs)),late=simulate(Math.min(70,state.retireAgeA+yrs),Math.min(70,state.retireAgeB+yrs));
+      titleEl.textContent='Total assets across retirement dates';
+      subEl.textContent='Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.';
+      legend.innerHTML=`<span><i class="swatch early"></i><span>Both −${label}</span></span><span><i class="swatch"></i><span>Selected dates</span></span><span><i class="swatch late"></i><span>Both +${label}</span></span>`;
+      noteEl.textContent='';
+      canvas.setAttribute('aria-label',`Projected total assets by age for three retirement dates, ${label} apart`);
+      renderChart([{sim:early,color:'#d97706',label:`−${label}`},{sim:selected,color:'#2563eb',highlight:true,label:'Selected'},{sim:late,color:'#0e9f9a',label:`+${label}`}]);
+    }
+  }
+
+  function renderTable(sim){
+    const years=[0,state.retireAgeA-state.ageA,!state.singlePerson?state.retireAgeB-state.ageB:null,55-state.ageA,62-state.ageA,67-state.ageA,75-state.ageA,82-state.ageA,90-state.ageA,100-state.ageA].filter((v,i,a)=>Number.isFinite(v)&&v>=0&&v<=sim.rows.at(-1).year&&a.indexOf(v)===i).sort((a,b)=>a-b);
+    document.getElementById('projectionRows').innerHTML=years.map(year=>{const r=sim.rows.find(x=>x.year===year);if(!r)return'';const vals=['taxable','bonds','traditional','roth','cash','homeEquity','loanBalance','total'].map(k=>`<td>${money(displayValue(r[k],r.year))}</td>`).join('');let cls=r.investable<=0?'fail':r.investable<state.spending*Math.pow(1+pct(state.inflation),r.year)*3?'warn':'';let status=state.singlePerson?(r.workingA?'Working':r.investable<=0?'Depleted':'Retired'):(r.workingA&&r.workingB?'Both working':r.workingA?'A working':r.workingB?'B working':r.investable<=0?'Depleted':'Retired');return `<tr><td><b>${r.age}</b></td>${state.singlePerson?'':`<td><b>${r.ageB}</b></td>`}<td><span class="table-status ${cls}">${status}</span></td>${vals}</tr>`}).join('');
+  }
+
+  function renderChart(series,valueFn=(r)=>displayValue(r.total,r.year)){
+    const canvas=document.getElementById('chart'),rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.max(600,rect.width*dpr);canvas.height=Math.max(300,rect.height*dpr);const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const w=canvas.width/dpr,h=canvas.height/dpr,p={l:66,r:18,t:16,b:40};
+    const all=series.flatMap(s=>s.sim.rows.map(valueFn)),maxAge=series[0].sim.rows.at(-1).age;let min=Math.min(0,...all),max=Math.max(1,...all);if(min<0)min*=1.1;max*=1.08;
+    const x=age=>p.l+(age-state.ageA)/(maxAge-state.ageA)*(w-p.l-p.r);
+    let y,floor,logMin,logMax;
+    if(logScale){
+      floor=Math.max(1,max*0.0005);logMax=Math.log10(Math.max(max,floor*10));logMin=Math.log10(floor);
+      y=v=>p.t+(logMax-Math.log10(Math.max(v,floor)))/(logMax-logMin)*(h-p.t-p.b);
+    }else{
+      y=v=>p.t+(max-v)/(max-min)*(h-p.t-p.b);
+    }
+    ctx.clearRect(0,0,w,h);ctx.font='12px Inter,system-ui';ctx.fillStyle='#718096';ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+    if(logScale){
+      for(let i=0;i<=6;i++){const val=Math.pow(10,logMin+(logMax-logMin)*(i/6)),yy=y(val);ctx.beginPath();ctx.moveTo(p.l,yy);ctx.lineTo(w-p.r,yy);ctx.stroke();ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(compact(val),p.l-9,yy)}
+    }else{
+      for(let i=0;i<=5;i++){const val=min+(max-min)*(i/5),yy=y(val);ctx.beginPath();ctx.moveTo(p.l,yy);ctx.lineTo(w-p.r,yy);ctx.stroke();ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(compact(val),p.l-9,yy)}
+    }
+    Array.from({length:7},(_,i)=>Math.round(state.ageA+(maxAge-state.ageA)*(i/6))).filter((v,i,a)=>a.indexOf(v)===i).forEach(age=>{ctx.fillStyle='#718096';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(age,x(age),h-p.b+10)});
+    if(!logScale){const zero=y(0);ctx.strokeStyle='#b8c2cf';ctx.beginPath();ctx.moveTo(p.l,zero);ctx.lineTo(w-p.r,zero);ctx.stroke();}
+    series.forEach(({sim,color,highlight})=>{ctx.beginPath();sim.rows.forEach((r,i)=>{const px=x(r.age),py=y(valueFn(r));i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.strokeStyle=color;ctx.lineWidth=highlight?3:2;ctx.globalAlpha=highlight?1:.8;ctx.stroke();ctx.globalAlpha=1;});
+    const drawRetirementMarker=(chartAge,label,color,offset=0)=>{if(chartAge<state.ageA||chartAge>maxAge)return;const rx=x(chartAge);ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=color;ctx.beginPath();ctx.moveTo(rx,p.t);ctx.lineTo(rx,h-p.b);ctx.stroke();ctx.restore();ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(label,rx+2,p.t+2+offset);};
+    drawRetirementMarker(state.retireAgeA,state.singlePerson?'Retire':'A retires','#475569');
+    if(!state.singlePerson)drawRetirementMarker(state.ageA+(state.retireAgeB-state.ageB),'B retires','#0e7490',14);
+    lastChart={series,valueFn,x,y,p,w,h,maxAge};
+  }
+  let lastChart=null;
+  function chartHoverEnabled(){return ['3yr','1yr','cagr'].includes(chartView);}
+  function clearChartHover(){if(lastChart)renderChart(lastChart.series,lastChart.valueFn);if(chartTooltipEl)chartTooltipEl.style.display='none';}
+  let chartTooltipEl=null;
+  function initChartHover(){
+    const wrap=document.querySelector('.chart-wrap'),canvas=document.getElementById('chart');
+    if(!wrap||!canvas)return;
+    chartTooltipEl=document.createElement('div');
+    chartTooltipEl.id='chartTooltip';
+    chartTooltipEl.style.cssText='position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.55;white-space:nowrap;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)';
+    wrap.appendChild(chartTooltipEl);
+    const handleMove=e=>{
+      if(!chartHoverEnabled()||!lastChart)return;
+      const rect=canvas.getBoundingClientRect(),clientX=e.touches?e.touches[0].clientX:e.clientX,clientY=e.touches?e.touches[0].clientY:e.clientY,mx=clientX-rect.left,my=clientY-rect.top;
+      const {series,valueFn,x,y,p,w,h,maxAge}=lastChart;
+      if(mx<p.l||mx>w-p.r||my<p.t||my>h-p.b){clearChartHover();return;}
+      const age=Math.round(state.ageA+(mx-p.l)/(w-p.l-p.r)*(maxAge-state.ageA));
+      renderChart(series,valueFn);
+      const ctx=canvas.getContext('2d'),rx=x(age);
+      ctx.save();ctx.setLineDash([3,3]);ctx.strokeStyle='#334155';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(rx,p.t);ctx.lineTo(rx,h-p.b);ctx.stroke();ctx.restore();
+      const lines=[];
+      series.forEach(s=>{
+        const rows=s.sim.rows;let r=rows.find(rr=>rr.age===age);
+        if(!r)r=rows.reduce((a,b)=>Math.abs(b.age-age)<Math.abs(a.age-age)?b:a);
+        if(!r)return;
+        const val=valueFn(r),py=y(val);
+        ctx.beginPath();ctx.fillStyle=s.color;ctx.arc(rx,py,4,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+        lines.push(`<span style="color:${s.color}">●</span> ${s.label?s.label+': ':''}${money(val)}`);
+      });
+      chartTooltipEl.innerHTML=`<b>Age ${age}</b><br>${lines.join('<br>')}`;
+      let left=mx+14,top=my-12;
+      if(left+170>w)left=mx-184;
+      if(left<0)left=4;
+      chartTooltipEl.style.left=left+'px';chartTooltipEl.style.top=Math.max(0,top)+'px';chartTooltipEl.style.display='block';
+    };
+    canvas.addEventListener('mousemove',handleMove);
+    canvas.addEventListener('touchmove',handleMove,{passive:true});
+    canvas.addEventListener('mouseleave',clearChartHover);
+    canvas.addEventListener('touchend',clearChartHover);
+  }
+
+  function saveInputs(){document.getElementById('saveStatus').textContent='Not saved — offline mode';}
+  function exportCsv(){const sim=simulate(),columns=[['yearIndex','Year index'],['age','Partner A age'],['ageB','Partner B age'],['working','Any partner working'],['workingA','Partner A working'],['workingB','Partner B working'],['taxable','Taxable brokerage'],['bonds','Bonds'],['traditional','Traditional retirement'],['roth','Roth retirement'],['cash','Cash / HYSA'],['homeEquity','Home equity'],['loanBalance','Loan balances'],['investable','Investable assets'],['total','Net assets']],csv=[columns.map(([,label])=>label).join(',')].concat(sim.rows.map(row=>columns.map(([key])=>{const value=key==='ageB'&&state.singlePerson?'':row[key];return typeof value==='string'?`"${value.replaceAll('"','""')}"`:value;}).join(','))).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='fire-planner-annual-projection.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);}
+  function renderLoanFields(){document.getElementById('loanFields').innerHTML=state.loans.map((l,i)=>`<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:#526174">Loan ${i+1}</b><div class="field"><label for="loan${i}Principal">Original principal</label><input id="loan${i}Principal" type="number" min="0" step="1000" value="${l.principal||0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" min="0" step="1000" value="${l.balance||0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate||0}"></div><div class="field"><label for="loan${i}Term">Years remaining</label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term||0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" min="0" step="50" value="${l.extra||0}"></div></div>`).join('');state.loans.forEach((_,i)=>['principal','balance','rate','term','extra'].forEach(key=>document.getElementById(`loan${i}${key[0].toUpperCase()+key.slice(1)}`).addEventListener('input',e=>{state.loans[i][key]=Number(e.target.value)||0;render();saveInputs()}))) }
+  function renderSpendingTierFields(){document.getElementById('spendingTierFields').innerHTML=state.spendingTiers.map((t,i)=>`<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="tier${i}Enabled"><input id="tier${i}Enabled" type="checkbox" ${t.enabled?'checked':''}> Spending change ${i+1}</label></div><div class="field" ${t.enabled?'':'hidden'} id="tier${i}Fields"><label for="tier${i}Age">Starts at Partner A age</label><input id="tier${i}Age" type="number" min="18" max="100" step="1" value="${t.age||65}"></div><div class="field" ${t.enabled?'':'hidden'} id="tier${i}AmountField"><label for="tier${i}Amount">New annual household spending</label><input id="tier${i}Amount" type="number" min="0" step="1000" value="${t.amount||60000}"></div></div>`).join('');state.spendingTiers.forEach((_,i)=>{document.getElementById(`tier${i}Enabled`).addEventListener('change',e=>{state.spendingTiers[i].enabled=e.target.checked;renderSpendingTierFields();render();saveInputs()});document.getElementById(`tier${i}Age`).addEventListener('input',e=>{state.spendingTiers[i].age=Number(e.target.value)||0;render();saveInputs()});document.getElementById(`tier${i}Amount`).addEventListener('input',e=>{state.spendingTiers[i].amount=Number(e.target.value)||0;render();saveInputs()})})}
+  function renderIncomeSourceFields(){document.getElementById('incomeSourceFields').innerHTML=state.incomeSources.map((s,i)=>`<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="incSrc${i}Enabled"><input id="incSrc${i}Enabled" type="checkbox" ${s.enabled?'checked':''}> Income source ${i+1}</label></div><div class="field" ${s.enabled?'':'hidden'} id="incSrc${i}AmountField"><label for="incSrc${i}Amount">Annual amount</label><input id="incSrc${i}Amount" type="number" min="0" step="1000" value="${s.amount||0}"></div><div class="field" ${s.enabled?'':'hidden'} id="incSrc${i}StartField"><label for="incSrc${i}Start">Starts at Partner A age</label><input id="incSrc${i}Start" type="number" min="18" max="100" step="1" value="${s.startAge||65}"></div><div class="field" ${s.enabled?'':'hidden'} id="incSrc${i}EndField"><label for="incSrc${i}End">Ends at Partner A age</label><input id="incSrc${i}End" type="number" min="18" max="100" step="1" value="${s.endAge||75}"></div></div>`).join('');state.incomeSources.forEach((_,i)=>{document.getElementById(`incSrc${i}Enabled`).addEventListener('change',e=>{state.incomeSources[i].enabled=e.target.checked;renderIncomeSourceFields();render();saveInputs()});document.getElementById(`incSrc${i}Amount`).addEventListener('input',e=>{state.incomeSources[i].amount=Number(e.target.value)||0;render();saveInputs()});document.getElementById(`incSrc${i}Start`).addEventListener('input',e=>{state.incomeSources[i].startAge=Number(e.target.value)||0;render();saveInputs()});document.getElementById(`incSrc${i}End`).addEventListener('input',e=>{state.incomeSources[i].endAge=Number(e.target.value)||0;render();saveInputs()})})}
+  function renderOneTimeIncomeFields(){document.getElementById('oneTimeIncomeFields').innerHTML=state.oneTimeIncome.map((o,i)=>`<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="oneTime${i}Enabled"><input id="oneTime${i}Enabled" type="checkbox" ${o.enabled?'checked':''}> One-time income ${i+1}</label></div><div class="field" ${o.enabled?'':'hidden'} id="oneTime${i}AmountField"><label for="oneTime${i}Amount">Lump sum amount</label><input id="oneTime${i}Amount" type="number" min="0" step="1000" value="${o.amount||0}"></div><div class="field" ${o.enabled?'':'hidden'} id="oneTime${i}AgeField"><label for="oneTime${i}Age">Received at Partner A age</label><input id="oneTime${i}Age" type="number" min="18" max="100" step="1" value="${o.age||65}"></div></div>`).join('');state.oneTimeIncome.forEach((_,i)=>{document.getElementById(`oneTime${i}Enabled`).addEventListener('change',e=>{state.oneTimeIncome[i].enabled=e.target.checked;renderOneTimeIncomeFields();render();saveInputs()});document.getElementById(`oneTime${i}Amount`).addEventListener('input',e=>{state.oneTimeIncome[i].amount=Number(e.target.value)||0;render();saveInputs()});document.getElementById(`oneTime${i}Age`).addEventListener('input',e=>{state.oneTimeIncome[i].age=Number(e.target.value)||0;render();saveInputs()})})}
+  function syncControls(){ids.forEach(id=>{const el=document.getElementById(id);el.value=state[id]});renderLoanFields();document.getElementById('singlePerson').checked=!!state.singlePerson;document.getElementById('partnerBFields').hidden=!!state.singlePerson;document.querySelectorAll('[data-partner-b]').forEach(el=>el.hidden=!!state.singlePerson);document.getElementById('ageAHead').textContent=state.singlePerson?'Age':'Partner A age';document.getElementById('ageBHead').hidden=!!state.singlePerson;document.getElementById('ltcLabelSuffix').textContent=state.singlePerson?'':' (couple)';document.getElementById('retireAgeAOut').textContent=`Age ${state.retireAgeA}`;document.getElementById('retireAgeBOut').textContent=`Age ${state.retireAgeB}`;document.getElementById('incomeAOut').textContent=money(state.incomeA);document.getElementById('incomeBOut').textContent=money(state.incomeB);document.getElementById('cashReserveOut').textContent=money(state.cashReserve);document.getElementById('basisRatioOut').textContent=`${state.basisRatio}%`;document.getElementById('extraPrincipalOut').textContent=`+${money(state.extraPrincipal)}/mo`;document.getElementById('buyDownPctOut').textContent=`${state.buyDownPct}%`;document.getElementById('buyClosingPctOut').textContent=`${state.buyClosingPct}%`;document.getElementById('buyExtraPrincipalOut').textContent=`+${money(state.buyExtraPrincipal)}/mo`;document.getElementById('buyTerm15').checked=!!state.buyTerm15;[['ownBtn','own'],['rentBtn','rent'],['buyLaterBtn','rentThenBuy']].forEach(([id,value])=>{const active=state.tenure===value;document.getElementById(id).classList.toggle('active',active);document.getElementById(id).setAttribute('aria-checked',active)});document.getElementById('homeValueFields').hidden=state.tenure==='rent';document.getElementById('ownerFields').hidden=state.tenure!=='own';document.getElementById('renterFieldsShared').hidden=state.tenure==='own';document.getElementById('buyLaterFields').hidden=state.tenure!=='rentThenBuy';document.getElementById('homeValueLabel').textContent=state.tenure==='rentThenBuy'?"Home value if bought today":'Real estate value';document.getElementById('maintenanceHint').textContent=state.tenure==='rentThenBuy'?'Applies once you buy':'Applies once you own';[['buyMortgageBtn',false],['buyCashBtn',true]].forEach(([id,value])=>{const active=state.buyCash===value;document.getElementById(id).classList.toggle('active',active);document.getElementById(id).setAttribute('aria-checked',active)});document.getElementById('buyMortgageFields').hidden=!!state.buyCash;[['pensionNoneBtn','none','pensionCoverage'],['pensionABtn','a','pensionCoverage'],['pensionBBtn','b','pensionCoverage'],['pensionBothBtn','both','pensionCoverage'],['onBtn','on','province'],['bcBtn','bc','province']].forEach(([id,value,key])=>{const el=document.getElementById(id),selected=state[key]===value;el.classList.toggle('active',selected);el.setAttribute('aria-checked',selected)})}
+  ids.forEach(id=>document.getElementById(id).addEventListener('input',e=>{state[id]=Number(e.target.value)||0;if(id==='ageA')state.retireAgeA=Math.min(70,Math.max(state.retireAgeA,state.ageA));if(id==='ageB')state.retireAgeB=Math.min(70,Math.max(state.retireAgeB,state.ageB));if(id==='basisRatio')document.getElementById('basisRatioOut').textContent=`${state.basisRatio}%`;if(['ageA','ageB','retireAgeA','retireAgeB','incomeA','incomeB','cashReserve','extraPrincipal','buyDownPct','buyClosingPct','buyExtraPrincipal'].includes(id))syncControls();render();saveInputs()}));
+  document.getElementById('ownBtn').addEventListener('click',()=>setTenure('own'));document.getElementById('rentBtn').addEventListener('click',()=>setTenure('rent'));document.getElementById('buyLaterBtn').addEventListener('click',()=>setTenure('rentThenBuy'));
+  document.getElementById('buyMortgageBtn').addEventListener('click',()=>{state.buyCash=false;syncControls();render();saveInputs()});
+  document.getElementById('buyCashBtn').addEventListener('click',()=>{state.buyCash=true;syncControls();render();saveInputs()});
+  document.getElementById('buyTerm15').addEventListener('change',e=>{state.buyTerm15=e.target.checked;render();saveInputs()});
+  document.getElementById('exportCsvBtn').addEventListener('click',exportCsv);
+  document.getElementById('singlePerson').addEventListener('change',e=>{state.singlePerson=e.target.checked;syncControls();syncContributionControls();render();saveInputs()});
+  function setProvince(value){state.province=value;syncControls();render();saveInputs()}
+  document.getElementById('onBtn').addEventListener('click',()=>setProvince('on'));document.getElementById('bcBtn').addEventListener('click',()=>setProvince('bc'));
+  function syncContributionControls(){[['rrspPctA','rrspPctAOut'],['rrspPctB','rrspPctBOut'],['tfsaPctA','tfsaPctAOut'],['tfsaPctB','tfsaPctBOut'],['fhsaPctA','fhsaPctAOut'],['fhsaPctB','fhsaPctBOut']].forEach(([key,out])=>document.getElementById(out).textContent=`${state[key]}%`);document.getElementById('meltdownEnabled').checked=!!state.meltdownEnabled;document.getElementById('meltdownBracket').value=state.meltdownBracket;document.getElementById('pensionSplitEnabled').checked=!!state.pensionSplitEnabled;renderSpendingTierFields();renderIncomeSourceFields();renderOneTimeIncomeFields();}
+  ['rrspPctA','rrspPctB','tfsaPctA','tfsaPctB','fhsaPctA','fhsaPctB'].forEach(id=>document.getElementById(id).addEventListener('input',()=>syncContributionControls()));
+  document.getElementById('meltdownEnabled').addEventListener('change',e=>{state.meltdownEnabled=e.target.checked;syncContributionControls();render();saveInputs()});
+  document.getElementById('meltdownBracket').addEventListener('change',e=>{state.meltdownBracket=Number(e.target.value);render();saveInputs()});
+  document.getElementById('pensionSplitEnabled').addEventListener('change',e=>{state.pensionSplitEnabled=e.target.checked;render();saveInputs()});
+  function setTenure(tenure){state.tenure=tenure;syncControls();render();saveInputs()}
+  function setPensionCoverage(value){state.pensionCoverage=value;syncControls();render();saveInputs()}
+  document.getElementById('pensionNoneBtn').addEventListener('click',()=>setPensionCoverage('none'));document.getElementById('pensionABtn').addEventListener('click',()=>setPensionCoverage('a'));document.getElementById('pensionBBtn').addEventListener('click',()=>setPensionCoverage('b'));document.getElementById('pensionBothBtn').addEventListener('click',()=>setPensionCoverage('both'));
+  document.getElementById('realBtn').addEventListener('click',()=>setMode('real'));document.getElementById('nominalBtn').addEventListener('click',()=>setMode('nominal'));
+  document.getElementById('chartView3Btn').addEventListener('click',()=>setChartView('3yr'));document.getElementById('chartView1Btn').addEventListener('click',()=>setChartView('1yr'));document.getElementById('chartViewCagrBtn').addEventListener('click',()=>setChartView('cagr'));document.getElementById('chartViewHistBtn').addEventListener('click',()=>setChartView('hist'));
+  document.getElementById('logScaleToggle').addEventListener('change',e=>{logScale=e.target.checked;render();});
+  function setChartView(next){chartView=next;if(next==='hist'){logScale=true;document.getElementById('logScaleToggle').checked=true;}const map={'3yr':'chartView3Btn','1yr':'chartView1Btn',cagr:'chartViewCagrBtn',hist:'chartViewHistBtn'};Object.entries(map).forEach(([key,id])=>{const active=key===next;document.getElementById(id).classList.toggle('active',active);document.getElementById(id).setAttribute('aria-checked',active);});render();}
+  function setMode(next){mode=next;document.getElementById('realBtn').classList.toggle('active',mode==='real');document.getElementById('nominalBtn').classList.toggle('active',mode==='nominal');document.getElementById('realBtn').setAttribute('aria-checked',mode==='real');document.getElementById('nominalBtn').setAttribute('aria-checked',mode==='nominal');render();saveInputs()}
+  document.getElementById('resetBtn').addEventListener('click',()=>{state={...defaults,loans:defaults.loans.map(l=>({...l})),spendingTiers:defaults.spendingTiers.map(t=>({...t})),incomeSources:defaults.incomeSources.map(t=>({...t})),oneTimeIncome:defaults.oneTimeIncome.map(t=>({...t}))};mode='real';logScale=false;document.getElementById('logScaleToggle').checked=false;syncControls();syncContributionControls();setMode('real');setChartView('3yr')});
+  function syncTopbarHeight(){const tb=document.querySelector('.topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}
+  window.addEventListener('resize',()=>{render();syncTopbarHeight()});syncControls();syncContributionControls();setMode(mode);syncTopbarHeight();initChartHover();
+
+  const mc=document.modelContext;if(mc?.registerTool){
+    mc.registerTool({name:'update_fire_assumptions',title:'Update FIRE assumptions',description:'Update one or more FIRE projection assumptions and refresh the visible forecast.',inputSchema:{type:'object',properties:{...Object.fromEntries(ids.map(id=>[id,{type:'number'}])),singlePerson:{type:'boolean'},tenure:{type:'string',enum:['own','rent','rentThenBuy']},buyCash:{type:'boolean'},buyTerm15:{type:'boolean'},province:{type:'string',enum:['on','bc']},pensionCoverage:{type:'string',enum:['none','a','b','both']},pensionSplitEnabled:{type:'boolean'},meltdownEnabled:{type:'boolean'}},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:async input=>{for(const [k,v] of Object.entries(input||{})){if(ids.includes(k)&&Number.isFinite(v))state[k]=v;if(k==='singlePerson'&&typeof v==='boolean')state.singlePerson=v;if(k==='tenure'&&['own','rent','rentThenBuy'].includes(v))state.tenure=v;if(k==='buyCash'&&typeof v==='boolean')state.buyCash=v;if(k==='buyTerm15'&&typeof v==='boolean')state.buyTerm15=v;if(k==='province'&&['on','bc'].includes(v))state.province=v;if(k==='pensionCoverage'&&['none','a','b','both'].includes(v))state.pensionCoverage=v;if(k==='pensionSplitEnabled'&&typeof v==='boolean')state.pensionSplitEnabled=v;if(k==='meltdownEnabled'&&typeof v==='boolean')state.meltdownEnabled=v;}state.retireAgeA=Math.min(70,Math.max(state.retireAgeA,state.ageA));state.retireAgeB=Math.min(70,Math.max(state.retireAgeB,state.ageB));syncControls();syncContributionControls();render();saveInputs();return window.fireProjection;}});
+    mc.registerTool({name:'read_fire_projection',title:'Read FIRE projection',description:'Read the currently displayed headline projection results.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:async()=>window.fireProjection});
+  }
+})();
+</script>
+</body>
+</html>
