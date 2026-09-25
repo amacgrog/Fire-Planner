@@ -186,14 +186,16 @@
           <div class="metric"><div class="kicker">Portfolio lasts to</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
           <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
           <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
+          <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
         </div>
 
         <div class="result-card">
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal and state income tax.</p></div><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div></div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-            <div class="chart-view-toggle" role="radiogroup" aria-label="Chart comparison view"><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">Real CAGR 0–7%</button><button id="chartViewHistBtn" role="radio" aria-checked="false">Historical (S&P 500)</button></div>
+            <div class="chart-view-toggle" role="radiogroup" aria-label="Chart comparison view"><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">Real CAGR 0–7%</button><button id="chartViewHistBtn" role="radio" aria-checked="false">Historical (S&P 500)</button><button id="chartViewMcBtn" role="radio" aria-checked="false">Monte Carlo</button></div>
             <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#526174;margin:2px 0 12px"><input id="logScaleToggle" type="checkbox">Log scale</label>
           </div>
+          <div id="mcPathCountRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px"><span style="font-size:.78rem;font-weight:700;color:#526174">Paths:</span><div class="chart-view-toggle" role="radiogroup" aria-label="Monte Carlo path count"><button id="mcPaths500Btn" role="radio" aria-checked="false">500</button><button id="mcPaths1000Btn" class="active" role="radio" aria-checked="true">1,000</button><button id="mcPaths2000Btn" role="radio" aria-checked="false">2,000</button></div></div>
           <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Projected total assets by age for three retirement dates"></canvas></div>
           <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartAgeNote">Chart age refers to Partner A.</span><span id="chartViewNote"></span></div>
         </div>
@@ -218,7 +220,7 @@
 (() => {
   const defaults={singlePerson:false,stateTax:'ma',basisRatio:50,k401PctA:100,k401PctB:100,catchupPctA:100,catchupPctB:100,iraPctA:100,iraPctB:100,megaBackdoor:false,megaPctA:100,megaPctB:100,ageA:48,ageB:43,retireAgeA:55,retireAgeB:55,incomeA:100000,incomeB:100000,matchA:0,matchB:0,k401Type:'traditional',iraType:'traditional',spending:60000,incomeGrowth:3,inflation:2.5,taxable:50000,traditional:200000,roth:50000,cash:50000,cashReserve:30000,bondYears:5,returnRate:7,bondReturn:4,hysaRate:4,tenure:'own',homeValue:450000,homeGrowth:3,mortgage:300000,mortgageRate:5.5,mortgageYears:25,extraPrincipal:0,maintenance:6000,rent:2500,rentGrowth:3,ssMonthlyA:2500,ssStartAgeA:62,ssMonthlyB:2500,ssStartAgeB:62,pensionCoverage:'none',pensionYearlyA:0,pensionStartAgeA:67,pensionYearlyB:0,pensionStartAgeB:67,healthcare:18000,acaEnabled:true,acaEnhanced:false,ltcYearlyA:50000,ltcAgeA:82,ltcYearlyB:50000,ltcAgeB:82,filingStatus:'mfj',marryLater:false,marriageAgeA:55,bridgeIncomeA:0,bridgeStartAgeA:65,bridgeEndAgeA:70,bridgeIncomeB:0,bridgeStartAgeB:65,bridgeEndAgeB:70,rothConvEnabled:false,rothConvStartAge:60,rothConvEndAge:63,rothConvBracket:22,buyAge:50,buyCash:false,buyDownPct:20,buyClosingPct:4,buyTerm15:false,buyExtraPrincipal:0,loans:Array.from({length:5},()=>({principal:0,balance:0,rate:0,term:0,extra:0})),spendingTiers:Array.from({length:5},()=>({enabled:false,age:65,amount:60000})),incomeSources:Array.from({length:3},()=>({enabled:false,amount:0,startAge:65,endAge:75})),oneTimeIncome:Array.from({length:3},()=>({enabled:false,age:65,amount:0}))};
   const storageKey='fireCouplePlanner.massachusettsOffline.v1',legacyStorageKey='fireCouplePlanner.v3',storage=null;
-  let state={...defaults,loans:defaults.loans.map(l=>({...l}))},mode='real',chartView='3yr',logScale=false;
+  let state={...defaults,loans:defaults.loans.map(l=>({...l}))},mode='real',chartView='3yr',logScale=false,mcPathCount=1000;
   try{storage?.removeItem(legacyStorageKey);const saved=JSON.parse(storage?.getItem(storageKey)||'null');if(saved?.state)state={...state,...saved.state};if(['real','nominal'].includes(saved?.mode))mode=saved.mode;}catch{}
   if(!['own','rent','rentThenBuy'].includes(state.tenure))state.tenure='own';
   if(!['mfj','single'].includes(state.filingStatus))state.filingStatus='mfj';
@@ -647,7 +649,7 @@
   // bond pool is topped back up from the same order. Cash/HYSA and mortgage
   // still use the assumed fixed rates from the sidebar, since no historical
   // series is loaded for either.
-  function simulateHistorical(startIdx,retireAgeA=state.retireAgeA,retireAgeB=state.retireAgeB){
+  function simulateHistorical(rowFn,retireAgeA=state.retireAgeA,retireAgeB=state.retireAgeB){
     const singlePerson=!!state.singlePerson;
     if(singlePerson)retireAgeB=retireAgeA;
     const hysa=pct(state.hysaRate),wageGrowth=pct(state.incomeGrowth),homeGrowth=pct(state.homeGrowth);
@@ -662,7 +664,7 @@
     };
     const projectionYears=singlePerson?Math.max(0,100-state.ageA):Math.max(0,100-state.ageA,100-state.ageB);
     for(let age=state.ageA,year=0;year<=projectionYears;age++,year++){
-      const histRow=HIST[startIdx+year],yearReturn=histRow[1]/100,yearInflation=histRow[2]/100,yearBondReturn=histRow[3]/100;
+      const histRow=rowFn(year),yearReturn=histRow[1]/100,yearInflation=histRow[2]/100,yearBondReturn=histRow[3]/100;
       const ageB=singlePerson?null:state.ageB+year,factor=cumFactor,limitFactor=cumFactor,workingA=age<retireAgeA,workingB=!singlePerson&&ageB<retireAgeB,working=workingA||workingB;
       const incomeFactor=Math.pow(1+wageGrowth,year);
       const wageA=workingA?state.incomeA*incomeFactor:0,wageB=workingB?state.incomeB*incomeFactor:0,matchA=workingA?wageA*pct(state.matchA):0,matchB=workingB?wageB*pct(state.matchB):0,employerMatch=matchA+matchB;
@@ -786,7 +788,7 @@
       rows.push({age,ageB,year,taxable,bonds,traditional,roth,cash,homeEquity,loanBalance,investable,total,working,workingA,workingB,cumFactor});
       cumFactor*=1+yearInflation;
     }
-    return {rows,depletedAge,startYear:HIST[startIdx][0],payoffAge:state.tenure==='rentThenBuy'?(futureBuy.payoffYear===null?null:state.ageA+futureBuy.payoffYear):(schedule.payoffYear===null?null:state.ageA+schedule.payoffYear),buyAge:state.tenure==='rentThenBuy'?state.buyAge:null};
+    return {rows,depletedAge,startYear:rowFn(0)[0],payoffAge:state.tenure==='rentThenBuy'?(futureBuy.payoffYear===null?null:state.ageA+futureBuy.payoffYear):(schedule.payoffYear===null?null:state.ageA+schedule.payoffYear),buyAge:state.tenure==='rentThenBuy'?state.buyAge:null};
   }
 
   // Runs every historical start year with a full run of data available for
@@ -797,9 +799,37 @@
     const lastStart=HIST.length-1-projectionYears;
     if(lastStart<0)return {cycles:[],successRate:null,projectionYears};
     const cycles=[];
-    for(let i=0;i<=lastStart;i++)cycles.push(simulateHistorical(i));
+    for(let i=0;i<=lastStart;i++)cycles.push(simulateHistorical(y=>HIST[i+y]));
     const successRate=cycles.filter(c=>!c.depletedAge).length/cycles.length;
     return {cycles,successRate,projectionYears};
+  }
+
+  // Monte Carlo via block bootstrap: instead of drawing each year's return
+  // independently (which has no memory of real market behavior — no mean
+  // reversion, no regime clustering, no macro coherence between stocks,
+  // bonds, and inflation), each simulated path is built by randomly
+  // stitching together contiguous 5-year blocks of the actual 1928-2025
+  // historical record. Every block is something that really happened, so a
+  // path structurally cannot contain an unrealistic run (e.g. decades of
+  // one-directional returns) the way independent-draw Monte Carlo can.
+  const MC_BLOCK_SIZE=5;
+  function bootstrapReturnSeries(length){
+    const series=[],maxStart=HIST.length-MC_BLOCK_SIZE;
+    while(series.length<length){
+      const s=Math.floor(Math.random()*(maxStart+1));
+      for(let i=0;i<MC_BLOCK_SIZE&&series.length<length;i++)series.push(HIST[s+i]);
+    }
+    return series;
+  }
+  function runMonteCarlo(pathCount){
+    const projectionYears=state.singlePerson?Math.max(0,100-state.ageA):Math.max(0,100-state.ageA,100-state.ageB);
+    const length=projectionYears+1,paths=[];
+    for(let i=0;i<pathCount;i++){
+      const series=bootstrapReturnSeries(length);
+      paths.push(simulateHistorical(y=>series[y]));
+    }
+    const successRate=paths.filter(p=>!p.depletedAge).length/paths.length;
+    return {paths,successRate,projectionYears};
   }
 
   function render(){
@@ -844,8 +874,23 @@
   }
   const cagrColors=['#b91c1c','#dc2626','#ea580c','#d97706','#65a30d','#16a34a','#0d9488','#0e7490'];
   function renderChartView(selected){
-    const titleEl=document.getElementById('chartTitle'),subEl=document.getElementById('chartSub'),legend=document.getElementById('chartLegend'),noteEl=document.getElementById('chartViewNote'),canvas=document.getElementById('chart'),histCard=document.getElementById('histSuccessCard');
+    const titleEl=document.getElementById('chartTitle'),subEl=document.getElementById('chartSub'),legend=document.getElementById('chartLegend'),noteEl=document.getElementById('chartViewNote'),canvas=document.getElementById('chart'),histCard=document.getElementById('histSuccessCard'),mcCard=document.getElementById('mcSuccessCard');
     histCard.hidden=chartView!=='hist';
+    mcCard.hidden=chartView!=='mc';
+    document.getElementById('mcPathCountRow').hidden=chartView!=='mc';
+    if(chartView==='mc'){
+      const mc=runMonteCarlo(mcPathCount);
+      const rate=document.getElementById('mcSuccessRate'),sub=document.getElementById('mcSuccessSub');
+      rate.textContent=`${(mc.successRate*100).toFixed(0)}%`;rate.className=mc.successRate===1?'positive':mc.successRate<0.9?'negative':'warning';
+      sub.textContent=`Portfolio survived to the end of the projection in ${mc.paths.filter(p=>!p.depletedAge).length} of ${mc.paths.length} simulated paths, each built from randomly shuffled 5-year blocks of actual 1928–2025 market history.`;
+      titleEl.textContent=`Monte Carlo: ${mc.paths.length.toLocaleString()} simulated paths`;
+      subEl.textContent='Shaded bands show the 10th–90th and 25th–75th percentile of total assets by age; the line is the median path.';
+      legend.innerHTML=`<span><i class="swatch" style="background:#2563eb"></i><span>Median</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.4)"></i><span>25th–75th pct.</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.2)"></i><span>10th–90th pct.</span></span>`;
+      noteEl.textContent=`Each path stitches together random 5-year blocks of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond pool sized to ${getBondYears()} years of expenses, same withdrawal order as the historical backtest.`;
+      canvas.setAttribute('aria-label',`Projected total assets by age across ${mc.paths.length} Monte Carlo simulated paths`);
+      renderMonteCarloChart(mc);
+      return;
+    }
     if(chartView==='hist'){
       const {cycles,successRate,projectionYears}=runHistoricalCycles();
       const rate=document.getElementById('histSuccessRate'),sub=document.getElementById('histSuccessSub');
@@ -889,6 +934,46 @@
   function renderTable(sim){
     const years=[0,state.retireAgeA-state.ageA,!state.singlePerson?state.retireAgeB-state.ageB:null,55-state.ageA,62-state.ageA,67-state.ageA,75-state.ageA,82-state.ageA,90-state.ageA,100-state.ageA].filter((v,i,a)=>Number.isFinite(v)&&v>=0&&v<=sim.rows.at(-1).year&&a.indexOf(v)===i).sort((a,b)=>a-b);
     document.getElementById('projectionRows').innerHTML=years.map(year=>{const r=sim.rows.find(x=>x.year===year);if(!r)return'';const vals=['taxable','bonds','traditional','roth','cash','homeEquity','loanBalance','total'].map(k=>`<td>${money(displayValue(r[k],r.year))}</td>`).join('');let cls=r.investable<=0?'fail':r.investable<state.spending*Math.pow(1+pct(state.inflation),r.year)*3?'warn':'';let status=state.singlePerson?(r.workingA?'Working':r.investable<=0?'Depleted':'Retired'):(r.workingA&&r.workingB?'Both working':r.workingA?'A working':r.workingB?'B working':r.investable<=0?'Depleted':'Retired');return `<tr><td><b>${r.age}</b></td>${state.singlePerson?'':`<td><b>${r.ageB}</b></td>`}<td><span class="table-status ${cls}">${status}</span></td>${vals}</tr>`}).join('');
+  }
+
+  // Renders a Monte Carlo run as a percentile "fan" (10-90 and 25-75 bands
+  // plus a median line) rather than one line per path — with 500-2000 paths,
+  // drawing every path individually would be unreadable and slow. Shares the
+  // axis/gridline/log-scale logic with renderChart by design, kept as a
+  // parallel implementation to avoid destabilizing that function.
+  function renderMonteCarloChart(mc,valueFn=(r)=>mode==='real'?r.total/r.cumFactor:r.total){
+    const canvas=document.getElementById('chart'),rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.max(600,rect.width*dpr);canvas.height=Math.max(300,rect.height*dpr);const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const w=canvas.width/dpr,h=canvas.height/dpr,p={l:66,r:18,t:16,b:40};
+    const maxAge=state.ageA+mc.projectionYears;
+    const pctl=(sortedVals,q)=>{const idx=(sortedVals.length-1)*q,lo=Math.floor(idx),hi=Math.ceil(idx);return sortedVals[lo]+(sortedVals[hi]-sortedVals[lo])*(idx-lo);};
+    const bands=[];
+    for(let year=0;year<=mc.projectionYears;year++){
+      const vals=mc.paths.map(pth=>valueFn(pth.rows[year])).sort((a,b)=>a-b);
+      bands.push({age:state.ageA+year,p10:pctl(vals,0.10),p25:pctl(vals,0.25),p50:pctl(vals,0.50),p75:pctl(vals,0.75),p90:pctl(vals,0.90)});
+    }
+    const all=bands.flatMap(b=>[b.p10,b.p90]);let min=Math.min(0,...all),max=Math.max(1,...all);if(min<0)min*=1.1;max*=1.08;
+    const x=age=>p.l+(age-state.ageA)/(maxAge-state.ageA)*(w-p.l-p.r);
+    let y,floor,logMin,logMax;
+    if(logScale){
+      floor=Math.max(1,max*0.0005);logMax=Math.log10(Math.max(max,floor*10));logMin=Math.log10(floor);
+      y=v=>p.t+(logMax-Math.log10(Math.max(v,floor)))/(logMax-logMin)*(h-p.t-p.b);
+    }else{
+      y=v=>p.t+(max-v)/(max-min)*(h-p.t-p.b);
+    }
+    ctx.clearRect(0,0,w,h);ctx.font='12px Inter,system-ui';ctx.fillStyle='#718096';ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+    if(logScale){
+      for(let i=0;i<=6;i++){const val=Math.pow(10,logMin+(logMax-logMin)*(i/6)),yy=y(val);ctx.beginPath();ctx.moveTo(p.l,yy);ctx.lineTo(w-p.r,yy);ctx.stroke();ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(compact(val),p.l-9,yy)}
+    }else{
+      for(let i=0;i<=5;i++){const val=min+(max-min)*(i/5),yy=y(val);ctx.beginPath();ctx.moveTo(p.l,yy);ctx.lineTo(w-p.r,yy);ctx.stroke();ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(compact(val),p.l-9,yy)}
+    }
+    Array.from({length:7},(_,i)=>Math.round(state.ageA+(maxAge-state.ageA)*(i/6))).filter((v,i,a)=>a.indexOf(v)===i).forEach(age=>{ctx.fillStyle='#718096';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(age,x(age),h-p.b+10)});
+    if(!logScale){const zero=y(0);ctx.strokeStyle='#b8c2cf';ctx.beginPath();ctx.moveTo(p.l,zero);ctx.lineTo(w-p.r,zero);ctx.stroke();}
+    const drawBand=(hiKey,loKey,fill)=>{ctx.beginPath();bands.forEach((b,i)=>{const px=x(b.age),py=y(b[hiKey]);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});for(let i=bands.length-1;i>=0;i--){const px=x(bands[i].age),py=y(bands[i][loKey]);ctx.lineTo(px,py)}ctx.closePath();ctx.fillStyle=fill;ctx.fill();};
+    drawBand('p90','p10','rgba(37,99,235,0.12)');
+    drawBand('p75','p25','rgba(37,99,235,0.26)');
+    ctx.beginPath();bands.forEach((b,i)=>{const px=x(b.age),py=y(b.p50);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.strokeStyle='#2563eb';ctx.lineWidth=2.5;ctx.stroke();
+    const drawRetirementMarker=(chartAge,label,color,offset=0)=>{if(chartAge<state.ageA||chartAge>maxAge)return;const rx=x(chartAge);ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=color;ctx.beginPath();ctx.moveTo(rx,p.t);ctx.lineTo(rx,h-p.b);ctx.stroke();ctx.restore();ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(label,rx+2,p.t+2+offset);};
+    drawRetirementMarker(state.retireAgeA,state.singlePerson?'Retire':'A retires','#475569');
+    if(!state.singlePerson)drawRetirementMarker(state.ageA+(state.retireAgeB-state.ageB),'B retires','#0e7490',14);
   }
 
   function renderChart(series,valueFn=(r)=>displayValue(r.total,r.year)){
@@ -987,11 +1072,13 @@
   function setFilingStatus(value){state.filingStatus=value;syncControls();render();saveInputs()}
   document.getElementById('mfjBtn').addEventListener('click',()=>setFilingStatus('mfj'));document.getElementById('singleBtn').addEventListener('click',()=>setFilingStatus('single'));document.getElementById('marryLater').addEventListener('change',e=>{state.marryLater=e.target.checked;syncControls();render();saveInputs()});
   document.getElementById('realBtn').addEventListener('click',()=>setMode('real'));document.getElementById('nominalBtn').addEventListener('click',()=>setMode('nominal'));
-  document.getElementById('chartView3Btn').addEventListener('click',()=>setChartView('3yr'));document.getElementById('chartView1Btn').addEventListener('click',()=>setChartView('1yr'));document.getElementById('chartViewCagrBtn').addEventListener('click',()=>setChartView('cagr'));document.getElementById('chartViewHistBtn').addEventListener('click',()=>setChartView('hist'));
+  document.getElementById('chartView3Btn').addEventListener('click',()=>setChartView('3yr'));document.getElementById('chartView1Btn').addEventListener('click',()=>setChartView('1yr'));document.getElementById('chartViewCagrBtn').addEventListener('click',()=>setChartView('cagr'));document.getElementById('chartViewHistBtn').addEventListener('click',()=>setChartView('hist'));document.getElementById('chartViewMcBtn').addEventListener('click',()=>setChartView('mc'));
+  function setMcPathCount(n){mcPathCount=n;[['mcPaths500Btn',500],['mcPaths1000Btn',1000],['mcPaths2000Btn',2000]].forEach(([id,value])=>{const active=value===n;document.getElementById(id).classList.toggle('active',active);document.getElementById(id).setAttribute('aria-checked',active)});render()}
+  document.getElementById('mcPaths500Btn').addEventListener('click',()=>setMcPathCount(500));document.getElementById('mcPaths1000Btn').addEventListener('click',()=>setMcPathCount(1000));document.getElementById('mcPaths2000Btn').addEventListener('click',()=>setMcPathCount(2000));
   document.getElementById('logScaleToggle').addEventListener('change',e=>{logScale=e.target.checked;render();});
-  function setChartView(next){chartView=next;if(next==='hist'){logScale=true;document.getElementById('logScaleToggle').checked=true;}const map={'3yr':'chartView3Btn','1yr':'chartView1Btn',cagr:'chartViewCagrBtn',hist:'chartViewHistBtn'};Object.entries(map).forEach(([key,id])=>{const active=key===next;document.getElementById(id).classList.toggle('active',active);document.getElementById(id).setAttribute('aria-checked',active);});render();}
+  function setChartView(next){chartView=next;if(next==='hist'||next==='mc'){logScale=true;document.getElementById('logScaleToggle').checked=true;}const map={'3yr':'chartView3Btn','1yr':'chartView1Btn',cagr:'chartViewCagrBtn',hist:'chartViewHistBtn',mc:'chartViewMcBtn'};Object.entries(map).forEach(([key,id])=>{const active=key===next;document.getElementById(id).classList.toggle('active',active);document.getElementById(id).setAttribute('aria-checked',active);});render();}
   function setMode(next){mode=next;document.getElementById('realBtn').classList.toggle('active',mode==='real');document.getElementById('nominalBtn').classList.toggle('active',mode==='nominal');document.getElementById('realBtn').setAttribute('aria-checked',mode==='real');document.getElementById('nominalBtn').setAttribute('aria-checked',mode==='nominal');render();saveInputs()}
-  document.getElementById('resetBtn').addEventListener('click',()=>{state={...defaults,loans:defaults.loans.map(l=>({...l})),spendingTiers:defaults.spendingTiers.map(t=>({...t})),incomeSources:defaults.incomeSources.map(t=>({...t})),oneTimeIncome:defaults.oneTimeIncome.map(t=>({...t}))};mode='real';logScale=false;document.getElementById('logScaleToggle').checked=false;syncControls();syncContributionControls();setMode('real');setChartView('3yr')});
+  document.getElementById('resetBtn').addEventListener('click',()=>{state={...defaults,loans:defaults.loans.map(l=>({...l})),spendingTiers:defaults.spendingTiers.map(t=>({...t})),incomeSources:defaults.incomeSources.map(t=>({...t})),oneTimeIncome:defaults.oneTimeIncome.map(t=>({...t}))};mode='real';logScale=false;document.getElementById('logScaleToggle').checked=false;setMcPathCount(1000);syncControls();syncContributionControls();setMode('real');setChartView('3yr')});
   function syncTopbarHeight(){const tb=document.querySelector('.topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}
   window.addEventListener('resize',()=>{render();syncTopbarHeight()});syncControls();syncContributionControls();setMode(mode);syncTopbarHeight();initChartHover();
 
