@@ -59,7 +59,7 @@ Both tools run on the same underlying engine and share these features:
 
 ## Canada-specific (`Planner_Canada.html`)
 
-- Federal tax brackets + Ontario or BC provincial tax, including the Ontario Health Premium and Ontario surtax
+- Federal tax brackets + provincial tax for all 10 provinces (Ontario, BC, Alberta, Saskatchewan, Manitoba, Quebec, New Brunswick, Nova Scotia, PEI, Newfoundland and Labrador), including Ontario's Health Premium and two-tier surtax, and Quebec's 16.5% federal tax abatement. Territories are not modeled
 - RRSP and TFSA accounts, with CRA contribution-room rules
 - FHSA (First Home Savings Account): $8,000/year and $40,000 lifetime cap per partner, usable toward a future home purchase (see "Rent, then buy" above), with automatic tax-free rollover of any leftover balance into the TFSA
 - CPP (start age 60–70) and OAS (start age 65–70), with OAS recovery tax (clawback) modeled
