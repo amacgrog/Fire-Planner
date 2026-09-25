@@ -1003,7 +1003,7 @@
   }
   let lastChart=null;
   function chartHoverEnabled(){return ['3yr','1yr','cagr'].includes(chartView);}
-  function clearChartHover(){if(lastChart)renderChart(lastChart.series,lastChart.valueFn);if(chartTooltipEl)chartTooltipEl.style.display='none';}
+  function clearChartHover(){if(chartHoverEnabled()&&lastChart)renderChart(lastChart.series,lastChart.valueFn);if(chartTooltipEl)chartTooltipEl.style.display='none';}
   let chartTooltipEl=null;
   function initChartHover(){
     const wrap=document.querySelector('.chart-wrap'),canvas=document.getElementById('chart');
