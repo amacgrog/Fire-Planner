@@ -33,6 +33,7 @@ Both tools run on the same underlying engine and share these features:
 - **Hover-to-inspect charts**: mousing over the ±1yr/±3yr/CAGR views shows a crosshair and each series' value at that age (disabled on the historical and Monte Carlo views, which show many paths/bands at once)
 - **Log-scale chart toggle**
 - **CSV export** of the full year-by-year projection
+- **Named scenarios**: save the current inputs as a named snapshot, load any saved scenario back, and check any number of them for a side-by-side **scenario comparison table** (retirement age, investable/net worth at retirement, how long the portfolio lasts, end assets) alongside your live "Current" inputs, which updates as you type. Scenarios live in the browser tab only until exported — export any scenario (or all of them at once) to a JSON file to keep past the session or carry into a future update, and re-import it later. Every load path (boot, Load, and import) merges the saved data over the current defaults, so a scenario exported by an older or newer version of the tool still loads correctly: missing fields fall back to today's defaults, and fields that no longer exist are simply dropped — nothing breaks
 - **Independently-scrolling sidebar**, so the assumptions panel and the results (chart/table/notes) scroll separately
 - **In-page MCP tool hooks** (`read_fire_projection`, `update_fire_assumptions`) for programmatic/agentic access to the live projection
 - **Nothing is saved or transmitted** — all inputs live only in the page's memory for that session (no localStorage, no server)

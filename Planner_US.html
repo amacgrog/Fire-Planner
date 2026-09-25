@@ -46,6 +46,20 @@
       <aside class="panel" aria-label="Projection assumptions">
         <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
         <details class="group" open>
+          <summary>Scenarios</summary>
+          <p class="range-note">Save the current inputs as a named scenario to compare against others below, or to keep for later. Scenarios live in this browser tab only until you export them — export any scenario you want to keep past this session or carry into a future update, and re-import it any time; missing fields are filled in from current defaults, so older exports keep working.</p>
+          <div class="field" style="display:flex;gap:6px;align-items:flex-end">
+            <div style="flex:1"><label for="scenarioName">Scenario name</label><input id="scenarioName" type="text" placeholder="e.g. Retire at 55" maxlength="60"></div>
+            <button type="button" id="saveScenarioBtn" class="reset" style="white-space:nowrap">Save current</button>
+          </div>
+          <div id="scenarioList"></div>
+          <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <button type="button" id="importScenarioBtn" class="reset">Import scenario file…</button>
+            <button type="button" id="exportAllScenariosBtn" class="reset" hidden>Export all as one file</button>
+            <input id="importScenarioInput" type="file" accept="application/json,.json" hidden>
+          </div>
+        </details>
+        <details class="group" open>
           <summary>Timeline & income</summary>
           <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
           <div class="field"><label for="ageA">Partner A starting age</label><input id="ageA" type="number" min="18" max="70" step="1"></div>
@@ -191,6 +205,11 @@
           <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
         </div>
 
+        <div class="result-card" id="scenarioCompareCard" hidden>
+          <div class="result-head"><div><h2>Scenario comparison</h2><p>Key outcomes for "Current" (your live inputs above) and any scenarios checked for comparison in the sidebar.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Retirement age(s)</th><th>Investable at retirement</th><th>Net worth at retirement</th><th>Portfolio lasts to</th><th>End assets</th></tr></thead><tbody id="scenarioCompareRows"></tbody></table></div>
+        </div>
+
         <div class="result-card">
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal and state income tax.</p></div><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div></div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -221,20 +240,32 @@
 <script>
 (() => {
   const defaults={singlePerson:false,stateTax:'ma',basisRatio:50,k401PctA:100,k401PctB:100,catchupPctA:100,catchupPctB:100,iraPctA:100,iraPctB:100,megaBackdoor:false,megaPctA:100,megaPctB:100,ageA:48,ageB:43,lifeExpectancyA:100,lifeExpectancyB:100,retireAgeA:55,retireAgeB:55,incomeA:100000,incomeB:100000,matchA:0,matchB:0,k401Type:'traditional',iraType:'traditional',spending:60000,incomeGrowth:3,inflation:2.5,taxable:50000,traditional:200000,roth:50000,cash:50000,cashReserve:30000,bondYears:5,returnRate:7,bondReturn:4,hysaRate:4,tenure:'own',homeValue:450000,homeGrowth:3,mortgage:300000,mortgageRate:5.5,mortgageYears:25,extraPrincipal:0,maintenance:6000,rent:2500,rentGrowth:3,ssMonthlyA:2500,ssStartAgeA:62,ssMonthlyB:2500,ssStartAgeB:62,pensionCoverage:'none',pensionYearlyA:0,pensionStartAgeA:67,pensionYearlyB:0,pensionStartAgeB:67,healthcare:18000,acaEnabled:true,acaEnhanced:false,ltcYearlyA:50000,ltcAgeA:82,ltcYearlyB:50000,ltcAgeB:82,filingStatus:'mfj',marryLater:false,marriageAgeA:55,bridgeIncomeA:0,bridgeStartAgeA:65,bridgeEndAgeA:70,bridgeIncomeB:0,bridgeStartAgeB:65,bridgeEndAgeB:70,rothConvEnabled:false,rothConvStartAge:60,rothConvEndAge:63,rothConvBracket:22,buyAge:50,buyCash:false,buyDownPct:20,buyClosingPct:4,buyTerm15:false,buyExtraPrincipal:0,loans:Array.from({length:5},()=>({principal:0,balance:0,rate:0,term:0,extra:0})),spendingTiers:Array.from({length:5},()=>({enabled:false,age:65,amount:60000})),incomeSources:Array.from({length:3},()=>({enabled:false,amount:0,startAge:65,endAge:75})),oneTimeIncome:Array.from({length:3},()=>({enabled:false,age:65,amount:0}))};
-  const storageKey='fireCouplePlanner.massachusettsOffline.v1',legacyStorageKey='fireCouplePlanner.v3',storage=null;
-  let state={...defaults,loans:defaults.loans.map(l=>({...l}))},mode='real',chartView='3yr',logScale=false,mcPathCount=1000;
-  try{storage?.removeItem(legacyStorageKey);const saved=JSON.parse(storage?.getItem(storageKey)||'null');if(saved?.state)state={...state,...saved.state};if(['real','nominal'].includes(saved?.mode))mode=saved.mode;}catch{}
-  if(!['own','rent','rentThenBuy'].includes(state.tenure))state.tenure='own';
-  if(!['mfj','single'].includes(state.filingStatus))state.filingStatus='mfj';
-  state.retireAgeA=Math.max(state.ageA,Number(state.retireAgeA??state.retireAge??state.ageA));state.retireAgeB=Math.max(state.ageB,Number(state.retireAgeB??state.retireAge??state.ageB));
+  const storageKey='fireCouplePlanner.massachusettsOffline.v1',legacyStorageKey='fireCouplePlanner.v3',storage=null,SCENARIO_SCHEMA_VERSION=1;
+  // Normalizes any raw/partial state object (a legacy autosave, an imported
+  // scenario file from an older or newer version of this tool, or a
+  // hand-edited one) into a complete, current-shape state by merging it over
+  // today's defaults. Fields the raw object is missing fall back to the
+  // current default; fields it has that no longer exist are simply dropped.
+  // This is what keeps saved scenarios working across future tool updates.
+  function normalizeState(raw){
+    const s={...defaults,...(raw||{})};
+    if(!['own','rent','rentThenBuy'].includes(s.tenure))s.tenure='own';
+    if(!['mfj','single'].includes(s.filingStatus))s.filingStatus='mfj';
+    s.retireAgeA=Math.max(s.ageA,Number(s.retireAgeA??s.retireAge??s.ageA));s.retireAgeB=Math.max(s.ageB,Number(s.retireAgeB??s.retireAge??s.ageB));
+    s.lifeExpectancyA=Math.min(110,Math.max(s.lifeExpectancyA,s.ageA+1));s.lifeExpectancyB=Math.min(110,Math.max(s.lifeExpectancyB,s.ageB+1));
+    s.loans=Array.from({length:5},(_,i)=>({...defaults.loans[i],...(Array.isArray(s.loans)?s.loans[i]:{})}));
+    s.spendingTiers=Array.from({length:5},(_,i)=>({...defaults.spendingTiers[i],...(Array.isArray(s.spendingTiers)?s.spendingTiers[i]:{})}));
+    s.incomeSources=Array.from({length:3},(_,i)=>({...defaults.incomeSources[i],...(Array.isArray(s.incomeSources)?s.incomeSources[i]:{})}));
+    s.oneTimeIncome=Array.from({length:3},(_,i)=>({...defaults.oneTimeIncome[i],...(Array.isArray(s.oneTimeIncome)?s.oneTimeIncome[i]:{})}));
+    return s;
+  }
+  let state=normalizeState(null),mode='real',chartView='3yr',logScale=false,mcPathCount=1000,scenarios=[],compareIds=new Set();
+  try{storage?.removeItem(legacyStorageKey);const saved=JSON.parse(storage?.getItem(storageKey)||'null');if(saved?.state)state=normalizeState(saved.state);if(['real','nominal'].includes(saved?.mode))mode=saved.mode;}catch{}
   const ids=['ageA','ageB','lifeExpectancyA','lifeExpectancyB','retireAgeA','retireAgeB','incomeA','incomeB','matchA','matchB','k401PctA','k401PctB','catchupPctA','catchupPctB','iraPctA','iraPctB','megaPctA','megaPctB','spending','incomeGrowth','inflation','taxable','basisRatio','traditional','roth','cash','cashReserve','bondYears','returnRate','bondReturn','hysaRate','homeValue','homeGrowth','mortgage','mortgageRate','mortgageYears','extraPrincipal','maintenance','rent','rentGrowth','ssMonthlyA','ssStartAgeA','ssMonthlyB','ssStartAgeB','pensionYearlyA','pensionStartAgeA','pensionYearlyB','pensionStartAgeB','healthcare','ltcYearlyA','ltcAgeA','ltcYearlyB','ltcAgeB','marriageAgeA','bridgeIncomeA','bridgeStartAgeA','bridgeEndAgeA','bridgeIncomeB','bridgeStartAgeB','bridgeEndAgeB','rothConvStartAge','rothConvEndAge','buyAge','buyDownPct','buyClosingPct','buyExtraPrincipal'];
-  state.loans=Array.from({length:5},(_,i)=>({...defaults.loans[i],...(Array.isArray(state.loans)?state.loans[i]:{})}));
-  state.spendingTiers=Array.from({length:5},(_,i)=>({...defaults.spendingTiers[i],...(Array.isArray(state.spendingTiers)?state.spendingTiers[i]:{})}));
-  state.incomeSources=Array.from({length:3},(_,i)=>({...defaults.incomeSources[i],...(Array.isArray(state.incomeSources)?state.incomeSources[i]:{})}));
-  state.oneTimeIncome=Array.from({length:3},(_,i)=>({...defaults.oneTimeIncome[i],...(Array.isArray(state.oneTimeIncome)?state.oneTimeIncome[i]:{})}));
   const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0,notation:Math.abs(n)>=1e7?'compact':'standard'}).format(n||0);
   const compact=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',notation:'compact',maximumFractionDigits:1}).format(n||0);
   const pct=n=>(n||0)/100;
+  const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   // S&P 500 calendar-year total returns (dividends reinvested), US CPI
   // inflation, and 10-year US Treasury bond total returns, 1928-2025.
   // Source: Damodaran/NYU Stern historical returns dataset.
@@ -860,6 +891,7 @@
     document.getElementById('chartAgeNote').textContent=state.singlePerson?'Chart age refers to you.':'Chart age refers to Partner A.';
     renderChartView(selected);renderTable(selected);
     window.fireProjection={mode,retirementAgeA:state.retireAgeA,retirementAgeB:state.retireAgeB,mortgagePayoffAge:selected.payoffAge,investableAtRetirement:displayValue(retirement.investable,retirement.year),netWorthAtRetirement:displayValue(retirement.total,retirement.year),depletedAge:selected.depletedAge,endAssets:displayValue(end.total,end.year)};
+    renderScenarioComparison();
   }
 
   // Real-CAGR sweep: temporarily overrides the nominal investment return with
@@ -1045,6 +1077,101 @@
   }
 
   function saveInputs(){document.getElementById('saveStatus').textContent='Not saved — offline mode';}
+
+  // Scenarios: named snapshots of the full input state, kept in memory for
+  // this tab and optionally exported to a JSON file for safekeeping. Every
+  // load path (boot, Load, and file import) runs through normalizeState(),
+  // so a scenario saved by an older or newer version of this tool still
+  // loads correctly — missing fields fall back to today's defaults, and
+  // unrecognized old fields are simply dropped.
+  const cloneState=s=>JSON.parse(JSON.stringify(s));
+  function computeScenarioMetrics(scenarioState){
+    const backup=state;
+    state=normalizeState(scenarioState);
+    let out;
+    try{
+      const sim=simulate();
+      const retirement=sim.rows.find(r=>r.year===sim.retirementYear)||sim.rows[0],end=sim.rows.at(-1);
+      out={
+        retireLabel:state.singlePerson?`Age ${state.retireAgeA}`:`A ${state.retireAgeA} / B ${state.retireAgeB}`,
+        investableAtRetirement:displayValue(retirement.investable,retirement.year),
+        netWorthAtRetirement:displayValue(retirement.total,retirement.year),
+        lastsTo:sim.depletedAge?`Age ${sim.depletedAge}`:`Age ${Math.max(state.lifeExpectancyA,state.singlePerson?0:state.lifeExpectancyB)}+`,
+        depleted:!!sim.depletedAge,
+        endAssets:displayValue(end.total,end.year),
+      };
+    }finally{
+      state=backup;
+    }
+    return out;
+  }
+  function saveScenario(){
+    const nameInput=document.getElementById('scenarioName'),name=(nameInput.value||'').trim()||`Scenario ${scenarios.length+1}`;
+    scenarios.push({id:`sc_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,name,savedAt:new Date().toISOString(),schemaVersion:SCENARIO_SCHEMA_VERSION,state:cloneState(state)});
+    nameInput.value='';
+    renderScenarioList();renderScenarioComparison();
+  }
+  function loadScenario(id){
+    const sc=scenarios.find(s=>s.id===id);
+    if(!sc)return;
+    state=normalizeState(sc.state);
+    syncControls();syncContributionControls();render();saveInputs();
+  }
+  function deleteScenario(id){
+    scenarios=scenarios.filter(s=>s.id!==id);compareIds.delete(id);
+    renderScenarioList();renderScenarioComparison();
+  }
+  function downloadJson(filename,dataObj){
+    const blob=new Blob([JSON.stringify(dataObj,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }
+  function exportScenario(id){
+    const sc=scenarios.find(s=>s.id===id);
+    if(!sc)return;
+    downloadJson(`fire-planner-scenario-${(sc.name||'scenario').replace(/[^a-z0-9]+/gi,'-').toLowerCase()}.json`,{firePlannerScenario:true,schemaVersion:SCENARIO_SCHEMA_VERSION,name:sc.name,savedAt:sc.savedAt,state:sc.state});
+  }
+  function exportAllScenarios(){
+    downloadJson('fire-planner-scenarios.json',{firePlannerScenarioList:true,schemaVersion:SCENARIO_SCHEMA_VERSION,scenarios:scenarios.map(sc=>({name:sc.name,savedAt:sc.savedAt,state:sc.state}))});
+  }
+  function importScenarioFile(file){
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const parsed=JSON.parse(reader.result);
+        const items=Array.isArray(parsed.scenarios)?parsed.scenarios:[parsed];
+        let added=0;
+        items.forEach(item=>{
+          if(!item||typeof item!=='object')return;
+          const rawState=item.state&&typeof item.state==='object'?item.state:item;
+          scenarios.push({id:`sc_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,name:item.name||'Imported scenario',savedAt:item.savedAt||new Date().toISOString(),schemaVersion:SCENARIO_SCHEMA_VERSION,state:normalizeState(rawState)});
+          added++;
+        });
+        if(!added)throw new Error('empty');
+        renderScenarioList();renderScenarioComparison();
+      }catch(err){
+        alert('Could not read that file as a scenario export (invalid or unrecognized JSON).');
+      }
+    };
+    reader.readAsText(file);
+  }
+  function renderScenarioList(){
+    const list=document.getElementById('scenarioList');
+    document.getElementById('exportAllScenariosBtn').hidden=scenarios.length===0;
+    if(!scenarios.length){list.innerHTML='<p class="range-note">No saved scenarios yet.</p>';return;}
+    list.innerHTML=scenarios.map(sc=>`<div style="display:flex;align-items:center;gap:6px;border-top:1px solid #edf1f5;padding:7px 0;font-size:.8rem"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer"><input type="checkbox" data-compare="${sc.id}" ${compareIds.has(sc.id)?'checked':''}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(sc.name)}">${escapeHtml(sc.name)}</span></label><button type="button" class="reset" data-load="${sc.id}" style="padding:4px 8px">Load</button><button type="button" class="reset" data-export="${sc.id}" style="padding:4px 8px">Export</button><button type="button" class="reset" data-delete="${sc.id}" style="padding:4px 8px">Delete</button></div>`).join('');
+    list.querySelectorAll('[data-compare]').forEach(el=>el.addEventListener('change',e=>{const id=e.target.getAttribute('data-compare');if(e.target.checked)compareIds.add(id);else compareIds.delete(id);renderScenarioComparison();}));
+    list.querySelectorAll('[data-load]').forEach(el=>el.addEventListener('click',e=>loadScenario(e.target.getAttribute('data-load'))));
+    list.querySelectorAll('[data-export]').forEach(el=>el.addEventListener('click',e=>exportScenario(e.target.getAttribute('data-export'))));
+    list.querySelectorAll('[data-delete]').forEach(el=>el.addEventListener('click',e=>{const id=e.target.getAttribute('data-delete'),target=scenarios.find(s=>s.id===id);if(confirm(`Delete scenario "${target?target.name:'this scenario'}"? This can't be undone (export it first if you want to keep it).`))deleteScenario(id)}));
+  }
+  function renderScenarioComparison(){
+    const compareCard=document.getElementById('scenarioCompareCard'),compareRows=document.getElementById('scenarioCompareRows');
+    const active=scenarios.filter(sc=>compareIds.has(sc.id));
+    compareCard.hidden=active.length===0;
+    if(!active.length){compareRows.innerHTML='';return;}
+    const rows=[{name:'Current (live inputs)',...computeScenarioMetrics(state)},...active.map(sc=>({name:sc.name,...computeScenarioMetrics(sc.state)}))];
+    compareRows.innerHTML=rows.map(r=>`<tr><td><b>${escapeHtml(r.name)}</b></td><td>${r.retireLabel}</td><td>${money(r.investableAtRetirement)}</td><td>${money(r.netWorthAtRetirement)}</td><td><span class="table-status ${r.depleted?'fail':''}">${r.lastsTo}</span></td><td>${money(r.endAssets)}</td></tr>`).join('');
+  }
   function exportCsv(){const sim=simulate(),columns=[['yearIndex','Year index'],['age','Partner A age'],['ageB','Partner B age'],['working','Any partner working'],['workingA','Partner A working'],['workingB','Partner B working'],['taxable','Taxable brokerage'],['bonds','Bonds'],['traditional','Traditional retirement'],['roth','Roth retirement'],['cash','Cash / HYSA'],['homeEquity','Home equity'],['loanBalance','Loan balances'],['investable','Investable assets'],['total','Net assets']],csv=[columns.map(([,label])=>label).join(',')].concat(sim.rows.map(row=>columns.map(([key])=>{const value=key==='ageB'&&state.singlePerson?'':row[key];return typeof value==='string'?`"${value.replaceAll('"','""')}"`:value;}).join(','))).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='fire-planner-annual-projection.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);}
   function renderLoanFields(){document.getElementById('loanFields').innerHTML=state.loans.map((l,i)=>`<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:#526174">Loan ${i+1}</b><div class="field"><label for="loan${i}Principal">Original principal</label><input id="loan${i}Principal" type="number" min="0" step="1000" value="${l.principal||0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" min="0" step="1000" value="${l.balance||0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate||0}"></div><div class="field"><label for="loan${i}Term">Years remaining</label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term||0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" min="0" step="50" value="${l.extra||0}"></div></div>`).join('');state.loans.forEach((_,i)=>['principal','balance','rate','term','extra'].forEach(key=>document.getElementById(`loan${i}${key[0].toUpperCase()+key.slice(1)}`).addEventListener('input',e=>{state.loans[i][key]=Number(e.target.value)||0;render();saveInputs()}))) }
   function renderSpendingTierFields(){document.getElementById('spendingTierFields').innerHTML=state.spendingTiers.map((t,i)=>`<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="tier${i}Enabled"><input id="tier${i}Enabled" type="checkbox" ${t.enabled?'checked':''}> Spending change ${i+1}</label></div><div class="field" ${t.enabled?'':'hidden'} id="tier${i}Fields"><label for="tier${i}Age">Starts at Partner A age</label><input id="tier${i}Age" type="number" min="18" max="100" step="1" value="${t.age||65}"></div><div class="field" ${t.enabled?'':'hidden'} id="tier${i}AmountField"><label for="tier${i}Amount">New annual household spending</label><input id="tier${i}Amount" type="number" min="0" step="1000" value="${t.amount||60000}"></div></div>`).join('');state.spendingTiers.forEach((_,i)=>{document.getElementById(`tier${i}Enabled`).addEventListener('change',e=>{state.spendingTiers[i].enabled=e.target.checked;renderSpendingTierFields();render();saveInputs()});document.getElementById(`tier${i}Age`).addEventListener('input',e=>{state.spendingTiers[i].age=Number(e.target.value)||0;render();saveInputs()});document.getElementById(`tier${i}Amount`).addEventListener('input',e=>{state.spendingTiers[i].amount=Number(e.target.value)||0;render();saveInputs()})})}
@@ -1082,6 +1209,12 @@
   function setMode(next){mode=next;document.getElementById('realBtn').classList.toggle('active',mode==='real');document.getElementById('nominalBtn').classList.toggle('active',mode==='nominal');document.getElementById('realBtn').setAttribute('aria-checked',mode==='real');document.getElementById('nominalBtn').setAttribute('aria-checked',mode==='nominal');render();saveInputs()}
   document.getElementById('resetBtn').addEventListener('click',()=>{state={...defaults,loans:defaults.loans.map(l=>({...l})),spendingTiers:defaults.spendingTiers.map(t=>({...t})),incomeSources:defaults.incomeSources.map(t=>({...t})),oneTimeIncome:defaults.oneTimeIncome.map(t=>({...t}))};mode='real';logScale=false;document.getElementById('logScaleToggle').checked=false;setMcPathCount(1000);syncControls();syncContributionControls();setMode('real');setChartView('3yr')});
   function syncTopbarHeight(){const tb=document.querySelector('.topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}
+  document.getElementById('saveScenarioBtn').addEventListener('click',saveScenario);
+  document.getElementById('scenarioName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveScenario();}});
+  document.getElementById('importScenarioBtn').addEventListener('click',()=>document.getElementById('importScenarioInput').click());
+  document.getElementById('importScenarioInput').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)importScenarioFile(f);e.target.value='';});
+  document.getElementById('exportAllScenariosBtn').addEventListener('click',exportAllScenarios);
+  renderScenarioList();
   window.addEventListener('resize',()=>{render();syncTopbarHeight()});syncControls();syncContributionControls();setMode(mode);syncTopbarHeight();initChartHover();
 
   const mc=document.modelContext;if(mc?.registerTool){
