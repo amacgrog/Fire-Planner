@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Interactive FIRE projections for a couple, including account types, taxes, housing, Social Security, pension, healthcare, and long-term care.">
-  <title>FIRE Couple Planner — US</title>
+  <title>FIRE Planner — US</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1320'/%3E%3Cpath d='M32 10c7 10 15 17 15 29 0 10-7 17-15 17S17 49 17 39c0-8 4-14 10-20 0 8 3 12 7 15-1-8 0-15-2-24z' fill='%23f59e0b'/%3E%3Cpath d='M32 35c5 5 7 9 7 13 0 5-3 8-7 8s-7-3-7-8c0-4 2-8 7-13z' fill='%23fde68a'/%3E%3C/svg%3E">
   <style>
     :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#748195;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320}
@@ -41,7 +41,7 @@
 <div class="app">
   <div class="top-disclaimer">⚠ Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions.</div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Couple Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V17</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V17</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div style="display:flex;gap:10px;align-items:center"><span class="save-status" id="saveStatus">Saved on this device</span><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="view-toggle" role="radiogroup" aria-label="Dollar view"><button id="realBtn" class="active" role="radio" aria-checked="true">Real $</button><button id="nominalBtn" role="radio" aria-checked="false">Nominal $</button></div></div>
   </header>
   <main>
