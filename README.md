@@ -1,7 +1,7 @@
 # FIRE Planner
 
 Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators for a couple (or single person). Nothing leaves your device — open the file in a browser and it runs entirely client-side, with no server, account, or internet connection required.
-
+https://amacgrog.github.io/Fire-Planner/
 ## Files
 
 - `index.html` — landing page linking to both tools
