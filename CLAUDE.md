@@ -159,10 +159,22 @@ Each planner is one big IIFE. The core shape:
   `card.open`-gated call inside it) — it'll get sized correctly the moment
   the Dashboard tab becomes visible, same as the existing charts.
 - **First-run banner** (`#firstRunBanner`, styled like `.shortfall-banner`
-  but with `--blue` instead of `--amber`) — the page has no persistence
-  across reloads (see the README's privacy note), so it always boots into
-  the same fully-computed projection built from generic example numbers,
-  which reads as someone else's finished plan rather than an invitation. The
+  but with `--blue` instead of `--amber`) and the **"Explore a question"
+  menu** (`#decisionCard`) both live as direct children of `<main>`, *before*
+  `#workspace`, not inside `.content` — they used to be the first two
+  children of `.content` but that meant they vanished on mobile whenever the
+  Inputs tab was active (`.content` is `display:none` in that state). Living
+  above `#workspace` means they render once and are visible regardless of
+  which mobile tab is active, and also regardless of `.panel`/`.content`
+  being swapped in/out — no duplication, no per-tab-state tracking needed.
+  On desktop this also makes them full-width above the two-column layout
+  rather than confined to the right column, which reads better anyway. Both
+  need their own `margin-bottom` now that they're outside `.workspace`'s
+  grid `gap` (`.first-run-banner` already had one; `#decisionCard` needed
+  one added). The page has no persistence across reloads (see the README's
+  privacy note), so it always boots into the same fully-computed projection
+  built from generic example numbers, which reads as someone else's
+  finished plan rather than an invitation. The
   banner names that and links to the two real "make it yours" paths (the
   `#wizardBtn` — relabeled `✨ Get started` and given the `.cta-btn` accent
   style so it's the most visually prominent action in the topbar, not just
@@ -203,7 +215,22 @@ Each planner is one big IIFE. The core shape:
     (`#sensitivityCard`, or `setChartView('hist')` on `#mainChartCard`).
     `returns` also has an optional `note()` for a one-line success-rate
     callout; `open` questions without a `note()` leave `#decisionAnswer`
-    hidden rather than showing an empty card.
+    hidden rather than showing an empty card. Both call
+    `switchToDashboardTab()` first — since the question row now lives above
+    `#workspace` (visible on both mobile tabs, see above), a click can
+    originate from the Inputs tab, and the target card lives in `.content`,
+    which is `display:none` in that state. `switchToDashboardTab()` just
+    calls `setMobileView('dashboard')` if `#workspace`'s current view is
+    `'inputs'` — harmless to call on desktop too, where the attribute has no
+    CSS effect. `setMobileView` itself is declared with `let` right next to
+    `DECISION_QUESTIONS` (not left private inside the mobile-tabs setup
+    block further down) specifically so these two closures can reach it;
+    the mobile-tabs block assigns the real implementation to that same
+    variable rather than declaring its own. Both cards also carry
+    `scroll-margin-top` (topbar height + a buffer on desktop, a fixed value
+    accounting for the sticky `.mobile-tabs` bar on mobile) so
+    `scrollIntoView({block:'start'})` doesn't land with the card's own
+    heading tucked under a sticky element above it.
   - The `survivor` button carries the existing `data-partner-b` attribute
     (same convention as every other partner-B-only field) so single-person
     mode hides it for free via the existing `.single-person
