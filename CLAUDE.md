@@ -81,6 +81,48 @@ Each planner is one big IIFE. The core shape:
   event listener that calls `render()` when the user expands the card. When
   adding a new expensive collapsible result, follow this pattern rather than
   computing it unconditionally on every keystroke.
+- `mortgageSchedule()` (home mortgage) / `loanSchedules()` (each "Other
+  loans" entry) — both compute a fixed level monthly payment via
+  `mortgagePayment(principal, annualRate, years)` and then walk that
+  payment forward against the current balance. The payment MUST be solved
+  from the **original** principal and **original** term, never from the
+  current remaining balance and however-many-years-the-user-thinks-are-
+  left — a real loan's payment is fixed at origination and doesn't get
+  smaller just because extra principal has been paid down since. Solving
+  from (currentBalance, rate, yearsRemaining) instead silently
+  under-charges the payment (since the same balance is being spread over
+  the same number of years, ignoring that it started smaller than a fresh
+  loan would have), which was an actual bug here until it was fixed: paying
+  down half a mortgage early used to show *zero* change in projected
+  payoff date, because the recalculated payment shrank to exactly offset
+  the smaller balance. Both functions now take `originalPrincipal =
+  (state.mortgagePrincipal / loan.principal) > 0 ? that : balance` — the
+  fallback to `balance` matters for backward compatibility: it's what an
+  older saved scenario (from before `mortgagePrincipal` existed, or one
+  that simply left "Original principal" at 0) gets, which reproduces the
+  old, only-wrong-if-you've-paid-extra behavior rather than silently
+  producing a `$0` payment or a NaN. `term`/`mortgageYears` mean "the
+  loan's original term" now, not "years remaining" — the actual remaining
+  payoff time falls out naturally from walking the fixed payment against
+  the current balance, so the user never has to know or calculate it
+  themselves. The one place this pattern does NOT apply:
+  `buildDeferredMortgage()` (used by `futureHomePurchase()` for the "Rent,
+  then buy" transition) originates a brand-new loan at the full purchase
+  price with a term from `state.buyTerm` (a manually-entered "Loan term
+  (years)" field — originally a `buyTerm15` boolean toggling between a
+  hardcoded 15 or 30 years, changed to a plain number so the person can
+  enter whatever their actual term will be, e.g. 25 for the more
+  Canada-typical amortization) from day one — there's no "remaining
+  balance vs. original" ambiguity for a loan that hasn't started yet, so
+  this one was already correct on the payment math and only needed the
+  term itself to stop being hardcoded. Every
+  downstream consumer (shelter cost, mortgage/loan payoff age, home equity,
+  the Sankey diagram, the projection table's "Loan balances" column) reads
+  `schedule.payments[year]`/`schedule.balances[year]` or
+  `loans[i].payments[year]`/`loans[i].balances[year]` — never
+  `state.mortgage`/`state.mortgageYears`/`loan.term` directly — so fixing
+  these two functions was sufficient to correct every downstream number
+  with no other call sites to update.
 - `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` —
   the tornado chart. Levers live in one array (`id`, `label`, `run(endValue)`
   — mutate `state`, call `simulate()`, restore); which ones actually get
