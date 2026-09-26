@@ -188,7 +188,15 @@ other requires re-deriving the equivalent, not just renaming variables:
   hand-author that trailer yourself in a prompt or template.
 - One feature (or tightly related group of changes) per commit; commit
   messages should explain *why*, not just restate the diff.
-- After a batch of feature work, update `README.md`'s feature list (see
-  git history for the pattern — e.g. the commit that documented the
-  survivor-planning and cash-flow-Sankey features) so the user-facing
-  feature list doesn't drift from what the code actually does.
+- **Docs are updated in the same batch of work as the code change, not as
+  a separate later pass.** If a change is user-facing, update `README.md`'s
+  feature list before/alongside committing (see git history for the
+  pattern — e.g. the commit that documented the survivor-planning and
+  cash-flow-Sankey features). If a change is architectural — a new shared
+  helper, a new US/Canada divergence, a new gotcha worth knowing about —
+  update this file (`CLAUDE.md`) the same way. The repo may exist as
+  multiple independent local clones with no shared remote between them
+  (e.g. a disposable cloud-agent working copy alongside the person's own
+  machine), so the two docs, kept current in the repo itself, are what let
+  a session with no memory of prior conversations — or a differently-synced
+  copy of the repo — pick up accurately from the repo contents alone.

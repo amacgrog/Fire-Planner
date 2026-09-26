@@ -97,6 +97,9 @@ These files use **stable filenames** — always `Planner_US.html` / `Planner_Can
 
 1. Edit the file (or have Claude edit it).
 2. Save it back over the same filename (`Planner_US.html` / `Planner_Canada.html`) — don't create a new versioned copy.
-3. Commit the change with a short message describing what changed.
+3. If the change adds or changes a user-facing feature, update this README's feature list in the same batch of work. If it changes anything architectural (a new shared helper, a new gotcha, a new divergence between the US and Canada files), update `CLAUDE.md` too.
+4. Commit the change with a short message describing what changed.
+
+Keeping README.md and CLAUDE.md current alongside the code (rather than as an occasional separate pass) is what lets a future session — one with no memory of this conversation, possibly running in a different, disconnected copy of this repo — pick up accurately from just the repo contents.
 
 If you're using GitHub Desktop: open the app, you'll see the changed file listed, write a one-line summary in the box at bottom left, click **Commit to main**, then click **Push origin** to sync it to GitHub.
