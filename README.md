@@ -14,6 +14,8 @@ MIT licensed — see [LICENSE](LICENSE).
 
 Both tools run on the same underlying engine and share these features:
 
+- **Guided setup wizard**: an optional 2-step modal (launched from the topbar) for getting a first projection running — step 1 asks for the basics (single/partnered, ages, income, retirement age, account balances, spending), step 2 offers a checklist of the features below that make the simulation more or less detailed (LTC, ACA, Roth conversion/RRSP meltdown ladder, mega backdoor Roth, bridge income, additional income, other loans, Guyton-Klinger guardrails). Every wizard field is a live proxy for the real sidebar control, so it never gets out of sync and can be safely skipped entirely
+- **"What's driving this" shortfall banner**: when a projection depletes before the end of the plan, a banner explains the likely cause and the smallest change that would fix it. It checks structural causes first (LTC or healthcare costs materially increasing the shortfall) before falling back to the two generic levers everyone has — spending and retirement timing — and for those two, it searches for the minimal cut or delay that actually resolves the shortfall rather than testing one arbitrary fixed amount
 - **Couple or single-person mode**, each partner with independent ages, income, retirement date, and a configurable "plan finances through age" (life expectancy, default 100) that sets how many years the projection runs
 - **Investment growth**: separate nominal return assumptions for stocks, bonds, and a high-yield savings/cash rate
 - **Bond-ladder bucket strategy**: a configurable number of years of expenses held in bonds, ramped up automatically before retirement, drawn down last
@@ -39,10 +41,15 @@ Both tools run on the same underlying engine and share these features:
 - **Five chart views**: retirement date ±1 year, ±3 years, a 0–7% real CAGR sweep, a full historical backtest using actual 1928–2025 S&P 500 returns, inflation, and 10-year Treasury bond returns (Damodaran/NYU Stern dataset), and a Monte Carlo simulation. The historical backtest only replays starting years that have enough remaining data to cover the full projection length, so a longer "plan finances through age" setting (or a younger starting age) shrinks the pool of usable starting years, while a shorter one grows it
 - **Monte Carlo simulation ("Monte Carlo" chart view)**: runs your choice of 500, 1,000, or 2,000 simulated futures and plots the result as a percentile fan chart (10th/25th/50th/75th/90th), alongside a success-rate metric. Instead of drawing each year's return independently at random (which can produce unrealistic strings of 100 years of straight gains or losses), each simulated path is built from randomly-ordered **5-year blocks of real historical data**, so multi-year trends, mean reversion, and the real correlation between stock returns, inflation, and bond returns are preserved within each block. Each block is drawn from anywhere across the full 1928–2025 dataset regardless of how long the projection runs, so — unlike the historical backtest below — it is not affected by the "plan finances through age" setting. Because it draws from the same 1928–2025 dataset as the historical backtest but recombines it into many more independent paths, its success rate is a different (and complementary) number from the historical backtest's — the historical view retells a small number of overlapping real 20th/21st-century sequences, while Monte Carlo dilutes any single bad era across thousands of randomly recombined paths
 - **Hover-to-inspect charts**: mousing over the ±1yr/±3yr/CAGR views shows a crosshair and each series' value at that age (disabled on the historical and Monte Carlo views, which show many paths/bands at once)
+- **Collapsible sensitivity analysis ("tornado chart")**: shows how far projected end assets swing when one assumption moves at a time (investment return, retirement age, household spending, inflation, bond return), holding everything else fixed, sorted by impact. Collapsed by default and only computed while expanded, so it never slows down the main dashboard
+- **Scenario overlay chart**: once any saved scenario is checked for comparison, a chart appears plotting each checked scenario's total-assets-by-age alongside "Current," so you can see the shape of the difference, not just the summary numbers in the comparison table
+- **Guyton-Klinger guardrails (opt-in toggle, off by default)**: a simplified dynamic-spending strategy. Instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when your withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule), so you can toggle it on to see how a dynamic policy changes the outcome versus a fixed one
 - **Log-scale chart toggle**
 - **CSV export** of the full year-by-year projection
-- **Named scenarios**: save the current inputs as a named snapshot, load any saved scenario back, and check any number of them for a side-by-side **scenario comparison table** (retirement age, investable/net worth at retirement, how long the portfolio lasts, end assets) alongside your live "Current" inputs, which updates as you type. Scenarios live in the browser tab only until exported — export any scenario (or all of them at once) to a JSON file to keep past the session or carry into a future update, and re-import it later. Every load path (boot, Load, and import) merges the saved data over the current defaults, so a scenario exported by an older or newer version of the tool still loads correctly: missing fields fall back to today's defaults, and fields that no longer exist are simply dropped — nothing breaks
+- **Print/PDF report**: a formatted, landscape-oriented summary (assumptions, results, and a year-by-year income/expenses/tax table) generated from the current inputs, ready to print or save as a PDF
+- **Named scenarios**: save the current inputs as a named snapshot, load any saved scenario back, and check any number of them for a side-by-side **scenario comparison table** (retirement age, investable/net worth at retirement, how long the portfolio lasts, end assets) and **overlay chart** (above) alongside your live "Current" inputs, which updates as you type. Scenarios live in the browser tab only until exported — export any scenario (or all of them at once) to a JSON file to keep past the session or carry into a future update, and re-import it later. Every load path (boot, Load, and import) merges the saved data over the current defaults, so a scenario exported by an older or newer version of the tool still loads correctly: missing fields fall back to today's defaults, and fields that no longer exist are simply dropped — nothing breaks
 - **Independently-scrolling sidebar**, so the assumptions panel and the results (chart/table/notes) scroll separately
+- **Mobile-responsive layout**: usable on a phone-width screen, with the sidebar/results stacking vertically and chart-view buttons wrapping instead of overflowing
 - **In-page MCP tool hooks** (`read_fire_projection`, `update_fire_assumptions`) for programmatic/agentic access to the live projection
 - **Nothing is saved or transmitted** — all inputs live only in the page's memory for that session (no localStorage, no server)
 
@@ -57,6 +64,7 @@ Both tools run on the same underlying engine and share these features:
 - ACA premium tax credit (2026 sliding-scale structure, with an option to model the enhanced ARPA/IRA-style subsidy instead)
 - Required Minimum Distributions (RMDs)
 - Roth conversion ladder: solves for the annual conversion that fills a chosen federal tax bracket, automatically capped so it never pushes MAGI over the ACA subsidy cliff (400% FPL, when ACA premium tax credits are enabled and not using the enhanced-subsidy option) or into the next Medicare IRMAA tier (once within 2 years of 65, using the 2-year MAGI lookback) — the bracket target becomes a ceiling on the conversion, not a guarantee that the full bracket gets filled. This is US-only, since Canada has no equivalent income-tested healthcare cliff to model (see the RRSP meltdown ladder below for Canada's closest analog)
+- **Bracket optimizer** (collapsible, only shown and computed while the ladder is enabled/expanded): re-runs the plan at every available bracket-fill target and reports which one minimizes estimated lifetime tax (income + payroll, summed across the projection in today's dollars), guarding against a recommendation that would shorten how long the portfolio lasts
 - MFJ vs. single filing status, with an optional "marry later" age
 
 ## Canada-specific (`Planner_Canada.html`)
@@ -67,6 +75,7 @@ Both tools run on the same underlying engine and share these features:
 - CPP (start age 60–70) and OAS (start age 65–70), with OAS recovery tax (clawback) modeled
 - RRIF minimum withdrawal rules starting at age 71
 - RRSP meltdown ladder: solves for the annual RRSP withdrawal that fills a chosen federal tax bracket, moving proceeds to TFSA
+- **Bracket optimizer** (collapsible, only shown and computed while the ladder is enabled/expanded): re-runs the plan at every available bracket-fill target and reports which one minimizes estimated lifetime tax (income + payroll, summed across the projection in today's dollars), guarding against a recommendation that would shorten how long the portfolio lasts
 - Pension income splitting between partners (up to 50% of eligible pension/RRIF income), solved to minimize combined household tax
 
 ## Versioning
@@ -76,6 +85,10 @@ These files use **stable filenames** — always `Planner_US.html` / `Planner_Can
 - `index.html`'s links never go stale.
 - Every update is just a `git commit`, not a rename-and-fix-links exercise.
 - Full history (what changed, when, why) lives in `git log` instead of a pile of old files.
+
+## Testing
+
+`npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. There is no automated coverage of the UI itself beyond this; changes to interactive behavior are currently verified ad hoc (e.g. with Playwright) rather than via a committed test file.
 
 ## Making an update
 

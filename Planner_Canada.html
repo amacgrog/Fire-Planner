@@ -10,11 +10,11 @@
     :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#748195;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320}
     :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff}
     *{box-sizing:border-box}html{font-size:16px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
-    button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh}.topbar{background:var(--topbar-fg);color:white;padding:18px clamp(18px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:18px;position:sticky;top:0;z-index:20;box-shadow:0 5px 20px rgba(0,0,0,.16)}
+    button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh}.topbar{background:var(--topbar-fg);color:white;padding:18px clamp(18px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:18px;position:sticky;top:0;z-index:20;box-shadow:0 5px 20px rgba(0,0,0,.16);flex-wrap:wrap}.topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}html,body{overflow-x:hidden;max-width:100%}
     .brand{display:flex;align-items:center;gap:12px}.mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fbbf24,#ea580c);display:grid;place-items:center;font-weight:900;color:#23140b}.brand h1{font-size:1.08rem;margin:0;letter-spacing:-.02em}.brand small{display:block;color:#aeb9c8;font-size:.76rem;margin-top:1px}
     .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--topbar-fg)}
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
-    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}
+    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
     .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     details.group summary{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
@@ -25,7 +25,7 @@
     details.group summary:hover{color:var(--ink2)}
     .range-field{margin:13px 0 17px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue)}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
-    .content{display:grid;gap:18px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
+    .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
     .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:var(--hint)}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
     .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
@@ -34,7 +34,7 @@
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
     @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:0;background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}}
-    @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}}
+    @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
     #printReport{display:none}
     #printReport h1{font-size:1.3rem;margin:0 0 4px}
     #printReport .pr-meta{color:#555;font-size:.82rem;margin:0 0 18px}
@@ -62,7 +62,7 @@
   <div class="top-disclaimer">⚠ Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions.</div>
   <header class="topbar">
     <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V2</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
-    <div style="display:flex;gap:10px;align-items:center"><span class="save-status" id="saveStatus">Saved on this device</span><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="wizardBtn">Customize modeled features</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="view-toggle" role="radiogroup" aria-label="Dollar view"><button id="realBtn" class="active" role="radio" aria-checked="true">Real $</button><button id="nominalBtn" role="radio" aria-checked="false">Nominal $</button></div></div>
+    <div class="topbar-actions"><span class="save-status" id="saveStatus">Saved on this device</span><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="wizardBtn">Customize modeled features</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="view-toggle" role="radiogroup" aria-label="Dollar view"><button id="realBtn" class="active" role="radio" aria-checked="true">Real $</button><button id="nominalBtn" role="radio" aria-checked="false">Nominal $</button></div></div>
   </header>
   <main>
     <div class="workspace">
@@ -124,6 +124,7 @@
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
           <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and RRSP proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
+          <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Simplified dynamic-spending strategy: instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; toggle on to compare outcomes.</small></label></div>
         </details>
         <details class="group" open>
           <summary>Housing</summary>
@@ -271,6 +272,25 @@
           <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartAgeNote">Chart age refers to Partner A.</span><span id="chartViewNote"></span></div>
         </div>
 
+        <details class="result-card" id="sensitivityCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Sensitivity analysis (tornado chart)</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How much projected end assets swing when one assumption moves, holding everything else fixed — widest bars matter most. Only computed while expanded.</p>
+          <div class="chart-wrap"><canvas id="tornadoChart" role="img" aria-label="Sensitivity of projected end assets to key assumptions, sorted by impact"></canvas></div>
+          <div class="chart-note"><span>Dashed line marks the current projection's end assets. Bars show the range across a fixed ± swing in each assumption (not a probability distribution).</span></div>
+        </details>
+
+        <div class="result-card" id="overlayCard" hidden>
+          <div class="result-head"><div><h2>Scenario overlay</h2><p>Total assets by age for each scenario checked for comparison above, plotted alongside "Current".</p></div><div class="legend" id="overlayLegend"></div></div>
+          <div class="chart-wrap"><canvas id="overlayChart" role="img" aria-label="Total assets by age for each checked scenario"></canvas></div>
+        </div>
+
+        <details class="result-card" id="rothOptimizerCard" hidden>
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">RRSP meltdown ladder optimizer</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target to estimate which minimizes lifetime tax paid (income + payroll tax, summed across the projection in today's dollars), while checking it doesn't shorten how long the portfolio lasts. Only computed while expanded.</p>
+          <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
+          <div class="table-wrap"><table><thead><tr><th>Fill to bracket</th><th>Lifetime tax (est.)</th><th>End assets</th><th>Portfolio lasts to</th></tr></thead><tbody id="rothOptimizerRows"></tbody></table></div>
+        </details>
+
         <div class="result-card">
           <div class="result-head"><div><h2>Selected retirement timeline</h2><p>Account balances and housing position at milestone ages.</p></div></div>
           <div class="table-wrap"><table><thead><tr><th id="ageAHead">Partner A age</th><th id="ageBHead">Partner B age</th><th>Status</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Loan balances</th><th>Net assets</th></tr></thead><tbody id="projectionRows"></tbody></table></div>
@@ -312,6 +332,7 @@
       <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Bridge / part-time income section.</small></label></div>
       <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Additional income section.</small></label></div>
       <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Other loans section.</small></label></div>
+      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Timeline &amp; income section — dynamic spending strategy instead of fixed inflation-adjusted spending.</small></label></div>
     </div>
     <div class="wizard-actions">
       <button type="button" class="reset" id="wizardBackBtn" hidden>Back</button>
@@ -351,6 +372,7 @@
     cashReserve: 30000,
     bondYears: 5,
     smoothWithdrawals: false,
+    guardrailsEnabled: false,
     returnRate: 7,
     bondReturn: 4,
     hysaRate: 4,
@@ -1215,6 +1237,19 @@
       magiHistory = [];
     let depletedAge = null,
       firstWithdrawal = 0;
+    // Guyton-Klinger guardrails (simplified, opt-in): once the first
+    // portfolio withdrawal occurs, that year's draw as a fraction of the
+    // portfolio value just before it is taken becomes the "initial
+    // withdrawal rate" baseline. In later withdrawal years, if the prior
+    // year's rate ran materially above that baseline (capital-preservation
+    // rule) or below it (prosperity rule), household discretionary spending
+    // is nudged down or up by 10% (persisting until the next trigger, capped
+    // to a 0.5x-1.5x band) — a lagged proxy, since this year's own
+    // withdrawal need can't be known before this year's spending is set.
+    let guardrailMultiplier = 1,
+      guardrailInitialWR = null,
+      guardrailPrevNeed = null,
+      guardrailPrevPortfolio = null;
     const activeSpending = (ageA) => {
       const applicable = state.spendingTiers
         .filter((t) => t.enabled && ageA >= t.age)
@@ -1429,7 +1464,17 @@
         clawbackB = singlePerson ? 0 : oasClawback(splitB, oasGrossB, year);
       const oasNetA = oasGrossA - clawbackA,
         oasNetB = oasGrossB - clawbackB;
-      const baseSpend = activeSpending(age) * factor;
+      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
+        const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
+        if (guardrailInitialWR > 0) {
+          if (priorWR > guardrailInitialWR * 1.2)
+            guardrailMultiplier = Math.max(0.5, guardrailMultiplier * 0.9);
+          else if (priorWR < guardrailInitialWR * 0.8)
+            guardrailMultiplier = Math.min(1.5, guardrailMultiplier * 1.1);
+        }
+      }
+      const baseSpend =
+        activeSpending(age) * factor * (state.guardrailsEnabled && !working ? guardrailMultiplier : 1);
       const healthcare = singlePerson
         ? (workingA ? 0 : state.healthcare) * factor
         : (workingA ? 0 : state.healthcare / 2) * factor +
@@ -1517,6 +1562,8 @@
         traditional -= traditionalMove;
         bondTraditional += traditionalMove;
       }
+      const guardrailPortfolioNow =
+        taxable + bondTaxable + traditional + bondTraditional + roth + bondRoth + cash + fhsa;
       if (flow >= 0) {
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash)),
           toTaxable = flow - cashTopUp;
@@ -1529,6 +1576,12 @@
       } else {
         let need = -flow;
         if (!working && year === retirementYear) firstWithdrawal = need;
+        if (state.guardrailsEnabled && !working) {
+          if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
+            guardrailInitialWR = need / guardrailPortfolioNow;
+          guardrailPrevNeed = need;
+          guardrailPrevPortfolio = guardrailPortfolioNow;
+        }
         let traditionalGross = meltdownAmount,
           taxableGainGross = 0;
         if (state.smoothWithdrawals) {
@@ -1740,6 +1793,12 @@
     let depletedAge = null,
       cumFactor = 1;
     const bondYears = getBondYears();
+    // See simulate() for the guardrails design note; same lagged, simplified
+    // Guyton-Klinger implementation applied to this bucket-strategy backtest.
+    let guardrailMultiplier = 1,
+      guardrailInitialWR = null,
+      guardrailPrevNeed = null,
+      guardrailPrevPortfolio = null;
     const activeSpending = (ageA) => {
       const applicable = state.spendingTiers
         .filter((t) => t.enabled && ageA >= t.age)
@@ -1908,7 +1967,17 @@
         clawbackB = singlePerson ? 0 : oasClawback(splitB, oasGrossB, year);
       const oasNetA = oasGrossA - clawbackA,
         oasNetB = oasGrossB - clawbackB;
-      const baseSpend = activeSpending(age) * factor;
+      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
+        const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
+        if (guardrailInitialWR > 0) {
+          if (priorWR > guardrailInitialWR * 1.2)
+            guardrailMultiplier = Math.max(0.5, guardrailMultiplier * 0.9);
+          else if (priorWR < guardrailInitialWR * 0.8)
+            guardrailMultiplier = Math.min(1.5, guardrailMultiplier * 1.1);
+        }
+      }
+      const baseSpend =
+        activeSpending(age) * factor * (state.guardrailsEnabled && !working ? guardrailMultiplier : 1);
       const healthcare = singlePerson
         ? (workingA ? 0 : state.healthcare) * factor
         : (workingA ? 0 : state.healthcare / 2) * factor +
@@ -2051,6 +2120,8 @@
         home -= from;
         return need - from;
       };
+      const guardrailPortfolioNow =
+        taxable + bondTaxable + traditional + bondTraditional + roth + bondRoth + cash + fhsa;
       if (flow >= 0) {
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash));
         cash += cashTopUp;
@@ -2072,6 +2143,12 @@
         fhsa += fhsaContrib;
       } else {
         let need = -flow;
+        if (state.guardrailsEnabled && !working) {
+          if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
+            guardrailInitialWR = need / guardrailPortfolioNow;
+          guardrailPrevNeed = need;
+          guardrailPrevPortfolio = guardrailPortfolioNow;
+        }
         if (yearReturn < 0) {
           // Down year: protect equities. Pay from cash, then the bond pool;
           // only fall back to selling taxable/traditional/Roth if both run out.
@@ -2303,6 +2380,10 @@
     renderChartView(selected);
     renderTable(selected);
     renderShortfallBanner(selected);
+    if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
+    const rothOptimizerCard = document.getElementById('rothOptimizerCard');
+    rothOptimizerCard.hidden = !state.meltdownEnabled;
+    if (state.meltdownEnabled && rothOptimizerCard.open) renderRothOptimizer(selected);
     window.fireProjection = {
       mode,
       retirementAgeA: state.retireAgeA,
@@ -2475,6 +2556,213 @@
   // the current inflation input, then restores it. Bond/HYSA yields and
   // retirement dates are left untouched, so this isolates sensitivity to the
   // main portfolio return assumption alone.
+  // Sensitivity ("tornado") analysis: for each of a handful of key
+  // assumptions, sweeps it up and down by a fixed amount (mutate/simulate/
+  // restore, same pattern as simulateAtRealCagr() below) and records the
+  // resulting end-assets value, holding every other input fixed. This is a
+  // one-at-a-time sensitivity sweep, not a joint/probabilistic analysis like
+  // Monte Carlo — it answers "which single assumption matters most," not
+  // "what's the range of likely outcomes."
+  function computeSensitivity(selected) {
+    const endValue = (sim) => {
+      const r = sim.rows.at(-1);
+      return displayValue(r.total, r.year);
+    };
+    const baseline = endValue(selected);
+    const levers = [
+      {
+        label: 'Investment return (±2pp)',
+        run: () => {
+          const saved = state.returnRate;
+          state.returnRate = saved - 2;
+          const decrease = endValue(simulate());
+          state.returnRate = saved + 2;
+          const increase = endValue(simulate());
+          state.returnRate = saved;
+          return { decrease, increase };
+        },
+      },
+      {
+        label: 'Retirement age (±3 yrs)',
+        run: () => {
+          const decrease = endValue(
+            simulate(
+              Math.max(state.ageA, state.retireAgeA - 3),
+              Math.max(state.ageB, state.retireAgeB - 3),
+            ),
+          );
+          const increase = endValue(
+            simulate(Math.min(70, state.retireAgeA + 3), Math.min(70, state.retireAgeB + 3)),
+          );
+          return { decrease, increase };
+        },
+      },
+      {
+        label: 'Household spending (±10%)',
+        run: () => {
+          const saved = state.spending;
+          state.spending = saved * 0.9;
+          const decrease = endValue(simulate());
+          state.spending = saved * 1.1;
+          const increase = endValue(simulate());
+          state.spending = saved;
+          return { decrease, increase };
+        },
+      },
+      {
+        label: 'Inflation (±1pp)',
+        run: () => {
+          const saved = state.inflation;
+          state.inflation = Math.max(0, saved - 1);
+          const decrease = endValue(simulate());
+          state.inflation = saved + 1;
+          const increase = endValue(simulate());
+          state.inflation = saved;
+          return { decrease, increase };
+        },
+      },
+      {
+        label: 'Bond return (±2pp)',
+        run: () => {
+          const saved = state.bondReturn;
+          state.bondReturn = saved - 2;
+          const decrease = endValue(simulate());
+          state.bondReturn = saved + 2;
+          const increase = endValue(simulate());
+          state.bondReturn = saved;
+          return { decrease, increase };
+        },
+      },
+    ];
+    const results = levers.map((l) => {
+      const { decrease, increase } = l.run();
+      return {
+        label: l.label,
+        decrease,
+        increase,
+        low: Math.min(decrease, increase),
+        high: Math.max(decrease, increase),
+      };
+    });
+    results.sort((a, b) => b.high - b.low - (a.high - a.low));
+    return { baseline, results };
+  }
+
+  function renderTornadoChart(selected) {
+    const canvas = document.getElementById('tornadoChart');
+    if (!canvas) return;
+    const { baseline, results } = computeSensitivity(selected);
+    const rowH = 46,
+      labelW = 190,
+      p = { l: labelW, r: 66, t: 10, b: 10 };
+    const rect = canvas.getBoundingClientRect(),
+      dpr = Math.min(2, window.devicePixelRatio || 1),
+      w = Math.max(340, rect.width),
+      h = results.length * rowH + p.t + p.b;
+    canvas.style.height = h + 'px';
+    canvas.width = Math.max(340, w * dpr);
+    canvas.height = Math.max(150, h * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+    const allVals = results.flatMap((r) => [r.low, r.high]).concat([baseline]);
+    let min = Math.min(...allVals),
+      max = Math.max(...allVals);
+    const pad = (max - min) * 0.1 || Math.max(1, Math.abs(baseline) * 0.1);
+    min -= pad;
+    max += pad;
+    const x = (v) => p.l + ((v - min) / (max - min || 1)) * (w - p.l - p.r);
+    const barColor = isDarkTheme() ? 'rgba(91,141,239,.5)' : 'rgba(37,99,235,.32)',
+      barStroke = isDarkTheme() ? '#5b8def' : '#2563eb';
+    results.forEach((r, i) => {
+      const y = p.t + i * rowH + rowH / 2,
+        barY = y - 9,
+        barH = 18,
+        x1 = x(r.low),
+        x2 = x(r.high);
+      ctx.textBaseline = 'middle';
+      ctx.font = '12px Inter,system-ui';
+      ctx.fillStyle = chartAxisColor();
+      ctx.textAlign = 'left';
+      ctx.fillText(r.label, 0, y);
+      ctx.fillStyle = barColor;
+      ctx.fillRect(Math.min(x1, x2), barY, Math.max(1, Math.abs(x2 - x1)), barH);
+      ctx.strokeStyle = barStroke;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(Math.min(x1, x2), barY, Math.max(1, Math.abs(x2 - x1)), barH);
+      ctx.font = '11px Inter,system-ui';
+      ctx.fillStyle = chartAxisColor();
+      ctx.textAlign = 'right';
+      ctx.fillText(compact(r.low), Math.min(x1, x2) - 6, y);
+      ctx.textAlign = 'left';
+      ctx.fillText(compact(r.high), Math.max(x1, x2) + 6, y);
+    });
+    const bx = x(baseline);
+    ctx.strokeStyle = chartZeroLineColor();
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(bx, p.t - 4);
+    ctx.lineTo(bx, h - p.b + 4);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function computeRothOptimizer(selected) {
+    const candidates = [...document.getElementById('meltdownBracket').options].map((o) =>
+      Number(o.value),
+    );
+    const savedEnabled = state.meltdownEnabled,
+      savedBracket = state.meltdownBracket;
+    const results = candidates.map((bracket) => {
+      state.meltdownEnabled = true;
+      state.meltdownBracket = bracket;
+      const sim = simulate();
+      const end = sim.rows.at(-1);
+      return {
+        bracket,
+        endAssets: displayValue(end.total, end.year),
+        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax, r.year), 0),
+        depletedAge: sim.depletedAge,
+      };
+    });
+    state.meltdownEnabled = savedEnabled;
+    state.meltdownBracket = savedBracket;
+    // "Not worse" = doesn't deplete when the current plan doesn't, and doesn't
+    // deplete earlier when it does — a lifetime-tax-minimizing bracket that
+    // shortens the portfolio's life isn't actually an improvement.
+    const notWorse = results.filter((r) =>
+      selected.depletedAge ? !r.depletedAge || r.depletedAge >= selected.depletedAge : !r.depletedAge,
+    );
+    const pool = notWorse.length ? notWorse : results;
+    const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
+    return { results, best, currentBracket: savedBracket };
+  }
+  function renderRothOptimizer(selected) {
+    const card = document.getElementById('rothOptimizerCard'),
+      summaryEl = document.getElementById('rothOptimizerSummary'),
+      rowsEl = document.getElementById('rothOptimizerRows');
+    const { results, best, currentBracket } = computeRothOptimizer(selected);
+    const current = results.find((r) => r.bracket === currentBracket);
+    const lastsLabel = (r) =>
+      r.depletedAge
+        ? `Age ${r.depletedAge}`
+        : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
+    if (best.bracket === currentBracket) {
+      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target is already the lifetime-tax-minimizing choice among the available options here.`;
+    } else {
+      const savings = current.lifetimeTax - best.lifetimeTax;
+      summaryEl.innerHTML = `Recommended: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(savings)}</b> less lifetime tax (income + payroll, today's dollars) over the projection, without shortening how long the portfolio lasts.`;
+    }
+    rowsEl.innerHTML = results
+      .map(
+        (r) =>
+          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
+      )
+      .join('');
+    card.hidden = false;
+  }
+
   function simulateAtRealCagr(realCagrPct) {
     const infl = pct(state.inflation),
       nominal = ((1 + realCagrPct / 100) * (1 + infl) - 1) * 100,
@@ -3045,6 +3333,99 @@
     }
     return out;
   }
+  const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
+  function computeOverlaySeriesFor(name, scenarioState) {
+    const backup = state;
+    state = normalizeState(scenarioState);
+    let rows;
+    try {
+      const sim = simulate();
+      rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
+    } finally {
+      state = backup;
+    }
+    return { name, rows };
+  }
+  function renderOverlayChart(active) {
+    const card = document.getElementById('overlayCard'),
+      canvas = document.getElementById('overlayChart'),
+      legend = document.getElementById('overlayLegend');
+    if (!active.length) {
+      card.hidden = true;
+      return;
+    }
+    card.hidden = false;
+    const series = [
+      computeOverlaySeriesFor('Current (live inputs)', state),
+      ...active.map((sc) => computeOverlaySeriesFor(sc.name, sc.state)),
+    ];
+    legend.innerHTML = series
+      .map(
+        (s, i) =>
+          `<span><i class="swatch" style="background:${overlayColors[i % overlayColors.length]}"></i><span>${escapeHtml(s.name)}</span></span>`,
+      )
+      .join('');
+    const rect = canvas.getBoundingClientRect(),
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.max(600, rect.width * dpr);
+    canvas.height = Math.max(300, rect.height * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const w = canvas.width / dpr,
+      h = canvas.height / dpr,
+      p = { l: 66, r: 18, t: 16, b: 40 };
+    const minAge = Math.min(...series.map((s) => s.rows[0].age)),
+      maxAge = Math.max(...series.map((s) => s.rows.at(-1).age)),
+      ageSpan = maxAge - minAge || 1;
+    const all = series.flatMap((s) => s.rows.map((r) => r.value));
+    let min = Math.min(0, ...all),
+      max = Math.max(1, ...all);
+    if (min < 0) min *= 1.1;
+    max *= 1.08;
+    const x = (age) => p.l + ((age - minAge) / ageSpan) * (w - p.l - p.r),
+      y = (v) => p.t + ((max - v) / (max - min || 1)) * (h - p.t - p.b);
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = '12px Inter,system-ui';
+    ctx.fillStyle = chartAxisColor();
+    ctx.strokeStyle = chartGridColor();
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+      const val = min + (max - min) * (i / 5),
+        yy = y(val);
+      ctx.beginPath();
+      ctx.moveTo(p.l, yy);
+      ctx.lineTo(w - p.r, yy);
+      ctx.stroke();
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(compact(val), p.l - 9, yy);
+    }
+    Array.from({ length: 7 }, (_, i) => Math.round(minAge + ageSpan * (i / 6)))
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .forEach((age) => {
+        ctx.fillStyle = chartAxisColor();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(age, x(age), h - p.b + 10);
+      });
+    const zero = y(0);
+    ctx.strokeStyle = chartZeroLineColor();
+    ctx.beginPath();
+    ctx.moveTo(p.l, zero);
+    ctx.lineTo(w - p.r, zero);
+    ctx.stroke();
+    series.forEach((s, i) => {
+      ctx.beginPath();
+      s.rows.forEach((r, ri) => {
+        const px = x(r.age),
+          py = y(r.value);
+        ri ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      });
+      ctx.strokeStyle = overlayColors[i % overlayColors.length];
+      ctx.lineWidth = i === 0 ? 3 : 2;
+      ctx.stroke();
+    });
+  }
   function saveScenario() {
     const nameInput = document.getElementById('scenarioName'),
       name = (nameInput.value || '').trim() || `Scenario ${scenarios.length + 1}`;
@@ -3183,6 +3564,7 @@
       compareRows = document.getElementById('scenarioCompareRows');
     const active = scenarios.filter((sc) => compareIds.has(sc.id));
     compareCard.hidden = active.length === 0;
+    renderOverlayChart(active);
     if (!active.length) {
       compareRows.innerHTML = '';
       return;
@@ -3505,6 +3887,7 @@
     document.getElementById('wizardBridgeEnabled').checked = !!state.bridgeEnabled;
     document.getElementById('wizardOtherIncomeEnabled').checked = !!state.otherIncomeEnabled;
     document.getElementById('wizardOtherLoansEnabled').checked = !!state.otherLoansEnabled;
+    document.getElementById('wizardGuardrailsEnabled').checked = !!state.guardrailsEnabled;
     document.getElementById('wizardSinglePerson').checked = !!state.singlePerson;
     document.getElementById('wizardAgeA').value = state.ageA;
     document.getElementById('wizardAgeB').value = state.ageB;
@@ -3518,6 +3901,7 @@
     document.getElementById('wizardCash').value = state.cash;
     document.getElementById('wizardSpending').value = state.spending;
     document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
+    document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
     [
       ['buyMortgageBtn', false],
       ['buyCashBtn', true],
@@ -3674,6 +4058,12 @@
     render();
     saveInputs();
   });
+  document.getElementById('guardrailsEnabled').addEventListener('change', (e) => {
+    state.guardrailsEnabled = e.target.checked;
+    syncControls();
+    render();
+    saveInputs();
+  });
   document.getElementById('payFrequency').addEventListener('change', (e) => {
     state.payFrequency = e.target.value;
     render();
@@ -3815,6 +4205,7 @@
     ['wizardBridgeEnabled', 'bridgeEnabled'],
     ['wizardOtherIncomeEnabled', 'otherIncomeEnabled'],
     ['wizardOtherLoansEnabled', 'otherLoansEnabled'],
+    ['wizardGuardrailsEnabled', 'guardrailsEnabled'],
     ['wizardSinglePerson', 'singlePerson'],
   ].forEach(([wizardId, realId]) => {
     document.getElementById(wizardId).addEventListener('change', (e) => {
@@ -3879,6 +4270,15 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') wizardOverlay.classList.remove('open');
+  });
+  // The tornado chart is only computed while expanded (it's a handful of
+  // extra simulate() calls, cheap but pointless work while collapsed), so
+  // opening it needs its own trigger since no input necessarily changed.
+  document.getElementById('sensitivityCard').addEventListener('toggle', (e) => {
+    if (e.target.open) render();
+  });
+  document.getElementById('rothOptimizerCard').addEventListener('toggle', (e) => {
+    if (e.target.open) render();
   });
   syncControls();
   syncContributionControls();
