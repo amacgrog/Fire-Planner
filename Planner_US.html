@@ -2283,6 +2283,15 @@
       const rmdFromTraditional = Math.min(traditional, rmd);
       traditional = Math.max(0, traditional - rmdFromTraditional);
       bondTraditional = Math.max(0, bondTraditional - (rmd - rmdFromTraditional));
+      // Total traditional/taxable dollars actually withdrawn this year, for
+      // the cash-flow Sankey — folds bondTraditional/bondTaxable draws into
+      // their parent tax-status bucket (they're the same tax-status money,
+      // just parked in the bond reserve) rather than leaving them buried in
+      // the generic "from portfolio" catch-all, which made RMD-only sources
+      // look artificially small in years the bond-traditional reserve was
+      // doing a lot of the work.
+      let traditionalWithdrawn = rmd,
+        taxableWithdrawn = 0;
       if (conversionAmount > 0) {
         const fromTradConv = Math.min(traditional, conversionAmount);
         traditional -= fromTradConv;
@@ -2358,6 +2367,7 @@
             taxableBasis -= taxableDraw.basisTaken;
             need -= taxableDraw.net;
             taxableGainGross = taxableDraw.gain;
+            taxableWithdrawn += taxableDraw.taken;
             if (traditionalShare > 0 && traditional > 0) {
               const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
               let lo = 0,
@@ -2374,6 +2384,7 @@
                   (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
               traditional -= fromTrad;
               traditionalGross += fromTrad;
+              traditionalWithdrawn += fromTrad;
               need = Math.max(0, need - tradNet);
             }
           }
@@ -2390,6 +2401,7 @@
           taxableBasis -= taxableDraw.basisTaken;
           need -= taxableDraw.net;
           taxableGainGross = taxableDraw.gain;
+          taxableWithdrawn += taxableDraw.taken;
           if (need > 0) {
             const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
             let lo = need,
@@ -2406,6 +2418,7 @@
                 (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
             traditional -= fromTrad;
             traditionalGross += fromTrad;
+            traditionalWithdrawn += fromTrad;
             need = Math.max(0, need - tradNet);
           }
         }
@@ -2429,6 +2442,7 @@
         bondTaxableBasis -= bondTaxableDraw.basisTaken;
         need -= bondTaxableDraw.net;
         taxableGainGross += bondTaxableDraw.gain;
+        taxableWithdrawn += bondTaxableDraw.taken;
         if (need > 0 && bondTraditional > 0) {
           const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
           let lo = need,
@@ -2445,6 +2459,7 @@
               (taxFor(profile, taxableGainGross, traditionalGross + fromBondTrad) - baseTax);
           bondTraditional -= fromBondTrad;
           traditionalGross += fromBondTrad;
+          traditionalWithdrawn += fromBondTrad;
           need = Math.max(0, need - net);
         }
         const fromBondRoth = Math.min(bondRoth, need);
@@ -2495,6 +2510,8 @@
         ss,
         pension,
         rmd,
+        traditionalWithdrawn,
+        taxableWithdrawn,
         housing,
         healthcare,
         ltc,
@@ -3660,6 +3677,14 @@
   // expense, so the diagram pools all sources into a single "cash flow" hub
   // and fans back out to categories, rather than implying specific
   // source-to-expense pairings the underlying data can't support.
+  // "Traditional withdrawal" and "Taxable/brokerage" are each the FULL
+  // amount drawn from that tax-status bucket, folding in whatever came from
+  // the same-status slice of the bond reserve (bondTraditional/bondTaxable)
+  // — otherwise a year that drained the equity sub-account but still had
+  // money sitting in the bond sub-account would make traditional/taxable
+  // withdrawals look artificially small next to a vague "from portfolio"
+  // catch-all. "From portfolio" now only covers Roth, cash, and home-equity
+  // draws (plus any pooled equity/pension shortfall not itemized here).
   function computeSankeyFlow(row) {
     const dark = isDarkTheme(),
       val = (n) => Math.max(0, displayValue(n || 0, row.year)),
@@ -3668,7 +3693,8 @@
       { label: 'Wages', value: val(row.wages), color: sankeyHue('blue', dark) },
       { label: 'Social Security', value: val(row.ss), color: sankeyHue('orange', dark) },
       { label: 'Pension', value: val(row.pension), color: sankeyHue('aqua', dark) },
-      { label: 'RMD', value: val(row.rmd), color: sankeyHue('yellow', dark) },
+      { label: 'Traditional withdrawal', value: val(row.traditionalWithdrawn), color: sankeyHue('yellow', dark) },
+      { label: 'Taxable/brokerage', value: val(row.taxableWithdrawn), color: sankeyHue('magenta', dark) },
     ].filter((s) => s.value > 1);
     const uses = [
       { label: 'Taxes', value: val(row.tax), color: sankeyHue('blue', dark) },

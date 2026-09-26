@@ -104,6 +104,21 @@ Each planner is one big IIFE. The core shape:
   div styled like the existing `#chartTooltip`), per the "mark is the hit
   target" rule for bar/cell-type marks (not a shared crosshair, which is
   reserved for the continuous ±1yr/±3yr/CAGR line charts).
+  `simulate()` (not `simulateHistorical()` — the Sankey only ever reads
+  `simulate()`'s rows) tracks `traditionalWithdrawn`/`taxableWithdrawn`
+  alongside `rmd`: the total actually drawn from the traditional/taxable
+  buckets that year, **folding in whatever came from the matching bond
+  sub-account** (`bondTraditional`/`bondTaxable`) rather than leaving it
+  buried in the "From portfolio" catch-all. This matters because RMDs (and
+  any additional shortfall withdrawal) draw from `traditional` first and
+  spill into `bondTraditional` only once that's exhausted (see the
+  `rmdFromTraditional`/`fromBondTrad` lines) — so in a year where the equity
+  sub-account has already hit zero but the bond reserve hasn't, the
+  Sankey's "Traditional withdrawal" source would otherwise look artificially
+  small (or the RMD would look inexplicably tiny) relative to what's really
+  leaving the traditional-tax-status pool. When porting a change to this
+  area, increment both accumulators at every `drawTaxable()`/binary-search
+  withdrawal call site, not just the top-level `rmd` calc.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) near
   the bottom of the script, registered if `window.mcp` exists — lets an
   agent read/drive the live projection. Keep the `execute` handler's
