@@ -2296,18 +2296,85 @@
   }
 
   // "What's driving this" shortfall analysis: when the selected projection
-  // shows a depletion age, tests a handful of single-lever changes (LTC off,
-  // healthcare premiums off, spending -15%, retiring 2 years later) by
-  // temporarily mutating state (or passing alternate retirement ages) and
-  // re-running simulate(), then restoring state exactly — same mutate/simulate/
-  // restore pattern as simulateAtRealCagr() below. Reports whichever single
-  // change most improves (or resolves) the shortfall, so the person sees which
-  // one lever matters most rather than guessing from the year-by-year table.
+  // shows a depletion age, first tests "structural" single-lever changes tied
+  // to a specific input (LTC off, healthcare premiums off) by temporarily
+  // mutating state and re-running simulate(), then restoring state exactly —
+  // same mutate/simulate/restore pattern as simulateAtRealCagr() below. These
+  // are reported whenever any of them helps, because they're a specific,
+  // non-obvious diagnosis. Only when none of them help does it fall back to
+  // the generic levers everyone always has (spending, retirement timing) —
+  // for those it searches for the smallest magnitude of change that actually
+  // resolves the shortfall (rather than testing one arbitrary fixed amount),
+  // so the person can judge whether the "fix" is a minor tweak or a major
+  // compromise, which is the real judgment call for someone genuinely
+  // deciding between working longer and spending less.
+  function findMinimalSpendingCut(selected) {
+    if (!(state.spending > 0)) return null;
+    const saved = state.spending;
+    let resolvedAt = null;
+    for (let cutPct = 5; cutPct <= 90; cutPct += 5) {
+      state.spending = saved * (1 - cutPct / 100);
+      const r = simulate();
+      if (!r.depletedAge) {
+        resolvedAt = { cutPct, result: r };
+        break;
+      }
+    }
+    if (resolvedAt) {
+      state.spending = saved;
+      return {
+        label: 'household spending',
+        detail: `cutting household spending by ${resolvedAt.cutPct}%`,
+        result: resolvedAt.result,
+        magnitude: resolvedAt.cutPct / 90,
+        resolved: true,
+      };
+    }
+    state.spending = saved * 0.1; // largest tested cut: 90%
+    const r90 = simulate();
+    state.spending = saved;
+    const improvement = r90.depletedAge ? r90.depletedAge - selected.depletedAge : 0;
+    if (improvement <= 0) return null;
+    return {
+      label: 'household spending',
+      detail: 'even a 90% cut to household spending',
+      result: r90,
+      improvement,
+      magnitude: 1,
+      resolved: false,
+    };
+  }
+  function findMinimalRetirementDelay(selected) {
+    const secondAge = (yrs) => (state.singlePerson ? state.retireAgeB : state.retireAgeB + yrs);
+    for (let yrs = 1; yrs <= 15; yrs++) {
+      const r = simulate(state.retireAgeA + yrs, secondAge(yrs));
+      if (!r.depletedAge) {
+        return {
+          label: 'retirement timing',
+          detail: `retiring ${yrs} year${yrs === 1 ? '' : 's'} later`,
+          result: r,
+          magnitude: yrs / 15,
+          resolved: true,
+        };
+      }
+    }
+    const r15 = simulate(state.retireAgeA + 15, secondAge(15));
+    const improvement = r15.depletedAge ? r15.depletedAge - selected.depletedAge : 0;
+    if (improvement <= 0) return null;
+    return {
+      label: 'retirement timing',
+      detail: 'even retiring 15 years later',
+      result: r15,
+      improvement,
+      magnitude: 1,
+      resolved: false,
+    };
+  }
   function analyzeShortfallDrivers(selected) {
     if (!selected.depletedAge) return null;
-    const candidates = [];
+    const structuralCandidates = [];
     if (state.ltcEnabled) {
-      candidates.push({
+      structuralCandidates.push({
         label: 'long-term care costs',
         detail: 'modeling no long-term care costs at all',
         run: () => {
@@ -2320,7 +2387,7 @@
       });
     }
     if (state.healthcare > 0) {
-      candidates.push({
+      structuralCandidates.push({
         label: 'post-retirement extra health/dental insurance',
         detail: 'zeroing out the post-retirement extra health/dental insurance cost',
         run: () => {
@@ -2332,39 +2399,33 @@
         },
       });
     }
-    if (state.spending > 0) {
-      candidates.push({
-        label: 'household spending',
-        detail: '15% lower household spending',
-        run: () => {
-          const saved = state.spending;
-          state.spending = saved * 0.85;
-          const r = simulate();
-          state.spending = saved;
-          return r;
-        },
-      });
-    }
-    candidates.push({
-      label: 'retirement timing',
-      detail: 'retiring 2 years later',
-      run: () =>
-        simulate(
-          state.retireAgeA + 2,
-          state.singlePerson ? state.retireAgeB : state.retireAgeB + 2,
-        ),
-    });
-
-    let best = null;
-    for (const c of candidates) {
+    let bestStructural = null;
+    for (const c of structuralCandidates) {
       const r = c.run();
       const improvement = r.depletedAge ? r.depletedAge - selected.depletedAge : 999;
       if (improvement <= 0) continue;
-      if (!best || improvement > best.improvement) {
-        best = { label: c.label, detail: c.detail, improvement, result: r };
+      if (!bestStructural || improvement > bestStructural.improvement) {
+        bestStructural = { label: c.label, detail: c.detail, improvement, result: r, kind: 'structural' };
       }
     }
-    return best;
+    if (bestStructural) return bestStructural;
+
+    // No single cost assumption explains it — fall back to the two levers
+    // everyone always has, and report the smaller of the two "asks".
+    const genericCandidates = [findMinimalSpendingCut(selected), findMinimalRetirementDelay(selected)].filter(
+      Boolean,
+    );
+    if (!genericCandidates.length) return null;
+    const resolved = genericCandidates.filter((c) => c.resolved);
+    const pool = resolved.length ? resolved : genericCandidates;
+    let best = pool[0];
+    for (const c of pool.slice(1)) {
+      const better = resolved.length
+        ? c.magnitude < best.magnitude
+        : (c.improvement ?? 0) > (best.improvement ?? 0);
+      if (better) best = c;
+    }
+    return { ...best, kind: 'generic' };
   }
 
   function renderShortfallBanner(selected) {
@@ -2379,10 +2440,12 @@
       ? `age ${driver.result.depletedAge}`
       : `the end of the projection (age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+), not depleted`;
     banner.hidden = false;
-    banner.innerHTML =
-      `<b>What's driving this:</b> the plan is projected to run out of money at age ${selected.depletedAge}. ` +
-      `Of the levers tested, <b>${driver.label}</b> has the biggest single effect — with ${driver.detail}, the portfolio instead lasts to ${newLasts}. ` +
-      `This isn't necessarily the only fix or the right one for you; it's just the single change (among a few common ones) that moved the needle most.`;
+    const intro = `<b>What's driving this:</b> the plan is projected to run out of money at age ${selected.depletedAge}. `;
+    const body =
+      driver.kind === 'structural'
+        ? `Of the levers tested, <b>${driver.label}</b> has the biggest single effect — with ${driver.detail}, the portfolio instead lasts to ${newLasts}. This isn't necessarily the only fix or the right one for you; it's just the single change (among a few common ones) that moved the needle most.`
+        : `No single cost or income assumption tested here explains it — this looks like a general balance-of-spending-vs-savings shortfall rather than one specific driver. The smallest change (of the two generic levers everyone has) that ${driver.resolved ? 'fully resolves it' : 'helps most'}: <b>${driver.detail}</b>, which brings the portfolio to ${newLasts}.`;
+    banner.innerHTML = intro + body;
   }
 
   // Real-CAGR sweep: temporarily overrides the nominal investment return with
