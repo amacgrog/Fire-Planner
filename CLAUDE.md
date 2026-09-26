@@ -158,6 +158,64 @@ Each planner is one big IIFE. The core shape:
   extra wiring is needed as long as it's redrawn from `render()` (or a
   `card.open`-gated call inside it) — it'll get sized correctly the moment
   the Dashboard tab becomes visible, same as the existing charts.
+- **First-run banner** (`#firstRunBanner`, styled like `.shortfall-banner`
+  but with `--blue` instead of `--amber`) — the page has no persistence
+  across reloads (see the README's privacy note), so it always boots into
+  the same fully-computed projection built from generic example numbers,
+  which reads as someone else's finished plan rather than an invitation. The
+  banner names that and links to the two real "make it yours" paths (the
+  `#wizardBtn` — relabeled `✨ Get started` and given the `.cta-btn` accent
+  style so it's the most visually prominent action in the topbar, not just
+  another gray pill — or importing a scenario file). It self-dismisses via
+  `dismissFirstRunBanner()`, wired to three signals: a real `input`/`change`
+  event bubbling from anywhere in `.panel` (a `{ once: true, capture: true }`
+  listener — programmatic init code sets `.value` directly without
+  dispatching events, so this only fires on actual user interaction, not
+  boot-time `syncControls()`), the wizard being opened (intent is clear the
+  moment they click, whether they finish it or not), or a scenario file
+  actually being imported. There's no flag to persist "seen it" across a
+  real reload — consistent with the rest of the app, since nothing else
+  persists either — so it will show again next load, which is fine since a
+  fresh load always looks identical anyway.
+- **"Explore a question" menu** (`DECISION_QUESTIONS`, `#decisionQuestions`,
+  `#decisionAnswer`, `renderDecisionQuestionAnswer()`) — a v1 slice of the
+  broader "reframe as a decision workflow, not a calculator" direction.
+  Deliberately built as a thin UI layer over comparisons the app already
+  knows how to run, not new modeling:
+  - `retireTiming` and `survivor` are **`kind: 'compare'`** questions. Each
+    `run()` follows one of two idioms that already exist elsewhere in the
+    file — `retireTiming` calls `simulate(altRetireAgeA, altRetireAgeB)`
+    directly (the same override-params path the existing ±3yr chart and the
+    `retireAge` sensitivity lever use, so there's no state mutation at all);
+    `survivor` follows `SENSITIVITY_LEVERS`' mutate/simulate/restore idiom
+    against `state.survivorEnabled` (leaving `survivorPartner`/
+    `survivorDeathAge`/`survivorSpendingPct` at whatever the user's already
+    set, so it always answers "what if" against their real assumptions,
+    regardless of whether survivor modeling happens to be on right now).
+    Both return `{ rows, sentence }`: `rows` renders through
+    `renderDecisionCompareTable()` (styled like the existing scenario-
+    compare table), `sentence` through `decisionDeltaPhrase()`, which
+    special-cases the "both variants already fully depleted" case — once
+    end assets are $0 either way, a dollar delta is meaningless noise, so
+    it leads with the depletion-age difference instead.
+  - `sensitivity` and `returns` are **`kind: 'open'`** questions — no new
+    rendering, they just open/scroll to a card that already exists
+    (`#sensitivityCard`, or `setChartView('hist')` on `#mainChartCard`).
+    `returns` also has an optional `note()` for a one-line success-rate
+    callout; `open` questions without a `note()` leave `#decisionAnswer`
+    hidden rather than showing an empty card.
+  - The `survivor` button carries the existing `data-partner-b` attribute
+    (same convention as every other partner-B-only field) so single-person
+    mode hides it for free via the existing `.single-person
+    [data-partner-b]{display:none!important}` rule — no new JS needed.
+  - **v2 (not yet built):** Roth conversion ladder and buy-vs-rent were
+    deliberately deferred — both are real `compare` questions but need
+    per-file handling (Roth ladder specifics differ US/Canada; housing has
+    three tenure states via `setTenure()`, not a boolean) — and buy-vs-rent
+    would be the first question whose answer depends on a `.panel`-only
+    field, which will need a mobile-tab flip (`setMobileView('inputs')`)
+    that no v1 question requires. When adding either, follow the same
+    `{ kind, run()/open() }` shape rather than a new pattern.
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
