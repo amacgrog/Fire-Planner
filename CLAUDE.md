@@ -213,22 +213,27 @@ Each planner is one big IIFE. The core shape:
   broader "reframe as a decision workflow, not a calculator" direction.
   Deliberately built as a thin UI layer over comparisons the app already
   knows how to run, not new modeling:
-  - `retireTiming` and `survivor` are **`kind: 'compare'`** questions. Each
-    `run()` follows one of two idioms that already exist elsewhere in the
-    file — `retireTiming` calls `simulate(altRetireAgeA, altRetireAgeB)`
+  - `retireTiming`, `buyVsRent`, and `rothLadder` are **`kind: 'compare'`**
+    questions. `retireTiming` calls `simulate(altRetireAgeA, altRetireAgeB)`
     directly (the same override-params path the existing ±3yr chart and the
     `retireAge` sensitivity lever use, so there's no state mutation at all);
-    `survivor` follows `SENSITIVITY_LEVERS`' mutate/simulate/restore idiom
-    against `state.survivorEnabled` (leaving `survivorPartner`/
-    `survivorDeathAge`/`survivorSpendingPct` at whatever the user's already
-    set, so it always answers "what if" against their real assumptions,
-    regardless of whether survivor modeling happens to be on right now).
-    Both return `{ rows, sentence }`: `rows` renders through
-    `renderDecisionCompareTable()` (styled like the existing scenario-
-    compare table), `sentence` through `decisionDeltaPhrase()`, which
-    special-cases the "both variants already fully depleted" case — once
-    end assets are $0 either way, a dollar delta is meaningless noise, so
-    it leads with the depletion-age difference instead.
+    `buyVsRent`/`rothLadder` follow `SENSITIVITY_LEVERS`' mutate/simulate/
+    restore idiom instead (see the v2 note below). All three return
+    `{ rows, sentence }`: `rows` renders through `renderDecisionCompareTable()`
+    (styled like the existing scenario-compare table), `sentence` through
+    `decisionDeltaPhrase()`, which special-cases the "both variants already
+    fully depleted" case — once end assets are $0 either way, a dollar
+    delta is meaningless noise, so it leads with the depletion-age
+    difference instead.
+  - A `survivor` question ("what if my spouse dies first?") existed
+    briefly in v1 — same mutate/simulate/restore shape against
+    `state.survivorEnabled` — and was removed at the user's request as too
+    grim a framing for the question menu, even though the underlying
+    survivor-planning feature itself (the sidebar's "Survivor planning"
+    section, `state.survivorEnabled`/`survivorPartner`/`survivorDeathAge`/
+    `survivorSpendingPct`) is untouched and still fully modeled — this only
+    pulled it out of the quick-question menu. Don't re-add a decision
+    question that leads with mortality without checking first.
   - `sensitivity` and `returns` are **`kind: 'open'`** questions — no new
     rendering, they just open/scroll to a card that already exists
     (`#sensitivityCard`, or `setChartView('hist')` on `#mainChartCard`).

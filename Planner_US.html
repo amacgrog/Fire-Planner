@@ -77,7 +77,6 @@
       <div class="result-head"><div><h2>Explore a question</h2><p>Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p></div></div>
       <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
         <button type="button" data-question="retireTiming">Should I retire earlier or later?</button>
-        <button type="button" data-question="survivor" data-partner-b>What if my spouse dies first?</button>
         <button type="button" data-question="buyVsRent">Should I buy or rent?</button>
         <button type="button" data-question="rothLadder">Should I do Roth conversions?</button>
         <button type="button" data-question="sensitivity">What's actually driving my results?</button>
@@ -3725,26 +3724,6 @@
           { label: `3 yrs later (age ${laterA})`, sim: later },
         ];
         const sentence = `Retiring 3 years earlier ${decisionDeltaPhrase(current, earlier)} compared with your current plan. Retiring 3 years later ${decisionDeltaPhrase(current, later)}.`;
-        return { rows, sentence };
-      },
-    },
-    survivor: {
-      kind: 'compare',
-      run() {
-        const saved = state.survivorEnabled;
-        state.survivorEnabled = false;
-        const both = simulate();
-        state.survivorEnabled = true;
-        const oneDies = simulate();
-        state.survivorEnabled = saved;
-        const rows = [
-          { label: 'Both live to plan end', sim: both },
-          {
-            label: `Partner ${state.survivorPartner} dies at age ${state.survivorDeathAge}`,
-            sim: oneDies,
-          },
-        ];
-        const sentence = `If Partner ${state.survivorPartner} dies at age ${state.survivorDeathAge} (survivor spending set to ${state.survivorSpendingPct}% of the household figure), the plan ${decisionDeltaPhrase(both, oneDies)} compared with both partners living to the end of the plan.`;
         return { rows, sentence };
       },
     },
