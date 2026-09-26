@@ -80,6 +80,9 @@
         <button type="button" data-question="retireTiming">Should I retire earlier or later?</button>
         <button type="button" data-question="buyVsRent">Should I buy or rent?</button>
         <button type="button" data-question="rothLadder">Should I do an RRSP meltdown?</button>
+        <button type="button" data-question="mortgagePayoff">Should I pay off my mortgage?</button>
+        <button type="button" data-question="ssTiming">How does CPP/OAS timing change the picture?</button>
+        <button type="button" data-question="longevity">What if I live 10 years longer than planned?</button>
         <button type="button" data-question="sensitivity">What's actually driving my results?</button>
         <button type="button" data-question="returns">What if returns are worse than expected?</button>
       </div>
@@ -3099,6 +3102,97 @@
         return { rows, sentence };
       },
     },
+    mortgagePayoff: {
+      kind: 'compare',
+      // Only relevant with an actual current mortgage — the button itself
+      // is hidden for tenure !== 'own' in syncControls(), so this only runs
+      // when there's a real balance to accelerate.
+      run() {
+        const saved = state.extraPrincipal,
+          // If the user hasn't set an extra-principal amount, $500/mo is a
+          // reasonable stand-in so the comparison has something to show —
+          // otherwise both rows would be identical (0 vs. 0).
+          payExtra = saved > 0 ? saved : 500;
+        state.extraPrincipal = 0;
+        const invest = simulate();
+        state.extraPrincipal = payExtra;
+        const pay = simulate();
+        state.extraPrincipal = saved;
+        const rows = [
+          { label: `Invest instead (no extra principal)${saved === 0 ? ' (current)' : ''}`, sim: invest },
+          { label: `Pay extra ${money(payExtra)}/mo${saved === payExtra ? ' (current)' : ''}`, sim: pay },
+        ];
+        const sentence = `Paying an extra ${money(payExtra)}/mo toward the mortgage instead of investing it ${decisionDeltaPhrase(invest, pay)} compared with investing the difference.`;
+        return { rows, sentence };
+      },
+    },
+    ssTiming: {
+      kind: 'compare',
+      // CPP and OAS are two separate levers with different economics (CPP's
+      // deferral increase is steeper than OAS's), so unlike the US's single
+      // ssStartAge field, bundling them into one "early/late" toggle would
+      // hide a genuinely common real strategy — e.g. take CPP around 65 but
+      // defer OAS to 70. This compares 4 points instead of forcing every
+      // lever to move together.
+      run() {
+        const savedCppA = state.cppStartAgeA,
+          savedCppB = state.cppStartAgeB,
+          savedOasA = state.oasStartAgeA,
+          savedOasB = state.oasStartAgeB;
+        const current = simulate();
+        state.cppStartAgeA = 60;
+        state.cppStartAgeB = 60;
+        state.oasStartAgeA = 65;
+        state.oasStartAgeB = 65;
+        const early = simulate();
+        state.cppStartAgeA = 70;
+        state.cppStartAgeB = 70;
+        state.oasStartAgeA = 70;
+        state.oasStartAgeB = 70;
+        const late = simulate();
+        // A common deliberate strategy: take CPP around 65 (its deferral
+        // credit is smaller than OAS's) while deferring OAS to 70.
+        state.cppStartAgeA = 65;
+        state.cppStartAgeB = 65;
+        state.oasStartAgeA = 70;
+        state.oasStartAgeB = 70;
+        const cppEarlyOasLate = simulate();
+        state.cppStartAgeA = savedCppA;
+        state.cppStartAgeB = savedCppB;
+        state.oasStartAgeA = savedOasA;
+        state.oasStartAgeB = savedOasB;
+        const rows = [
+          { label: 'CPP 60, OAS 65 (both early)', sim: early },
+          {
+            label: `Current (CPP ${savedCppA}${state.singlePerson ? '' : `/${savedCppB}`}, OAS ${savedOasA}${state.singlePerson ? '' : `/${savedOasB}`})`,
+            sim: current,
+          },
+          { label: 'CPP 65, OAS 70 (defer OAS only)', sim: cppEarlyOasLate },
+          { label: 'CPP 70, OAS 70 (both late)', sim: late },
+        ];
+        const sentence = `Taking CPP and OAS both early (60/65) instead of your current plan ${decisionDeltaPhrase(current, early)}. Taking CPP at 65 but deferring OAS to 70 ${decisionDeltaPhrase(current, cppEarlyOasLate)}. Deferring both to 70 ${decisionDeltaPhrase(current, late)}.`;
+        return { rows, sentence };
+      },
+    },
+    longevity: {
+      kind: 'compare',
+      run() {
+        const savedA = state.lifeExpectancyA,
+          savedB = state.lifeExpectancyB;
+        const current = simulate();
+        state.lifeExpectancyA = Math.min(110, savedA + 10);
+        state.lifeExpectancyB = state.singlePerson ? savedB : Math.min(110, savedB + 10);
+        const longer = simulate();
+        state.lifeExpectancyA = savedA;
+        state.lifeExpectancyB = savedB;
+        const rows = [
+          { label: `Current (plan through age ${savedA})`, sim: current },
+          { label: `Live 10 years longer (age ${Math.min(110, savedA + 10)})`, sim: longer },
+        ];
+        const sentence = `Planning for 10 more years than your current life expectancy ${decisionDeltaPhrase(current, longer)}.`;
+        return { rows, sentence };
+      },
+    },
     sensitivity: {
       kind: 'open',
       open() {
@@ -4723,6 +4817,10 @@
     document.getElementById('ownerFields').hidden = state.tenure !== 'own';
     document.getElementById('renterFieldsShared').hidden = state.tenure === 'own';
     document.getElementById('buyLaterFields').hidden = state.tenure !== 'rentThenBuy';
+    // The "pay off my mortgage?" decision question only makes sense with an
+    // actual current mortgage to accelerate — hide it for rent/rentThenBuy
+    // rather than showing a comparison that isn't really answerable yet.
+    document.querySelector('[data-question="mortgagePayoff"]').hidden = state.tenure !== 'own';
     document.getElementById('homeValueLabel').textContent =
       state.tenure === 'rentThenBuy' ? 'Home value if bought today' : 'Real estate value';
     document.getElementById('maintenanceHint').textContent =

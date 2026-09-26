@@ -346,6 +346,60 @@ Each planner is one big IIFE. The core shape:
     `meltdownBracket` — same shape, different keys and labels ("Roth
     conversion ladder" vs. "RRSP meltdown ladder"), same pattern as
     `SENSITIVITY_LEVERS`' `ss` lever already diverging between the two files.
+  - **v3 (built):** `mortgagePayoff`, `ssTiming`, and `longevity` — three
+    more `kind: 'compare'` questions, all following the same mutate/
+    simulate/restore idiom (none of the three can use `retireTiming`'s
+    override-params path, since `simulate()` only accepts retirement-age
+    overrides).
+    - `mortgagePayoff` toggles `state.extraPrincipal` between 0 and either
+      its current value or a $500/mo stand-in (if the user has never set
+      one — otherwise both rows would be identical). No extra modeling
+      needed: the app already routes extra principal through
+      `mortgageSchedule()`'s cash flow into reduced brokerage contributions,
+      so mutating the one field is sufficient. The question button itself
+      carries no `data-*` marker but is hidden by a plain
+      `document.querySelector('[data-question="mortgagePayoff"]').hidden =
+      state.tenure !== 'own'` line in `syncControls()` (right after the
+      other tenure-conditional `.hidden` lines) — there's no current
+      mortgage to accelerate under `'rent'`/`'rentThenBuy'`, so rather than
+      showing a comparison that isn't really answerable, the button doesn't
+      appear until `tenure === 'own'`.
+    - `ssTiming` compares claim-age extremes (62 vs. 70 in the US) rather
+      than a small offset, since Social Security/CPP/OAS claiming has hard
+      legal bounds and the real question is "early vs. late," not a nudge.
+      **US** is a single lever (`ssStartAgeA`/`B`, 62–70) so this is a
+      straightforward 3-row table (early/current/late). **Canada** has two
+      independent levers with different economics — CPP (60–70) has a
+      *smaller* per-year deferral credit than OAS (65–70) — so a real,
+      commonly-recommended strategy is to take CPP around 65 while
+      deferring OAS to 70; bundling both levers into one "early/late" toggle
+      (as a first draft of this question did) would hide that strategy
+      entirely, since it only ever lets both move together. The Canada
+      version is a 4-row table instead: both-early (CPP 60/OAS 65),
+      current, CPP-65/OAS-70 (defer OAS only), and both-late (CPP 70/OAS
+      70). If this ever needs a genuine full sweep, the real design space
+      is a 2-D grid (CPP age × OAS age) — the 4 rows here are named,
+      commonly-discussed strategies, not an exhaustive search.
+    - `longevity` compares the current life expectancy setting against
+      +10 years (capped at the slider's max of 110), applied to both
+      partners in lockstep for couples — a relative offset rather than a
+      fixed absolute age like 95 or 100, since both defaults are already
+      100 and a fixed target could easily be *shorter* than what's already
+      configured. Same offset idiom as `retireTiming`'s ±3 years.
+
+- **`renderPlanHeadline(selected)` / `renderShortfallBanner(selected)`** —
+  the dashboard's top-of-page callout is exactly one of these two, never
+  both: both key off the same `selected.depletedAge` truthy/falsy value, so
+  there's no separate coordination flag. `renderShortfallBanner()` (pre-
+  existing) shows an amber warning when the plan depletes before the end of
+  the horizon. `renderPlanHeadline()` is its positive counterpart — when
+  the plan *doesn't* deplete, it says so plainly with real numbers (the end
+  age and end assets) via a green-accented `.plan-headline` callout
+  (`#planHeadlineBanner`, using the new `--green` CSS variable, themed the
+  same way `--amber`/`--red` already are), rather than leaving the top of
+  the dashboard silent for a healthy plan. Both are called back-to-back
+  from `render()` (`renderPlanHeadline(selected)` immediately before
+  `renderShortfallBanner(selected)`).
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
