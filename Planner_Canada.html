@@ -81,16 +81,17 @@
           <div class="range-field"><div class="range-head"><label for="rrspPctB">Partner B RRSP contribution</label><span class="range-value" id="rrspPctBOut"></span></div><input id="rrspPctB" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="tfsaPctB">Partner B TFSA contribution</label><span class="range-value" id="tfsaPctBOut"></span></div><input id="tfsaPctB" type="range" min="0" max="100" step="1"></div>
           </div>
-          <div class="field"><label for="spending">Annual household spending<small>Everyday out-of-pocket costs (including medications/copays, paid after-tax) — excludes mortgage, rent, maintenance, property tax, home insurance, health insurance premiums & retirement saving</small></label><input id="spending" type="number" min="0" step="1000"></div>
-          <div class="group" style="padding:12px 0 0;border:0">
-            <p class="range-note">Optional: add up to five sequential spending changes, each triggered once Partner A reaches a given age (e.g. mortgage payoff, an empty nest, or slowing down in your 80s). Each new tier fully replaces the household spending figure above once active.</p>
-            <div id="spendingTierFields"></div>
-          </div>
           <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
+        </details>
+        <details class="group" open>
+          <summary>Market assumptions</summary>
+          <div class="field"><label for="returnRate">Investment return</label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
+          <div class="field"><label for="bondReturn">Bond return</label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
+          <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
           <div class="field"><label for="inflation">Inflation</label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
         </details>
         <details class="group" open>
-          <summary>Starting assets</summary>
+          <summary>Portfolio composition</summary>
           <div class="field"><label for="taxable">Taxable brokerage</label><input id="taxable" type="number" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
           <div class="field"><label for="traditional">RRSP balance</label><input id="traditional" type="number" min="0" step="1000"></div>
@@ -99,9 +100,6 @@
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
           <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and RRSP proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
-          <div class="field"><label for="returnRate">Investment return</label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
-          <div class="field"><label for="bondReturn">Bond return</label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
-          <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
         </details>
         <details class="group" open>
           <summary>Housing</summary>
@@ -170,6 +168,14 @@
             <div class="field"><label for="ltcAgeA">Partner A LTC start age</label><input id="ltcAgeA" type="number" min="60" max="100" step="1"></div>
             <div data-partner-b class="field"><label for="ltcYearlyB">Partner B annual LTC cost</label><input id="ltcYearlyB" type="number" min="0" step="1000"></div>
             <div data-partner-b class="field"><label for="ltcAgeB">Partner B LTC start age</label><input id="ltcAgeB" type="number" min="60" max="100" step="1"></div>
+          </div>
+        </details>
+        <details class="group" open>
+          <summary>Household spending</summary>
+          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs not itemized elsewhere: groceries, dining out, utilities, phone/internet, transportation (car payment, gas, insurance, transit), subscriptions, clothing, personal care, entertainment, travel, gifts, and pet care. Excludes mortgage/rent, property tax, home insurance, maintenance, health/dental insurance premiums, long-term care, and retirement saving — those are all tracked separately above. Provincial healthcare (OHIP/MSP/etc.) is universal and not a cost to budget for here.</small></label><input id="spending" type="number" min="0" step="1000"></div>
+          <div class="group" style="padding:12px 0 0;border:0">
+            <p class="range-note">Optional: add up to five sequential spending changes, each triggered once Partner A reaches a given age (e.g. mortgage payoff, an empty nest, or slowing down in your 80s). Each new tier fully replaces the household spending figure above once active.</p>
+            <div id="spendingTierFields"></div>
           </div>
         </details>
         <details class="group">
