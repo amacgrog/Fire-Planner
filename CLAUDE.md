@@ -81,6 +81,29 @@ Each planner is one big IIFE. The core shape:
   event listener that calls `render()` when the user expands the card. When
   adding a new expensive collapsible result, follow this pattern rather than
   computing it unconditionally on every keystroke.
+- `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — the
+  cash-flow Sankey diagram. This planner doesn't track which specific dollar
+  funded which specific expense, so the diagram deliberately routes every
+  source through a single neutral **hub** node (a thin bar between the two
+  columns) rather than drawing direct source→expense ribbons — an earlier
+  version drew one ribbon per (source, expense) pair based on where their
+  stacked y-ranges happened to overlap, which produced meaningless tiny
+  slivers (e.g. "Social Security → Healthcare: $80") and, at low opacity,
+  visually blended into a single wash. The hub design draws exactly
+  `sources.length + uses.length` ribbons (never N×M), each occupying its own
+  non-overlapping vertical band, so nothing blends and nothing implies a
+  pairing the data doesn't have. The hub's left-face and right-face y-
+  partitions are each their own independent ordering (sorted by descending
+  value) of the same categories — that's a pure layout choice (the hub
+  retains no per-source identity past its edge) and is what gives the
+  ribbons real diagonal curvature instead of flat rectangles. Node/category
+  colors come from the `dataviz` skill's validated 8-hue categorical palette
+  (`SANKEY_HUES`), reused across the two columns since they're spatially
+  separated by the hub — only within-column neighbors need to stay visually
+  distinct. Each node and ribbon is its own hover/focus target (a `#sankeyTooltip`
+  div styled like the existing `#chartTooltip`), per the "mark is the hit
+  target" rule for bar/cell-type marks (not a shared crosshair, which is
+  reserved for the continuous ±1yr/±3yr/CAGR line charts).
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) near
   the bottom of the script, registered if `window.mcp` exists — lets an
   agent read/drive the live projection. Keep the `execute` handler's
