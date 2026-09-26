@@ -235,14 +235,30 @@ Each planner is one big IIFE. The core shape:
     (same convention as every other partner-B-only field) so single-person
     mode hides it for free via the existing `.single-person
     [data-partner-b]{display:none!important}` rule — no new JS needed.
-  - **v2 (not yet built):** Roth conversion ladder and buy-vs-rent were
-    deliberately deferred — both are real `compare` questions but need
-    per-file handling (Roth ladder specifics differ US/Canada; housing has
-    three tenure states via `setTenure()`, not a boolean) — and buy-vs-rent
-    would be the first question whose answer depends on a `.panel`-only
-    field, which will need a mobile-tab flip (`setMobileView('inputs')`)
-    that no v1 question requires. When adding either, follow the same
-    `{ kind, run()/open() }` shape rather than a new pattern.
+  - **v2 (built):** `buyVsRent` and `rothLadder` follow the same
+    mutate/simulate/restore idiom as `survivor` — directly against
+    `state.tenure`/`state.rothConvEnabled` (Canada: `state.meltdownEnabled`),
+    never through `setTenure()` (which permanently mutates state, calls
+    `render()`, and persists via `saveInputs()` — fine for a real sidebar
+    toggle, wrong for a non-destructive what-if). Turns out neither needs a
+    mobile-tab flip: both are `kind: 'compare'`, so their answer renders
+    into `#decisionAnswer`, which — like the rest of `#decisionCard` — sits
+    above `#workspace` and is visible on both mobile tabs regardless
+    (`switchToDashboardTab()` is only needed by the `kind: 'open'`
+    questions, which scroll to a card that actually lives inside
+    `.content`). `buyVsRent` always compares the two pure endpoints (`'own'`
+    vs `'rent'`), labeling whichever matches `state.tenure` as "(current)";
+    for `'rentThenBuy'` neither row matches, so the sentence adds a note
+    that the real plan transitions rather than picking a pure endpoint.
+    `rothLadder`/`meltdownEnabled` compares the ladder on vs. off using
+    whatever window/bracket is already configured, same as `survivor`
+    ignores the current `survivorEnabled` value.
+  - Field-name differences to keep in mind if extending either: US
+    `rothConvEnabled`/`rothConvStartAge`/`rothConvEndAge`/`rothConvBracket`
+    vs. Canada `meltdownEnabled`/`meltdownStartAge`/`meltdownEndAge`/
+    `meltdownBracket` — same shape, different keys and labels ("Roth
+    conversion ladder" vs. "RRSP meltdown ladder"), same pattern as
+    `SENSITIVITY_LEVERS`' `ss` lever already diverging between the two files.
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
@@ -314,6 +330,34 @@ other requires re-deriving the equivalent, not just renaming variables:
   blind copy-paste silently wrong (double-counted tax, a feature gate that
   doesn't exist on the other side, a variable name that means something
   slightly different).
+
+## Backlog / ideas not yet built
+
+Flagged for later — don't implement without being asked; logged here so
+the idea survives context resets.
+
+- **Tornado chart's baseline can flatline at $0, hiding real differences
+  between levers.** `computeSensitivity()`'s `endValue(sim)` reads
+  `displayValue(sim.rows.at(-1).total, ...)` — the portfolio's value in the
+  *final* modeled year. If the current plan is projected to deplete before
+  the end of the modeled horizon (e.g. plan runs to age 100 but the money
+  runs out at 90), every row from the depletion age onward is floored at
+  $0, so the "current" baseline the dashed line marks is $0 — and worse,
+  two different lever variants that both still deplete before age 100 will
+  *also* both show $0, even if one depletes at 60 and the other at 89. The
+  tornado bars for those levers would understate (or completely hide) a
+  real difference, because the metric being compared has saturated at its
+  floor. Raised by the user 2026-09-26; proposed fix, not yet built:
+  change `endValue()` to fall back to **peak portfolio value** (the max of
+  `displayValue(r.total, r.year)` across all rows) whenever the plan's
+  final-year value is ~$0, and keep using final-year value whenever it's
+  positive (a healthy plan's terminal value is still the more decision-
+  relevant number, and for a plan that's still growing at the end, peak and
+  final value are usually the same row anyway, so this only changes
+  behavior in the depleted case it's meant to fix). Needs a decision on
+  whether/how to label the switch in the UI (e.g. a note under a lever's
+  bar when it's measuring peak rather than end value, so the chart doesn't
+  silently change what number it's showing).
 
 ## Testing checklist for any change
 

@@ -79,6 +79,8 @@
       <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
         <button type="button" data-question="retireTiming">Should I retire earlier or later?</button>
         <button type="button" data-question="survivor" data-partner-b>What if my spouse dies first?</button>
+        <button type="button" data-question="buyVsRent">Should I buy or rent?</button>
+        <button type="button" data-question="rothLadder">Should I do an RRSP meltdown?</button>
         <button type="button" data-question="sensitivity">What's actually driving my results?</button>
         <button type="button" data-question="returns">What if returns are worse than expected?</button>
       </div>
@@ -3027,6 +3029,47 @@
           },
         ];
         const sentence = `If Partner ${state.survivorPartner} dies at age ${state.survivorDeathAge} (survivor spending set to ${state.survivorSpendingPct}% of the household figure), the plan ${decisionDeltaPhrase(both, oneDies)} compared with both partners living to the end of the plan.`;
+        return { rows, sentence };
+      },
+    },
+    buyVsRent: {
+      kind: 'compare',
+      run() {
+        const saved = state.tenure;
+        state.tenure = 'own';
+        const own = simulate();
+        state.tenure = 'rent';
+        const rent = simulate();
+        state.tenure = saved;
+        const rows = [
+          { label: `Own${saved === 'own' ? ' (current)' : ''}`, sim: own },
+          { label: `Rent${saved === 'rent' ? ' (current)' : ''}`, sim: rent },
+        ];
+        const rentThenBuyNote =
+          saved === 'rentThenBuy'
+            ? ` Your plan currently rents, then buys at Partner A age ${state.buyAge} — this comparison shows the two pure endpoints instead.`
+            : '';
+        const sentence = `Renting instead of owning ${decisionDeltaPhrase(own, rent)} compared with owning outright.${rentThenBuyNote}`;
+        return { rows, sentence };
+      },
+    },
+    rothLadder: {
+      kind: 'compare',
+      run() {
+        const saved = state.meltdownEnabled;
+        state.meltdownEnabled = false;
+        const off = simulate();
+        state.meltdownEnabled = true;
+        const on = simulate();
+        state.meltdownEnabled = saved;
+        const rows = [
+          { label: 'No RRSP meltdown', sim: off },
+          {
+            label: `RRSP meltdown (age ${state.meltdownStartAge}-${state.meltdownEndAge}, to ${state.meltdownBracket}% bracket)`,
+            sim: on,
+          },
+        ];
+        const sentence = `Running the RRSP meltdown ladder as configured ${decisionDeltaPhrase(off, on)} compared with no meltdown.`;
         return { rows, sentence };
       },
     },
