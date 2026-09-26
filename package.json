@@ -1,0 +1,12 @@
+{
+  "name": "fire-planner",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Offline, single-file HTML FIRE calculators (US + Canada)",
+  "scripts": {
+    "test": "node tests/golden.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
