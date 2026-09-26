@@ -94,6 +94,25 @@ Each planner is one big IIFE. The core shape:
   canvas) to fit — that div has a fixed CSS height everywhere else in this
   file, so skipping this makes the canvas overflow its box and overlap
   whatever follows in the DOM once more than ~7 levers are checked at once.
+  `computeSensitivity()`'s metric has a fallback for a plan that's already
+  projected to deplete: reading `sim.rows.at(-1).total` (the final modeled
+  year) floors at $0 for every lever once the current/baseline plan
+  depletes before the end of the horizon, which would make every bar in
+  the chart show an identical, uninformative $0-to-$0 range even though the
+  levers clearly differ (one might deplete at 60, another at 89 — both
+  read as "$0 either way" under the naive metric). The fix: decide once,
+  from the baseline scenario only, whether to measure `finalValue` or
+  `peakValue` (`Math.max` of every row's value) — `usePeak = finalValue(selected)
+  <= 1` — and use that same metric for every lever's decrease/increase, so
+  the whole chart is measuring one consistent thing. A healthy plan's peak
+  is usually its final row anyway (assets still growing or flat at the
+  end), so this only changes behavior in the depleted case. The switch is
+  never silent: `#tornadoNote`'s text, the "Current (peak): $X" label on
+  the chart itself, and the canvas's `aria-label` all flip in step with
+  `usePeak`, computed and returned once from `computeSensitivity()` and
+  read by `renderTornadoChart()` — don't let a future edit read `baseline`
+  without also reading `usePeak`, or the label/note can go out of sync
+  with what the bars are actually measuring.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — the
   cash-flow Sankey diagram. This planner doesn't track which specific dollar
   funded which specific expense, so the diagram deliberately routes every
@@ -330,34 +349,6 @@ other requires re-deriving the equivalent, not just renaming variables:
   blind copy-paste silently wrong (double-counted tax, a feature gate that
   doesn't exist on the other side, a variable name that means something
   slightly different).
-
-## Backlog / ideas not yet built
-
-Flagged for later — don't implement without being asked; logged here so
-the idea survives context resets.
-
-- **Tornado chart's baseline can flatline at $0, hiding real differences
-  between levers.** `computeSensitivity()`'s `endValue(sim)` reads
-  `displayValue(sim.rows.at(-1).total, ...)` — the portfolio's value in the
-  *final* modeled year. If the current plan is projected to deplete before
-  the end of the modeled horizon (e.g. plan runs to age 100 but the money
-  runs out at 90), every row from the depletion age onward is floored at
-  $0, so the "current" baseline the dashed line marks is $0 — and worse,
-  two different lever variants that both still deplete before age 100 will
-  *also* both show $0, even if one depletes at 60 and the other at 89. The
-  tornado bars for those levers would understate (or completely hide) a
-  real difference, because the metric being compared has saturated at its
-  floor. Raised by the user 2026-09-26; proposed fix, not yet built:
-  change `endValue()` to fall back to **peak portfolio value** (the max of
-  `displayValue(r.total, r.year)` across all rows) whenever the plan's
-  final-year value is ~$0, and keep using final-year value whenever it's
-  positive (a healthy plan's terminal value is still the more decision-
-  relevant number, and for a plan that's still growing at the end, peak and
-  final value are usually the same row anyway, so this only changes
-  behavior in the depleted case it's meant to fix). Needs a decision on
-  whether/how to label the switch in the UI (e.g. a note under a lever's
-  bar when it's measuring peak rather than end value, so the chart doesn't
-  silently change what number it's showing).
 
 ## Testing checklist for any change
 

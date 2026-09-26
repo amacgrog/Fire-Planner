@@ -324,7 +324,7 @@
             <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ss"> Social Security</label>
           </div>
           <div class="chart-wrap"><canvas id="tornadoChart" role="img" aria-label="Sensitivity of projected end assets to key assumptions, sorted by impact"></canvas></div>
-          <div class="chart-note"><span>Dashed line marks the current projection's end assets (labeled on the chart). Bars show the range across a fixed ± swing in each assumption (not a probability distribution); "pp" = percentage points.</span></div>
+          <div class="chart-note"><span id="tornadoNote">Dashed line marks the current projection's end assets (labeled on the chart). Bars show the range across a fixed ± swing in each assumption (not a probability distribution); "pp" = percentage points.</span></div>
         </details>
 
         <div class="result-card" id="overlayCard" hidden>
@@ -3814,10 +3814,24 @@
     },
   };
   function computeSensitivity(selected) {
-    const endValue = (sim) => {
+    const finalValue = (sim) => {
       const r = sim.rows.at(-1);
       return displayValue(r.total, r.year);
     };
+    // If the *current* plan is projected to deplete before the end of the
+    // modeled horizon, every row from the depletion age onward floors at
+    // $0 — so "end assets" would show $0 for every single bar, hiding real
+    // differences between assumptions (one lever might still deplete at 60,
+    // another at 89, both reading as an identical, uninformative $0). Peak
+    // portfolio value doesn't have that floor, so fall back to it in that
+    // case; a healthy plan's peak is usually its final row anyway (assets
+    // still growing or holding steady at the end), so this only changes
+    // behavior in the depleted case it's meant to fix. The decision is made
+    // once, from the baseline/current scenario, so every bar in the chart
+    // is measuring the same thing rather than switching metric bar to bar.
+    const peakValue = (sim) => Math.max(...sim.rows.map((r) => displayValue(r.total, r.year)));
+    const usePeak = finalValue(selected) <= 1;
+    const endValue = usePeak ? peakValue : finalValue;
     const baseline = endValue(selected);
     const checked = new Set(
       [...document.querySelectorAll('#sensLeverToggles input[data-lever]:checked')].map(
@@ -3836,13 +3850,25 @@
       };
     });
     results.sort((a, b) => b.high - b.low - (a.high - a.low));
-    return { baseline, results };
+    return { baseline, results, usePeak };
   }
 
   function renderTornadoChart(selected) {
     const canvas = document.getElementById('tornadoChart');
     if (!canvas) return;
-    const { baseline, results } = computeSensitivity(selected);
+    const { baseline, results, usePeak } = computeSensitivity(selected);
+    const note = document.getElementById('tornadoNote');
+    if (note) {
+      note.textContent = usePeak
+        ? 'This plan is projected to deplete before the end of the modeled horizon, so end assets would be $0 for every bar — dashed line and bars instead measure peak portfolio value (labeled on the chart), so real differences between assumptions still show up. Bars show the range across a fixed ± swing in each assumption (not a probability distribution); "pp" = percentage points.'
+        : 'Dashed line marks the current projection\'s end assets (labeled on the chart). Bars show the range across a fixed ± swing in each assumption (not a probability distribution); "pp" = percentage points.';
+    }
+    canvas.setAttribute(
+      'aria-label',
+      usePeak
+        ? 'Sensitivity of projected peak portfolio value to key assumptions, sorted by impact'
+        : 'Sensitivity of projected end assets to key assumptions, sorted by impact',
+    );
     const rowH = 46,
       labelW = 190,
       p = { l: labelW, r: 66, t: 26, b: 10 };
@@ -3912,7 +3938,7 @@
     ctx.lineTo(bx, h - p.b + 4);
     ctx.stroke();
     ctx.setLineDash([]);
-    const label = `Current: ${compact(baseline)}`;
+    const label = `Current${usePeak ? ' (peak)' : ''}: ${compact(baseline)}`;
     ctx.font = '700 11px Inter,system-ui';
     const labelHalfW = ctx.measureText(label).width / 2,
       labelX = Math.min(w - p.r - labelHalfW, Math.max(p.l + labelHalfW, bx));
