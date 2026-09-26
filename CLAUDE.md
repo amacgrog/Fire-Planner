@@ -81,6 +81,19 @@ Each planner is one big IIFE. The core shape:
   event listener that calls `render()` when the user expands the card. When
   adding a new expensive collapsible result, follow this pattern rather than
   computing it unconditionally on every keystroke.
+- `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` —
+  the tornado chart. Levers live in one array (`id`, `label`, `run(endValue)`
+  — mutate `state`, call `simulate()`, restore); which ones actually get
+  swept is read fresh on every render from the checked `data-lever`
+  checkboxes in `#sensLeverToggles`, not from `state` — this is a display
+  choice for the chart, not a plan input, so it's not part of `defaults`/
+  `normalizeState()`/scenario export, and there's a separate `change`
+  listener on the toggle container (not the card's `toggle` event) that
+  re-renders just this chart. Because the row count is no longer a fixed 5,
+  `renderTornadoChart()` also resizes its own `.chart-wrap` (not just the
+  canvas) to fit — that div has a fixed CSS height everywhere else in this
+  file, so skipping this makes the canvas overflow its box and overlap
+  whatever follows in the DOM once more than ~7 levers are checked at once.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — the
   cash-flow Sankey diagram. This planner doesn't track which specific dollar
   funded which specific expense, so the diagram deliberately routes every

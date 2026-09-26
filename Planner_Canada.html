@@ -284,8 +284,20 @@
         <details class="result-card" id="sensitivityCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Sensitivity analysis (tornado chart)</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How much projected end assets swing when one assumption moves, holding everything else fixed — widest bars matter most. Only computed while expanded.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:14px;font-size:.78rem;color:var(--ink2)" id="sensLeverToggles">
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="return" checked> Investment return</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="retireAge" checked> Retirement age</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="spending" checked> Household spending</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="inflation" checked> Inflation</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="bondReturn" checked> Bond return</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="hysa"> HYSA / cash rate</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="homeGrowth"> Home appreciation</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="healthcare"> Healthcare premium</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ltc"> Long-term care cost</label>
+            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ss"> CPP + OAS</label>
+          </div>
           <div class="chart-wrap"><canvas id="tornadoChart" role="img" aria-label="Sensitivity of projected end assets to key assumptions, sorted by impact"></canvas></div>
-          <div class="chart-note"><span>Dashed line marks the current projection's end assets. Bars show the range across a fixed ± swing in each assumption (not a probability distribution).</span></div>
+          <div class="chart-note"><span>Dashed line marks the current projection's end assets (labeled on the chart). Bars show the range across a fixed ± swing in each assumption (not a probability distribution); "pp" = percentage points.</span></div>
         </details>
 
         <div class="result-card" id="overlayCard" hidden>
@@ -2753,79 +2765,176 @@
   // one-at-a-time sensitivity sweep, not a joint/probabilistic analysis like
   // Monte Carlo — it answers "which single assumption matters most," not
   // "what's the range of likely outcomes."
+  // Which levers actually run is controlled by the checkboxes in
+  // #sensLeverToggles (data-lever id ↔ this array's `id`), so a lever with
+  // no visible impact on your plan (e.g. long-term care cost, if you
+  // haven't enabled LTC) can be left unchecked rather than cluttering the
+  // chart with a zero-width bar.
+  const SENSITIVITY_LEVERS = [
+    {
+      id: 'return',
+      label: 'Investment return (±2pp)',
+      run: (endValue) => {
+        const saved = state.returnRate;
+        state.returnRate = saved - 2;
+        const decrease = endValue(simulate());
+        state.returnRate = saved + 2;
+        const increase = endValue(simulate());
+        state.returnRate = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'retireAge',
+      label: 'Retirement age (±3 yrs)',
+      run: (endValue) => {
+        const decrease = endValue(
+          simulate(
+            Math.max(state.ageA, state.retireAgeA - 3),
+            Math.max(state.ageB, state.retireAgeB - 3),
+          ),
+        );
+        const increase = endValue(
+          simulate(Math.min(70, state.retireAgeA + 3), Math.min(70, state.retireAgeB + 3)),
+        );
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'spending',
+      label: 'Household spending (±10%)',
+      run: (endValue) => {
+        const saved = state.spending;
+        state.spending = saved * 0.9;
+        const decrease = endValue(simulate());
+        state.spending = saved * 1.1;
+        const increase = endValue(simulate());
+        state.spending = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'inflation',
+      label: 'Inflation (±1pp)',
+      run: (endValue) => {
+        const saved = state.inflation;
+        state.inflation = Math.max(0, saved - 1);
+        const decrease = endValue(simulate());
+        state.inflation = saved + 1;
+        const increase = endValue(simulate());
+        state.inflation = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'bondReturn',
+      label: 'Bond return (±2pp)',
+      run: (endValue) => {
+        const saved = state.bondReturn;
+        state.bondReturn = saved - 2;
+        const decrease = endValue(simulate());
+        state.bondReturn = saved + 2;
+        const increase = endValue(simulate());
+        state.bondReturn = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'hysa',
+      label: 'HYSA / cash rate (±1pp)',
+      run: (endValue) => {
+        const saved = state.hysaRate;
+        state.hysaRate = Math.max(0, saved - 1);
+        const decrease = endValue(simulate());
+        state.hysaRate = saved + 1;
+        const increase = endValue(simulate());
+        state.hysaRate = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'homeGrowth',
+      label: 'Home appreciation (±1pp)',
+      run: (endValue) => {
+        const saved = state.homeGrowth;
+        state.homeGrowth = saved - 1;
+        const decrease = endValue(simulate());
+        state.homeGrowth = saved + 1;
+        const increase = endValue(simulate());
+        state.homeGrowth = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'healthcare',
+      label: 'Healthcare premium (±20%)',
+      run: (endValue) => {
+        const saved = state.healthcare;
+        state.healthcare = saved * 0.8;
+        const decrease = endValue(simulate());
+        state.healthcare = saved * 1.2;
+        const increase = endValue(simulate());
+        state.healthcare = saved;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'ltc',
+      label: 'Long-term care cost (±20%)',
+      run: (endValue) => {
+        const savedA = state.ltcYearlyA,
+          savedB = state.ltcYearlyB;
+        state.ltcYearlyA = savedA * 0.8;
+        state.ltcYearlyB = savedB * 0.8;
+        const decrease = endValue(simulate());
+        state.ltcYearlyA = savedA * 1.2;
+        state.ltcYearlyB = savedB * 1.2;
+        const increase = endValue(simulate());
+        state.ltcYearlyA = savedA;
+        state.ltcYearlyB = savedB;
+        return { decrease, increase };
+      },
+    },
+    {
+      id: 'ss',
+      label: 'CPP + OAS (±10%)',
+      run: (endValue) => {
+        const savedCppA = state.cppMonthlyA,
+          savedCppB = state.cppMonthlyB,
+          savedOasA = state.oasMonthlyA,
+          savedOasB = state.oasMonthlyB;
+        state.cppMonthlyA = savedCppA * 0.9;
+        state.cppMonthlyB = savedCppB * 0.9;
+        state.oasMonthlyA = savedOasA * 0.9;
+        state.oasMonthlyB = savedOasB * 0.9;
+        const decrease = endValue(simulate());
+        state.cppMonthlyA = savedCppA * 1.1;
+        state.cppMonthlyB = savedCppB * 1.1;
+        state.oasMonthlyA = savedOasA * 1.1;
+        state.oasMonthlyB = savedOasB * 1.1;
+        const increase = endValue(simulate());
+        state.cppMonthlyA = savedCppA;
+        state.cppMonthlyB = savedCppB;
+        state.oasMonthlyA = savedOasA;
+        state.oasMonthlyB = savedOasB;
+        return { decrease, increase };
+      },
+    },
+  ];
   function computeSensitivity(selected) {
     const endValue = (sim) => {
       const r = sim.rows.at(-1);
       return displayValue(r.total, r.year);
     };
     const baseline = endValue(selected);
-    const levers = [
-      {
-        label: 'Investment return (±2pp)',
-        run: () => {
-          const saved = state.returnRate;
-          state.returnRate = saved - 2;
-          const decrease = endValue(simulate());
-          state.returnRate = saved + 2;
-          const increase = endValue(simulate());
-          state.returnRate = saved;
-          return { decrease, increase };
-        },
-      },
-      {
-        label: 'Retirement age (±3 yrs)',
-        run: () => {
-          const decrease = endValue(
-            simulate(
-              Math.max(state.ageA, state.retireAgeA - 3),
-              Math.max(state.ageB, state.retireAgeB - 3),
-            ),
-          );
-          const increase = endValue(
-            simulate(Math.min(70, state.retireAgeA + 3), Math.min(70, state.retireAgeB + 3)),
-          );
-          return { decrease, increase };
-        },
-      },
-      {
-        label: 'Household spending (±10%)',
-        run: () => {
-          const saved = state.spending;
-          state.spending = saved * 0.9;
-          const decrease = endValue(simulate());
-          state.spending = saved * 1.1;
-          const increase = endValue(simulate());
-          state.spending = saved;
-          return { decrease, increase };
-        },
-      },
-      {
-        label: 'Inflation (±1pp)',
-        run: () => {
-          const saved = state.inflation;
-          state.inflation = Math.max(0, saved - 1);
-          const decrease = endValue(simulate());
-          state.inflation = saved + 1;
-          const increase = endValue(simulate());
-          state.inflation = saved;
-          return { decrease, increase };
-        },
-      },
-      {
-        label: 'Bond return (±2pp)',
-        run: () => {
-          const saved = state.bondReturn;
-          state.bondReturn = saved - 2;
-          const decrease = endValue(simulate());
-          state.bondReturn = saved + 2;
-          const increase = endValue(simulate());
-          state.bondReturn = saved;
-          return { decrease, increase };
-        },
-      },
-    ];
+    const checked = new Set(
+      [...document.querySelectorAll('#sensLeverToggles input[data-lever]:checked')].map(
+        (el) => el.dataset.lever,
+      ),
+    );
+    const levers = SENSITIVITY_LEVERS.filter((l) => checked.has(l.id));
     const results = levers.map((l) => {
-      const { decrease, increase } = l.run();
+      const { decrease, increase } = l.run(endValue);
       return {
         label: l.label,
         decrease,
@@ -2844,17 +2953,27 @@
     const { baseline, results } = computeSensitivity(selected);
     const rowH = 46,
       labelW = 190,
-      p = { l: labelW, r: 66, t: 10, b: 10 };
+      p = { l: labelW, r: 66, t: 26, b: 10 };
     const rect = canvas.getBoundingClientRect(),
       dpr = Math.min(2, window.devicePixelRatio || 1),
       w = Math.max(340, rect.width),
-      h = results.length * rowH + p.t + p.b;
+      h = Math.max(1, results.length) * rowH + p.t + p.b;
+    const wrap = canvas.closest('.chart-wrap');
+    if (wrap) wrap.style.height = h + 'px';
     canvas.style.height = h + 'px';
     canvas.width = Math.max(340, w * dpr);
     canvas.height = Math.max(150, h * dpr);
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, w, h);
+    if (!results.length) {
+      ctx.font = '13px Inter,system-ui';
+      ctx.fillStyle = chartAxisColor();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Check an assumption above to see its sensitivity.', w / 2, h / 2);
+      return;
+    }
     const allVals = results.flatMap((r) => [r.low, r.high]).concat([baseline]);
     let min = Math.min(...allVals),
       max = Math.max(...allVals);
@@ -2896,6 +3015,14 @@
     ctx.lineTo(bx, h - p.b + 4);
     ctx.stroke();
     ctx.setLineDash([]);
+    const label = `Current: ${compact(baseline)}`;
+    ctx.font = '700 11px Inter,system-ui';
+    const labelHalfW = ctx.measureText(label).width / 2,
+      labelX = Math.min(w - p.r - labelHalfW, Math.max(p.l + labelHalfW, bx));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = chartAxisColor();
+    ctx.fillText(label, labelX, p.t - 10);
   }
 
   function computeRothOptimizer(selected) {
@@ -4800,6 +4927,9 @@
   // opening it needs its own trigger since no input necessarily changed.
   document.getElementById('sensitivityCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
+  });
+  document.getElementById('sensLeverToggles').addEventListener('change', () => {
+    if (document.getElementById('sensitivityCard').open) renderTornadoChart(simulate());
   });
   document.getElementById('rothOptimizerCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
