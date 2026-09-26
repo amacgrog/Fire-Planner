@@ -137,6 +137,27 @@ Each planner is one big IIFE. The core shape:
   agent read/drive the live projection. Keep the `execute` handler's
   allow-list (`if (k === 'foo' && ...) state.foo = v`) in sync with any new
   `ids`/boolean/enum state field.
+- **Mobile swappable screens** — `#workspace`'s `data-mobile-view` attribute
+  (`"inputs"` or `"dashboard"`, set by the `setupMobileTabs()` IIFE near the
+  bottom of the script) plus two CSS rules scoped inside the existing
+  `@media(max-width:820px)` block (`.workspace[data-mobile-view="dashboard"]
+  .panel{display:none}` / `...="inputs"] .content{display:none}`) is what
+  turns the one-long-scroll mobile layout into an Inputs/Dashboard tab
+  switcher. The `.mobile-tabs` bar itself is `display:none` outside that
+  media query, so desktop's two-column `.workspace` ignores the attribute
+  entirely — no JS branching on viewport width is needed, only CSS. This is
+  intentionally a pure display toggle, not a route or app state: it isn't
+  part of `state`/scenario export, same reasoning as the tornado chart's
+  lever checkboxes. The one thing that isn't free: canvas-based charts
+  (`chart`, `tornadoChart`, `overlayChart`, the Sankey) measure their own
+  container via `getBoundingClientRect()`, which returns a zero/stale width
+  while `.content` is `display:none`, so `setMobileView()` calls `render()`
+  whenever the target view is `"dashboard"` — switching to that tab always
+  gets a fresh, correctly-sized render rather than whatever (non-)size was
+  measured while hidden. When adding a new canvas-based result card, no
+  extra wiring is needed as long as it's redrawn from `render()` (or a
+  `card.open`-gated call inside it) — it'll get sized correctly the moment
+  the Dashboard tab becomes visible, same as the existing charts.
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 

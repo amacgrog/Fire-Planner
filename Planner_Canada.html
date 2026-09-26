@@ -14,7 +14,7 @@
     .brand{display:flex;align-items:center;gap:12px}.mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fbbf24,#ea580c);display:grid;place-items:center;font-weight:900;color:#23140b}.brand h1{font-size:1.08rem;margin:0;letter-spacing:-.02em}.brand small{display:block;color:#aeb9c8;font-size:.76rem;margin-top:1px}
     .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--topbar-fg)}
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
-    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}
+    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
     .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     details.group summary{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
@@ -33,7 +33,7 @@
     .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}#wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
-    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:0;background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}}
+    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:0;background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:10px;z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}}
     @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
     #printReport{display:none}
     #printReport h1{font-size:1.3rem;margin:0 0 4px}
@@ -65,7 +65,11 @@
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Saved on this device</span><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="wizardBtn">Customize modeled features</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="view-toggle" role="radiogroup" aria-label="Dollar view"><button id="realBtn" class="active" role="radio" aria-checked="true">Real $</button><button id="nominalBtn" role="radio" aria-checked="false">Nominal $</button></div></div>
   </header>
   <main>
-    <div class="workspace">
+    <div class="workspace" id="workspace">
+      <div class="mobile-tabs" role="tablist" aria-label="Mobile view">
+        <button type="button" id="mobileTabInputs" class="active" role="tab" aria-selected="true">Inputs</button>
+        <button type="button" id="mobileTabDashboard" role="tab" aria-selected="false">Dashboard</button>
+      </div>
       <aside class="panel" aria-label="Projection assumptions">
         <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
         <details class="group" open>
@@ -4940,6 +4944,32 @@
   document.getElementById('sankeyAge').addEventListener('input', () => {
     if (document.getElementById('sankeyCard').open) renderSankey(simulate());
   });
+  // Mobile swappable screens: below the 820px breakpoint the two-column
+  // .workspace collapses to one column, so instead of one long stacked
+  // scroll (inputs then dashboard) a small tab bar lets the user flip
+  // between them; data-mobile-view on #workspace is what the CSS above
+  // keys off to hide whichever side isn't active. Desktop ignores the
+  // attribute entirely (no CSS rule reads it above 820px). Charts measure
+  // their own container width via getBoundingClientRect(), which returns 0
+  // while .content is display:none, so switching TO the dashboard tab
+  // forces a fresh render() once it's visible again rather than trusting
+  // whatever width was measured (or not measured) while hidden.
+  (function setupMobileTabs() {
+    const workspace = document.getElementById('workspace'),
+      tabInputs = document.getElementById('mobileTabInputs'),
+      tabDashboard = document.getElementById('mobileTabDashboard');
+    function setMobileView(view) {
+      workspace.dataset.mobileView = view;
+      tabInputs.classList.toggle('active', view === 'inputs');
+      tabInputs.setAttribute('aria-selected', String(view === 'inputs'));
+      tabDashboard.classList.toggle('active', view === 'dashboard');
+      tabDashboard.setAttribute('aria-selected', String(view === 'dashboard'));
+      if (view === 'dashboard') render();
+    }
+    tabInputs.addEventListener('click', () => setMobileView('inputs'));
+    tabDashboard.addEventListener('click', () => setMobileView('dashboard'));
+    setMobileView('inputs');
+  })();
   syncControls();
   syncContributionControls();
   setMode(mode);
