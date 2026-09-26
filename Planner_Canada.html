@@ -1383,12 +1383,23 @@
         ? (age >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
           (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
         : 0;
-      const tax =
-        taxFor(profile, 0, meltdownAmount) +
+      const cppTax =
         cppContribution(Math.max(0, wageA - healthPremiumA), year) +
         cppContribution(Math.max(0, wageB - healthPremiumB), year) +
         cppContribution(bridgeA, year) +
         cppContribution(bridgeB, year);
+      const tax = taxFor(profile, 0, meltdownAmount) + cppTax;
+      // `tax` above only covers wages/CPP/OAS/pension/RRIF/meltdown income
+      // and is what the cash-flow waterfall below uses to size withdrawals.
+      // Once taxable-brokerage gains and RRSP withdrawals are known (after
+      // the withdrawal waterfall runs), `totalTax` is corrected to include
+      // the tax those withdrawals themselves generate; it's `tax` unchanged
+      // in a no-withdrawal (contributing) year.
+      let totalTax = tax;
+      // Same idea for income: starts as the pre-withdrawal gross income and
+      // is corrected after the waterfall to include realized RRSP
+      // withdrawals and taxable-brokerage gains.
+      let totalIncome = totalA + totalB + meltdownAmount;
       const expenses = baseSpend + healthcare + ltc + housing + loanPayment;
       let flow =
         wages +
@@ -1580,6 +1591,8 @@
           need -= fromHome;
         }
         if (need > 1 && !depletedAge) depletedAge = age;
+        totalTax = cppTax + taxFor(profile, taxableGainGross, traditionalGross);
+        totalIncome = totalA + totalB + traditionalGross + taxableGainGross;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
         fhsa += fhsaContrib;
@@ -1609,9 +1622,9 @@
         working,
         workingA,
         workingB,
-        grossIncome: totalA + totalB + meltdownAmount,
+        grossIncome: totalIncome,
         expenses,
-        tax,
+        tax: totalTax,
       });
     }
     return {

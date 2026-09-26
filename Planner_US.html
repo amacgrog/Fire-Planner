@@ -1991,6 +1991,12 @@
       }
       const magiProxy = otherA + otherB + ss + conversionAmount;
       magiHistory[year] = magiProxy;
+      // Display-only running total: like totalTax below, this starts as the
+      // pre-withdrawal MAGI proxy and is corrected after the withdrawal
+      // waterfall runs to also include realized traditional withdrawals and
+      // taxable-brokerage gains, so it does not understate income in years
+      // funded mostly by withdrawals.
+      let totalIncome = otherA + otherB + ss + conversionAmount;
       const baseSpend = activeSpending(age) * factor;
       const acaEligibleA = !workingA && age < 65,
         acaEligibleB = !singlePerson && !workingB && ageB < 65;
@@ -2015,12 +2021,19 @@
         ? (age >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
           (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
         : 0;
-      const tax =
-        taxFor(profile, 0, conversionAmount) +
+      const ficaTax =
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
         wageFica(Math.max(0, wageB - healthPremiumB), year) +
         wageFica(bridgeA, year) +
         wageFica(bridgeB, year);
+      const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+      // `tax` above only covers wages/SS/pension/RMD/conversion income and is
+      // what the cash-flow waterfall below uses to size withdrawals. Once
+      // taxable-brokerage gains and traditional withdrawals are known (after
+      // the withdrawal waterfall runs), `totalTax` is corrected to include
+      // the tax those withdrawals themselves generate; it's `tax` unchanged
+      // in a no-withdrawal (contributing) year.
+      let totalTax = tax;
       const expenses = baseSpend + healthcare + ltc + housing + loanPayment;
       let flow =
         wages +
@@ -2212,6 +2225,8 @@
           need -= fromHome;
         }
         if (need > 1 && !depletedAge) depletedAge = age;
+        totalTax = ficaTax + taxFor(profile, taxableGainGross, traditionalGross);
+        totalIncome = otherA + otherB + ss + traditionalGross + taxableGainGross;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
       }
@@ -2243,7 +2258,8 @@
         conversionAmount,
         magiProxy,
         expenses,
-        tax,
+        tax: totalTax,
+        income: totalIncome,
       });
     }
     return {
@@ -3725,7 +3741,7 @@
     const projRows = sim.rows
       .map(
         (r) =>
-          `<tr><td>${r.age}${state.singlePerson ? '' : ` / ${r.ageB}`}</td><td>${money(displayValue(r.magiProxy, r.year))}</td><td>${money(displayValue(r.expenses, r.year))}</td><td>${money(displayValue(r.tax, r.year))}</td><td>${money(displayValue(r.taxable, r.year))}</td><td>${money(displayValue(r.bonds, r.year))}</td><td>${money(displayValue(r.traditional, r.year))}</td><td>${money(displayValue(r.roth, r.year))}</td><td>${money(displayValue(r.cash, r.year))}</td><td>${money(displayValue(r.homeEquity, r.year))}</td><td>${money(displayValue(r.total, r.year))}</td></tr>`,
+          `<tr><td>${r.age}${state.singlePerson ? '' : ` / ${r.ageB}`}</td><td>${money(displayValue(r.income, r.year))}</td><td>${money(displayValue(r.expenses, r.year))}</td><td>${money(displayValue(r.tax, r.year))}</td><td>${money(displayValue(r.taxable, r.year))}</td><td>${money(displayValue(r.bonds, r.year))}</td><td>${money(displayValue(r.traditional, r.year))}</td><td>${money(displayValue(r.roth, r.year))}</td><td>${money(displayValue(r.cash, r.year))}</td><td>${money(displayValue(r.homeEquity, r.year))}</td><td>${money(displayValue(r.total, r.year))}</td></tr>`,
       )
       .join('');
     document.getElementById('printReport').innerHTML = `
