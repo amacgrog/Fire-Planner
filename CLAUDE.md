@@ -113,6 +113,31 @@ Each planner is one big IIFE. The core shape:
   read by `renderTornadoChart()` — don't let a future edit read `baseline`
   without also reading `usePeak`, or the label/note can go out of sync
   with what the bars are actually measuring.
+- **Sidebar group order** — the `<details class="group">` blocks in the
+  input panel are ordered most-basic-and-universal to most-niche-and-
+  advanced, roughly: Scenarios (utility) → tax/province context → Timeline
+  → Income → Retirement contributions → Pre-retirement healthcare →
+  Household spending → Assets (renamed from "Portfolio composition") →
+  Market assumptions → Housing → Retirement income & healthcare (SS/CPP,
+  pensions, post-retirement healthcare, LTC) → Other loans → Bridge income
+  → Additional income → Survivor planning → Withdrawal & tax strategy
+  (smooth withdrawals, Guyton-Klinger, Roth conversion / RRSP meltdown
+  ladder, Canada's pension income splitting). This is purely visual
+  grouping — nothing in the JS depends on group order, and a field's id is
+  the only thing that matters to `ids`/`normalizeState()`/scenario
+  save-load, so groups can be freely reordered or renamed later without
+  touching simulation logic. The old single `#partnerBFields` wrapper
+  `<div>` (which used to bundle every Partner B field together under one
+  `data-partner-b` attribute) was split apart when the fields it held moved
+  into three different groups (Timeline/Income/Retirement contributions);
+  each field now carries `data-partner-b` individually, matching the
+  convention already used everywhere else in the sidebar (SS/pension/LTC/
+  bridge-income B-fields). The `.single-person [data-partner-b]
+  {display:none!important}` CSS rule and the `querySelectorAll('[data-
+  partner-b]')` JS loop in `syncControls()` both already operate on the
+  attribute wherever it appears, so splitting the wrapper needed no new
+  code — only deleting the now-redundant `getElementById('partnerBFields')`
+  line that pre-dated the CSS-attribute approach.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — the
   cash-flow Sankey diagram. This planner doesn't track which specific dollar
   funded which specific expense, so the diagram deliberately routes every
@@ -255,12 +280,8 @@ Each planner is one big IIFE. The core shape:
     accounting for the sticky `.mobile-tabs` bar on mobile) so
     `scrollIntoView({block:'start'})` doesn't land with the card's own
     heading tucked under a sticky element above it.
-  - The `survivor` button carries the existing `data-partner-b` attribute
-    (same convention as every other partner-B-only field) so single-person
-    mode hides it for free via the existing `.single-person
-    [data-partner-b]{display:none!important}` rule — no new JS needed.
   - **v2 (built):** `buyVsRent` and `rothLadder` follow the same
-    mutate/simulate/restore idiom as `survivor` — directly against
+    mutate/simulate/restore idiom `SENSITIVITY_LEVERS` uses — directly against
     `state.tenure`/`state.rothConvEnabled` (Canada: `state.meltdownEnabled`),
     never through `setTenure()` (which permanently mutates state, calls
     `render()`, and persists via `saveInputs()` — fine for a real sidebar
