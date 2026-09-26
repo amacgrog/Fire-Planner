@@ -205,6 +205,15 @@
             <div data-partner-b class="field"><label for="ltcAgeB">Partner B LTC start age</label><input id="ltcAgeB" type="number" min="60" max="100" step="1"></div>
           </div>
         </details>
+        <details class="group" id="survivorGroup">
+          <summary>Survivor planning</summary>
+          <div class="field"><label for="survivorEnabled"><input id="survivorEnabled" type="checkbox"> Model one partner's death<small>From the chosen age onward: switches to single filing status, keeps the greater of the two Social Security benefits (a simplified survivor-benefit swap), drops the deceased partner's pension/LTC/healthcare share, consolidates the traditional balance under the survivor's own RMD schedule, cuts household spending to the percentage below, and settles any "other loans" balance as a lump sum that year — approximating debts being paid from the estate during probate before assets pass to the survivor. The mortgage is untouched, since it's secured by jointly-titled real estate. Intended for a death during retirement; one modeled during a working year may not fully zero out that year's payroll activity.</small></label></div>
+          <div id="survivorFields">
+            <div class="field"><label for="survivorPartner">Partner who dies first</label><select id="survivorPartner"><option value="A">Partner A</option><option value="B">Partner B</option></select></div>
+            <div class="field"><label for="survivorDeathAge">At that partner's age</label><input id="survivorDeathAge" type="number" min="18" max="100" step="1"></div>
+            <div class="field"><label for="survivorSpendingPct">Survivor household spending<small>As a % of the household spending figure (and any spending tiers) above.</small></label><input id="survivorSpendingPct" type="number" min="10" max="100" step="5"></div>
+          </div>
+        </details>
         <details class="group" open>
           <summary>Household spending</summary>
           <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs not itemized elsewhere: groceries, dining out, utilities, phone/internet, transportation (car payment, gas, insurance, transit), subscriptions, clothing, personal care, entertainment, travel, gifts, and pet care. Excludes mortgage/rent, property tax, home insurance, maintenance, health/dental insurance premiums, long-term care, and retirement saving — those are all tracked separately above.</small></label><input id="spending" type="number" min="0" step="1000"></div>
@@ -292,6 +301,14 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target to estimate which minimizes lifetime tax paid (income + payroll tax, summed across the projection in today's dollars), while checking it doesn't shorten how long the portfolio lasts. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
           <div class="table-wrap"><table><thead><tr><th>Fill to bracket</th><th>Lifetime tax (est.)</th><th>End assets</th><th>Portfolio lasts to</th></tr></thead><tbody id="rothOptimizerRows"></tbody></table></div>
+        </details>
+
+        <details class="result-card" id="sankeyCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Cash flow diagram</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Where a single year's money comes from and where it goes: income sources on the left, taxes and spending categories on the right, with any gap drawn from savings or surplus added to it. Only computed while expanded.</p>
+          <div class="field" style="max-width:420px"><label for="sankeyAge">Year to show<output id="sankeyAgeOut" style="margin-left:8px;font-weight:700"></output></label><input id="sankeyAge" type="range" min="0" max="0" step="1"></div>
+          <div class="chart-wrap"><svg id="sankeySvg" role="img" aria-label="Cash flow diagram for the selected year" style="width:100%;height:360px"></svg></div>
+          <div class="chart-note"><span>Amounts shown in the mode currently selected above (real or nominal dollars).</span></div>
         </details>
 
         <div class="result-card">
@@ -385,6 +402,10 @@
     bondYears: 5,
     smoothWithdrawals: false,
     guardrailsEnabled: false,
+    survivorEnabled: false,
+    survivorPartner: 'A',
+    survivorDeathAge: 85,
+    survivorSpendingPct: 75,
     returnRate: 7,
     bondReturn: 4,
     hysaRate: 4,
@@ -474,6 +495,7 @@
     const s = { ...defaults, ...(raw || {}) };
     if (!['own', 'rent', 'rentThenBuy'].includes(s.tenure)) s.tenure = 'own';
     if (!['mfj', 'single'].includes(s.filingStatus)) s.filingStatus = 'mfj';
+    if (!['A', 'B'].includes(s.survivorPartner)) s.survivorPartner = 'A';
     if (!['weekly', 'biweekly', 'semimonthly', 'monthly'].includes(s.payFrequency))
       s.payFrequency = 'biweekly';
     s.retireAgeA = Math.max(s.ageA, Number(s.retireAgeA ?? s.retireAge ?? s.ageA));
@@ -592,6 +614,8 @@
     'bridgeIncomeB',
     'bridgeStartAgeB',
     'bridgeEndAgeB',
+    'survivorDeathAge',
+    'survivorSpendingPct',
     'rothConvStartAge',
     'rothConvEndAge',
     'buyAge',
@@ -1823,6 +1847,25 @@
       guardrailInitialWR = null,
       guardrailPrevNeed = null,
       guardrailPrevPortfolio = null;
+    // Survivor modeling (simplified, opt-in): from the chosen partner's
+    // death age onward, the household switches to single filing, the
+    // survivor keeps the greater of the two Social Security benefits (a
+    // simplified survivor-benefit swap rather than full PIA/FRA rules),
+    // the deceased partner's pension/LTC/healthcare share drops out, the
+    // full traditional balance consolidates under the survivor's own RMD
+    // schedule (spousal rollover), household spending is cut to a
+    // configurable percentage, and any "other loans" balance is paid off
+    // as a lump sum in the year of death (approximating debts settled
+    // through probate before the estate passes to the survivor) — the
+    // mortgage is untouched since it's secured by jointly-titled real
+    // estate. Only meaningful once both partners are otherwise retired.
+    const deceasedIsA = state.survivorEnabled && !singlePerson && state.survivorPartner === 'A',
+      deceasedIsB = state.survivorEnabled && !singlePerson && state.survivorPartner === 'B',
+      deathYear = deceasedIsA
+        ? state.survivorDeathAge - state.ageA
+        : deceasedIsB
+          ? state.survivorDeathAge - state.ageB
+          : Infinity;
     const activeSpending = (ageA) => {
       const applicable = state.spendingTiers
         .filter((t) => t.enabled && ageA >= t.age)
@@ -1884,18 +1927,19 @@
         factor = Math.pow(1 + infl, year),
         workingA = age < retireAgeA,
         workingB = !singlePerson && ageB < retireAgeB,
-        working = workingA || workingB;
+        working = workingA || workingB,
+        isSurvivorPeriod = year >= deathYear;
       const incomeFactor = Math.pow(1 + wageGrowth, year);
       const wageA = workingA ? state.incomeA * incomeFactor : 0,
         wageB = workingB ? state.incomeB * incomeFactor : 0,
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      const bridgeA =
+      let bridgeA =
         state.bridgeEnabled && !workingA && age >= state.bridgeStartAgeA && age <= state.bridgeEndAgeA
           ? state.bridgeIncomeA * incomeFactor
           : 0;
-      const bridgeB =
+      let bridgeB =
         state.bridgeEnabled &&
         !singlePerson &&
         !workingB &&
@@ -1903,6 +1947,10 @@
         ageB <= state.bridgeEndAgeB
           ? state.bridgeIncomeB * incomeFactor
           : 0;
+      if (isSurvivorPeriod) {
+        if (deceasedIsA) bridgeA = 0;
+        else bridgeB = 0;
+      }
       const extraIncome = state.otherIncomeEnabled
         ? state.incomeSources
             .filter((s) => s.enabled && age >= s.startAge && age <= s.endAge)
@@ -1979,10 +2027,23 @@
         (state.iraType === 'roth' ? iraB : 0) +
         megaB;
       const rothContrib = rothContribA + rothContribB;
-      const ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
-        ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor,
-        ss = ssA + ssB;
-      const pensionA =
+      let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
+        ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
+      if (isSurvivorPeriod) {
+        // Simplified survivor-benefit swap: the survivor keeps the greater
+        // of the two benefits (each computed as if both were still alive),
+        // rather than modeling full PIA/FRA-based survivor benefit rules.
+        const survivorSS = Math.max(ssA, ssB);
+        if (deceasedIsA) {
+          ssA = 0;
+          ssB = survivorSS;
+        } else {
+          ssB = 0;
+          ssA = survivorSS;
+        }
+      }
+      const ss = ssA + ssB;
+      let pensionA =
           ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
           age >= state.pensionStartAgeA
             ? state.pensionYearlyA
@@ -1992,12 +2053,21 @@
           (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
           ageB >= state.pensionStartAgeB
             ? state.pensionYearlyB
-            : 0) * factor,
-        pension = pensionA + pensionB;
+            : 0) * factor;
+      if (isSurvivorPeriod) {
+        if (deceasedIsA) pensionA = 0;
+        else pensionB = 0;
+      }
+      const pension = pensionA + pensionB;
       const traditionalBeforeRmd = traditional + bondTraditional,
-        traditionalShare = singlePerson ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-      const rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
+        traditionalShare =
+          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
+      let rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
         rmdB = !singlePerson && ageB >= 75 ? traditionalShare / rmdDivisor(ageB) : 0;
+      if (isSurvivorPeriod) {
+        if (deceasedIsA) rmdA = 0;
+        else rmdB = 0;
+      }
       const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
       let housing;
       const ownsHome =
@@ -2024,7 +2094,15 @@
           (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
         if (year === futureBuy.buyYear) home = futureBuy.homeValueAtPurchase;
       }
-      const loanPayment = loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
+      const loanPayment = isSurvivorPeriod && year > deathYear
+        ? 0
+        : year === deathYear
+          ? loans.reduce(
+              (sum, l, i) =>
+                sum + (year > 0 ? l.balances[year - 1] : Number(state.loans[i]?.balance) || 0),
+              0,
+            )
+          : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
       const otherA =
           Math.max(0, wageA - traditionalContribA - healthPremiumA) +
           bridgeA +
@@ -2033,30 +2111,53 @@
           extraIncome,
         otherB =
           Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB + pensionB + rmdB;
-      const filing = singlePerson
+      const filing = isSurvivorPeriod
         ? 'single'
-        : state.marryLater
-          ? age >= state.marriageAgeA
-            ? 'mfj'
-            : 'single'
-          : state.filingStatus;
-      const profile = {
-        filing,
-        otherA,
-        otherB,
-        wageA: Math.max(0, wageA - traditionalContribA - healthPremiumA) + bridgeA,
-        wageB: Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB,
-        pensionA,
-        pensionB,
-        rmdA,
-        rmdB,
-        ssA,
-        ssB,
-        ageA: age,
-        ageB,
-        singlePerson,
-        year,
-      };
+        : singlePerson
+          ? 'single'
+          : state.marryLater
+            ? age >= state.marriageAgeA
+              ? 'mfj'
+              : 'single'
+            : state.filingStatus;
+      const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + bridgeA,
+        profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB;
+      const profile =
+        isSurvivorPeriod && deceasedIsA
+          ? {
+              filing,
+              otherA: otherB,
+              otherB: 0,
+              wageA: profileWageB,
+              wageB: 0,
+              pensionA: pensionB,
+              pensionB: 0,
+              rmdA: rmdB,
+              rmdB: 0,
+              ssA: ssB,
+              ssB: 0,
+              ageA: ageB,
+              ageB: null,
+              singlePerson: true,
+              year,
+            }
+          : {
+              filing,
+              otherA,
+              otherB,
+              wageA: profileWageA,
+              wageB: profileWageB,
+              pensionA,
+              pensionB,
+              rmdA,
+              rmdB,
+              ssA,
+              ssB,
+              ageA: age,
+              ageB,
+              singlePerson: singlePerson || isSurvivorPeriod,
+              year,
+            };
       let conversionAmount = 0;
       if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
         const preConvMagi = otherA + otherB + ss;
@@ -2065,16 +2166,24 @@
         // 400% of the federal poverty line, the full premium is owed with
         // no phase-out, which can cost far more than a lower future tax
         // bracket is worth.
-        const acaEligibleNow = (!workingA && age < 65) || (!singlePerson && !workingB && ageB < 65);
+        const acaEligibleNow =
+          (!workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)) ||
+          (!singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB));
         if (state.acaEnabled && !state.acaEnhanced && acaEligibleNow) {
-          magiCeiling = Math.min(magiCeiling, fplForHousehold(singlePerson ? 1 : 2, year) * 4);
+          magiCeiling = Math.min(
+            magiCeiling,
+            fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
+          );
         }
         // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
         // assessed two years later off this year's MAGI, so this only
         // matters once a currently-retired partner is within two years of
         // 65 (or already on Medicare); it keeps this year's MAGI within
         // whichever tier it already sits in.
-        if ((!workingA && age >= 63) || (!singlePerson && !workingB && ageB >= 63)) {
+        if (
+          (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
+          (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
+        ) {
           magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
         }
         const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
@@ -2099,29 +2208,42 @@
         }
       }
       const baseSpend =
-        activeSpending(age) * factor * (state.guardrailsEnabled && !working ? guardrailMultiplier : 1);
-      const acaEligibleA = !workingA && age < 65,
-        acaEligibleB = !singlePerson && !workingB && ageB < 65;
+        activeSpending(age) *
+        factor *
+        (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
+        (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+      const acaEligibleA = !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA),
+        acaEligibleB = !singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB);
       let healthcare;
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
+        const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
         const grossPremium = singlePerson
           ? (acaEligibleA ? state.healthcare : 0) * factor
-          : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
-            (acaEligibleB ? state.healthcare / 2 : 0) * factor;
-        healthcare = acaNetCost(magiProxy, singlePerson ? 1 : 2, grossPremium, year);
+          : isSurvivorPeriod
+            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor
+            : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
+              (acaEligibleB ? state.healthcare / 2 : 0) * factor;
+        healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
       } else {
         healthcare = singlePerson
           ? (workingA ? 0 : state.healthcare) * factor
-          : (workingA ? 0 : state.healthcare / 2) * factor +
-            (workingB ? 0 : state.healthcare / 2) * factor;
+          : isSurvivorPeriod
+            ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
+            : (workingA ? 0 : state.healthcare / 2) * factor +
+              (workingB ? 0 : state.healthcare / 2) * factor;
       }
       const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
-      if (!workingA && age >= 65) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (!singlePerson && !workingB && ageB >= 65)
+      if (!workingA && age >= 65 && !(isSurvivorPeriod && deceasedIsA))
+        healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (!singlePerson && !workingB && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB))
         healthcare += irmaaSurcharge(lookbackMagi, filing, year);
       const ltc = state.ltcEnabled
-        ? (age >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
-          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
+        ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
+            factor +
+          (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
+            ? state.ltcYearlyB
+            : 0) *
+            factor
         : 0;
       const ficaTax =
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
@@ -2369,6 +2491,15 @@
         expenses,
         tax: totalTax,
         income: totalIncome,
+        wages,
+        ss,
+        pension,
+        rmd,
+        housing,
+        healthcare,
+        ltc,
+        loanPayment,
+        baseSpend,
       });
     }
     return {
@@ -2432,6 +2563,15 @@
       guardrailInitialWR = null,
       guardrailPrevNeed = null,
       guardrailPrevPortfolio = null;
+    // See simulate() for the survivor-modeling design note; same simplified
+    // rules applied to this bucket-strategy backtest.
+    const deceasedIsA = state.survivorEnabled && !singlePerson && state.survivorPartner === 'A',
+      deceasedIsB = state.survivorEnabled && !singlePerson && state.survivorPartner === 'B',
+      deathYear = deceasedIsA
+        ? state.survivorDeathAge - state.ageA
+        : deceasedIsB
+          ? state.survivorDeathAge - state.ageB
+          : Infinity;
     const activeSpending = (ageA) => {
       const applicable = state.spendingTiers
         .filter((t) => t.enabled && ageA >= t.age)
@@ -2451,18 +2591,19 @@
         limitFactor = cumFactor,
         workingA = age < retireAgeA,
         workingB = !singlePerson && ageB < retireAgeB,
-        working = workingA || workingB;
+        working = workingA || workingB,
+        isSurvivorPeriod = year >= deathYear;
       const incomeFactor = Math.pow(1 + wageGrowth, year);
       const wageA = workingA ? state.incomeA * incomeFactor : 0,
         wageB = workingB ? state.incomeB * incomeFactor : 0,
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      const bridgeA =
+      let bridgeA =
         state.bridgeEnabled && !workingA && age >= state.bridgeStartAgeA && age <= state.bridgeEndAgeA
           ? state.bridgeIncomeA * incomeFactor
           : 0;
-      const bridgeB =
+      let bridgeB =
         state.bridgeEnabled &&
         !singlePerson &&
         !workingB &&
@@ -2470,6 +2611,10 @@
         ageB <= state.bridgeEndAgeB
           ? state.bridgeIncomeB * incomeFactor
           : 0;
+      if (isSurvivorPeriod) {
+        if (deceasedIsA) bridgeA = 0;
+        else bridgeB = 0;
+      }
       const extraIncome = state.otherIncomeEnabled
         ? state.incomeSources
             .filter((s) => s.enabled && age >= s.startAge && age <= s.endAge)
@@ -2542,10 +2687,23 @@
         (state.iraType === 'roth' ? iraB : 0) +
         megaB;
       const rothContrib = rothContribA + rothContribB;
-      const ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
-        ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor,
-        ss = ssA + ssB;
-      const pensionA =
+      let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
+        ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
+      if (isSurvivorPeriod) {
+        // Simplified survivor-benefit swap: the survivor keeps the greater
+        // of the two benefits (each computed as if both were still alive),
+        // rather than modeling full PIA/FRA-based survivor benefit rules.
+        const survivorSS = Math.max(ssA, ssB);
+        if (deceasedIsA) {
+          ssA = 0;
+          ssB = survivorSS;
+        } else {
+          ssB = 0;
+          ssA = survivorSS;
+        }
+      }
+      const ss = ssA + ssB;
+      let pensionA =
           ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
           age >= state.pensionStartAgeA
             ? state.pensionYearlyA
@@ -2555,12 +2713,21 @@
           (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
           ageB >= state.pensionStartAgeB
             ? state.pensionYearlyB
-            : 0) * factor,
-        pension = pensionA + pensionB;
+            : 0) * factor;
+      if (isSurvivorPeriod) {
+        if (deceasedIsA) pensionA = 0;
+        else pensionB = 0;
+      }
+      const pension = pensionA + pensionB;
       const traditionalBeforeRmd = traditional + bondTraditional,
-        traditionalShare = singlePerson ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-      const rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
+        traditionalShare =
+          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
+      let rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
         rmdB = !singlePerson && ageB >= 75 ? traditionalShare / rmdDivisor(ageB) : 0;
+      if (isSurvivorPeriod) {
+        if (deceasedIsA) rmdA = 0;
+        else rmdB = 0;
+      }
       const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
       let housing;
       const ownsHome =
@@ -2587,7 +2754,15 @@
           (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
         if (year === futureBuy.buyYear) home = futureBuy.homeValueAtPurchase;
       }
-      const loanPayment = loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
+      const loanPayment = isSurvivorPeriod && year > deathYear
+        ? 0
+        : year === deathYear
+          ? loans.reduce(
+              (sum, l, i) =>
+                sum + (year > 0 ? l.balances[year - 1] : Number(state.loans[i]?.balance) || 0),
+              0,
+            )
+          : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
       const otherA =
           Math.max(0, wageA - traditionalContribA - healthPremiumA) +
           bridgeA +
@@ -2596,30 +2771,53 @@
           extraIncome,
         otherB =
           Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB + pensionB + rmdB;
-      const filing = singlePerson
+      const filing = isSurvivorPeriod
         ? 'single'
-        : state.marryLater
-          ? age >= state.marriageAgeA
-            ? 'mfj'
-            : 'single'
-          : state.filingStatus;
-      const profile = {
-        filing,
-        otherA,
-        otherB,
-        wageA: Math.max(0, wageA - traditionalContribA - healthPremiumA) + bridgeA,
-        wageB: Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB,
-        pensionA,
-        pensionB,
-        rmdA,
-        rmdB,
-        ssA,
-        ssB,
-        ageA: age,
-        ageB,
-        singlePerson,
-        year,
-      };
+        : singlePerson
+          ? 'single'
+          : state.marryLater
+            ? age >= state.marriageAgeA
+              ? 'mfj'
+              : 'single'
+            : state.filingStatus;
+      const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + bridgeA,
+        profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB;
+      const profile =
+        isSurvivorPeriod && deceasedIsA
+          ? {
+              filing,
+              otherA: otherB,
+              otherB: 0,
+              wageA: profileWageB,
+              wageB: 0,
+              pensionA: pensionB,
+              pensionB: 0,
+              rmdA: rmdB,
+              rmdB: 0,
+              ssA: ssB,
+              ssB: 0,
+              ageA: ageB,
+              ageB: null,
+              singlePerson: true,
+              year,
+            }
+          : {
+              filing,
+              otherA,
+              otherB,
+              wageA: profileWageA,
+              wageB: profileWageB,
+              pensionA,
+              pensionB,
+              rmdA,
+              rmdB,
+              ssA,
+              ssB,
+              ageA: age,
+              ageB,
+              singlePerson: singlePerson || isSurvivorPeriod,
+              year,
+            };
       let conversionAmount = 0;
       if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
         const preConvMagi = otherA + otherB + ss;
@@ -2628,16 +2826,24 @@
         // 400% of the federal poverty line, the full premium is owed with
         // no phase-out, which can cost far more than a lower future tax
         // bracket is worth.
-        const acaEligibleNow = (!workingA && age < 65) || (!singlePerson && !workingB && ageB < 65);
+        const acaEligibleNow =
+          (!workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)) ||
+          (!singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB));
         if (state.acaEnabled && !state.acaEnhanced && acaEligibleNow) {
-          magiCeiling = Math.min(magiCeiling, fplForHousehold(singlePerson ? 1 : 2, year) * 4);
+          magiCeiling = Math.min(
+            magiCeiling,
+            fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
+          );
         }
         // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
         // assessed two years later off this year's MAGI, so this only
         // matters once a currently-retired partner is within two years of
         // 65 (or already on Medicare); it keeps this year's MAGI within
         // whichever tier it already sits in.
-        if ((!workingA && age >= 63) || (!singlePerson && !workingB && ageB >= 63)) {
+        if (
+          (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
+          (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
+        ) {
           magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
         }
         const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
@@ -2656,29 +2862,42 @@
         }
       }
       const baseSpend =
-        activeSpending(age) * factor * (state.guardrailsEnabled && !working ? guardrailMultiplier : 1);
-      const acaEligibleA = !workingA && age < 65,
-        acaEligibleB = !singlePerson && !workingB && ageB < 65;
+        activeSpending(age) *
+        factor *
+        (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
+        (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+      const acaEligibleA = !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA),
+        acaEligibleB = !singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB);
       let healthcare;
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
+        const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
         const grossPremium = singlePerson
           ? (acaEligibleA ? state.healthcare : 0) * factor
-          : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
-            (acaEligibleB ? state.healthcare / 2 : 0) * factor;
-        healthcare = acaNetCost(magiProxy, singlePerson ? 1 : 2, grossPremium, year);
+          : isSurvivorPeriod
+            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor
+            : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
+              (acaEligibleB ? state.healthcare / 2 : 0) * factor;
+        healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
       } else {
         healthcare = singlePerson
           ? (workingA ? 0 : state.healthcare) * factor
-          : (workingA ? 0 : state.healthcare / 2) * factor +
-            (workingB ? 0 : state.healthcare / 2) * factor;
+          : isSurvivorPeriod
+            ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
+            : (workingA ? 0 : state.healthcare / 2) * factor +
+              (workingB ? 0 : state.healthcare / 2) * factor;
       }
       const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
-      if (!workingA && age >= 65) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (!singlePerson && !workingB && ageB >= 65)
+      if (!workingA && age >= 65 && !(isSurvivorPeriod && deceasedIsA))
+        healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (!singlePerson && !workingB && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB))
         healthcare += irmaaSurcharge(lookbackMagi, filing, year);
       const ltc = state.ltcEnabled
-        ? (age >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
-          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
+        ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
+            factor +
+          (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
+            ? state.ltcYearlyB
+            : 0) *
+            factor
         : 0;
       const tax =
         taxFor(profile, 0, conversionAmount) +
@@ -3063,6 +3282,7 @@
     const rothOptimizerCard = document.getElementById('rothOptimizerCard');
     rothOptimizerCard.hidden = !state.rothConvEnabled;
     if (state.rothConvEnabled && rothOptimizerCard.open) renderRothOptimizer(selected);
+    if (document.getElementById('sankeyCard').open) renderSankey(selected);
     window.fireProjection = {
       mode,
       retirementAgeA: state.retireAgeA,
@@ -3416,6 +3636,151 @@
     const pool = notWorse.length ? notWorse : results;
     const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
     return { results, best, currentBracket: savedBracket };
+  }
+  // Builds the source/use category breakdown for a single projection year,
+  // for the cash-flow (Sankey-style) diagram. Any gap between what income
+  // covers and what taxes+spending require is shown as either a draw from
+  // savings ("From portfolio") or a surplus added to it ("To savings") —
+  // this planner doesn't track which specific dollar funded which specific
+  // expense, so the diagram shows the net picture rather than a literal
+  // per-dollar trace.
+  function computeSankeyFlow(row) {
+    const val = (n) => Math.max(0, displayValue(n || 0, row.year));
+    const sources = [
+      { label: 'Wages', value: val(row.wages), color: '#3b82f6' },
+      { label: 'Social Security', value: val(row.ss), color: '#0e9f9a' },
+      { label: 'Pension', value: val(row.pension), color: '#8b5cf6' },
+      { label: 'RMD', value: val(row.rmd), color: '#f59e0b' },
+    ].filter((s) => s.value > 1);
+    const uses = [
+      { label: 'Taxes', value: val(row.tax), color: '#ef4444' },
+      { label: 'Housing', value: val(row.housing), color: '#6366f1' },
+      { label: 'Healthcare', value: val(row.healthcare), color: '#ec4899' },
+      { label: 'Long-term care', value: val(row.ltc), color: '#f97316' },
+      { label: 'Loan payments', value: val(row.loanPayment), color: '#84cc16' },
+      { label: 'Discretionary spending', value: val(row.baseSpend), color: '#14b8a6' },
+    ].filter((u) => u.value > 1);
+    const totalIn = sources.reduce((a, s) => a + s.value, 0),
+      totalOut = uses.reduce((a, u) => a + u.value, 0);
+    if (totalIn > totalOut + 1)
+      uses.push({ label: 'To savings', value: totalIn - totalOut, color: '#22c55e' });
+    else if (totalOut > totalIn + 1)
+      sources.push({ label: 'From portfolio', value: totalOut - totalIn, color: '#94a3b8' });
+    return { sources, uses, total: Math.max(totalIn, totalOut) };
+  }
+  function layoutSankeyColumn(nodes, x0, x1, y0, y1, total) {
+    let y = y0;
+    return nodes.map((n) => {
+      const h = total > 0 ? (n.value / total) * (y1 - y0) : 0;
+      const laidOut = { ...n, x0, x1, y0: y, y1: y + h };
+      y += h;
+      return laidOut;
+    });
+  }
+  function renderSankey(selected) {
+    const svg = document.getElementById('sankeySvg'),
+      rows = selected.rows,
+      slider = document.getElementById('sankeyAge');
+    slider.max = String(Math.max(0, rows.length - 1));
+    const idx = Math.min(rows.length - 1, Math.max(0, Number(slider.value) || 0));
+    slider.value = String(idx);
+    const row = rows[idx];
+    document.getElementById('sankeyAgeOut').textContent = `Age ${row.age}`;
+    const { sources, uses, total } = computeSankeyFlow(row);
+    const ns = 'http://www.w3.org/2000/svg',
+      width = svg.clientWidth || 600,
+      height = 340;
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (total <= 1) {
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', width / 2);
+      t.setAttribute('y', height / 2);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('fill', 'var(--muted)');
+      t.textContent = 'No meaningful cash flow this year.';
+      svg.appendChild(t);
+      return;
+    }
+    const pad = 10,
+      colW = 150,
+      leftX0 = pad,
+      leftX1 = pad + colW,
+      rightX1 = width - pad,
+      rightX0 = rightX1 - colW,
+      top = 10,
+      bottom = height - 10;
+    const leftNodes = layoutSankeyColumn(sources, leftX0, leftX1, top, bottom, total),
+      rightNodes = layoutSankeyColumn(uses, rightX0, rightX1, top, bottom, total);
+    const dark = isDarkTheme(),
+      haloColor = dark ? '#0d141d' : '#ffffff',
+      textColor = dark ? '#e5e7eb' : '#1e293b';
+    const ribbonsGroup = document.createElementNS(ns, 'g');
+    leftNodes.forEach((L) => {
+      rightNodes.forEach((R) => {
+        const y0 = Math.max(L.y0, R.y0),
+          y1 = Math.min(L.y1, R.y1);
+        if (y1 - y0 < 0.5) return;
+        const x0 = leftX1,
+          x1 = rightX0,
+          cx0 = x0 + (x1 - x0) * 0.4,
+          cx1 = x0 + (x1 - x0) * 0.6;
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute(
+          'd',
+          `M ${x0} ${y0} C ${cx0} ${y0} ${cx1} ${y0} ${x1} ${y0} L ${x1} ${y1} C ${cx1} ${y1} ${cx0} ${y1} ${x0} ${y1} Z`,
+        );
+        path.setAttribute('fill', L.color);
+        path.setAttribute('opacity', '0.35');
+        const title = document.createElementNS(ns, 'title');
+        title.textContent = `${L.label} → ${R.label}: ${money(y1 - y0)}`;
+        path.appendChild(title);
+        ribbonsGroup.appendChild(path);
+      });
+    });
+    svg.appendChild(ribbonsGroup);
+    const drawNodes = (nodes, align) => {
+      nodes.forEach((n) => {
+        const rect = document.createElementNS(ns, 'rect');
+        rect.setAttribute('x', n.x0);
+        rect.setAttribute('y', n.y0);
+        rect.setAttribute('width', n.x1 - n.x0);
+        rect.setAttribute('height', Math.max(1, n.y1 - n.y0));
+        rect.setAttribute('fill', n.color);
+        const title = document.createElementNS(ns, 'title');
+        title.textContent = `${n.label}: ${money(n.value)}`;
+        rect.appendChild(title);
+        svg.appendChild(rect);
+        if (n.y1 - n.y0 < 14) return;
+        const label = document.createElementNS(ns, 'text');
+        label.setAttribute('x', align === 'left' ? n.x0 + 4 : n.x1 - 4);
+        label.setAttribute('y', (n.y0 + n.y1) / 2 - 3);
+        label.setAttribute('text-anchor', align === 'left' ? 'start' : 'end');
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-weight', '700');
+        label.setAttribute('fill', textColor);
+        label.setAttribute(
+          'style',
+          `paint-order:stroke;stroke:${haloColor};stroke-width:3px;stroke-linejoin:round`,
+        );
+        label.textContent = n.label;
+        svg.appendChild(label);
+        const valueText = document.createElementNS(ns, 'text');
+        valueText.setAttribute('x', align === 'left' ? n.x0 + 4 : n.x1 - 4);
+        valueText.setAttribute('y', (n.y0 + n.y1) / 2 + 11);
+        valueText.setAttribute('text-anchor', align === 'left' ? 'start' : 'end');
+        valueText.setAttribute('font-size', '10');
+        valueText.setAttribute('fill', textColor);
+        valueText.setAttribute(
+          'style',
+          `paint-order:stroke;stroke:${haloColor};stroke-width:3px;stroke-linejoin:round`,
+        );
+        valueText.textContent = compact(n.value);
+        svg.appendChild(valueText);
+      });
+    };
+    drawNodes(leftNodes, 'left');
+    drawNodes(rightNodes, 'right');
   }
   function renderRothOptimizer(selected) {
     const card = document.getElementById('rothOptimizerCard'),
@@ -4700,6 +5065,10 @@
     document.getElementById('acaEnhanced').checked = !!state.acaEnhanced;
     document.getElementById('rothConvEnabled').checked = !!state.rothConvEnabled;
     document.getElementById('rothConvBracket').value = state.rothConvBracket;
+    document.getElementById('survivorGroup').hidden = !!state.singlePerson;
+    document.getElementById('survivorEnabled').checked = !!state.survivorEnabled;
+    document.getElementById('survivorFields').hidden = !state.survivorEnabled;
+    document.getElementById('survivorPartner').value = state.survivorPartner;
     document.getElementById('wizardAcaEnabled').checked = !!state.acaEnabled;
     document.getElementById('wizardRothConvEnabled').checked = !!state.rothConvEnabled;
     document.getElementById('wizardMegaBackdoor').checked = !!state.megaBackdoor;
@@ -4738,6 +5107,17 @@
   });
   document.getElementById('rothConvBracket').addEventListener('change', (e) => {
     state.rothConvBracket = Number(e.target.value);
+    render();
+    saveInputs();
+  });
+  document.getElementById('survivorEnabled').addEventListener('change', (e) => {
+    state.survivorEnabled = e.target.checked;
+    syncContributionControls();
+    render();
+    saveInputs();
+  });
+  document.getElementById('survivorPartner').addEventListener('change', (e) => {
+    state.survivorPartner = e.target.value;
     render();
     saveInputs();
   });
@@ -5032,6 +5412,12 @@
   document.getElementById('rothOptimizerCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
+  document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
+    if (e.target.open) render();
+  });
+  document.getElementById('sankeyAge').addEventListener('input', () => {
+    if (document.getElementById('sankeyCard').open) renderSankey(simulate());
+  });
   syncControls();
   syncContributionControls();
   setMode(mode);
@@ -5065,6 +5451,8 @@
           pensionCoverage: { type: 'string', enum: ['none', 'a', 'b', 'both'] },
           filingStatus: { type: 'string', enum: ['mfj', 'single'] },
           marryLater: { type: 'boolean' },
+          survivorEnabled: { type: 'boolean' },
+          survivorPartner: { type: 'string', enum: ['A', 'B'] },
         },
         additionalProperties: false,
       },
@@ -5089,6 +5477,8 @@
             state.pensionCoverage = v;
           if (k === 'filingStatus' && ['mfj', 'single'].includes(v)) state.filingStatus = v;
           if (k === 'marryLater' && typeof v === 'boolean') state.marryLater = v;
+          if (k === 'survivorEnabled' && typeof v === 'boolean') state.survivorEnabled = v;
+          if (k === 'survivorPartner' && ['A', 'B'].includes(v)) state.survivorPartner = v;
         }
         state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
         state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));

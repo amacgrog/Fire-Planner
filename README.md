@@ -9,6 +9,7 @@ MIT licensed — see [LICENSE](LICENSE).
 - `index.html` — landing page linking to both tools
 - `Planner_US.html` — US version
 - `Planner_Canada.html` — Canada version (Ontario / BC)
+- `CLAUDE.md` — architecture notes and gotchas for Claude Code (or any AI assistant) working in this repo
 
 ## Shared capabilities
 
@@ -44,6 +45,8 @@ Both tools run on the same underlying engine and share these features:
 - **Collapsible sensitivity analysis ("tornado chart")**: shows how far projected end assets swing when one assumption moves at a time (investment return, retirement age, household spending, inflation, bond return), holding everything else fixed, sorted by impact. Collapsed by default and only computed while expanded, so it never slows down the main dashboard
 - **Scenario overlay chart**: once any saved scenario is checked for comparison, a chart appears plotting each checked scenario's total-assets-by-age alongside "Current," so you can see the shape of the difference, not just the summary numbers in the comparison table
 - **Guyton-Klinger guardrails (opt-in toggle, off by default)**: a simplified dynamic-spending strategy. Instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when your withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule), so you can toggle it on to see how a dynamic policy changes the outcome versus a fixed one
+- **Survivor planning (opt-in toggle, off by default)**: models one partner dying at a chosen age. From that year onward: the household switches to single filing, the survivor keeps the greater of the two Social Security (or CPP + OAS) benefits — a simplified survivor-benefit swap rather than full PIA/FRA or CPP survivor-pension rules — the deceased partner's pension/LTC/healthcare share drops out, the tax-deferred account balance consolidates under the survivor's own RMD/RRIF-minimum schedule, household spending is cut to a configurable percentage, and any "other loans" balance is paid off as a lump sum in the year of death (approximating debts settled through the estate/probate before assets pass to the survivor). The mortgage is untouched, since it's secured by jointly-titled real estate. On the Canada planner, pension income splitting also disables itself for the survivor period, since it requires two living spouses. Intended for a death during retirement; one modeled during a working year may not fully zero out that year's payroll activity
+- **Cash-flow Sankey diagram** (collapsible, only computed while expanded): for a single selected year (a slider steps through the whole projection), shows where that year's money comes from (wages, Social Security/CPP+OAS, pension, RMD/RRIF) and where it goes (taxes, housing, healthcare, LTC, loan payments, discretionary spending), with any gap between income and spending shown as either a draw from savings or a surplus added to it
 - **Log-scale chart toggle**
 - **CSV export** of the full year-by-year projection
 - **Print/PDF report**: a formatted, landscape-oriented summary (assumptions, results, and a year-by-year income/expenses/tax table) generated from the current inputs, ready to print or save as a PDF
