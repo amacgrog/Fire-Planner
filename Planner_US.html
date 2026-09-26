@@ -30,7 +30,7 @@
     .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
     .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}
-    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}#wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;justify-content:flex-end;margin-top:10px}
+    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}#wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
     @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:0;background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}}
@@ -81,6 +81,16 @@
             <button type="button" id="exportAllScenariosBtn" class="reset" hidden>Export all as one file</button>
             <input id="importScenarioInput" type="file" accept="application/json,.json" hidden>
           </div>
+        </details>
+        <details class="group" id="taxFilingGroup" open>
+          <summary>Tax filing status</summary>
+          <div class="field"><label>Current filing status</label><div class="choice" role="radiogroup" aria-label="Filing status"><button type="button" id="mfjBtn" role="radio">MFJ</button><button type="button" id="singleBtn" role="radio">Two single filers</button></div></div>
+          <div class="field"><label for="marryLater"><input id="marryLater" type="checkbox"> Start single, then file MFJ</label></div>
+          <div class="field" id="marriageAgeField"><label for="marriageAgeA">MFJ begins at Partner A age</label><input id="marriageAgeA" type="number" min="18" max="100" step="1"></div>
+        </details>
+        <details class="group" open>
+          <summary>State income tax</summary>
+          <div class="field"><label for="stateTax">Resident state<small>2026 planning estimate. Includes all 42 states with an individual-income or Washington capital-gains tax; local taxes and state-specific credits are excluded.</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
         </details>
         <details class="group" open>
           <summary>Timeline & income</summary>
@@ -232,16 +242,6 @@
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal bracket</label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
         </details>
-        <details class="group" id="taxFilingGroup" open>
-          <summary>Tax filing status</summary>
-          <div class="field"><label>Current filing status</label><div class="choice" role="radiogroup" aria-label="Filing status"><button type="button" id="mfjBtn" role="radio">MFJ</button><button type="button" id="singleBtn" role="radio">Two single filers</button></div></div>
-          <div class="field"><label for="marryLater"><input id="marryLater" type="checkbox"> Start single, then file MFJ</label></div>
-          <div class="field" id="marriageAgeField"><label for="marriageAgeA">MFJ begins at Partner A age</label><input id="marriageAgeA" type="number" min="18" max="100" step="1"></div>
-        </details>
-        <details class="group" open>
-          <summary>State income tax</summary>
-          <div class="field"><label for="stateTax">Resident state<small>2026 planning estimate. Includes all 42 states with an individual-income or Washington capital-gains tax; local taxes and state-specific credits are excluded.</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
-        </details>
       </aside>
 
       <section class="content" aria-live="polite">
@@ -293,16 +293,38 @@
 <div id="printReport" aria-hidden="true"></div>
 <div id="wizardOverlay">
   <div id="wizardModal" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
-    <h2 id="wizardTitle">Customize modeled features</h2>
-    <p class="range-note">Turn optional features on or off. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.</p>
-    <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Later-life income &amp; costs section.</small></label></div>
-    <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Later-life income &amp; costs section.</small></label></div>
-    <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversion ladder<small>Roth conversion ladder section.</small></label></div>
-    <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>Contributions &amp; savings section.</small></label></div>
-    <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Bridge / part-time income section.</small></label></div>
-    <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Additional income section.</small></label></div>
-    <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Other loans section.</small></label></div>
-    <div class="wizard-actions"><button type="button" class="reset" id="wizardCloseBtn">Done</button></div>
+    <h2 id="wizardTitle">Get started: the basics</h2>
+    <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
+    <div id="wizardStep1">
+      <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
+      <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" type="number" min="18" max="70" step="1"></div>
+      <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardIncomeA">Partner A income</label><input id="wizardIncomeA" type="number" min="0" step="1000"></div>
+      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income</label><input id="wizardIncomeB" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" type="number" min="18" max="70" step="1"></div>
+      <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance</label><input id="wizardTaxable" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTraditional">Current traditional 401(k)/IRA balance</label><input id="wizardTraditional" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRoth">Current Roth balance</label><input id="wizardRoth" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardSpending">Annual household spending</label><input id="wizardSpending" type="number" min="0" step="1000"></div>
+    </div>
+    <div id="wizardStep2" hidden>
+      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Later-life income &amp; costs section.</small></label></div>
+      <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Later-life income &amp; costs section.</small></label></div>
+      <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversion ladder<small>Roth conversion ladder section.</small></label></div>
+      <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>Contributions &amp; savings section.</small></label></div>
+      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Bridge / part-time income section.</small></label></div>
+      <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Additional income section.</small></label></div>
+      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Other loans section.</small></label></div>
+    </div>
+    <div class="wizard-actions">
+      <button type="button" class="reset" id="wizardBackBtn" hidden>Back</button>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button type="button" class="reset" id="wizardNextBtn">Next</button>
+        <button type="button" class="reset" id="wizardCloseBtn" hidden>Done</button>
+      </div>
+    </div>
   </div>
 </div>
 <script>(() => {
@@ -4165,6 +4187,18 @@
     document.getElementById('wizardBridgeEnabled').checked = !!state.bridgeEnabled;
     document.getElementById('wizardOtherIncomeEnabled').checked = !!state.otherIncomeEnabled;
     document.getElementById('wizardOtherLoansEnabled').checked = !!state.otherLoansEnabled;
+    document.getElementById('wizardSinglePerson').checked = !!state.singlePerson;
+    document.getElementById('wizardAgeA').value = state.ageA;
+    document.getElementById('wizardAgeB').value = state.ageB;
+    document.getElementById('wizardIncomeA').value = state.incomeA;
+    document.getElementById('wizardIncomeB').value = state.incomeB;
+    document.getElementById('wizardRetireAgeA').value = state.retireAgeA;
+    document.getElementById('wizardRetireAgeB').value = state.retireAgeB;
+    document.getElementById('wizardTaxable').value = state.taxable;
+    document.getElementById('wizardTraditional').value = state.traditional;
+    document.getElementById('wizardRoth').value = state.roth;
+    document.getElementById('wizardCash').value = state.cash;
+    document.getElementById('wizardSpending').value = state.spending;
     document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
     [
       ['buyMortgageBtn', false],
@@ -4520,10 +4554,13 @@
     render();
     syncTopbarHeight();
   });
-  // Wizard modal: each checkbox proxies an existing enable flag by driving its
-  // real sidebar checkbox and dispatching a real change event, so all the
-  // existing state-mutation/hide/re-render logic runs exactly once, from a
-  // single source of truth, whether toggled here or in the sidebar.
+  // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
+  // fields needed to get any projection running at all (single/partnered,
+  // ages, income, retirement age, starting balances, spending); step 2 is the
+  // existing optional-feature checklist. Every wizard field proxies its real
+  // sidebar control by driving it and dispatching a real input/change event,
+  // so all the existing state-mutation/hide/re-render logic runs exactly
+  // once, from a single source of truth, whether set here or in the sidebar.
   [
     ['wizardLtcEnabled', 'ltcEnabled'],
     ['wizardAcaEnabled', 'acaEnabled'],
@@ -4532,6 +4569,7 @@
     ['wizardBridgeEnabled', 'bridgeEnabled'],
     ['wizardOtherIncomeEnabled', 'otherIncomeEnabled'],
     ['wizardOtherLoansEnabled', 'otherLoansEnabled'],
+    ['wizardSinglePerson', 'singlePerson'],
   ].forEach(([wizardId, realId]) => {
     document.getElementById(wizardId).addEventListener('change', (e) => {
       const real = document.getElementById(realId);
@@ -4539,9 +4577,53 @@
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
+  [
+    ['wizardAgeA', 'ageA'],
+    ['wizardAgeB', 'ageB'],
+    ['wizardIncomeA', 'incomeA'],
+    ['wizardIncomeB', 'incomeB'],
+    ['wizardRetireAgeA', 'retireAgeA'],
+    ['wizardRetireAgeB', 'retireAgeB'],
+    ['wizardTaxable', 'taxable'],
+    ['wizardTraditional', 'traditional'],
+    ['wizardRoth', 'roth'],
+    ['wizardCash', 'cash'],
+    ['wizardSpending', 'spending'],
+  ].forEach(([wizardId, realId]) => {
+    document.getElementById(wizardId).addEventListener('change', (e) => {
+      const real = document.getElementById(realId);
+      real.value = e.target.value;
+      real.dispatchEvent(new Event('input', { bubbles: true }));
+      real.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
   const wizardOverlay = document.getElementById('wizardOverlay');
+  let wizardStep = 1;
+  function renderWizardStep() {
+    document.getElementById('wizardStep1').hidden = wizardStep !== 1;
+    document.getElementById('wizardStep2').hidden = wizardStep !== 2;
+    document.getElementById('wizardTitle').textContent =
+      wizardStep === 1 ? 'Get started: the basics' : 'Customize modeled features';
+    document.getElementById('wizardStepNote').textContent =
+      wizardStep === 1
+        ? "Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here."
+        : "Step 2 of 2 — turn optional features on or off. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
+    document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
+    document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
+    document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
+  }
   document.getElementById('wizardBtn').addEventListener('click', () => {
+    wizardStep = 1;
+    renderWizardStep();
     wizardOverlay.classList.add('open');
+  });
+  document.getElementById('wizardNextBtn').addEventListener('click', () => {
+    wizardStep = 2;
+    renderWizardStep();
+  });
+  document.getElementById('wizardBackBtn').addEventListener('click', () => {
+    wizardStep = 1;
+    renderWizardStep();
   });
   document.getElementById('wizardCloseBtn').addEventListener('click', () => {
     wizardOverlay.classList.remove('open');
