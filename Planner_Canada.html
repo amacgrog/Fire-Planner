@@ -134,8 +134,8 @@
         </details>
         <details class="group" open>
           <summary>Income</summary>
-          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income</label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income</label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income<small>Gross wages, before tax and before any RRSP contribution — the model calculates payroll and income tax on this figure itself.</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income<small>Gross wages, before tax and before any RRSP contribution.</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group">
@@ -164,10 +164,10 @@
         </details>
         <details class="group" open>
           <summary>Assets</summary>
-          <div class="field"><label for="taxable">Taxable brokerage</label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="taxable">Taxable brokerage<small>A standard non-registered investment account — outside any RRSP, TFSA, or FHSA.</small></label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
-          <div class="field"><label for="traditional">RRSP balance</label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
-          <div class="field"><label for="roth">TFSA balance</label><input id="roth" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="traditional">RRSP balance<small>The combined RRSP balance for you (and your partner, if applicable) — one number, not per-account.</small></label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="roth">TFSA balance<small>The combined TFSA balance for you (and your partner, if applicable).</small></label><input id="roth" type="number" class="money" min="0" step="1000"></div>
           <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
@@ -388,23 +388,23 @@
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
       <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardIncomeA">Partner A income</label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
-      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income</label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardIncomeA">Partner A income<small>Gross, before tax and before any RRSP contribution — not take-home pay.</small></label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
+      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any RRSP contribution.</small></label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance</label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardTraditional">Current RRSP balance</label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRoth">Current TFSA balance</label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-registered investment account.</small></label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTraditional">Current RRSP balance<small>Combined across you and your partner, if applicable — one number, not per-account.</small></label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRoth">Current TFSA balance<small>Combined across you and your partner, if applicable.</small></label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or extra health/dental insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard. Provincial healthcare itself is universal and isn't something to budget for here.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
     </div>
     <div id="wizardStep2" hidden>
-      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Later-life income &amp; costs section.</small></label></div>
-      <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>RRSP meltdown ladder section.</small></label></div>
-      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Bridge / part-time income section.</small></label></div>
-      <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Additional income section.</small></label></div>
-      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Other loans section.</small></label></div>
-      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Timeline &amp; income section — dynamic spending strategy instead of fixed inflation-adjusted spending.</small></label></div>
+      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
+      <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>Withdraws from your RRSP each year in retirement, filling a tax bracket you choose, and moves the proceeds into your TFSA — a way to pay tax at today's rate instead of on larger RRIF minimums later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
+      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Income from part-time work or consulting during an early-retirement window, before CPP/OAS start. Lives in the Bridge / part-time income section.</small></label></div>
+      <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Recurring income streams (e.g. rental income) or one-time lump sums (e.g. an inheritance) at a chosen age. Lives in the Additional income section.</small></label></div>
+      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
+      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Timeline &amp; income section.</small></label></div>
     </div>
     <div class="wizard-actions">
       <button type="button" class="reset" id="wizardBackBtn" hidden>Back</button>

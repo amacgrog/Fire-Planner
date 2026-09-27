@@ -139,8 +139,8 @@
         </details>
         <details class="group" open>
           <summary>Income</summary>
-          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income</label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income</label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income<small>Gross wages, before tax and before any 401(k)/IRA contribution — the model calculates payroll and income tax on this figure itself.</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income<small>Gross wages, before tax and before any 401(k)/IRA contribution.</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group">
@@ -176,10 +176,10 @@
         </details>
         <details class="group" open>
           <summary>Assets</summary>
-          <div class="field"><label for="taxable">Taxable brokerage</label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="taxable">Taxable brokerage<small>A standard non-retirement investment account — outside any 401(k), IRA, or Roth.</small></label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
-          <div class="field"><label for="traditional">Traditional retirement</label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
-          <div class="field"><label for="roth">Roth retirement</label><input id="roth" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="traditional">Traditional retirement<small>The combined balance of every traditional 401(k) and traditional IRA you (and your partner, if applicable) hold — one number, not per-account.</small></label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="roth">Roth retirement<small>The combined balance of every Roth 401(k) and Roth IRA you (and your partner, if applicable) hold.</small></label><input id="roth" type="number" class="money" min="0" step="1000"></div>
           <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
@@ -393,25 +393,25 @@
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
       <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardIncomeA">Partner A income</label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
-      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income</label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardIncomeA">Partner A income<small>Gross, before tax and before any 401(k)/IRA contribution — not take-home pay.</small></label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
+      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any 401(k)/IRA contribution.</small></label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance</label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardTraditional">Current traditional 401(k)/IRA balance</label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRoth">Current Roth balance</label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-retirement investment account.</small></label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTraditional">Current traditional 401(k)/IRA balance<small>Add up every traditional 401(k) and traditional IRA you (and your partner) hold — one combined number, not per-account.</small></label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRoth">Current Roth balance<small>Add up every Roth 401(k) and Roth IRA you (and your partner) hold.</small></label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or health insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
     </div>
     <div id="wizardStep2" hidden>
-      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Later-life income &amp; costs section.</small></label></div>
-      <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Later-life income &amp; costs section.</small></label></div>
-      <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversion ladder<small>Roth conversion ladder section.</small></label></div>
-      <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>Contributions &amp; savings section.</small></label></div>
-      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Bridge / part-time income section.</small></label></div>
-      <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Additional income section.</small></label></div>
-      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Other loans section.</small></label></div>
-      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Timeline &amp; income section — dynamic spending strategy instead of fixed inflation-adjusted spending.</small></label></div>
+      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
+      <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Nets your entered pre-65 healthcare premium against the ACA marketplace subsidy for your income. Turn off if you'll have employer retiree coverage, COBRA, or are paying full price. Lives in the Retirement income &amp; healthcare section.</small></label></div>
+      <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversion ladder<small>Converts traditional-account balances to Roth each year in retirement, filling a tax bracket you choose — a way to pay tax at today's rate instead of on larger required withdrawals later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
+      <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>For high earners whose 401(k) plan specifically allows extra after-tax contributions converted to Roth. Leave this off unless you already know your plan supports it. Lives in the Retirement contributions section.</small></label></div>
+      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Income from part-time work or consulting during an early-retirement window, before Social Security starts. Lives in the Bridge / part-time income section.</small></label></div>
+      <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Recurring income streams (e.g. rental income) or one-time lump sums (e.g. an inheritance) at a chosen age. Lives in the Additional income section.</small></label></div>
+      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
+      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Timeline &amp; income section.</small></label></div>
     </div>
     <div class="wizard-actions">
       <button type="button" class="reset" id="wizardBackBtn" hidden>Back</button>
