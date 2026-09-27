@@ -1346,6 +1346,86 @@ Back/Next/Done), calling the exact same `wizardOverlay.classList.remove
 ('open')` the Escape/outside-click handlers already use. A third way out,
 independent of the two-step Back/Next/Done flow.
 
+## Mobile "Your assumptions" header overlapping the sidebar (another `overflow-x` sticky trap)
+
+Real-world bug report: on mobile, the sticky "Your assumptions" panel-title
+(and, underneath it, the search box) would render visually overlapping the
+top of the first sidebar group (Scenarios), covering its text, both at the
+top of the page (no scroll at all) and while scrolled. This is **the exact
+same bug class already documented above** under "Plan status bar" →
+"Sticky-stacking gotcha" (the `html,body{overflow-x:hidden}` fix), just
+reproduced one level deeper, on `.panel` itself:
+
+- `.panel`'s base rule sets `overflow-x:hidden` (for desktop, where it's a
+  fixed-width sidebar column). The mobile media query overrides `position`,
+  `max-height`, and `overflow-y` (to `static`/`none`/`visible`) but **left
+  `overflow-x:hidden` untouched** — so on mobile, `.panel` had one axis
+  explicitly `hidden` and the other explicitly `visible`. Per the same CSS
+  quirk noted earlier (an element can't have one axis "not visible" and the
+  other "visible" — the visible one gets silently promoted to `auto`),
+  `.panel` became an unbounded-but-technically-scrolling container, which
+  changes what "nearest scrolling ancestor" its sticky children
+  (`.panel-title`, `.field-search-wrap`) resolve to for their `position:
+  sticky` calculations. The visible symptom: both elements rendered
+  offset **downward by their own sticky `top` value even with zero scroll
+  and while not actually "stuck"** (confirmed with Playwright: forcing
+  `.panel-title`/`.field-search-wrap` to `position:static`, or forcing
+  `--mobile-sticky-h`/`--panel-title-h` to `0px`, or just setting `.panel`'s
+  `overflow-x` to `clip` at runtime, all independently produced the
+  correct, non-overlapping stack — isolating `overflow-x` as the actual
+  cause, not the offset values or the elements' own CSS). Fixed by adding
+  `overflow-x:clip` to `.panel`'s mobile override (`clip`, like the
+  `html,body` fix, suppresses horizontal overflow without ever establishing
+  a scroll container, unlike `hidden`/`scroll`/`auto`).
+- **Separately**, `.field-search-wrap`'s sticky `top` was still a hardcoded
+  desktop-only `53px` (correct there, where it just needs to clear
+  `.panel-title`'s fixed `top:0` desktop position) with no mobile override
+  at all — so once genuinely scrolled and stuck on mobile, it would stick
+  53px from the viewport top regardless of how tall the Plan Status Bar +
+  mobile tabs + panel-title stack actually was, overlapping them. Fixed by
+  measuring `.panel-title`'s real height into a new `--panel-title-h` CSS
+  var (in `syncPlanStatusOffsets()`, same measure-real-heights pattern as
+  `--plan-status-h`/`--mobile-sticky-h`) and giving `.field-search-wrap` a
+  mobile-only `top:calc(var(--mobile-sticky-h,0px) + var(--panel-title-h,0px))`
+  rule, so it sticks directly below panel-title's actual rendered height
+  instead of a stale hardcoded number.
+- **Lesson for future sticky work in this file**: any element that is
+  `position:sticky` needs its *entire* ancestor chain checked for a mixed
+  `overflow-x:hidden`/`overflow-y:visible` (or vice versa) pairing, not
+  just `html,body` — the same quirk can reproduce one level down on any
+  container between the sticky element and the viewport. When adding a new
+  sticky element or a new scrollable/clipped container, verify with a real
+  scroll gesture and a zero-scroll screenshot both (this bug was visible
+  even before any scrolling happened, which the existing sticky testing
+  guidance below didn't explicitly call out).
+
+## Scroll position lost when toggling a field-visibility checkbox
+
+Real-world bug report: checking/unchecking a sidebar checkbox that shows or
+hides other fields — `singlePerson` was the reported case, which hides
+every `data-partner-b` field across several groups at once, but the same
+applies to any opt-in checkbox (ACA, LTC, bridge, other income, other
+loans, survivor, guardrails, Roth conversion/RRSP meltdown, mega backdoor)
+— would immediately reflow the sidebar's height, jumping whatever the
+person was looking at out from under them with no way to find their place
+again.
+
+Fixed generically, once, rather than per-checkbox: a single `change`
+listener on `document`, registered with `capture:true` so it fires before
+the specific checkbox's own `change` listener runs the actual show/hide,
+records `event.target.getBoundingClientRect().top` for any checkbox/radio/
+`<select>` inside `.panel` right before the mutation happens. Two
+`requestAnimationFrame` callbacks later (letting the layout settle), it
+re-measures the same element and scrolls whichever container actually
+scrolls — `window` on mobile (`.panel` is `position:static` there) or
+`.panel`'s own internal scroll on desktop — by the resulting delta. This
+keeps the toggled control itself pinned at the same viewport position
+across the reflow, which by construction also keeps everything below it
+(wherever the person's eyes actually were) visually stable, without
+needing to special-case `singlePerson` or any other individual field. New
+checkboxes/selects that show/hide fields need no additional wiring — this
+listener is delegated and field-agnostic.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

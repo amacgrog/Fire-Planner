@@ -52,7 +52,7 @@
     @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
-    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:var(--mobile-sticky-h,0px);background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}.plan-status-bar{top:0;flex-wrap:wrap}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;flex:1 1 100%}.plan-status-right{margin-left:auto;margin-top:2px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}}
+    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:var(--mobile-sticky-h,0px);background:var(--card);z-index:4}.field-search-wrap{top:calc(var(--mobile-sticky-h,0px) + var(--panel-title-h,0px))}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible;overflow-x:clip}.plan-status-bar{top:0;flex-wrap:wrap}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;flex:1 1 100%}.plan-status-right{margin-left:auto;margin-top:2px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}}
     @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
     #printReport{display:none}
     #printReport h1{font-size:1.3rem;margin:0 0 4px}
@@ -5708,7 +5708,8 @@
   // either bar's real height doesn't silently reopen the overlap.
   function syncPlanStatusOffsets() {
     const bar = document.getElementById('planStatusBar'),
-      tabs = document.querySelector('.mobile-tabs');
+      tabs = document.querySelector('.mobile-tabs'),
+      panelTitle = document.querySelector('.panel-title');
     if (!bar) return;
     const barH = bar.offsetHeight;
     document.documentElement.style.setProperty('--plan-status-h', barH + 'px');
@@ -5717,7 +5718,55 @@
       '--mobile-sticky-h',
       barH + (tabsH ? 10 + tabsH : 0) + 'px',
     );
+    // .field-search-wrap sticks directly below .panel-title on mobile (both
+    // position:sticky, stacked), so it needs panel-title's real height on
+    // top of --mobile-sticky-h to stick at the right offset instead of
+    // overlapping whatever's in normal flow just below it.
+    if (panelTitle) {
+      document.documentElement.style.setProperty('--panel-title-h', panelTitle.offsetHeight + 'px');
+    }
   }
+  // Checking/unchecking a sidebar checkbox (or changing a <select> like
+  // tenure/k401Type) can add or remove other fields elsewhere in the panel
+  // -- singlePerson hides/shows every data-partner-b field across several
+  // groups at once, and most opt-in checkboxes (ACA, LTC, bridge, other
+  // income, other loans, survivor, guardrails, Roth conversion/RRSP
+  // meltdown, mega backdoor) show/hide fields within their own group. The
+  // resulting height change shifts everything below the toggle, which can
+  // jump the control the person just clicked out from under their
+  // cursor/finger and lose their place in a long sidebar. Preserve the
+  // toggle's own on-screen position across that reflow instead: this
+  // listener is registered on `document` with capture:true, so it fires
+  // before the field's own `change` listener runs the actual show/hide,
+  // letting it record the toggle's position pre-mutation; two animation
+  // frames later (once layout has settled) it adjusts whichever container
+  // actually scrolls -- the whole page on mobile (`.panel` is
+  // `position:static` there) or `.panel`'s own internal scroll on desktop
+  // -- by the resulting delta, so the toggle itself doesn't visually move.
+  document.addEventListener(
+    'change',
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
+      if (t instanceof HTMLInputElement && t.type !== 'checkbox' && t.type !== 'radio') return;
+      const panel = t.closest('.panel');
+      if (!panel) return;
+      const before = t.getBoundingClientRect().top;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const after = t.getBoundingClientRect().top;
+          const delta = after - before;
+          if (Math.abs(delta) < 1) return;
+          if (window.innerWidth <= 820) {
+            window.scrollBy(0, delta);
+          } else {
+            panel.scrollTop += delta;
+          }
+        });
+      });
+    },
+    true,
+  );
   // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
   // internally rather than growing past the viewport — but its max-height
   // used to be sized only against the sticky `top` offset it settles into
