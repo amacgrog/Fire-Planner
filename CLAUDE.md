@@ -483,6 +483,67 @@ Each planner is one big IIFE. The core shape:
   from `render()` (`renderPlanHeadline(selected)` immediately before
   `renderShortfallBanner(selected)`).
 
+## Dashboard as home: decision-card reorder + "Change assumptions" button
+
+The plan verdict (`#planHeadlineBanner`/`#shortfallBanner` + the Plan Status
+Bar) is meant to be the first thing a person sees, with "Explore a question"
+(`#decisionCard`) coming *after* it as a next step once they've absorbed the
+verdict — not before it, which is how the page used to read. Two constraints
+made this harder than a plain DOM move:
+
+- **Desktop must not change.** `#decisionCard` has always rendered
+  full-width, above the two-column `.workspace` grid (inputs left, results
+  right) — not confined to the results column. It was already a sibling of
+  `#workspace` under `<main>` for exactly this reason (see the "First-run
+  banner" note above for the same pattern). Moving it into `.content`
+  (inside the results column) to reorder it relative to the verdict would
+  have shrunk it to half-width on desktop, which nobody asked for.
+- **On mobile, `#decisionCard` needed to become Dashboard-tab-only** (a
+  deliberate reversal of its previous cross-tab-visible design — see the
+  "Explore a question" menu note above). Now that Dashboard is the default
+  tab and holds the verdict, there's no reason for the question menu to
+  also appear on the Inputs tab; showing it there just duplicates content
+  the person will see anyway once they switch back.
+
+The fix uses two CSS mechanisms together, needing no JS reparenting:
+
+1. **`#decisionCard` was physically moved later in the DOM** — from *before*
+   `#workspace` to *after* it (`<main>`'s last child, right before `</main>`).
+   This is what both mechanisms below depend on.
+2. **`<main>` is now `display:flex;flex-direction:column`**, with
+   `#decisionCard{order:-1}` as the default (desktop and the base/no-media-
+   query state). Flexbox `order` reorders *painted* position without
+   touching DOM position, so `#decisionCard` still paints above
+   `#workspace` everywhere `order:-1` applies, even though it's now later in
+   the DOM. Inside `@media(max-width:820px)`, `order` is reset to `0`
+   (natural DOM order), so on mobile it paints *after* `#workspace` — i.e.
+   after all Dashboard-tab content — matching the "explore a question
+   *after* seeing the verdict" goal.
+3. **Tab-gating via a general-sibling-combinator selector**, only possible
+   because step 1 made `#decisionCard` a later sibling of `#workspace` (that
+   combinator only matches forward): `#workspace[data-mobile-view="inputs"]
+   ~ #decisionCard{display:none}`, scoped inside the same
+   `@media(max-width:820px)` block. No JS change needed — `setMobileView()`
+   already just flips the `data-mobile-view` attribute it always did.
+
+A new `.change-assumptions-btn` (`#changeAssumptionsBtn`) sits right after
+`#shortfallBanner`/`#planHeadlineBanner` in the DOM but is `display:none` by
+default and only `display:inline-flex` inside the same mobile media query —
+on desktop, the Inputs/Dashboard split doesn't exist, so there's nothing for
+the button to switch away from. Its click handler (`setMobileView('inputs')`
++ `window.scrollTo({top:0,behavior:'smooth'})`, registered right after the
+`#planStatusBar` click listener in both files) exists because switching
+mobile tabs just swaps which of `.panel`/`.content` is displayed *in place*
+— without the explicit scroll-to-top, someone who scrolled deep into a long
+Dashboard would land partway down the (differently-sized) Inputs panel
+instead of at its top.
+
+If a future change adds another `<main>`-level sibling that needs the same
+"desktop: painted first, mobile: painted last + tab-gated" treatment, follow
+this same three-part pattern rather than inventing a JS-driven visibility
+toggle — it's what let this ship with zero new state and zero new render-
+path branching.
+
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
 These two functions share large near-identical blocks of logic (contribution
