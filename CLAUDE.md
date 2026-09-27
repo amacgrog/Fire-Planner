@@ -1611,6 +1611,135 @@ taller than it needed to be:
   and since the field just jumped *to* is by construction still in the
   counted set, the auto-advance check inside it never double-jumps.
 
+### Round 4: floating review nav, dismiss-on-Next, badge tap-target clarity, status-bar overlap
+
+A fourth round of real-mobile feedback, all fixed together:
+
+- **Bug: "Review"/"Next" appeared to not switch to the Inputs tab.**
+  `jumpToEstimateField()` did (and still does) call `setMobileView('inputs')`
+  correctly — confirmed with Playwright that the very first click switches
+  the tab fine. The real bug was one level up: `#reviewEstimatesBtn` lives
+  inside `#estimatedRollupBanner`, which is part of `.content` — the
+  Dashboard-tab-only half of the page on mobile. The moment
+  `jumpToEstimateField()` switches to Inputs, `.content` (and the button
+  the person just tapped) becomes `display:none`, so there is no way to
+  tap "Next" again without first switching back to Dashboard by hand. From
+  the outside this reads exactly like "review doesn't follow me to the
+  input screen" — confirmed empirically: a Playwright loop that clicked
+  `#reviewEstimatesBtn` a second time timed out because Playwright
+  correctly refused to click a now-hidden element, the same thing a finger
+  can't do on a real phone either.
+  - **Fix**: a small floating pill (`#reviewNav`, `position:fixed`, bottom
+    center, `z-index:40`) with its own "N fields left" count and a
+    "Next →"/"Done ✓" button, plus a "✕" to exit the review. It's a
+    sibling of `#undoToast` near the end of `<body>` (not inside
+    `.content` or `.panel`), so it stays reachable regardless of which
+    mobile tab is showing or how wide the viewport is. `syncReviewNav()`
+    shows/hides and relabels it from the same `reviewingFieldId`/
+    `computeCountedEstimateIds()` state the main banner button already
+    uses, called from the end of `renderEstimatedRollup()` (single call
+    site, same cadence as everything else in that function).
+  - Both the banner's `#reviewEstimatesBtn` and the floating nav's
+    `#reviewNavNext` now call the exact same `advanceReview()` function —
+    two entry points, one action, no duplicated logic to keep in sync.
+- **Behavior change: "Next" now dismisses the field it's leaving, not just
+  skips past it.** Previously "Next" only advanced the guided-review
+  cursor, leaving the field it left still counted/badged — a person had to
+  separately tap the field's own ✓ to actually clear it. `advanceReview()`
+  now calls the same `dismissEstimateField(id)` helper the per-field badge
+  button uses (factored out of the old inline dismiss-click-handler body
+  specifically so there's one push-to-`dismissedEstimates`-and-persist
+  code path, not two) whenever it's leaving a still-counted field, then
+  calls the full `render()` — whose existing auto-advance logic inside
+  `renderEstimatedRollup()` notices `reviewingFieldId` just dropped out of
+  the counted set and jumps to whatever's next *on its own*, so
+  `advanceReview()` doesn't need to compute or jump to the next id itself
+  in that branch. The very first click of a review (nothing dismissed yet,
+  nothing to "leave") still just jumps to the first counted field without
+  dismissing anything — there's nothing to confirm until the person has
+  actually looked at one.
+- **Badge tap-target clarity**: "Estimated ✓" used to render as one
+  visually uniform pill, which read as if the whole pill (including the
+  word "Estimated") might be what removes the field from the list, when
+  only the small ✓ actually does. Split into a plain, non-interactive
+  `<span class="estimate-badge-label">Estimated</span>` (`cursor:default`)
+  followed by a visually distinct `.estimate-dismiss` — now its own filled
+  circle (tinted background + border, `width/height:20px`, up from a bare
+  16×16 text glyph with no background) so it unambiguously reads as a
+  separate, tappable control rather than part of the label text. Kept the
+  existing `aria-label` and added a matching `title` for hover/screen
+  readers.
+- **Highlight duration**: `jumpToEstimateField()`'s `.flash-highlight` on
+  the landed field used to clear after 1.2s — often before the smooth
+  scroll had even finished settling, so by the time someone actually
+  looked at the field the highlight was already gone. Bumped to 2.6s. This
+  is scoped to the guided-review jump only; the Plan Status Bar's
+  `.metrics.flash-highlight` and the decision-question answer's own flash
+  are unrelated call sites and were left at their existing durations.
+- **Plan Status Bar: "Updated just now" overlapping the first line of
+  wrapped text.** Round 3's fix took `.plan-status-right` (the pulse text +
+  chevron) out of flex flow via `position:absolute;top:8px;right:10px` so
+  it wouldn't force its own row — but that assumed the pulse's *rendered
+  width* would fit inside the 34px of reserved right-padding, when
+  "Updated just now" is really more like 110–120px wide. Whenever the main
+  summary line wraps to 2 lines, the wide pulse text — anchored at a fixed
+  `top:8px`, i.e. vertically aligned with line 1 — visually spilled left
+  over line 1's own text rather than staying confined to the corner.
+  - **Fix**: stopped trying to reserve horizontal space for the pulse text
+    at all. `.plan-status-chevron` (a single glyph, genuinely small) is now
+    the only thing absolutely positioned in the corner
+    (`padding-right` trimmed 34px→30px accordingly, just enough for the
+    chevron). `.plan-status-updated` moved out of the absolutely-positioned
+    group entirely and back into normal document flow as its own
+    full-width, right-aligned block *below* `.plan-status-text` — i.e.
+    literally "on the 2nd line," per the request. `.plan-status-right`
+    itself is set to `display:contents` on mobile so its two children
+    (`.plan-status-updated`, `.plan-status-chevron`) participate in the
+    parent's box model directly, without needing to change the HTML
+    structure or the JS, which both still reference `#planStatusUpdated`/
+    `.plan-status-chevron` by id/class regardless of DOM nesting.
+  - Naively putting `.plan-status-updated` in normal flow would have
+    permanently reserved an extra line of height on the bar (opacity:0
+    still occupies box space) — exactly the regression round 3 was fixing.
+    Avoided with `max-height:0;overflow:hidden` by default and
+    `.show{max-height:18px;margin-top:3px}` — collapses to zero height
+    for the ~97% of the time nothing was just updated, and only briefly
+    grows for the 3s pulse window. `.plan-status-bar` switched from
+    `display:flex` to plain `display:block` on mobile to make this
+    block-stacking behavior the natural one, rather than fighting flex's
+    row layout; desktop's single-line flex layout (where wrapping never
+    happens and the old absolute-positioning trick was never actually a
+    problem) is untouched.
+  - Verified geometrically with Playwright (`getBoundingClientRect()` on
+    `#planStatusText` vs `#planStatusUpdated` with `.show` forced on): the
+    pulse's `top` now sits below the text block's `bottom` with no
+    vertical overlap, confirmed at a width where the summary wraps to 2
+    lines.
+- **Persistence across scenario Load/import — verified, no code change
+  needed.** `state.dismissedEstimates` already flows through the single
+  `normalizeState()` choke point used by every load path — boot-time
+  autosave restore, `loadScenario()` (the "Load" button on a saved
+  scenario), and `importScenarioFile()` (both of which call
+  `normalizeState(rawState)` before pushing onto `scenarios`, per the
+  existing comment already in that code). Verified concretely with
+  Playwright rather than trusting that comment alone: dismissed field A,
+  saved a scenario, dismissed a *different* field B (simulating further
+  edits made after the save), then clicked "Load" on the saved scenario —
+  field A came back dismissed (no badge) and field B's badge reappeared
+  (its post-save dismissal was correctly discarded, since it was never
+  part of the loaded snapshot). A second check confirmed a real full page
+  reload (not just a JS state swap) also preserves a dismissal via
+  `localStorage`. No `normalizeState()`/scenario-shape change was needed —
+  this round only added verification.
+
+All fixes verified with `npm test`, a syntax check of both files, and
+Playwright (both files, light+dark, 390×844 mobile): no horizontal
+overflow after opening a review, the floating nav stays visible and
+clickable across repeated "Next" clicks without ever needing to
+manually flip back to the Dashboard tab, "Next" measurably decrements the
+estimated-fields count each click, and the status-bar pulse no longer
+overlaps wrapped summary text.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
