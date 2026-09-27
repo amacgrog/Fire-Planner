@@ -1951,6 +1951,58 @@ the search and input/dashboard ribbon)."
   and the floating `#reviewNav` visible throughout, unaffected by the new
   toggle's presence.
 
+## Mobile bug: a slider drag re-opens the keyboard on a field you already backed out of
+
+Real-world bug report: focus a money field (opens the on-screen number pad),
+press the phone's back button to dismiss the keyboard (Android's back
+button hides the keyboard without blurring the underlying field — it stays
+`document.activeElement`), then drag an unrelated slider elsewhere on the
+page — and the number pad reopens on the original field.
+
+- **Root cause**: several `ids`-array fields have clamping side effects on
+  other fields (age vs. life expectancy, buy-down % vs. mortgage math,
+  etc.), so their `input` listener calls `syncControls()` after updating
+  `state` — see the hardcoded list (`ageA`, `ageB`, `lifeExpectancyA/B`,
+  `retireAgeA/B`, `incomeA/B`, `cashReserve`, `extraPrincipal`,
+  `buyDownPct`, `buyClosingPct`, `buyExtraPrincipal`) right before the
+  `syncControls()` call in the generic `ids.forEach` listener — several of
+  these (`retireAgeA/B`, `extraPrincipal`, `buyDownPct`, `buyClosingPct`)
+  are sliders. `syncControls()` used to unconditionally do
+  `el.value = state[id]` for **every** `ids` field, and its trailing
+  `refreshMoneyPreviews()` call unconditionally re-ran `attachMoneyPreview`'s
+  `reformat(null)` on every money field too — both blind writes, touching
+  whatever field is currently focused even when its value hasn't changed.
+  Programmatically setting `.value` on a still-focused input, even to an
+  identical string, is exactly the kind of DOM mutation that makes some
+  mobile browsers re-show the on-screen keyboard for it — which is why a
+  slider drag having nothing to do with the money field would wake it back
+  up. Confirmed by instrumenting the native `value` setter with a counter:
+  before the fix, dragging `retireAgeA` fired the setter on a still-focused,
+  *unrelated*, unchanged `spending` field twice (once from each call site);
+  after the fix, zero times. (The actual "keyboard reopens" symptom itself
+  is a mobile-only browser behavior that doesn't reproduce in headless
+  desktop Chromium, so this write-count check — not a visible keyboard — is
+  what verifies the fix.)
+- **Fix, two call sites**:
+  1. `syncControls()`'s `ids.forEach` loop now skips the write when the
+     field is `document.activeElement` *and* its current numeric value
+     (stripping `$`/commas the same way every other money-field read site
+     does) already equals `state[id]`.
+  2. `attachMoneyPreview`'s `reformat()` now skips the write whenever the
+     field already shows the correctly-formatted target string — a general
+     no-op guard, not focus-specific, since re-running `refreshMoneyPreviews()`
+     (from `syncControls()`, or from any of the four dynamic
+     loan/tier/income-source/one-time-income `render*Fields()` rebuilds) is
+     routine, not just something that happens while a field is focused.
+  Neither guard weakens the fields' actual job: Reset/Load/import/wizard-done
+  still overwrite every field, since those calls are always changing the
+  value to something different; live typing still reformats on every
+  keystroke, since a freshly-inserted raw character essentially never
+  already equals the fully-formatted target string.
+- **Verified**: `npm test`; a syntax check of both files; typing into a
+  money field still live-formats correctly (`$60,000` → `$600,005` after
+  appending "5"); and the value-setter instrumentation above, both files.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

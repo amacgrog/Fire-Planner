@@ -820,7 +820,21 @@
   function attachMoneyPreview(el) {
     const reformat = (digitsBeforeCaret) => {
       const digits = el.value.replace(/[^0-9]/g, '');
-      el.value = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
+      const formatted = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
+      // Skip the write when the field is already showing the correctly
+      // formatted string — a plain reassignment (even to an identical
+      // string) collapses the caret to the end and, on some mobile
+      // browsers, can re-show the on-screen keyboard for a field that's
+      // still focused but whose keyboard was just dismissed (e.g. via the
+      // Android back button). refreshMoneyPreviews() (called from
+      // syncControls(), on every render of a dynamic loan/tier/income row,
+      // etc.) re-runs this on every money field unconditionally, so this
+      // guard is what keeps those routine resyncs from nudging a field the
+      // user has already backed out of. Real typing always differs from
+      // `formatted` pre-write (the browser just inserted a raw, unformatted
+      // character), so this never skips an actual edit.
+      if (formatted === el.value) return;
+      el.value = formatted;
       if (digitsBeforeCaret == null) return;
       let count = 0,
         pos = el.value.length;
@@ -6129,6 +6143,21 @@
   function syncControls() {
     ids.forEach((id) => {
       const el = document.getElementById(id);
+      // Skip writing .value to whatever field is currently focused, if the
+      // numeric value hasn't actually changed. syncControls() runs on every
+      // edit to a field with clamping side effects (retireAgeA, extraPrincipal,
+      // etc. — see the input listener below), which on mobile can include a
+      // slider drag while a *different* text field is still focused (e.g. the
+      // on-screen keyboard was dismissed via the Android back button, which
+      // hides the keyboard without blurring the field). Programmatically
+      // setting .value on a focused input — even to the same string — can
+      // make some mobile browsers re-show the keyboard for it, so a slider
+      // drag elsewhere was reopening the number pad on a field the user had
+      // already backed out of. Comparing against the current numeric value
+      // (stripping the money field's "$"/commas) keeps this a no-op guard
+      // only — a field whose value genuinely needs updating still gets it.
+      const currentNumeric = Number(String(el.value).replace(/[^0-9.-]/g, '')) || 0;
+      if (el === document.activeElement && currentNumeric === state[id]) return;
       el.value = state[id];
     });
     renderLoanFields();
