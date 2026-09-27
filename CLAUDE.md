@@ -762,6 +762,82 @@ right before doing so, following the same pattern.
   caught during testing and is easy to reintroduce if the CSS is
   restructured without care.
 
+## Autosave to localStorage (`storage`, `hasPersonalizedData`, `writeStorageNow`)
+
+The app went from fully ephemeral (state lived only in page memory for that
+session) to persisting `state`/`mode` to this browser's `localStorage`, so a
+reload or a later visit comes back to real numbers instead of the generic
+example data. This was a restoration, not new infrastructure: `storageKey`/
+`legacyStorageKey` and the boot-time `saved?.state`/`saved?.mode` read
+(inside the `try{}catch{}` right after `theme` is set up) already existed —
+`storage` had been hardcoded to `null`, and `saveInputs()` was a stub that
+only updated the `#saveStatus` label text ("Not saved — offline mode"),
+which is why re-enabling this took far less surface area than it might
+sound like.
+
+- **`storage`** is feature-detected, not just `window.localStorage`
+  directly: it probes with a real `setItem`/`removeItem` inside a
+  `try{}catch{}`, because some private-browsing modes throw on actual use
+  even when the `localStorage` property itself is present and doesn't
+  throw just by being read. Every read call site already used `storage?.`
+  optional-chaining (written years before `storage` was actually `null`,
+  apparently in anticipation of this), so re-enabling it needed no changes
+  to those call sites.
+- **`writeStorageNow()`** does the actual `storage.setItem(storageKey,
+  JSON.stringify({ state, mode }))`, wrapped in its own `try{}catch{}`
+  (quota exceeded, storage revoked mid-session, etc.) and updates
+  `#saveStatus` to reflect what actually happened ("Saved on this device" /
+  "Not saved — storage unavailable" / "Not saved — storage full or
+  unavailable") rather than assuming success. **`saveInputs()`** — called
+  from nearly every state-mutating code path in the file, including on
+  every keystroke via the `ids` input listener — only *debounces* into
+  `writeStorageNow()` (250ms idle) rather than writing synchronously, so
+  typing doesn't fire a `JSON.stringify` of the whole state object per
+  keystroke. `writeStorageNow` is also registered directly on `pagehide`,
+  unconditionally, so the very last edit before a tab close/reload is
+  never lost to a pending debounce timer that never got to fire.
+- **`hasPersonalizedData`** is the guard that keeps this from
+  auto-persisting the untouched generic example data on someone's very
+  first visit. Without it: `setMode(mode)` runs unconditionally at boot →
+  calls `saveInputs()` → 250ms later `writeStorageNow()` writes whatever
+  `state` currently is (defaults, on a first visit) → the *next* reload
+  would then see `saved?.state` and treat the visitor as "returning" with
+  "real" data, permanently hiding the first-run banner for someone who
+  never actually entered anything. `hasPersonalizedData` starts equal to
+  `hadSavedState` (true only if a *previous* visit already had real data)
+  and flips to `true` inside `dismissFirstRunBanner()` — reusing the exact
+  same three signals that already dismiss that banner (a real edit
+  anywhere in `.panel`, opening the wizard, or importing a scenario file),
+  since those are precisely the moments the data stops being "generic
+  example" and starts being the person's own. `writeStorageNow()` bails
+  immediately if `!hasPersonalizedData`, so nothing is ever written to
+  storage before one of those three signals has fired at least once in
+  that session (or a previous session already had — `hadSavedState`).
+- **The first-run banner is skipped entirely for a returning visitor**:
+  `if (hadSavedState) dismissFirstRunBanner();` runs once at boot, right
+  before the boot-time `syncControls()`/`setMode(mode)` sequence — there's
+  nothing "first-run" about someone whose real numbers just loaded back in.
+  A first-time visitor still sees it exactly as before.
+- **Theme is deliberately still not persisted** — it's a display
+  preference, not a plan input, and always starting from the current OS/
+  browser preference (rather than freezing whatever it was at last save)
+  is the intended behavior, not a gap left over from the old no-storage
+  design. Don't "fix" this by folding `theme` into the same storage write
+  without checking this reasoning first.
+- **What still isn't persisted, on purpose, for now**: the named
+  `scenarios` list (in-memory snapshots — still export/import-only, as
+  before) and `logScale`/`chartView`/`mcPathCount` (display/view state, not
+  plan inputs — same reasoning as theme). These are reasonable future
+  follow-ups but were out of scope for this pass.
+- **Reset's confirmation text was updated** to match: it used to say
+  "nothing is saved," which stopped being true. It now says Reset "clears
+  what's saved in this browser" — accurate, since Reset's `state = {
+  ...defaults, ... }` followed by `setMode('real')` (which calls
+  `saveInputs()`) means Reset itself overwrites the stored plan with the
+  defaults, functioning as the de facto "clear saved data" action; there's
+  no separate control for wiping storage without also resetting the visible
+  form, which is fine since they're the same action.
+
 ## Mobile swipe between Inputs/Dashboard tabs
 
 At the same <=820px width where `.mobile-tabs` (the Inputs/Dashboard tab

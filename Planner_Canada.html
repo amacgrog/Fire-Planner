@@ -548,7 +548,23 @@
   };
   const storageKey = 'fireCouplePlanner.canadaOffline.v1',
     legacyStorageKey = 'fireCouplePlanner.v3',
-    storage = null,
+    // Feature-detected rather than a bare `window.localStorage` reference:
+    // the property itself can throw (not just return undefined) in some
+    // private-browsing modes, and a browser that exposes the property can
+    // still refuse to actually read/write it (e.g. Safari private mode
+    // historically allowed getItem but threw on setItem). Probing with a
+    // real set/remove up front means every later `storage?.` call site can
+    // stay a simple optional-chain without its own try/catch.
+    storage = (() => {
+      try {
+        const probeKey = '__firePlannerStorageProbe__';
+        window.localStorage.setItem(probeKey, '1');
+        window.localStorage.removeItem(probeKey);
+        return window.localStorage;
+      } catch {
+        return null;
+      }
+    })(),
     SCENARIO_SCHEMA_VERSION = 1;
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
@@ -593,6 +609,12 @@
     mcPathCount = 1000,
     scenarios = [],
     compareIds = new Set();
+  // Theme isn't part of state or scenarios (it's a display preference, not
+  // a financial input) and, unlike state/mode below, is deliberately not
+  // persisted — it just starts from the OS/browser preference each time the
+  // page loads, so it always reflects whatever the person's system is set
+  // to right now rather than freezing whatever it happened to be at last
+  // save.
   let theme =
     window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
@@ -603,12 +625,32 @@
     if (btn) btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
     render();
   }
+  // Whether a real, previously-saved plan was found in this browser at
+  // boot — used below to skip showing the first-run banner (there's
+  // nothing "first-run" about a returning visitor whose numbers just
+  // loaded back in).
+  let hadSavedState = false;
   try {
     storage?.removeItem(legacyStorageKey);
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
-    if (saved?.state) state = normalizeState(saved.state);
+    if (saved?.state) {
+      state = normalizeState(saved.state);
+      hadSavedState = true;
+    }
     if (['real', 'nominal'].includes(saved?.mode)) mode = saved.mode;
   } catch {}
+  // Whether it's OK to actually persist `state` yet. Starts equal to
+  // `hadSavedState` (a returning visitor's data is already "personalized")
+  // and flips to true the moment `dismissFirstRunBanner()` runs for real —
+  // i.e. the same signals that mean this isn't the generic example data
+  // anymore (a real sidebar edit, opening the wizard, or importing a
+  // scenario). Without this guard, `setMode(mode)` at boot would call
+  // `saveInputs()` unconditionally, silently writing the untouched generic
+  // example data to storage within a couple hundred milliseconds of every
+  // first visit — which would then make the *next* reload look like a
+  // returning visitor with "real" data, hiding the first-run banner for
+  // someone who never actually entered anything.
+  let hasPersonalizedData = hadSavedState;
   const ids = [
     'ageA',
     'ageB',
@@ -4355,9 +4397,33 @@
     canvas.addEventListener('touchend', clearChartHover);
   }
 
-  function saveInputs() {
-    document.getElementById('saveStatus').textContent = 'Not saved — offline mode';
+  // Autosaves `state`/`mode` to this browser's localStorage (never sent
+  // anywhere — see the README's privacy note) so a reload or a later visit
+  // comes back to real numbers instead of the generic example data.
+  // Debounced (250ms idle) since saveInputs() is called on nearly every
+  // keystroke via the `ids` input listener; `writeStorageNow()` is also
+  // flushed unconditionally on `pagehide` so the very last edit before a
+  // tab close/reload is never lost to a pending debounce timer.
+  function writeStorageNow() {
+    const statusEl = document.getElementById('saveStatus');
+    if (!hasPersonalizedData) return;
+    if (!storage) {
+      if (statusEl) statusEl.textContent = 'Not saved — storage unavailable';
+      return;
+    }
+    try {
+      storage.setItem(storageKey, JSON.stringify({ state, mode }));
+      if (statusEl) statusEl.textContent = 'Saved on this device';
+    } catch {
+      if (statusEl) statusEl.textContent = 'Not saved — storage full or unavailable';
+    }
   }
+  let saveDebounceTimer = null;
+  function saveInputs() {
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(writeStorageNow, 250);
+  }
+  window.addEventListener('pagehide', writeStorageNow);
 
   // Scenarios: named snapshots of the full input state, kept in memory for
   // this tab and optionally exported to a JSON file for safekeeping. Every
@@ -5341,7 +5407,7 @@
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (
       !confirm(
-        "Reset all inputs to the generic example data? This can't be undone — nothing is saved, so anything you've entered will be lost unless you've exported it as a scenario.",
+        "Reset all inputs to the generic example data? This clears what's saved in this browser and can't be undone — export a scenario first if you want to keep what you've entered.",
       )
     )
       return;
@@ -5603,18 +5669,21 @@
     if (document.getElementById('sankeyCard').open) renderSankey(simulate());
   });
   // First-run banner: the dashboard renders with fully-formed generic
-  // default numbers from the moment the page loads (there's no persistence
-  // across reloads to distinguish a returning user, so every load looks
-  // identical either way), which reads to a brand-new visitor as someone
-  // else's finished plan rather than an invitation to enter their own. This
-  // banner names that explicitly and points at the two real entry points
-  // (the wizard, or importing an exported scenario) rather than leaving the
-  // person to notice the sidebar on their own. It dismisses itself the
-  // moment its purpose is served — a real edit anywhere in the sidebar, the
-  // wizard being opened (intent is clear the moment they click), or a
-  // scenario actually imported — rather than needing to be closed by hand.
+  // default numbers from the moment the page loads, which reads to a
+  // brand-new visitor as someone else's finished plan rather than an
+  // invitation to enter their own. This banner names that explicitly and
+  // points at the two real entry points (the wizard, or importing an
+  // exported scenario) rather than leaving the person to notice the
+  // sidebar on their own. It dismisses itself the moment its purpose is
+  // served — a real edit anywhere in the sidebar, the wizard being opened
+  // (intent is clear the moment they click), or a scenario actually
+  // imported — rather than needing to be closed by hand. For a *returning*
+  // visitor whose real plan was loaded back from this browser's storage at
+  // boot, it's skipped entirely (see `hadSavedState` above) rather than
+  // needing to be dismissed again on every visit.
   function dismissFirstRunBanner() {
     document.getElementById('firstRunBanner').hidden = true;
+    hasPersonalizedData = true;
   }
   document.querySelector('.panel').addEventListener(
     'input',
@@ -5743,6 +5812,7 @@
       { passive: true },
     );
   }
+  if (hadSavedState) dismissFirstRunBanner();
   syncControls();
   syncContributionControls();
   setMode(mode);
