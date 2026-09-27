@@ -2003,6 +2003,151 @@ page — and the number pad reopens on the original field.
   money field still live-formats correctly (`$60,000` → `$600,005` after
   appending "5"); and the value-setter instrumentation above, both files.
 
+### Follow-up: the fix above wasn't the whole story — dynamic-list fields were the real trigger
+
+Real-world feedback after the fix above shipped: "The sliders are still
+reverting back to having the number pad open and moving the screen back to
+the field that has the text cursor." The `syncControls()`/`attachMoneyPreview`
+guards were correct as far as they went, but they only covered the
+top-level `ids`-array fields (static elements that live in the DOM
+permanently and just get their `.value` written). They said nothing about
+the four **dynamic list** render functions — `renderLoanFields()`,
+`renderSpendingTierFields()`, `renderIncomeSourceFields()`,
+`renderOneTimeIncomeFields()` — which is where a person is actually likely
+to have "a field with the text cursor in it": loan balances, spending-tier
+amounts, income-source amounts, one-time-income amounts are exactly the
+kind of per-row money field someone would be mid-edit on.
+
+- **Root cause, much more severe than the previous fix's**: all four
+  `render*Fields()` functions unconditionally did
+  `container.innerHTML = state.X.map(...).join('')` — a full destroy-and-
+  recreate of every row's DOM — on *every single call*, including from
+  their own field's own `input` listener (`state.incomeSources[i].amount =
+  ...; render(); saveInputs();`). `render()` calls `syncContributionControls()`,
+  which unconditionally calls all three of `renderSpendingTierFields()`/
+  `renderIncomeSourceFields()`/`renderOneTimeIncomeFields()` on *every*
+  render — i.e. on every keystroke anywhere in the app, not just within
+  these lists. Confirmed with Playwright: typing a single digit into
+  `incSrc0Amount` destroyed and recreated that very input's DOM node,
+  dropping focus to `<body>` — this reproduced from typing into the field
+  itself, with no slider involved at all. Dragging a completely unrelated
+  slider (e.g. a 401(k) contribution %, which calls `syncContributionControls()`
+  directly from its own `input` listener) did the same thing to whatever
+  dynamic-list field happened to be focused elsewhere on the page. A
+  destroyed-and-recreated `<input>` in the same visual position is
+  precisely the kind of DOM churn that can make a mobile browser re-show
+  its on-screen keyboard for the "new" element sitting where the old,
+  keyboard-dismissed one used to be — which is why this reads on a real
+  device as "the keyboard reopens on the field I was just in," even though
+  the node isn't literally the same one anymore.
+- **Why the earlier fix's own test suite didn't catch this**: the previous
+  round's `check_typing_still_works.js`/value-setter instrumentation only
+  ever exercised the `#spending` field — a static top-level `ids` field,
+  never rebuilt via `innerHTML`. None of the verification for that round
+  touched a loan/tier/income-source/one-time-income field, so the much
+  bigger dynamic-list bug was sitting right next to the fix the whole time,
+  untested.
+- **Fix**: each `render*Fields()` function now guards its own rebuild with
+  a structural signature check: `renderLoanFields()` skips the rebuild
+  entirely when the container already contains the focused element *and*
+  the row count hasn't changed (loans have no add/remove UI and no
+  `enabled` toggle, so row count is the only thing that can structurally
+  change). The other three additionally fold each row's `enabled` flag
+  into the signature (`rowCount + ':' + enabledFlags.join('')`, stashed on
+  `container.dataset.sig`), since toggling a row's own enabled checkbox
+  needs to still show/hide its sibling fields correctly. Skipping only
+  applies while focus is *inside* the container and the signature is
+  unchanged — an explicit enabled-toggle (which always changes the
+  signature) or any call from Reset/Load/import/wizard-done/boot (where
+  nothing is focused inside the list yet) still does the full authoritative
+  rebuild as before. While skipped, nothing is lost: the field's own
+  `attachMoneyPreview`/plain `input` listener (still bound, since the node
+  was never destroyed) already keeps its value and $-formatting current
+  from the user's own typing — the skipped rebuild would have shown
+  exactly the same thing, just via a destroyed-and-recreated node.
+- **Verified**: `npm test`; a syntax check of both files; Playwright,
+  both files — typing a digit into `incSrc0Amount` now keeps the exact
+  same DOM node and focus (previously: destroyed, focus fell to `<body>`);
+  dragging an unrelated `k401PctA` slider while `incSrc0Amount` is focused
+  now leaves it untouched, same node, still focused (previously: same
+  destroy-and-refocus-to-body failure); enabling a row via its own
+  checkbox still correctly un-hides its sibling fields (the structural
+  path still rebuilds); typing into a `loan0Balance` field still works and
+  keeps focus. This is a considerably more likely explanation for the
+  original bug report than the first fix's narrower mechanism, since it
+  reproduces from typing alone, with no slider needed, and applies to
+  every one of the four dynamic lists in both files, not just a handful
+  of hardcoded top-level ids.
+
+## Mobile bug: gap between the Plan Status Bar and the Inputs/Dashboard tabs shows sidebar content bleeding through
+
+Real-world bug report (screenshot): a real device, scrolled partway down
+the mobile Inputs tab, showed an actual sidebar group heading ("TAX FILING
+STATUS") visible in a thin band between the sticky Plan Status Bar and the
+sticky `.mobile-tabs` switcher below it — not a color mismatch, literal
+foreground text bleeding through.
+
+- **Root cause**: `.mobile-tabs`' sticky `top` was
+  `calc(var(--plan-status-h,0px) + 10px)` — a **real 10px gap**, not
+  padding, between the two sticky elements' own rectangles. A sticky
+  element only covers its own box; whatever normal-flow content is
+  scrolled to a screen position *between* two stuck siblings is not
+  covered by either one and renders exactly as if nothing were sticky
+  there at all. Round 5's "Sidebar group state summaries" line of
+  reasoning ("nothing except `.panel`'s own plain card-colored background
+  sits in that band") turned out to be true only by coincidence at the one
+  scroll position that was actually tested — at any other scroll position,
+  whatever text happens to be at that exact vertical band (a group
+  heading, a field label) shows through it, exactly as the screenshot
+  shows. Reproduced directly with Playwright: a real `page.mouse.wheel()`
+  scroll on the mobile Inputs tab, screenshotted mid-scroll, shows the same
+  sliver of sidebar content peeking through the gap.
+- **Fix**: rather than leaving a bare unclipped gap between two sticky
+  boxes, the breathing room now lives *inside* the status bar's own opaque
+  box — `.plan-status-bar`'s bottom padding grew from `8px` to `18px`
+  (i.e. the same 10px, just moved from being "space after the box" to
+  "space inside the box"), and `.mobile-tabs`' sticky `top` changed to
+  `var(--plan-status-h,0px)` (flush, no `+10`). Since `--plan-status-h` is
+  measured from the bar's real `offsetHeight` (which now includes the
+  extra padding automatically), nothing else needed to change to keep the
+  two in sync — the JS `--mobile-sticky-h` computation's own `+10` term
+  (which existed purely to account for this now-removed gap) was also
+  dropped, in both files. `.mobile-header-toggle`'s fixed `top` shifted
+  from `+6px` to `-4px` off `--plan-status-h` to keep the circular
+  minimize button visually centered on the new, gap-free seam between the
+  two bars.
+- **A second, pre-existing, previously undetected instance of the same bug
+  class, found while re-measuring this**: `Planner_Canada.html`'s
+  `--mobile-sticky-h` formula had an *extra* `+ 14` term beyond the `+10`
+  above (meant, per an existing code comment, to fold in `.mobile-tabs`'
+  own CSS `margin-bottom:14px` into `.field-search-wrap`'s sticky offset).
+  Measured with a real scroll gesture, this term was simply wrong: with it
+  present, `.field-search-wrap` stuck a real 14px too *low*, opening the
+  exact same class of gap between `.mobile-tabs` and the search box that
+  this round fixed between the status bar and the tabs — confirmed via
+  `getBoundingClientRect()` on the committed (pre-fix) code, not just a
+  theoretical box-model argument. `Planner_US.html`'s equivalent formula
+  never had this `+14` term and was already flush (confirmed to within
+  0.3px). The term was removed from Canada's formula to match; the two
+  files' `--mobile-sticky-h` formulas are now identical (`barH + tabsH`,
+  no gap terms in either). This is a useful general lesson for this sticky
+  stack: don't add a margin/gap term to a computed sticky offset on
+  theoretical box-model grounds — measure the *actual* stuck rectangles
+  with `getBoundingClientRect()` after a real scroll and let that decide,
+  the same way this file's own testing-checklist item 6 already prescribes
+  for sticky work generally.
+- **Verified**: `npm test`; a syntax check of both files; a real
+  `page.mouse.wheel()` scroll sweep (light+dark, both files, 390×844) with
+  `getBoundingClientRect()` checks confirming a sub-pixel-flush stack
+  (status bar → tabs → search box) once stuck, and a before/after
+  screenshot at the exact scroll position the original bug reproduced at,
+  confirming no sidebar content is visible in the seam; the
+  `#mobileHeaderToggle` collapse/expand toggle still works and both
+  `.mobile-tabs`/`.field-search-wrap` still hide/show together; the
+  estimated-fields guided-review flow (`#reviewEstimatesBtn`/
+  `#reviewNavNext`) re-verified working end-to-end, since it also depends
+  on this mobile sticky stack.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
