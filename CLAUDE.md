@@ -483,66 +483,77 @@ Each planner is one big IIFE. The core shape:
   from `render()` (`renderPlanHeadline(selected)` immediately before
   `renderShortfallBanner(selected)`).
 
-## Dashboard as home: decision-card reorder + "Change assumptions" button
+## Dashboard as home: the "Explore a question" bubble + collapsed methodology
 
 The plan verdict (`#planHeadlineBanner`/`#shortfallBanner` + the Plan Status
-Bar) is meant to be the first thing a person sees, with "Explore a question"
-(`#decisionCard`) coming *after* it as a next step once they've absorbed the
-verdict — not before it, which is how the page used to read. Two constraints
-made this harder than a plain DOM move:
+Bar) is meant to be the first thing a person sees. Two things used to get in
+the way of that even after the verdict itself was made prominent:
 
-- **Desktop must not change.** `#decisionCard` has always rendered
-  full-width, above the two-column `.workspace` grid (inputs left, results
-  right) — not confined to the results column. It was already a sibling of
-  `#workspace` under `<main>` for exactly this reason (see the "First-run
-  banner" note above for the same pattern). Moving it into `.content`
-  (inside the results column) to reorder it relative to the verdict would
-  have shrunk it to half-width on desktop, which nobody asked for.
-- **On mobile, `#decisionCard` needed to become Dashboard-tab-only** (a
-  deliberate reversal of its previous cross-tab-visible design — see the
-  "Explore a question" menu note above). Now that Dashboard is the default
-  tab and holds the verdict, there's no reason for the question menu to
-  also appear on the Inputs tab; showing it there just duplicates content
-  the person will see anyway once they switch back.
+- **"Explore a question" (`#decisionCard`) used to render as a big,
+  always-expanded 8-button menu.** In an earlier iteration it was moved to
+  render *after* all Dashboard content (metrics, chart, sensitivity/Roth/
+  Sankey cards, the full projection table, and several always-expanded
+  explanation callouts) so it wouldn't compete with the verdict for
+  attention — but that meant it landed at the literal bottom of a very long
+  page, which was worse: effectively unreachable without a long scroll.
+- **The methodology/tax/healthcare/backtest explanation callouts were
+  always expanded**, adding a large wall of static text between the
+  projection table and the footer on every load, pushing everything below
+  them (previously including decisionCard) far down the page.
 
-The fix uses two CSS mechanisms together, needing no JS reparenting:
+**Current design** (superseding the earlier order/sibling-selector
+approach — that whole mechanism was removed):
 
-1. **`#decisionCard` was physically moved later in the DOM** — from *before*
-   `#workspace` to *after* it (`<main>`'s last child, right before `</main>`).
-   This is what both mechanisms below depend on.
-2. **`<main>` is now `display:flex;flex-direction:column`**, with
-   `#decisionCard{order:-1}` as the default (desktop and the base/no-media-
-   query state). Flexbox `order` reorders *painted* position without
-   touching DOM position, so `#decisionCard` still paints above
-   `#workspace` everywhere `order:-1` applies, even though it's now later in
-   the DOM. Inside `@media(max-width:820px)`, `order` is reset to `0`
-   (natural DOM order), so on mobile it paints *after* `#workspace` — i.e.
-   after all Dashboard-tab content — matching the "explore a question
-   *after* seeing the verdict" goal.
-3. **Tab-gating via a general-sibling-combinator selector**, only possible
-   because step 1 made `#decisionCard` a later sibling of `#workspace` (that
-   combinator only matches forward): `#workspace[data-mobile-view="inputs"]
-   ~ #decisionCard{display:none}`, scoped inside the same
-   `@media(max-width:820px)` block. No JS change needed — `setMobileView()`
-   already just flips the `data-mobile-view` attribute it always did.
+- `#decisionCard` is now a `<details class="result-card">` — a small,
+  collapsed-by-default "💡 Explore a question" pill/bubble — living
+  **inside** `.content`, right after `#changeAssumptionsBtn` and *before*
+  `.metrics`. It expands in place (native `<details>`/`<summary>`
+  behavior — no JS needed) to reveal the same 8 question buttons and
+  `#decisionAnswer`. Collapsed-state styling (`#decisionCard:not([open])`)
+  strips the card's normal padding/border/shadow and re-applies them to
+  just the `<summary>`, so a closed decisionCard reads as a compact pill,
+  not a full-size empty card; a small `.caret` span flips 180° via
+  `#decisionCard[open] .caret` for an open/closed indicator.
+- Because it's a real child of `.content` now (not a sibling of
+  `#workspace`), it automatically inherits `.content`'s existing behavior
+  for free: **full width on mobile** (`.workspace{grid-template-columns:1fr}`
+  under `@media(max-width:820px)` makes `.content` span the whole viewport
+  there anyway — the old "confined to the results column" problem was
+  desktop-only) and **Dashboard-tab-only** (`.workspace[data-mobile-view=
+  "inputs"] .content{display:none}` already hides all of `.content`,
+  decisionCard included — no dedicated sibling-selector rule needed
+  anymore). On desktop it's column-width, not full-width above `#workspace`
+  like before — an intentional trade against the earlier "desktop must stay
+  full-width" constraint, accepted because a collapsed bubble reads fine at
+  column width and the whole point now is that it's *not* a big visual
+  block competing with the verdict.
+- `<main>` no longer needs `display:flex;flex-direction:column` — that was
+  only there to support the old `order`-based reorder trick for
+  decisionCard, which no longer exists. If a future change reintroduces a
+  need to visually reorder one of `<main>`'s direct children (`#planStatusBar`,
+  `#firstRunBanner`, `#workspace`) without moving it in the DOM, the flex/
+  `order` technique is still valid to bring back — just don't confuse it
+  with how decisionCard works today.
+- **The methodology/tax/healthcare/backtest callouts** now live inside their
+  own collapsed-by-default `<details class="result-card" id="methodologyCard">`
+  ("Methodology & assumptions"), split out from the "Selected retirement
+  timeline" card (which now holds just the projection table). Same
+  `<details class="result-card">` pattern as `sensitivityCard`/
+  `rothOptimizerCard`/`sankeyCard` — no `toggle` listener needed since
+  nothing inside it is computed lazily (it's all static explanatory text
+  set once, not a chart/table built from `simulate()`).
 
-A new `.change-assumptions-btn` (`#changeAssumptionsBtn`) sits right after
-`#shortfallBanner`/`#planHeadlineBanner` in the DOM but is `display:none` by
-default and only `display:inline-flex` inside the same mobile media query —
-on desktop, the Inputs/Dashboard split doesn't exist, so there's nothing for
-the button to switch away from. Its click handler (`setMobileView('inputs')`
-+ `window.scrollTo({top:0,behavior:'smooth'})`, registered right after the
+A `.change-assumptions-btn` (`#changeAssumptionsBtn`) still sits right after
+`#shortfallBanner`/`#planHeadlineBanner`, `display:none` by default and only
+`display:inline-flex` inside the mobile media query — on desktop, the
+Inputs/Dashboard split doesn't exist, so there's nothing for the button to
+switch away from. Its click handler (`setMobileView('inputs')` +
+`window.scrollTo({top:0,behavior:'smooth'})`, registered right after the
 `#planStatusBar` click listener in both files) exists because switching
 mobile tabs just swaps which of `.panel`/`.content` is displayed *in place*
 — without the explicit scroll-to-top, someone who scrolled deep into a long
 Dashboard would land partway down the (differently-sized) Inputs panel
-instead of at its top.
-
-If a future change adds another `<main>`-level sibling that needs the same
-"desktop: painted first, mobile: painted last + tab-gated" treatment, follow
-this same three-part pattern rather than inventing a JS-driven visibility
-toggle — it's what let this ship with zero new state and zero new render-
-path branching.
+instead of at its top. This is unchanged from before.
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
