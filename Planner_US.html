@@ -7,8 +7,8 @@
   <title>FIRE Planner — US</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1320'/%3E%3Cpath d='M32 10c7 10 15 17 15 29 0 10-7 17-15 17S17 49 17 39c0-8 4-14 10-20 0 8 3 12 7 15-1-8 0-15-2-24z' fill='%23f59e0b'/%3E%3Cpath d='M32 35c5 5 7 9 7 13 0 5-3 8-7 8s-7-3-7-8c0-4 2-8 7-13z' fill='%23fde68a'/%3E%3C/svg%3E">
   <style>
-    :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#5c6779;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320}
-    :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--green:#4ade80;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff}
+    :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#5c6779;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320;--amber-text:#9a5209}
+    :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--green:#4ade80;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff;--amber-text:#f0a949}
     *{box-sizing:border-box}html{font-size:16px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
     button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh}.topbar{background:var(--topbar-fg);color:white;padding:18px clamp(18px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:18px;position:sticky;top:0;z-index:20;box-shadow:0 5px 20px rgba(0,0,0,.16);flex-wrap:wrap}.topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}html,body{overflow-x:clip;max-width:100%}
     .brand{display:flex;align-items:center;gap:12px}.mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fbbf24,#ea580c);display:grid;place-items:center;font-weight:900;color:#23140b}.brand h1{font-size:1.08rem;margin:0;letter-spacing:-.02em}.brand small{display:block;color:#aeb9c8;font-size:.76rem;margin-top:1px}
@@ -23,7 +23,7 @@
     #fieldSearch:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     .field-search-count{font-size:.72rem;color:var(--hint);white-space:nowrap;flex-shrink:0}
     .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}.field.field-hidden,.range-field.field-hidden{display:none}
-    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number],.field input[type=text]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}
+    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number],.field input[type=text]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}.estimate-badge{font-size:.68rem;font-weight:700;color:var(--amber-text);background:rgba(217,119,6,.12);border-radius:999px;padding:1px 4px 1px 7px;margin-left:6px;display:inline-flex;align-items:center;gap:3px;text-transform:none;letter-spacing:normal}.estimate-dismiss{border:none;background:transparent;color:inherit;cursor:pointer;font-size:.7rem;line-height:1;padding:0 0 0 2px;min-width:16px;min-height:16px}.field.flash-highlight,.range-field.flash-highlight{box-shadow:0 0 0 3px var(--blue);border-radius:10px;transition:box-shadow .3s}
     details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
     details.group summary::after{content:'▾';font-size:.9rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
@@ -40,7 +40,7 @@
     .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
     .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}.decision-table-wrap{margin-top:12px}.decision-compare-table{min-width:0;width:100%}.decision-compare-table th,.decision-compare-table td{padding:8px 10px;font-size:.76rem}
-    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}
+    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.estimated-rollup{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.estimated-rollup b{color:var(--ink2)}.estimated-rollup #reviewEstimatesBtn{border:none;background:transparent;color:var(--amber-text);font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit;padding:0;white-space:nowrap}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}
     .first-run-banner{border-left:3px solid var(--blue);margin-bottom:16px;font-size:.82rem;line-height:1.5}.first-run-banner b{color:var(--ink2)}.first-run-banner button{background:none;border:0;padding:0;margin:0;color:var(--blue);font-weight:800;font-size:inherit;font-family:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.first-run-banner[hidden]{display:none}
     .plan-status-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left;font-family:inherit;border:1px solid var(--line);background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;margin:0 0 16px;position:sticky;top:var(--topbar-h,82px);z-index:14;cursor:pointer}.plan-status-bar:hover{border-color:var(--blue)}.plan-status-text{font-weight:800;font-size:.92rem;color:var(--ink2);letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plan-status-right{display:flex;align-items:center;gap:8px;flex-shrink:0}.plan-status-updated{font-size:.68rem;font-weight:700;color:var(--green);opacity:0;transition:opacity .4s}.plan-status-updated.show{opacity:1}.plan-status-chevron{color:var(--hint);font-size:.75rem;transition:transform .2s}.plan-status-bar[aria-expanded="true"] .plan-status-chevron{transform:rotate(180deg)}
     #decisionCard{margin:0 0 18px}#decisionCard summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)}#decisionCard summary::-webkit-details-marker{display:none}#decisionCard .caret,#moreResultsCard .caret{font-size:.85rem;color:var(--hint);transition:transform .15s ease}#decisionCard[open] .caret,#moreResultsCard[open] .caret{transform:rotate(180deg)}#decisionCard:not([open]){padding:0;border:none;background:transparent;box-shadow:none}#decisionCard:not([open]) summary{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-size:.88rem;box-shadow:var(--shadow)}
@@ -320,6 +320,7 @@
       <section class="content" aria-live="polite">
         <div class="callout plan-headline" id="planHeadlineBanner" hidden></div>
         <div class="callout shortfall-banner" id="shortfallBanner" hidden></div>
+        <div class="callout estimated-rollup" id="estimatedRollupBanner" hidden><span><span id="estimatedRollupText"></span> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
         <details class="result-card" id="decisionCard">
           <summary>💡 What do you want to figure out?<span class="caret" aria-hidden="true">▾</span></summary>
@@ -595,6 +596,7 @@
       endAge: 75,
     })),
     oneTimeIncome: Array.from({ length: 3 }, () => ({ enabled: false, age: 65, amount: 0 })),
+    dismissedEstimates: [],
   };
   const storageKey = 'fireCouplePlanner.massachusettsOffline.v1',
     legacyStorageKey = 'fireCouplePlanner.v3',
@@ -649,6 +651,7 @@
       ...defaults.oneTimeIncome[i],
       ...(Array.isArray(s.oneTimeIncome) ? s.oneTimeIncome[i] : {}),
     }));
+    s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     return s;
   }
   let state = normalizeState(null),
@@ -863,6 +866,139 @@
       fieldEl.title = isDefault ? 'Still the generic example value' : '';
     });
   }
+  // "Still estimated" badges + dashboard rollup + guided review nav. A field
+  // is "counted" when it's personal (not a pure modeling assumption like
+  // returnRate/inflation, which keep only the quiet `.is-default` dot
+  // above), its gating feature (if any) is currently on, it's still at its
+  // default value, and the person hasn't explicitly dismissed it. See the
+  // "estimated field badges" note in CLAUDE.md for the full design.
+  const ESTIMATE_ALWAYS_IDS = [
+    'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB',
+    'k401PctA', 'k401PctB', 'iraPctA', 'iraPctB', 'spending', 'taxable', 'basisRatio',
+    'traditional', 'roth', 'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
+    'mortgageRate', 'mortgageYears', 'extraPrincipal', 'maintenance', 'propertyTax',
+    'homeInsurance', 'rent', 'ssMonthlyA', 'ssStartAgeA', 'ssMonthlyB', 'ssStartAgeB',
+    'pensionYearlyA', 'pensionStartAgeA', 'pensionYearlyB', 'pensionStartAgeB', 'healthPremiumA',
+    'healthPremiumB', 'healthcare',
+  ];
+  const ESTIMATE_GATED_GROUPS = [
+    { ids: ['megaPctA', 'megaPctB'], gate: () => !!state.megaBackdoor },
+    {
+      ids: [
+        'bridgeIncomeA', 'bridgeStartAgeA', 'bridgeEndAgeA',
+        'bridgeIncomeB', 'bridgeStartAgeB', 'bridgeEndAgeB',
+      ],
+      gate: () => !!state.bridgeEnabled,
+    },
+    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
+    { ids: ['rothConvStartAge', 'rothConvEndAge'], gate: () => !!state.rothConvEnabled },
+    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
+    {
+      ids: ['buyAge', 'buyDownPct', 'buyClosingPct', 'buyTerm', 'buyExtraPrincipal'],
+      gate: () => state.tenure === 'rentThenBuy',
+    },
+    // marriageAgeA only matters (and is only shown — see #marriageAgeField)
+    // while the "start single, then file MFJ" transition is enabled.
+    { ids: ['marriageAgeA'], gate: () => !!state.marryLater },
+  ];
+  function isEstimateCountable(id) {
+    if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
+    const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
+    return !!group && group.gate();
+  }
+  // Returns the currently-counted field ids, in `ids` array order (which is
+  // also the order "Review →" walks them in).
+  function computeCountedEstimateIds() {
+    return ids.filter(
+      (id) =>
+        isEstimateCountable(id) &&
+        state[id] === defaults[id] &&
+        !state.dismissedEstimates.includes(id),
+    );
+  }
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.estimate-dismiss');
+    if (!btn) return;
+    // The button lives inside the field's <label for="...">, so a native
+    // click here would also trigger the browser's "activate the label's
+    // associated control" default action — refocusing/reselecting the very
+    // field being dismissed, right after we've moved focus elsewhere (e.g.
+    // during Review-mode auto-advance). Suppress that.
+    e.preventDefault();
+    const id = btn.dataset.field;
+    if (id && !state.dismissedEstimates.includes(id)) {
+      state.dismissedEstimates.push(id);
+      dismissFirstRunBanner();
+      saveInputs();
+      render();
+    }
+  });
+  function renderEstimateBadges(countedIds) {
+    const countedSet = new Set(countedIds);
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const label = document.querySelector(`label[for="${id}"]`);
+      if (!label) return;
+      let badge = label.querySelector('.estimate-badge');
+      if (countedSet.has(id)) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'estimate-badge';
+          badge.innerHTML =
+            'Estimated <button type="button" class="estimate-dismiss" aria-label="This looks right, stop flagging it">✓</button>';
+          badge.querySelector('.estimate-dismiss').dataset.field = id;
+          const small = label.querySelector('small');
+          if (small) label.insertBefore(badge, small);
+          else label.appendChild(badge);
+        }
+      } else if (badge) {
+        badge.remove();
+      }
+    });
+  }
+  // "Review →": which field id is currently the guided-review target,
+  // so render() can tell when it stops being counted (edited away from
+  // default, or dismissed) and auto-advance to whatever's next. null means
+  // no review is in progress.
+  let reviewingFieldId = null;
+  function jumpToEstimateField(id) {
+    reviewingFieldId = id;
+    const el = document.getElementById(id);
+    if (!el) return;
+    setMobileView('inputs');
+    const group = el.closest('details.group');
+    if (group && !group.open) group.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const fieldEl = el.closest('.field, .range-field');
+    if (fieldEl) {
+      fieldEl.classList.add('flash-highlight');
+      setTimeout(() => fieldEl.classList.remove('flash-highlight'), 1200);
+    }
+    el.focus();
+  }
+  function renderEstimatedRollup(countedIds) {
+    const banner = document.getElementById('estimatedRollupBanner');
+    const textEl = document.getElementById('estimatedRollupText');
+    if (!banner || !textEl) return;
+    if (countedIds.length === 0) {
+      banner.hidden = true;
+      if (reviewingFieldId !== null) reviewingFieldId = null;
+      return;
+    }
+    banner.hidden = false;
+    textEl.innerHTML = `<b>${countedIds.length}</b> of your numbers ${countedIds.length === 1 ? 'is' : 'are'} still estimated`;
+    // Auto-advance: if we're mid-review and the field being reviewed just
+    // stopped being counted (edited away from default, or dismissed), jump
+    // to whatever's now first, if anything remains.
+    if (reviewingFieldId !== null && !countedIds.includes(reviewingFieldId)) {
+      jumpToEstimateField(countedIds[0]);
+    }
+  }
+  document.getElementById('reviewEstimatesBtn')?.addEventListener('click', () => {
+    const countedIds = computeCountedEstimateIds();
+    if (countedIds.length) jumpToEstimateField(countedIds[0]);
+  });
   // Cheap, string-only sidebar group summaries — no simulate() calls, just
   // formatting already-live `state`. Called from the top of render(),
   // alongside markDefaultFields(). "Always-on" groups always get plain
@@ -3614,6 +3750,9 @@
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
     renderGroupSummaries();
+    const countedEstimateIds = computeCountedEstimateIds();
+    renderEstimateBadges(countedEstimateIds);
+    renderEstimatedRollup(countedEstimateIds);
     const selected = simulate();
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
@@ -6014,6 +6153,11 @@
       state[id] = Number(
         e.target.classList.contains('money') ? e.target.value.replace(/[^0-9]/g, '') : e.target.value,
       ) || 0;
+      // A real edit un-dismisses a previously-dismissed "estimated" badge,
+      // regardless of what the new value is (even if it round-trips back to
+      // the default) — see the "estimated field badges" note in CLAUDE.md.
+      const dismissedIdx = state.dismissedEstimates.indexOf(id);
+      if (dismissedIdx !== -1) state.dismissedEstimates.splice(dismissedIdx, 1);
       if (id === 'ageA') state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
       if (id === 'ageB') state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
       if (id === 'ageA' || id === 'lifeExpectancyA')

@@ -1426,6 +1426,88 @@ needing to special-case `singlePerson` or any other individual field. New
 checkboxes/selects that show/hide fields need no additional wiring — this
 listener is delegated and field-agnostic.
 
+## "Estimated" field badges + dashboard rollup + guided review (`.estimate-badge`, `state.dismissedEstimates`)
+
+Full design spec lives in the claude.ai Project doc
+`claude/estimated-fields-rollup-spec.md`. This sits on top of the existing
+`markDefaultFields()`/`.is-default` dot (see "Default-value field marker"
+above) rather than replacing it — the dot still covers every `ids` field
+still at default, including generic modeling assumptions (return rate,
+inflation, life expectancy) that are fine left alone for most people. This
+feature adds a second, narrower layer only for fields that are personal
+facts only the user can supply.
+
+- **`ESTIMATE_ALWAYS_IDS`** — the `ids`-array fields that are always
+  counted once still at default (ages, income, balances, mortgage terms,
+  Social Security/CPP+OAS, etc.). **`ESTIMATE_GATED_GROUPS`** — fields that
+  only count while their opt-in feature is currently on (mega backdoor,
+  bridge income, survivor planning, Roth conversion ladder/RRSP meltdown,
+  LTC, rent-then-buy, the US `marryLater` transition), same reasoning as
+  the sidebar's hide-when-off group summaries. `isEstimateCountable(id)` /
+  `computeCountedEstimateIds()` are the single source of truth for both the
+  badges and the rollup count — never duplicate this classification logic
+  at a second call site.
+- **`state.dismissedEstimates`** — an array of field ids the person has
+  explicitly said "this looks right, leave it," added to `defaults` as
+  `[]` and guarded in `normalizeState()` exactly like `loans`/other array
+  fields. It's real `state`, so it persists through the existing
+  autosave/scenario export/import machinery automatically — no special
+  plumbing needed there. The generic `ids.forEach(...)` input listener
+  splices a field's id back out of `dismissedEstimates` on any real edit
+  (regardless of the new value), so a dismissal only covers the specific
+  value the person looked at, not the field forever.
+- **`renderEstimateBadges()`** extends the `markDefaultFields()` idiom:
+  for each counted field it ensures a `.estimate-badge` (amber pill, with
+  a nested `.estimate-dismiss ✓` button) exists right after the field's
+  `<label>` text; otherwise it removes one if present. `#estimatedRollupBanner`
+  (styled like `.plan-headline`/`.shortfall-banner`) shows the live count
+  and hides entirely at zero — computed in the same `render()` pass, right
+  after `markDefaultFields()`/`renderGroupSummaries()`, from the same
+  `computeCountedEstimateIds()` call that feeds the badges.
+- **Contrast**: `--amber` (`#d97706` light / `#f0a949` dark) reads fine as
+  a solid dot, but the badge's *text*, sitting on `rgba(217,119,6,.12)`
+  amber-tinted background, only cleared ~2.7:1 in light mode against that
+  blended background — well under WCAG AA. Added `--amber-text` (`#9a5209`
+  light, ≈5.2:1; reuses the existing `--amber` in dark mode, already
+  ≈7:1+) for the badge text and the "Review →" button specifically. Any
+  future badge/pill using a tinted `--amber` background should use
+  `--amber-text` for its foreground, not `--amber` directly — the dot's
+  own contrast math (a solid small glyph, not text-on-tint) doesn't carry
+  over to a text label on a tinted fill.
+- **Guided "Review →" navigation** (`jumpToEstimateField()`,
+  `reviewingFieldId`): clicking `#reviewEstimatesBtn` finds the first
+  counted field in `ids` order, switches to the mobile Inputs tab if
+  needed, opens its `<details class="group">` if closed, scrolls to it,
+  applies the existing `.flash-highlight` treatment, and focuses it.
+  `reviewingFieldId` tracks which field is being reviewed; every
+  `renderEstimatedRollup()` call (i.e. every `render()`) checks whether
+  that field dropped out of the counted set (edited away from default, or
+  dismissed) and, if so, immediately jumps to whatever's now first — so
+  reviewing reads as one continuous flow, not a click-per-field chore.
+  Clicking "Review →" again later always resumes at whatever's currently
+  first, since it never tries to remember where a previous review left
+  off.
+- **Gotcha: a button nested inside a `<label for="...">` steals focus
+  back via the browser's native label-activation behavior.** The
+  `.estimate-dismiss` button lives inside the field's own `<label>` (so it
+  visually sits right next to the field name). Clicking it fires our own
+  JS (which may synchronously move focus to a *different* field, e.g.
+  during Review-mode auto-advance) — but afterward, the browser still runs
+  its own default action for a click landing inside a `<label>`: activate/
+  focus the label's associated control. That default action fires *after*
+  all click listeners finish, so it silently overwrites whatever focus our
+  own code just set, snapping focus back to the very field being
+  dismissed. Symptom looked exactly like "auto-advance isn't working" —
+  `jumpToEstimateField()` was demonstrably being called with the right
+  next id (confirmed by instrumenting `HTMLElement.prototype.focus` in a
+  Playwright script), yet `document.activeElement` a moment later was back
+  on the original field regardless. Fixed with `e.preventDefault()` at the
+  top of the `.estimate-dismiss` click handler, which suppresses the
+  label's default action without needing to stop propagation or restructure
+  the markup. Any future interactive control nested inside a field's
+  `<label>` (rather than as a sibling) needs the same guard if it does
+  anything with focus itself.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
