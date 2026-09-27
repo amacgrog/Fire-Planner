@@ -1568,6 +1568,49 @@ Real-world feedback after using the feature on a phone, all fixed together:
   just a clarifying note), unchanged in substance, just shortened
   alongside the rest.
 
+### Round 3: further shrinking the Plan Status Bar, and an explicit "Next" for the estimated-fields review
+
+More real-world mobile feedback, after round 2 above still left the bar
+taller than it needed to be:
+
+- **The chevron/pulse column was consuming its own full-width row.** Round
+  2 kept `.plan-status-right` (the "Updated just now" pulse + the `▾`
+  expand chevron) as a flex sibling of `.plan-status-text`, with
+  `flex:1 1 100%` forcing the text onto its own line so the right column
+  dropped to a second line, right-aligned. That second line's height (plus
+  its own `margin-top`) was pure overhead — the chevron is a few pixels of
+  content sharing a whole row. Fixed by taking `.plan-status-right` out of
+  the flex flow entirely: `.plan-status-bar{position:relative}` and
+  `.plan-status-right{position:absolute;top:8px;right:10px}`, with
+  `.plan-status-bar`'s mobile padding widened on the right
+  (`8px 34px 8px 14px`) so wrapped text never runs under the corner icon.
+  `.plan-status-text` drops `flex:1 1 100%` (no longer needed — it's the
+  only flex child left) in favor of a plain `width:100%`. Bar height on a
+  2-line summary went from ~89px to ~51px. Font-size trimmed further too
+  (`.82rem`→`.8rem`, `line-height` `1.35`→`1.3`) and bottom margin
+  `10px`→`8px`.
+- **An explicit "Next →" for the estimated-fields guided review.** The
+  original design only auto-advanced past a field once it was edited or
+  dismissed (see the "Guided 'Review →' navigation" note above) — there was
+  no way to just look at a field and move on without doing either. The
+  button (`#reviewEstimatesBtn`) now tracks two states: **"Review →"**
+  before a review is in progress (or after the field it was on has left
+  the counted set some other way), which jumps to the first counted field;
+  and **"Next →"** once `reviewingFieldId` is set to a field that's *still*
+  counted, which advances to whichever counted field comes after it in
+  `ids` order (wrapping to the start past the last one) — a plain "skip
+  this one for now" rather than requiring an edit or a dismiss first.
+  `renderEstimatedRollup()` sets the button's label every time it runs (so
+  it's always in sync after a real edit/dismiss triggers `render()`), but
+  a **plain navigation click changes no state**, so nothing else would
+  otherwise trigger a `render()` to flip the label — the click handler
+  calls `renderEstimatedRollup(computeCountedEstimateIds())` itself right
+  after `jumpToEstimateField()`, purely to refresh the label immediately.
+  This label-refresh call is safe to make unconditionally: it recomputes
+  the same already-cheap counted-set/badge logic `render()` always runs,
+  and since the field just jumped *to* is by construction still in the
+  counted set, the auto-advance check inside it never double-jumps.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
