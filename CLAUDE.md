@@ -2358,6 +2358,121 @@ this class of problem:
   clearly separated rows), and a light+dark mobile overflow sweep in both
   files with no horizontal scroll.
 
+## Slider touch-vs-scroll gesture disambiguation (full fix, branch `slider-gesture-disambiguation`)
+
+The pass above intentionally left the deeper problem alone: any touch that
+lands on a slider's track still steals the gesture from the page, even when
+the person meant to scroll. Before writing the real fix, this was scoped
+with a throwaway diagnostic build (a `console.log` on `pointerdown`/
+`pointermove`, no real logic) tested on real Android Chrome hardware via
+`chrome://inspect` USB/wireless debugging — headless Chromium can't
+reproduce this class of bug at all, since there's no real touchscreen to
+generate ambiguous gestures. That test ruled out the naive approach
+("just watch touch direction, never call `preventDefault()`, and let the
+browser's own scrolling take over once it's clearly vertical") and revealed
+what a native `<input type=range>` actually does on touch:
+
+- **The value jumps to the touch point on the very first touch** — before
+  any movement, before any JS even runs. This is the control's own default
+  action for `pointerdown`/`touchstart`, not something the drag/scroll
+  distinction can prevent after the fact.
+- **Continued movement is split between dragging and scrolling**, with the
+  scroll throttled to a fraction of the actual finger travel — the
+  diagnostic logged a 10px vertical drag producing under 2px of page
+  scroll. This is worse than either a clean drag or a clean scroll: it's a
+  half-hearted compromise that satisfies neither.
+
+Because of this, there's no way to fix the underlying complaint ("clicking
+anywhere on the bar immediately moves the knob") without taking over the
+entire touch gesture on these controls, not just observing it:
+
+- **`input[type=range]{touch-action:none}`** (added to the shared CSS rule
+  in both files) tells the browser not to run *any* of its own default
+  touch/pen handling on range inputs — no jump-to-touch, no native drag, no
+  native scroll-through. Mouse is unaffected (`touch-action` only governs
+  touch/pen), so mouse dragging goes through the browser exactly as before.
+- A capture-phase `pointerdown`/`pointermove`/`pointerup`/`pointercancel`
+  listener set (in both files, right after the existing slider-focus-blur
+  `pointerdown` listener from the "Mobile bug: a slider drag re-opens the
+  keyboard" section) re-implements both interactions from scratch:
+  - Tracks per-`pointerId` gesture state in a `Map` (not a single shared
+    variable), since nothing rules out two fingers touching two different
+    sliders, and `pointerId` is the correct key to disambiguate them.
+  - Waits for **8px** of movement (`DRAG_THRESHOLD`) before committing to
+    an interpretation — this matches the branch's scope doc's decision, and
+    is deliberately not re-litigated per slider or per platform.
+  - Classifies by comparing `|dx|` vs `|dy|` once the threshold is crossed:
+    `|dy| > |dx|` → `'scroll'`, otherwise `'drag'`. This is a one-time
+    decision for the life of the gesture — it does not re-evaluate on
+    every subsequent move, so a gesture that starts vertical and later
+    goes diagonal stays a scroll (matches how people actually scroll:
+    the initial direction is the signal, not the path).
+  - **Drag**: recomputes the slider's value from the pointer's X position
+    against the track's own `getBoundingClientRect()` (`valueFromPointerX`)
+    — this re-derives exactly the min/max/step math the browser's native
+    default action would have done, since `touch-action:none` suppressed
+    that math along with everything else. Sets `.value` and dispatches a
+    real `input` event (`bubbles:true`), so every existing per-field
+    listener (age/life-expectancy clamping, `syncControls()`, `$`-money
+    formatting, etc.) runs exactly as it would from a real native drag —
+    no new code path for downstream consumers to learn about.
+  - **Scroll**: manually scrolls the correct container by the *incremental*
+    per-move delta (not the total delta from gesture start, which would
+    overcorrect on every event) — `window` on mobile or `.panel`'s own
+    internal scroll on desktop, found generically by walking up from the
+    slider for the first `overflow-y:auto|scroll` ancestor with real
+    overflow, the same "which container actually scrolls" split already
+    used elsewhere in this file (undo-toast auto-scroll, sticky-panel
+    math), rather than hardcoding `.panel`.
+  - **Plain tap** (movement never crosses the threshold): `pointerup`
+    applies the same `valueFromPointerX` jump-to-position math the browser
+    used to do for free — `touch-action:none` would otherwise silently
+    remove tap-to-jump as a side effect of removing everything else, and
+    the scope doc explicitly decided to preserve it.
+  - **Pen is treated identically to touch** (`e.pointerType === 'touch' ||
+    'pen'`) — `touch-action:none` suppresses the browser's native handling
+    for pen input too, so without this a stylus would be unable to
+    interact with these sliders at all once the CSS change landed.
+- **Why not `touch-action:pan-y` instead** (letting native scrolling pass
+  through for free, no manual `scrollBy` needed)? It was seriously
+  considered and rejected: `touch-action` is a static, per-element
+  declaration that browsers snapshot at the moment of touchdown, not a
+  per-gesture negotiation — there's no reliable way to say "start as
+  scroll-only, but switch to drag-only if the first few pixels turn out
+  horizontal," because by the time JS could try to flip the CSS value the
+  browser has often already committed to its touchdown-time interpretation
+  for that gesture. `none` plus fully custom drag-or-scroll handling is the
+  only approach that behaves identically across gestures and browsers,
+  at the cost of the small amount of `scrollBy`/value-math code above.
+- **Setup note for anyone continuing this work**: this class of bug is
+  invisible to headless Chromium testing (Playwright *can* dispatch
+  synthetic `PointerEvent`s with `pointerType:'touch'` and verify the JS
+  logic responds correctly — see the drag/scroll/tap/mouse verification
+  below — but it cannot reproduce the *native browser* touch-claiming
+  behavior that motivated this fix in the first place, since there's no
+  real touchscreen in a headless run). Confirming a hypothesis like "the
+  native default action still wins" or "the scroll is throttled" requires
+  actual on-device testing via remote debugging — Android via
+  `chrome://inspect/#devices` (USB or `adb pair`/`adb connect` over
+  Wireless debugging both work equally well once connected) is the
+  practical option most people can reach even without an iOS device; this
+  fix has not been verified on iOS Safari specifically, which is a known
+  gap, though the Pointer Events / `touch-action` behaviors it relies on
+  are part of the same cross-browser spec.
+- **Verified**: `npm test`; a syntax check of both files; Playwright
+  dispatching synthetic `PointerEvent`s (`pointerType:'touch'`) directly at
+  a slider in both files — a purely-vertical drag leaves the slider's value
+  unchanged and scrolls the page; a purely-horizontal drag changes the
+  value and leaves scroll position unchanged; a tap with no movement jumps
+  the value to the tapped position (tested at 80% along the track); a real
+  mouse drag (`page.mouse`) still changes the value exactly as before,
+  confirming `touch-action:none` didn't regress non-touch input; a
+  light+dark mobile overflow sweep plus a desktop-width overflow check in
+  both files with no horizontal scroll. The on-device throttled-scroll
+  finding that motivated this fix (10px drag → <2px scroll) was observed
+  and confirmed via the throwaway diagnostic build described above, on a
+  real Android Chrome device, before this implementation was written.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
