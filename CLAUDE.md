@@ -1243,6 +1243,109 @@ added:
   labels or explicit `aria-label`s — there were no icon-only controls
   missing an accessible name at the time of this pass.
 
+## Sidebar group state summaries (`renderGroupSummaries()`, `.group-state`)
+
+Every sidebar `<details class="group">`'s `<summary>` now shows a one-line
+state summary underneath its title, so the sidebar reads as "what's already
+configured" instead of a blank form even when every group is collapsed.
+Full design rationale lives in the claude.ai Project doc
+`claude/sidebar-state-summaries-spec.md`; the essentials:
+
+- **Two treatments, never a third.** 9 "always-on" groups (Timeline,
+  Income, Retirement contributions, Pre-retirement healthcare, Household
+  spending, Assets, Market assumptions, Housing, Retirement income &
+  healthcare) always have a live, meaningful value — even at defaults — so
+  they always show plain value text, no icon, e.g. `Retire 55 · plan to
+  100`. 5 "hide-when-off" groups (Other loans, Bridge/part-time income,
+  Additional income, Survivor planning, Withdrawal & tax strategy) are
+  entirely optional features, so they show a `✓ <text>` in `--green` when
+  on and a **completely empty string** — not the word "Off" — when off.
+  Withdrawal & tax strategy has no single master flag (`guardrailsEnabled`
+  OR `rothConvEnabled`/`meltdownEnabled` OR, Canada only,
+  `pensionSplitEnabled` — off means all three are false), unlike the other
+  four groups' one-checkbox gate.
+- **Never render "Off."** This was a deliberate late change from the
+  initial design (which had opt-in groups show a muted "Off" label): a
+  first-time visitor who hasn't touched any advanced feature should see a
+  sidebar that looks exactly as clean as it did before this feature
+  existed, not five "Off" badges. A blank `.group-state` collapses to zero
+  height, so a hide-when-off group's `<summary>` looks identical to a
+  plain single-line title until something is actually turned on.
+- **Markup**: `<summary>` went from a bare text node to
+  `<summary><span class="group-summary-text"><span
+  class="group-title">Timeline</span><span class="group-state"
+  id="timelineGroupState"></span></span></summary>`. `.group summary` was
+  already `display:flex;justify-content:space-between` to pin the `::after`
+  chevron (`content:'▾'`, a pseudo-element, not a real DOM node) to the far
+  right — wrapping title+state in one `.group-summary-text{display:flex;
+  flex-direction:column}` flex child keeps that chevron positioning intact
+  with no changes to the chevron CSS itself.
+- **`renderGroupSummaries()`** is called from the top of `render()`, right
+  next to `markDefaultFields()` — same cadence, same reasoning (always
+  current, no dedicated call site to remember). It only does string
+  formatting off already-live `state` (reusing `compact()` for money), no
+  `simulate()` calls, so it needed no debouncing.
+- **Field mapping deviations worth knowing**: Canada's "Retirement
+  contributions" group has no account-type toggle or mega-backdoor
+  equivalent (see "US vs. Canada" below), so its summary shows `X% RRSP ·
+  Y% TFSA` instead of the US's `X% 401(k) · Traditional/Roth[, mega
+  backdoor on]`. "Other loans" counts loans with a nonzero balance/
+  principal and estimates the combined annual payment via the existing
+  `mortgagePayment()` helper (× 12) rather than the more expensive
+  `loanSchedules()`, since this is a display estimate, not a modeled cash
+  flow. Pre-retirement healthcare premiums are stored per-paycheck but
+  always converted to a `/mo` figure for display consistency, using
+  `payFrequency`'s periods/year.
+- **This is purely a display feature** — no changes to `ids`,
+  `normalizeState()`, or scenario export shape. It's a `defaults` change
+  (below) that's the actual behavior change; the summaries are read-only
+  reflections of state that already existed.
+
+## First-time defaults: five opt-in features flipped from on to off
+
+Alongside the group summaries above, five feature-enable flags that
+defaulted to `true` (with generic example data already populated) were
+changed to `false`, because they were the real reason the sidebar looked
+like a lot was already configured on a first visit — not just a display
+problem the summaries alone could fix:
+
+- US: `acaEnabled`, `ltcEnabled`, `bridgeEnabled`, `otherIncomeEnabled`,
+  `otherLoansEnabled`.
+- Canada: `ltcEnabled`, `pensionSplitEnabled`, `bridgeEnabled`,
+  `otherIncomeEnabled`, `otherLoansEnabled`.
+
+`survivorEnabled`, `guardrailsEnabled`, `rothConvEnabled`/
+`meltdownEnabled`, and `megaBackdoor` were already `false` by default in
+both files and were left untouched. Only the enable flags changed — the
+dollar amounts/ages those features would use once re-enabled are still
+present in `defaults`, so turning one back on (wizard Step 2 or the
+sidebar) still shows sensible pre-filled numbers rather than zeros.
+Verified before making this change that no test depends on the old
+defaults: `tests/golden.js` sets `ltcEnabled` explicitly in the two
+scenarios that use it (doesn't rely on the default), and no `test_*.js`
+file references any of these ten flags.
+
+This does change what the generic first-load example projection looks
+like (no ACA subsidy, no bridge income, etc.) — intended, not a
+regression: a simpler, core-only first impression was the explicit goal.
+
+## Wizard close button (`#wizardXBtn`)
+
+The wizard modal already closed on Escape and on a click outside the
+modal (`wizardOverlay.addEventListener('click', ...)` checking
+`e.target === wizardOverlay`), but Step 1 showed only a "Next" button —
+`wizardBackBtn`/`wizardCloseBtn` are both `hidden` on step 1, so there was
+no *visible* way to leave. Real-world consequence: someone who didn't want
+to continue reached for the phone/browser back button, which — no history
+entry was pushed for opening the modal — navigated away from the app
+entirely to `index.html`, losing the whole planner rather than closing a
+dialog. Fixed with a `✕` icon button (`#wizardXBtn`, `aria-label="Close"`),
+absolutely positioned in the modal's top-right corner, visible on both
+steps (not wired into the `wizardStep`-based show/hide logic that governs
+Back/Next/Done), calling the exact same `wizardOverlay.classList.remove
+('open')` the Escape/outside-click handlers already use. A third way out,
+independent of the two-step Back/Next/Done flow.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

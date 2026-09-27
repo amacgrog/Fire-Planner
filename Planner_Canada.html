@@ -30,6 +30,9 @@
     details.group:not([open]) summary{margin-bottom:0}
     details.group:not([open]) summary::after{transform:rotate(-90deg)}
     details.group summary:hover{color:var(--blue)}
+    .group-summary-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+    .group-state{font-size:.72rem;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--hint);display:block}
+    .group-state.is-on{color:var(--green)}
     .range-field{margin:13px 0 17px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue)}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
     .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + var(--plan-status-h,0px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
@@ -44,7 +47,7 @@
     #decisionCard{margin:0 0 18px}#decisionCard summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)}#decisionCard summary::-webkit-details-marker{display:none}#decisionCard .caret,#moreResultsCard .caret{font-size:.85rem;color:var(--hint);transition:transform .15s ease}#decisionCard[open] .caret,#moreResultsCard[open] .caret{transform:rotate(180deg)}#decisionCard:not([open]){padding:0;border:none;background:transparent;box-shadow:none}#decisionCard:not([open]) summary{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-size:.88rem;box-shadow:var(--shadow)}
     .decision-answer{margin-top:14px}.decision-answer p{margin:0 0 12px;font-size:.84rem;line-height:1.55;color:var(--ink2)}.decision-answer p b{color:var(--ink)}.decision-answer[hidden]{display:none}
     @media(max-width:520px){.decision-questions{grid-template-columns:1fr}}
-    #wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
+    #wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:22px;position:relative}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}#wizardXBtn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--surface-border);background:var(--surface);color:var(--hint);font-size:.85rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}#wizardXBtn:hover{background:var(--surface-hover);color:var(--ink2)}
     .undo-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;align-items:center;gap:14px;background:#1c2734;color:#f3f6fa;border-radius:12px;padding:12px 12px 12px 18px;box-shadow:0 12px 32px rgba(0,0,0,.35);z-index:70;font-size:.85rem}.undo-toast[hidden]{display:none}.undo-toast #undoToastBtn{background:#3b6fe0;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:800;font-size:.82rem;cursor:pointer}.undo-toast #undoToastBtn:hover{background:#4c7ceb}
     @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
@@ -139,7 +142,7 @@
           <div class="field"><label for="province">Province<small>2026 planning estimate for all 10 provinces; local/municipal taxes and provincial credits beyond the basic personal amount are excluded. Territories are not modeled.</small></label><select id="province"><option value="on">Ontario</option><option value="bc">British Columbia</option><option value="ab">Alberta</option><option value="sk">Saskatchewan</option><option value="mb">Manitoba</option><option value="qc">Quebec</option><option value="nb">New Brunswick</option><option value="ns">Nova Scotia</option><option value="pe">Prince Edward Island</option><option value="nl">Newfoundland and Labrador</option></select></div>
         </details>
         <details class="group" open>
-          <summary>Timeline</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Timeline</span><span class="group-state" id="timelineGroupState"></span></span></summary>
           <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
           <div class="field"><label for="ageA">Partner A starting age</label><input id="ageA" type="number" min="18" max="70" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="lifeExpectancyA">Partner A: plan finances through age</label><span class="range-value" id="lifeExpectancyAOut"></span></div><input id="lifeExpectancyA" type="range" min="50" max="110" step="1"><small class="range-note">Sets how many years the projection runs. Lowering this also lets the historical backtest use more starting years, since fewer years of data are needed to complete a full replay.</small></div>
@@ -149,13 +152,13 @@
           <div class="range-field" data-partner-b><div class="range-head"><label for="retireAgeB">Partner B retirement age</label><span class="range-value" id="retireAgeBOut"></span></div><input id="retireAgeB" type="range" min="18" max="70" step="1"></div>
         </details>
         <details class="group" open>
-          <summary>Income</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Income</span><span class="group-state" id="incomeGroupState"></span></span></summary>
           <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income<small>Gross wages, before tax and before any RRSP contribution — the model calculates payroll and income tax on this figure itself.</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income<small>Gross wages, before tax and before any RRSP contribution.</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group">
-          <summary>Retirement contributions</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Retirement contributions</span><span class="group-state" id="retireContribGroupState"></span></span></summary>
           <div class="field"><label for="matchA">Partner A employer RRSP match<small>Percentage of annual pay; modeled as an additional RRSP contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
           <div class="range-field"><div class="range-head"><label for="rrspPctA">Partner A RRSP contribution</label><span class="range-value" id="rrspPctAOut"></span></div><input id="rrspPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="tfsaPctA">Partner A TFSA contribution</label><span class="range-value" id="tfsaPctAOut"></span></div><input id="tfsaPctA" type="range" min="0" max="100" step="1"></div>
@@ -164,13 +167,13 @@
           <div class="range-field" data-partner-b><div class="range-head"><label for="tfsaPctB">Partner B TFSA contribution</label><span class="range-value" id="tfsaPctBOut"></span></div><input id="tfsaPctB" type="range" min="0" max="100" step="1"></div>
         </details>
         <details class="group">
-          <summary>Pre-retirement healthcare</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
           <div class="field"><label for="healthPremiumA">Partner A health/dental insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer group benefits plan) — reduces taxable wages. Fold prescriptions, copays, and other after-tax health costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health/dental insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
           <div class="field"><label for="payFrequency">Paycheck frequency</label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
         <details class="group" open>
-          <summary>Household spending</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Household spending</span><span class="group-state" id="spendingGroupState"></span></span></summary>
           <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs not itemized elsewhere: groceries, dining out, utilities, phone/internet, transportation (car payment, gas, insurance, transit), subscriptions, clothing, personal care, entertainment, travel, gifts, and pet care. Excludes mortgage/rent, property tax, home insurance, maintenance, health/dental insurance premiums, long-term care, and retirement saving — those are all tracked separately elsewhere. Provincial healthcare (OHIP/MSP/etc.) is universal and not a cost to budget for here.</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
           <details class="group" id="spendingTiersGroup" style="padding:12px 0 0;border:0">
             <summary>Spending changes (up to 5)</summary>
@@ -179,7 +182,7 @@
           </details>
         </details>
         <details class="group" open>
-          <summary>Assets</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Assets</span><span class="group-state" id="assetsGroupState"></span></span></summary>
           <div class="field"><label for="taxable">Taxable brokerage<small>A standard non-registered investment account — outside any RRSP, TFSA, or FHSA.</small></label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
           <div class="field"><label for="traditional">RRSP balance<small>The combined RRSP balance for you (and your partner, if applicable) — one number, not per-account.</small></label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
@@ -189,14 +192,14 @@
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
         </details>
         <details class="group">
-          <summary>Market assumptions</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Market assumptions</span><span class="group-state" id="marketGroupState"></span></span></summary>
           <div class="field"><label for="returnRate">Investment return</label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
           <div class="field"><label for="bondReturn">Bond return</label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
           <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
           <div class="field"><label for="inflation">Inflation</label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
         </details>
         <details class="group" open>
-          <summary>Housing</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Housing</span><span class="group-state" id="housingGroupState"></span></span></summary>
           <div class="choice" style="grid-template-columns:1fr 1fr 1fr" role="radiogroup" aria-label="Housing status"><button type="button" id="ownBtn" role="radio" aria-checked="true" class="active">Own</button><button type="button" id="rentBtn" role="radio" aria-checked="false">Rent</button><button type="button" id="buyLaterBtn" role="radio" aria-checked="false">Rent → Buy</button></div>
           <div class="tenure-fields" id="homeValueFields">
             <div class="field"><label for="homeValue" id="homeValueLabel">Real estate value</label><input id="homeValue" type="number" class="money" min="0" step="5000"></div>
@@ -234,7 +237,7 @@
           </div>
         </details>
         <details class="group" open>
-          <summary>Retirement income & healthcare</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Retirement income & healthcare</span><span class="group-state" id="retireIncomeHealthGroupState"></span></span></summary>
           <div class="field"><label for="cppMonthlyA">Partner A CPP / month</label><input id="cppMonthlyA" type="number" class="money" min="0" step="50"></div>
           <div class="field"><label for="cppStartAgeA">Partner A CPP start age<small>60–70; earlier means a reduced benefit, later means an enhanced one</small></label><input id="cppStartAgeA" type="number" min="60" max="70" step="1"></div>
           <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>Defaults to the 2026 maximum (ages 65–74)</small></label><input id="oasMonthlyA" type="number" class="money" min="0" step="25"></div>
@@ -258,7 +261,7 @@
           </div>
         </details>
         <details class="group" id="otherLoansGroup">
-          <summary>Other loans</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Other loans</span><span class="group-state" id="otherLoansGroupState"></span></span></summary>
           <div class="field"><label for="otherLoansEnabled"><input id="otherLoansEnabled" type="checkbox"> Model other loans<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="otherLoansFields">
             <p class="range-note">Add up to five amortizing loans. Payments and remaining balances are included in the projection.</p>
@@ -266,7 +269,7 @@
           </div>
         </details>
         <details class="group" id="bridgeGroup">
-          <summary>Bridge / part-time income</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Bridge / part-time income</span><span class="group-state" id="bridgeGroupState"></span></span></summary>
           <div class="field"><label for="bridgeEnabled"><input id="bridgeEnabled" type="checkbox"> Model bridge / part-time income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="bridgeFields">
             <p class="range-note">Consulting, part-time, or barista-FIRE income earned after leaving full-time work. Taxed as ordinary income with CPP contributions; not eligible for RRSP/TFSA room beyond the usual limits.</p>
@@ -279,7 +282,7 @@
           </div>
         </details>
         <details class="group" id="otherIncomeGroup">
-          <summary>Additional income</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Additional income</span><span class="group-state" id="otherIncomeGroupState"></span></span></summary>
           <div class="field"><label for="otherIncomeEnabled"><input id="otherIncomeEnabled" type="checkbox"> Model additional income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="otherIncomeFields">
             <p class="range-note">Optional: up to three recurring household income sources over a chosen age window (e.g. rental income, alimony) taxed as ordinary income attributed to Partner A. Amounts are in today's dollars.</p>
@@ -289,7 +292,7 @@
           </div>
         </details>
         <details class="group" id="survivorGroup">
-          <summary>Survivor planning</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Survivor planning</span><span class="group-state" id="survivorGroupState"></span></span></summary>
           <div class="field"><label for="survivorEnabled"><input id="survivorEnabled" type="checkbox"> Model one partner's death<small>From the chosen age onward: switches to single filing, keeps the greater of the two CPP benefits and the greater of the two OAS benefits (a simplified survivor-benefit swap), drops the deceased partner's pension/LTC/healthcare share, consolidates the RRSP/RRIF balance under the survivor's own minimum-withdrawal schedule, disables pension income splitting (it needs two living spouses), cuts household spending to the percentage below, and settles any "other loans" balance as a lump sum that year — approximating debts being paid from the estate during probate before assets pass to the survivor. The mortgage is untouched, since it's secured by jointly-titled real estate. Intended for a death during retirement; one modeled during a working year may not fully zero out that year's payroll activity.</small></label></div>
           <div id="survivorFields">
             <div class="field"><label for="survivorPartner">Partner who dies first</label><select id="survivorPartner"><option value="A">Partner A</option><option value="B">Partner B</option></select></div>
@@ -298,7 +301,7 @@
           </div>
         </details>
         <details class="group">
-          <summary>Withdrawal & tax strategy</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Withdrawal & tax strategy</span><span class="group-state" id="withdrawalStrategyGroupState"></span></span></summary>
           <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and RRSP proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
           <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Simplified dynamic-spending strategy: instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; toggle on to compare outcomes.</small></label></div>
           <div class="field"><label for="meltdownEnabled"><input id="meltdownEnabled" type="checkbox"> Enable RRSP meltdown ladder<small>Withdraws from RRSP each year in the window below, filling Partner A's taxable income up to the top of the selected federal bracket, then moves the net proceeds to TFSA.</small></label></div>
@@ -426,6 +429,7 @@
 <div id="printReport" aria-hidden="true"></div>
 <div id="wizardOverlay">
   <div id="wizardModal" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+    <button type="button" id="wizardXBtn" aria-label="Close">✕</button>
     <h2 id="wizardTitle">Get started: the basics</h2>
     <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
     <div id="wizardStep1">
@@ -533,25 +537,25 @@
     healthPremiumB: 0,
     payFrequency: 'biweekly',
     healthcare: 3000,
-    ltcEnabled: true,
+    ltcEnabled: false,
     ltcYearlyA: 50000,
     ltcAgeA: 82,
     ltcYearlyB: 50000,
     ltcAgeB: 82,
-    pensionSplitEnabled: true,
+    pensionSplitEnabled: false,
     survivorEnabled: false,
     survivorPartner: 'A',
     survivorDeathAge: 85,
     survivorSpendingPct: 75,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
     bridgeIncomeA: 0,
     bridgeStartAgeA: 65,
     bridgeEndAgeA: 70,
     bridgeIncomeB: 0,
     bridgeStartAgeB: 65,
     bridgeEndAgeB: 70,
-    otherIncomeEnabled: true,
-    otherLoansEnabled: true,
+    otherIncomeEnabled: false,
+    otherLoansEnabled: false,
     meltdownEnabled: false,
     meltdownStartAge: 60,
     meltdownEndAge: 70,
@@ -850,6 +854,161 @@
       fieldEl.classList.toggle('is-default', isDefault);
       fieldEl.title = isDefault ? 'Still the generic example value' : '';
     });
+  }
+  // Cheap, string-only sidebar group summaries — no simulate() calls, just
+  // formatting already-live `state`. Called from the top of render(),
+  // alongside markDefaultFields(). "Always-on" groups always get plain
+  // text (never blank); "hide-when-off" groups get a '✓ ...' string (and
+  // the .is-on accent class) when their feature flag is on, or an empty
+  // string when it's off.
+  function renderGroupSummaries() {
+    const setGroupState = (id, text, isOn) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text || '';
+      el.classList.toggle('is-on', !!isOn);
+    };
+    const freqPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+
+    // Timeline: retirement ages + life expectancy.
+    const retireText = state.singlePerson || state.retireAgeA === state.retireAgeB
+      ? `Retire ${state.retireAgeA}`
+      : `Retire ${state.retireAgeA}/${state.retireAgeB}`;
+    const planToText = state.singlePerson || state.lifeExpectancyA === state.lifeExpectancyB
+      ? `plan to ${state.lifeExpectancyA}`
+      : `plan to ${state.lifeExpectancyA}/${state.lifeExpectancyB}`;
+    setGroupState('timelineGroupState', `${retireText} · ${planToText}`);
+
+    // Income: partner income(s) + income growth rate.
+    const incomeText = state.singlePerson
+      ? `${compact(state.incomeA)}/yr`
+      : state.incomeA === state.incomeB
+        ? `${compact(state.incomeA)} each`
+        : `${compact(state.incomeA)} + ${compact(state.incomeB)}`;
+    setGroupState('incomeGroupState', `${incomeText} · ${state.incomeGrowth}%/yr growth`);
+
+    // Retirement contributions: RRSP + TFSA contribution %. No account-type
+    // choice and no mega backdoor equivalent in Canada.
+    setGroupState(
+      'retireContribGroupState',
+      `${state.rrspPctA}% RRSP · ${state.tfsaPctA}% TFSA`,
+    );
+
+    // Pre-retirement healthcare: combined premium (converted to a monthly
+    // figure regardless of actual pay frequency, for a consistent unit).
+    const premiumPerPeriod =
+      (Number(state.healthPremiumA) || 0) +
+      (state.singlePerson ? 0 : Number(state.healthPremiumB) || 0);
+    const annualPremium = premiumPerPeriod * (freqPerYear[state.payFrequency] || 26);
+    setGroupState(
+      'preRetireHealthGroupState',
+      annualPremium > 0 ? `${compact(annualPremium / 12)}/mo premiums` : 'None',
+    );
+
+    // Household spending: core annual spending + any active spending tiers.
+    const activeTierCount = (state.spendingTiers || []).filter((t) => t.enabled).length;
+    let spendingText = `${compact(state.spending)}/yr`;
+    if (activeTierCount > 0)
+      spendingText += ` · ${activeTierCount} tier change${activeTierCount === 1 ? '' : 's'}`;
+    setGroupState('spendingGroupState', spendingText);
+
+    // Assets: taxable + RRSP + TFSA as "invested", cash separately.
+    const invested = (state.taxable || 0) + (state.traditional || 0) + (state.roth || 0);
+    setGroupState('assetsGroupState', `${compact(invested)} invested · ${compact(state.cash || 0)} cash`);
+
+    // Market assumptions: return, bond return, inflation.
+    setGroupState(
+      'marketGroupState',
+      `${state.returnRate}% / ${state.bondReturn}% bonds · ${state.inflation}% inflation`,
+    );
+
+    // Housing: depends on tenure.
+    let housingText;
+    if (state.tenure === 'rent') {
+      housingText = `Rent · ${compact(state.rent)}/mo`;
+    } else if (state.tenure === 'rentThenBuy') {
+      housingText = `Rent → buy at ${state.buyAge}`;
+    } else {
+      housingText = `Own · ${compact(state.homeValue)} · ${compact(state.mortgage)} mortgage`;
+    }
+    setGroupState('housingGroupState', housingText);
+
+    // Retirement income & healthcare: CPP/OAS start ages + LTC clause.
+    let riText = `CPP ${state.cppStartAgeA} · OAS ${state.oasStartAgeA}`;
+    if (state.ltcEnabled) riText += ' · LTC on';
+    setGroupState('retireIncomeHealthGroupState', riText);
+
+    // --- Hide-when-off groups: empty string when off, '✓ ...' when on. ---
+
+    // Other loans.
+    if (state.otherLoansEnabled) {
+      const loans = state.loans || [];
+      const activeLoans = loans.filter(
+        (l) => (Number(l.balance) || 0) > 0 || (Number(l.principal) || 0) > 0,
+      );
+      const annualPayment = activeLoans.reduce((sum, l) => {
+        const originalPrincipal = Number(l.principal) > 0 ? Number(l.principal) : Number(l.balance) || 0;
+        return sum + mortgagePayment(originalPrincipal, Number(l.rate) || 0, Number(l.term) || 0) * 12;
+      }, 0);
+      setGroupState(
+        'otherLoansGroupState',
+        `✓ ${activeLoans.length} loan${activeLoans.length === 1 ? '' : 's'} · ${compact(annualPayment)}/yr`,
+        true,
+      );
+    } else {
+      setGroupState('otherLoansGroupState', '', false);
+    }
+
+    // Bridge / part-time income.
+    if (state.bridgeEnabled) {
+      const bridgeIncome =
+        (Number(state.bridgeIncomeA) || 0) +
+        (state.singlePerson ? 0 : Number(state.bridgeIncomeB) || 0);
+      const bridgeEndAge = state.singlePerson
+        ? state.bridgeEndAgeA
+        : Math.max(state.bridgeEndAgeA, state.bridgeEndAgeB);
+      setGroupState('bridgeGroupState', `✓ ${compact(bridgeIncome)}/yr to age ${bridgeEndAge}`, true);
+    } else {
+      setGroupState('bridgeGroupState', '', false);
+    }
+
+    // Additional income.
+    if (state.otherIncomeEnabled) {
+      const enabledSources = (state.incomeSources || []).filter((s) => s.enabled);
+      const enabledLumpSums = (state.oneTimeIncome || []).filter((o) => o.enabled);
+      const sourcesTotal = enabledSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+      let text;
+      if (sourcesTotal > 0 && enabledLumpSums.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
+      else if (sourcesTotal > 0) text = `✓ ${compact(sourcesTotal)}/yr`;
+      else if (enabledLumpSums.length > 0) text = '✓ lump sum planned';
+      else text = '✓ enabled';
+      setGroupState('otherIncomeGroupState', text, true);
+    } else {
+      setGroupState('otherIncomeGroupState', '', false);
+    }
+
+    // Survivor planning.
+    if (state.survivorEnabled) {
+      setGroupState(
+        'survivorGroupState',
+        `✓ Partner ${state.survivorPartner}, age ${state.survivorDeathAge}`,
+        true,
+      );
+    } else {
+      setGroupState('survivorGroupState', '', false);
+    }
+
+    // Withdrawal & tax strategy: no single master flag — off means every
+    // one of these is false.
+    if (state.guardrailsEnabled || state.meltdownEnabled || state.pensionSplitEnabled) {
+      const parts = [];
+      if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
+      if (state.meltdownEnabled) parts.push('RRSP meltdown on');
+      if (state.pensionSplitEnabled) parts.push('Pension splitting on');
+      setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
+    } else {
+      setGroupState('withdrawalStrategyGroupState', '', false);
+    }
   }
   const pct = (n) => (n || 0) / 100;
   const escapeHtml = (s) =>
@@ -2727,6 +2886,7 @@
   function render() {
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
+    renderGroupSummaries();
     const selected = simulate();
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
@@ -5799,6 +5959,12 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') wizardOverlay.classList.remove('open');
+  });
+  // Visible on both wizard steps (unlike wizardBackBtn/wizardNextBtn/
+  // wizardCloseBtn, which the wizardStep hidden-toggling logic above
+  // governs) — does exactly what Escape/outside-click already do.
+  document.getElementById('wizardXBtn').addEventListener('click', () => {
+    wizardOverlay.classList.remove('open');
   });
   // The tornado chart is only computed while expanded (it's a handful of
   // extra simulate() calls, cheap but pointless work while collapsed), so
