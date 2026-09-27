@@ -40,7 +40,7 @@
     .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}
     .first-run-banner{border-left:3px solid var(--blue);margin-bottom:16px;font-size:.82rem;line-height:1.5}.first-run-banner b{color:var(--ink2)}.first-run-banner button{background:none;border:0;padding:0;margin:0;color:var(--blue);font-weight:800;font-size:inherit;font-family:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.first-run-banner[hidden]{display:none}
     .plan-status-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left;font-family:inherit;border:1px solid var(--line);background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;margin:0 0 16px;position:sticky;top:var(--topbar-h,82px);z-index:14;cursor:pointer}.plan-status-bar:hover{border-color:var(--blue)}.plan-status-text{font-weight:800;font-size:.92rem;color:var(--ink2);letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plan-status-right{display:flex;align-items:center;gap:8px;flex-shrink:0}.plan-status-updated{font-size:.68rem;font-weight:700;color:var(--green);opacity:0;transition:opacity .4s}.plan-status-updated.show{opacity:1}.plan-status-chevron{color:var(--hint);font-size:.75rem;transition:transform .2s}.plan-status-bar[aria-expanded="true"] .plan-status-chevron{transform:rotate(180deg)}
-    #decisionCard{margin:0 0 18px}#decisionCard summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)}#decisionCard summary::-webkit-details-marker{display:none}#decisionCard .caret{font-size:.85rem;color:var(--hint);transition:transform .15s ease}#decisionCard[open] .caret{transform:rotate(180deg)}#decisionCard:not([open]){padding:0;border:none;background:transparent;box-shadow:none}#decisionCard:not([open]) summary{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-size:.88rem;box-shadow:var(--shadow)}
+    #decisionCard{margin:0 0 18px}#decisionCard summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)}#decisionCard summary::-webkit-details-marker{display:none}#decisionCard .caret,#moreResultsCard .caret{font-size:.85rem;color:var(--hint);transition:transform .15s ease}#decisionCard[open] .caret,#moreResultsCard[open] .caret{transform:rotate(180deg)}#decisionCard:not([open]){padding:0;border:none;background:transparent;box-shadow:none}#decisionCard:not([open]) summary{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-size:.88rem;box-shadow:var(--shadow)}
     .decision-questions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0}.decision-questions button{text-align:left;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:11px;padding:10px 12px;font-weight:700;font-size:.82rem;line-height:1.3}.decision-questions button:hover{background:var(--surface-hover)}.decision-questions button.active{background:var(--card);border-color:var(--blue);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .decision-answer{margin-top:14px}.decision-answer p{margin:0 0 12px;font-size:.84rem;line-height:1.55;color:var(--ink2)}.decision-answer p b{color:var(--ink)}.decision-answer[hidden]{display:none}
     @media(max-width:520px){.decision-questions{grid-template-columns:1fr}}#wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
@@ -70,6 +70,13 @@
       #printReport .pr-proj tr{break-inside:avoid}
       #printReport h2{break-after:avoid}
     }
+    /* Home-screen redesign, round 2: bigger decision-question cards +
+       wizard Step 2 category subheadings. See CLAUDE.md. */
+    .decision-questions button{padding:12px 14px}
+    .decision-questions button .q-title{display:block;font-weight:800;font-size:.86rem;margin-bottom:3px}
+    .decision-questions button .q-desc{display:block;font-weight:500;font-size:.75rem;color:var(--muted);line-height:1.3}
+    .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800}
+    .wizard-subhead:first-of-type{margin-top:0}
   </style>
 </head>
 <body>
@@ -296,31 +303,38 @@
         <div class="callout shortfall-banner" id="shortfallBanner" hidden></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
         <details class="result-card" id="decisionCard">
-          <summary>💡 Explore a question<span class="caret" aria-hidden="true">▾</span></summary>
+          <summary>💡 What do you want to figure out?<span class="caret" aria-hidden="true">▾</span></summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p>
           <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
-            <button type="button" data-question="retireTiming">Should I retire earlier or later?</button>
-            <button type="button" data-question="buyVsRent">Should I buy or rent?</button>
-            <button type="button" data-question="rothLadder">Should I do Roth conversions?</button>
-            <button type="button" data-question="mortgagePayoff">Should I pay off my mortgage?</button>
-            <button type="button" data-question="ssTiming">How does Social Security timing change the picture?</button>
-            <button type="button" data-question="longevity">What if I live 10 years longer than planned?</button>
-            <button type="button" data-question="sensitivity">What's actually driving my results?</button>
-            <button type="button" data-question="returns">What if returns are worse than expected?</button>
+            <button type="button" data-question="retireTiming"><span class="q-title">Should I retire earlier or later?</span><span class="q-desc">Compare retiring a few years earlier or later.</span></button>
+            <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span></button>
+            <button type="button" data-question="rothLadder"><span class="q-title">Should I do Roth conversions?</span><span class="q-desc">Explore a Roth conversion ladder in retirement.</span></button>
+            <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span></button>
+            <button type="button" data-question="ssTiming"><span class="q-title">How does Social Security timing change the picture?</span><span class="q-desc">Compare claiming early vs. later.</span></button>
+            <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span></button>
+            <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
+            <button type="button" data-question="returns"><span class="q-title">What if returns are worse than expected?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
           </div>
           <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
         </details>
-        <div class="metrics">
+        <div class="metrics metrics-primary">
           <div class="metric"><div class="kicker">Investable at retirement</div><strong id="retireAssets">—</strong><small id="retireAssetsSub"></small></div>
-          <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
+          <div class="metric"><div class="kicker">Retirement age</div><strong id="dashRetireAge">—</strong><small id="dashRetireAgeSub">when both retire</small></div>
           <div class="metric"><div class="kicker">Portfolio lasts to</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
-          <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
-          <div class="metric"><div class="kicker">FI number (25× today's spend)</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small></div>
-          <div class="metric"><div class="kicker">FIRE number (25× retirement spend)</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small></div>
-          <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
-          <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
-          <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
+          <div class="metric"><div class="kicker">Historical success</div><strong id="dashHistSuccess">—</strong><small id="dashHistSuccessSub">Every 1928–2025 starting year</small></div>
         </div>
+        <details class="result-card" id="moreResultsCard">
+          <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)">More results<span class="caret" aria-hidden="true">▾</span></summary>
+          <div class="metrics" style="margin-top:14px">
+            <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
+            <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
+            <div class="metric"><div class="kicker">FI number (25× today's spend)</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small></div>
+            <div class="metric"><div class="kicker">FIRE number (25× retirement spend)</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small></div>
+            <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
+            <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
+            <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
+          </div>
+        </details>
 
         <div class="result-card" id="scenarioCompareCard" hidden>
           <div class="result-head"><div><h2>Scenario comparison</h2><p>Key outcomes for "Current" (your live inputs above) and any scenarios checked for comparison in the sidebar.</p></div></div>
@@ -418,14 +432,19 @@
       <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or health insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
     </div>
     <div id="wizardStep2" hidden>
-      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
+      <h3 class="wizard-subhead">Healthcare</h3>
       <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Nets your entered pre-65 healthcare premium against the ACA marketplace subsidy for your income. Turn off if you'll have employer retiree coverage, COBRA, or are paying full price. Lives in the Retirement income &amp; healthcare section.</small></label></div>
-      <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversion ladder<small>Converts traditional-account balances to Roth each year in retirement, filling a tax bracket you choose — a way to pay tax at today's rate instead of on larger required withdrawals later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
-      <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>For high earners whose 401(k) plan specifically allows extra after-tax contributions converted to Roth. Leave this off unless you already know your plan supports it. Lives in the Retirement contributions section.</small></label></div>
-      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Income from part-time work or consulting during an early-retirement window, before Social Security starts. Lives in the Bridge / part-time income section.</small></label></div>
+      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
+      <h3 class="wizard-subhead">Income</h3>
+      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Part-time income<small>Income from part-time work or consulting during an early-retirement window, before Social Security starts. Lives in the Bridge / part-time income section.</small></label></div>
       <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Recurring income streams (e.g. rental income) or one-time lump sums (e.g. an inheritance) at a chosen age. Lives in the Additional income section.</small></label></div>
-      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
+      <h3 class="wizard-subhead">Taxes &amp; investing</h3>
+      <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversions<small>Converts traditional-account balances to Roth each year in retirement, filling a tax bracket you choose — a way to pay tax at today's rate instead of on larger required withdrawals later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
+      <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>For high earners whose 401(k) plan specifically allows extra after-tax contributions converted to Roth. Leave this off unless you already know your plan supports it. Lives in the Retirement contributions section.</small></label></div>
+      <h3 class="wizard-subhead">Guardrails</h3>
       <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Timeline &amp; income section.</small></label></div>
+      <h3 class="wizard-subhead">Debt</h3>
+      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
     </div>
     <div class="wizard-actions">
       <button type="button" class="btn-card" id="wizardBackBtn" hidden>Back</button>
@@ -3424,6 +3443,12 @@
     document.getElementById('retireAssets').textContent = compact(
       displayValue(retirement.investable, retirement.year),
     );
+    document.getElementById('dashRetireAge').textContent = state.singlePerson
+      ? `${retirement.age}`
+      : `${retirement.age}${retirement.ageB != null ? `/${retirement.ageB}` : ''}`;
+    document.getElementById('dashRetireAgeSub').textContent = state.singlePerson
+      ? 'when you retire'
+      : 'when both retire';
     document.getElementById('retireNW').textContent = compact(
       displayValue(retirement.total, retirement.year),
     );
@@ -6354,6 +6379,21 @@
     const text = parts.join(' · ');
     const textEl = document.getElementById('planStatusText');
     if (textEl) textEl.textContent = text;
+    // Dashboard's prominent "Historical success" tile reuses this same
+    // debounced backtest rather than running it a second time.
+    const dashHist = document.getElementById('dashHistSuccess'),
+      dashHistSub = document.getElementById('dashHistSuccessSub');
+    if (dashHist) {
+      if (planStatusHistRate != null) {
+        dashHist.textContent = `${(planStatusHistRate * 100).toFixed(0)}%`;
+        dashHist.className =
+          planStatusHistRate === 1 ? 'positive' : planStatusHistRate < 0.9 ? 'negative' : 'warning';
+      } else {
+        dashHist.textContent = '—';
+        dashHist.className = '';
+      }
+      if (dashHistSub) dashHistSub.textContent = 'Every 1928–2025 starting year';
+    }
     const updatedEl = document.getElementById('planStatusUpdated');
     if (updatedEl && text !== planStatusLastText && planStatusLastText !== null) {
       updatedEl.textContent = 'Updated just now';
@@ -6476,11 +6516,11 @@
     document.getElementById('wizardStep1').hidden = wizardStep !== 1;
     document.getElementById('wizardStep2').hidden = wizardStep !== 2;
     document.getElementById('wizardTitle').textContent =
-      wizardStep === 1 ? 'Get started: the basics' : 'Customize modeled features';
+      wizardStep === 1 ? 'Get started: the basics' : 'A few optional questions';
     document.getElementById('wizardStepNote').textContent =
       wizardStep === 1
         ? "Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here."
-        : "Step 2 of 2 — turn optional features on or off. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
+        : "Step 2 of 2 — these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
     document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
     document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
     document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;

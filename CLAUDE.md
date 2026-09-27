@@ -667,6 +667,102 @@ branch:
   "Portfolio lasts to") since the narrower table has less room and the
   bubble's intro sentence already gives the full context.
 
+## Home-screen redesign, round 2: fewer headline metrics, card-style questions, categorized wizard Step 2
+
+Three ChatGPT-sourced UX suggestions, implemented on `home-screen-redesign`
+without touching any modeling/simulation code:
+
+1. **Dashboard headline shrunk from 9 metrics to 4, with the rest in a
+   "More results" disclosure.** The old flat `.metrics` grid (Investable at
+   retirement, Net worth, Portfolio lasts to, Bond ladder, FI number, FIRE
+   number, Estimated early-retirement age, plus the chart-view-gated
+   Historical/Monte Carlo success cards) is now split: a `.metrics
+   .metrics-primary` block right after `#decisionCard` shows only
+   Investable at retirement, Retirement age, Portfolio lasts to, and
+   Historical success; everything else moved as-is (same ids, same
+   `render()` call sites — nothing renamed) into a new `<details
+   class="result-card" id="moreResultsCard">` right after it, following the
+   same collapsed-by-default pattern as `#sensitivityCard`/
+   `#rothOptimizerCard`/`#sankeyCard`. `#histSuccessCard`/`#mcSuccessCard`
+   (chart-view-gated, unrelated to the new always-on tile below) still live
+   inside `#moreResultsCard` and are untouched. `#moreResultsCard`'s caret
+   icon reuses `#decisionCard`'s `.caret`/`[open] .caret` CSS rules (now
+   scoped to both ids with a comma) rather than duplicating them, but does
+   **not** reuse `#decisionCard`'s collapsed-pill styling
+   (`#decisionCard:not([open]) summary{...border-radius:999px...}`) — that
+   stays decision-card-specific; More Results uses the same plain
+   `cursor:pointer` inline summary style every other collapsible result-card
+   already uses.
+   - **Retirement age tile** (`#dashRetireAge`/`#dashRetireAgeSub`) is new
+     state, not a rename — it's set in `render()` right next to
+     `#retireAssets`, from the same already-computed `retirement` row, so
+     it costs nothing extra.
+   - **Historical success tile** (`#dashHistSuccess`/`#dashHistSuccessSub`)
+     deliberately does **not** run its own backtest. It piggybacks on the
+     Plan Status Bar's existing debounced `runHistoricalCycles()` call
+     (`planStatusHistRate`, `schedulePlanStatusHistRate()` — see "Plan
+     status bar" above): `renderPlanStatusBar()` now also writes this
+     tile's text/color (green/amber/red via the `positive`/`warning`/
+     `negative` classes, same thresholds as the Monte Carlo success text)
+     every time it updates the status bar string, including the debounced
+     500ms-later update. Until the first debounced pass resolves, the tile
+     shows "—" as its `<strong>` text, same as it always did before
+     `render()`'s first pass — there's no separate loading state to keep in
+     sync. If a future change ever needs a *different* historical-success
+     number here than the status bar's (e.g. a different projection
+     length), don't just copy the tile-writing block — the two would need
+     to diverge in `renderPlanStatusBar()` itself or be split into two
+     independent debounced timers, doubling the backtest cost.
+2. **"Explore a question" → "What do you want to figure out?", buttons
+   became bigger two-line cards.** All 8 `DECISION_QUESTIONS` buttons are
+   unchanged in behavior (`data-question`, the click handler's
+   `e.target.closest('button[data-question]')`, and the `.active`-class
+   toggle in `renderDecisionQuestionAnswer()` all still key off the
+   `<button>` element itself) — only their inner markup changed, from a
+   single text node to `<span class="q-title">…</span><span
+   class="q-desc">…</span>`, styled via new (non-minified, appended right
+   before `</style>`) `.decision-questions button .q-title`/`.q-desc`
+   rules. No consolidation of the 8 questions into fewer categories was
+   done — ChatGPT's mockup showed 4 example buttons, but the underlying app
+   already has 8 distinct, independently-tested comparisons wired to 8
+   buttons; collapsing them into fewer visual categories would mean either
+   inventing a two-tier click target (a category card that reveals
+   sub-buttons) or actually dropping/merging questions, both bigger and
+   riskier changes than what was asked for. The lower-risk interpretation —
+   keep every question, just make each button visually bigger with a
+   description — is what shipped.
+3. **Wizard Step 2 reorganized into named categories.** `#wizardTitle`
+   now reads "A few optional questions" (was "Customize modeled features")
+   and `#wizardStepNote` opens with "these can make your projection more
+   realistic. Skip anything you're unsure about." for step 2. The flat list
+   of checkboxes inside `#wizardStep2` now has plain (non-collapsible)
+   `<h3 class="wizard-subhead">` category headings inserted between groups
+   — Healthcare, Income, Taxes & investing, Guardrails, Debt — matching the
+   order and grouping ChatGPT proposed. This is markup-only: the wizard's
+   proxy-field wiring (the `[wizardId, realId]` pairs array near the bottom
+   of the script) reads fields by id regardless of DOM position, so
+   reordering/grouping them needed no JS change. **US** has all 5
+   categories (Healthcare: ACA + LTC; Income: bridge/part-time + additional
+   income; Taxes & investing: Roth conversion ladder + mega backdoor Roth;
+   Guardrails: Guyton-Klinger; Debt: other loans) — note ACA now sorts
+   *before* LTC within Healthcare, a harmless field-order swap from the old
+   list. **Canada** has no ACA or mega-backdoor-Roth equivalent, so
+   Healthcare has only LTC and Taxes & investing has only the RRSP
+   meltdown ladder — same 5 category headings still used (an empty
+   category was avoided by construction, not by hiding one), same ordering
+   otherwise (RRSP meltdown ladder is Canada's Roth-conversion-ladder
+   analog, same as elsewhere in this file).
+
+All three changes are presentation-only: no `defaults`, `normalizeState()`,
+`ids`, `simulate()`/`simulateHistorical()`, or scenario-export shape
+changed. Verified with `npm test`, a syntax check of both files, and
+Playwright checks (both files, light+dark, desktop+390×844 mobile): the 4
+primary tiles render with `#moreResultsCard` collapsed by default,
+expanding it reveals the moved metrics under their original ids, all 8
+decision-question buttons still open `#decisionAnswer` on click, wizard
+Step 2 shows the 5 subheadings in order, and no horizontal overflow at
+mobile width in either theme.
+
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
 These two functions share large near-identical blocks of logic (contribution
