@@ -6919,6 +6919,44 @@
     },
     true,
   );
+  // TEMP DIAGNOSTIC for slider-gesture-disambiguation scoping — remove before
+  // merging. Logs whether the page keeps scrolling when a touch starts on a
+  // range track and moves vertically without any preventDefault() being
+  // called. Watch the console while dragging a finger vertically starting
+  // ON a slider's track.
+  (function () {
+    let diagStartY = null;
+    let diagScrollYAtStart = null;
+    document.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerType !== 'touch') return;
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement) || t.type !== 'range') return;
+        diagStartY = e.clientY;
+        diagScrollYAtStart = window.scrollY;
+        console.log('[slider-diag] pointerdown on', t.id, 'clientY=', e.clientY, 'scrollY=', window.scrollY);
+      },
+      true,
+    );
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        if (e.pointerType !== 'touch' || diagStartY === null) return;
+        const dy = e.clientY - diagStartY;
+        const scrollDelta = window.scrollY - diagScrollYAtStart;
+        console.log('[slider-diag] pointermove dy=', dy.toFixed(0), 'scrollY delta=', scrollDelta, 'value=', e.target.value);
+      },
+      true,
+    );
+    document.addEventListener(
+      'pointerup',
+      () => {
+        diagStartY = null;
+      },
+      true,
+    );
+  })();
   // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
   // internally rather than growing past the viewport — but its max-height
   // used to be sized only against the sticky `top` offset it settles into
