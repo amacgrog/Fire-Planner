@@ -15,7 +15,7 @@
     .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--topbar-fg)}
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
     .cta-btn{background:linear-gradient(145deg,#fbbf24,#ea580c);border:0;color:#23140b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 3px 10px rgba(234,88,12,.35)}.cta-btn:hover{filter:brightness(1.05)}
-    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
+    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}.mobile-header-toggle{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 22px);max-height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
     .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
@@ -53,7 +53,7 @@
     @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
-    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:var(--mobile-sticky-h,0px);padding:9px 20px 7px;z-index:3}.panel-title span{display:none}.field-search-wrap{position:sticky;top:calc(var(--mobile-sticky-h,0px) + var(--panel-title-h,0px));background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible;overflow-x:clip}.plan-status-bar{top:0;position:relative;padding:8px 30px 8px 14px;margin:0 0 8px;display:block}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;width:100%;display:block;font-size:.8rem;line-height:1.3}.plan-status-right{display:contents}.plan-status-updated{display:block;width:100%;text-align:right;max-height:0;overflow:hidden;margin-top:0;transition:opacity .4s,max-height .3s,margin-top .3s}.plan-status-updated.show{max-height:18px;margin-top:3px}.plan-status-chevron{position:absolute;top:10px;right:10px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}}
+    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{display:none}.field-search-wrap{position:sticky;top:var(--mobile-sticky-h,0px);background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible;overflow-x:clip}.plan-status-bar{top:0;position:relative;padding:8px 30px 8px 14px;margin:0 0 8px;display:block}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;width:100%;display:block;font-size:.8rem;line-height:1.3}.plan-status-right{display:contents}.plan-status-updated{display:block;width:100%;text-align:right;max-height:0;overflow:hidden;margin-top:0;transition:opacity .4s,max-height .3s,margin-top .3s}.plan-status-updated.show{max-height:18px;margin-top:3px}.plan-status-chevron{position:absolute;top:10px;right:10px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.mobile-header-toggle{display:flex;position:fixed;top:calc(var(--plan-status-h,0px) + 6px);right:10px;z-index:20;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);color:var(--ink2);font-size:.9rem;line-height:1;padding:0}body.mobile-header-collapsed .mobile-tabs,body.mobile-header-collapsed .field-search-wrap{display:none}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}}
     @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
     #printReport{display:none}
     #printReport h1{font-size:1.3rem;margin:0 0 4px}
@@ -118,6 +118,7 @@
         <button type="button" id="mobileTabInputs" class="active" role="tab" aria-selected="true">Inputs</button>
         <button type="button" id="mobileTabDashboard" role="tab" aria-selected="false">Dashboard</button>
       </div>
+      <button type="button" id="mobileHeaderToggle" class="mobile-header-toggle" aria-expanded="true" aria-label="Hide tabs and search">︿</button>
       <aside class="panel" aria-label="Projection assumptions">
         <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
         <div class="field-search-wrap">
@@ -6369,19 +6370,12 @@
       tabDashboard.classList.toggle('active', view === 'dashboard');
       tabDashboard.setAttribute('aria-selected', String(view === 'dashboard'));
       if (view === 'dashboard') render();
-      // .panel (and its sticky .panel-title) is display:none while the
-      // Dashboard tab is active, so --panel-title-h — measured from
-      // panelTitle.offsetHeight in syncPlanStatusOffsets() — reads 0 at
-      // that moment; the initial boot measurement happens with Dashboard
-      // as the default view, so it's frozen at 0 until something else
-      // happens to trigger a recompute. .field-search-wrap's sticky top
-      // depends on that variable to sit below .panel-title rather than
-      // overlapping the gap above it, so switching to Inputs (where
-      // .panel-title becomes visible and measurable for the first time)
-      // has to force a fresh measurement right here — otherwise the two
-      // sticky bars stack with a real, uncovered gap between them
-      // (whatever's mid-scroll shows through) until an unrelated edit
-      // happens to trigger a render() first.
+      // .panel is display:none while the Dashboard tab is active, so
+      // .mobile-tabs' own offsetHeight (which feeds --mobile-sticky-h,
+      // read by .field-search-wrap's sticky top) can go stale while
+      // switching between tabs shifts other sticky heights around;
+      // switching to Inputs re-measures it fresh rather than trusting
+      // whatever was last computed while a different tab was active.
       if (view === 'inputs') syncPlanStatusOffsets();
     };
     tabInputs.addEventListener('click', () => setMobileView('inputs'));
@@ -6393,6 +6387,34 @@
     // consistent with the Plan status bar's job of always surfacing the
     // model's current answer rather than starting on a blank-feeling form.
     setMobileView('dashboard');
+  }
+
+  // Mobile-only "minimize sticky header" toggle: collapses the
+  // Inputs/Dashboard tab switcher + the field search box (the two sticky
+  // bars beneath the Plan Status Bar) to reclaim vertical space, most
+  // useful once the on-screen keyboard is open and eating a big chunk of
+  // an already-small viewport. Deliberately excludes the Plan Status Bar
+  // itself (that one's meant to always stay visible as "the answer"; this
+  // toggle only ever touches navigation/search chrome) and is a pure
+  // display toggle, not part of `state` — same reasoning as `logScale`/
+  // `chartView`/mobile-tab-view, none of which persist across reloads
+  // either. The toggle button itself is `position:fixed` (not part of the
+  // sticky stack it controls) so it stays reachable to re-expand
+  // regardless of collapsed state, with no extra sticky-offset math needed.
+  {
+    const headerToggle = document.getElementById('mobileHeaderToggle');
+    if (headerToggle) {
+      headerToggle.addEventListener('click', () => {
+        const collapsed = document.body.classList.toggle('mobile-header-collapsed');
+        headerToggle.textContent = collapsed ? '⌄' : '︿';
+        headerToggle.setAttribute('aria-expanded', String(!collapsed));
+        headerToggle.setAttribute('aria-label', collapsed ? 'Show tabs and search' : 'Hide tabs and search');
+        // .mobile-tabs/.field-search-wrap's offsetHeight reads 0 while
+        // hidden, so re-measure once they're visible again on expand —
+        // harmless (cheap) to call unconditionally on collapse too.
+        syncPlanStatusOffsets();
+      });
+    }
   }
   if (hadSavedState) dismissFirstRunBanner();
   syncControls();

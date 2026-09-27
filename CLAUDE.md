@@ -1812,6 +1812,96 @@ sticky search box while scrolling the Inputs tab on mobile — described as
   end-to-end after this change, since it also depends on the mobile Inputs
   layout.
 
+### Round 6: drop the "assumptions" title entirely on mobile, add a header-minimize toggle
+
+Real-world feedback after round 5 shipped: "The summary ribbon is still
+stuck to the top and not moving when scrolling. also with the assumptions
+ribbon now visible all the time, it creates very little space to see the
+field you are editing, especially when the number pad is open. could we
+just get rid of the 'assumptions' ribbon? ... and could we add an option to
+minimize the ribbons that are stuck at the top (not the summary ribbon, but
+the search and input/dashboard ribbon)."
+
+- **The "summary ribbon stuck at the top" claim didn't reproduce.**
+  `#planStatusBar`'s mobile override has been `position:relative;top:0`
+  (not sticky) since round 3/4 — confirmed by loading the file fresh in
+  Playwright at a 390px viewport, reading `getComputedStyle(...).position`
+  (`"relative"`), then scrolling 600px and re-reading
+  `getBoundingClientRect().top` (goes from `287px` to `-326px`, i.e. it
+  scrolls away with the page exactly like ordinary content, not pinned).
+  No code change was made here — the most likely explanation is a stale
+  cached copy of the file on the device that reported this (this is a
+  single offline HTML file with no server, so "the latest version" only
+  ever means "the file that was actually last (re)loaded"). If this
+  resurfaces after a hard refresh, it needs a fresh screenshot/repro rather
+  than another guess, since the code doesn't currently support the
+  behavior described.
+- **`.panel-title` ("Your assumptions") removed entirely on mobile**, going
+  further than round 5's "keep it sticky but compact" — `.panel-title{
+  display:none}` under `@media(max-width:820px)`, full stop. Rationale
+  (the user's own): which tab you're on already reads as "Inputs" from the
+  `.mobile-tabs` switcher itself, so a second "Your assumptions" header
+  saying the same thing in different words was pure overhead, worst of all
+  while the on-screen keyboard is open and every pixel of vertical space
+  actually matters. This is a strictly better fix for round 5's original
+  peeking-fields bug too, not just a space-reclaiming trade-off: with
+  `.panel-title` gone, `.field-search-wrap` goes back to being the very
+  first thing below `.mobile-tabs`, and its sticky `top` reverts to plain
+  `var(--mobile-sticky-h,0px)` (dropping the `+ var(--panel-title-h,0px)`
+  term round 5 added) — since there's no element left in the DOM to leave
+  a "dead zone" gap for, the underlying bug class round 5 fixed doesn't
+  have anywhere to reopen. `--panel-title-h` is still measured in
+  `syncPlanStatusOffsets()` (harmless — reads `0` for a `display:none`
+  element) but nothing reads it as an input to another `top` anymore;
+  not worth ripping out for the sake of a no-op line. Desktop's
+  `.panel-title` (sticky, full padding, "2026 starting dollars" subtitle
+  visible) is completely untouched — this is a mobile-only override, same
+  scoping as every other `@media(max-width:820px)` rule in this section.
+- **New: a "minimize sticky header" toggle for the tabs+search stack only.**
+  A small circular button (`#mobileHeaderToggle`, `︿`/`⌄`), `position:fixed`
+  in the top-right corner just below the Plan Status Bar, added as a
+  sibling of `.mobile-tabs` inside `#workspace` (base/desktop rule:
+  `display:none`, same as `.mobile-tabs` itself). Tapping it toggles
+  `body.mobile-header-collapsed`, and a single mobile-only rule —
+  `body.mobile-header-collapsed .mobile-tabs,body.mobile-header-collapsed
+  .field-search-wrap{display:none}` — hides both the Inputs/Dashboard
+  switcher and the search box together. The Plan Status Bar is
+  deliberately excluded, per the user's explicit "not the summary ribbon"
+  — that one stays exactly as-is; this toggle only ever touches
+  navigation/search chrome.
+  - Using `position:fixed` (not `sticky`, and not nested inside either
+    element it controls) means the toggle needs no sticky-offset math of
+    its own and stays reachable regardless of collapsed state — there's
+    no "how do I get back" dead end once collapsed, unlike fully removing
+    a control would be.
+  - This is a pure display toggle, not `state` — same reasoning as
+    `logScale`/`chartView`/the mobile tab view itself: none of those
+    persist across a reload either, and this doesn't need to.
+  - While collapsed, `.mobile-tabs`' `offsetHeight` reads `0`
+    (`display:none`), which would leave `--mobile-sticky-h` stale for
+    `.field-search-wrap`'s sticky `top` if nothing re-measured it on
+    re-expand — the toggle's click handler calls `syncPlanStatusOffsets()`
+    itself on every click (collapse or expand) rather than only wiring it
+    into the expand path, since it's cheap and one code path is simpler
+    to reason about than two.
+  - Collapsing hides `.mobile-tabs` entirely, including while on the
+    Inputs tab — there's no way to tap over to Dashboard until it's
+    re-expanded. This was a deliberate simplicity trade-off (one shared
+    collapse state for both elements, matching the user's own framing of
+    them as one thing to minimize) rather than trying to preserve
+    Dashboard-switching some other way while collapsed.
+- Verified with `npm test`, a syntax check of both files, and Playwright
+  (both files): `.panel-title` computes to `display:none` on the mobile
+  Inputs tab; no horizontal overflow on the Inputs tab in either
+  light/dark theme; clicking `#mobileHeaderToggle` hides both `.mobile-tabs`
+  and `.field-search-wrap` and flips the button's `aria-label` to "Show
+  tabs and search"; clicking it again restores both to `display:flex`; a
+  full 0–600px scroll sweep after collapsing shows no overflow; and the
+  round-4 guided-review flow (`#reviewEstimatesBtn` → repeated
+  `#reviewNavNext` clicks) still keeps `data-mobile-view` on `'inputs'`
+  and the floating `#reviewNav` visible throughout, unaffected by the new
+  toggle's presence.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
