@@ -1740,6 +1740,78 @@ manually flip back to the Dashboard tab, "Next" measurably decrements the
 estimated-fields count each click, and the status-bar pulse no longer
 overlaps wrapped summary text.
 
+### Round 5: mobile Inputs-tab fields visibly "peeking" above the sticky search box mid-scroll
+
+Real bug report, screenshot showed a slider handle and track appearing
+briefly in a gap between the sticky Inputs/Dashboard tab switcher and the
+sticky search box while scrolling the Inputs tab on mobile — described as
+"a gap where you can see input fields, it is distracting."
+
+- **Root cause, found by instrumenting real scroll positions (not just a
+  before/after screenshot)**: `.mobile-tabs` and `.field-search-wrap` are
+  two *independently* `position:sticky` elements, and — since round 2 —
+  `.panel-title` ("Your assumptions") sits between them in the DOM as a
+  plain `position:static` element that scrolls away normally. A sticky
+  element only engages once the page has scrolled past *its own* natural
+  document offset minus its own `top` value — and because `.mobile-tabs`
+  sits much higher up the page than `.panel-title`/`.field-search-wrap`
+  (which only start once `.panel` itself begins, well below `.workspace`'s
+  first child), `.mobile-tabs` locks into its stuck position *long before*
+  `.panel-title` has scrolled up out of the way. For the whole scroll
+  distance in between, `.mobile-tabs` renders pinned to the viewport while
+  `.panel-title` — and, if it's short, whatever real field sits right below
+  it in `.panel` — is still scrolling normally through the now-uncovered
+  band directly beneath the pinned tabs bar. Confirmed by scripting
+  `window.scrollTo` in fixed steps across the whole transition and reading
+  `getBoundingClientRect()` at each step (not just eyeballing a couple of
+  scroll positions): the gap was as large as 85px and directly tracked
+  `.panel-title`'s own un-stuck position for a good chunk of the scroll
+  range, exactly matching the screenshot.
+  - **Fix**: made `.panel-title` `position:sticky` again on mobile (round 2
+    had deliberately made it `static` to reclaim permanent vertical space —
+    that trade-off is superseded here by closing this bug), pinned directly
+    below `.mobile-tabs` at `top:var(--mobile-sticky-h,0px)`. To avoid
+    reintroducing round 2's "permanently eats space" complaint, it's now
+    much more compact: padding trimmed to `9px 20px 7px`, and the "2026
+    starting dollars" subtitle `<span>` is hidden on mobile entirely
+    (`.panel-title span{display:none}`) — "Your assumptions" alone is
+    enough context once it's a small permanent header rather than a
+    full two-line block.
+  - `.field-search-wrap`'s own sticky `top` moved from `var(--mobile-sticky-h,0px)`
+    to `calc(var(--mobile-sticky-h,0px) + var(--panel-title-h,0px))` so it
+    stacks directly below the now-sticky title instead of overlapping it.
+    `--panel-title-h` already existed as a CSS var (`syncPlanStatusOffsets()`
+    already measured `panelTitle.offsetHeight` into it, left over from
+    before round 2 removed the code path that read it) — reviving its
+    *consumer* was all that was needed here, no new measurement code.
+  - **A second, independent bug surfaced while verifying this fix**:
+    `--panel-title-h` measured `0px` even after the CSS change above,
+    because `.panel` (and the `.panel-title` inside it) is `display:none`
+    while the Dashboard tab is active — the mobile default — so the
+    boot-time `syncPlanStatusOffsets()` call measures `offsetHeight` on a
+    hidden element and gets 0, and nothing ever re-measured it afterward.
+    `setMobileView('inputs')` — which is exactly the moment `.panel-title`
+    *becomes* visible and therefore first becomes measurable — now calls
+    `syncPlanStatusOffsets()` itself. Without this, `--panel-title-h` would
+    stay frozen at 0 (silently reopening the same class of gap) until some
+    unrelated edit happened to trigger a full `render()` first.
+  - A small residual (~37px, matching `.workspace`'s own grid `gap` plus
+    `.mobile-tabs`' own `margin-bottom`) transition window still exists
+    between `.mobile-tabs` and `.panel-title` engaging their own stickiness
+    a few pixels of scroll apart — but since nothing except `.panel`'s own
+    plain card-colored background sits in that band (no field content,
+    unlike the original bug), it reads as a harmless sliver of the same
+    background color rather than a distracting content peek. Confirmed
+    with a screenshot at the exact scroll offset where the old bug was
+    worst — no field or slider visible, just the tabs, compact title, and
+    search box in a clean stack.
+- Verified with `npm test`, a syntax check of both files, and Playwright:
+  a full stepped scroll (0 to 700px in 8px increments) through the Inputs
+  tab on both files, both themes, with no horizontal overflow at any point;
+  the estimated-fields guided-review flow (round 4) re-verified working
+  end-to-end after this change, since it also depends on the mobile Inputs
+  layout.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

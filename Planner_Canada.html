@@ -53,7 +53,7 @@
     @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
-    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:static;padding:14px 20px 10px}.field-search-wrap{position:sticky;top:var(--mobile-sticky-h,0px);background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible;overflow-x:clip}.plan-status-bar{top:0;position:relative;padding:8px 30px 8px 14px;margin:0 0 8px;display:block}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;width:100%;display:block;font-size:.8rem;line-height:1.3}.plan-status-right{display:contents}.plan-status-updated{display:block;width:100%;text-align:right;max-height:0;overflow:hidden;margin-top:0;transition:opacity .4s,max-height .3s,margin-top .3s}.plan-status-updated.show{max-height:18px;margin-top:3px}.plan-status-chevron{position:absolute;top:10px;right:10px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}}
+    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:var(--mobile-sticky-h,0px);padding:9px 20px 7px;z-index:3}.panel-title span{display:none}.field-search-wrap{position:sticky;top:calc(var(--mobile-sticky-h,0px) + var(--panel-title-h,0px));background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible;overflow-x:clip}.plan-status-bar{top:0;position:relative;padding:8px 30px 8px 14px;margin:0 0 8px;display:block}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;width:100%;display:block;font-size:.8rem;line-height:1.3}.plan-status-right{display:contents}.plan-status-updated{display:block;width:100%;text-align:right;max-height:0;overflow:hidden;margin-top:0;transition:opacity .4s,max-height .3s,margin-top .3s}.plan-status-updated.show{max-height:18px;margin-top:3px}.plan-status-chevron{position:absolute;top:10px;right:10px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}}
     @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
     #printReport{display:none}
     #printReport h1{font-size:1.3rem;margin:0 0 4px}
@@ -5946,9 +5946,19 @@
     const barH = bar.offsetHeight;
     document.documentElement.style.setProperty('--plan-status-h', barH + 'px');
     const tabsH = tabs && window.innerWidth <= 820 ? tabs.offsetHeight : 0;
+    // The tabs bar's own CSS margin-bottom (14px, the visual gap between the
+    // pill switcher and the search box below it in normal flow) has to be
+    // folded in here too, not just its top offset (10px) and height. Both
+    // .mobile-tabs and .field-search-wrap are position:sticky, and margin
+    // is outside an element's own box — so leaving it out of this sum meant
+    // .field-search-wrap stuck 14px too high once both were actually
+    // engaged (mid-scroll), leaving a real 14px band between the two stuck
+    // bars with nothing covering it. Ordinary scrolling content (the field
+    // just above the scroll position) showed through in that gap, reading
+    // as sidebar fields randomly peeking out above the search box.
     document.documentElement.style.setProperty(
       '--mobile-sticky-h',
-      barH + (tabsH ? 10 + tabsH : 0) + 'px',
+      barH + (tabsH ? 10 + tabsH + 14 : 0) + 'px',
     );
     // .field-search-wrap sticks directly below .panel-title on mobile (both
     // position:sticky, stacked), so it needs panel-title's real height on
@@ -6359,6 +6369,20 @@
       tabDashboard.classList.toggle('active', view === 'dashboard');
       tabDashboard.setAttribute('aria-selected', String(view === 'dashboard'));
       if (view === 'dashboard') render();
+      // .panel (and its sticky .panel-title) is display:none while the
+      // Dashboard tab is active, so --panel-title-h — measured from
+      // panelTitle.offsetHeight in syncPlanStatusOffsets() — reads 0 at
+      // that moment; the initial boot measurement happens with Dashboard
+      // as the default view, so it's frozen at 0 until something else
+      // happens to trigger a recompute. .field-search-wrap's sticky top
+      // depends on that variable to sit below .panel-title rather than
+      // overlapping the gap above it, so switching to Inputs (where
+      // .panel-title becomes visible and measurable for the first time)
+      // has to force a fresh measurement right here — otherwise the two
+      // sticky bars stack with a real, uncovered gap between them
+      // (whatever's mid-scroll shows through) until an unrelated edit
+      // happens to trigger a render() first.
+      if (view === 'inputs') syncPlanStatusOffsets();
     };
     tabInputs.addEventListener('click', () => setMobileView('inputs'));
     tabDashboard.addEventListener('click', () => setMobileView('dashboard'));
