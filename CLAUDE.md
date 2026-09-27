@@ -350,11 +350,7 @@ Each planner is one big IIFE. The core shape:
     literal point of the bar) behind a "…". Fixed with a mobile-only
     override inside the existing `@media(max-width:820px)` block:
     `.plan-status-text{white-space:normal;overflow:visible;text-overflow:
-    clip}` lets it wrap onto 2+ lines instead of truncating, plus
-    `.plan-status-bar{align-items:flex-start}` (was `center`) and a small
-    `margin-top` on `.plan-status-right` so the chevron/"Updated just now"
-    pulse align with the *first* line of wrapped text rather than sitting
-    vertically centered against the whole multi-line block. No extra height
+    clip}` lets it wrap onto 2+ lines instead of truncating. No extra height
     plumbing was needed: `syncPlanStatusOffsets()` already reads the bar's
     real `offsetHeight` into `--plan-status-h`/`--mobile-sticky-h` on every
     `render()`, so a taller, wrapped bar is picked up automatically by
@@ -364,6 +360,25 @@ Each planner is one big IIFE. The core shape:
     single-line ellipsis behavior, since the bar has much more horizontal
     room there and truncation there would be a genuine edge case rather
     than the routine case mobile was hitting.
+  - **First attempt at the wrap left a gap**: simply switching to
+    `align-items:flex-start` (still `flex-direction:row`, the default) kept
+    `.plan-status-text` and `.plan-status-right` as side-by-side flex items,
+    so the text's own box only ever got `barWidth - rightColumnWidth` to
+    wrap within — on *every* line, not just the first, even though the
+    chevron/pulse only visually occupies the first line's height. That left
+    a chevron-width strip of dead space down the right side of every
+    wrapped line and pushed the text to wrap a line earlier than it needed
+    to (a screenshot showed "success" alone on a 3rd line with obvious room
+    beside it). Flexbox doesn't reflow text around a sibling item the way
+    a float or CSS shape would; a flex item's box width doesn't shrink
+    line-by-line just because the sibling next to it stopped needing space.
+    Fixed by adding `flex-wrap:wrap` to `.plan-status-bar` and
+    `flex:1 1 100%` to `.plan-status-text` — a `flex-basis:100%` item
+    forces a wrap onto a new flex line in a wrapping flex container, so the
+    text now gets the *entire* bar width to itself and `.plan-status-right`
+    drops to its own line below (right-aligned there via
+    `margin-left:auto`, since it's now alone on that line rather than
+    sharing one with the text).
 - **First-run banner** (`#firstRunBanner`, styled like `.shortfall-banner`
   but with `--blue` instead of `--amber`) and the **"Explore a question"
   menu** (`#decisionCard`) both live as direct children of `<main>`, *before*
