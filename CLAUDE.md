@@ -326,6 +326,20 @@ Each planner is one big IIFE. The core shape:
     sticky behavior with an actual scroll gesture, not just a
     `scrollWidth > clientWidth` overflow check — the overflow check would
     have passed the whole time this bug existed.
+  - **A related gap, found later from real usage**: the base/desktop
+    `scroll-margin-top` on `.metrics`/`#sensitivityCard,#mainChartCard` only
+    accounted for `--topbar-h`, not the Plan Status Bar's own height
+    (`--plan-status-h`) — the mobile media query's equivalents already
+    correctly used `--mobile-sticky-h` (which folds the bar's height in),
+    but the desktop/base rules predated the bar and were never updated once
+    it started sitting `position:sticky` right below the topbar on desktop
+    too. Result: clicking the bar to jump to `.metrics` via
+    `scrollIntoView({block:'start'})` landed with the top of `.metrics`
+    partially hidden behind the bar, needing a small manual scroll up to
+    see the top row. Fixed by adding `+ var(--plan-status-h,0px)` to both
+    desktop `calc()` expressions, reusing the variable `syncPlanStatusOffsets()`
+    already computes unconditionally (not just on mobile) rather than adding
+    a new one.
 - **First-run banner** (`#firstRunBanner`, styled like `.shortfall-banner`
   but with `--blue` instead of `--amber`) and the **"Explore a question"
   menu** (`#decisionCard`) both live as direct children of `<main>`, *before*
@@ -554,6 +568,65 @@ mobile tabs just swaps which of `.panel`/`.content` is displayed *in place*
 — without the explicit scroll-to-top, someone who scrolled deep into a long
 Dashboard would land partway down the (differently-sized) Inputs panel
 instead of at its top. This is unchanged from before.
+
+### Post-launch fixes to "Explore a question" (real-world feedback)
+
+A round of feedback after the collapsed-bubble redesign above shipped turned
+up a few more issues, all in `renderDecisionCompareTable()`/
+`renderDecisionQuestionAnswer()`/`renderChartView()`'s `chartView === 'cagr'`
+branch:
+
+- **The CAGR sweep's "current" line was silently wrong**, not just
+  imprecise: `simulateAtRealCagr(realCagrPct)` derives the nominal-return
+  override, but the line meant to *highlight* the user's own assumption
+  computed `Math.round(...)` to the nearest **whole** percent and clamped to
+  `[0,7]` — so a 7% nominal / 2.5% inflation input (real ≈ 4.39%) got
+  labeled "4% (current)", a number that isn't actually what's entered. Fixed
+  by keeping the exact value to the tenths place
+  (`Math.round(... * 1000) / 10`) and using it as one of the swept rates
+  itself (`simulateAtRealCagr(currentReal)`) rather than only as a label on
+  the nearest whole-percent line. The fixed `0..7` comparison set drops
+  whichever integer is numerically closest to that exact value first (ties
+  broken toward the lower integer, since the loop only updates `closestInt`
+  on a *strictly* smaller distance while iterating ascending) — so a 4.39%
+  real assumption shows `0%,1%,2%,3%,4.4% (current),5%,6%,7%`, not two
+  near-duplicate lines (4% and 4.4%) crowding the same part of the chart.
+  `fmtRate()` (`Number.isInteger(r) ? '${r}%' : '${r.toFixed(1)}%'`) keeps
+  the whole-percent lines reading as plain integers while the current line
+  gets its one decimal.
+- **`renderDecisionCompareTable()`'s "Portfolio lasts to" column said
+  "Never"** for a plan that doesn't deplete, which read as an error state
+  rather than a healthy outcome, and was inconsistent with every other
+  table in the app: `computeScenarioMetrics()` (the main scenario-compare
+  table) and `renderRothOptimizer()` (the Roth conversion/RRSP meltdown
+  table) both already use `` `Age ${maxLifeExpectancy}+` `` for the same
+  "never depletes" case. Fixed by computing that same
+  `Math.max(lifeExpectancyA, singlePerson ? 0 : lifeExpectancyB)` value
+  once at the top of `renderDecisionCompareTable()` and reusing the same
+  convention, plus wrapping the cell in the same `.table-status` pill
+  (green/fail) the other two tables use, rather than plain text.
+- **The compare-table answer didn't scroll into view.** With 8 questions
+  now in the menu, clicking one near the bottom of the list — or reading it
+  on mobile, where the button might be on the Inputs tab — could leave the
+  resulting table off-screen with no visual cue anything happened.
+  `renderDecisionQuestionAnswer()`'s `compare`-kind branch now calls the
+  same `switchToDashboardTab()` the `open`-kind branch already used, then
+  `answer.scrollIntoView({behavior:'smooth', block:'nearest'})` — `nearest`
+  rather than `start`, since `#decisionAnswer` sits near the top of
+  `.content` already (right below the question buttons) and a `start`
+  scroll would over-scroll past content that's often already visible.
+- **The compare table was wider than it needed to be** and always
+  triggered `.table-wrap`'s horizontal scrollbar, because it inherited the
+  generic `table{min-width:760px}` rule meant for the wide projection/
+  scenario-compare tables, even though it only ever has 4 columns
+  (Scenario/Investable/Lasts to/End assets) and 2-4 rows. Fixed with a
+  dedicated `.decision-compare-table` class (`min-width:0`, tighter
+  `8px 10px` cell padding and `.76rem` font vs. the generic `12px 13px`/
+  `.8rem`) so it sizes to its actual column content and the card's own
+  width instead of forcing a scrollbar — column headers were shortened to
+  match ("Investable"/"Lasts to" instead of "Investable at retirement"/
+  "Portfolio lasts to") since the narrower table has less room and the
+  bubble's intro sentence already gives the full context.
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
@@ -838,20 +911,20 @@ sound like.
   no separate control for wiping storage without also resetting the visible
   form, which is fine since they're the same action.
 
-## Mobile swipe between Inputs/Dashboard tabs
+## Mobile swipe between Inputs/Dashboard tabs — removed
 
-At the same <=820px width where `.mobile-tabs` (the Inputs/Dashboard tab
-switcher) appears, a `touchstart`/`touchend` pair on `#workspace` also lets
-a person swipe left (→ Dashboard) or right (→ Inputs) as an alternative to
-tapping the tab buttons. It requires the horizontal distance to clearly
-dominate the vertical one (`abs(dx) >= abs(dy) * 1.4`) and pass a minimum
-55px threshold, so ordinary vertical scrolling is never mistaken for a
-tab-switch swipe. A touch that starts on `input[type="range"]` is ignored
-entirely, since dragging a slider is itself a horizontal gesture on the
-same touch surface and would otherwise fight with the tab swipe. This
-lives right next to the existing `setMobileView`/tab-button wiring (search
-for it in each file) since both control the same `workspace.dataset.mobileView`
-state.
+A `touchstart`/`touchend` swipe gesture on `#workspace` (swipe left →
+Dashboard, right → Inputs, as an alternative to tapping `.mobile-tabs`) was
+built and then **removed** after real-world use: it kept firing accidentally
+while someone was trying to scroll a wide table horizontally (the projection
+table, the decision-compare tables), which reads as the whole page randomly
+jumping to a different tab mid-scroll. Tapping the `.mobile-tabs` buttons is
+now the only way to switch tabs on mobile. If swipe-to-switch is ever
+reconsidered, it would need to coexist with horizontal-scrolling tables
+specifically — e.g. ignoring touches that start inside `.table-wrap` the same
+way the old implementation already ignored touches starting on
+`input[type="range"]` — not just the generic horizontal-vs-vertical
+dominance check it had before.
 
 ## Accessibility pass
 

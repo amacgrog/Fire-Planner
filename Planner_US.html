@@ -16,7 +16,7 @@
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
     .cta-btn{background:linear-gradient(145deg,#fbbf24,#ea580c);border:0;color:#23140b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 3px 10px rgba(234,88,12,.35)}.cta-btn:hover{filter:brightness(1.05)}
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
-    #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + 20px)}
+    #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
     .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
     #fieldSearch{flex:1;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 10px;font-size:.82rem;color:var(--ink)}
@@ -32,11 +32,11 @@
     details.group summary:hover{color:var(--blue)}
     .range-field{margin:13px 0 17px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue)}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
-    .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
+    .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + var(--plan-status-h,0px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
     .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:var(--hint)}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
     .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}.decision-table-wrap{margin-top:12px}.decision-compare-table{min-width:0;width:100%}.decision-compare-table th,.decision-compare-table td{padding:8px 10px;font-size:.76rem}
     .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}
     .first-run-banner{border-left:3px solid var(--blue);margin-bottom:16px;font-size:.82rem;line-height:1.5}.first-run-banner b{color:var(--ink2)}.first-run-banner button{background:none;border:0;padding:0;margin:0;color:var(--blue);font-weight:800;font-size:inherit;font-family:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.first-run-banner[hidden]{display:none}
     .plan-status-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left;font-family:inherit;border:1px solid var(--line);background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;margin:0 0 16px;position:sticky;top:var(--topbar-h,82px);z-index:14;cursor:pointer}.plan-status-bar:hover{border-color:var(--blue)}.plan-status-text{font-weight:800;font-size:.92rem;color:var(--ink2);letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plan-status-right{display:flex;align-items:center;gap:8px;flex-shrink:0}.plan-status-updated{font-size:.68rem;font-weight:700;color:var(--green);opacity:0;transition:opacity .4s}.plan-status-updated.show{opacity:1}.plan-status-chevron{color:var(--hint);font-size:.75rem;transition:transform .2s}.plan-status-bar[aria-expanded="true"] .plan-status-chevron{transform:rotate(180deg)}
@@ -3890,13 +3890,24 @@
     if (document.getElementById('workspace').dataset.mobileView === 'inputs') setMobileView('dashboard');
   }
   function renderDecisionCompareTable(rows) {
+    // "Portfolio lasts to" follows the same "Age {maxLifeExpectancy}+"
+    // convention as the main scenario-compare table and the Roth optimizer
+    // table (computeScenarioMetrics()/renderRothOptimizer() above) — a plan
+    // that never depletes is described by the age it was actually modeled
+    // to, not the word "Never", which read as an error/edge-case rather than
+    // a healthy outcome.
+    const maxLifeExpectancy = Math.max(
+      state.lifeExpectancyA,
+      state.singlePerson ? 0 : state.lifeExpectancyB,
+    );
     const body = rows
       .map(({ label, sim }) => {
         const r = sim.rows.find((row) => row.year === sim.retirementYear) || sim.rows[0];
-        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValue(r.investable, r.year))}</td><td>${sim.depletedAge ? 'Age ' + sim.depletedAge : 'Never'}</td><td>${compact(decisionEndAssets(sim))}</td></tr>`;
+        const lastsTo = sim.depletedAge ? `Age ${sim.depletedAge}` : `Age ${maxLifeExpectancy}+`;
+        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValue(r.investable, r.year))}</td><td><span class="table-status ${sim.depletedAge ? 'fail' : ''}">${lastsTo}</span></td><td>${compact(decisionEndAssets(sim))}</td></tr>`;
       })
       .join('');
-    return `<div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Investable at retirement</th><th>Portfolio lasts to</th><th>End assets</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    return `<div class="table-wrap decision-table-wrap"><table class="decision-compare-table"><thead><tr><th>Scenario</th><th>Investable</th><th>Lasts to</th><th>End assets</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
   const DECISION_QUESTIONS = {
     retireTiming: {
@@ -4639,29 +4650,45 @@
     }
     if (chartView === 'cagr') {
       titleEl.textContent = 'Total assets across real investment returns';
-      subEl.textContent =
-        'Same retirement dates and inflation input; investment growth swept from 0% to 7% real, in 1% steps.';
-      const currentReal = clamp(
-        Math.round(((1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1) * 100),
-        0,
-        7,
-      );
-      const series = Array.from({ length: 8 }, (_, i) => ({
-        sim: simulateAtRealCagr(i),
+      // Comparison rates are 0-7% real in whole-percent steps, but with your
+      // actual entered assumption (rounded to the nearest tenth) swapped in
+      // for real, exactly, rather than snapped to the nearest whole percent
+      // and mislabeled "(current)" — e.g. a 4.5% real assumption used to
+      // round down and display as an inexact "4% (current)". Whichever
+      // whole-percent point sits closest to that exact value is dropped so
+      // the sweep doesn't show two near-duplicate points right next to each
+      // other (ties favor dropping the lower one, so 4.5% drops 4% and
+      // keeps 5%).
+      const currentReal = Math.round(((1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1) * 1000) / 10;
+      const baseInts = [0, 1, 2, 3, 4, 5, 6, 7];
+      let closestInt = baseInts[0],
+        bestDist = Infinity;
+      for (const n of baseInts) {
+        const d = Math.abs(n - currentReal);
+        if (d < bestDist - 1e-9) {
+          bestDist = d;
+          closestInt = n;
+        }
+      }
+      const rates = baseInts.filter((n) => n !== closestInt).concat([currentReal]).sort((a, b) => a - b);
+      const fmtRate = (r) => (Number.isInteger(r) ? `${r}%` : `${r.toFixed(1)}%`);
+      subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} assumption included exactly.`;
+      const series = rates.map((r, i) => ({
+        sim: simulateAtRealCagr(r),
         color: cagrColors[i],
-        highlight: i === currentReal,
-        label: `${i}%${i === currentReal ? ' (current)' : ''}`,
+        highlight: r === currentReal,
+        label: `${fmtRate(r)}${r === currentReal ? ' (current)' : ''}`,
       }));
       legend.innerHTML = series
         .map(
           (s, i) =>
-            `<span><i class="swatch" style="background:${s.color}"></i><span>${i}%${i === currentReal ? ' (current)' : ''}</span></span>`,
+            `<span><i class="swatch" style="background:${s.color}"></i><span>${fmtRate(rates[i])}${rates[i] === currentReal ? ' (current)' : ''}</span></span>`,
         )
         .join('');
       noteEl.textContent = `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. ${state.inflation}% inflation applied on top of each real rate.`;
       canvas.setAttribute(
         'aria-label',
-        'Projected total assets by age across 0% to 7% real investment returns',
+        `Projected total assets by age across a sweep of real investment returns, including your current ${fmtRate(currentReal)} assumption`,
       );
       renderChart(series);
     } else {
@@ -6495,6 +6522,11 @@
     const { rows, sentence } = q.run();
     answer.innerHTML = `<p><b>${escapeHtml(sentence)}</b></p>` + renderDecisionCompareTable(rows);
     answer.hidden = false;
+    // Same reasoning as the 'open' questions above: with 8 questions now in
+    // the menu, the answer can render well below the fold (or, on mobile,
+    // behind the Inputs tab) without ever coming into view on its own.
+    switchToDashboardTab();
+    answer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   document.getElementById('decisionQuestions').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-question]');
@@ -6538,51 +6570,6 @@
     // consistent with the Plan status bar's job of always surfacing the
     // model's current answer rather than starting on a blank-feeling form.
     setMobileView('dashboard');
-
-    // Swipe between the Inputs/Dashboard tabs on touch devices, as an
-    // alternative to tapping the tab buttons above. Only active at the
-    // same <=820px width where the tab switcher itself is shown. Ignores
-    // touches that start on a range slider (dragging a slider is a
-    // horizontal gesture too, and shouldn't be mistaken for a page swipe)
-    // or on scrollable text areas; otherwise requires a swipe that's
-    // clearly more horizontal than vertical and past a minimum distance
-    // so ordinary vertical scrolling never triggers a tab change.
-    let touchStartX = null,
-      touchStartY = null,
-      touchStartTarget = null;
-    workspace.addEventListener(
-      'touchstart',
-      (e) => {
-        if (window.innerWidth > 820 || e.touches.length !== 1) {
-          touchStartX = null;
-          return;
-        }
-        const t = e.touches[0];
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
-        touchStartTarget = e.target;
-      },
-      { passive: true },
-    );
-    workspace.addEventListener(
-      'touchend',
-      (e) => {
-        if (touchStartX == null) return;
-        if (touchStartTarget && touchStartTarget.closest('input[type="range"]')) {
-          touchStartX = null;
-          return;
-        }
-        const t = e.changedTouches[0];
-        const dx = t.clientX - touchStartX,
-          dy = t.clientY - touchStartY;
-        touchStartX = null;
-        if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-        const currentView = workspace.dataset.mobileView;
-        if (dx < 0 && currentView === 'inputs') setMobileView('dashboard');
-        else if (dx > 0 && currentView === 'dashboard') setMobileView('inputs');
-      },
-      { passive: true },
-    );
   }
   if (hadSavedState) dismissFirstRunBanner();
   syncControls();
