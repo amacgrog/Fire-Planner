@@ -763,6 +763,52 @@ decision-question buttons still open `#decisionAnswer` on click, wizard
 Step 2 shows the 5 subheadings in order, and no horizontal overflow at
 mobile width in either theme.
 
+### Round 3: wizard readability + Step 2 checkbox flow
+
+Two follow-up fixes to round 2's wizard Step 2, from trying it in the
+browser:
+
+- **Tiny text.** `#wizardModal label`/`small` were inheriting the dense
+  sidebar's type scale (`.84rem`/`.76rem`) verbatim — fine in a 300px-wide
+  sidebar field, cramped in the wizard's own wider, less-packed modal.
+  Fixed by scoping a slightly larger scale to the wizard only:
+  `#wizardModal label{font-size:.92rem}` and `#wizardModal
+  small{font-size:.82rem;line-height:1.45}` — the sidebar's own type scale
+  is untouched.
+- **Step 2 fields squeezed into the left half of the modal.** The shared
+  `.field{grid-template-columns:minmax(0,1fr) 116px}` template is built for
+  a label-on-the-left / real-`<input>`-on-the-right row (that's what Step 1
+  uses). But every Step 2 field is a single `<label>` wrapping its own
+  checkbox — there's no second grid child — so that unused 116px column sat
+  empty on the right, and the label (with its multi-line description) was
+  confined to the narrower first column instead of using the full row.
+  Fixed with `#wizardStep2 .field{grid-template-columns:1fr}` (each field
+  now sizes to the full width of whichever grid cell it's in) plus making
+  `#wizardStep2` itself a `display:grid;grid-template-columns:1fr 1fr` two-
+  column flow (collapsing to one column under `@media(max-width:600px)`,
+  independent of the existing ≤820px/≤520px breakpoints elsewhere in the
+  app) so the category's checkboxes read left-to-right, top-to-bottom
+  instead of stacking one-per-row all the way down. `.wizard-subhead` picks
+  up `grid-column:1/-1` so each category heading still spans both columns
+  rather than sitting in the left one only. A category with an odd number
+  of items (Healthcare/Taxes & investing on Canada, Guardrails/Debt on
+  both) simply leaves the second column of its last row empty — no special-
+  casing needed, CSS grid handles it.
+- **Modal widened 520px → 640px** (`#wizardModal`'s base `max-width`,
+  edited in place rather than appended, so the existing
+  `@media(max-width:520px){#wizardModal{max-width:100%;…}}` mobile override
+  — which comes later in the stylesheet and must keep winning on narrow
+  viewports — isn't accidentally shadowed by a later same-specificity rule)
+  to give the new 2-column Step 2 layout (and Step 1's larger text) room to
+  breathe; Step 1's existing label+input rows also read more comfortably at
+  the wider size, so no Step-1-specific adjustment was needed.
+
+Verified with `npm test`, a syntax check, and Playwright screenshots (both
+files, desktop 1280px + mobile 390px): Step 2 renders as a clean 2-column
+flow with full-width category headings at desktop widths, collapses to one
+readable column on mobile, Step 1 is visually unaffected (still label+input
+per row, just larger), and there's no horizontal overflow at either width.
+
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
 These two functions share large near-identical blocks of logic (contribution

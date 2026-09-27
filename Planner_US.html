@@ -43,7 +43,7 @@
     #decisionCard{margin:0 0 18px}#decisionCard summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)}#decisionCard summary::-webkit-details-marker{display:none}#decisionCard .caret,#moreResultsCard .caret{font-size:.85rem;color:var(--hint);transition:transform .15s ease}#decisionCard[open] .caret,#moreResultsCard[open] .caret{transform:rotate(180deg)}#decisionCard:not([open]){padding:0;border:none;background:transparent;box-shadow:none}#decisionCard:not([open]) summary{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-size:.88rem;box-shadow:var(--shadow)}
     .decision-questions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0}.decision-questions button{text-align:left;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:11px;padding:10px 12px;font-weight:700;font-size:.82rem;line-height:1.3}.decision-questions button:hover{background:var(--surface-hover)}.decision-questions button.active{background:var(--card);border-color:var(--blue);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .decision-answer{margin-top:14px}.decision-answer p{margin:0 0 12px;font-size:.84rem;line-height:1.55;color:var(--ink2)}.decision-answer p b{color:var(--ink)}.decision-answer[hidden]{display:none}
-    @media(max-width:520px){.decision-questions{grid-template-columns:1fr}}#wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
+    @media(max-width:520px){.decision-questions{grid-template-columns:1fr}}#wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
     .undo-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;align-items:center;gap:14px;background:#1c2734;color:#f3f6fa;border-radius:12px;padding:12px 12px 12px 18px;box-shadow:0 12px 32px rgba(0,0,0,.35);z-index:70;font-size:.85rem}.undo-toast[hidden]{display:none}.undo-toast #undoToastBtn{background:#3b6fe0;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:800;font-size:.82rem;cursor:pointer}.undo-toast #undoToastBtn:hover{background:#4c7ceb}
     @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
     .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
@@ -75,8 +75,23 @@
     .decision-questions button{padding:12px 14px}
     .decision-questions button .q-title{display:block;font-weight:800;font-size:.86rem;margin-bottom:3px}
     .decision-questions button .q-desc{display:block;font-weight:500;font-size:.75rem;color:var(--muted);line-height:1.3}
-    .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800}
+    .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800;grid-column:1/-1}
     .wizard-subhead:first-of-type{margin-top:0}
+    /* Wizard readability + Step 2 flow, round 3: the description text under
+       each field/checkbox was sized to match the dense sidebar (.74–.76rem),
+       which reads as too small inside the wider, less-cluttered wizard
+       modal; and Step 2's checkbox-only fields inherited the shared
+       `.field{grid-template-columns:minmax(0,1fr) 116px}` two-column
+       template meant for label+input rows, leaving the second column empty
+       and squeezing every checkbox's label+description into a narrow left
+       strip. Fixed by giving the wizard its own slightly larger type scale
+       and letting Step 2's fields size to content in a 2-column flow
+       instead of stacking one-per-row down the left edge. */
+    #wizardModal label{font-size:.92rem}
+    #wizardModal small{font-size:.82rem;line-height:1.45;margin-top:3px}
+    #wizardStep2{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
+    #wizardStep2 .field{grid-template-columns:1fr;margin:8px 0}
+    @media(max-width:600px){#wizardStep2{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
