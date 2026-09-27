@@ -1508,6 +1508,66 @@ facts only the user can supply.
   `<label>` (rather than as a sibling) needs the same guard if it does
   anything with focus itself.
 
+### Round 2: guided-review scroll position, mobile sticky footprint, condensed spending descriptor
+
+Real-world feedback after using the feature on a phone, all fixed together:
+
+- **`block:'center'` pushed a field's own `<small>` descriptor off the
+  bottom of the screen.** Centering the *input* vertically means anything
+  below it — including a multi-line descriptor, which is exactly the part
+  someone reviewing an unfamiliar field most needs to read — gets pushed
+  toward (or past) the bottom edge. `jumpToEstimateField()` no longer uses
+  `scrollIntoView`'s `block` option at all; it computes the scroll delta
+  itself (`rect.top - viewportHeight * 0.3`) so the field lands about 30%
+  down the visible viewport instead of dead-center, leaving most of the
+  screen free below it. Done via `window.scrollBy`/`.panel.scrollBy`
+  (mobile scrolls `window`, desktop scrolls `.panel`'s own internal
+  scroll — same split `syncPanelMaxHeight()` already uses), inside a
+  `requestAnimationFrame` so the preceding `group.open = true` and
+  `setMobileView('inputs')` calls' layout changes have settled before the
+  target rect is measured. `el.focus({ preventScroll: true })` avoids the
+  browser's own auto-scroll-into-view fighting with this.
+- **"Review only ever visits number-box fields, not sliders" turned out to
+  be a false read of a real symptom**: range fields *were* being visited
+  (confirmed by instrumenting the click sequence directly) — a slider's
+  native focus ring is just far less noticeable than a text input's, so
+  landing on one read as "did nothing." No code change needed for
+  targeting; the repositioning fix above (steadier landing spot, less
+  scroll motion to parse) plus the existing `.flash-highlight` box-shadow
+  makes it much more obvious when the target is a `.range-field`.
+- **"Your assumptions" panel title no longer sticks on mobile.** It used
+  to pin itself (via `position:sticky`) right below the Plan Status Bar +
+  mobile-tabs stack, permanently eating vertical space for the rest of the
+  Inputs scroll. The mobile override now sets `.panel-title{position:
+  static}` — it scrolls away normally like any other content — while
+  `.field-search-wrap` (previously stuck just *below* the title) takes over
+  the sticky slot directly beneath the tabs (`top:var(--mobile-sticky-h,
+  0px)`, no longer adding `--panel-title-h` on top of it), so the search
+  box is still always reachable without the title's dead space. The
+  `--panel-title-h` CSS var that measured the title's height is now
+  unused (harmless — `syncPlanStatusOffsets()` still sets it) but nothing
+  reads it anymore; a future cleanup could drop that measurement, but it
+  wasn't worth the risk of touching working sticky-offset code for this
+  pass.
+- **Plan Status Bar shrunk on mobile**: `padding:12px 16px` → `9px 14px`,
+  bottom `margin:16px` → `10px`, and `.plan-status-text`'s mobile font-size
+  dropped to `.82rem` (from the shared `.92rem`) with `line-height:1.35` —
+  the summary line still wraps onto 2 lines on a narrow phone (per the
+  "Plan status bar" section above) but takes noticeably less vertical
+  space doing it. Desktop's single-line ellipsis sizing is untouched.
+- **Annual household spending's `<small>` descriptor condensed**, in both
+  files: it used to spell out a long parenthetical list of included items
+  (a full paragraph) before finally getting to what it excludes. Rewritten
+  to lead with a short "everyday costs" summary and a **bolded "Excludes:"**
+  clause naming the big-ticket things tracked elsewhere (housing, health/
+  LTC premiums, retirement saving) — the part someone skimming actually
+  needs, since the included-items list is mostly self-evident ("groceries,
+  dining, utilities...") while what's *excluded* is the part that avoids
+  double-counting. Canada's version keeps its extra sentence about
+  provincial healthcare being universal (not itself an "excludes" item,
+  just a clarifying note), unchanged in substance, just shortened
+  alongside the rest.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
