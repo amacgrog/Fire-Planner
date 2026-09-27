@@ -472,6 +472,43 @@ other requires re-deriving the equivalent, not just renaming variables:
   doesn't exist on the other side, a variable name that means something
   slightly different).
 
+## Money-field live preview (`class="money"`, `attachMoneyPreview`/`refreshMoneyPreviews`)
+
+A dollar-amount `<input type="number">` cannot display "1,850,000" — the
+browser strips anything that isn't a plain numeral from a number input's
+value — so instead every currency field carries `class="money"` and gets a
+sibling `<small class="money-preview">` inserted right after it, which shows
+the comma/currency-formatted value (via the existing `money()` helper) and
+updates live on `input`. This is a pure display layer: it never touches the
+input's own `value`, the `ids` auto-wiring, `normalizeState()`, or the MCP
+tool schema — nothing about how a field's value is read or stored changes.
+- `attachMoneyPreview(el)` is idempotent: it reuses an existing
+  `.money-preview` sibling if present (so calling it again after a
+  re-render doesn't duplicate the node) and only binds its `input` listener
+  once per element (`el.dataset.moneyBound`), so repeated calls against the
+  same static, persistent input (e.g. every time `syncControls()` runs, on
+  reset/load/import) don't stack duplicate listeners.
+- `refreshMoneyPreviews(root)` just runs `attachMoneyPreview` over every
+  `input.money` under `root` (defaults to the whole document).
+- **Static sidebar/wizard fields**: bound once, document-wide, at the end of
+  `syncControls()` — covers page load, Reset, Load scenario, and importing a
+  scenario file, since all of those call `syncControls()`.
+- **Dynamic per-row fields** (loans, spending-tier amounts, income-source
+  amounts, one-time-income amounts): each of the four `render*Fields()`
+  functions rebuilds its container's `innerHTML` from scratch on every call,
+  so there's no stale-listener risk there — each one calls
+  `refreshMoneyPreviews()` scoped to its own container at the end of the
+  function, after the fresh `<input>` elements exist in the DOM.
+- **A new dollar field must do two things**: add `class="money"` to its
+  `<input type="number">`, and make sure whatever re-render path sets/shows
+  that field also runs (or already runs) `refreshMoneyPreviews()` afterward
+  — either the document-wide call in `syncControls()` for a static field, or
+  a scoped call at the end of the relevant dynamic render function. A field
+  added without either will just never get a preview; it won't error.
+- CSS: `.money-preview{grid-column:1/-1;...}` — this relies on `.field`
+  being a 2-column CSS grid (label | input); the preview spans both columns
+  as an extra row directly under the input, right-aligned to match it.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

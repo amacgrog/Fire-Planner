@@ -18,7 +18,7 @@
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
-    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
+    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.money-preview{grid-column:1/-1;text-align:right;font-size:.7rem;color:var(--hint);margin-top:-4px;font-variant-numeric:tabular-nums}
     details.group summary{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
     details.group summary::after{content:'▾';font-size:.85rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
@@ -31,7 +31,7 @@
     .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:var(--hint)}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
     .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}
     .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}
     .first-run-banner{border-left:3px solid var(--blue);margin-bottom:16px;font-size:.82rem;line-height:1.5}.first-run-banner b{color:var(--ink2)}.first-run-banner button{background:none;border:0;padding:0;margin:0;color:var(--blue);font-weight:800;font-size:inherit;font-family:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.first-run-banner[hidden]{display:none}
     .decision-questions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0}.decision-questions button{text-align:left;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:11px;padding:10px 12px;font-weight:700;font-size:.82rem;line-height:1.3}.decision-questions button:hover{background:var(--surface-hover)}.decision-questions button.active{background:var(--card);border-color:var(--blue);box-shadow:0 2px 7px rgba(15,23,42,.11)}
@@ -140,13 +140,13 @@
         </details>
         <details class="group" open>
           <summary>Pre-retirement healthcare</summary>
-          <div class="field"><label for="healthPremiumA">Partner A health/dental insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer group benefits plan) — reduces taxable wages. Fold prescriptions, copays, and other after-tax health costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" min="0" step="10"></div>
-          <div data-partner-b class="field"><label for="healthPremiumB">Partner B health/dental insurance premium, per paycheck</label><input id="healthPremiumB" type="number" min="0" step="10"></div>
+          <div class="field"><label for="healthPremiumA">Partner A health/dental insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer group benefits plan) — reduces taxable wages. Fold prescriptions, copays, and other after-tax health costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
+          <div data-partner-b class="field"><label for="healthPremiumB">Partner B health/dental insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
           <div class="field"><label for="payFrequency">Paycheck frequency</label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
         <details class="group" open>
           <summary>Household spending</summary>
-          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs not itemized elsewhere: groceries, dining out, utilities, phone/internet, transportation (car payment, gas, insurance, transit), subscriptions, clothing, personal care, entertainment, travel, gifts, and pet care. Excludes mortgage/rent, property tax, home insurance, maintenance, health/dental insurance premiums, long-term care, and retirement saving — those are all tracked separately elsewhere. Provincial healthcare (OHIP/MSP/etc.) is universal and not a cost to budget for here.</small></label><input id="spending" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs not itemized elsewhere: groceries, dining out, utilities, phone/internet, transportation (car payment, gas, insurance, transit), subscriptions, clothing, personal care, entertainment, travel, gifts, and pet care. Excludes mortgage/rent, property tax, home insurance, maintenance, health/dental insurance premiums, long-term care, and retirement saving — those are all tracked separately elsewhere. Provincial healthcare (OHIP/MSP/etc.) is universal and not a cost to budget for here.</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
           <details class="group" id="spendingTiersGroup" style="padding:12px 0 0;border:0">
             <summary>Spending changes (up to 5)</summary>
             <p class="range-note">Optional: add up to five sequential spending changes, each triggered once Partner A reaches a given age (e.g. mortgage payoff, an empty nest, or slowing down in your 80s). Each new tier fully replaces the household spending figure above once active.</p>
@@ -155,11 +155,11 @@
         </details>
         <details class="group" open>
           <summary>Assets</summary>
-          <div class="field"><label for="taxable">Taxable brokerage</label><input id="taxable" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="taxable">Taxable brokerage</label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
-          <div class="field"><label for="traditional">RRSP balance</label><input id="traditional" type="number" min="0" step="1000"></div>
-          <div class="field"><label for="roth">TFSA balance</label><input id="roth" type="number" min="0" step="1000"></div>
-          <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="traditional">RRSP balance</label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="roth">TFSA balance</label><input id="roth" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
         </details>
@@ -174,28 +174,28 @@
           <summary>Housing</summary>
           <div class="choice" style="grid-template-columns:1fr 1fr 1fr" role="radiogroup" aria-label="Housing status"><button type="button" id="ownBtn" role="radio" aria-checked="true" class="active">Own</button><button type="button" id="rentBtn" role="radio" aria-checked="false">Rent</button><button type="button" id="buyLaterBtn" role="radio" aria-checked="false">Rent → Buy</button></div>
           <div class="tenure-fields" id="homeValueFields">
-            <div class="field"><label for="homeValue" id="homeValueLabel">Real estate value</label><input id="homeValue" type="number" min="0" step="5000"></div>
+            <div class="field"><label for="homeValue" id="homeValueLabel">Real estate value</label><input id="homeValue" type="number" class="money" min="0" step="5000"></div>
             <div class="field"><label for="homeGrowth">Home appreciation</label><input id="homeGrowth" type="number" min="-5" max="15" step="0.1"></div>
             <div class="field"><label for="mortgageRate" id="mortgageRateLabel">Mortgage interest rate</label><input id="mortgageRate" type="number" min="0" max="20" step="0.001"></div>
-            <div class="field"><label for="maintenance">Annual home maintenance<small id="maintenanceHint">Applies once you own</small></label><input id="maintenance" type="number" min="0" step="500"></div>
-            <div class="field"><label for="propertyTax">Annual property tax<small id="propertyTaxHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="propertyTax" type="number" min="0" step="500"></div>
+            <div class="field"><label for="maintenance">Annual home maintenance<small id="maintenanceHint">Applies once you own</small></label><input id="maintenance" type="number" class="money" min="0" step="500"></div>
+            <div class="field"><label for="propertyTax">Annual property tax<small id="propertyTaxHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="propertyTax" type="number" class="money" min="0" step="500"></div>
             <div class="field"><label for="propertyTaxGrowth">Property tax annual growth<small>How much you expect property tax to increase each year, separate from general inflation</small></label><input id="propertyTaxGrowth" type="number" min="0" max="20" step="0.1"></div>
-            <div class="field"><label for="homeInsurance">Annual home insurance<small id="homeInsuranceHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="homeInsurance" type="number" min="0" step="250"></div>
+            <div class="field"><label for="homeInsurance">Annual home insurance<small id="homeInsuranceHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="homeInsurance" type="number" class="money" min="0" step="250"></div>
             <div class="field"><label for="homeInsuranceGrowth">Home insurance annual growth<small>How much you expect home insurance premiums to increase each year, separate from general inflation</small></label><input id="homeInsuranceGrowth" type="number" min="0" max="20" step="0.1"></div>
           </div>
           <div class="tenure-fields" id="ownerFields">
-            <div class="field"><label for="mortgagePrincipal">Original loan amount<small>The amount originally borrowed, before any payments. Used with the loan term below to work out your actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="mortgagePrincipal" type="number" min="0" step="1000"></div>
-            <div class="field"><label for="mortgage">Remaining principal</label><input id="mortgage" type="number" min="0" step="1000"></div>
+            <div class="field"><label for="mortgagePrincipal">Original loan amount<small>The amount originally borrowed, before any payments. Used with the loan term below to work out your actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="mortgagePrincipal" type="number" class="money" min="0" step="1000"></div>
+            <div class="field"><label for="mortgage">Remaining principal</label><input id="mortgage" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="mortgageYears">Loan term (years)<small>The loan's original term (e.g. 25 for a standard 25-year mortgage) — not how many years you have left. If you've paid extra, the model figures out the real remaining time on its own from your current balance.</small></label><input id="mortgageYears" type="number" min="0" max="40" step="1"></div>
             <div class="range-field"><div class="range-head"><label for="extraPrincipal">Extra monthly principal</label><span class="range-value" id="extraPrincipalOut"></span></div><input id="extraPrincipal" type="range" min="0" max="5000" step="100"><small class="range-note" id="payoffHint"></small></div>
           </div>
           <div class="tenure-fields" id="renterFieldsShared" hidden>
-            <div class="field"><label for="rent">Current monthly rent<small>After rent and the cash-reserve target, surplus cash flows to brokerage</small></label><input id="rent" type="number" min="0" step="100"></div>
+            <div class="field"><label for="rent">Current monthly rent<small>After rent and the cash-reserve target, surplus cash flows to brokerage</small></label><input id="rent" type="number" class="money" min="0" step="100"></div>
             <div class="field"><label for="rentGrowth">Annual rent growth</label><input id="rentGrowth" type="number" min="-5" max="15" step="0.1"></div>
           </div>
           <div class="tenure-fields" id="buyLaterFields" hidden>
             <div class="field"><label for="buyAge">Buy at Partner A age</label><input id="buyAge" type="number" min="18" max="100" step="1"></div>
-            <div class="field"><label for="fhsa">Starting FHSA balance<small>First Home Savings Account — tax-deductible in, tax-free out when used for this purchase. $8,000/year and $40,000 lifetime cap per person.</small></label><input id="fhsa" type="number" min="0" step="500"></div>
+            <div class="field"><label for="fhsa">Starting FHSA balance<small>First Home Savings Account — tax-deductible in, tax-free out when used for this purchase. $8,000/year and $40,000 lifetime cap per person.</small></label><input id="fhsa" type="number" class="money" min="0" step="500"></div>
             <div class="range-field"><div class="range-head"><label for="fhsaPctA">Partner A FHSA contribution</label><span class="range-value" id="fhsaPctAOut"></span></div><input id="fhsaPctA" type="range" min="0" max="100" step="1"></div>
             <div data-partner-b class="range-field"><div class="range-head"><label for="fhsaPctB">Partner B FHSA contribution</label><span class="range-value" id="fhsaPctBOut"></span></div><input id="fhsaPctB" type="range" min="0" max="100" step="1"></div>
             <p class="range-note">Contributions stop once the home is purchased. Any leftover balance at purchase (beyond what's needed for the down payment and closing costs) rolls tax-free into the TFSA balance below.</p>
@@ -210,25 +210,25 @@
         </details>
         <details class="group" open>
           <summary>Retirement income & healthcare</summary>
-          <div class="field"><label for="cppMonthlyA">Partner A CPP / month</label><input id="cppMonthlyA" type="number" min="0" step="50"></div>
+          <div class="field"><label for="cppMonthlyA">Partner A CPP / month</label><input id="cppMonthlyA" type="number" class="money" min="0" step="50"></div>
           <div class="field"><label for="cppStartAgeA">Partner A CPP start age<small>60–70; earlier means a reduced benefit, later means an enhanced one</small></label><input id="cppStartAgeA" type="number" min="60" max="70" step="1"></div>
-          <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>Defaults to the 2026 maximum (ages 65–74)</small></label><input id="oasMonthlyA" type="number" min="0" step="25"></div>
+          <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>Defaults to the 2026 maximum (ages 65–74)</small></label><input id="oasMonthlyA" type="number" class="money" min="0" step="25"></div>
           <div class="field"><label for="oasStartAgeA">Partner A OAS start age<small>65–70; deferring past 65 increases the benefit ~0.6%/month</small></label><input id="oasStartAgeA" type="number" min="65" max="70" step="1"></div>
-          <div data-partner-b class="field"><label for="cppMonthlyB">Partner B CPP / month</label><input id="cppMonthlyB" type="number" min="0" step="50"></div>
+          <div data-partner-b class="field"><label for="cppMonthlyB">Partner B CPP / month</label><input id="cppMonthlyB" type="number" class="money" min="0" step="50"></div>
           <div data-partner-b class="field"><label for="cppStartAgeB">Partner B CPP start age</label><input id="cppStartAgeB" type="number" min="60" max="70" step="1"></div>
-          <div data-partner-b class="field"><label for="oasMonthlyB">Partner B OAS / month</label><input id="oasMonthlyB" type="number" min="0" step="25"></div>
+          <div data-partner-b class="field"><label for="oasMonthlyB">Partner B OAS / month</label><input id="oasMonthlyB" type="number" class="money" min="0" step="25"></div>
           <div data-partner-b class="field"><label for="oasStartAgeB">Partner B OAS start age</label><input id="oasStartAgeB" type="number" min="65" max="70" step="1"></div>
           <div class="field"><label>Pension coverage</label><div class="choice" role="radiogroup" aria-label="Pension coverage"><button type="button" id="pensionNoneBtn" role="radio">None</button><button type="button" id="pensionABtn" role="radio">A only</button><button type="button" id="pensionBBtn" role="radio">B only</button><button type="button" id="pensionBothBtn" role="radio">Both</button></div></div>
-          <div class="field"><label for="pensionYearlyA">Partner A annual pension</label><input id="pensionYearlyA" type="number" min="0" step="500"></div>
+          <div class="field"><label for="pensionYearlyA">Partner A annual pension</label><input id="pensionYearlyA" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
-          <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual pension</label><input id="pensionYearlyB" type="number" min="0" step="500"></div>
+          <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual pension</label><input id="pensionYearlyB" type="number" class="money" min="0" step="500"></div>
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
-          <div class="field"><label for="healthcare">Annual post-retirement extra health/dental insurance<small id="healthcareHint">Supplemental private coverage once retired; provincial healthcare (OHIP/MSP) itself is universal and not modeled as a cost</small></label><input id="healthcare" type="number" min="0" step="500"></div>
+          <div class="field"><label for="healthcare">Annual post-retirement extra health/dental insurance<small id="healthcareHint">Supplemental private coverage once retired; provincial healthcare (OHIP/MSP) itself is universal and not modeled as a cost</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="ltcEnabled"><input id="ltcEnabled" type="checkbox"> Model long-term care costs<small>Turn off to exclude LTC entirely from the projection.</small></label></div>
           <div id="ltcFields">
-            <div class="field"><label for="ltcYearlyA">Partner A annual LTC cost<span id="ltcLabelSuffix" hidden></span></label><input id="ltcYearlyA" type="number" min="0" step="1000"></div>
+            <div class="field"><label for="ltcYearlyA">Partner A annual LTC cost<span id="ltcLabelSuffix" hidden></span></label><input id="ltcYearlyA" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="ltcAgeA">Partner A LTC start age</label><input id="ltcAgeA" type="number" min="60" max="100" step="1"></div>
-            <div data-partner-b class="field"><label for="ltcYearlyB">Partner B annual LTC cost</label><input id="ltcYearlyB" type="number" min="0" step="1000"></div>
+            <div data-partner-b class="field"><label for="ltcYearlyB">Partner B annual LTC cost</label><input id="ltcYearlyB" type="number" class="money" min="0" step="1000"></div>
             <div data-partner-b class="field"><label for="ltcAgeB">Partner B LTC start age</label><input id="ltcAgeB" type="number" min="60" max="100" step="1"></div>
           </div>
         </details>
@@ -245,10 +245,10 @@
           <div class="field"><label for="bridgeEnabled"><input id="bridgeEnabled" type="checkbox"> Model bridge / part-time income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="bridgeFields">
             <p class="range-note">Consulting, part-time, or barista-FIRE income earned after leaving full-time work. Taxed as ordinary income with CPP contributions; not eligible for RRSP/TFSA room beyond the usual limits.</p>
-            <div class="field"><label for="bridgeIncomeA">Partner A bridge income / year</label><input id="bridgeIncomeA" type="number" min="0" step="1000"></div>
+            <div class="field"><label for="bridgeIncomeA">Partner A bridge income / year</label><input id="bridgeIncomeA" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="bridgeStartAgeA">Partner A bridge income start age</label><input id="bridgeStartAgeA" type="number" min="18" max="100" step="1"></div>
             <div class="field"><label for="bridgeEndAgeA">Partner A bridge income end age</label><input id="bridgeEndAgeA" type="number" min="18" max="100" step="1"></div>
-            <div data-partner-b class="field"><label for="bridgeIncomeB">Partner B bridge income / year</label><input id="bridgeIncomeB" type="number" min="0" step="1000"></div>
+            <div data-partner-b class="field"><label for="bridgeIncomeB">Partner B bridge income / year</label><input id="bridgeIncomeB" type="number" class="money" min="0" step="1000"></div>
             <div data-partner-b class="field"><label for="bridgeStartAgeB">Partner B bridge income start age</label><input id="bridgeStartAgeB" type="number" min="18" max="100" step="1"></div>
             <div data-partner-b class="field"><label for="bridgeEndAgeB">Partner B bridge income end age</label><input id="bridgeEndAgeB" type="number" min="18" max="100" step="1"></div>
           </div>
@@ -379,15 +379,15 @@
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
       <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardIncomeA">Partner A income</label><input id="wizardIncomeA" type="number" min="0" step="1000"></div>
-      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income</label><input id="wizardIncomeB" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardIncomeA">Partner A income</label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
+      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income</label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance</label><input id="wizardTaxable" type="number" min="0" step="1000"></div>
-      <div class="field"><label for="wizardTraditional">Current RRSP balance</label><input id="wizardTraditional" type="number" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRoth">Current TFSA balance</label><input id="wizardRoth" type="number" min="0" step="1000"></div>
-      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" min="0" step="1000"></div>
-      <div class="field"><label for="wizardSpending">Annual household spending</label><input id="wizardSpending" type="number" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance</label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTraditional">Current RRSP balance</label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRoth">Current TFSA balance</label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardSpending">Annual household spending</label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
     </div>
     <div id="wizardStep2" hidden>
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Later-life income &amp; costs section.</small></label></div>
@@ -676,6 +676,33 @@
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(n || 0);
+  // Dollar-amount <input type="number"> fields (class="money") can't show
+  // "1,850,000" inside the input itself — a number input strips anything
+  // that isn't a plain numeral — so instead we drop a small formatted
+  // read-out right after the field and keep it live on every keystroke.
+  // Idempotent: safe to call repeatedly (syncControls() re-sets values on
+  // reset/load/import) and safe on freshly-rebuilt dynamic rows (loans,
+  // spending tiers, income sources) without double-binding listeners.
+  function attachMoneyPreview(el) {
+    let preview = el.nextElementSibling;
+    if (!preview || !preview.classList || !preview.classList.contains('money-preview')) {
+      preview = document.createElement('small');
+      preview.className = 'money-preview';
+      el.insertAdjacentElement('afterend', preview);
+    }
+    const update = () => {
+      const n = Number(el.value);
+      preview.textContent = el.value !== '' && !isNaN(n) && n !== 0 ? money(n) : '';
+    };
+    update();
+    if (!el.dataset.moneyBound) {
+      el.addEventListener('input', update);
+      el.dataset.moneyBound = '1';
+    }
+  }
+  function refreshMoneyPreviews(root) {
+    (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
+  }
   const pct = (n) => (n || 0) / 100;
   const escapeHtml = (s) =>
     String(s).replace(
@@ -4283,6 +4310,9 @@
         lastsTo: sim.depletedAge
           ? `Age ${sim.depletedAge}`
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`,
+        lastsToAge:
+          sim.depletedAge ||
+          Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB),
         depleted: !!sim.depletedAge,
         endAssets: displayValue(end.total, end.year),
       };
@@ -4517,6 +4547,18 @@
       }),
     );
   }
+  // Higher is better for every metric in this table (more money, longer-lasting
+  // portfolio), so a single up=green/down=red convention works for all of them.
+  function deltaMoney(diff) {
+    if (!diff || Math.abs(diff) < 1) return '';
+    const cls = diff > 0 ? 'up' : 'down';
+    return `<span class="delta ${cls}">${diff > 0 ? '+' : ''}${money(diff)}</span>`;
+  }
+  function deltaAge(diff) {
+    if (!diff) return '';
+    const cls = diff > 0 ? 'up' : 'down';
+    return `<span class="delta ${cls}">${diff > 0 ? '+' : ''}${Math.round(diff)}y</span>`;
+  }
   function renderScenarioComparison() {
     const compareCard = document.getElementById('scenarioCompareCard'),
       compareRows = document.getElementById('scenarioCompareRows');
@@ -4527,14 +4569,15 @@
       compareRows.innerHTML = '';
       return;
     }
+    const current = computeScenarioMetrics(state);
     const rows = [
-      { name: 'Current (live inputs)', ...computeScenarioMetrics(state) },
+      { name: 'Current (live inputs)', ...current, isCurrent: true },
       ...active.map((sc) => ({ name: sc.name, ...computeScenarioMetrics(sc.state) })),
     ];
     compareRows.innerHTML = rows
       .map(
         (r) =>
-          `<tr><td><b>${escapeHtml(r.name)}</b></td><td>${r.retireLabel}</td><td>${money(r.investableAtRetirement)}</td><td>${money(r.netWorthAtRetirement)}</td><td><span class="table-status ${r.depleted ? 'fail' : ''}">${r.lastsTo}</span></td><td>${money(r.endAssets)}</td></tr>`,
+          `<tr><td><b>${escapeHtml(r.name)}</b></td><td>${r.retireLabel}</td><td>${money(r.investableAtRetirement)}${r.isCurrent ? '' : deltaMoney(r.investableAtRetirement - current.investableAtRetirement)}</td><td>${money(r.netWorthAtRetirement)}${r.isCurrent ? '' : deltaMoney(r.netWorthAtRetirement - current.netWorthAtRetirement)}</td><td><span class="table-status ${r.depleted ? 'fail' : ''}">${r.lastsTo}</span>${r.isCurrent ? '' : deltaAge(r.lastsToAge - current.lastsToAge)}</td><td>${money(r.endAssets)}${r.isCurrent ? '' : deltaMoney(r.endAssets - current.endAssets)}</td></tr>`,
       )
       .join('');
   }
@@ -4680,7 +4723,7 @@
     document.getElementById('loanFields').innerHTML = state.loans
       .map(
         (l, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:#526174">Loan ${i + 1}</b><div class="field"><label for="loan${i}Principal">Original principal<small>The amount originally borrowed. Used with the loan term below to work out the actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="loan${i}Principal" type="number" min="0" step="1000" value="${l.principal || 0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" min="0" step="1000" value="${l.balance || 0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate || 0}"></div><div class="field"><label for="loan${i}Term">Loan term (years)<small>The loan's original term — not how many years you have left. If you've paid extra, the model figures out the real remaining time on its own from your current balance.</small></label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term || 0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" min="0" step="50" value="${l.extra || 0}"></div></div>`,
+          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:#526174">Loan ${i + 1}</b><div class="field"><label for="loan${i}Principal">Original principal<small>The amount originally borrowed. Used with the loan term below to work out the actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="loan${i}Principal" type="number" class="money" min="0" step="1000" value="${l.principal || 0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" class="money" min="0" step="1000" value="${l.balance || 0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate || 0}"></div><div class="field"><label for="loan${i}Term">Loan term (years)<small>The loan's original term — not how many years you have left. If you've paid extra, the model figures out the real remaining time on its own from your current balance.</small></label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term || 0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" class="money" min="0" step="50" value="${l.extra || 0}"></div></div>`,
       )
       .join('');
     state.loans.forEach((_, i) =>
@@ -4694,12 +4737,13 @@
           }),
       ),
     );
+    refreshMoneyPreviews(document.getElementById('loanFields'));
   }
   function renderSpendingTierFields() {
     document.getElementById('spendingTierFields').innerHTML = state.spendingTiers
       .map(
         (t, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="tier${i}Enabled"><input id="tier${i}Enabled" type="checkbox" ${t.enabled ? 'checked' : ''}> Spending change ${i + 1}</label></div><div class="field" ${t.enabled ? '' : 'hidden'} id="tier${i}Fields"><label for="tier${i}Age">Starts at Partner A age</label><input id="tier${i}Age" type="number" min="18" max="100" step="1" value="${t.age || 65}"></div><div class="field" ${t.enabled ? '' : 'hidden'} id="tier${i}AmountField"><label for="tier${i}Amount">New annual household spending</label><input id="tier${i}Amount" type="number" min="0" step="1000" value="${t.amount || 60000}"></div></div>`,
+          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="tier${i}Enabled"><input id="tier${i}Enabled" type="checkbox" ${t.enabled ? 'checked' : ''}> Spending change ${i + 1}</label></div><div class="field" ${t.enabled ? '' : 'hidden'} id="tier${i}Fields"><label for="tier${i}Age">Starts at Partner A age</label><input id="tier${i}Age" type="number" min="18" max="100" step="1" value="${t.age || 65}"></div><div class="field" ${t.enabled ? '' : 'hidden'} id="tier${i}AmountField"><label for="tier${i}Amount">New annual household spending</label><input id="tier${i}Amount" type="number" class="money" min="0" step="1000" value="${t.amount || 60000}"></div></div>`,
       )
       .join('');
     state.spendingTiers.forEach((_, i) => {
@@ -4720,12 +4764,13 @@
         saveInputs();
       });
     });
+    refreshMoneyPreviews(document.getElementById('spendingTierFields'));
   }
   function renderIncomeSourceFields() {
     document.getElementById('incomeSourceFields').innerHTML = state.incomeSources
       .map(
         (s, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="incSrc${i}Enabled"><input id="incSrc${i}Enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Income source ${i + 1}</label></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}AmountField"><label for="incSrc${i}Amount">Annual amount</label><input id="incSrc${i}Amount" type="number" min="0" step="1000" value="${s.amount || 0}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}StartField"><label for="incSrc${i}Start">Starts at Partner A age</label><input id="incSrc${i}Start" type="number" min="18" max="100" step="1" value="${s.startAge || 65}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}EndField"><label for="incSrc${i}End">Ends at Partner A age</label><input id="incSrc${i}End" type="number" min="18" max="100" step="1" value="${s.endAge || 75}"></div></div>`,
+          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="incSrc${i}Enabled"><input id="incSrc${i}Enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Income source ${i + 1}</label></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}AmountField"><label for="incSrc${i}Amount">Annual amount</label><input id="incSrc${i}Amount" type="number" class="money" min="0" step="1000" value="${s.amount || 0}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}StartField"><label for="incSrc${i}Start">Starts at Partner A age</label><input id="incSrc${i}Start" type="number" min="18" max="100" step="1" value="${s.startAge || 65}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}EndField"><label for="incSrc${i}End">Ends at Partner A age</label><input id="incSrc${i}End" type="number" min="18" max="100" step="1" value="${s.endAge || 75}"></div></div>`,
       )
       .join('');
     state.incomeSources.forEach((_, i) => {
@@ -4751,12 +4796,13 @@
         saveInputs();
       });
     });
+    refreshMoneyPreviews(document.getElementById('incomeSourceFields'));
   }
   function renderOneTimeIncomeFields() {
     document.getElementById('oneTimeIncomeFields').innerHTML = state.oneTimeIncome
       .map(
         (o, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="oneTime${i}Enabled"><input id="oneTime${i}Enabled" type="checkbox" ${o.enabled ? 'checked' : ''}> One-time income ${i + 1}</label></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AmountField"><label for="oneTime${i}Amount">Lump sum amount</label><input id="oneTime${i}Amount" type="number" min="0" step="1000" value="${o.amount || 0}"></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AgeField"><label for="oneTime${i}Age">Received at Partner A age</label><input id="oneTime${i}Age" type="number" min="18" max="100" step="1" value="${o.age || 65}"></div></div>`,
+          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="oneTime${i}Enabled"><input id="oneTime${i}Enabled" type="checkbox" ${o.enabled ? 'checked' : ''}> One-time income ${i + 1}</label></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AmountField"><label for="oneTime${i}Amount">Lump sum amount</label><input id="oneTime${i}Amount" type="number" class="money" min="0" step="1000" value="${o.amount || 0}"></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AgeField"><label for="oneTime${i}Age">Received at Partner A age</label><input id="oneTime${i}Age" type="number" min="18" max="100" step="1" value="${o.age || 65}"></div></div>`,
       )
       .join('');
     state.oneTimeIncome.forEach((_, i) => {
@@ -4777,6 +4823,7 @@
         saveInputs();
       });
     });
+    refreshMoneyPreviews(document.getElementById('oneTimeIncomeFields'));
   }
   function syncControls() {
     ids.forEach((id) => {
@@ -4882,6 +4929,7 @@
       el.classList.toggle('active', selected);
       el.setAttribute('aria-checked', selected);
     });
+    refreshMoneyPreviews();
   }
   ids.forEach((id) =>
     document.getElementById(id).addEventListener('input', (e) => {
@@ -5116,6 +5164,12 @@
     saveInputs();
   }
   document.getElementById('resetBtn').addEventListener('click', () => {
+    if (
+      !confirm(
+        "Reset all inputs to the generic example data? This can't be undone — nothing is saved, so anything you've entered will be lost unless you've exported it as a scenario.",
+      )
+    )
+      return;
     state = {
       ...defaults,
       loans: defaults.loans.map((l) => ({ ...l })),
