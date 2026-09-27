@@ -340,6 +340,30 @@ Each planner is one big IIFE. The core shape:
     desktop `calc()` expressions, reusing the variable `syncPlanStatusOffsets()`
     already computes unconditionally (not just on mobile) rather than adding
     a new one.
+  - **Mobile text truncation, found from a phone screenshot**:
+    `.plan-status-text` is `white-space:nowrap;overflow:hidden;text-overflow:
+    ellipsis` — a deliberate safety net for the rare case the line is too
+    long even on desktop — but at 390px-ish phone widths, the full line
+    ("Retire 41/42 · $1.3M at retirement · lasts to 81+ · N% historical
+    success") routinely doesn't fit on one row and was getting cut off after
+    only the retirement-age clause, hiding the rest of the summary (the
+    literal point of the bar) behind a "…". Fixed with a mobile-only
+    override inside the existing `@media(max-width:820px)` block:
+    `.plan-status-text{white-space:normal;overflow:visible;text-overflow:
+    clip}` lets it wrap onto 2+ lines instead of truncating, plus
+    `.plan-status-bar{align-items:flex-start}` (was `center`) and a small
+    `margin-top` on `.plan-status-right` so the chevron/"Updated just now"
+    pulse align with the *first* line of wrapped text rather than sitting
+    vertically centered against the whole multi-line block. No extra height
+    plumbing was needed: `syncPlanStatusOffsets()` already reads the bar's
+    real `offsetHeight` into `--plan-status-h`/`--mobile-sticky-h` on every
+    `render()`, so a taller, wrapped bar is picked up automatically by
+    every sticky-offset and scroll-margin calc() that already depends on
+    those variables (the mobile-tabs bar's position, `.panel-title`'s
+    sticky `top`, `.panel`'s own `syncPanelMaxHeight()`). Desktop keeps the
+    single-line ellipsis behavior, since the bar has much more horizontal
+    room there and truncation there would be a genuine edge case rather
+    than the routine case mobile was hitting.
 - **First-run banner** (`#firstRunBanner`, styled like `.shortfall-banner`
   but with `--blue` instead of `--amber`) and the **"Explore a question"
   menu** (`#decisionCard`) both live as direct children of `<main>`, *before*
