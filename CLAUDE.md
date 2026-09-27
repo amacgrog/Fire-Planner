@@ -2264,6 +2264,51 @@ the historical and monte carlo charts are viewed?"
   switching to "Monte Carlo" shows `#mcSuccessCard` and re-hides
   `#histSuccessCard`, same as before the move.
 
+## Floating review pill (`#reviewNav`) hidden behind the on-screen keyboard
+
+Real-world bug report: "the Next button for the estimated review is covered
+up by the number pad whenever it is up, so you can't click it when editing
+a text field."
+
+- **Root cause**: `#reviewNav` is `position:fixed;bottom:...`, anchored to
+  the bottom of the *layout* viewport. When the on-screen keyboard opens for
+  a focused text field, mobile browsers typically leave the layout
+  viewport's height unchanged and only shrink the *visual* viewport (the
+  part actually visible above the keyboard) — so a plain fixed-bottom
+  element stays positioned at the bottom of the full layout viewport, which
+  is now behind the keyboard rather than in the visible area. This doesn't
+  reproduce in headless desktop Chromium (no real keyboard ever opens), so
+  it wasn't caught by any of the earlier Playwright sweeps in this file —
+  same category of "can't be seen without the real platform behavior" as
+  the mobile keyboard-reopen quirk documented above.
+- **Fix**: `syncKeyboardInset()` (in both files, defined right after
+  `syncPlanStatusOffsets()`) reads `window.visualViewport` and sets a
+  `--keyboard-inset` CSS var to `window.innerHeight - visualViewport.height
+  - visualViewport.offsetTop` — the gap between the full layout viewport and
+  what's actually visible, i.e. the keyboard's height once one is open (and
+  `0` the rest of the time). `.review-nav`'s `bottom` on both the base rule
+  and the mobile safe-area override now add `var(--keyboard-inset,0px)`, so
+  the pill rides up above the keyboard instead of staying pinned under it.
+  Wired to `window.visualViewport`'s own `resize`/`scroll` events (fired
+  when the keyboard opens/closes, and also as it's being animated in/out on
+  some platforms) plus one call at boot for the initial (no-keyboard) state.
+  `window.visualViewport` is undefined only on very old browsers, guarded
+  with `if (window.visualViewport)` around both the registration and inside
+  the function itself.
+- This is a general technique, not `#reviewNav`-specific — any other
+  fixed-bottom control added later in this file should read the same
+  `--keyboard-inset` var in its own `bottom` calc() rather than reinventing
+  keyboard-avoidance, since `syncKeyboardInset()` already keeps the var
+  current unconditionally.
+- **Verified**: `npm test`; a syntax check of both files; a mobile overflow
+  sweep; Playwright confirming the CSS wiring directly (setting
+  `--keyboard-inset` to a simulated 300px keyboard height moves
+  `#reviewNav`'s bounding rect up by exactly 300px, in both files) — a real
+  `visualViewport` resize can't be triggered in headless Chromium without an
+  actual on-screen keyboard, so this verifies the CSS/variable plumbing
+  rather than the browser's own keyboard-open event, which is the part this
+  fix has no control over anyway.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
