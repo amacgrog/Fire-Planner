@@ -1822,20 +1822,69 @@ just get rid of the 'assumptions' ribbon? ... and could we add an option to
 minimize the ribbons that are stuck at the top (not the summary ribbon, but
 the search and input/dashboard ribbon)."
 
-- **The "summary ribbon stuck at the top" claim didn't reproduce.**
-  `#planStatusBar`'s mobile override has been `position:relative;top:0`
-  (not sticky) since round 3/4 — confirmed by loading the file fresh in
-  Playwright at a 390px viewport, reading `getComputedStyle(...).position`
-  (`"relative"`), then scrolling 600px and re-reading
-  `getBoundingClientRect().top` (goes from `287px` to `-326px`, i.e. it
-  scrolls away with the page exactly like ordinary content, not pinned).
-  No code change was made here — the most likely explanation is a stale
-  cached copy of the file on the device that reported this (this is a
-  single offline HTML file with no server, so "the latest version" only
-  ever means "the file that was actually last (re)loaded"). If this
-  resurfaces after a hard refresh, it needs a fresh screenshot/repro rather
-  than another guess, since the code doesn't currently support the
-  behavior described.
+- **First pass on "the summary ribbon isn't there" was wrong — investigate,
+  don't just test the literal words.** The first read of "still stuck to
+  the top and not moving when scrolling" was that the user wanted the Plan
+  Status Bar to stop being sticky; testing showed `#planStatusBar`'s mobile
+  override was `position:relative;top:0` (not sticky) since round 3/4, so
+  that first pass concluded there was nothing to fix and the report was
+  probably a stale cached copy of the file. That was backwards: a follow-up
+  screenshot after this "fix" shipped showed the status bar simply **absent**
+  once scrolled — "stuck... not moving when scrolling" meant it stays
+  behind at its original document position while everything sticky moves
+  with the viewport, i.e. the opposite of what "stuck" usually means for a
+  navbar. The tell that should have caught this sooner: `.mobile-tabs`'
+  own sticky `top` is `calc(var(--plan-status-h,0px) + 10px)` — that
+  formula only makes sense if something sticky is meant to occupy
+  `--plan-status-h` worth of space above it. Every other measurement in
+  this sticky stack (`--mobile-sticky-h`, the mobile-header-toggle's fixed
+  `top`, `.panel`'s desktop sticky offset) was already built assuming the
+  status bar is sticky. `position:relative` on mobile was a leftover from
+  an earlier fix that needed *a* positioned ancestor for
+  `.plan-status-chevron{position:absolute}` to anchor to, and used
+  `relative` without noticing it clobbers `sticky` (they're mutually
+  exclusive values of the same `position` property) — `position:sticky`
+  serves exactly the same containing-block purpose for an absolutely
+  positioned child, so switching back to it cost nothing.
+  - **Fix**: `.plan-status-bar{top:0;position:relative;...}` → `top:0;
+    position:sticky;...}` on mobile (both files). Left every other
+    property (padding, margin, `display:block`) untouched.
+  - **A second, more interesting bug surfaced immediately during
+    verification**: with the bar now sticky, `.mobile-tabs` rendered
+    overlapping its bottom edge by ~19px once both were stuck (`tabsTop:61`
+    vs. `barBottom:70` — confirmed with a step-by-step real-scroll trace,
+    not just an overflow check). Root cause: `--plan-status-h` was frozen
+    at the bar's height from *before* the historical-success-rate clause
+    was appended (`51px`, one line) rather than its real settled height
+    once that clause pushes the summary onto a second line and lets the
+    "Updated just now" pulse animate in (`70px`). `syncPlanStatusOffsets()`
+    reads `bar.offsetHeight` synchronously right when `renderPlanStatusBar()`
+    sets the new text and adds `.plan-status-updated`'s `.show` class — but
+    on mobile, `.show` animates `max-height`/`margin-top` in over `.3s`
+    (see its CSS) rather than jumping instantly, so that synchronous read
+    catches the *pre-transition* height and never gets corrected once the
+    animation actually finishes growing the bar. Nothing else re-measures
+    afterward, so `--plan-status-h` (and everything downstream:
+    `--mobile-sticky-h`, `.mobile-tabs`' sticky `top`) stayed wrong for as
+    long as that render's text was current — which in practice is most of
+    the time, since the historical-rate clause and its arrival pulse are
+    normal, not edge cases.
+  - **Fix**: schedule a second `syncPlanStatusOffsets()` call `320ms`
+    after `.show` is added (past its `.3s` transition) and again after it's
+    removed 3 seconds later (the pulse shrinking back down is the same
+    animated-height problem in reverse). Confirmed with the same
+    step-by-step scroll trace: `--plan-status-h` now settles to the bar's
+    true `70px`, and `.mobile-tabs`/`.field-search-wrap` stack flush below
+    it with no overlap and no gap (`barBottom:70` → `tabsTop:80` →
+    `tabsBottom:130` → `searchTop:130`).
+  - **Lesson for future sticky-stack work here**: when a JS height
+    measurement feeds a sticky `top` offset, check every CSS transition on
+    the measured element (and its children) for anything that changes
+    layout-affecting properties (`max-height`, `margin`, `padding`,
+    `height` — not just `opacity`/`transform`, which don't affect layout).
+    A transition means the synchronous read at "the moment content
+    changed" and the element's true settled state are two different
+    numbers, and only one of them is usually being measured.
 - **`.panel-title` ("Your assumptions") removed entirely on mobile**, going
   further than round 5's "keep it sticky but compact" — `.panel-title{
   display:none}` under `@media(max-width:820px)`, full stop. Rationale
