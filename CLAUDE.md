@@ -777,18 +777,42 @@ A search box sits just below the panel title, above every `<details
 class="group">`. It matches against each `.field`/`.range-field`'s
 `<label>` text (case-insensitive substring, including whatever's inside a
 nested `<small>` help blurb, since that's often where the more
-jargon-specific term lives) and, for every match, walks *every* ancestor
-`<details>` open with `openAncestorDetails()` — not just the nearest one —
-because a few fields (the "Spending changes" sub-group) sit inside a
-`<details>` nested inside another `<details>`. Groups it opens are recorded
-in a `forcedOpen` `Map` (element → its open state right before the search
-touched it) so clearing the query (`input.value === ''`) restores each one
-exactly, without needing to know or guess the "correct" default — a group
-already open, or one the person opened themselves mid-search, is recorded
-too but restores to the same open state, so it's a no-op either way. A new
-field needs nothing extra to be searchable as long as it sits inside a real
-`<label>` under a `.field`/`.range-field` wrapper — the search has no field
-allow-list to keep in sync.
+jargon-specific term lives). A new field needs nothing extra to be
+searchable as long as it sits inside a real `<label>` under a
+`.field`/`.range-field` wrapper — the search has no field allow-list to
+keep in sync.
+
+- **Filters fields, not just groups.** Every matching field gets
+  `.field-match` (the existing blue highlight); every *non*-matching one now
+  also gets `.field-hidden` (`display:none`), so a search narrows the whole
+  sidebar down to just the fields that matched rather than merely opening
+  the groups that contain a match and leaving everything else inside them
+  to scan past. With 100+ fields across ~18 groups, "a match exists
+  somewhere in this group" wasn't narrow enough on its own.
+- **A group's open state is derived fresh from its matches on every
+  keystroke**, not accumulated across keystrokes: `panelDetails().forEach(d
+  => d.open = d.querySelector('.field-match') !== null)` runs after
+  classifying that keystroke's fields, for *every* `<details>` under
+  `.panel` (top-level groups and the "Spending changes" sub-group nested
+  inside Household spending — `querySelector` looks at all descendants
+  regardless of depth, so an outer group opens correctly whenever its
+  nested sub-group has a match, with no separate ancestor-walk needed). An
+  earlier version only ever recorded/opened a group the first time a match
+  appeared inside it, via an ever-growing `forcedOpen` map — so a group that
+  matched an early, broad keystroke ("age") stayed open through later,
+  narrower ones ("inflation") even once nothing inside it still matched,
+  and groups only ever accumulated open across a revised search. Recomputing
+  every group's state from scratch each keystroke means narrowing the query
+  closes groups again immediately, not just once the box is fully cleared.
+- **The original pre-search state is still snapshotted once**, the moment
+  a search starts (`searchActive` flips false→true), into an `originalOpen`
+  `Map` (`<details>` → its open state right then) — not per-match, so a
+  group's snapshot reflects what it was doing *before the search touched
+  anything*, not whatever state search itself last left it in. Clearing the
+  query restores every snapshotted group to that state and removes
+  `.field-match`/`.field-hidden` from every field, so the sidebar looks
+  exactly as it did before the search began, whether or not the last
+  keystroke had any matches.
 
 ## Default-value field marker (`markDefaultFields`, `.is-default`)
 
@@ -834,6 +858,58 @@ right before doing so, following the same pattern.
   the toast never actually hides even after `hidden` is set — this was
   caught during testing and is easy to reintroduce if the CSS is
   restructured without care.
+
+## Sidebar height (`.panel`'s max-height, `syncPanelMaxHeight`)
+
+`.panel` (the sidebar) is `position:sticky` with a `max-height` so it
+scrolls internally (`overflow-y:auto`) instead of growing past the
+viewport. That `max-height` used to be a pure CSS `calc()` sized only
+against the sticky `top` offset the panel settles into *once scrolled* —
+`calc(100vh - var(--topbar-h) - 44px)`. That undersold how much space is
+actually needed: `.panel`'s natural (pre-scroll) position in the page flow
+sits further down than its eventual stuck position, because the topbar,
+the `.top-disclaimer` banner above it, the Plan Status Bar, and the
+first-run banner (when shown) all stack above `#workspace` first. Since
+`max-height` was sized for the *smaller* stuck-offset case, the sidebar's
+actual rendered box came out taller than the room available before any
+scrolling — its bottom edge sat below the fold, so seeing it required
+scrolling the whole page, not just the sidebar's own internal scroll (the
+`overflow-y:auto` only helps once the box itself already fits on screen).
+
+Fixed with `syncPanelMaxHeight()` (same measure-real-heights-into-a-CSS-var
+pattern as `syncTopbarHeight()`/`syncPlanStatusOffsets()` above): it sums
+the actual `offsetHeight` (+ `margin-bottom`) of `.top-disclaimer`,
+`.topbar`, `#planStatusBar` (only if not `.hidden`), `#firstRunBanner`
+(only if not `[hidden]`), plus `main`'s own top padding, and sets
+`--panel-max-h` to `window.innerHeight` minus that sum minus a small
+margin. `.panel{max-height:var(--panel-max-h, calc(...))}` keeps the old
+formula as a fallback for the first paint frame before any JS has run.
+
+This deliberately measures the *leading elements* rather than `.panel`
+itself: `.panel.getBoundingClientRect().top` would report its already-
+pinned sticky position once scroll has engaged sticky (a fixed, small
+number), not its true natural one — using that would undersize the needed
+margin and reintroduce the overflow the moment the page is scrolled back to
+the top. Summing the fixed elements above it is scroll-position-independent
+by construction.
+
+Call sites: inside `renderPlanStatusBar()` (so every `render()` keeps it
+current, same cadence as `syncPlanStatusOffsets()`), the `resize` listener,
+`dismissFirstRunBanner()` (its own explicit call, since hiding the banner
+frees up space immediately and this needs to reflect that without waiting
+for the next unrelated `render()`), and once at boot. Skipped entirely
+under the 820px mobile breakpoint, where `.panel{position:static;
+max-height:none;overflow-y:visible}` already removes the constraint (the
+whole page scrolls there anyway, by design, per the mobile-tabs section
+above).
+
+The same missing-`--plan-status-h` pattern as the item-2 scroll-margin fix
+elsewhere in this file also applied to `.panel`'s own sticky `top`: it only
+accounted for `--topbar-h`, so once actually stuck the panel could render a
+few pixels *under* the Plan Status Bar rather than cleanly below it. Fixed
+alongside this by adding `+ var(--plan-status-h,0px)` to both the `top` and
+the CSS fallback `max-height` calc(), same as the `.metrics`/
+`#sensitivityCard` fix.
 
 ## Autosave to localStorage (`storage`, `hasPersonalizedData`, `writeStorageNow`)
 

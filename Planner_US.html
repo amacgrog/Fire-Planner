@@ -17,12 +17,12 @@
     .cta-btn{background:linear-gradient(145deg,#fbbf24,#ea580c);border:0;color:#23140b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 3px 10px rgba(234,88,12,.35)}.cta-btn:hover{filter:brightness(1.05)}
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
-    .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
+    .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 22px);max-height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
     .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
     #fieldSearch{flex:1;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 10px;font-size:.82rem;color:var(--ink)}
     #fieldSearch:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     .field-search-count{font-size:.72rem;color:var(--hint);white-space:nowrap;flex-shrink:0}
-    .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}
+    .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}.field.field-hidden,.range-field.field-hidden{display:none}
     .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number],.field input[type=text]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}
     details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
@@ -5872,42 +5872,78 @@
     const input = document.getElementById('fieldSearch'),
       countEl = document.getElementById('fieldSearchCount');
     if (!input) return;
-    const forcedOpen = new Map();
-    function openAncestorDetails(el) {
-      let d = el.closest('details');
-      while (d) {
-        if (!d.open) {
-          if (!forcedOpen.has(d)) forcedOpen.set(d, d.open);
-          d.open = true;
-        }
-        d = d.parentElement ? d.parentElement.closest('details') : null;
-      }
+    // originalOpen is a snapshot of every <details> under .panel (top-level
+    // groups and the "Spending changes" sub-group nested inside Household
+    // spending) taken once, the moment a search *starts* (query goes from
+    // empty to non-empty) — not incrementally per keystroke like an earlier
+    // version of this did. That earlier approach only ever recorded a
+    // group's state the first time a match forced it open, so a group that
+    // picked up a match on an early, broader keystroke stayed force-open
+    // through later, narrower keystrokes even once nothing inside it
+    // mattered — group after group would accumulate open, and it read as
+    // "search pops open everything." Snapshotting once up front and then
+    // deriving every group's open state fresh from its match set on every
+    // keystroke (below) means each keystroke's group state depends only on
+    // that keystroke's matches, not on the search's history, while still
+    // giving us the one true "before the search touched anything" state to
+    // restore to when the box is emptied.
+    let searchActive = false;
+    const originalOpen = new Map();
+    function panelDetails() {
+      return document.querySelectorAll('.panel details');
     }
-    function restoreForcedGroups() {
-      forcedOpen.forEach((wasOpen, details) => {
-        details.open = wasOpen;
-      });
-      forcedOpen.clear();
+    function panelFields() {
+      return document.querySelectorAll('.panel .field, .panel .range-field');
+    }
+    function endSearch() {
+      panelFields().forEach((el) => el.classList.remove('field-match', 'field-hidden'));
+      if (searchActive) {
+        originalOpen.forEach((wasOpen, details) => {
+          details.open = wasOpen;
+        });
+        originalOpen.clear();
+        searchActive = false;
+      }
+      countEl.hidden = true;
     }
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase();
-      document
-        .querySelectorAll('.field-match')
-        .forEach((el) => el.classList.remove('field-match'));
       if (!q) {
-        restoreForcedGroups();
-        countEl.hidden = true;
+        endSearch();
         return;
+      }
+      if (!searchActive) {
+        panelDetails().forEach((d) => {
+          if (!originalOpen.has(d)) originalOpen.set(d, d.open);
+        });
+        searchActive = true;
       }
       let firstMatch = null,
         matches = 0;
-      document.querySelectorAll('.panel .field, .panel .range-field').forEach((fieldEl) => {
-        const label = fieldEl.querySelector('label');
-        if (!label || !label.textContent.toLowerCase().includes(q)) return;
-        fieldEl.classList.add('field-match');
-        matches++;
-        if (!firstMatch) firstMatch = fieldEl;
-        openAncestorDetails(fieldEl);
+      panelFields().forEach((fieldEl) => {
+        const label = fieldEl.querySelector('label'),
+          isMatch = !!label && label.textContent.toLowerCase().includes(q);
+        fieldEl.classList.toggle('field-match', isMatch);
+        // Filters the sidebar down to just the matching fields (rather than
+        // only opening their groups) — with 100+ fields across a couple
+        // dozen groups, opening every group that has *a* match still left
+        // a lot of irrelevant fields to scan past to find the one you
+        // wanted.
+        fieldEl.classList.toggle('field-hidden', !isMatch);
+        if (isMatch) {
+          matches++;
+          if (!firstMatch) firstMatch = fieldEl;
+        }
+      });
+      // A group's open state during search is derived fresh from whether it
+      // currently contains a match — including a group that was already
+      // open before searching, which now collapses too if this keystroke's
+      // query no longer matches anything inside it, consistent with hiding
+      // that same content everywhere else. querySelector() looks at every
+      // descendant regardless of depth, so this also correctly opens an
+      // outer group purely because its nested sub-group has a match.
+      panelDetails().forEach((d) => {
+        d.open = d.querySelector('.field-match') !== null;
       });
       countEl.hidden = false;
       countEl.textContent = matches ? `${matches} match${matches === 1 ? '' : 'es'}` : 'No matches';
@@ -6247,6 +6283,35 @@
       barH + (tabsH ? 10 + tabsH : 0) + 'px',
     );
   }
+  // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
+  // internally rather than growing past the viewport — but its max-height
+  // used to be sized only against the sticky `top` offset it settles into
+  // *once scrolled*, not its natural (pre-scroll) position in the page flow,
+  // which sits further down (below the topbar, the Plan Status Bar, and the
+  // first-run banner when shown). Since that natural position is always
+  // lower than the eventual sticky one, sizing against the sticky offset
+  // alone left the sidebar's rendered box taller than the space actually
+  // available before any scrolling — its bottom edge sat below the fold,
+  // so seeing it required scrolling the whole page (not just the sidebar's
+  // own internal scroll). Measuring the leading elements directly (rather
+  // than `.panel`'s own getBoundingClientRect(), which reports its already-
+  // pinned position once sticky has engaged, not its natural one) keeps
+  // this correct regardless of current scroll position.
+  function syncPanelMaxHeight() {
+    const panel = document.querySelector('.panel');
+    if (!panel || window.innerWidth <= 820) return; // mobile: .panel is position:static, no max-height to size
+    const disclaimer = document.querySelector('.top-disclaimer'),
+      topbar = document.querySelector('.topbar'),
+      bar = document.getElementById('planStatusBar'),
+      banner = document.getElementById('firstRunBanner'),
+      mainEl = document.querySelector('main'),
+      heightOf = (el) =>
+        el && !el.hidden ? el.offsetHeight + (parseFloat(getComputedStyle(el).marginBottom) || 0) : 0,
+      mainPad = mainEl ? parseFloat(getComputedStyle(mainEl).paddingTop) || 0 : 0,
+      naturalTop = heightOf(disclaimer) + heightOf(topbar) + mainPad + heightOf(bar) + heightOf(banner),
+      maxH = Math.max(240, window.innerHeight - naturalTop - 22);
+    document.documentElement.style.setProperty('--panel-max-h', maxH + 'px');
+  }
   // Everything the status bar shows (retirement age, investable assets at
   // retirement, whether the plan depletes) is already computed by every
   // render() call — no extra cost. The one thing that isn't cheap is the
@@ -6303,6 +6368,7 @@
     // forever, with nothing left to actually wait on.
     if (!opts || opts.reschedule !== false) schedulePlanStatusHistRate();
     syncPlanStatusOffsets();
+    syncPanelMaxHeight();
   }
   document.getElementById('planStatusBar').addEventListener('click', () => {
     const bar = document.getElementById('planStatusBar');
@@ -6358,6 +6424,7 @@
   window.addEventListener('resize', () => {
     render();
     syncTopbarHeight();
+    syncPanelMaxHeight();
   });
   // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
   // fields needed to get any projection running at all (single/partnered,
@@ -6483,6 +6550,7 @@
   function dismissFirstRunBanner() {
     document.getElementById('firstRunBanner').hidden = true;
     hasPersonalizedData = true;
+    syncPanelMaxHeight();
   }
   document.querySelector('.panel').addEventListener(
     'input',
@@ -6576,6 +6644,7 @@
   syncContributionControls();
   setMode(mode);
   syncTopbarHeight();
+  syncPanelMaxHeight();
   initChartHover();
 
   // Wide result tables scroll horizontally inside `.table-wrap` on
