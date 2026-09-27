@@ -809,6 +809,26 @@ flow with full-width category headings at desktop widths, collapses to one
 readable column on mobile, Step 1 is visually unaffected (still label+input
 per row, just larger), and there's no horizontal overflow at either width.
 
+**Follow-up fix, same round: Step 2 rendered stacked under Step 1 instead of
+replacing it.** `renderWizardStep()` toggles visibility with the `hidden`
+attribute (`document.getElementById('wizardStep2').hidden = wizardStep !==
+2`), which relies on the browser's UA stylesheet rule `[hidden]{display:
+none}`. The new `#wizardStep2{display:grid;...}` rule added above is an ID
+selector (specificity 1,0,0), which beats that UA attribute-selector rule
+(0,1,0) regardless of source order — so `display:grid` won even while
+`hidden` was set, and both steps rendered at once (Step 2 appended below
+Step 1), on both desktop and mobile. This is the exact same trap called out
+in "Undo toast for Reset and Load scenario" above for `.undo-toast[hidden]`
+— any new rule on an element that's also toggled via the `hidden` attribute
+needs its own `#id[hidden]{display:none}` (or `.class[hidden]{...}`)
+override, since a plain ID/class rule for the visible state doesn't
+automatically defer to `[hidden]` the way relying on the UA default alone
+would have. Fixed with `#wizardStep2[hidden]{display:none}` immediately
+after the `display:grid` rule. Verified with Playwright: `getComputedStyle`
+on both `#wizardStep1`/`#wizardStep2` confirms exactly one is
+`display!=='none'` at a time, in both steps, both files, both desktop and
+mobile widths.
+
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
 These two functions share large near-identical blocks of logic (contribution
