@@ -2148,6 +2148,122 @@ foreground text bleeding through.
   `#reviewNavNext`) re-verified working end-to-end, since it also depends
   on this mobile sticky stack.
 
+## Mobile bug: keyboard still reopening on a slider drag after the DOM-write and dynamic-list fixes — a platform-level focus quirk, fixed by blurring proactively
+
+Real-world feedback after both earlier keyboard-reopen fixes shipped: "mobile
+text fields are still triggering the number pad when the text cursor is
+still in the field, and a slider is manipulated." A comprehensive Playwright
+sweep — every `input[type=range]` in both files (21 sliders in
+`Planner_US.html`), against a focused static `ids` field and a focused
+dynamic-list field, at both desktop and mobile (390px) viewport widths,
+instrumenting the focused field's native `value` setter for spurious writes
+and checking `document.activeElement` after each drag — found **zero**
+remaining writes and **zero** focus loss anywhere. Both previous fixes (the
+`syncControls()`/`attachMoneyPreview` no-op guards, and the dynamic-list
+`render*Fields()` rebuild guards) hold up under this sweep; there is no
+more DOM-mutation-based mechanism left in this file's own code that
+explains the report.
+
+- **Conclusion**: this is very likely a platform-level quirk rather than a
+  remaining app bug — some mobile browsers/WebViews re-evaluate whether to
+  show the on-screen keyboard whenever the page regains "input focus" from
+  a touch gesture, even one aimed at a completely different control,
+  purely because *some* element (the text field the person never
+  explicitly blurred) still technically holds DOM focus. Android's back
+  button dismissing the visual keyboard without calling `.blur()` on the
+  underlying field (documented in the first keyboard-reopen section above)
+  is exactly the kind of state that leaves this quirk able to fire later.
+  This isn't something a DOM-write audit can rule out further — the
+  browser can decide to reopen the keyboard for a focused-but-dismissed
+  field on its own, without our script touching that field at all.
+- **Fix**: rather than continuing to chase a specific write path, address
+  the underlying stale-focus condition directly. A capture-phase
+  `pointerdown` listener on `document` (in both files) checks whether the
+  event target is a range slider and, if so, blurs `document.activeElement`
+  whenever it's a *different* text/number-type input. `pointerdown` (not
+  `input`, which only fires once a drag has already started moving the
+  thumb) fires at the very first touch, before any keyboard-reopen
+  animation the platform might otherwise trigger has a chance to begin. A
+  field with no DOM focus gives the OS keyboard nothing to reopen for,
+  regardless of the exact underlying platform mechanism — and it also
+  matches ordinary expectations for a well-behaved page: touching a slider
+  elsewhere is a clear signal the person's attention has moved on.
+- **Verified**: `npm test`; a syntax check of both files; Playwright —
+  dispatching a real `PointerEvent('pointerdown')` on a slider while a
+  text field is focused blurs it (`document.activeElement` becomes
+  `<body>`); clicking back into the field and typing afterward still works
+  normally (`$600,000` → `$600,009` after appending a digit), confirming
+  the blur doesn't interfere with the field's own subsequent use.
+
+## Estimated-fields guided review was walking `ids` array order, not sidebar visual order
+
+Real-world bug report: "the Next button on the estimated review seems to be
+jumping around a lot instead of going in sequential order of the fields in
+the assumptions menu."
+
+- **Root cause**: `computeCountedEstimateIds()` filtered and returned
+  candidates in `ids`-array order — but per "Sidebar group order" earlier
+  in this file, `ids`' declaration order has never been tied to a field's
+  actual position in the sidebar markup; fields get freely reordered and
+  regrouped across rounds without anyone needing to (or being expected to)
+  keep `ids` in sync, since nothing else in the app depends on that
+  array's order. The guided review was the one consumer that silently
+  *did* depend on it, and nobody had reason to notice until someone
+  actually stepped through it field-by-field on a live sidebar.
+- **Fix**: `computeCountedEstimateIds()` now sorts its filtered candidates
+  with `Node.compareDocumentPosition()` against each field's live DOM
+  position, rather than trusting the array's declaration order. This is
+  self-maintaining — a future sidebar reorder automatically keeps the
+  review in the right order too, with nothing to remember to update in a
+  second place.
+- **A related, pre-existing gap noticed while verifying this (not fixed,
+  out of scope for this round)**: a field can be `ESTIMATE_ALWAYS_IDS`-
+  countable while its own field row is actually hidden by an unrelated
+  toggle — e.g. `rent` is unconditionally counted, but its row is only
+  shown while `tenure === 'rent'`. `jumpToEstimateField()` doesn't
+  currently check for this, so reviewing could land on a field that isn't
+  visually reachable. Worth a future look, but distinct from the ordering
+  bug this round fixes.
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — opened every sidebar group, then repeatedly clicked
+  "Review →"/"Next →" and recorded which field was highlighted after each
+  click; the resulting sequence's `getBoundingClientRect().top` values are
+  monotonically non-decreasing (top-to-bottom, matching visual order)
+  across all visible counted fields in both files.
+
+## Historical/Monte Carlo success-rate boxes moved out of "More results" to live with their chart
+
+Real-world feedback: "the historical success rate result box as well as the
+monte carlo success rate box appear in the 'more results' menu. this is a
+box that only appears when those 2 charts are being viewed. can this box be
+moved outside of the 'more results' dropdown and make it visible whenever
+the historical and monte carlo charts are viewed?"
+
+- **What was wrong**: `#histSuccessCard`/`#mcSuccessCard` (see the "Home-
+  screen redesign, round 2" section above) already correctly toggled their
+  own `.hidden` based on `chartView` inside `renderChartView()` — the JS
+  was never the problem. But their markup lived *inside*
+  `#moreResultsCard`, a `<details>` collapsed by default. So switching the
+  main chart to "Historical (S&P 500)" or "Monte Carlo" correctly un-hid
+  the box, but it stayed invisible anyway unless the person separately
+  expanded "More results" — defeating the point of a box that's supposed
+  to appear automatically the moment its matching chart view is selected.
+- **Fix**: moved both `<div class="metric" id="histSuccessCard">`/
+  `id="mcSuccessCard">` out of `#moreResultsCard` and into `#mainChartCard`
+  itself, right after the chart's own `.chart-note`, in both files. No JS
+  changed — `renderChartView()`'s existing `histCard.hidden = chartView
+  !== 'hist'`/`mcCard.hidden = chartView !== 'mc'` lines work exactly as
+  before, just against a box that's now free to actually render as soon as
+  it's un-hidden, rather than sitting behind a second, unrelated collapse
+  state.
+- **Verified**: `npm test`; a syntax check of both files; a mobile
+  overflow sweep with both chart views selected; Playwright confirming, in
+  both files: neither success card is a descendant of `#moreResultsCard`
+  any more; clicking the "Historical (S&P 500)" chart-view button makes
+  `#histSuccessCard` visible with `#moreResultsCard` still collapsed;
+  switching to "Monte Carlo" shows `#mcSuccessCard` and re-hides
+  `#histSuccessCard`, same as before the move.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

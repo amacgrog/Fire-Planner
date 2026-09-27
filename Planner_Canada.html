@@ -348,8 +348,6 @@
             <div class="metric"><div class="kicker">FI number (25× today's spend)</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small></div>
             <div class="metric"><div class="kicker">FIRE number (25× retirement spend)</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small></div>
             <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
-            <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
-            <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
           </div>
         </details>
 
@@ -367,6 +365,10 @@
           <div id="mcPathCountRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">Paths:</span><div class="chart-view-toggle" role="radiogroup" aria-label="Monte Carlo path count"><button id="mcPaths500Btn" role="radio" aria-checked="false">500</button><button id="mcPaths1000Btn" class="active" role="radio" aria-checked="true">1,000</button><button id="mcPaths2000Btn" role="radio" aria-checked="false">2,000</button></div></div>
           <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Projected total assets by age for three retirement dates"></canvas></div>
           <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartAgeNote">Chart age refers to Partner A.</span><span id="chartViewNote"></span></div>
+          <div class="metrics" style="margin-top:14px">
+            <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
+            <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
+          </div>
         </div>
 
         <details class="result-card" id="sensitivityCard">
@@ -916,15 +918,37 @@
     const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
     return !!group && group.gate();
   }
-  // Returns the currently-counted field ids, in `ids` array order (which is
-  // also the order "Review →" walks them in).
+  // Returns the currently-counted field ids, sorted into the same order
+  // they actually appear in the sidebar (top to bottom) — this is also the
+  // order "Review →"/"Next →" walks them in. Deliberately NOT `ids` array
+  // order: per "Sidebar group order" elsewhere in this file, a field's
+  // position in that array has never been tied to its visual position —
+  // fields get freely reordered/regrouped in the markup across rounds
+  // without anyone needing to (or being expected to) also reorder `ids` to
+  // match, since nothing else depends on that array's order. Real-world
+  // bug report: the guided review "jumping around" instead of progressing
+  // top-to-bottom was exactly this — it had been walking `ids`' own
+  // (unrelated) declaration order the whole time. Sorted here with
+  // `compareDocumentPosition` against each field's live DOM position
+  // instead, so a future sidebar reorder keeps the review in sync
+  // automatically, with nothing to remember to update in two places.
   function computeCountedEstimateIds() {
-    return ids.filter(
-      (id) =>
-        isEstimateCountable(id) &&
-        state[id] === defaults[id] &&
-        !state.dismissedEstimates.includes(id),
-    );
+    return ids
+      .filter(
+        (id) =>
+          isEstimateCountable(id) &&
+          state[id] === defaults[id] &&
+          !state.dismissedEstimates.includes(id),
+      )
+      .sort((a, b) => {
+        const elA = document.getElementById(a),
+          elB = document.getElementById(b);
+        if (!elA || !elB) return 0;
+        const pos = elA.compareDocumentPosition(elB);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      });
   }
   // Single source of truth for dismissing a field, used by both the
   // per-field badge's ✓ button and the guided-review "Next" flow below —
@@ -6068,6 +6092,48 @@
           }
         });
       });
+    },
+    true,
+  );
+  // Real-world bug report, still reproducing on-device after the
+  // syncControls()/attachMoneyPreview/dynamic-list fixes above: focus a
+  // text/money field (opens the on-screen keyboard), then drag a slider
+  // elsewhere on the page while the text field's caret is still sitting in
+  // it (never blurred) — the keyboard pops back up over the field, even
+  // though nothing in this file's own code still writes to that field's
+  // `.value` or rebuilds its DOM node (both were audited and swept with
+  // Playwright across every slider in both files, at both desktop and
+  // mobile widths, with zero spurious writes and no focus loss found). This
+  // points to a platform-level quirk rather than a remaining DOM bug: some
+  // mobile browsers/WebViews re-evaluate whether to show the soft keyboard
+  // whenever the page regains "input focus" from a touch gesture, even one
+  // aimed at a completely different control, as long as some element (here,
+  // the text field the person never explicitly left) still technically has
+  // DOM focus. The fix that's actually within this file's control either
+  // way: explicitly blur the old field ourselves, as early in the gesture
+  // as possible, whenever a slider drag begins elsewhere. A field with no
+  // focus gives the OS keyboard nothing to reopen for, regardless of the
+  // exact underlying platform mechanism, and it also matches how a person
+  // would expect a well-behaved page to react to them starting to interact
+  // with something else. `pointerdown` (not `input`, which only fires once
+  // the drag has already started moving the thumb) is used so the blur
+  // happens at the very first touch, before any keyboard-reopen animation
+  // has a chance to begin.
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== 'range') return;
+      const active = document.activeElement;
+      if (
+        active &&
+        active !== t &&
+        active instanceof HTMLInputElement &&
+        (active.type === 'text' || active.type === 'number') &&
+        typeof active.blur === 'function'
+      ) {
+        active.blur();
+      }
     },
     true,
   );
