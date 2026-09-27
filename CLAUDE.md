@@ -472,22 +472,28 @@ other requires re-deriving the equivalent, not just renaming variables:
   doesn't exist on the other side, a variable name that means something
   slightly different).
 
-## Money-field live preview (`class="money"`, `attachMoneyPreview`/`refreshMoneyPreviews`)
+## Money-field in-field formatting (`class="money"`, `attachMoneyPreview`/`refreshMoneyPreviews`)
 
-A dollar-amount `<input type="number">` cannot display "1,850,000" — the
-browser strips anything that isn't a plain numeral from a number input's
-value — so instead every currency field carries `class="money"` and gets a
-sibling `<small class="money-preview">` inserted right after it, which shows
-the comma/currency-formatted value (via the existing `money()` helper) and
-updates live on `input`. This is a pure display layer: it never touches the
-input's own `value`, the `ids` auto-wiring, `normalizeState()`, or the MCP
-tool schema — nothing about how a field's value is read or stored changes.
-- `attachMoneyPreview(el)` is idempotent: it reuses an existing
-  `.money-preview` sibling if present (so calling it again after a
-  re-render doesn't duplicate the node) and only binds its `input` listener
-  once per element (`el.dataset.moneyBound`), so repeated calls against the
-  same static, persistent input (e.g. every time `syncControls()` runs, on
-  reset/load/import) don't stack duplicate listeners.
+Every dollar-amount field carries `class="money"` and is converted, at
+runtime, from `<input type="number">` to `<input type="text"
+inputmode="decimal">` so it can display a comma/currency-formatted value
+(`"$1,850,000"`) directly in the field itself — a plain number input can't
+show that, since the browser strips anything that isn't a numeral from its
+value. (An earlier version of this feature showed the formatted value in a
+separate read-out below the field instead; that was changed because it put
+the formatting somewhere other than where the person is actually typing.)
+- `attachMoneyPreview(el)` does the type conversion once per element
+  (`el.dataset.moneyBound`, so repeated calls — e.g. every `syncControls()`
+  run, on reset/load/import — don't stack duplicate listeners) and installs
+  an `input` listener that strips non-digits from the current value,
+  reformats it with `Number(...).toLocaleString('en-US')` prefixed with
+  `$`, and restores the caret to the same position *relative to the
+  digits* (counts digits before the caret, reformats, then walks forward
+  that many digits in the new string) so typing or inserting a character
+  mid-value doesn't jump the cursor to the end. It always re-runs the
+  reformat (not just the one-time binding) so a value written to the field
+  by any other code path — `syncControls()`, the wizard proxy, the MCP
+  tool — picks up the `$`-and-commas formatting too.
 - `refreshMoneyPreviews(root)` just runs `attachMoneyPreview` over every
   `input.money` under `root` (defaults to the whole document).
 - **Static sidebar/wizard fields**: bound once, document-wide, at the end of
@@ -499,15 +505,26 @@ tool schema — nothing about how a field's value is read or stored changes.
   so there's no stale-listener risk there — each one calls
   `refreshMoneyPreviews()` scoped to its own container at the end of the
   function, after the fresh `<input>` elements exist in the DOM.
+- **Every parsing call site that reads a `.money` field's `.value` must
+  strip non-digits first** (`e.target.value.replace(/[^0-9]/g, '')`) before
+  `Number(...)`, since the field now holds `"$1,850,000"` rather than a bare
+  number string. This applies to the generic `ids.forEach` listener, the
+  shared loan-field handler, and the three per-row amount handlers
+  (spending tiers, income sources, one-time income). Age/term/rate fields
+  in those same rows are not money-classed and are untouched. The MCP tool
+  (`update_fire_assumptions`) and the wizard proxy fields don't need this —
+  the former sets `state[k] = v` directly rather than parsing DOM text, and
+  the latter dispatches a real `input` event on the mirrored field, which
+  runs through the same listener above.
 - **A new dollar field must do two things**: add `class="money"` to its
-  `<input type="number">`, and make sure whatever re-render path sets/shows
-  that field also runs (or already runs) `refreshMoneyPreviews()` afterward
-  — either the document-wide call in `syncControls()` for a static field, or
-  a scoped call at the end of the relevant dynamic render function. A field
-  added without either will just never get a preview; it won't error.
-- CSS: `.money-preview{grid-column:1/-1;...}` — this relies on `.field`
-  being a 2-column CSS grid (label | input); the preview spans both columns
-  as an extra row directly under the input, right-aligned to match it.
+  `<input type="number">` (it gets swapped to `type="text"` automatically),
+  and strip non-digits at whatever call site reads its value. A field added
+  without the `class` will stay a plain number input and won't format; a
+  parsing site that forgets to strip non-digits will read `NaN` (via
+  `Number("$1,850,000")`) and silently fall back to its `|| 0` default.
+- CSS: `.field input[type=text]` gets the same right-aligned,
+  tabular-numeral styling as `.field input[type=number]`, so a money field
+  looks identical to a plain numeric one once converted.
 
 ## Sidebar group open/closed defaults
 
@@ -563,6 +580,88 @@ narrower, *lasting* per-field version of the one-time `#firstRunBanner`
 (which only flags the page as a whole, once, and disappears on the first
 edit anywhere) — the two aren't related in code and don't need to stay in
 sync with each other.
+
+## Undo toast for Reset and Load scenario (`snapshotForUndo`, `#undoToast`)
+
+Reset and "Load" (on a saved scenario) are the two actions that silently
+discard whatever is currently in `state` with no way back other than
+re-entering it by hand — as opposed to importing a scenario file, which
+only pushes onto the saved-scenarios list (`scenarios.push(...)`) and never
+touches live `state`, so it's already non-destructive and doesn't need
+this. Both call `snapshotForUndo(label)` *before* they overwrite `state`:
+it deep-clones `state` (`JSON.parse(JSON.stringify(state))`) along with
+`mode`/`logScale` into a module-level `undoSnapshot`, then shows
+`#undoToast` (fixed-position bottom-of-screen bar, `#undoToastText` +
+an "Undo" button) with that label and starts a 10-second auto-dismiss
+timer. Clicking the button restores `state`/`mode`/`logScale` from the
+snapshot and re-runs the same `syncControls()` / `syncContributionControls()`
+/ `setMode()` / `render()` / `saveInputs()` sequence the original action
+used, then hides the toast. Reset still keeps its own `confirm()` dialog on
+top of this — the toast is a second, lower-friction safety net, not a
+replacement for the confirmation. A new destructive action that replaces
+the whole `state` object should call `snapshotForUndo('<description>')`
+right before doing so, following the same pattern.
+- `.undo-toast[hidden]{display:none}` matters: without it, the `.undo-toast`
+  class's own `display:flex` (same specificity as the `[hidden]` attribute
+  selector, but from an author stylesheet rather than the UA one) wins and
+  the toast never actually hides even after `hidden` is set — this was
+  caught during testing and is easy to reintroduce if the CSS is
+  restructured without care.
+
+## Mobile swipe between Inputs/Dashboard tabs
+
+At the same <=820px width where `.mobile-tabs` (the Inputs/Dashboard tab
+switcher) appears, a `touchstart`/`touchend` pair on `#workspace` also lets
+a person swipe left (→ Dashboard) or right (→ Inputs) as an alternative to
+tapping the tab buttons. It requires the horizontal distance to clearly
+dominate the vertical one (`abs(dx) >= abs(dy) * 1.4`) and pass a minimum
+55px threshold, so ordinary vertical scrolling is never mistaken for a
+tab-switch swipe. A touch that starts on `input[type="range"]` is ignored
+entirely, since dragging a slider is itself a horizontal gesture on the
+same touch surface and would otherwise fight with the tab swipe. This
+lives right next to the existing `setMobileView`/tab-button wiring (search
+for it in each file) since both control the same `workspace.dataset.mobileView`
+state.
+
+## Accessibility pass
+
+An `axe-core` sweep (light + dark, both files, wizard modal open and closed)
+turned up a few real issues, now fixed — worth knowing about if new UI is
+added:
+- **`--hint` (`#748195` in light mode) failed WCAG AA contrast** against
+  every light-mode background it's used on (callouts, table headers,
+  unselected segmented-control buttons, `.range-note`/`.footer-note` text) —
+  it's `#5c6779` now, which clears 4.5:1 against all of them. Any new light
+  helper/caption text should use `var(--hint)` or `var(--muted)` rather than
+  inventing another one-off gray, since both are now contrast-checked.
+- **`.reset` is a dark-on-dark-topbar button style** (light text, dark
+  transparent-to-dark-hover background) that only works because the topbar
+  itself is always dark (`--topbar-fg`, fixed regardless of theme). It was
+  being reused on `var(--card)` backgrounds elsewhere (the Scenarios panel's
+  Save/Import/Export buttons, the per-scenario Load/Export/Delete row, the
+  wizard modal's Back/Next/Done) where the background actually changes with
+  theme, making the text nearly invisible in light mode. Those now use a new
+  `.btn-card` class (`var(--surface)`/`var(--ink2)`/`var(--surface-border)` —
+  theme-aware) instead. Rule of thumb: `.reset` belongs only on the topbar;
+  anything on `var(--card)` or `var(--surface)` should use `.btn-card`.
+- **Two inline `color:#526174` labels** (the log-scale checkbox label, the
+  Monte-Carlo "Paths:" label) were hardcoded for light mode and became
+  low-contrast in dark mode against the dark card background. Changed to
+  `color:var(--muted)`, which is contrast-checked in both themes. Any new
+  inline `style="color:..."` should use a CSS variable rather than a literal
+  hex, for the same reason.
+- **`.table-wrap` (the scrollable wrapper around wide result tables) had no
+  keyboard access** to its own scroll (WCAG 2.1.1) — a mouse/touch user
+  could scroll it, a keyboard-only user couldn't. Fixed with a
+  `makeTableWrapsFocusable()` call (adds `tabindex="0"`, `role="region"`,
+  and an `aria-label` built from the table's first header cell) run once at
+  load and again via a `MutationObserver` on `document.body`, so tables
+  built later by a render function (scenario comparison, projection table,
+  sensitivity, Roth optimizer) are covered without having to instrument
+  each render function individually.
+- All existing buttons, checkboxes, and charts already carried visible text
+  labels or explicit `aria-label`s — there were no icon-only controls
+  missing an accessible name at the time of this pass.
 
 ## Testing checklist for any change
 

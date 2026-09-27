@@ -7,7 +7,7 @@
   <title>FIRE Planner — Canada</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1320'/%3E%3Cpath d='M32 10c7 10 15 17 15 29 0 10-7 17-15 17S17 49 17 39c0-8 4-14 10-20 0 8 3 12 7 15-1-8 0-15-2-24z' fill='%23f59e0b'/%3E%3Cpath d='M32 35c5 5 7 9 7 13 0 5-3 8-7 8s-7-3-7-8c0-4 2-8 7-13z' fill='%23fde68a'/%3E%3C/svg%3E">
   <style>
-    :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#748195;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320}
+    :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#5c6779;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320}
     :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--green:#4ade80;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff}
     *{box-sizing:border-box}html{font-size:16px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
     button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh}.topbar{background:var(--topbar-fg);color:white;padding:18px clamp(18px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:18px;position:sticky;top:0;z-index:20;box-shadow:0 5px 20px rgba(0,0,0,.16);flex-wrap:wrap}.topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}html,body{overflow-x:hidden;max-width:100%}
@@ -23,7 +23,7 @@
     #fieldSearch:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     .field-search-count{font-size:.72rem;color:var(--hint);white-space:nowrap;flex-shrink:0}
     .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}
-    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.money-preview{grid-column:1/-1;text-align:right;font-size:.7rem;color:var(--hint);margin-top:-4px;font-variant-numeric:tabular-nums}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}
+    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number],.field input[type=text]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}
     details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
     details.group summary::after{content:'▾';font-size:.9rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
@@ -44,7 +44,9 @@
     .decision-answer{margin-top:14px}.decision-answer p{margin:0 0 12px;font-size:.84rem;line-height:1.55;color:var(--ink2)}.decision-answer p b{color:var(--ink)}.decision-answer[hidden]{display:none}
     @media(max-width:520px){.decision-questions{grid-template-columns:1fr}}
     #wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
-    .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
+    .undo-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;align-items:center;gap:14px;background:#1c2734;color:#f3f6fa;border-radius:12px;padding:12px 12px 12px 18px;box-shadow:0 12px 32px rgba(0,0,0,.35);z-index:70;font-size:.85rem}.undo-toast[hidden]{display:none}.undo-toast #undoToastBtn{background:#3b6fe0;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:800;font-size:.82rem;cursor:pointer}.undo-toast #undoToastBtn:hover{background:#4c7ceb}
+    @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
+    .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
     @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:0;background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:10px;z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:80px}}
     @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
@@ -109,12 +111,12 @@
           <p class="range-note">Save the current inputs as a named scenario to compare against others below, or to keep for later. Scenarios live in this browser tab only until you export them — export any scenario you want to keep past this session or carry into a future update, and re-import it any time; missing fields are filled in from current defaults, so older exports keep working.</p>
           <div class="field" style="display:flex;gap:6px;align-items:flex-end">
             <div style="flex:1"><label for="scenarioName">Scenario name</label><input id="scenarioName" type="text" placeholder="e.g. Retire at 55" maxlength="60"></div>
-            <button type="button" id="saveScenarioBtn" class="reset" style="white-space:nowrap">Save current</button>
+            <button type="button" id="saveScenarioBtn" class="btn-card" style="white-space:nowrap">Save current</button>
           </div>
           <div id="scenarioList"></div>
           <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-            <button type="button" id="importScenarioBtn" class="reset">Import scenario file…</button>
-            <button type="button" id="exportAllScenariosBtn" class="reset" hidden>Export all as one file</button>
+            <button type="button" id="importScenarioBtn" class="btn-card">Import scenario file…</button>
+            <button type="button" id="exportAllScenariosBtn" class="btn-card" hidden>Export all as one file</button>
             <input id="importScenarioInput" type="file" accept="application/json,.json" hidden>
           </div>
         </details>
@@ -317,9 +319,9 @@
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.</p></div><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div></div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
             <div class="chart-view-toggle" role="radiogroup" aria-label="Chart comparison view"><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">Real CAGR 0–7%</button><button id="chartViewHistBtn" role="radio" aria-checked="false">Historical (S&P 500)</button><button id="chartViewMcBtn" role="radio" aria-checked="false">Monte Carlo</button></div>
-            <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:#526174;margin:2px 0 12px"><input id="logScaleToggle" type="checkbox">Log scale</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);margin:2px 0 12px"><input id="logScaleToggle" type="checkbox">Log scale</label>
           </div>
-          <div id="mcPathCountRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px"><span style="font-size:.78rem;font-weight:700;color:#526174">Paths:</span><div class="chart-view-toggle" role="radiogroup" aria-label="Monte Carlo path count"><button id="mcPaths500Btn" role="radio" aria-checked="false">500</button><button id="mcPaths1000Btn" class="active" role="radio" aria-checked="true">1,000</button><button id="mcPaths2000Btn" role="radio" aria-checked="false">2,000</button></div></div>
+          <div id="mcPathCountRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">Paths:</span><div class="chart-view-toggle" role="radiogroup" aria-label="Monte Carlo path count"><button id="mcPaths500Btn" role="radio" aria-checked="false">500</button><button id="mcPaths1000Btn" class="active" role="radio" aria-checked="true">1,000</button><button id="mcPaths2000Btn" role="radio" aria-checked="false">2,000</button></div></div>
           <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Projected total assets by age for three retirement dates"></canvas></div>
           <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartAgeNote">Chart age refers to Partner A.</span><span id="chartViewNote"></span></div>
         </div>
@@ -407,13 +409,17 @@
       <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Timeline &amp; income section.</small></label></div>
     </div>
     <div class="wizard-actions">
-      <button type="button" class="reset" id="wizardBackBtn" hidden>Back</button>
+      <button type="button" class="btn-card" id="wizardBackBtn" hidden>Back</button>
       <div style="margin-left:auto;display:flex;gap:8px">
-        <button type="button" class="reset" id="wizardNextBtn">Next</button>
-        <button type="button" class="reset" id="wizardCloseBtn" hidden>Done</button>
+        <button type="button" class="btn-card" id="wizardNextBtn">Next</button>
+        <button type="button" class="btn-card" id="wizardCloseBtn" hidden>Done</button>
       </div>
     </div>
   </div>
+</div>
+<div id="undoToast" class="undo-toast" role="status" hidden>
+  <span id="undoToastText"></span>
+  <button type="button" id="undoToastBtn">Undo</button>
 </div>
 <script>(() => {
   const defaults = {
@@ -685,29 +691,54 @@
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(n || 0);
-  // Dollar-amount <input type="number"> fields (class="money") can't show
-  // "1,850,000" inside the input itself — a number input strips anything
-  // that isn't a plain numeral — so instead we drop a small formatted
-  // read-out right after the field and keep it live on every keystroke.
+  // Dollar-amount fields (class="money") show live comma formatting right
+  // in the field ("$1,850,000") — a plain <input type="number"> can't do
+  // this itself (a number input strips anything that isn't a numeral), so
+  // the first time a field is touched it's switched to type="text" with
+  // inputmode="decimal" (keeps the numeric keypad on mobile) and given an
+  // 'input' listener that reformats on every keystroke, restoring the
+  // caret by counting digits rather than characters, so typing in the
+  // middle of a number doesn't jump the cursor to the end. Every other
+  // piece of code that reads one of these fields' value (the generic `ids`
+  // input handler, the dynamic loan/tier/income-source/one-time-income
+  // handlers) strips non-digits itself before calling Number() on it — see
+  // the "Money-field live formatting" note in CLAUDE.md for the full list.
   // Idempotent: safe to call repeatedly (syncControls() re-sets values on
   // reset/load/import) and safe on freshly-rebuilt dynamic rows (loans,
   // spending tiers, income sources) without double-binding listeners.
   function attachMoneyPreview(el) {
-    let preview = el.nextElementSibling;
-    if (!preview || !preview.classList || !preview.classList.contains('money-preview')) {
-      preview = document.createElement('small');
-      preview.className = 'money-preview';
-      el.insertAdjacentElement('afterend', preview);
-    }
-    const update = () => {
-      const n = Number(el.value);
-      preview.textContent = el.value !== '' && !isNaN(n) && n !== 0 ? money(n) : '';
+    const reformat = (digitsBeforeCaret) => {
+      const digits = el.value.replace(/[^0-9]/g, '');
+      el.value = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
+      if (digitsBeforeCaret == null) return;
+      let count = 0,
+        pos = el.value.length;
+      if (digitsBeforeCaret === 0) {
+        pos = 0;
+      } else {
+        for (let i = 0; i < el.value.length; i++) {
+          if (/[0-9]/.test(el.value[i])) count++;
+          if (count === digitsBeforeCaret) {
+            pos = i + 1;
+            break;
+          }
+        }
+      }
+      el.setSelectionRange(pos, pos);
     };
-    update();
     if (!el.dataset.moneyBound) {
-      el.addEventListener('input', update);
+      el.type = 'text';
+      el.inputMode = 'decimal';
+      el.autocomplete = 'off';
+      el.addEventListener('input', () => {
+        const caret = el.selectionStart;
+        const digitsBeforeCaret =
+          caret == null ? Infinity : el.value.slice(0, caret).replace(/[^0-9]/g, '').length;
+        reformat(digitsBeforeCaret);
+      });
       el.dataset.moneyBound = '1';
     }
+    reformat(null);
   }
   function refreshMoneyPreviews(root) {
     (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
@@ -4460,6 +4491,7 @@
   function loadScenario(id) {
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
+    snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
     state = normalizeState(sc.state);
     syncControls();
     syncContributionControls();
@@ -4542,7 +4574,7 @@
     list.innerHTML = scenarios
       .map(
         (sc) =>
-          `<div style="display:flex;align-items:center;gap:6px;border-top:1px solid #edf1f5;padding:7px 0;font-size:.8rem"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer"><input type="checkbox" data-compare="${sc.id}" ${compareIds.has(sc.id) ? 'checked' : ''}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(sc.name)}">${escapeHtml(sc.name)}</span></label><button type="button" class="reset" data-load="${sc.id}" style="padding:4px 8px">Load</button><button type="button" class="reset" data-export="${sc.id}" style="padding:4px 8px">Export</button><button type="button" class="reset" data-delete="${sc.id}" style="padding:4px 8px">Delete</button></div>`,
+          `<div style="display:flex;align-items:center;gap:6px;border-top:1px solid #edf1f5;padding:7px 0;font-size:.8rem"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer"><input type="checkbox" data-compare="${sc.id}" ${compareIds.has(sc.id) ? 'checked' : ''}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(sc.name)}">${escapeHtml(sc.name)}</span></label><button type="button" class="btn-card" data-load="${sc.id}" style="padding:4px 8px">Load</button><button type="button" class="btn-card" data-export="${sc.id}" style="padding:4px 8px">Export</button><button type="button" class="btn-card" data-delete="${sc.id}" style="padding:4px 8px">Delete</button></div>`,
       )
       .join('');
     list.querySelectorAll('[data-compare]').forEach((el) =>
@@ -4752,7 +4784,7 @@
     document.getElementById('loanFields').innerHTML = state.loans
       .map(
         (l, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:#526174">Loan ${i + 1}</b><div class="field"><label for="loan${i}Principal">Original principal<small>The amount originally borrowed. Used with the loan term below to work out the actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="loan${i}Principal" type="number" class="money" min="0" step="1000" value="${l.principal || 0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" class="money" min="0" step="1000" value="${l.balance || 0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate || 0}"></div><div class="field"><label for="loan${i}Term">Loan term (years)<small>The loan's original term — not how many years you have left. If you've paid extra, the model figures out the real remaining time on its own from your current balance.</small></label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term || 0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" class="money" min="0" step="50" value="${l.extra || 0}"></div></div>`,
+          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:var(--muted)">Loan ${i + 1}</b><div class="field"><label for="loan${i}Principal">Original principal<small>The amount originally borrowed. Used with the loan term below to work out the actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="loan${i}Principal" type="number" class="money" min="0" step="1000" value="${l.principal || 0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" class="money" min="0" step="1000" value="${l.balance || 0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate || 0}"></div><div class="field"><label for="loan${i}Term">Loan term (years)<small>The loan's original term — not how many years you have left. If you've paid extra, the model figures out the real remaining time on its own from your current balance.</small></label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term || 0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" class="money" min="0" step="50" value="${l.extra || 0}"></div></div>`,
       )
       .join('');
     state.loans.forEach((_, i) =>
@@ -4760,7 +4792,11 @@
         document
           .getElementById(`loan${i}${key[0].toUpperCase() + key.slice(1)}`)
           .addEventListener('input', (e) => {
-            state.loans[i][key] = Number(e.target.value) || 0;
+            state.loans[i][key] = Number(
+              e.target.classList.contains('money')
+                ? e.target.value.replace(/[^0-9]/g, '')
+                : e.target.value,
+            ) || 0;
             render();
             saveInputs();
           }),
@@ -4788,7 +4824,7 @@
         saveInputs();
       });
       document.getElementById(`tier${i}Amount`).addEventListener('input', (e) => {
-        state.spendingTiers[i].amount = Number(e.target.value) || 0;
+        state.spendingTiers[i].amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
         render();
         saveInputs();
       });
@@ -4810,7 +4846,7 @@
         saveInputs();
       });
       document.getElementById(`incSrc${i}Amount`).addEventListener('input', (e) => {
-        state.incomeSources[i].amount = Number(e.target.value) || 0;
+        state.incomeSources[i].amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
         render();
         saveInputs();
       });
@@ -4842,7 +4878,7 @@
         saveInputs();
       });
       document.getElementById(`oneTime${i}Amount`).addEventListener('input', (e) => {
-        state.oneTimeIncome[i].amount = Number(e.target.value) || 0;
+        state.oneTimeIncome[i].amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
         render();
         saveInputs();
       });
@@ -4962,7 +4998,9 @@
   }
   ids.forEach((id) =>
     document.getElementById(id).addEventListener('input', (e) => {
-      state[id] = Number(e.target.value) || 0;
+      state[id] = Number(
+        e.target.classList.contains('money') ? e.target.value.replace(/[^0-9]/g, '') : e.target.value,
+      ) || 0;
       if (id === 'ageA') state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
       if (id === 'ageB') state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
       if (id === 'ageA' || id === 'lifeExpectancyA')
@@ -5245,6 +5283,48 @@
     render();
     saveInputs();
   }
+  let undoSnapshot = null;
+  let undoToastTimer = null;
+  function snapshotForUndo(label) {
+    undoSnapshot = {
+      label,
+      state: JSON.parse(JSON.stringify(state)),
+      mode,
+      logScale,
+    };
+    showUndoToast(label);
+  }
+  function showUndoToast(label) {
+    const toast = document.getElementById('undoToast');
+    const text = document.getElementById('undoToastText');
+    if (!toast || !text) return;
+    text.textContent = `${label}. `;
+    toast.hidden = false;
+    clearTimeout(undoToastTimer);
+    undoToastTimer = setTimeout(() => hideUndoToast(), 10000);
+  }
+  function hideUndoToast() {
+    const toast = document.getElementById('undoToast');
+    if (toast) toast.hidden = true;
+    clearTimeout(undoToastTimer);
+    undoSnapshot = null;
+  }
+  const undoToastBtnEl = document.getElementById('undoToastBtn');
+  if (undoToastBtnEl) {
+    undoToastBtnEl.addEventListener('click', () => {
+      if (!undoSnapshot) return;
+      state = undoSnapshot.state;
+      mode = undoSnapshot.mode;
+      logScale = undoSnapshot.logScale;
+      document.getElementById('logScaleToggle').checked = logScale;
+      syncControls();
+      syncContributionControls();
+      setMode(mode);
+      render();
+      saveInputs();
+      hideUndoToast();
+    });
+  }
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (
       !confirm(
@@ -5252,6 +5332,7 @@
       )
     )
       return;
+    snapshotForUndo('Reset to example data');
     state = {
       ...defaults,
       loans: defaults.loans.map((l) => ({ ...l })),
@@ -5487,12 +5568,81 @@
     tabInputs.addEventListener('click', () => setMobileView('inputs'));
     tabDashboard.addEventListener('click', () => setMobileView('dashboard'));
     setMobileView('inputs');
+
+    // Swipe between the Inputs/Dashboard tabs on touch devices, as an
+    // alternative to tapping the tab buttons above. Only active at the
+    // same <=820px width where the tab switcher itself is shown. Ignores
+    // touches that start on a range slider (dragging a slider is a
+    // horizontal gesture too, and shouldn't be mistaken for a page swipe)
+    // or on scrollable text areas; otherwise requires a swipe that's
+    // clearly more horizontal than vertical and past a minimum distance
+    // so ordinary vertical scrolling never triggers a tab change.
+    let touchStartX = null,
+      touchStartY = null,
+      touchStartTarget = null;
+    workspace.addEventListener(
+      'touchstart',
+      (e) => {
+        if (window.innerWidth > 820 || e.touches.length !== 1) {
+          touchStartX = null;
+          return;
+        }
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        touchStartTarget = e.target;
+      },
+      { passive: true },
+    );
+    workspace.addEventListener(
+      'touchend',
+      (e) => {
+        if (touchStartX == null) return;
+        if (touchStartTarget && touchStartTarget.closest('input[type="range"]')) {
+          touchStartX = null;
+          return;
+        }
+        const t = e.changedTouches[0];
+        const dx = t.clientX - touchStartX,
+          dy = t.clientY - touchStartY;
+        touchStartX = null;
+        if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        const currentView = workspace.dataset.mobileView;
+        if (dx < 0 && currentView === 'inputs') setMobileView('dashboard');
+        else if (dx > 0 && currentView === 'dashboard') setMobileView('inputs');
+      },
+      { passive: true },
+    );
   }
   syncControls();
   syncContributionControls();
   setMode(mode);
   syncTopbarHeight();
   initChartHover();
+
+  // Wide result tables scroll horizontally inside `.table-wrap` on
+  // narrower screens; a scrollable region needs to be reachable by
+  // keyboard (WCAG 2.1.1), so every one gets tabindex="0" plus a label,
+  // whether it's in the initial markup or built later by a render
+  // function (scenario comparison, projection table, sensitivity, Roth
+  // optimizer, etc.) — the observer catches those without having to
+  // touch each render function individually.
+  function makeTableWrapsFocusable(root) {
+    (root || document).querySelectorAll('.table-wrap').forEach((el) => {
+      if (el.hasAttribute('tabindex')) return;
+      el.setAttribute('tabindex', '0');
+      if (!el.hasAttribute('role')) el.setAttribute('role', 'region');
+      if (!el.hasAttribute('aria-label')) {
+        const caption = el.querySelector('th')?.textContent?.trim();
+        el.setAttribute('aria-label', caption ? `${caption} table, scrollable` : 'Scrollable table');
+      }
+    });
+  }
+  makeTableWrapsFocusable();
+  new MutationObserver(() => makeTableWrapsFocusable()).observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 
   const mc = document.modelContext;
   if (mc?.registerTool) {
