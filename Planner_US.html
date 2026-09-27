@@ -18,13 +18,18 @@
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
-    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.money-preview{grid-column:1/-1;text-align:right;font-size:.7rem;color:var(--hint);margin-top:-4px;font-variant-numeric:tabular-nums}
-    details.group summary{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
+    .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
+    #fieldSearch{flex:1;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 10px;font-size:.82rem;color:var(--ink)}
+    #fieldSearch:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
+    .field-search-count{font-size:.72rem;color:var(--hint);white-space:nowrap;flex-shrink:0}
+    .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}
+    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.money-preview{grid-column:1/-1;text-align:right;font-size:.7rem;color:var(--hint);margin-top:-4px;font-variant-numeric:tabular-nums}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}
+    details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
-    details.group summary::after{content:'▾';font-size:.85rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
+    details.group summary::after{content:'▾';font-size:.9rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
     details.group:not([open]) summary{margin-bottom:0}
     details.group:not([open]) summary::after{transform:rotate(-90deg)}
-    details.group summary:hover{color:var(--ink2)}
+    details.group summary:hover{color:var(--blue)}
     .range-field{margin:13px 0 17px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue)}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
     .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
@@ -94,6 +99,10 @@
       </div>
       <aside class="panel" aria-label="Projection assumptions">
         <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
+        <div class="field-search-wrap">
+          <input type="search" id="fieldSearch" placeholder="Search fields…" aria-label="Search assumptions">
+          <span id="fieldSearchCount" class="field-search-count" hidden></span>
+        </div>
         <details class="group" open>
           <summary>Scenarios</summary>
           <p class="range-note">Save the current inputs as a named scenario to compare against others below, or to keep for later. Scenarios live in this browser tab only until you export them — export any scenario you want to keep past this session or carry into a future update, and re-import it any time; missing fields are filled in from current defaults, so older exports keep working.</p>
@@ -134,7 +143,7 @@
           <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income</label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
-        <details class="group" open>
+        <details class="group">
           <summary>Retirement contributions</summary>
           <div class="field"><label for="matchA">Partner A employer 401(k) match<small>Percentage of annual pay; modeled as an additional traditional 401(k) contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
           <div class="range-field"><div class="range-head"><label for="k401PctA">Partner A 401(k) contribution</label><span class="range-value" id="k401PctAOut"></span></div><input id="k401PctA" type="range" min="0" max="100" step="1"></div>
@@ -150,7 +159,7 @@
           <div class="range-field" id="megaAField"><div class="range-head"><label for="megaPctA">Partner A mega backdoor Roth</label><span class="range-value" id="megaPctAOut"></span></div><input id="megaPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" id="megaBField"><div class="range-head"><label for="megaPctB">Partner B mega backdoor Roth</label><span class="range-value" id="megaPctBOut"></span></div><input id="megaPctB" type="range" min="0" max="100" step="1"></div>
         </details>
-        <details class="group" open>
+        <details class="group">
           <summary>Pre-retirement healthcare</summary>
           <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer medical plan) — reduces taxable wages just like a 401(k). Fold medications, copays, and other after-tax healthcare costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
@@ -175,7 +184,7 @@
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
         </details>
-        <details class="group" open>
+        <details class="group">
           <summary>Market assumptions</summary>
           <div class="field"><label for="returnRate">Investment return</label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
           <div class="field"><label for="bondReturn">Bond return</label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
@@ -285,7 +294,7 @@
           <div class="field"><label for="rothConvEnabled"><input id="rothConvEnabled" type="checkbox"> Enable Roth conversion ladder<small>Converts traditional balances to Roth each year in the window below, filling ordinary income up to the top of the selected federal bracket — automatically capped short of the ACA subsidy cliff (400% FPL, non-enhanced mode) and the next Medicare IRMAA tier, whichever binds first, so the bracket target is a ceiling rather than a guarantee.</small></label></div>
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
-          <div class="field"><label for="rothConvBracket">Fill to top of federal bracket</label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
+          <div class="field"><label for="rothConvBracket">Fill to top of federal bracket<small>The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it's also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
         </details>
       </aside>
 
@@ -392,7 +401,7 @@
       <div class="field"><label for="wizardTraditional">Current traditional 401(k)/IRA balance</label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardRoth">Current Roth balance</label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardSpending">Annual household spending</label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or health insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
     </div>
     <div id="wizardStep2" hidden>
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Later-life income &amp; costs section.</small></label></div>
@@ -714,6 +723,25 @@
   }
   function refreshMoneyPreviews(root) {
     (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
+  }
+  // The first-run banner flags the whole page as generic example data once,
+  // but gives no lasting per-field cue once dismissed. This puts a small
+  // amber marker (dot + "still the example value" tooltip) in front of the
+  // label of every `ids`-driven field (every plain number/range input the
+  // sidebar auto-wires — see the `ids` array) that still equals its
+  // `defaults` value, so a partially-filled-in wizard or sidebar still shows
+  // what's actually been personalized. Cheap enough to run on every
+  // render() (a straight equality check per field, no simulation involved).
+  function markDefaultFields() {
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const fieldEl = el.closest('.field, .range-field');
+      if (!fieldEl) return;
+      const isDefault = state[id] === defaults[id];
+      fieldEl.classList.toggle('is-default', isDefault);
+      fieldEl.title = isDefault ? 'Still the generic example value' : '';
+    });
   }
   const pct = (n) => (n || 0) / 100;
   const escapeHtml = (s) =>
@@ -3307,6 +3335,7 @@
 
   function render() {
     document.body.classList.toggle('single-person', !!state.singlePerson);
+    markDefaultFields();
     const selected = simulate();
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
@@ -5692,6 +5721,59 @@
     buildPrintReport();
     window.print();
   });
+  // Sidebar field search: highlights every field whose label matches the
+  // query and force-opens whichever <details> group(s) contain it (walking
+  // up through nested details, e.g. the "Spending changes" sub-group inside
+  // "Household spending"). Groups opened only because of a search are
+  // restored to whatever they were before, the moment the query is cleared
+  // — a group already open (or one the person opened themselves mid-search)
+  // is left alone either way.
+  (function setupFieldSearch() {
+    const input = document.getElementById('fieldSearch'),
+      countEl = document.getElementById('fieldSearchCount');
+    if (!input) return;
+    const forcedOpen = new Map();
+    function openAncestorDetails(el) {
+      let d = el.closest('details');
+      while (d) {
+        if (!d.open) {
+          if (!forcedOpen.has(d)) forcedOpen.set(d, d.open);
+          d.open = true;
+        }
+        d = d.parentElement ? d.parentElement.closest('details') : null;
+      }
+    }
+    function restoreForcedGroups() {
+      forcedOpen.forEach((wasOpen, details) => {
+        details.open = wasOpen;
+      });
+      forcedOpen.clear();
+    }
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      document
+        .querySelectorAll('.field-match')
+        .forEach((el) => el.classList.remove('field-match'));
+      if (!q) {
+        restoreForcedGroups();
+        countEl.hidden = true;
+        return;
+      }
+      let firstMatch = null,
+        matches = 0;
+      document.querySelectorAll('.panel .field, .panel .range-field').forEach((fieldEl) => {
+        const label = fieldEl.querySelector('label');
+        if (!label || !label.textContent.toLowerCase().includes(q)) return;
+        fieldEl.classList.add('field-match');
+        matches++;
+        if (!firstMatch) firstMatch = fieldEl;
+        openAncestorDetails(fieldEl);
+      });
+      countEl.hidden = false;
+      countEl.textContent = matches ? `${matches} match${matches === 1 ? '' : 'es'}` : 'No matches';
+      if (firstMatch) firstMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  })();
   document.getElementById('singlePerson').addEventListener('change', (e) => {
     state.singlePerson = e.target.checked;
     syncControls();

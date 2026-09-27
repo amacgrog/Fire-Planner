@@ -509,6 +509,61 @@ tool schema — nothing about how a field's value is read or stored changes.
   being a 2-column CSS grid (label | input); the preview spans both columns
   as an extra row directly under the input, right-aligned to match it.
 
+## Sidebar group open/closed defaults
+
+The `<details class="group">` open/closed default is a deliberate, ongoing
+editorial call, not just whatever a group happened to ship with — see the
+"Sidebar group order" note above for the basic→niche ordering these follow.
+Currently open by default: Scenarios, Tax filing status (US) / Province of
+residence (Canada), State income tax (US only), Timeline, Income, Household
+spending, Assets, Housing, Retirement income & healthcare. Closed by
+default: Retirement contributions, Pre-retirement healthcare, Market
+assumptions, Other loans, Bridge/part-time income, Additional income,
+Survivor planning, Withdrawal & tax strategy — these either have sensible
+defaults that don't need immediate attention, or are opt-in features that
+are off until enabled anyway. When adding a new group, or reconsidering an
+existing one, ask whether a first-time person needs to look at it to get a
+believable projection running (open) or can safely ignore it until they
+want that specific feature (closed) — not whether it fits alphabetically or
+chronologically into the file.
+
+## Sidebar field search (`#fieldSearch`, `setupFieldSearch`)
+
+A search box sits just below the panel title, above every `<details
+class="group">`. It matches against each `.field`/`.range-field`'s
+`<label>` text (case-insensitive substring, including whatever's inside a
+nested `<small>` help blurb, since that's often where the more
+jargon-specific term lives) and, for every match, walks *every* ancestor
+`<details>` open with `openAncestorDetails()` — not just the nearest one —
+because a few fields (the "Spending changes" sub-group) sit inside a
+`<details>` nested inside another `<details>`. Groups it opens are recorded
+in a `forcedOpen` `Map` (element → its open state right before the search
+touched it) so clearing the query (`input.value === ''`) restores each one
+exactly, without needing to know or guess the "correct" default — a group
+already open, or one the person opened themselves mid-search, is recorded
+too but restores to the same open state, so it's a no-op either way. A new
+field needs nothing extra to be searchable as long as it sits inside a real
+`<label>` under a `.field`/`.range-field` wrapper — the search has no field
+allow-list to keep in sync.
+
+## Default-value field marker (`markDefaultFields`, `.is-default`)
+
+Every field in the `ids` array (see "Architecture, per planner file" above)
+gets a small amber dot in front of its label, via `label::before`, whenever
+`state[id] === defaults[id]` — i.e. it's still whatever the wizard/sidebar
+booted with, not something the person actually entered. `markDefaultFields()`
+runs at the top of `render()`, so it's always current without a dedicated
+call site to remember. It intentionally only covers the `ids`-driven
+plain number/range fields, not checkboxes/enums/radio-button-style choices
+(`singlePerson`, `tenure`, `k401Type`, survivor/ACA/LTC toggles, etc.) or the
+dynamic loan/spending-tier/income-source/one-time-income rows — those are
+opt-in features already visually distinguished by their own enabled
+checkbox, so a "still default" dot would be redundant there. This is a
+narrower, *lasting* per-field version of the one-time `#firstRunBanner`
+(which only flags the page as a whole, once, and disappears on the first
+edit anywhere) — the two aren't related in code and don't need to stay in
+sync with each other.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
