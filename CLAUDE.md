@@ -2309,6 +2309,55 @@ a text field."
   rather than the browser's own keyboard-open event, which is the part this
   fix has no control over anyway.
 
+## Slider touch-target and row-spacing pass (accidental-drag mitigation, partial)
+
+Following up on user feedback that "it's pretty easy to mess up slider fields
+when scrolling (clicking anywhere on the bar immediately moves the knob)",
+implemented the two lowest-risk, established mobile-UX recommendations for
+this class of problem:
+
+1. **Larger thumb touch target.** `input[type=range]` (both files) now sets
+   `height:44px` on the element itself (Apple HIG / Material both recommend
+   ≥44×44px / 48×48dp for a draggable control) — Chromium/WebKit/Firefox all
+   keep the visible track thin and vertically center it within that box
+   rather than stretching the track to fill it, so the *visual* size barely
+   changes while the *invisible* touch-sensitive area around the thumb grows
+   substantially. `::-webkit-slider-thumb`/`::-moz-range-thumb` are also
+   explicitly sized to `26px` (up from each browser's own smaller default,
+   typically ~16-20px) so the visible thumb itself is easier to see and grab
+   precisely, not just easier to touch near. Neither change disables native
+   `-webkit-appearance`/`accent-color` styling or requires a custom-drawn
+   track — this is additive sizing on top of the existing native rendering,
+   not a redesign.
+2. **More vertical spacing between slider rows.** `.range-field`'s margin
+   went from `13px 0 17px` to `17px 0 22px` (desktop/base) and gets an
+   additional mobile-only bump to `22px 0 28px` inside the existing
+   `@media(max-width:820px)` block — more breathing room around each slider
+   means a scroll gesture that grazes the sidebar is less likely to land
+   exactly on a slider's row in the first place.
+- **What this does and doesn't fix**: both changes make an *intentional*
+  drag easier and an *accidental* touch less likely to land on a slider at
+  all — but they don't change the fundamental behavior a native
+  `<input type=range>` has always had: any touch that *does* land on the
+  track (accidental or not) still jumps the value to that position
+  immediately, and the browser still has to guess from the initial touch
+  direction whether a touch-and-move was meant as a drag or a page scroll.
+  Fully solving "an accidental touch during scroll changes the slider's
+  value" would need custom JS gesture-disambiguation (only start changing
+  the value once a touch has moved a few pixels and stayed mostly
+  horizontal, rather than committing to a value on `touchstart`) — a
+  materially bigger, riskier change across every slider in both files,
+  deliberately left out of this pass and worth a dedicated follow-up if the
+  smaller mitigations above don't feel like enough in practice.
+- **Verified**: `npm test`; a syntax check of both files; Playwright
+  confirming `input[type=range]`'s rendered box height is `44px` on both
+  desktop and mobile (Inputs tab) in both files, `.range-field`'s computed
+  margin reflects the desktop/mobile values above, a slider still updates
+  its paired `<output>`/state correctly after the CSS change, a mobile
+  screenshot showing no visual regression (thin track, bigger blue thumb,
+  clearly separated rows), and a light+dark mobile overflow sweep in both
+  files with no horizontal scroll.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
