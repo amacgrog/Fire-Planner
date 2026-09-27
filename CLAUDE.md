@@ -243,7 +243,89 @@ Each planner is one big IIFE. The core shape:
   measured while hidden. When adding a new canvas-based result card, no
   extra wiring is needed as long as it's redrawn from `render()` (or a
   `card.open`-gated call inside it) — it'll get sized correctly the moment
-  the Dashboard tab becomes visible, same as the existing charts.
+  the Dashboard tab becomes visible, same as the existing charts. The
+  mobile default is `"dashboard"`, not `"inputs"` — the plan is always
+  fully computed (even on the generic example data, before a real edit),
+  so a mobile visitor sees the actual results first rather than a form.
+  `setMobileView('dashboard')` is also called when the wizard's `Done`
+  button is clicked, for the same reason — "what's visible after the
+  wizard is done" should be the plan, not the form they just filled in.
+  Calling `setMobileView()` is always safe on desktop too (the attribute
+  has no CSS effect there), so call sites don't need to branch on viewport
+  width.
+- **Plan status bar** (`#planStatusBar`, `renderPlanStatusBar()`) — a
+  compact, sticky one-line summary ("Retire 60/55 · $1.1M at retirement ·
+  lasts to 100+ · 94% historical success") that stays pinned to the top of
+  the viewport as the page scrolls, so the model's current answer is never
+  more than a glance away even 400+ lines down a long results page. Lives
+  as a direct child of `<main>`, *before* `#firstRunBanner`/`#decisionCard`
+  — same "outside `#workspace`, visible on both mobile tabs" reasoning as
+  those two (see below), plus it needs `position:sticky` itself, which
+  neither of those two uses.
+  - Most of the line is free: retirement age(s), investable-at-retirement,
+    and depletion age all come from the same `simulate()` call every
+    `render()` already makes. The one expensive piece is the historical
+    success rate (`runHistoricalCycles()`, the same ~70-90-cycle backtest
+    the collapsed "Historical (S&P 500)" chart view uses) — computing that
+    on every keystroke would add real typing lag, so it's **debounced**
+    (`schedulePlanStatusHistRate()`, 500ms idle) rather than computed
+    inline. `render()` calls `renderPlanStatusBar()` unconditionally (cheap
+    parts update immediately); that function re-arms the debounce timer
+    each time *unless* it was itself invoked by the debounce's own callback
+    (`{ reschedule: false }`) — omitting that guard would have the callback
+    immediately reschedule itself and recompute the backtest forever, once
+    every 500ms, with nothing left to actually debounce against. Until the
+    first debounced pass resolves (page load, or right after any edit), the
+    success-rate clause is simply omitted rather than showing a stale or
+    placeholder number.
+  - The "Updated just now" pulse (`#planStatusUpdated.show`, 3s fade) fires
+    whenever the bar's *text* actually changes — comparing against
+    `planStatusLastText`, not against a "did render() run" flag, since
+    render() runs on every keystroke regardless of whether anything the bar
+    shows actually moved (e.g. toggling a checkbox unrelated to retirement
+    math). Because the debounced historical-rate update lands ~500ms after
+    an edit and appends a new clause to the text, it triggers its *own*
+    "Updated just now" pulse, extending visibility a bit past the initial
+    edit's 3s window — this is intentional, not a bug: the number
+    genuinely did just change again.
+  - Clicking the bar switches to the Dashboard tab if currently on Inputs
+    (mobile), then smooth-scrolls to `.metrics` and briefly adds
+    `.flash-highlight` (a blue outline pulse, `.metrics.flash-highlight`)
+    so the click has a visible destination rather than just silently
+    landing somewhere.
+  - **Sticky-stacking gotcha, and the bug it uncovered**: the bar sits
+    above the sidebar's sticky `.panel-title` and (on mobile) the sticky
+    `.mobile-tabs` switcher, so all of them need coordinated `top` offsets
+    or they visually overlap once more than one is simultaneously "stuck."
+    `syncPlanStatusOffsets()` measures the bar's real height into
+    `--plan-status-h` (used by `.mobile-tabs`' own sticky `top`) and the
+    combined bar+tabs stack height into `--mobile-sticky-h` (used by
+    `.panel-title`'s mobile `top` and the scroll-margin on cards a
+    decision-question button scrolls to) — measured rather than
+    hand-guessed, so a future copy or font change that alters either bar's
+    rendered height doesn't quietly reopen the overlap. Building this
+    exposed a real, pre-existing bug: `html,body{overflow-x:hidden}` (added
+    to stop mobile horizontal overflow) forces the browser to compute
+    `overflow-y` as `auto` too — a documented CSS quirk (an element can't
+    have one axis "not visible" and the other "visible"; the visible one
+    gets silently promoted to `auto`) — which makes `<body>` register as a
+    scroll container without actually being a bounded/clipped one (it has
+    no explicit height, so it never visibly scrolls on its own), and that
+    combination broke `position:sticky` for **every** sticky element on the
+    page (topbar, `.panel`, `.panel-title`, `.mobile-tabs` — not just the
+    new bar) under real scrolling, even though it wasn't visually obvious
+    without actually testing a scroll. Confirmed with Playwright: real
+    mouse-wheel scrolling (not `window.scrollTo`, which can mask this) showed
+    every sticky element scrolling away instead of pinning. Fixed by
+    switching to `overflow-x:clip` instead of `overflow-x:hidden` on
+    `html,body` — `clip` suppresses horizontal overflow the same way but,
+    unlike `hidden`/`scroll`/`auto`, never establishes a scroll container in
+    the first place, so it doesn't trigger the pairing quirk. If a future
+    change reintroduces `overflow-x:hidden` (or any `hidden`/`scroll`/`auto`
+    overflow) anywhere between a sticky element and the viewport, re-test
+    sticky behavior with an actual scroll gesture, not just a
+    `scrollWidth > clientWidth` overflow check — the overflow check would
+    have passed the whole time this bug existed.
 - **First-run banner** (`#firstRunBanner`, styled like `.shortfall-banner`
   but with `--blue` instead of `--amber`) and the **"Explore a question"
   menu** (`#decisionCard`) both live as direct children of `<main>`, *before*
@@ -684,6 +766,15 @@ added:
    result. This is the single most common way a wiring bug slips through in
    this codebase (see the `syncControls()` vs. `syncContributionControls()`
    trap above).
+6. If the feature touches anything `position:sticky` (a new sticky bar, a
+   z-index/top-offset change), verify it with an actual scroll gesture —
+   `page.mouse.wheel(x, y)` or an equivalent — and check
+   `getBoundingClientRect()` afterward, not `window.scrollTo()` followed by
+   an overflow check. `scrollWidth > clientWidth` only catches horizontal
+   overflow; it says nothing about whether sticky positioning is actually
+   engaging, which is exactly how the `overflow-x:hidden` sticky-breaking
+   bug (see "Plan status bar" above) went unnoticed through every earlier
+   mobile-width check this session.
 
 ## Commit conventions
 
