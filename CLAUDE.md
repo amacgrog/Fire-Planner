@@ -2518,6 +2518,122 @@ to reach for whenever a fix depends on suppressing a native control's touch
 behavior, with `touch-action` layered on as a declarative hint rather than
 the sole mechanism.
 
+### Conclusive finding: neither `touch-action:none` nor `preventDefault()` actually works here — fixed with a touch-catcher overlay instead
+
+Further on-device testing (same Samsung Galaxy S23 / Android Chrome, same
+remote-debugging workflow) disproved the "lesson" above outright, not just
+refined it. With `touch-action:none` confirmed applied
+(`getComputedStyle(...).touchAction === "none"`) *and* `preventDefault()`
+confirmed genuinely invoked — instrumenting `Event.prototype.preventDefault`
+showed it firing once on `pointerdown` and repeatedly on every
+`pointermove` during a real drag, against an event that itself reported
+`cancelable: true` — the slider still visibly dragged **and** the page
+still scrolled, simultaneously, exactly as before either fix. This rules
+out every explanation short of the real one: on this browser, a native
+`<input type=range>`'s own touch-drag/tap-to-jump is a default action that
+is simply not governed by `touch-action` or cancelable by
+`preventDefault()`, at the API level, at all. No amount of "make sure it's
+*really* being called" debugging was going to close this gap, because the
+gap isn't in this file's own code — both mechanisms were firing exactly as
+documented and the native behavior still won.
+
+**Fix: stop trying to suppress the native default action, and instead make
+sure the real `<input>` never receives the touch that would trigger it.**
+`setupRangeTouchCatchers()` (in both files, runs once at boot) wraps every
+`input[type=range]` in a `<span class="range-touch-wrap">` and inserts an
+absolutely-positioned, transparent `<div class="range-touch-catcher">`
+sibling directly on top of it (`position:absolute;inset:0;z-index:1`),
+storing a direct JS reference to the real input on the catcher element
+(`catcher._rangeInput = input`, a plain property, not a DOM attribute).
+The catcher is `pointer-events:none` by default and flips to
+`pointer-events:auto` only inside `@media(pointer:coarse)` — i.e. only on a
+touch-primary device does the catcher actually sit in the hit-testing path
+at all; on an ordinary mouse-only desktop it's inert and every click goes
+straight through to the real input exactly as before this change (verified:
+`getComputedStyle` shows `pointer-events:none` and `(pointer:coarse)`
+false in a plain desktop-viewport Playwright page with no `hasTouch`).
+
+This is a fundamentally different, and much stronger, kind of fix than the
+previous round: it doesn't ask an API to cancel a default action after the
+fact, it structurally prevents the action's own triggering element from
+ever being touched in the first place. A browser can't run a native
+range-input touch-drag on an element that never received the touch — there
+is no equivalent "but what if the browser ignores this too" risk the way
+there was with `touch-action`/`preventDefault()`, because the mechanism
+being relied on this time (CSS hit-testing via `pointer-events` and
+`z-index`) is not the same category of thing as a default-action
+suppression API; it's just normal DOM layering.
+
+- **The catcher's own `touch-action` is `pan-y`, not `none`.** A plain
+  `<div>` has no native default action worth suppressing (unlike the
+  native range input), so there's nothing to fight: `pan-y` lets the
+  browser's own compositor-thread scrolling handle a vertical gesture
+  entirely natively (smooth, real momentum, zero JS), while still
+  forbidding the catcher's default handling of anything else — so a
+  horizontal drag has no competing native behavior, and the same
+  `valueFromPointerX`/`setSliderValue`/drag-vs-scroll-threshold logic from
+  the earlier round now runs unopposed instead of racing the browser. This
+  also sidesteps the earlier "`touch-action` can't be flipped mid-gesture"
+  problem entirely — it's never flipped, because native scrolling is now
+  doing the *entire* scroll side of the decision, not just the part after
+  JS gives up.
+- **`resolveRangeTarget(e)`** distinguishes the catcher path (`e.target` is
+  a `.range-touch-catcher`, resolved to its `_rangeInput`) from a fallback
+  direct-input path (`e.target` is the real `<input type=range>` itself —
+  an older browser without `pointer` media-feature support, or any gap in
+  a catcher's sizing). The fallback path keeps the previous round's
+  touch-action:none + `preventDefault()` + manual-scroll logic verbatim —
+  belt-and-suspenders, not load-bearing, since the catcher is what actually
+  carries the fix on the device this was validated against.
+- **Mouse must not be silently swallowed on a coarse-pointer device.** CSS
+  `pointer-events` doesn't filter by pointer type — only by whether the
+  *device* matches `(pointer:coarse)` — so a touch-capable device that also
+  has a mouse plugged in (a touchscreen laptop, say) would have mouse
+  clicks land on the now-`pointer-events:auto` catcher too, not the real
+  input underneath. The `pointerdown` handler therefore only gates on
+  `isTouchLike(e)` for the **fallback** (direct-input) path — a mouse there
+  is left untouched, since there's a real native input right there to drag
+  natively. For the **catcher** path, every pointer type is handled
+  (`if (!target.viaCatcher && !isTouchLike(e)) return;` — note the
+  `viaCatcher` short-circuit), since the catcher isn't a form control and
+  has no native fallback behavior of its own to fall back to. This was
+  caught by a Playwright regression, not on-device: a synthetic mouse drag
+  aimed at the real input silently did nothing once the catcher started
+  intercepting mouse events too, on an emulated `hasTouch:true` page.
+- **Testing note**: this design is actually verifiable in headless
+  Playwright, unlike the previous round's fix — `newPage({ hasTouch: true
+  })` makes `(pointer:coarse)` evaluate `true`, so a synthetic
+  `PointerEvent({pointerType:'touch'})` dispatched at the catcher exercises
+  the exact code path a real phone would. This doesn't contradict the
+  "headless can't reproduce native touch-claiming behavior" lesson from the
+  previous round — it's true for exactly the reason that lesson predicts:
+  the fix no longer depends on suppressing a browser's native default
+  action (the thing headless Chromium can't be trusted to model faithfully
+  for a form control), it depends on ordinary CSS hit-testing and DOM
+  event dispatch, which headless Chromium models exactly like any other
+  browser. A `hasTouch:false` desktop-viewport page (no `hasTouch` in
+  `newPage()`) is what verifies the *other* half — that the catcher is
+  inert and mouse behavior is completely unaffected on an ordinary desktop.
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files: a vertical `PointerEvent('touch')` drag on the catcher scrolls the
+  page and leaves the slider's value unchanged; a horizontal one changes
+  the value; a tap with no movement jumps the value to the tapped position;
+  a synthetic mouse drag on a `hasTouch:true` (coarse-pointer) page changes
+  the value via the catcher's own JS handling; a synthetic mouse drag on a
+  plain desktop-viewport (`hasTouch` unset, fine-pointer) page confirms the
+  catcher is `pointer-events:none` and `(pointer:coarse)` doesn't match, so
+  the click reaches the real input exactly as before this feature existed;
+  no horizontal overflow at mobile width in either theme. **Not yet
+  re-verified on the actual S23 this round** — the previous two rounds
+  were each confirmed working via on-device console diagnostics before
+  being disproven by the *next* round of real usage, so treat this as
+  strong-but-not-final until it's been checked on the device the same way:
+  load the branch via `raw.githack.com`, and this time check the visible
+  behavior directly (does an intentional vertical swipe scroll the page
+  cleanly, does an intentional horizontal drag move the slider, does a tap
+  jump the value) rather than console diagnostics, since diagnostics have
+  already served their purpose in root-causing this.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
