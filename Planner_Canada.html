@@ -7,49 +7,54 @@
   <title>FIRE Planner — Canada</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1320'/%3E%3Cpath d='M32 10c7 10 15 17 15 29 0 10-7 17-15 17S17 49 17 39c0-8 4-14 10-20 0 8 3 12 7 15-1-8 0-15-2-24z' fill='%23f59e0b'/%3E%3Cpath d='M32 35c5 5 7 9 7 13 0 5-3 8-7 8s-7-3-7-8c0-4 2-8 7-13z' fill='%23fde68a'/%3E%3C/svg%3E">
   <style>
-    :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#5c6779;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320}
-    :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--green:#4ade80;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff}
+    :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#5c6779;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320;--amber-text:#9a5209}
+    :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--green:#4ade80;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff;--amber-text:#f0a949}
     *{box-sizing:border-box}html{font-size:16px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
     button,input{font:inherit}button{cursor:pointer}.app{min-height:100vh}.topbar{background:var(--topbar-fg);color:white;padding:18px clamp(18px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:18px;position:sticky;top:0;z-index:20;box-shadow:0 5px 20px rgba(0,0,0,.16);flex-wrap:wrap}.topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}html,body{overflow-x:clip;max-width:100%}
     .brand{display:flex;align-items:center;gap:12px}.mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#fbbf24,#ea580c);display:grid;place-items:center;font-weight:900;color:#23140b}.brand h1{font-size:1.08rem;margin:0;letter-spacing:-.02em}.brand small{display:block;color:#aeb9c8;font-size:.76rem;margin-top:1px}
     .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--topbar-fg)}
+    .dollar-mode-dd{position:relative}#dollarModeBtn{font-size:.78rem}.dollar-mode-panel{position:absolute;top:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--surface-border);border-radius:12px;box-shadow:var(--shadow);padding:6px;width:230px;z-index:30}.dollar-mode-panel button{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:8px 9px;color:var(--ink2)}.dollar-mode-panel button:hover{background:var(--surface-hover)}.dollar-mode-panel button small{display:block;color:var(--hint);font-weight:400;font-size:.72rem;line-height:1.3;margin-top:2px}.dollar-mode-panel button .dot{flex:0 0 auto;width:11px;height:11px;border-radius:50%;border:2px solid var(--surface-border);margin-top:3px}.dollar-mode-panel button.active .dot{border-color:var(--blue);background:var(--blue)}
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
     .cta-btn{background:linear-gradient(145deg,#fbbf24,#ea580c);border:0;color:#23140b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 3px 10px rgba(234,88,12,.35)}.cta-btn:hover{filter:brightness(1.05)}
-    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px;display:flex;flex-direction:column}#decisionCard{order:-1}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}
-    #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + 20px)}
-    .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + 22px);max-height:calc(100vh - var(--topbar-h, 82px) - 44px)}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
+    main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}.mobile-header-toggle{display:none}
+    #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
+    .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 22px);max-height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
     .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
     #fieldSearch{flex:1;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 10px;font-size:.82rem;color:var(--ink)}
     #fieldSearch:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     .field-search-count{font-size:.72rem;color:var(--hint);white-space:nowrap;flex-shrink:0}
-    .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}
-    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number],.field input[type=text]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}
+    .field.field-match,.range-field.field-match{background:rgba(37,99,235,.1);border-radius:9px;box-shadow:inset 3px 0 0 var(--blue)}.field.field-hidden,.range-field.field-hidden{display:none}
+    .group{padding:16px 20px;border-bottom:1px solid var(--group-line)}.group:last-child{border:0}.group h3{margin:0 0 12px;color:var(--hint);text-transform:uppercase;letter-spacing:.1em;font-size:.7rem}.field{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:13px;align-items:center;margin:11px 0}.field label{font-size:.84rem;font-weight:650;color:var(--ink2)}.field label small{display:block;color:var(--hint);font-weight:500;line-height:1.3;margin-top:2px}.field input[type=number],.field input[type=text]{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}.field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}.field.is-default label::before,.range-field.is-default label::before{content:'●';color:var(--amber);font-size:.55em;vertical-align:middle;margin-right:5px}.estimate-badge{font-size:.68rem;font-weight:700;color:var(--amber-text);background:rgba(217,119,6,.12);border-radius:999px;padding:1px 3px 1px 8px;margin-left:6px;display:inline-flex;align-items:center;gap:5px;text-transform:none;letter-spacing:normal;cursor:default}.estimate-badge-label{cursor:default}.estimate-dismiss{border:1px solid rgba(217,119,6,.35);background:rgba(217,119,6,.16);color:inherit;cursor:pointer;font-size:.72rem;line-height:1;padding:0;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}.estimate-dismiss:hover,.estimate-dismiss:focus-visible{background:rgba(217,119,6,.32);outline:none}.field.flash-highlight,.range-field.flash-highlight,.callout.flash-highlight{box-shadow:0 0 0 3px var(--blue);border-radius:10px;transition:box-shadow .3s}
+    .review-nav{position:fixed;left:50%;bottom:calc(16px + var(--keyboard-inset,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:999px;padding:7px 8px 7px 16px;z-index:40;font-size:.8rem}.review-nav[hidden]{display:none}.review-nav-count{color:var(--hint);font-weight:700;white-space:nowrap}.review-nav button{border:none;font-family:inherit;cursor:pointer;border-radius:999px;font-weight:800}#reviewNavNext{background:var(--amber-text);color:#fff;padding:8px 15px;font-size:.8rem;white-space:nowrap}#reviewNavClose{background:transparent;color:var(--hint);padding:6px;font-size:.85rem;min-width:30px;min-height:30px}
     details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
     details.group summary::after{content:'▾';font-size:.9rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
     details.group:not([open]) summary{margin-bottom:0}
     details.group:not([open]) summary::after{transform:rotate(-90deg)}
     details.group summary:hover{color:var(--blue)}
-    .range-field{margin:13px 0 17px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue)}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
+    .group-summary-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+    .group-state{font-size:.72rem;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--hint);display:block}
+    .group-state.is-on{color:var(--green)}
+    .range-field{margin:17px 0 22px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue);height:44px;padding:0;box-sizing:border-box;touch-action:none}input[type=range]::-webkit-slider-thumb{width:26px;height:26px}input[type=range]::-moz-range-thumb{width:26px;height:26px;border:none}.range-touch-wrap{position:relative;display:block}.range-touch-catcher{position:absolute;inset:0;z-index:1;touch-action:pan-y;pointer-events:none}@media(pointer:coarse){.range-touch-catcher{pointer-events:auto}}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
-    .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
+    .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + var(--plan-status-h,0px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
     .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:var(--hint)}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
-    .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}
+    .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}#projectionSubToggle[hidden],#mcPathCountRow[hidden]{display:none!important}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}
-    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}.decision-table-wrap{margin-top:12px}.decision-compare-table{min-width:0;width:100%}.decision-compare-table th,.decision-compare-table td{padding:8px 10px;font-size:.76rem}
+    .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.estimated-rollup{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.estimated-rollup b{color:var(--ink2)}.estimated-rollup #reviewEstimatesBtn{border:none;background:transparent;color:var(--amber-text);font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit;padding:0;white-space:nowrap}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}
     .first-run-banner{border-left:3px solid var(--blue);margin-bottom:16px;font-size:.82rem;line-height:1.5}.first-run-banner b{color:var(--ink2)}.first-run-banner button{background:none;border:0;padding:0;margin:0;color:var(--blue);font-weight:800;font-size:inherit;font-family:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.first-run-banner[hidden]{display:none}
     .plan-status-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left;font-family:inherit;border:1px solid var(--line);background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;margin:0 0 16px;position:sticky;top:var(--topbar-h,82px);z-index:14;cursor:pointer}.plan-status-bar:hover{border-color:var(--blue)}.plan-status-text{font-weight:800;font-size:.92rem;color:var(--ink2);letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.plan-status-right{display:flex;align-items:center;gap:8px;flex-shrink:0}.plan-status-updated{font-size:.68rem;font-weight:700;color:var(--green);opacity:0;transition:opacity .4s}.plan-status-updated.show{opacity:1}.plan-status-chevron{color:var(--hint);font-size:.75rem;transition:transform .2s}.plan-status-bar[aria-expanded="true"] .plan-status-chevron{transform:rotate(180deg)}
     .decision-questions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 0}.decision-questions button{text-align:left;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:11px;padding:10px 12px;font-weight:700;font-size:.82rem;line-height:1.3}.decision-questions button:hover{background:var(--surface-hover)}.decision-questions button.active{background:var(--card);border-color:var(--blue);box-shadow:0 2px 7px rgba(15,23,42,.11)}
-    #decisionCard{margin-bottom:22px}
+    #decisionCard{margin:0 0 18px}#decisionCard summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)}#decisionCard summary::-webkit-details-marker{display:none}#decisionCard .caret,#moreResultsCard .caret{font-size:.85rem;color:var(--hint);transition:transform .15s ease}#decisionCard[open] .caret,#moreResultsCard[open] .caret{transform:rotate(180deg)}#decisionCard:not([open]){padding:0;border:none;background:transparent;box-shadow:none}#decisionCard:not([open]) summary{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:11px 18px;font-size:.88rem;box-shadow:var(--shadow)}
     .decision-answer{margin-top:14px}.decision-answer p{margin:0 0 12px;font-size:.84rem;line-height:1.55;color:var(--ink2)}.decision-answer p b{color:var(--ink)}.decision-answer[hidden]{display:none}
     @media(max-width:520px){.decision-questions{grid-template-columns:1fr}}
-    #wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:22px}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}
+    #wizardOverlay{display:none;position:fixed;inset:0;background:rgba(11,19,32,.55);z-index:60;align-items:center;justify-content:center;padding:20px}#wizardOverlay.open{display:flex}#wizardModal{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:22px;position:relative}#wizardModal h2{margin:0 0 8px;font-size:1.1rem;color:var(--ink)}#wizardModal .wizard-actions{display:flex;align-items:center;margin-top:10px}#wizardModal .field{margin-bottom:12px}#wizardXBtn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--surface-border);background:var(--surface);color:var(--hint);font-size:.85rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}#wizardXBtn:hover{background:var(--surface-hover);color:var(--ink2)}
     .undo-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;align-items:center;gap:14px;background:#1c2734;color:#f3f6fa;border-radius:12px;padding:12px 12px 12px 18px;box-shadow:0 12px 32px rgba(0,0,0,.35);z-index:70;font-size:.85rem}.undo-toast[hidden]{display:none}.undo-toast #undoToastBtn{background:#3b6fe0;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:800;font-size:.82rem;cursor:pointer}.undo-toast #undoToastBtn:hover{background:#4c7ceb}
     @media(max-width:520px){.undo-toast{left:16px;right:16px;bottom:16px;transform:none}}
-    .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}
+    .range-note{display:block;color:var(--hint);font-size:.72rem;margin-top:5px}.footer-note{color:var(--hint);font-size:.73rem;margin:16px 2px 0}.footer-note a{color:var(--blue);text-underline-offset:2px}.reset{border:1px solid #405169;background:transparent;color:#dce5ef;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.reset:hover{background:#223247}.btn-card{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700}.btn-card:hover{background:var(--surface-hover)}.save-status{color:#aeb9c8;font-size:.72rem;white-space:nowrap}.top-disclaimer{background:#3a2a0f;border-bottom:1px solid #6b4e1a;color:#f3d38a;font-size:.78rem;padding:8px 16px;text-align:center;line-height:1.4}.top-disclaimer.quiet{padding:5px 16px;font-size:.72rem;opacity:.85}.top-disclaimer .link-btn{background:transparent;border:0;padding:0;margin:0;color:#f3d38a;font-size:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.link-btn{background:transparent;border:0;padding:0;margin:0;color:var(--blue);font-size:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
     @media(max-width:1100px){.workspace{grid-template-columns:360px minmax(0,1fr)}.metrics{grid-template-columns:1fr 1fr}}
-    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{position:sticky;top:var(--mobile-sticky-h,0px);background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible}.plan-status-bar{top:0}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:calc(var(--plan-status-h,0px) + 10px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}#decisionCard{order:0}#workspace[data-mobile-view="inputs"] ~ #decisionCard{display:none}.change-assumptions-btn{display:inline-flex}}
+    @media(max-width:820px){.topbar{position:relative}.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.chart-wrap{height:330px}.panel-title{display:none}.field-search-wrap{position:sticky;top:var(--mobile-sticky-h,0px);background:var(--card);z-index:4}.assumptions{grid-template-columns:1fr}.panel{position:static;max-height:none;overflow-y:visible;overflow-x:clip}.plan-status-bar{top:0;position:sticky;padding:8px 30px 18px 14px;margin:0 0 8px;display:block}.plan-status-text{white-space:normal;overflow:visible;text-overflow:clip;width:100%;display:block;font-size:.8rem;line-height:1.3}.plan-status-right{display:contents}.plan-status-updated{display:block;width:100%;text-align:right;max-height:0;overflow:hidden;margin-top:0;transition:opacity .4s,max-height .3s,margin-top .3s}.plan-status-updated.show{max-height:18px;margin-top:3px}.plan-status-chevron{position:absolute;top:10px;right:10px}.mobile-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;margin:0 0 14px;position:sticky;top:var(--plan-status-h,0px);z-index:15}.mobile-tabs button{flex:1;border:0;background:transparent;color:var(--hint);border-radius:999px;padding:10px 10px;font-weight:800;font-size:.85rem}.mobile-tabs button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.mobile-header-toggle{display:flex;position:fixed;top:calc(var(--plan-status-h,0px) - 4px);right:10px;z-index:20;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);color:var(--ink2);font-size:.9rem;line-height:1;padding:0}body.mobile-header-collapsed .mobile-tabs,body.mobile-header-collapsed .field-search-wrap{display:none}.workspace[data-mobile-view="dashboard"] .panel{display:none}.workspace[data-mobile-view="inputs"] .content{display:none}#sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 40px)}.metrics{scroll-margin-top:calc(var(--mobile-sticky-h,0px) + 20px)}.change-assumptions-btn{display:inline-flex}.range-field{margin:22px 0 28px}}
     @media(max-width:520px){.topbar{align-items:flex-start}.brand small,.save-status{display:none}.view-toggle button{padding:7px 10px}.metrics{grid-template-columns:1fr}.result-card{padding:15px}.result-head{display:block}.legend{justify-content:flex-start;margin-top:10px}.chart-wrap{height:290px}.field{grid-template-columns:minmax(0,1fr) 108px}.chart-view-toggle{flex-wrap:wrap;width:100%}.chart-view-toggle button{flex:1 1 30%}#wizardModal{max-width:100%;width:calc(100% - 24px);max-height:90vh}}
     #printReport{display:none}
     #printReport h1{font-size:1.3rem;margin:0 0 4px}
@@ -71,14 +76,37 @@
       #printReport .pr-proj tr{break-inside:avoid}
       #printReport h2{break-after:avoid}
     }
+    /* Home-screen redesign, round 2: bigger decision-question cards +
+       wizard Step 2 category subheadings. See CLAUDE.md. */
+    .decision-questions button{padding:12px 14px}
+    .decision-questions button .q-title{display:block;font-weight:800;font-size:.86rem;margin-bottom:3px}
+    .decision-questions button .q-desc{display:block;font-weight:500;font-size:.75rem;color:var(--muted);line-height:1.3}
+    .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800;grid-column:1/-1}
+    .wizard-subhead:first-of-type{margin-top:0}
+    /* Wizard readability + Step 2 flow, round 3: the description text under
+       each field/checkbox was sized to match the dense sidebar (.74–.76rem),
+       which reads as too small inside the wider, less-cluttered wizard
+       modal; and Step 2's checkbox-only fields inherited the shared
+       `.field{grid-template-columns:minmax(0,1fr) 116px}` two-column
+       template meant for label+input rows, leaving the second column empty
+       and squeezing every checkbox's label+description into a narrow left
+       strip. Fixed by giving the wizard its own slightly larger type scale
+       and letting Step 2's fields size to content in a 2-column flow
+       instead of stacking one-per-row down the left edge. */
+    #wizardModal label{font-size:.92rem}
+    #wizardModal small{font-size:.82rem;line-height:1.45;margin-top:3px}
+    #wizardStep2{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
+    #wizardStep2[hidden]{display:none}
+    #wizardStep2 .field{grid-template-columns:1fr;margin:8px 0}
+    @media(max-width:600px){#wizardStep2{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 <div class="app">
-  <div class="top-disclaimer">⚠ Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions.</div>
+  <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
     <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V2</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
-    <div class="topbar-actions"><span class="save-status" id="saveStatus">Saved on this device</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="view-toggle" role="radiogroup" aria-label="Dollar view"><button id="realBtn" class="active" role="radio" aria-checked="true">Real $</button><button id="nominalBtn" role="radio" aria-checked="false">Nominal $</button></div></div>
+    <div class="topbar-actions"><span class="save-status" id="saveStatus">Saved on this device</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
     <button type="button" class="plan-status-bar" id="planStatusBar" aria-expanded="false">
@@ -91,6 +119,7 @@
         <button type="button" id="mobileTabInputs" class="active" role="tab" aria-selected="true">Inputs</button>
         <button type="button" id="mobileTabDashboard" role="tab" aria-selected="false">Dashboard</button>
       </div>
+      <button type="button" id="mobileHeaderToggle" class="mobile-header-toggle" aria-expanded="true" aria-label="Hide tabs and search">︿</button>
       <aside class="panel" aria-label="Projection assumptions">
         <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
         <div class="field-search-wrap">
@@ -116,7 +145,7 @@
           <div class="field"><label for="province">Province<small>2026 planning estimate for all 10 provinces; local/municipal taxes and provincial credits beyond the basic personal amount are excluded. Territories are not modeled.</small></label><select id="province"><option value="on">Ontario</option><option value="bc">British Columbia</option><option value="ab">Alberta</option><option value="sk">Saskatchewan</option><option value="mb">Manitoba</option><option value="qc">Quebec</option><option value="nb">New Brunswick</option><option value="ns">Nova Scotia</option><option value="pe">Prince Edward Island</option><option value="nl">Newfoundland and Labrador</option></select></div>
         </details>
         <details class="group" open>
-          <summary>Timeline</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Timeline</span><span class="group-state" id="timelineGroupState"></span></span></summary>
           <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
           <div class="field"><label for="ageA">Partner A starting age</label><input id="ageA" type="number" min="18" max="70" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="lifeExpectancyA">Partner A: plan finances through age</label><span class="range-value" id="lifeExpectancyAOut"></span></div><input id="lifeExpectancyA" type="range" min="50" max="110" step="1"><small class="range-note">Sets how many years the projection runs. Lowering this also lets the historical backtest use more starting years, since fewer years of data are needed to complete a full replay.</small></div>
@@ -126,13 +155,13 @@
           <div class="range-field" data-partner-b><div class="range-head"><label for="retireAgeB">Partner B retirement age</label><span class="range-value" id="retireAgeBOut"></span></div><input id="retireAgeB" type="range" min="18" max="70" step="1"></div>
         </details>
         <details class="group" open>
-          <summary>Income</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Income</span><span class="group-state" id="incomeGroupState"></span></span></summary>
           <div class="range-field"><div class="range-head"><label for="incomeA">Partner A income<small>Gross wages, before tax and before any RRSP contribution — the model calculates payroll and income tax on this figure itself.</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B income<small>Gross wages, before tax and before any RRSP contribution.</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income growth</label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group">
-          <summary>Retirement contributions</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Retirement contributions</span><span class="group-state" id="retireContribGroupState"></span></span></summary>
           <div class="field"><label for="matchA">Partner A employer RRSP match<small>Percentage of annual pay; modeled as an additional RRSP contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
           <div class="range-field"><div class="range-head"><label for="rrspPctA">Partner A RRSP contribution</label><span class="range-value" id="rrspPctAOut"></span></div><input id="rrspPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="tfsaPctA">Partner A TFSA contribution</label><span class="range-value" id="tfsaPctAOut"></span></div><input id="tfsaPctA" type="range" min="0" max="100" step="1"></div>
@@ -141,14 +170,14 @@
           <div class="range-field" data-partner-b><div class="range-head"><label for="tfsaPctB">Partner B TFSA contribution</label><span class="range-value" id="tfsaPctBOut"></span></div><input id="tfsaPctB" type="range" min="0" max="100" step="1"></div>
         </details>
         <details class="group">
-          <summary>Pre-retirement healthcare</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
           <div class="field"><label for="healthPremiumA">Partner A health/dental insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer group benefits plan) — reduces taxable wages. Fold prescriptions, copays, and other after-tax health costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health/dental insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
           <div class="field"><label for="payFrequency">Paycheck frequency</label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
         <details class="group" open>
-          <summary>Household spending</summary>
-          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs not itemized elsewhere: groceries, dining out, utilities, phone/internet, transportation (car payment, gas, insurance, transit), subscriptions, clothing, personal care, entertainment, travel, gifts, and pet care. Excludes mortgage/rent, property tax, home insurance, maintenance, health/dental insurance premiums, long-term care, and retirement saving — those are all tracked separately elsewhere. Provincial healthcare (OHIP/MSP/etc.) is universal and not a cost to budget for here.</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
+          <summary><span class="group-summary-text"><span class="group-title">Household spending</span><span class="group-state" id="spendingGroupState"></span></span></summary>
+          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs: groceries, dining, utilities, transportation, subscriptions, entertainment, travel, and similar. <b>Excludes:</b> housing, health/LTC premiums, and retirement saving — tracked separately elsewhere. Provincial healthcare (OHIP/MSP/etc.) is universal, not a cost to budget for here.</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
           <details class="group" id="spendingTiersGroup" style="padding:12px 0 0;border:0">
             <summary>Spending changes (up to 5)</summary>
             <p class="range-note">Optional: add up to five sequential spending changes, each triggered once Partner A reaches a given age (e.g. mortgage payoff, an empty nest, or slowing down in your 80s). Each new tier fully replaces the household spending figure above once active.</p>
@@ -156,7 +185,7 @@
           </details>
         </details>
         <details class="group" open>
-          <summary>Assets</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Assets</span><span class="group-state" id="assetsGroupState"></span></span></summary>
           <div class="field"><label for="taxable">Taxable brokerage<small>A standard non-registered investment account — outside any RRSP, TFSA, or FHSA.</small></label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost basis<small>Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain.</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
           <div class="field"><label for="traditional">RRSP balance<small>The combined RRSP balance for you (and your partner, if applicable) — one number, not per-account.</small></label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
@@ -166,14 +195,14 @@
           <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
         </details>
         <details class="group">
-          <summary>Market assumptions</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Market assumptions</span><span class="group-state" id="marketGroupState"></span></span></summary>
           <div class="field"><label for="returnRate">Investment return</label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
           <div class="field"><label for="bondReturn">Bond return</label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
           <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
           <div class="field"><label for="inflation">Inflation</label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
         </details>
         <details class="group" open>
-          <summary>Housing</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Housing</span><span class="group-state" id="housingGroupState"></span></span></summary>
           <div class="choice" style="grid-template-columns:1fr 1fr 1fr" role="radiogroup" aria-label="Housing status"><button type="button" id="ownBtn" role="radio" aria-checked="true" class="active">Own</button><button type="button" id="rentBtn" role="radio" aria-checked="false">Rent</button><button type="button" id="buyLaterBtn" role="radio" aria-checked="false">Rent → Buy</button></div>
           <div class="tenure-fields" id="homeValueFields">
             <div class="field"><label for="homeValue" id="homeValueLabel">Real estate value</label><input id="homeValue" type="number" class="money" min="0" step="5000"></div>
@@ -211,7 +240,7 @@
           </div>
         </details>
         <details class="group" open>
-          <summary>Retirement income & healthcare</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Retirement income & healthcare</span><span class="group-state" id="retireIncomeHealthGroupState"></span></span></summary>
           <div class="field"><label for="cppMonthlyA">Partner A CPP / month</label><input id="cppMonthlyA" type="number" class="money" min="0" step="50"></div>
           <div class="field"><label for="cppStartAgeA">Partner A CPP start age<small>60–70; earlier means a reduced benefit, later means an enhanced one</small></label><input id="cppStartAgeA" type="number" min="60" max="70" step="1"></div>
           <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>Defaults to the 2026 maximum (ages 65–74)</small></label><input id="oasMonthlyA" type="number" class="money" min="0" step="25"></div>
@@ -235,7 +264,7 @@
           </div>
         </details>
         <details class="group" id="otherLoansGroup">
-          <summary>Other loans</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Other loans</span><span class="group-state" id="otherLoansGroupState"></span></span></summary>
           <div class="field"><label for="otherLoansEnabled"><input id="otherLoansEnabled" type="checkbox"> Model other loans<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="otherLoansFields">
             <p class="range-note">Add up to five amortizing loans. Payments and remaining balances are included in the projection.</p>
@@ -243,7 +272,7 @@
           </div>
         </details>
         <details class="group" id="bridgeGroup">
-          <summary>Bridge / part-time income</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Bridge / part-time income</span><span class="group-state" id="bridgeGroupState"></span></span></summary>
           <div class="field"><label for="bridgeEnabled"><input id="bridgeEnabled" type="checkbox"> Model bridge / part-time income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="bridgeFields">
             <p class="range-note">Consulting, part-time, or barista-FIRE income earned after leaving full-time work. Taxed as ordinary income with CPP contributions; not eligible for RRSP/TFSA room beyond the usual limits.</p>
@@ -256,7 +285,7 @@
           </div>
         </details>
         <details class="group" id="otherIncomeGroup">
-          <summary>Additional income</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Additional income</span><span class="group-state" id="otherIncomeGroupState"></span></span></summary>
           <div class="field"><label for="otherIncomeEnabled"><input id="otherIncomeEnabled" type="checkbox"> Model additional income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
           <div id="otherIncomeFields">
             <p class="range-note">Optional: up to three recurring household income sources over a chosen age window (e.g. rental income, alimony) taxed as ordinary income attributed to Partner A. Amounts are in today's dollars.</p>
@@ -266,7 +295,7 @@
           </div>
         </details>
         <details class="group" id="survivorGroup">
-          <summary>Survivor planning</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Survivor planning</span><span class="group-state" id="survivorGroupState"></span></span></summary>
           <div class="field"><label for="survivorEnabled"><input id="survivorEnabled" type="checkbox"> Model one partner's death<small>From the chosen age onward: switches to single filing, keeps the greater of the two CPP benefits and the greater of the two OAS benefits (a simplified survivor-benefit swap), drops the deceased partner's pension/LTC/healthcare share, consolidates the RRSP/RRIF balance under the survivor's own minimum-withdrawal schedule, disables pension income splitting (it needs two living spouses), cuts household spending to the percentage below, and settles any "other loans" balance as a lump sum that year — approximating debts being paid from the estate during probate before assets pass to the survivor. The mortgage is untouched, since it's secured by jointly-titled real estate. Intended for a death during retirement; one modeled during a working year may not fully zero out that year's payroll activity.</small></label></div>
           <div id="survivorFields">
             <div class="field"><label for="survivorPartner">Partner who dies first</label><select id="survivorPartner"><option value="A">Partner A</option><option value="B">Partner B</option></select></div>
@@ -275,7 +304,7 @@
           </div>
         </details>
         <details class="group">
-          <summary>Withdrawal & tax strategy</summary>
+          <summary><span class="group-summary-text"><span class="group-title">Withdrawal & tax strategy</span><span class="group-state" id="withdrawalStrategyGroupState"></span></span></summary>
           <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and RRSP proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
           <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Simplified dynamic-spending strategy: instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; toggle on to compare outcomes.</small></label></div>
           <div class="field"><label for="meltdownEnabled"><input id="meltdownEnabled" type="checkbox"> Enable RRSP meltdown ladder<small>Withdraws from RRSP each year in the window below, filling Partner A's taxable income up to the top of the selected federal bracket, then moves the net proceeds to TFSA.</small></label></div>
@@ -289,18 +318,39 @@
       <section class="content" aria-live="polite">
         <div class="callout plan-headline" id="planHeadlineBanner" hidden></div>
         <div class="callout shortfall-banner" id="shortfallBanner" hidden></div>
+        <div class="callout estimated-rollup" id="estimatedRollupBanner" hidden><span><span id="estimatedRollupText"></span> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
-        <div class="metrics">
+        <details class="result-card" id="decisionCard">
+          <summary>💡 What do you want to figure out?<span class="caret" aria-hidden="true">▾</span></summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p>
+          <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
+            <button type="button" data-question="retireTiming"><span class="q-title">Should I retire earlier or later?</span><span class="q-desc">Compare retiring a few years earlier or later.</span></button>
+            <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span></button>
+            <button type="button" data-question="rothLadder"><span class="q-title">Should I do an RRSP meltdown?</span><span class="q-desc">Explore an RRSP meltdown ladder in retirement.</span></button>
+            <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span></button>
+            <button type="button" data-question="ssTiming"><span class="q-title">How does CPP/OAS timing change the picture?</span><span class="q-desc">Compare claiming early vs. later.</span></button>
+            <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span></button>
+            <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
+            <button type="button" data-question="returns"><span class="q-title">What if returns are worse than expected?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
+          </div>
+          <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
+        </details>
+        <div class="metrics metrics-primary">
           <div class="metric"><div class="kicker">Investable at retirement</div><strong id="retireAssets">—</strong><small id="retireAssetsSub"></small></div>
-          <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
+          <div class="metric"><div class="kicker">Retirement age</div><strong id="dashRetireAge">—</strong><small id="dashRetireAgeSub">when both retire</small></div>
           <div class="metric"><div class="kicker">Portfolio lasts to</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
-          <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
-          <div class="metric"><div class="kicker">FI number (25× today's spend)</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small></div>
-          <div class="metric"><div class="kicker">FIRE number (25× retirement spend)</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small></div>
-          <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
-          <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
-          <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
+          <div class="metric"><div class="kicker">Historical success</div><strong id="dashHistSuccess">—</strong><small id="dashHistSuccessSub">Every 1928–2025 starting year</small></div>
         </div>
+        <details class="result-card" id="moreResultsCard">
+          <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)">More results<span class="caret" aria-hidden="true">▾</span></summary>
+          <div class="metrics" style="margin-top:14px">
+            <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
+            <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
+            <div class="metric"><div class="kicker">FI number (25× today's spend)</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small></div>
+            <div class="metric"><div class="kicker">FIRE number (25× retirement spend)</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small></div>
+            <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
+          </div>
+        </details>
 
         <div class="result-card" id="scenarioCompareCard" hidden>
           <div class="result-head"><div><h2>Scenario comparison</h2><p>Key outcomes for "Current" (your live inputs above) and any scenarios checked for comparison in the sidebar.</p></div></div>
@@ -310,12 +360,17 @@
         <div class="result-card" id="mainChartCard">
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.</p></div><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div></div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-            <div class="chart-view-toggle" role="radiogroup" aria-label="Chart comparison view"><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">Real CAGR 0–7%</button><button id="chartViewHistBtn" role="radio" aria-checked="false">Historical (S&P 500)</button><button id="chartViewMcBtn" role="radio" aria-checked="false">Monte Carlo</button></div>
+            <div class="chart-view-toggle" id="chartGroupToggle" role="radiogroup" aria-label="Chart view"><button id="chartGroupProjectionBtn" class="active" role="radio" aria-checked="true">Projection</button><button id="chartGroupHistBtn" role="radio" aria-checked="false">Historical</button><button id="chartGroupMcBtn" role="radio" aria-checked="false">Monte Carlo</button></div>
             <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);margin:2px 0 12px"><input id="logScaleToggle" type="checkbox">Log scale</label>
           </div>
+          <div id="projectionSubToggle" class="chart-view-toggle" role="radiogroup" aria-label="Projection comparison" style="margin:-6px 0 12px"><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">CAGR</button></div>
           <div id="mcPathCountRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">Paths:</span><div class="chart-view-toggle" role="radiogroup" aria-label="Monte Carlo path count"><button id="mcPaths500Btn" role="radio" aria-checked="false">500</button><button id="mcPaths1000Btn" class="active" role="radio" aria-checked="true">1,000</button><button id="mcPaths2000Btn" role="radio" aria-checked="false">2,000</button></div></div>
           <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Projected total assets by age for three retirement dates"></canvas></div>
           <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartAgeNote">Chart age refers to Partner A.</span><span id="chartViewNote"></span></div>
+          <div class="metrics" style="margin-top:14px">
+            <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
+            <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
+          </div>
         </div>
 
         <details class="result-card" id="sensitivityCard">
@@ -360,36 +415,29 @@
         <div class="result-card">
           <div class="result-head"><div><h2>Selected retirement timeline</h2><p>Account balances and housing position at milestone ages.</p></div></div>
           <div class="table-wrap"><table><thead><tr><th id="ageAHead">Partner A age</th><th id="ageBHead">Partner B age</th><th>Status</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Loan balances</th><th>Net assets</th></tr></thead><tbody id="projectionRows"></tbody></table></div>
+        </div>
+
+        <details class="result-card" id="methodologyCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Methodology &amp; assumptions</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, CPP/OAS/healthcare rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>
           <div class="assumptions">
+            <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute to RRSP and TFSA while employed, subject to earned income; in single-person mode, only Partner A's limits and income are used. RRSP contribution room is approximated as 18% of current-year wages up to the 2026 dollar maximum ($33,810); unused room is not tracked or carried forward, a simplification versus real CRA room accumulation. TFSA room is a flat $7,000/year per person (2026), also not tracked cumulatively. Employer RRSP matches are calculated as the selected percentage of each working person's salary and added to the RRSP without reducing take-home pay. Optional bridge/part-time/consulting income (per partner, with its own age window) is taxed as ordinary income with CPP contributions but doesn't add extra RRSP/TFSA room. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded first from any FHSA balance, then by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. In this mode, each partner can also contribute a percentage of wages to an FHSA (First Home Savings Account) up until the purchase year, subject to the real $8,000/year and (non-indexed) $40,000 lifetime per-person caps; contributions are deducted from taxable income like an RRSP contribution, the balance grows tax-free, and at the purchase year it's applied tax-free toward the down payment and closing costs — any leftover rolls tax-free into the TFSA balance (a simplification of the CRA rule that also allows a tax-free RRSP rollover instead). The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The bond reserve is built one projected expense-year at a time and split evenly between taxable and RRSP accounts. An optional RRSP meltdown ladder withdraws from RRSP each year within a chosen age window, solving for the amount that fills Partner A's taxable income up to the top of a selected federal bracket (after any required RRIF minimum), and moves the net proceeds to TFSA (sufficient TFSA room is assumed). CPP, OAS, and pension income offset expenses first; withdrawals then use taxable, RRSP, TFSA, cash, the protected bond reserve, and finally home equity.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Canada requires each spouse to file an individual return, so this model always computes federal + provincial tax per person rather than jointly; pooled taxable and RRSP withdrawals are split 50/50 between partners for tax purposes unless pension splitting reallocates income between them. Capital gains use the standard 50% inclusion rate — half of each modeled brokerage gain is added to ordinary taxable income and taxed at that person's marginal rate, with no separate preferential bracket. CPP and OAS are fully taxable ordinary income for whoever receives them (OAS is also subject to the separate clawback described below). This is still a planning estimate: provincial credits beyond the basic personal amount, dividend tax credits, the high-income federal BPA phase-out, and CPP/QPP-specific rules outside Ontario/BC are not modeled. RRSP funds are assumed split 50/50 between partners, and RRIF minimum withdrawals begin at each partner's own age 71 using the CRA's prescribed factor table. Brokerage withdrawals use the selected cost-basis ratio to estimate the taxable gain portion.</div>
             <div class="callout full"><b>CPP, OAS clawback & healthcare.</b> CPP and OAS each start whenever selected (CPP 60–70, OAS 65–70) and are added in full to that person's taxable income. OAS is separately subject to the federal recovery tax ("clawback"): 15% of net income (including OAS itself) above the 2026 threshold ($95,323), up to the full OAS amount — modeled using the same year's income as a planning-level approximation rather than CRA's actual one-year lookback. Since Canada has universal provincial healthcare (OHIP in Ontario, MSP in BC), the "extra health/dental insurance" figure only represents supplemental private coverage many retirees carry — there's no premium-subsidy or income-tested surcharge system to model the way the US does with ACA/Medicare. Ontario's own health premium (up to $900/year, income-tested) is folded into the Ontario provincial tax estimate instead, since it's collected through the tax return.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested, US CPI inflation, and 10-year US Treasury bond total returns, all from the Damodaran/NYU Stern dataset — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond pool is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond pool only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → RRSP → TFSA and any bond-pool shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, bridge income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
-        </div>
+        </details>
         <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal/provincial tax parameters are held constant in real terms and increase with inflation in nominal projections. EI premiums are not modeled. Sources: TaxTips.ca 2026 federal brackets, TaxTips.ca 2026 Ontario brackets &amp; health premium, TaxTips.ca 2026 BC brackets, CRA 2026 CPP/OAS amounts, CRA OAS recovery tax rules, CRA 2026 RRSP/TFSA limits, CRA FHSA rules &amp; limits, CRA RRIF minimum withdrawal factors, CRA pension income splitting rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
       </section>
-    </div>
-    <div class="result-card" id="decisionCard">
-      <div class="result-head"><div><h2>Explore a question</h2><p>Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p></div></div>
-      <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
-        <button type="button" data-question="retireTiming">Should I retire earlier or later?</button>
-        <button type="button" data-question="buyVsRent">Should I buy or rent?</button>
-        <button type="button" data-question="rothLadder">Should I do an RRSP meltdown?</button>
-        <button type="button" data-question="mortgagePayoff">Should I pay off my mortgage?</button>
-        <button type="button" data-question="ssTiming">How does CPP/OAS timing change the picture?</button>
-        <button type="button" data-question="longevity">What if I live 10 years longer than planned?</button>
-        <button type="button" data-question="sensitivity">What's actually driving my results?</button>
-        <button type="button" data-question="returns">What if returns are worse than expected?</button>
-      </div>
-      <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
     </div>
   </main>
 </div>
 <div id="printReport" aria-hidden="true"></div>
 <div id="wizardOverlay">
   <div id="wizardModal" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+    <button type="button" id="wizardXBtn" aria-label="Close">✕</button>
     <h2 id="wizardTitle">Get started: the basics</h2>
     <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
     <div id="wizardStep1">
@@ -407,12 +455,17 @@
       <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or extra health/dental insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard. Provincial healthcare itself is universal and isn't something to budget for here.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
     </div>
     <div id="wizardStep2" hidden>
+      <h3 class="wizard-subhead">Healthcare</h3>
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
-      <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>Withdraws from your RRSP each year in retirement, filling a tax bracket you choose, and moves the proceeds into your TFSA — a way to pay tax at today's rate instead of on larger RRIF minimums later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
-      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Bridge / part-time income<small>Income from part-time work or consulting during an early-retirement window, before CPP/OAS start. Lives in the Bridge / part-time income section.</small></label></div>
+      <h3 class="wizard-subhead">Income</h3>
+      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Part-time income<small>Income from part-time work or consulting during an early-retirement window, before CPP/OAS start. Lives in the Bridge / part-time income section.</small></label></div>
       <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Recurring income streams (e.g. rental income) or one-time lump sums (e.g. an inheritance) at a chosen age. Lives in the Additional income section.</small></label></div>
-      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
+      <h3 class="wizard-subhead">Taxes &amp; investing</h3>
+      <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>Withdraws from your RRSP each year in retirement, filling a tax bracket you choose, and moves the proceeds into your TFSA — a way to pay tax at today's rate instead of on larger RRIF minimums later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
+      <h3 class="wizard-subhead">Guardrails</h3>
       <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Timeline &amp; income section.</small></label></div>
+      <h3 class="wizard-subhead">Debt</h3>
+      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
     </div>
     <div class="wizard-actions">
       <button type="button" class="btn-card" id="wizardBackBtn" hidden>Back</button>
@@ -426,6 +479,11 @@
 <div id="undoToast" class="undo-toast" role="status" hidden>
   <span id="undoToastText"></span>
   <button type="button" id="undoToastBtn">Undo</button>
+</div>
+<div id="reviewNav" class="review-nav" role="status" hidden>
+  <span class="review-nav-count" id="reviewNavCount"></span>
+  <button type="button" id="reviewNavNext"></button>
+  <button type="button" id="reviewNavClose" aria-label="Exit review">✕</button>
 </div>
 <script>(() => {
   const defaults = {
@@ -492,25 +550,25 @@
     healthPremiumB: 0,
     payFrequency: 'biweekly',
     healthcare: 3000,
-    ltcEnabled: true,
+    ltcEnabled: false,
     ltcYearlyA: 50000,
     ltcAgeA: 82,
     ltcYearlyB: 50000,
     ltcAgeB: 82,
-    pensionSplitEnabled: true,
+    pensionSplitEnabled: false,
     survivorEnabled: false,
     survivorPartner: 'A',
     survivorDeathAge: 85,
     survivorSpendingPct: 75,
-    bridgeEnabled: true,
+    bridgeEnabled: false,
     bridgeIncomeA: 0,
     bridgeStartAgeA: 65,
     bridgeEndAgeA: 70,
     bridgeIncomeB: 0,
     bridgeStartAgeB: 65,
     bridgeEndAgeB: 70,
-    otherIncomeEnabled: true,
-    otherLoansEnabled: true,
+    otherIncomeEnabled: false,
+    otherLoansEnabled: false,
     meltdownEnabled: false,
     meltdownStartAge: 60,
     meltdownEndAge: 70,
@@ -539,10 +597,27 @@
       endAge: 75,
     })),
     oneTimeIncome: Array.from({ length: 3 }, () => ({ enabled: false, age: 65, amount: 0 })),
+    dismissedEstimates: [],
   };
   const storageKey = 'fireCouplePlanner.canadaOffline.v1',
     legacyStorageKey = 'fireCouplePlanner.v3',
-    storage = null,
+    // Feature-detected rather than a bare `window.localStorage` reference:
+    // the property itself can throw (not just return undefined) in some
+    // private-browsing modes, and a browser that exposes the property can
+    // still refuse to actually read/write it (e.g. Safari private mode
+    // historically allowed getItem but threw on setItem). Probing with a
+    // real set/remove up front means every later `storage?.` call site can
+    // stay a simple optional-chain without its own try/catch.
+    storage = (() => {
+      try {
+        const probeKey = '__firePlannerStorageProbe__';
+        window.localStorage.setItem(probeKey, '1');
+        window.localStorage.removeItem(probeKey);
+        return window.localStorage;
+      } catch {
+        return null;
+      }
+    })(),
     SCENARIO_SCHEMA_VERSION = 1;
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
@@ -578,6 +653,7 @@
       ...defaults.oneTimeIncome[i],
       ...(Array.isArray(s.oneTimeIncome) ? s.oneTimeIncome[i] : {}),
     }));
+    s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     return s;
   }
   let state = normalizeState(null),
@@ -585,8 +661,21 @@
     chartView = '3yr',
     logScale = false,
     mcPathCount = 1000,
+    lastProjectionView = '3yr',
     scenarios = [],
     compareIds = new Set();
+  // Which top-level chart "view" a given chartView value belongs to — the
+  // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
+  // three projection sub-views (3yr/1yr/cagr) under one button, and
+  // lastProjectionView remembers which sub-view to restore when clicking
+  // back into "Projection" from Historical/Monte Carlo.
+  const CHART_GROUPS = { '3yr': 'projection', '1yr': 'projection', cagr: 'projection', hist: 'hist', mc: 'mc' };
+  // Theme isn't part of state or scenarios (it's a display preference, not
+  // a financial input) and, unlike state/mode below, is deliberately not
+  // persisted — it just starts from the OS/browser preference each time the
+  // page loads, so it always reflects whatever the person's system is set
+  // to right now rather than freezing whatever it happened to be at last
+  // save.
   let theme =
     window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
@@ -597,12 +686,32 @@
     if (btn) btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
     render();
   }
+  // Whether a real, previously-saved plan was found in this browser at
+  // boot — used below to skip showing the first-run banner (there's
+  // nothing "first-run" about a returning visitor whose numbers just
+  // loaded back in).
+  let hadSavedState = false;
   try {
     storage?.removeItem(legacyStorageKey);
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
-    if (saved?.state) state = normalizeState(saved.state);
+    if (saved?.state) {
+      state = normalizeState(saved.state);
+      hadSavedState = true;
+    }
     if (['real', 'nominal'].includes(saved?.mode)) mode = saved.mode;
   } catch {}
+  // Whether it's OK to actually persist `state` yet. Starts equal to
+  // `hadSavedState` (a returning visitor's data is already "personalized")
+  // and flips to true the moment `dismissFirstRunBanner()` runs for real —
+  // i.e. the same signals that mean this isn't the generic example data
+  // anymore (a real sidebar edit, opening the wizard, or importing a
+  // scenario). Without this guard, `setMode(mode)` at boot would call
+  // `saveInputs()` unconditionally, silently writing the untouched generic
+  // example data to storage within a couple hundred milliseconds of every
+  // first visit — which would then make the *next* reload look like a
+  // returning visitor with "real" data, hiding the first-run banner for
+  // someone who never actually entered anything.
+  let hasPersonalizedData = hadSavedState;
   const ids = [
     'ageA',
     'ageB',
@@ -715,7 +824,21 @@
   function attachMoneyPreview(el) {
     const reformat = (digitsBeforeCaret) => {
       const digits = el.value.replace(/[^0-9]/g, '');
-      el.value = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
+      const formatted = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
+      // Skip the write when the field is already showing the correctly
+      // formatted string — a plain reassignment (even to an identical
+      // string) collapses the caret to the end and, on some mobile
+      // browsers, can re-show the on-screen keyboard for a field that's
+      // still focused but whose keyboard was just dismissed (e.g. via the
+      // Android back button). refreshMoneyPreviews() (called from
+      // syncControls(), on every render of a dynamic loan/tier/income row,
+      // etc.) re-runs this on every money field unconditionally, so this
+      // guard is what keeps those routine resyncs from nudging a field the
+      // user has already backed out of. Real typing always differs from
+      // `formatted` pre-write (the browser just inserted a raw, unformatted
+      // character), so this never skips an actual edit.
+      if (formatted === el.value) return;
+      el.value = formatted;
       if (digitsBeforeCaret == null) return;
       let count = 0,
         pos = el.value.length;
@@ -767,6 +890,398 @@
       fieldEl.classList.toggle('is-default', isDefault);
       fieldEl.title = isDefault ? 'Still the generic example value' : '';
     });
+  }
+  // "Still estimated" badges + dashboard rollup + guided review nav. A field
+  // is "counted" when it's personal (not a pure modeling assumption like
+  // returnRate/inflation, which keep only the quiet `.is-default` dot
+  // above), its gating feature (if any) is currently on, it's still at its
+  // default value, and the person hasn't explicitly dismissed it. See the
+  // "estimated field badges" note in CLAUDE.md for the full design.
+  const ESTIMATE_ALWAYS_IDS = [
+    'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB',
+    'rrspPctA', 'rrspPctB', 'tfsaPctA', 'tfsaPctB', 'spending', 'taxable', 'basisRatio',
+    'traditional', 'roth', 'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
+    'mortgageRate', 'mortgageYears', 'extraPrincipal', 'maintenance', 'propertyTax',
+    'homeInsurance', 'rent', 'cppMonthlyA', 'cppStartAgeA', 'cppMonthlyB', 'cppStartAgeB',
+    'oasMonthlyA', 'oasStartAgeA', 'oasMonthlyB', 'oasStartAgeB', 'pensionYearlyA',
+    'pensionStartAgeA', 'pensionYearlyB', 'pensionStartAgeB', 'healthPremiumA', 'healthPremiumB',
+    'healthcare', 'fhsa', 'fhsaPctA', 'fhsaPctB',
+  ];
+  const ESTIMATE_GATED_GROUPS = [
+    {
+      ids: [
+        'bridgeIncomeA', 'bridgeStartAgeA', 'bridgeEndAgeA',
+        'bridgeIncomeB', 'bridgeStartAgeB', 'bridgeEndAgeB',
+      ],
+      gate: () => !!state.bridgeEnabled,
+    },
+    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
+    { ids: ['meltdownStartAge', 'meltdownEndAge'], gate: () => !!state.meltdownEnabled },
+    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
+    {
+      ids: ['buyAge', 'buyDownPct', 'buyClosingPct', 'buyTerm', 'buyExtraPrincipal'],
+      gate: () => state.tenure === 'rentThenBuy',
+    },
+  ];
+  function isEstimateCountable(id) {
+    if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
+    const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
+    return !!group && group.gate();
+  }
+  // Returns the currently-counted field ids, sorted into the same order
+  // they actually appear in the sidebar (top to bottom) — this is also the
+  // order "Review →"/"Next →" walks them in. Deliberately NOT `ids` array
+  // order: per "Sidebar group order" elsewhere in this file, a field's
+  // position in that array has never been tied to its visual position —
+  // fields get freely reordered/regrouped in the markup across rounds
+  // without anyone needing to (or being expected to) also reorder `ids` to
+  // match, since nothing else depends on that array's order. Real-world
+  // bug report: the guided review "jumping around" instead of progressing
+  // top-to-bottom was exactly this — it had been walking `ids`' own
+  // (unrelated) declaration order the whole time. Sorted here with
+  // `compareDocumentPosition` against each field's live DOM position
+  // instead, so a future sidebar reorder keeps the review in sync
+  // automatically, with nothing to remember to update in two places.
+  function computeCountedEstimateIds() {
+    return ids
+      .filter(
+        (id) =>
+          isEstimateCountable(id) &&
+          state[id] === defaults[id] &&
+          !state.dismissedEstimates.includes(id),
+      )
+      .sort((a, b) => {
+        const elA = document.getElementById(a),
+          elB = document.getElementById(b);
+        if (!elA || !elB) return 0;
+        const pos = elA.compareDocumentPosition(elB);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      });
+  }
+  // Single source of truth for dismissing a field, used by both the
+  // per-field badge's ✓ button and the guided-review "Next" flow below —
+  // never duplicate the push/persist logic at a second call site.
+  function dismissEstimateField(id) {
+    if (id && !state.dismissedEstimates.includes(id)) {
+      state.dismissedEstimates.push(id);
+      dismissFirstRunBanner();
+      saveInputs();
+      return true;
+    }
+    return false;
+  }
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.estimate-dismiss');
+    if (!btn) return;
+    // The button lives inside the field's <label for="...">, so a native
+    // click here would also trigger the browser's "activate the label's
+    // associated control" default action — refocusing/reselecting the very
+    // field being dismissed, right after we've moved focus elsewhere (e.g.
+    // during Review-mode auto-advance). Suppress that.
+    e.preventDefault();
+    if (dismissEstimateField(btn.dataset.field)) render();
+  });
+  function renderEstimateBadges(countedIds) {
+    const countedSet = new Set(countedIds);
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const label = document.querySelector(`label[for="${id}"]`);
+      if (!label) return;
+      let badge = label.querySelector('.estimate-badge');
+      if (countedSet.has(id)) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'estimate-badge';
+          // The "Estimated" text itself is inert (cursor:default, see CSS) —
+          // only the ✓ circle is a real button — but the two used to read as
+          // one uniform tappable pill, which made people unsure whether
+          // tapping the word "Estimated" itself would dismiss the field.
+          // Splitting them into a plain label span plus a visually distinct,
+          // larger circular button (its own tinted background/border) makes
+          // the actual tap target unambiguous.
+          badge.innerHTML =
+            '<span class="estimate-badge-label">Estimated</span><button type="button" class="estimate-dismiss" aria-label="This looks right, stop flagging it" title="This looks right — stop flagging it">✓</button>';
+          badge.querySelector('.estimate-dismiss').dataset.field = id;
+          const small = label.querySelector('small');
+          if (small) label.insertBefore(badge, small);
+          else label.appendChild(badge);
+        }
+      } else if (badge) {
+        badge.remove();
+      }
+    });
+  }
+  // "Review →"/"Next →": which field id is currently the guided-review
+  // target, so render() can tell when it stops being counted (edited away
+  // from default, or dismissed) and auto-advance to whatever's next. null
+  // means no review is in progress.
+  let reviewingFieldId = null;
+  function jumpToEstimateField(id) {
+    reviewingFieldId = id;
+    const el = document.getElementById(id);
+    if (!el) return;
+    setMobileView('inputs');
+    const group = el.closest('details.group');
+    if (group && !group.open) group.open = true;
+    const fieldEl = el.closest('.field, .range-field') || el;
+    if (fieldEl) {
+      fieldEl.classList.add('flash-highlight');
+      // Long enough to still be visible after the smooth scroll below has
+      // settled and the person has had a moment to actually look at the
+      // field — 1.2s was disappearing almost as soon as it landed.
+      setTimeout(() => fieldEl.classList.remove('flash-highlight'), 2600);
+    }
+    // Land the field in the upper third of the visible viewport, not dead
+    // center — center often pushed a field's own <small> descriptor (which
+    // can run several lines) past the bottom edge of the screen. Computed
+    // manually (rather than scrollIntoView's block option, which only
+    // offers 'start'/'center'/'end'/'nearest') after giving the group-open
+    // and mobile-tab-switch layout changes above a frame to settle.
+    requestAnimationFrame(() => {
+      const isMobile = window.matchMedia('(max-width:820px)').matches;
+      const scrollEl = isMobile ? null : document.querySelector('.panel');
+      const rect = fieldEl.getBoundingClientRect();
+      const viewportH = isMobile ? window.innerHeight : (scrollEl ? scrollEl.clientHeight : window.innerHeight);
+      const targetTop = viewportH * 0.3;
+      const delta = rect.top - targetTop;
+      if (isMobile || !scrollEl) window.scrollBy({ top: delta, behavior: 'smooth' });
+      else scrollEl.scrollBy({ top: delta, behavior: 'smooth' });
+    });
+    el.focus({ preventScroll: true });
+  }
+  function renderEstimatedRollup(countedIds) {
+    const banner = document.getElementById('estimatedRollupBanner');
+    const textEl = document.getElementById('estimatedRollupText');
+    if (banner && textEl) {
+      if (countedIds.length === 0) {
+        banner.hidden = true;
+        if (reviewingFieldId !== null) reviewingFieldId = null;
+      } else {
+        banner.hidden = false;
+        textEl.innerHTML = `<b>${countedIds.length}</b> of your numbers ${countedIds.length === 1 ? 'is' : 'are'} still estimated`;
+        // Auto-advance: if we're mid-review and the field being reviewed
+        // just stopped being counted (edited away from default, or
+        // dismissed via "Next" below), jump to whatever's now first, if
+        // anything remains.
+        if (reviewingFieldId !== null && !countedIds.includes(reviewingFieldId)) {
+          jumpToEstimateField(countedIds[0]);
+        }
+        // Once a review is in progress and the field it's on is still
+        // counted, the button reads "Next" instead of "Review" — same
+        // click target, but now dismisses the current field and advances,
+        // rather than just re-jumping to the first one again.
+        const btn = document.getElementById('reviewEstimatesBtn');
+        if (btn) btn.textContent = reviewingFieldId !== null && countedIds.includes(reviewingFieldId) ? 'Next →' : 'Review →';
+      }
+    }
+    syncReviewNav();
+  }
+  // Floating "Next →" pill (`#reviewNav`), fixed to the viewport regardless
+  // of which mobile tab is active. The guided review's own trigger
+  // (`#reviewEstimatesBtn`) lives inside `#estimatedRollupBanner`, which is
+  // part of `.content` — the Dashboard-tab-only half of the page on mobile.
+  // jumpToEstimateField() switches to the Inputs tab to show the field,
+  // which is exactly what hides that trigger button, leaving no way to
+  // continue the review without manually flipping back to Dashboard first.
+  // This floating control mirrors the same action and stays visible on
+  // both tabs (and both viewport widths) for as long as a review is
+  // actually in progress.
+  function syncReviewNav() {
+    const nav = document.getElementById('reviewNav');
+    if (!nav) return;
+    const countedIds = computeCountedEstimateIds();
+    if (reviewingFieldId === null || !countedIds.includes(reviewingFieldId)) {
+      nav.hidden = true;
+      return;
+    }
+    nav.hidden = false;
+    document.getElementById('reviewNavCount').textContent =
+      `${countedIds.length} ${countedIds.length === 1 ? 'field' : 'fields'} left`;
+    document.getElementById('reviewNavNext').textContent = countedIds.length === 1 ? 'Done ✓' : 'Next →';
+  }
+  // Shared by both the rollup banner's button and the floating nav's
+  // button — same action, same state, two entry points (one per mobile
+  // tab) so the review flow is reachable no matter which side is showing.
+  function advanceReview() {
+    const countedIds = computeCountedEstimateIds();
+    if (!countedIds.length) return;
+    if (reviewingFieldId !== null && countedIds.includes(reviewingFieldId)) {
+      // "Next" now also confirms-and-dismisses the field it's leaving —
+      // render()'s own auto-advance (inside renderEstimatedRollup, above)
+      // notices reviewingFieldId just dropped out of the counted set and
+      // jumps to whatever's next on its own.
+      dismissEstimateField(reviewingFieldId);
+      render();
+    } else {
+      jumpToEstimateField(countedIds[0]);
+      // A plain first jump doesn't itself change any state, so nothing
+      // else triggers a render() to refresh the label/nav — do it directly.
+      renderEstimatedRollup(computeCountedEstimateIds());
+    }
+  }
+  document.getElementById('reviewEstimatesBtn')?.addEventListener('click', advanceReview);
+  document.getElementById('reviewNavNext')?.addEventListener('click', advanceReview);
+  document.getElementById('reviewNavClose')?.addEventListener('click', () => {
+    reviewingFieldId = null;
+    renderEstimatedRollup(computeCountedEstimateIds());
+  });
+  // Cheap, string-only sidebar group summaries — no simulate() calls, just
+  // formatting already-live `state`. Called from the top of render(),
+  // alongside markDefaultFields(). "Always-on" groups always get plain
+  // text (never blank); "hide-when-off" groups get a '✓ ...' string (and
+  // the .is-on accent class) when their feature flag is on, or an empty
+  // string when it's off.
+  function renderGroupSummaries() {
+    const setGroupState = (id, text, isOn) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text || '';
+      el.classList.toggle('is-on', !!isOn);
+    };
+    const freqPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+
+    // Timeline: retirement ages + life expectancy.
+    const retireText = state.singlePerson || state.retireAgeA === state.retireAgeB
+      ? `Retire ${state.retireAgeA}`
+      : `Retire ${state.retireAgeA}/${state.retireAgeB}`;
+    const planToText = state.singlePerson || state.lifeExpectancyA === state.lifeExpectancyB
+      ? `plan to ${state.lifeExpectancyA}`
+      : `plan to ${state.lifeExpectancyA}/${state.lifeExpectancyB}`;
+    setGroupState('timelineGroupState', `${retireText} · ${planToText}`);
+
+    // Income: partner income(s) + income growth rate.
+    const incomeText = state.singlePerson
+      ? `${compact(state.incomeA)}/yr`
+      : state.incomeA === state.incomeB
+        ? `${compact(state.incomeA)} each`
+        : `${compact(state.incomeA)} + ${compact(state.incomeB)}`;
+    setGroupState('incomeGroupState', `${incomeText} · ${state.incomeGrowth}%/yr growth`);
+
+    // Retirement contributions: RRSP + TFSA contribution %. No account-type
+    // choice and no mega backdoor equivalent in Canada.
+    setGroupState(
+      'retireContribGroupState',
+      `${state.rrspPctA}% RRSP · ${state.tfsaPctA}% TFSA`,
+    );
+
+    // Pre-retirement healthcare: combined premium (converted to a monthly
+    // figure regardless of actual pay frequency, for a consistent unit).
+    const premiumPerPeriod =
+      (Number(state.healthPremiumA) || 0) +
+      (state.singlePerson ? 0 : Number(state.healthPremiumB) || 0);
+    const annualPremium = premiumPerPeriod * (freqPerYear[state.payFrequency] || 26);
+    setGroupState(
+      'preRetireHealthGroupState',
+      annualPremium > 0 ? `${compact(annualPremium / 12)}/mo premiums` : 'None',
+    );
+
+    // Household spending: core annual spending + any active spending tiers.
+    const activeTierCount = (state.spendingTiers || []).filter((t) => t.enabled).length;
+    let spendingText = `${compact(state.spending)}/yr`;
+    if (activeTierCount > 0)
+      spendingText += ` · ${activeTierCount} tier change${activeTierCount === 1 ? '' : 's'}`;
+    setGroupState('spendingGroupState', spendingText);
+
+    // Assets: taxable + RRSP + TFSA as "invested", cash separately.
+    const invested = (state.taxable || 0) + (state.traditional || 0) + (state.roth || 0);
+    setGroupState('assetsGroupState', `${compact(invested)} invested · ${compact(state.cash || 0)} cash`);
+
+    // Market assumptions: return, bond return, inflation.
+    setGroupState(
+      'marketGroupState',
+      `${state.returnRate}% / ${state.bondReturn}% bonds · ${state.inflation}% inflation`,
+    );
+
+    // Housing: depends on tenure.
+    let housingText;
+    if (state.tenure === 'rent') {
+      housingText = `Rent · ${compact(state.rent)}/mo`;
+    } else if (state.tenure === 'rentThenBuy') {
+      housingText = `Rent → buy at ${state.buyAge}`;
+    } else {
+      housingText = `Own · ${compact(state.homeValue)} · ${compact(state.mortgage)} mortgage`;
+    }
+    setGroupState('housingGroupState', housingText);
+
+    // Retirement income & healthcare: CPP/OAS start ages + LTC clause.
+    let riText = `CPP ${state.cppStartAgeA} · OAS ${state.oasStartAgeA}`;
+    if (state.ltcEnabled) riText += ' · LTC on';
+    setGroupState('retireIncomeHealthGroupState', riText);
+
+    // --- Hide-when-off groups: empty string when off, '✓ ...' when on. ---
+
+    // Other loans.
+    if (state.otherLoansEnabled) {
+      const loans = state.loans || [];
+      const activeLoans = loans.filter(
+        (l) => (Number(l.balance) || 0) > 0 || (Number(l.principal) || 0) > 0,
+      );
+      const annualPayment = activeLoans.reduce((sum, l) => {
+        const originalPrincipal = Number(l.principal) > 0 ? Number(l.principal) : Number(l.balance) || 0;
+        return sum + mortgagePayment(originalPrincipal, Number(l.rate) || 0, Number(l.term) || 0) * 12;
+      }, 0);
+      setGroupState(
+        'otherLoansGroupState',
+        `✓ ${activeLoans.length} loan${activeLoans.length === 1 ? '' : 's'} · ${compact(annualPayment)}/yr`,
+        true,
+      );
+    } else {
+      setGroupState('otherLoansGroupState', '', false);
+    }
+
+    // Bridge / part-time income.
+    if (state.bridgeEnabled) {
+      const bridgeIncome =
+        (Number(state.bridgeIncomeA) || 0) +
+        (state.singlePerson ? 0 : Number(state.bridgeIncomeB) || 0);
+      const bridgeEndAge = state.singlePerson
+        ? state.bridgeEndAgeA
+        : Math.max(state.bridgeEndAgeA, state.bridgeEndAgeB);
+      setGroupState('bridgeGroupState', `✓ ${compact(bridgeIncome)}/yr to age ${bridgeEndAge}`, true);
+    } else {
+      setGroupState('bridgeGroupState', '', false);
+    }
+
+    // Additional income.
+    if (state.otherIncomeEnabled) {
+      const enabledSources = (state.incomeSources || []).filter((s) => s.enabled);
+      const enabledLumpSums = (state.oneTimeIncome || []).filter((o) => o.enabled);
+      const sourcesTotal = enabledSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+      let text;
+      if (sourcesTotal > 0 && enabledLumpSums.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
+      else if (sourcesTotal > 0) text = `✓ ${compact(sourcesTotal)}/yr`;
+      else if (enabledLumpSums.length > 0) text = '✓ lump sum planned';
+      else text = '✓ enabled';
+      setGroupState('otherIncomeGroupState', text, true);
+    } else {
+      setGroupState('otherIncomeGroupState', '', false);
+    }
+
+    // Survivor planning.
+    if (state.survivorEnabled) {
+      setGroupState(
+        'survivorGroupState',
+        `✓ Partner ${state.survivorPartner}, age ${state.survivorDeathAge}`,
+        true,
+      );
+    } else {
+      setGroupState('survivorGroupState', '', false);
+    }
+
+    // Withdrawal & tax strategy: no single master flag — off means every
+    // one of these is false.
+    if (state.guardrailsEnabled || state.meltdownEnabled || state.pensionSplitEnabled) {
+      const parts = [];
+      if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
+      if (state.meltdownEnabled) parts.push('RRSP meltdown on');
+      if (state.pensionSplitEnabled) parts.push('Pension splitting on');
+      setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
+    } else {
+      setGroupState('withdrawalStrategyGroupState', '', false);
+    }
   }
   const pct = (n) => (n || 0) / 100;
   const escapeHtml = (s) =>
@@ -2644,6 +3159,10 @@
   function render() {
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
+    renderGroupSummaries();
+    const countedEstimateIds = computeCountedEstimateIds();
+    renderEstimateBadges(countedEstimateIds);
+    renderEstimatedRollup(countedEstimateIds);
     const selected = simulate();
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
@@ -2651,6 +3170,12 @@
     document.getElementById('retireAssets').textContent = compact(
       displayValue(retirement.investable, retirement.year),
     );
+    document.getElementById('dashRetireAge').textContent = state.singlePerson
+      ? `${retirement.age}`
+      : `${retirement.age}${retirement.ageB != null ? `/${retirement.ageB}` : ''}`;
+    document.getElementById('dashRetireAgeSub').textContent = state.singlePerson
+      ? 'when you retire'
+      : 'when both retire';
     document.getElementById('retireNW').textContent = compact(
       displayValue(retirement.total, retirement.year),
     );
@@ -3127,13 +3652,24 @@
     if (document.getElementById('workspace').dataset.mobileView === 'inputs') setMobileView('dashboard');
   }
   function renderDecisionCompareTable(rows) {
+    // "Portfolio lasts to" follows the same "Age {maxLifeExpectancy}+"
+    // convention as the main scenario-compare table and the RRSP meltdown
+    // optimizer table (computeScenarioMetrics()/renderRothOptimizer() above)
+    // — a plan that never depletes is described by the age it was actually
+    // modeled to, not the word "Never", which read as an error/edge-case
+    // rather than a healthy outcome.
+    const maxLifeExpectancy = Math.max(
+      state.lifeExpectancyA,
+      state.singlePerson ? 0 : state.lifeExpectancyB,
+    );
     const body = rows
       .map(({ label, sim }) => {
         const r = sim.rows.find((row) => row.year === sim.retirementYear) || sim.rows[0];
-        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValue(r.investable, r.year))}</td><td>${sim.depletedAge ? 'Age ' + sim.depletedAge : 'Never'}</td><td>${compact(decisionEndAssets(sim))}</td></tr>`;
+        const lastsTo = sim.depletedAge ? `Age ${sim.depletedAge}` : `Age ${maxLifeExpectancy}+`;
+        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValue(r.investable, r.year))}</td><td><span class="table-status ${sim.depletedAge ? 'fail' : ''}">${lastsTo}</span></td><td>${compact(decisionEndAssets(sim))}</td></tr>`;
       })
       .join('');
-    return `<div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Investable at retirement</th><th>Portfolio lasts to</th><th>End assets</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    return `<div class="table-wrap decision-table-wrap"><table class="decision-compare-table"><thead><tr><th>Scenario</th><th>Investable</th><th>Lasts to</th><th>End assets</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
   const DECISION_QUESTIONS = {
     retireTiming: {
@@ -3896,29 +4432,45 @@
     }
     if (chartView === 'cagr') {
       titleEl.textContent = 'Total assets across real investment returns';
-      subEl.textContent =
-        'Same retirement dates and inflation input; investment growth swept from 0% to 7% real, in 1% steps.';
-      const currentReal = clamp(
-        Math.round(((1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1) * 100),
-        0,
-        7,
-      );
-      const series = Array.from({ length: 8 }, (_, i) => ({
-        sim: simulateAtRealCagr(i),
+      // Comparison rates are 0-7% real in whole-percent steps, but with your
+      // actual entered assumption (rounded to the nearest tenth) swapped in
+      // for real, exactly, rather than snapped to the nearest whole percent
+      // and mislabeled "(current)" — e.g. a 4.5% real assumption used to
+      // round down and display as an inexact "4% (current)". Whichever
+      // whole-percent point sits closest to that exact value is dropped so
+      // the sweep doesn't show two near-duplicate points right next to each
+      // other (ties favor dropping the lower one, so 4.5% drops 4% and
+      // keeps 5%).
+      const currentReal = Math.round(((1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1) * 1000) / 10;
+      const baseInts = [0, 1, 2, 3, 4, 5, 6, 7];
+      let closestInt = baseInts[0],
+        bestDist = Infinity;
+      for (const n of baseInts) {
+        const d = Math.abs(n - currentReal);
+        if (d < bestDist - 1e-9) {
+          bestDist = d;
+          closestInt = n;
+        }
+      }
+      const rates = baseInts.filter((n) => n !== closestInt).concat([currentReal]).sort((a, b) => a - b);
+      const fmtRate = (r) => (Number.isInteger(r) ? `${r}%` : `${r.toFixed(1)}%`);
+      subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} assumption included exactly.`;
+      const series = rates.map((r, i) => ({
+        sim: simulateAtRealCagr(r),
         color: cagrColors[i],
-        highlight: i === currentReal,
-        label: `${i}%${i === currentReal ? ' (current)' : ''}`,
+        highlight: r === currentReal,
+        label: `${fmtRate(r)}${r === currentReal ? ' (current)' : ''}`,
       }));
       legend.innerHTML = series
         .map(
           (s, i) =>
-            `<span><i class="swatch" style="background:${s.color}"></i><span>${i}%${i === currentReal ? ' (current)' : ''}</span></span>`,
+            `<span><i class="swatch" style="background:${s.color}"></i><span>${fmtRate(rates[i])}${rates[i] === currentReal ? ' (current)' : ''}</span></span>`,
         )
         .join('');
       noteEl.textContent = `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. ${state.inflation}% inflation applied on top of each real rate.`;
       canvas.setAttribute(
         'aria-label',
-        'Projected total assets by age across 0% to 7% real investment returns',
+        `Projected total assets by age across a sweep of real investment returns, including your current ${fmtRate(currentReal)} assumption`,
       );
       renderChart(series);
     } else {
@@ -4349,9 +4901,33 @@
     canvas.addEventListener('touchend', clearChartHover);
   }
 
-  function saveInputs() {
-    document.getElementById('saveStatus').textContent = 'Not saved — offline mode';
+  // Autosaves `state`/`mode` to this browser's localStorage (never sent
+  // anywhere — see the README's privacy note) so a reload or a later visit
+  // comes back to real numbers instead of the generic example data.
+  // Debounced (250ms idle) since saveInputs() is called on nearly every
+  // keystroke via the `ids` input listener; `writeStorageNow()` is also
+  // flushed unconditionally on `pagehide` so the very last edit before a
+  // tab close/reload is never lost to a pending debounce timer.
+  function writeStorageNow() {
+    const statusEl = document.getElementById('saveStatus');
+    if (!hasPersonalizedData) return;
+    if (!storage) {
+      if (statusEl) statusEl.textContent = 'Not saved — storage unavailable';
+      return;
+    }
+    try {
+      storage.setItem(storageKey, JSON.stringify({ state, mode }));
+      if (statusEl) statusEl.textContent = 'Saved on this device';
+    } catch {
+      if (statusEl) statusEl.textContent = 'Not saved — storage full or unavailable';
+    }
   }
+  let saveDebounceTimer = null;
+  function saveInputs() {
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(writeStorageNow, 250);
+  }
+  window.addEventListener('pagehide', writeStorageNow);
 
   // Scenarios: named snapshots of the full input state, kept in memory for
   // this tab and optionally exported to a JSON file for safekeeping. Every
@@ -4788,7 +5364,17 @@
     URL.revokeObjectURL(url);
   }
   function renderLoanFields() {
-    document.getElementById('loanFields').innerHTML = state.loans
+    const container = document.getElementById('loanFields');
+    // Loans are a fixed-length array (no add/remove UI), so the only reason
+    // to skip a rebuild is "nothing structural changed" — which for loans is
+    // always true once the row count matches. Skipping while a loan field is
+    // focused avoids destroying and recreating that field's DOM node (and
+    // therefore its focus/on-screen-keyboard state) on every keystroke of
+    // its own value, or on every unrelated slider drag elsewhere on the page
+    // that happens to funnel through render() -> syncContributionControls().
+    if (container.contains(document.activeElement) && container.dataset.rowCount === String(state.loans.length)) return;
+    container.dataset.rowCount = String(state.loans.length);
+    container.innerHTML = state.loans
       .map(
         (l, i) =>
           `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:var(--muted)">Loan ${i + 1}</b><div class="field"><label for="loan${i}Principal">Original principal<small>The amount originally borrowed. Used with the loan term below to work out the actual fixed payment — not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.</small></label><input id="loan${i}Principal" type="number" class="money" min="0" step="1000" value="${l.principal || 0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" class="money" min="0" step="1000" value="${l.balance || 0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate || 0}"></div><div class="field"><label for="loan${i}Term">Loan term (years)<small>The loan's original term — not how many years you have left. If you've paid extra, the model figures out the real remaining time on its own from your current balance.</small></label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term || 0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" class="money" min="0" step="50" value="${l.extra || 0}"></div></div>`,
@@ -4809,10 +5395,18 @@
           }),
       ),
     );
-    refreshMoneyPreviews(document.getElementById('loanFields'));
+    refreshMoneyPreviews(container);
   }
   function renderSpendingTierFields() {
-    document.getElementById('spendingTierFields').innerHTML = state.spendingTiers
+    const container = document.getElementById('spendingTierFields');
+    // Same focus-preserving guard as renderLoanFields(), but spending tiers
+    // also have a per-row "enabled" toggle that changes which fields are
+    // hidden — so the skip condition also requires the enabled flags to be
+    // unchanged since the last real rebuild, not just the row count.
+    const sig = state.spendingTiers.length + ':' + state.spendingTiers.map((t) => (t.enabled ? 1 : 0)).join('');
+    if (container.contains(document.activeElement) && container.dataset.sig === sig) return;
+    container.dataset.sig = sig;
+    container.innerHTML = state.spendingTiers
       .map(
         (t, i) =>
           `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="tier${i}Enabled"><input id="tier${i}Enabled" type="checkbox" ${t.enabled ? 'checked' : ''}> Spending change ${i + 1}</label></div><div class="field" ${t.enabled ? '' : 'hidden'} id="tier${i}Fields"><label for="tier${i}Age">Starts at Partner A age</label><input id="tier${i}Age" type="number" min="18" max="100" step="1" value="${t.age || 65}"></div><div class="field" ${t.enabled ? '' : 'hidden'} id="tier${i}AmountField"><label for="tier${i}Amount">New annual household spending</label><input id="tier${i}Amount" type="number" class="money" min="0" step="1000" value="${t.amount || 60000}"></div></div>`,
@@ -4836,10 +5430,14 @@
         saveInputs();
       });
     });
-    refreshMoneyPreviews(document.getElementById('spendingTierFields'));
+    refreshMoneyPreviews(container);
   }
   function renderIncomeSourceFields() {
-    document.getElementById('incomeSourceFields').innerHTML = state.incomeSources
+    const container = document.getElementById('incomeSourceFields');
+    const sig = state.incomeSources.length + ':' + state.incomeSources.map((s) => (s.enabled ? 1 : 0)).join('');
+    if (container.contains(document.activeElement) && container.dataset.sig === sig) return;
+    container.dataset.sig = sig;
+    container.innerHTML = state.incomeSources
       .map(
         (s, i) =>
           `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="incSrc${i}Enabled"><input id="incSrc${i}Enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Income source ${i + 1}</label></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}AmountField"><label for="incSrc${i}Amount">Annual amount</label><input id="incSrc${i}Amount" type="number" class="money" min="0" step="1000" value="${s.amount || 0}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}StartField"><label for="incSrc${i}Start">Starts at Partner A age</label><input id="incSrc${i}Start" type="number" min="18" max="100" step="1" value="${s.startAge || 65}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}EndField"><label for="incSrc${i}End">Ends at Partner A age</label><input id="incSrc${i}End" type="number" min="18" max="100" step="1" value="${s.endAge || 75}"></div></div>`,
@@ -4868,10 +5466,14 @@
         saveInputs();
       });
     });
-    refreshMoneyPreviews(document.getElementById('incomeSourceFields'));
+    refreshMoneyPreviews(container);
   }
   function renderOneTimeIncomeFields() {
-    document.getElementById('oneTimeIncomeFields').innerHTML = state.oneTimeIncome
+    const container = document.getElementById('oneTimeIncomeFields');
+    const sig = state.oneTimeIncome.length + ':' + state.oneTimeIncome.map((o) => (o.enabled ? 1 : 0)).join('');
+    if (container.contains(document.activeElement) && container.dataset.sig === sig) return;
+    container.dataset.sig = sig;
+    container.innerHTML = state.oneTimeIncome
       .map(
         (o, i) =>
           `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="oneTime${i}Enabled"><input id="oneTime${i}Enabled" type="checkbox" ${o.enabled ? 'checked' : ''}> One-time income ${i + 1}</label></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AmountField"><label for="oneTime${i}Amount">Lump sum amount</label><input id="oneTime${i}Amount" type="number" class="money" min="0" step="1000" value="${o.amount || 0}"></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AgeField"><label for="oneTime${i}Age">Received at Partner A age</label><input id="oneTime${i}Age" type="number" min="18" max="100" step="1" value="${o.age || 65}"></div></div>`,
@@ -4895,11 +5497,26 @@
         saveInputs();
       });
     });
-    refreshMoneyPreviews(document.getElementById('oneTimeIncomeFields'));
+    refreshMoneyPreviews(container);
   }
   function syncControls() {
     ids.forEach((id) => {
       const el = document.getElementById(id);
+      // Skip writing .value to whatever field is currently focused, if the
+      // numeric value hasn't actually changed. syncControls() runs on every
+      // edit to a field with clamping side effects (retireAgeA, extraPrincipal,
+      // etc. — see the input listener below), which on mobile can include a
+      // slider drag while a *different* text field is still focused (e.g. the
+      // on-screen keyboard was dismissed via the Android back button, which
+      // hides the keyboard without blurring the field). Programmatically
+      // setting .value on a focused input — even to the same string — can
+      // make some mobile browsers re-show the keyboard for it, so a slider
+      // drag elsewhere was reopening the number pad on a field the user had
+      // already backed out of. Comparing against the current numeric value
+      // (stripping the money field's "$"/commas) keeps this a no-op guard
+      // only — a field whose value genuinely needs updating still gets it.
+      const currentNumeric = Number(String(el.value).replace(/[^0-9.-]/g, '')) || 0;
+      if (el === document.activeElement && currentNumeric === state[id]) return;
       el.value = state[id];
     });
     renderLoanFields();
@@ -5008,6 +5625,11 @@
       state[id] = Number(
         e.target.classList.contains('money') ? e.target.value.replace(/[^0-9]/g, '') : e.target.value,
       ) || 0;
+      // A real edit un-dismisses a previously-dismissed "estimated" badge,
+      // regardless of what the new value is (even if it round-trips back to
+      // the default) — see the "estimated field badges" note in CLAUDE.md.
+      const dismissedIdx = state.dismissedEstimates.indexOf(id);
+      if (dismissedIdx !== -1) state.dismissedEstimates.splice(dismissedIdx, 1);
       if (id === 'ageA') state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
       if (id === 'ageB') state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
       if (id === 'ageA' || id === 'lifeExpectancyA')
@@ -5069,42 +5691,78 @@
     const input = document.getElementById('fieldSearch'),
       countEl = document.getElementById('fieldSearchCount');
     if (!input) return;
-    const forcedOpen = new Map();
-    function openAncestorDetails(el) {
-      let d = el.closest('details');
-      while (d) {
-        if (!d.open) {
-          if (!forcedOpen.has(d)) forcedOpen.set(d, d.open);
-          d.open = true;
-        }
-        d = d.parentElement ? d.parentElement.closest('details') : null;
-      }
+    // originalOpen is a snapshot of every <details> under .panel (top-level
+    // groups and the "Spending changes" sub-group nested inside Household
+    // spending) taken once, the moment a search *starts* (query goes from
+    // empty to non-empty) — not incrementally per keystroke like an earlier
+    // version of this did. That earlier approach only ever recorded a
+    // group's state the first time a match forced it open, so a group that
+    // picked up a match on an early, broader keystroke stayed force-open
+    // through later, narrower keystrokes even once nothing inside it
+    // mattered — group after group would accumulate open, and it read as
+    // "search pops open everything." Snapshotting once up front and then
+    // deriving every group's open state fresh from its match set on every
+    // keystroke (below) means each keystroke's group state depends only on
+    // that keystroke's matches, not on the search's history, while still
+    // giving us the one true "before the search touched anything" state to
+    // restore to when the box is emptied.
+    let searchActive = false;
+    const originalOpen = new Map();
+    function panelDetails() {
+      return document.querySelectorAll('.panel details');
     }
-    function restoreForcedGroups() {
-      forcedOpen.forEach((wasOpen, details) => {
-        details.open = wasOpen;
-      });
-      forcedOpen.clear();
+    function panelFields() {
+      return document.querySelectorAll('.panel .field, .panel .range-field');
+    }
+    function endSearch() {
+      panelFields().forEach((el) => el.classList.remove('field-match', 'field-hidden'));
+      if (searchActive) {
+        originalOpen.forEach((wasOpen, details) => {
+          details.open = wasOpen;
+        });
+        originalOpen.clear();
+        searchActive = false;
+      }
+      countEl.hidden = true;
     }
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase();
-      document
-        .querySelectorAll('.field-match')
-        .forEach((el) => el.classList.remove('field-match'));
       if (!q) {
-        restoreForcedGroups();
-        countEl.hidden = true;
+        endSearch();
         return;
+      }
+      if (!searchActive) {
+        panelDetails().forEach((d) => {
+          if (!originalOpen.has(d)) originalOpen.set(d, d.open);
+        });
+        searchActive = true;
       }
       let firstMatch = null,
         matches = 0;
-      document.querySelectorAll('.panel .field, .panel .range-field').forEach((fieldEl) => {
-        const label = fieldEl.querySelector('label');
-        if (!label || !label.textContent.toLowerCase().includes(q)) return;
-        fieldEl.classList.add('field-match');
-        matches++;
-        if (!firstMatch) firstMatch = fieldEl;
-        openAncestorDetails(fieldEl);
+      panelFields().forEach((fieldEl) => {
+        const label = fieldEl.querySelector('label'),
+          isMatch = !!label && label.textContent.toLowerCase().includes(q);
+        fieldEl.classList.toggle('field-match', isMatch);
+        // Filters the sidebar down to just the matching fields (rather than
+        // only opening their groups) — with 100+ fields across a couple
+        // dozen groups, opening every group that has *a* match still left
+        // a lot of irrelevant fields to scan past to find the one you
+        // wanted.
+        fieldEl.classList.toggle('field-hidden', !isMatch);
+        if (isMatch) {
+          matches++;
+          if (!firstMatch) firstMatch = fieldEl;
+        }
+      });
+      // A group's open state during search is derived fresh from whether it
+      // currently contains a match — including a group that was already
+      // open before searching, which now collapses too if this keystroke's
+      // query no longer matches anything inside it, consistent with hiding
+      // that same content everywhere else. querySelector() looks at every
+      // descendant regardless of depth, so this also correctly opens an
+      // outer group purely because its nested sub-group has a match.
+      panelDetails().forEach((d) => {
+        d.open = d.querySelector('.field-match') !== null;
       });
       countEl.hidden = false;
       countEl.textContent = matches ? `${matches} match${matches === 1 ? '' : 'es'}` : 'No matches';
@@ -5239,8 +5897,42 @@
   document.getElementById('chartView3Btn').addEventListener('click', () => setChartView('3yr'));
   document.getElementById('chartView1Btn').addEventListener('click', () => setChartView('1yr'));
   document.getElementById('chartViewCagrBtn').addEventListener('click', () => setChartView('cagr'));
-  document.getElementById('chartViewHistBtn').addEventListener('click', () => setChartView('hist'));
-  document.getElementById('chartViewMcBtn').addEventListener('click', () => setChartView('mc'));
+  document.getElementById('chartGroupProjectionBtn').addEventListener('click', () => setChartView(lastProjectionView));
+  document.getElementById('chartGroupHistBtn').addEventListener('click', () => setChartView('hist'));
+  document.getElementById('chartGroupMcBtn').addEventListener('click', () => setChartView('mc'));
+  (function setupDollarModeDropdown() {
+    const dd = document.getElementById('dollarModeDd'),
+      btn = document.getElementById('dollarModeBtn'),
+      panel = document.getElementById('dollarModePanel');
+    function closePanel() {
+      panel.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    btn.addEventListener('click', () => {
+      const willOpen = panel.hidden;
+      panel.hidden = !willOpen;
+      btn.setAttribute('aria-expanded', String(willOpen));
+    });
+    document.addEventListener('click', (e) => {
+      if (!dd.contains(e.target)) closePanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePanel();
+    });
+    document.getElementById('realBtn').addEventListener('click', closePanel);
+    document.getElementById('nominalBtn').addEventListener('click', closePanel);
+  })();
+  document.getElementById('disclaimerLinkBtn').addEventListener('click', () => {
+    const card = document.getElementById('methodologyCard');
+    switchToDashboardTab();
+    card.open = true;
+    requestAnimationFrame(() => {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const callout = document.getElementById('limitationsCallout');
+      callout.classList.add('flash-highlight');
+      setTimeout(() => callout.classList.remove('flash-highlight'), 2600);
+    });
+  });
   function setMcPathCount(n) {
     mcPathCount = n;
     [
@@ -5263,6 +5955,7 @@
   });
   function setChartView(next) {
     chartView = next;
+    if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
     if (next === 'hist' || next === 'mc') {
       logScale = true;
       document.getElementById('logScaleToggle').checked = true;
@@ -5271,14 +5964,20 @@
       '3yr': 'chartView3Btn',
       '1yr': 'chartView1Btn',
       cagr: 'chartViewCagrBtn',
-      hist: 'chartViewHistBtn',
-      mc: 'chartViewMcBtn',
     };
     Object.entries(map).forEach(([key, id]) => {
       const active = key === next;
       document.getElementById(id).classList.toggle('active', active);
       document.getElementById(id).setAttribute('aria-checked', active);
     });
+    const group = CHART_GROUPS[next],
+      groupMap = { projection: 'chartGroupProjectionBtn', hist: 'chartGroupHistBtn', mc: 'chartGroupMcBtn' };
+    Object.entries(groupMap).forEach(([key, id]) => {
+      const active = key === group;
+      document.getElementById(id).classList.toggle('active', active);
+      document.getElementById(id).setAttribute('aria-checked', active);
+    });
+    document.getElementById('projectionSubToggle').hidden = group !== 'projection';
     render();
   }
   function setMode(next) {
@@ -5287,6 +5986,7 @@
     document.getElementById('nominalBtn').classList.toggle('active', mode === 'nominal');
     document.getElementById('realBtn').setAttribute('aria-checked', mode === 'real');
     document.getElementById('nominalBtn').setAttribute('aria-checked', mode === 'nominal');
+    document.getElementById('dollarModeBtn').textContent = mode === 'real' ? '2026 dollars ▾' : 'Future dollars ▾';
     render();
     saveInputs();
   }
@@ -5335,7 +6035,7 @@
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (
       !confirm(
-        "Reset all inputs to the generic example data? This can't be undone — nothing is saved, so anything you've entered will be lost unless you've exported it as a scenario.",
+        "Reset all inputs to the generic example data? This clears what's saved in this browser and can't be undone — export a scenario first if you want to keep what you've entered.",
       )
     )
       return;
@@ -5372,15 +6072,400 @@
   // either bar's real height doesn't silently reopen the overlap.
   function syncPlanStatusOffsets() {
     const bar = document.getElementById('planStatusBar'),
-      tabs = document.querySelector('.mobile-tabs');
+      tabs = document.querySelector('.mobile-tabs'),
+      panelTitle = document.querySelector('.panel-title');
     if (!bar) return;
     const barH = bar.offsetHeight;
     document.documentElement.style.setProperty('--plan-status-h', barH + 'px');
     const tabsH = tabs && window.innerWidth <= 820 ? tabs.offsetHeight : 0;
+    // Earlier versions of this formula added a "+14" term here (meant to
+    // fold in .mobile-tabs' own CSS margin-bottom into the offset
+    // .field-search-wrap sticks at) plus a "+10" term (for a since-removed
+    // gap between the status bar and .mobile-tabs — see .plan-status-bar's
+    // own padding, which now absorbs that space inside its own opaque box).
+    // Measured with a real scroll gesture, both additions were wrong: with
+    // neither, .field-search-wrap already sticks flush against
+    // .mobile-tabs' true stuck bottom edge (confirmed to the sub-pixel,
+    // matching Planner_US.html's already-correct behavior). With the old
+    // "+14", .field-search-wrap stuck 14px too *low* instead — a real,
+    // uncovered band between .mobile-tabs and the search box where sidebar
+    // content behind them showed through, the same class of bug as the
+    // status-bar/tabs gap this round fixed. A sticky element's own
+    // margin-bottom does not need to be added to a sibling's stuck offset;
+    // trust a measured `getBoundingClientRect()` comparison over a
+    // theoretical box-model argument for this kind of stacking math.
     document.documentElement.style.setProperty(
       '--mobile-sticky-h',
-      barH + (tabsH ? 10 + tabsH : 0) + 'px',
+      barH + (tabsH ? tabsH : 0) + 'px',
     );
+    // .field-search-wrap sticks directly below .panel-title on mobile (both
+    // position:sticky, stacked), so it needs panel-title's real height on
+    // top of --mobile-sticky-h to stick at the right offset instead of
+    // overlapping whatever's in normal flow just below it.
+    if (panelTitle) {
+      document.documentElement.style.setProperty('--panel-title-h', panelTitle.offsetHeight + 'px');
+    }
+  }
+  // `#reviewNav` (the floating "Next →" pill) is `position:fixed;bottom:...`,
+  // anchored to the bottom of the *layout* viewport. When the on-screen
+  // keyboard opens for a focused text field, mobile browsers typically leave
+  // the layout viewport's height alone and only shrink the *visual*
+  // viewport -- so a plain fixed-bottom element ends up positioned behind
+  // the keyboard, off the bottom of what's actually visible, which is
+  // exactly the reported symptom ("covered up by the number pad ... can't
+  // click it when editing a text field"). The fix is the standard one for
+  // this class of bug: track `window.visualViewport` (widely supported on
+  // mobile browsers) and feed the gap between the layout and visual
+  // viewports into a CSS var the fixed element's `bottom` already reads, so
+  // it rides up above the keyboard instead of staying pinned under it.
+  function syncKeyboardInset() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
+  }
+  // Checking/unchecking a sidebar checkbox (or changing a <select> like
+  // tenure/k401Type) can add or remove other fields elsewhere in the panel
+  // -- singlePerson hides/shows every data-partner-b field across several
+  // groups at once, and most opt-in checkboxes (ACA, LTC, bridge, other
+  // income, other loans, survivor, guardrails, Roth conversion/RRSP
+  // meltdown, mega backdoor) show/hide fields within their own group. The
+  // resulting height change shifts everything below the toggle, which can
+  // jump the control the person just clicked out from under their
+  // cursor/finger and lose their place in a long sidebar. Preserve the
+  // toggle's own on-screen position across that reflow instead: this
+  // listener is registered on `document` with capture:true, so it fires
+  // before the field's own `change` listener runs the actual show/hide,
+  // letting it record the toggle's position pre-mutation; two animation
+  // frames later (once layout has settled) it adjusts whichever container
+  // actually scrolls -- the whole page on mobile (`.panel` is
+  // `position:static` there) or `.panel`'s own internal scroll on desktop
+  // -- by the resulting delta, so the toggle itself doesn't visually move.
+  document.addEventListener(
+    'change',
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
+      if (t instanceof HTMLInputElement && t.type !== 'checkbox' && t.type !== 'radio') return;
+      const panel = t.closest('.panel');
+      if (!panel) return;
+      const before = t.getBoundingClientRect().top;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const after = t.getBoundingClientRect().top;
+          const delta = after - before;
+          if (Math.abs(delta) < 1) return;
+          if (window.innerWidth <= 820) {
+            window.scrollBy(0, delta);
+          } else {
+            panel.scrollTop += delta;
+          }
+        });
+      });
+    },
+    true,
+  );
+  // Real-world bug report, still reproducing on-device after the
+  // syncControls()/attachMoneyPreview/dynamic-list fixes above: focus a
+  // text/money field (opens the on-screen keyboard), then drag a slider
+  // elsewhere on the page while the text field's caret is still sitting in
+  // it (never blurred) — the keyboard pops back up over the field, even
+  // though nothing in this file's own code still writes to that field's
+  // `.value` or rebuilds its DOM node (both were audited and swept with
+  // Playwright across every slider in both files, at both desktop and
+  // mobile widths, with zero spurious writes and no focus loss found). This
+  // points to a platform-level quirk rather than a remaining DOM bug: some
+  // mobile browsers/WebViews re-evaluate whether to show the soft keyboard
+  // whenever the page regains "input focus" from a touch gesture, even one
+  // aimed at a completely different control, as long as some element (here,
+  // the text field the person never explicitly left) still technically has
+  // DOM focus. The fix that's actually within this file's control either
+  // way: explicitly blur the old field ourselves, as early in the gesture
+  // as possible, whenever a slider drag begins elsewhere. A field with no
+  // focus gives the OS keyboard nothing to reopen for, regardless of the
+  // exact underlying platform mechanism, and it also matches how a person
+  // would expect a well-behaved page to react to them starting to interact
+  // with something else. `pointerdown` (not `input`, which only fires once
+  // the drag has already started moving the thumb) is used so the blur
+  // happens at the very first touch, before any keyboard-reopen animation
+  // has a chance to begin.
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== 'range') return;
+      const active = document.activeElement;
+      if (
+        active &&
+        active !== t &&
+        active instanceof HTMLInputElement &&
+        (active.type === 'text' || active.type === 'number') &&
+        typeof active.blur === 'function'
+      ) {
+        active.blur();
+      }
+    },
+    true,
+  );
+  // Touch/pen vs. page-scroll gesture disambiguation for range sliders.
+  //
+  // On-device testing (Android Chrome, see the slider-gesture-disambiguation
+  // branch's scope doc) ruled out the simpler "just watch touch direction,
+  // never call preventDefault()" approach: touching a native
+  // <input type=range> track snaps its value to the touch point on the very
+  // first touch, before any movement and before any JS runs, and further
+  // movement is then split between dragging the thumb and scrolling the
+  // page, with the scroll throttled to a fraction of the actual finger
+  // travel (confirmed with a diagnostic build: a 10px vertical drag produced
+  // under 2px of page scroll). There's no reliable way to get clean,
+  // deliberate behavior without taking over the whole gesture ourselves.
+  //
+  // A first version of this fix used `touch-action:none` on the slider plus
+  // `preventDefault()` in a pointer event handler, on the theory that
+  // either — or both together — would suppress the browser's native
+  // handling. On-device testing (real Android Chrome) disproved that
+  // theory completely: `getComputedStyle` confirmed `touch-action:none` was
+  // genuinely applying (it correctly stopped the page from panning), and
+  // instrumenting `Event.prototype.preventDefault` confirmed it was
+  // genuinely being called on every `pointerdown`/`pointermove` — and the
+  // slider *still* visibly jumped and dragged regardless. This browser
+  // treats a native `<input type=range>`'s own touch-drag as a default
+  // action that neither `touch-action` nor `preventDefault()` can suppress.
+  // Nothing short of keeping the touch from ever reaching the real input
+  // element in the first place actually works.
+  //
+  // So: `setupRangeTouchCatchers()` (below) wraps every slider in a small
+  // positioned container and inserts an invisible sibling
+  // `.range-touch-catcher` `<div>` directly on top of it. On a
+  // coarse-pointer (touch-primary) device, that catcher — not the real
+  // `<input>` — is what the finger actually lands on, via
+  // `@media(pointer:coarse){.range-touch-catcher{pointer-events:auto}}`
+  // (`pointer-events:none` the rest of the time, so mouse clicks pass
+  // straight through to the real input on every non-touch-primary device,
+  // completely unaffected). A structural guarantee like this is much
+  // stronger than hoping an API call suppresses a default action: the
+  // browser can't run a native default action on an element that never
+  // received the touch to begin with.
+  //
+  // The catcher's own `touch-action` is `pan-y`, not `none` — since it's a
+  // plain `<div>` with no default action of its own, `pan-y` lets the
+  // browser's native compositor-thread scrolling handle a vertical drag
+  // entirely for free (smooth, real momentum, zero JS involved), while
+  // still forbidding the catcher's own default handling of anything
+  // *other* than vertical panning — so a horizontal drag has no competing
+  // native behavior to fight, and this code is free to treat it purely as
+  // a slider drag. (This sidesteps the earlier "touch-action can't be
+  // flipped mid-gesture" problem entirely, because it's never flipped: the
+  // value is fixed from the start, and it's the browser's own native
+  // scrolling — not our JS — that's now doing the "scroll" half of the
+  // decision.)
+  //
+  // A `resolveRangeTarget()` fallback still recognizes a touch that lands
+  // directly on the real `<input>` (an older browser that doesn't support
+  // the `pointer` media feature, or any gap in the catcher's sizing) and
+  // falls back to the original touch-action:none/preventDefault()/manual-
+  // scroll approach for that path — belt-and-suspenders, not load-bearing,
+  // since the catcher is what actually carries the fix on the device this
+  // was tested against.
+  (function () {
+    const DRAG_THRESHOLD = 8; // px of movement before committing to drag-or-scroll
+
+    function setupRangeTouchCatchers() {
+      document.querySelectorAll('input[type=range]').forEach((input) => {
+        if (input.parentElement && input.parentElement.classList.contains('range-touch-wrap')) return;
+        const wrap = document.createElement('span');
+        wrap.className = 'range-touch-wrap';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        const catcher = document.createElement('div');
+        catcher.className = 'range-touch-catcher';
+        catcher.setAttribute('aria-hidden', 'true');
+        catcher._rangeInput = input; // plain JS property, not a DOM attribute — internal use only
+        wrap.appendChild(catcher);
+      });
+    }
+    setupRangeTouchCatchers();
+
+    const gestures = new Map(); // pointerId -> gesture state
+
+    function isTouchLike(e) {
+      return e.pointerType === 'touch' || e.pointerType === 'pen';
+    }
+
+    // Returns { el, viaCatcher } for a touch/pen event aimed at a slider
+    // (through the catcher, the normal path, or directly at the real
+    // input, the fallback path), or null for anything else.
+    function resolveRangeTarget(e) {
+      const t = e.target;
+      if (t instanceof HTMLElement && t.classList.contains('range-touch-catcher') && t._rangeInput) {
+        return { el: t._rangeInput, viaCatcher: true };
+      }
+      if (t instanceof HTMLInputElement && t.type === 'range') {
+        return { el: t, viaCatcher: false };
+      }
+      return null;
+    }
+
+    // Fallback-path only (see file note above) — same "which container
+    // actually scrolls" split used elsewhere in this file: window on
+    // mobile (.panel is position:static there), .panel's own internal
+    // overflow-y:auto scroll on desktop.
+    function scrollContainerFor(el) {
+      let node = el.parentElement;
+      while (node && node !== document.body) {
+        const cs = getComputedStyle(node);
+        if (
+          (cs.overflowY === 'auto' || cs.overflowY === 'scroll') &&
+          node.scrollHeight > node.clientHeight
+        ) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return window;
+    }
+
+    function scrollContainerBy(container, dy) {
+      if (container === window) window.scrollBy(0, dy);
+      else container.scrollTop += dy;
+    }
+
+    // Reimplements the native "tap/drag this X position on the track" math
+    // — needed on both paths, since neither the catcher (not a form
+    // control) nor the fallback path (touch-action:none there) gets this
+    // for free from the browser.
+    function valueFromPointerX(el, clientX) {
+      const rect = el.getBoundingClientRect();
+      const min = Number(el.min) || 0;
+      const max = Number(el.max) || 100;
+      const step = Number(el.step) || 1;
+      let frac = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+      frac = Math.max(0, Math.min(1, frac));
+      let raw = min + frac * (max - min);
+      raw = Math.round((raw - min) / step) * step + min;
+      return Math.max(min, Math.min(max, raw));
+    }
+
+    function setSliderValue(el, v) {
+      const s = String(v);
+      if (el.value === s) return false;
+      el.value = s;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      (e) => {
+        const target = resolveRangeTarget(e);
+        if (!target) return;
+        // The fallback (direct-input) path only intercepts touch/pen — a
+        // mouse there should behave exactly as native, since touch-action
+        // only affects touch/pen and there's a real native input to drag.
+        // The catcher path has no such native fallback (it's a plain div,
+        // not a form control), and CSS pointer-events doesn't filter by
+        // pointer type — on a coarse-pointer device (e.g. a touchscreen
+        // laptop) a plugged-in mouse would land on the catcher too, so it
+        // must be handled here regardless of pointerType or it would be
+        // silently swallowed.
+        if (!target.viaCatcher && !isTouchLike(e)) return;
+        gestures.set(e.pointerId, {
+          el: target.el,
+          viaCatcher: target.viaCatcher,
+          startX: e.clientX,
+          startY: e.clientY,
+          lastY: e.clientY,
+          decided: null, // null (undecided) | 'drag' | 'scroll'
+          container: null,
+        });
+        // Fallback path only: see the touch-action:none/preventDefault()
+        // note in the file comment above for why this alone isn't
+        // sufficient on every browser — it's the catcher path (see above)
+        // that actually carries the fix.
+        if (!target.viaCatcher && e.cancelable) e.preventDefault();
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        const g = gestures.get(e.pointerId);
+        if (!g) return;
+        if (!g.viaCatcher && e.cancelable) e.preventDefault(); // fallback path only
+        const dx = e.clientX - g.startX;
+        const dy = e.clientY - g.startY;
+        if (!g.decided) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) < DRAG_THRESHOLD) return;
+          g.decided = Math.abs(dy) > Math.abs(dx) ? 'scroll' : 'drag';
+          if (g.decided === 'scroll') {
+            if (!g.viaCatcher) g.container = scrollContainerFor(g.el);
+            // Catcher path: nothing to do — its own touch-action:pan-y
+            // already lets the browser's native scrolling handle this.
+          } else {
+            try {
+              g.el.setPointerCapture(e.pointerId);
+            } catch (err) {
+              /* not critical — dragging still works without capture */
+            }
+          }
+        }
+        if (g.decided === 'drag') {
+          setSliderValue(g.el, valueFromPointerX(g.el, e.clientX));
+        } else if (!g.viaCatcher) {
+          scrollContainerBy(g.container, -(e.clientY - g.lastY));
+        }
+        g.lastY = e.clientY;
+      },
+      true,
+    );
+
+    function endGesture(e, isCancel) {
+      const g = gestures.get(e.pointerId);
+      if (!g) return;
+      if (!isCancel && g.decided === null) {
+        // Movement never crossed the threshold — a plain tap. Neither path
+        // gets a native tap-to-jump for free (the catcher isn't a form
+        // control; the fallback path's touch-action:none suppresses it),
+        // so this reimplements it directly.
+        setSliderValue(g.el, valueFromPointerX(g.el, e.clientX));
+        g.el.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (g.decided === 'drag') {
+        g.el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      gestures.delete(e.pointerId);
+    }
+    document.addEventListener('pointerup', (e) => endGesture(e, false), true);
+    document.addEventListener('pointercancel', (e) => endGesture(e, true), true);
+  })();
+  // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
+  // internally rather than growing past the viewport — but its max-height
+  // used to be sized only against the sticky `top` offset it settles into
+  // *once scrolled*, not its natural (pre-scroll) position in the page flow,
+  // which sits further down (below the topbar, the Plan Status Bar, and the
+  // first-run banner when shown). Since that natural position is always
+  // lower than the eventual sticky one, sizing against the sticky offset
+  // alone left the sidebar's rendered box taller than the space actually
+  // available before any scrolling — its bottom edge sat below the fold,
+  // so seeing it required scrolling the whole page (not just the sidebar's
+  // own internal scroll). Measuring the leading elements directly (rather
+  // than `.panel`'s own getBoundingClientRect(), which reports its already-
+  // pinned position once sticky has engaged, not its natural one) keeps
+  // this correct regardless of current scroll position.
+  function syncPanelMaxHeight() {
+    const panel = document.querySelector('.panel');
+    if (!panel || window.innerWidth <= 820) return; // mobile: .panel is position:static, no max-height to size
+    const disclaimer = document.querySelector('.top-disclaimer'),
+      topbar = document.querySelector('.topbar'),
+      bar = document.getElementById('planStatusBar'),
+      banner = document.getElementById('firstRunBanner'),
+      mainEl = document.querySelector('main'),
+      heightOf = (el) =>
+        el && !el.hidden ? el.offsetHeight + (parseFloat(getComputedStyle(el).marginBottom) || 0) : 0,
+      mainPad = mainEl ? parseFloat(getComputedStyle(mainEl).paddingTop) || 0 : 0,
+      naturalTop = heightOf(disclaimer) + heightOf(topbar) + mainPad + heightOf(bar) + heightOf(banner),
+      maxH = Math.max(240, window.innerHeight - naturalTop - 22);
+    document.documentElement.style.setProperty('--panel-max-h', maxH + 'px');
   }
   // Everything the status bar shows (retirement age, investable assets at
   // retirement, whether the plan depletes) is already computed by every
@@ -5424,12 +6509,35 @@
     const text = parts.join(' · ');
     const textEl = document.getElementById('planStatusText');
     if (textEl) textEl.textContent = text;
+    // Dashboard's prominent "Historical success" tile reuses this same
+    // debounced backtest rather than running it a second time.
+    const dashHist = document.getElementById('dashHistSuccess'),
+      dashHistSub = document.getElementById('dashHistSuccessSub');
+    if (dashHist) {
+      if (planStatusHistRate != null) {
+        dashHist.textContent = `${(planStatusHistRate * 100).toFixed(0)}%`;
+        dashHist.className =
+          planStatusHistRate === 1 ? 'positive' : planStatusHistRate < 0.9 ? 'negative' : 'warning';
+      } else {
+        dashHist.textContent = '—';
+        dashHist.className = '';
+      }
+      if (dashHistSub) dashHistSub.textContent = 'Every 1928–2025 starting year';
+    }
     const updatedEl = document.getElementById('planStatusUpdated');
     if (updatedEl && text !== planStatusLastText && planStatusLastText !== null) {
       updatedEl.textContent = 'Updated just now';
       updatedEl.classList.add('show');
       clearTimeout(planStatusUpdatedTimer);
-      planStatusUpdatedTimer = setTimeout(() => updatedEl.classList.remove('show'), 3000);
+      planStatusUpdatedTimer = setTimeout(() => {
+        updatedEl.classList.remove('show');
+        // On mobile, .show animates max-height in over .3s (see the
+        // .plan-status-updated CSS) — its removal shrinks the bar back
+        // down the same way, and the sticky Inputs/Dashboard tabs below
+        // it need to know its real settled height once that finishes, not
+        // the mid-transition one. See the matching comment below.
+        setTimeout(syncPlanStatusOffsets, 320);
+      }, 3000);
     }
     planStatusLastText = text;
     // `reschedule` is false when this call comes from the debounced
@@ -5438,6 +6546,20 @@
     // forever, with nothing left to actually wait on.
     if (!opts || opts.reschedule !== false) schedulePlanStatusHistRate();
     syncPlanStatusOffsets();
+    syncPanelMaxHeight();
+    // The sync above runs synchronously right as `.show` is added (or the
+    // text wraps to a new line), but on mobile `.plan-status-updated`'s
+    // max-height animates in over .3s (see its CSS) rather than jumping
+    // immediately — reading `offsetHeight` this instant catches the *pre*-
+    // transition (collapsed) height, undercounting `--plan-status-h` by
+    // the pulse's grown height for as long as it stays visible. Nothing
+    // else re-measures once the transition finishes, so the tabs/search
+    // bars below would stay pinned to a stale, too-small offset (and,
+    // depending on scroll position, let a sliver of real content show
+    // through under them) until some unrelated edit happened to trigger
+    // another render() well after the animation settled. Re-sync once the
+    // transition duration has actually elapsed to catch the real height.
+    if (updatedEl && updatedEl.classList.contains('show')) setTimeout(syncPlanStatusOffsets, 320);
   }
   document.getElementById('planStatusBar').addEventListener('click', () => {
     const bar = document.getElementById('planStatusBar');
@@ -5493,7 +6615,12 @@
   window.addEventListener('resize', () => {
     render();
     syncTopbarHeight();
+    syncPanelMaxHeight();
   });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncKeyboardInset);
+    window.visualViewport.addEventListener('scroll', syncKeyboardInset);
+  }
   // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
   // fields needed to get any projection running at all (single/partnered,
   // ages, income, retirement age, starting balances, spending); step 2 is the
@@ -5542,11 +6669,11 @@
     document.getElementById('wizardStep1').hidden = wizardStep !== 1;
     document.getElementById('wizardStep2').hidden = wizardStep !== 2;
     document.getElementById('wizardTitle').textContent =
-      wizardStep === 1 ? 'Get started: the basics' : 'Customize modeled features';
+      wizardStep === 1 ? 'Get started: the basics' : 'A few optional questions';
     document.getElementById('wizardStepNote').textContent =
       wizardStep === 1
         ? "Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here."
-        : "Step 2 of 2 — turn optional features on or off. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
+        : "Step 2 of 2 — these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
     document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
     document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
     document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
@@ -5578,6 +6705,12 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') wizardOverlay.classList.remove('open');
   });
+  // Visible on both wizard steps (unlike wizardBackBtn/wizardNextBtn/
+  // wizardCloseBtn, which the wizardStep hidden-toggling logic above
+  // governs) — does exactly what Escape/outside-click already do.
+  document.getElementById('wizardXBtn').addEventListener('click', () => {
+    wizardOverlay.classList.remove('open');
+  });
   // The tornado chart is only computed while expanded (it's a handful of
   // extra simulate() calls, cheap but pointless work while collapsed), so
   // opening it needs its own trigger since no input necessarily changed.
@@ -5597,18 +6730,22 @@
     if (document.getElementById('sankeyCard').open) renderSankey(simulate());
   });
   // First-run banner: the dashboard renders with fully-formed generic
-  // default numbers from the moment the page loads (there's no persistence
-  // across reloads to distinguish a returning user, so every load looks
-  // identical either way), which reads to a brand-new visitor as someone
-  // else's finished plan rather than an invitation to enter their own. This
-  // banner names that explicitly and points at the two real entry points
-  // (the wizard, or importing an exported scenario) rather than leaving the
-  // person to notice the sidebar on their own. It dismisses itself the
-  // moment its purpose is served — a real edit anywhere in the sidebar, the
-  // wizard being opened (intent is clear the moment they click), or a
-  // scenario actually imported — rather than needing to be closed by hand.
+  // default numbers from the moment the page loads, which reads to a
+  // brand-new visitor as someone else's finished plan rather than an
+  // invitation to enter their own. This banner names that explicitly and
+  // points at the two real entry points (the wizard, or importing an
+  // exported scenario) rather than leaving the person to notice the
+  // sidebar on their own. It dismisses itself the moment its purpose is
+  // served — a real edit anywhere in the sidebar, the wizard being opened
+  // (intent is clear the moment they click), or a scenario actually
+  // imported — rather than needing to be closed by hand. For a *returning*
+  // visitor whose real plan was loaded back from this browser's storage at
+  // boot, it's skipped entirely (see `hadSavedState` above) rather than
+  // needing to be dismissed again on every visit.
   function dismissFirstRunBanner() {
     document.getElementById('firstRunBanner').hidden = true;
+    hasPersonalizedData = true;
+    syncPanelMaxHeight();
   }
   document.querySelector('.panel').addEventListener(
     'input',
@@ -5648,6 +6785,11 @@
     const { rows, sentence } = q.run();
     answer.innerHTML = `<p><b>${escapeHtml(sentence)}</b></p>` + renderDecisionCompareTable(rows);
     answer.hidden = false;
+    // Same reasoning as the 'open' questions above: with 8 questions now in
+    // the menu, the answer can render well below the fold (or, on mobile,
+    // behind the Inputs tab) without ever coming into view on its own.
+    switchToDashboardTab();
+    answer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   document.getElementById('decisionQuestions').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-question]');
@@ -5681,6 +6823,13 @@
       tabDashboard.classList.toggle('active', view === 'dashboard');
       tabDashboard.setAttribute('aria-selected', String(view === 'dashboard'));
       if (view === 'dashboard') render();
+      // .panel is display:none while the Dashboard tab is active, so
+      // .mobile-tabs' own offsetHeight (which feeds --mobile-sticky-h,
+      // read by .field-search-wrap's sticky top) can go stale while
+      // switching between tabs shifts other sticky heights around;
+      // switching to Inputs re-measures it fresh rather than trusting
+      // whatever was last computed while a different tab was active.
+      if (view === 'inputs') syncPlanStatusOffsets();
     };
     tabInputs.addEventListener('click', () => setMobileView('inputs'));
     tabDashboard.addEventListener('click', () => setMobileView('dashboard'));
@@ -5691,56 +6840,42 @@
     // consistent with the Plan status bar's job of always surfacing the
     // model's current answer rather than starting on a blank-feeling form.
     setMobileView('dashboard');
-
-    // Swipe between the Inputs/Dashboard tabs on touch devices, as an
-    // alternative to tapping the tab buttons above. Only active at the
-    // same <=820px width where the tab switcher itself is shown. Ignores
-    // touches that start on a range slider (dragging a slider is a
-    // horizontal gesture too, and shouldn't be mistaken for a page swipe)
-    // or on scrollable text areas; otherwise requires a swipe that's
-    // clearly more horizontal than vertical and past a minimum distance
-    // so ordinary vertical scrolling never triggers a tab change.
-    let touchStartX = null,
-      touchStartY = null,
-      touchStartTarget = null;
-    workspace.addEventListener(
-      'touchstart',
-      (e) => {
-        if (window.innerWidth > 820 || e.touches.length !== 1) {
-          touchStartX = null;
-          return;
-        }
-        const t = e.touches[0];
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
-        touchStartTarget = e.target;
-      },
-      { passive: true },
-    );
-    workspace.addEventListener(
-      'touchend',
-      (e) => {
-        if (touchStartX == null) return;
-        if (touchStartTarget && touchStartTarget.closest('input[type="range"]')) {
-          touchStartX = null;
-          return;
-        }
-        const t = e.changedTouches[0];
-        const dx = t.clientX - touchStartX,
-          dy = t.clientY - touchStartY;
-        touchStartX = null;
-        if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-        const currentView = workspace.dataset.mobileView;
-        if (dx < 0 && currentView === 'inputs') setMobileView('dashboard');
-        else if (dx > 0 && currentView === 'dashboard') setMobileView('inputs');
-      },
-      { passive: true },
-    );
   }
+
+  // Mobile-only "minimize sticky header" toggle: collapses the
+  // Inputs/Dashboard tab switcher + the field search box (the two sticky
+  // bars beneath the Plan Status Bar) to reclaim vertical space, most
+  // useful once the on-screen keyboard is open and eating a big chunk of
+  // an already-small viewport. Deliberately excludes the Plan Status Bar
+  // itself (that one's meant to always stay visible as "the answer"; this
+  // toggle only ever touches navigation/search chrome) and is a pure
+  // display toggle, not part of `state` — same reasoning as `logScale`/
+  // `chartView`/mobile-tab-view, none of which persist across reloads
+  // either. The toggle button itself is `position:fixed` (not part of the
+  // sticky stack it controls) so it stays reachable to re-expand
+  // regardless of collapsed state, with no extra sticky-offset math needed.
+  {
+    const headerToggle = document.getElementById('mobileHeaderToggle');
+    if (headerToggle) {
+      headerToggle.addEventListener('click', () => {
+        const collapsed = document.body.classList.toggle('mobile-header-collapsed');
+        headerToggle.textContent = collapsed ? '⌄' : '︿';
+        headerToggle.setAttribute('aria-expanded', String(!collapsed));
+        headerToggle.setAttribute('aria-label', collapsed ? 'Show tabs and search' : 'Hide tabs and search');
+        // .mobile-tabs/.field-search-wrap's offsetHeight reads 0 while
+        // hidden, so re-measure once they're visible again on expand —
+        // harmless (cheap) to call unconditionally on collapse too.
+        syncPlanStatusOffsets();
+      });
+    }
+  }
+  if (hadSavedState) dismissFirstRunBanner();
   syncControls();
   syncContributionControls();
   setMode(mode);
   syncTopbarHeight();
+  syncPanelMaxHeight();
+  syncKeyboardInset();
   initChartHover();
 
   // Wide result tables scroll horizontally inside `.table-wrap` on
