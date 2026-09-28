@@ -2791,6 +2791,60 @@ layered on top of state that already existed.
   straightforward like-for-like port with matching element ids in both
   files.
 
+### Follow-up fix, same round: both sub-rows stayed visually visible in every view — another `[hidden]` vs. an author `display` rule trap
+
+Real-world bug report right after the above shipped: "the 1/3/cagr and
+500/1000/2000 are still visible under historical, 1/3/cagr visible under
+monte carlo, and 500/1000/2000 under projection" — i.e. `setChartView()`
+was toggling both `#projectionSubToggle.hidden` and (via `renderChartView()`)
+`#mcPathCountRow.hidden` correctly, but neither row actually disappeared in
+any state.
+
+- **Root cause, confirmed with `getComputedStyle()` rather than just
+  reasoning about it**: `document.getElementById(...).hidden` was flipping
+  correctly, but `getComputedStyle(...).display` stayed `'flex'`
+  regardless. This is **the exact same bug class already documented above**
+  under "Undo toast for Reset and Load scenario" (`.undo-toast[hidden]`)
+  and "Step 2 rendered stacked under Step 1" (`#wizardStep2[hidden]`): the
+  browser's own `[hidden]{display:none}` UA-stylesheet rule is only a
+  *user-agent normal* declaration, and any *author* `display` declaration —
+  whether from a class selector or an inline `style=""` attribute — outranks
+  it in the CSS cascade regardless of selector specificity (author-normal
+  beats user-agent-normal as a whole cascade *origin*, before specificity
+  is even compared). `#projectionSubToggle` carries the `.chart-view-toggle`
+  class (`display:flex` from an author stylesheet rule); `#mcPathCountRow`
+  carries an inline `style="display:flex;..."` (inline is also "author
+  normal," just with very high specificity within that bucket) — either
+  way, both outrank `[hidden]`'s UA-normal `display:none`, so the elements
+  never actually hid, no matter how correctly the JS was toggling the
+  `hidden` property/attribute.
+- **Fix**: `#projectionSubToggle[hidden],#mcPathCountRow[hidden]{display:
+  none!important}`, added right after the `.chart-view-toggle` rule in both
+  files. An author `!important` declaration is a higher-priority cascade
+  origin than plain author-normal (which is what both the class rule and
+  the inline style are), so this beats them regardless of selector
+  specificity or the inline style's own high specificity — the same
+  mechanism that made `.undo-toast[hidden]{display:none}` and
+  `#wizardStep2[hidden]{display:none}` work as fixes earlier in this file.
+- **Verified** by reading `getComputedStyle(...).display` (not just the
+  `hidden` property, which was never the part that was actually broken)
+  through all four view combinations in both files: Projection shows only
+  the projection sub-row (`flex`/`none`), Historical shows neither
+  (`none`/`none`), Monte Carlo shows only the path-count row (`none`/
+  `flex`), and back to Projection restores the projection row. `npm test`,
+  a syntax check of both files, and the full existing Playwright sweep for
+  this round of changes all still pass.
+- **Lesson reinforced**: whenever a *new* element gets both a `hidden`
+  toggle and some other author-level `display` declaration (a class or an
+  inline style), check `getComputedStyle().display` after toggling it, not
+  just the `hidden` property/attribute value — the property/attribute can
+  read correctly while the visual result is completely unaffected, exactly
+  as it was here. This file already had two prior instances of this exact
+  trap; a third slipping through in the same session that just fixed a
+  header-cleanup round is a sign this check belongs in the standard
+  post-change verification whenever a new `hidden`-toggled element is added
+  in this codebase, not just something to remember after the fact.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
