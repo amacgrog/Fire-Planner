@@ -7018,9 +7018,17 @@
           decided: null, // null (undecided) | 'drag' | 'scroll'
           container: null,
         });
-        // No preventDefault()/setPointerCapture() yet — touch-action:none
-        // already suppresses the browser's own handling, and it's too early
-        // to know whether this will turn out to be a drag or a scroll.
+        // On-device testing (real Android Chrome) showed touch-action:none
+        // alone isn't enough: this browser still runs the range input's own
+        // native jump-to-touch/drag as a default action that touch-action
+        // doesn't appear to govern, even though it correctly blocks the
+        // page from panning. preventDefault() is the more forceful,
+        // spec-guaranteed way to cancel a default action outright, so it's
+        // called here too, belt-and-suspenders with the CSS. Safe even
+        // though we don't yet know drag-vs-scroll: we're taking over both
+        // interactions ourselves either way, so there's nothing native left
+        // to preserve by waiting.
+        if (e.cancelable) e.preventDefault();
       },
       true,
     );
@@ -7030,6 +7038,7 @@
       (e) => {
         const g = gestures.get(e.pointerId);
         if (!g) return;
+        if (e.cancelable) e.preventDefault(); // see pointerdown's comment above
         const dx = e.clientX - g.startX;
         const dy = e.clientY - g.startY;
         if (!g.decided) {
