@@ -2639,6 +2639,212 @@ suppression API; it's just normal DOM layering.
   alone, which this whole investigation showed cannot be trusted to
   suppress a native control's own default action on every browser.
 
+## Chart controls split into a primary View toggle + view-dependent sub-controls; dollar-mode dropdown; quieter top disclaimer
+
+Three UX-review items implemented together on branch
+`chart-controls-and-header-cleanup` (off `home-screen-redesign`), none of
+which touch `simulate()`/`simulateHistorical()`/`state`/`defaults`/
+`normalizeState()` — all three are display/markup-and-event-wiring changes
+layered on top of state that already existed.
+
+- **Chart controls (`chartView`, `CHART_GROUPS`, `lastProjectionView`)**:
+  the previous single row of 5 buttons (`±3 yrs | ±1 yr | Real CAGR 0–7% |
+  Historical (S&P 500) | Monte Carlo`) read as a control panel, not a
+  chart. `chartView`'s underlying values (`'3yr'`, `'1yr'`, `'cagr'`,
+  `'hist'`, `'mc'`) are **unchanged** — every downstream consumer
+  (`renderChartView()`'s branching, the `['3yr','1yr','cagr'].includes
+  (chartView)` check, `snapshotForUndo`) needed zero changes. What changed
+  is purely the button markup and the functions that manage button
+  active-state:
+  - A new primary `#chartGroupToggle` (`Projection | Historical | Monte
+    Carlo`) sits where the old 5-button row was. A `const CHART_GROUPS =
+    {'3yr':'projection','1yr':'projection',cagr:'projection',hist:'hist',
+    mc:'mc'}` map (declared once, next to the `chartView`/`mode`/etc.
+    state-variable block) is the single source of truth for which group a
+    given `chartView` value belongs to.
+  - A new `#projectionSubToggle` row (`±1 yr | ±3 yrs | CAGR` — reordered
+    per the review, and "CAGR" shortened from "Real CAGR 0–7%" since the
+    range is still explained in the chart's own note/axis) holds the same
+    three `chartView3Btn`/`chartView1Btn`/`chartViewCagrBtn` buttons as
+    before, just moved into their own `<div>`, hidden/shown by
+    `setChartView()` based on `CHART_GROUPS[chartView] === 'projection'`.
+  - The pre-existing `#mcPathCountRow` (500/1,000/2,000 paths) is
+    unchanged — it already only showed for `chartView === 'mc'`, which is
+    exactly the "Monte Carlo" group; item 9 just moved it conceptually
+    under the new Monte Carlo group button rather than under a "Monte
+    Carlo" item in a flat 5-button row.
+  - `lastProjectionView` (defaults to `'3yr'`, i.e. `chartView`'s own
+    initial value) remembers which of the three projection sub-views was
+    last active. Clicking the group-level "Projection" button calls
+    `setChartView(lastProjectionView)` rather than a hardcoded default, so
+    switching to Historical/Monte Carlo and back restores exactly where
+    you left off. It's updated inside `setChartView()` itself
+    (`if (CHART_GROUPS[next] === 'projection') lastProjectionView =
+    next;`), not at the three click-handler call sites, so any future new
+    call site that sets a projection sub-view can't forget to update it.
+  - `setChartView()` now does three things instead of two: (1) updates the
+    three sub-view buttons' active/aria-checked state (only meaningful
+    while a projection view is selected, but harmless to update
+    unconditionally — the row is hidden when not relevant), (2) updates the
+    three group-level buttons' active/aria-checked state from
+    `CHART_GROUPS[next]`, (3) toggles `#projectionSubToggle`'s `hidden`.
+    `#mcPathCountRow`'s `hidden` is still set from inside `renderChartView()`
+    (called every `render()`), not from `setChartView()` — left as-is since
+    it already worked and there was no reason to duplicate that toggle in
+    a second place.
+  - Like `logScale`/`mcPathCount`/`chartView` itself, `lastProjectionView`
+    is a plain module-level `let`, not part of `state`/`defaults`/
+    `normalizeState()`/scenario export — it's chart-display state, not a
+    plan input, same reasoning as everything else in that list.
+- **Dollar-mode dropdown (`#dollarModeDd`/`#dollarModeBtn`/
+  `#dollarModePanel`)**: replaces the topbar's `.view-toggle`
+  segmented-button pair (`Real $` / `Nominal $`) with a button reading
+  "2026 dollars ▾" (real) or "Future dollars ▾" (nominal) that opens a
+  small absolutely-positioned panel with two labeled options ("Real
+  dollars" / "Future dollars", each with a one-line explanation and a
+  radio-style dot). The underlying `mode` state (`'real'`/`'nominal'`) and
+  `setMode(next)` are **unchanged** in what they do to `state`/`render()`/
+  `saveInputs()` — the same `#realBtn`/`#nominalBtn` element ids are
+  reused (now living inside `#dollarModePanel` instead of a `.view-toggle`
+  div), so every existing call site that toggles their `.active`/
+  `aria-checked` state, plus the CSV/print-report code that reads `mode`,
+  needed no changes. `setMode()` gained exactly one new line
+  (`document.getElementById('dollarModeBtn').textContent = mode ===
+  'real' ? '2026 dollars ▾' : 'Future dollars ▾'`).
+  - The panel's own open/close state is managed by a small self-invoking
+    `setupDollarModeDropdown()` IIFE (registered once, alongside the other
+    click listeners): click the button to toggle `panel.hidden`; a
+    document-level `click` listener closes it on any click outside
+    `#dollarModeDd`; a document-level `keydown` listener closes it on
+    Escape; and `#realBtn`/`#nominalBtn` each get their own `click`
+    listener (in addition to the existing `setMode(...)` ones) that just
+    closes the panel — a plain state change shouldn't leave the popover
+    open. This mirrors the wizard modal's own outside-click/Escape pattern
+    rather than inventing a new one.
+  - The panel is `position:absolute` off a `position:relative` wrapper
+    (`.dollar-mode-dd`), `z-index:30`, anchored `right:0` so it never
+    overflows past the topbar's right edge regardless of viewport width —
+    verified at 390px mobile width with the panel open, no horizontal
+    scroll introduced. It's nested inside `.topbar` (itself `position:
+    sticky;z-index:20`), which is an intentionally *lower* z-index — the
+    panel only ever needs to stack above its own topbar siblings, never
+    above anything else on the page, so no z-index arms race with the
+    existing sticky stack (Plan Status Bar, mobile tabs, etc.) was needed.
+  - New `.btn-card`-styled `#dollarModeBtn` reuses the existing
+    theme-aware `.btn-card` class (see "Accessibility pass" above — the
+    rule of thumb there: `.reset` is topbar-only dark-on-dark, `.btn-card`
+    is for anything that needs to read correctly against a themed
+    background) rather than introducing a fourth button style, even though
+    it sits on the (always-dark) topbar — the button itself is fine either
+    way since the topbar's background is fixed, and reusing `.btn-card`
+    keeps one fewer button style to maintain.
+- **Quiet top disclaimer + Limitations & disclaimer callout**: the old
+  `.top-disclaimer` (`⚠ Planning estimate only — not tax, investment, or
+  legal advice. This tool was built with AI assistance (Claude) and may
+  contain mistakes; verify all figures independently before making
+  financial decisions.`) is now `.top-disclaimer.quiet`, showing just
+  "Planning estimate" plus a `<button class="link-btn" id=
+  "disclaimerLinkBtn">· Learn about limitations</button>". The full text
+  moved into a new `<div class="callout full" id="limitationsCallout">` as
+  the **first** child of `#methodologyCard`'s `.assumptions` div (ahead of
+  "How the model works"), so it's the first thing read once that section
+  is expanded.
+  - `#disclaimerLinkBtn`'s click handler opens `#methodologyCard` (`card.
+    open = true` — a plain boolean property on a `<details>` element, no
+    toggle-event dance needed), calls the existing `switchToDashboardTab()`
+    helper first (since `#methodologyCard` lives inside `.content`, which
+    is Dashboard-tab-only on mobile — same reasoning as every `kind:'open'`
+    decision-question button), then inside a `requestAnimationFrame`
+    (letting the `card.open = true` reflow settle first, same pattern used
+    elsewhere for post-layout scrolling) calls `scrollIntoView({behavior:
+    'smooth', block:'start'})` and applies the existing `.flash-highlight`
+    treatment to `#limitationsCallout` for 2.6s (same duration as the
+    estimated-fields guided-review's highlight, for the same reason: give
+    someone long enough to actually notice it, not just the original
+    1.2s). `.flash-highlight` previously only had CSS rules for
+    `.field`/`.range-field`/`.metrics` — a new `.callout.flash-highlight`
+    rule (added alongside the existing ones, same box-shadow/transition)
+    was needed since a `<div class="callout">` wasn't a target the
+    existing rule covered.
+  - Shrinking `.top-disclaimer` did **not** need any change to
+    `syncPanelMaxHeight()`/`syncTopbarHeight()`/`syncPlanStatusOffsets()` —
+    all three already measure `.top-disclaimer`'s real `offsetHeight` at
+    runtime rather than a hardcoded pixel value (see "Sidebar height"
+    above), so the shorter banner's height flows through automatically.
+    Verified this holds under a real scroll gesture (`page.mouse.wheel()`),
+    not just an overflow check, per this file's own testing-checklist
+    lesson: after scrolling, the Plan Status Bar / mobile tabs / search box
+    stack sub-pixel-flush with no gap or overlap, in both files, matching
+    the pre-existing sticky-stack behavior documented under "Mobile bug:
+    gap between the Plan Status Bar and the Inputs/Dashboard tabs."
+  - `.top-disclaimer`'s dark background (`#3a2a0f`) is unchanged; the new
+    `.link-btn` inside it is styled with the same `#f3d38a` text color as
+    the rest of the banner (underlined, so it reads as a link against the
+    dark background) via a `.top-disclaimer .link-btn` override, while a
+    theme-aware plain `.link-btn` rule (using `var(--blue)`) exists for any
+    future reuse of the same class outside the disclaimer.
+- All three items were ported to both `Planner_US.html` and
+  `Planner_Canada.html` — the relevant markup, CSS, and JS
+  (`setChartView`/`setMode`/the state-variable block/the event-listener
+  registrations) are structurally identical between the two files for this
+  particular surface (unlike, say, the tax-bracket logic), so this was a
+  straightforward like-for-like port with matching element ids in both
+  files.
+
+### Follow-up fix, same round: both sub-rows stayed visually visible in every view — another `[hidden]` vs. an author `display` rule trap
+
+Real-world bug report right after the above shipped: "the 1/3/cagr and
+500/1000/2000 are still visible under historical, 1/3/cagr visible under
+monte carlo, and 500/1000/2000 under projection" — i.e. `setChartView()`
+was toggling both `#projectionSubToggle.hidden` and (via `renderChartView()`)
+`#mcPathCountRow.hidden` correctly, but neither row actually disappeared in
+any state.
+
+- **Root cause, confirmed with `getComputedStyle()` rather than just
+  reasoning about it**: `document.getElementById(...).hidden` was flipping
+  correctly, but `getComputedStyle(...).display` stayed `'flex'`
+  regardless. This is **the exact same bug class already documented above**
+  under "Undo toast for Reset and Load scenario" (`.undo-toast[hidden]`)
+  and "Step 2 rendered stacked under Step 1" (`#wizardStep2[hidden]`): the
+  browser's own `[hidden]{display:none}` UA-stylesheet rule is only a
+  *user-agent normal* declaration, and any *author* `display` declaration —
+  whether from a class selector or an inline `style=""` attribute — outranks
+  it in the CSS cascade regardless of selector specificity (author-normal
+  beats user-agent-normal as a whole cascade *origin*, before specificity
+  is even compared). `#projectionSubToggle` carries the `.chart-view-toggle`
+  class (`display:flex` from an author stylesheet rule); `#mcPathCountRow`
+  carries an inline `style="display:flex;..."` (inline is also "author
+  normal," just with very high specificity within that bucket) — either
+  way, both outrank `[hidden]`'s UA-normal `display:none`, so the elements
+  never actually hid, no matter how correctly the JS was toggling the
+  `hidden` property/attribute.
+- **Fix**: `#projectionSubToggle[hidden],#mcPathCountRow[hidden]{display:
+  none!important}`, added right after the `.chart-view-toggle` rule in both
+  files. An author `!important` declaration is a higher-priority cascade
+  origin than plain author-normal (which is what both the class rule and
+  the inline style are), so this beats them regardless of selector
+  specificity or the inline style's own high specificity — the same
+  mechanism that made `.undo-toast[hidden]{display:none}` and
+  `#wizardStep2[hidden]{display:none}` work as fixes earlier in this file.
+- **Verified** by reading `getComputedStyle(...).display` (not just the
+  `hidden` property, which was never the part that was actually broken)
+  through all four view combinations in both files: Projection shows only
+  the projection sub-row (`flex`/`none`), Historical shows neither
+  (`none`/`none`), Monte Carlo shows only the path-count row (`none`/
+  `flex`), and back to Projection restores the projection row. `npm test`,
+  a syntax check of both files, and the full existing Playwright sweep for
+  this round of changes all still pass.
+- **Lesson reinforced**: whenever a *new* element gets both a `hidden`
+  toggle and some other author-level `display` declaration (a class or an
+  inline style), check `getComputedStyle().display` after toggling it, not
+  just the `hidden` property/attribute value — the property/attribute can
+  read correctly while the visual result is completely unaffected, exactly
+  as it was here. This file already had two prior instances of this exact
+  trap; a third slipping through in the same session that just fixed a
+  header-cleanup round is a sign this check belongs in the standard
+  post-change verification whenever a new `hidden`-toggled element is added
+  in this codebase, not just something to remember after the fact.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
