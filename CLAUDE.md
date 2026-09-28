@@ -1015,6 +1015,49 @@ keep in sync.
   exactly as it did before the search began, whether or not the last
   keystroke had any matches.
 
+### Dropdown navigator (`#fieldSearchResults`, `jumpToSearchField`)
+
+On top of the filter above, the search box now also renders a dropdown of
+up to 8 matching fields — a settings-navigator layer, not a replacement for
+the filter (the filter stays exactly as-is; this is purely additive).
+
+- Each result shows the field's own label text (via `mainLabelText()`,
+  which reads only a `<label>`'s direct text nodes — skipping the nested
+  `<small>` blurb, checkbox, and estimate badge that the *matching* logic
+  still searches against) plus a group breadcrumb (`groupBreadcrumb()`,
+  the **outermost** `details.group` ancestor — a field inside the nested
+  "Spending changes" sub-group shows "Household spending", not the
+  sub-group's own plain-text summary).
+- Clicking a result (or arrowing to it with ArrowUp/ArrowDown and hitting
+  Enter) calls `jumpToSearchField(fieldEl)`: opens every ancestor group
+  (not just the nearest, in case of nesting), then reuses the exact
+  landing-spot/flash-highlight idiom `jumpToEstimateField()` already
+  established for the guided estimated-fields review (land the field ~30%
+  down the viewport rather than dead-center, `.flash-highlight` for 2.6s,
+  focus the real input/select). `selectResult()` also clears the search box
+  and calls `endSearch()` **before** opening the target's ancestor groups —
+  both happen synchronously in the same tick, so the "restore groups to
+  their pre-search state" step never fights with "open the groups the
+  clicked field actually needs."
+- **Closing the dropdown without racing a result click**: a `focusout` on
+  the input checks `resultsEl.contains(e.relatedTarget)` before hiding it —
+  a mousedown on a `<button>` result moves focus to that button *before*
+  its own `click` fires, so `relatedTarget` is the button itself, and the
+  dropdown is correctly left alone until the click has run. Clicking
+  anywhere else closes the dropdown but leaves the filter/highlight state
+  untouched, same as any ordinary search-suggestions popover.
+- `.field-search-results[hidden]{display:none!important}` — added
+  defensively up front, following this file's own established pattern (see
+  the `.undo-toast[hidden]`/`#wizardStep2[hidden]`/
+  `#projectionSubToggle[hidden]` entries elsewhere in this file): the
+  dropdown has no other author `display` rule that would conflict with
+  `[hidden]`'s UA default today, but every other element in this codebase
+  that's grown a conflicting rule *after* first shipping without one has
+  been from exactly this trap, so the guard costs nothing to add now.
+- Ported identically to both planners — the field-search markup/CSS/JS was
+  already byte-identical between `Planner_US.html`/`Planner_Canada.html`
+  before this change.
+
 ## Default-value field marker (`markDefaultFields`, `.is-default`)
 
 Every field in the `ids` array (see "Architecture, per planner file" above)
