@@ -2473,6 +2473,51 @@ entire touch gesture on these controls, not just observing it:
   and confirmed via the throwaway diagnostic build described above, on a
   real Android Chrome device, before this implementation was written.
 
+### Follow-up: `touch-action:none` alone didn't actually block the native drag on real Android Chrome
+
+The first version above shipped with only `touch-action:none` suppressing
+the browser's own handling — no `preventDefault()` calls, per the reasoning
+that `touch-action:none` was documented as suppressing "no jump-to-touch, no
+native drag, no native scroll-through." On-device testing on the real
+Samsung Galaxy S23 (Android Chrome) that this feature was scoped against
+showed that reasoning was wrong in one specific way: `getComputedStyle(el)
+.touchAction` correctly reported `"none"`, and the page correctly stopped
+panning through the slider — but the slider's own knob still visibly
+jumped/dragged on touch, exactly as before the fix. Headless Chromium's
+synthetic `PointerEvent` tests never caught this because dispatching a
+`PointerEvent` programmatically doesn't trigger a real browser's *native*
+default-action pipeline for a form control at all (there's no actual
+touchscreen driving it) — the synthetic tests could only confirm that *our
+own* JS decision logic ran correctly, never that the browser had actually
+stopped doing its own thing on top of it. This is the same category of gap
+called out in the "Setup note" above (headless can't reproduce native
+touch-claiming behavior), just one layer deeper: it also can't disprove a
+*fix* for that behavior, only prove the JS side of it.
+
+**Fix**: added `e.preventDefault()` in both the `pointerdown` and
+`pointermove` handlers (touch/pen only, guarded by `e.cancelable`), on top
+of the existing `touch-action:none` CSS — belt-and-suspenders, not a
+replacement. `preventDefault()` on a pointer event is the spec-guaranteed,
+authoritative way to cancel a default action outright; `touch-action` is
+closer to a browser hint about pan/zoom gesture handling, and apparently
+doesn't reliably extend to a native form control's own default action (its
+built-in touch-drag/tap-to-jump behavior) on every browser. Both are worth
+keeping: `touch-action:none` communicates intent declaratively and may
+matter for browsers/versions where it *is* sufficient on its own, while
+`preventDefault()` is what actually closed the gap on the device this was
+tested against.
+
+**Lesson for future work in this file on native-control touch behavior**:
+don't treat `touch-action` as sufficient proof that a browser's own default
+handling is fully suppressed, even once `getComputedStyle` confirms the
+property applied — verify the actual *visible behavior* on a real device,
+since a synthetic Playwright `PointerEvent` test can only confirm your own
+JS ran, never that the browser didn't *also* do something on top of it.
+`preventDefault()` inside the same touch-gated handler is the safer default
+to reach for whenever a fix depends on suppressing a native control's touch
+behavior, with `touch-action` layered on as a declarative hint rather than
+the sole mechanism.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
