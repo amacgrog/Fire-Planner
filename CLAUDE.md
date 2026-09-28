@@ -1134,6 +1134,54 @@ Four distinct problems, all in the same feature, fixed together:
   state, exactly as before. `npm test` and a syntax check of both files
   also pass.
 
+### Round 3: matching label-only text swapped one asymmetry for another — section-name fallback + drop the "keep typing" prompt
+
+Real-world feedback right after round 2 shipped: "income" now behaves, but
+"assets" — a whole sidebar section — returns **zero** matches, because none
+of the individual fields inside "Assets" (`Stocks %`, `Cash reserve`, etc.)
+literally contain the word "asset" in their own label; the section name is
+only spelled out in the group's `<summary>`, not in any field name. And for
+a query like "income" that still returns a double-digit match count (17-18,
+all genuinely on-topic per round 2), the dropdown's old cap-and-hint
+behavior — "+9 more — keep typing to narrow it down" — no longer made
+sense: the person is already looking at exactly what they searched for,
+and there's no more-specific word to type that would narrow it further.
+Two fixes, in `runSearch()`:
+
+1. **Section-name fallback, tried only when the direct pass finds
+   nothing.** Matching still runs against each field's own `mainLabelText()`
+   first, exactly as round 2 left it — this is what keeps "income" from
+   reinflating back to ~20 fields. Only when that pass returns zero matches
+   does a second pass check the field's own top-level group title
+   (`groupBreadcrumb()`, already used for the dropdown's group-breadcrumb
+   display) instead, surfacing every field in that section. "assets" now
+   returns the 7 fields under "Assets" (`Taxable brokerage`, `Traditional
+   retirement`, `Cash / HYSA`, `Bond pool size`, etc.) — none of which say
+   "asset," but all of which live in the section named for it. This
+   fallback is deliberately gated on *zero* direct matches, not blended
+   into one combined pass: a query that already matches real field names
+   (like "income") never reaches it, even though a compound group title
+   like "Retirement income & healthcare" also contains "income" and would,
+   if checked unconditionally, pull in every Social-Security/pension/ACA/
+   LTC field in that unrelated section and reopen the exact over-matching
+   round 2 just fixed.
+2. **Dropped the `MAX_RESULTS` cap and its "+N more — keep typing to
+   narrow it down" hint entirely.** The dropdown already scrolls (its own
+   `max-height:320px;overflow-y:auto`), so capping the *rendered* list to 8
+   and only reporting the rest as a count was never necessary for
+   usability — it just added a prompt that made no sense once a query was
+   already a precise, deliberately broad ask ("show me the income
+   fields"/"show me the Assets section"). All matches are rendered now
+   (`renderedMatches` holds every one), and the person scrolls if there
+   are more than fit on screen.
+- **Verified** with Playwright, both files: "assets" returns 7 on-topic
+  matches (0 under the old label-only-only matching); "income" still
+  returns its focused 17/18-field list with every one rendered as a
+  dropdown button and no "+more" element present; no overflow at 390×844
+  mobile width in either theme, where the same fallback logic applies to
+  the field-hiding filter (no dropdown there either way, per round 2).
+  `npm test` and a syntax check of both files also pass.
+
 ## Default-value field marker (`markDefaultFields`, `.is-default`)
 
 Every field in the `ids` array (see "Architecture, per planner file" above)
