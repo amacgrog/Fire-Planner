@@ -204,7 +204,7 @@
           <div class="field"><label for="roth">TFSA balance<small>The combined TFSA balance for you (and your partner, if applicable).</small></label><input id="roth" type="number" class="money" min="0" step="1000"></div>
           <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash reserve</label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
-          <div class="field"><label for="bondYears">Bond pool size (years of expenses)<small>0 disables the bond pool entirely. Fractional years allowed. Used by the standard pre-retirement bond ladder and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
+          <div class="field"><label for="bondYears">Bond reserve size (years of expenses)<small>0 disables the bond reserve entirely. Fractional years allowed. Used by the standard pre-retirement bond reserve and the historical backtest's bucket strategy below</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
         </details>
         <details class="group">
           <summary><span class="group-summary-text"><span class="group-title">Market assumptions</span><span class="group-state" id="marketGroupState"></span></span></summary>
@@ -439,7 +439,7 @@
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Canada requires each spouse to file an individual return, so this model always computes federal + provincial tax per person rather than jointly; pooled taxable and RRSP withdrawals are split 50/50 between partners for tax purposes unless pension splitting reallocates income between them. Capital gains use the standard 50% inclusion rate — half of each modeled brokerage gain is added to ordinary taxable income and taxed at that person's marginal rate, with no separate preferential bracket. CPP and OAS are fully taxable ordinary income for whoever receives them (OAS is also subject to the separate clawback described below). This is still a planning estimate: provincial credits beyond the basic personal amount, dividend tax credits, the high-income federal BPA phase-out, and CPP/QPP-specific rules outside Ontario/BC are not modeled. RRSP funds are assumed split 50/50 between partners, and RRIF minimum withdrawals begin at each partner's own age 71 using the CRA's prescribed factor table. Brokerage withdrawals use the selected cost-basis ratio to estimate the taxable gain portion.</div>
             <div class="callout full"><b>CPP, OAS clawback & healthcare.</b> CPP and OAS each start whenever selected (CPP 60–70, OAS 65–70) and are added in full to that person's taxable income. OAS is separately subject to the federal recovery tax ("clawback"): 15% of net income (including OAS itself) above the 2026 threshold ($95,323), up to the full OAS amount — modeled using the same year's income as a planning-level approximation rather than CRA's actual one-year lookback. Since Canada has universal provincial healthcare (OHIP in Ontario, MSP in BC), the "extra health/dental insurance" figure only represents supplemental private coverage many retirees carry — there's no premium-subsidy or income-tested surcharge system to model the way the US does with ACA/Medicare. Ontario's own health premium (up to $900/year, income-tested) is folded into the Ontario provincial tax estimate instead, since it's collected through the tax return.</div>
-            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested, US CPI inflation, and 10-year US Treasury bond total returns, all from the Damodaran/NYU Stern dataset — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond pool is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond pool only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → RRSP → TFSA and any bond-pool shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, bridge income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
+            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested, US CPI inflation, and 10-year US Treasury bond total returns, all from the Damodaran/NYU Stern dataset — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → RRSP → TFSA and any bond-reserve shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, bridge income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
         <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal/provincial tax parameters are held constant in real terms and increase with inflation in nominal projections. EI premiums are not modeled. Sources: TaxTips.ca 2026 federal brackets, TaxTips.ca 2026 Ontario brackets &amp; health premium, TaxTips.ca 2026 BC brackets, CRA 2026 CPP/OAS amounts, CRA OAS recovery tax rules, CRA 2026 RRSP/TFSA limits, CRA FHSA rules &amp; limits, CRA RRIF minimum withdrawal factors, CRA pension income splitting rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
@@ -476,7 +476,7 @@
       <h3 class="wizard-subhead">Taxes &amp; investing</h3>
       <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>Withdraws from your RRSP each year in retirement, filling a tax bracket you choose, and moves the proceeds into your TFSA — a way to pay tax at today's rate instead of on larger RRIF minimums later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
       <h3 class="wizard-subhead">Guardrails</h3>
-      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Timeline &amp; income section.</small></label></div>
+      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
       <h3 class="wizard-subhead">Debt</h3>
       <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
     </div>
@@ -1204,7 +1204,7 @@
       max: 6,
       applicable: () => state.tenure !== 'own',
     },
-    { id: 'bondYears', label: 'Bond pool size', unit: ' yrs', min: 0, max: 8 },
+    { id: 'bondYears', label: 'Bond reserve size', unit: ' yrs', min: 0, max: 8 },
     { id: 'lifeExpectancyA', label: 'Partner A life expectancy', unit: '', min: 75, max: 100 },
     {
       id: 'lifeExpectancyB',
@@ -2834,9 +2834,9 @@
   // returns, inflation, and bond returns from the actual 1928-2025 historical
   // sequence starting at HIST index startIdx, and replaces the standard
   // withdrawal waterfall with a cash+bonds "bucket strategy": expenses in a
-  // market-down year are paid from cash then the bond pool only; in an
+  // market-down year are paid from cash then the bond reserve only; in an
   // up year, expenses are paid from taxable -> traditional -> Roth and the
-  // bond pool is topped back up from the same order. Cash/HYSA and mortgage
+  // bond reserve is topped back up from the same order. Cash/HYSA and mortgage
   // still use the assumed fixed rates from the sidebar, since no historical
   // series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -3263,7 +3263,7 @@
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash));
         cash += cashTopUp;
         let remainder = flow - cashTopUp;
-        // Only steer new surplus into the bond pool in an up year, so a down
+        // Only steer new surplus into the bond reserve in an up year, so a down
         // year's savings buy (cheaper) stocks instead — consistent with the
         // same up/down rule used for withdrawals below.
         if (yearReturn >= 0) {
@@ -3287,7 +3287,7 @@
           guardrailPrevPortfolio = guardrailPortfolioNow;
         }
         if (yearReturn < 0) {
-          // Down year: protect equities. Pay from cash, then the bond pool;
+          // Down year: protect equities. Pay from cash, then the bond reserve;
           // only fall back to selling taxable/traditional/Roth if both run out.
           [
             stepCash,
@@ -3303,7 +3303,7 @@
           });
         } else {
           // Up year: fund spending from the growth portfolio, then use any
-          // leftover from that same order to top the bond pool back up.
+          // leftover from that same order to top the bond reserve back up.
           [
             stepTaxable,
             stepTraditional,
@@ -4727,7 +4727,7 @@
       subEl.textContent =
         'Shaded bands show total assets by age across all simulated paths: the darker band is where the middle 50% of paths landed (25th–75th percentile), the lighter band is the middle 80% (10th–90th percentile). The line is the median (50th percentile) path. Narrower bands with even fewer paths (500) can look artificially tight — 1,000–2,000 gives a smoother read.';
       legend.innerHTML = `<span><i class="swatch" style="background:#2563eb"></i><span>Median</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.4)"></i><span>25th–75th pct. (middle 50%)</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.2)"></i><span>10th–90th pct. (middle 80%)</span></span>`;
-      noteEl.textContent = `Each path stitches together random 5-year blocks of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond pool sized to ${getBondYears()} years of expenses, same withdrawal order as the historical backtest.`;
+      noteEl.textContent = `Each path stitches together random 5-year blocks of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond reserve sized to ${getBondYears()} years of expenses, same withdrawal order as the historical backtest.`;
       canvas.setAttribute(
         'aria-label',
         `Projected total assets by age across ${mc.paths.length} Monte Carlo simulated paths`,
@@ -4755,7 +4755,7 @@
       titleEl.textContent = 'Total assets across every historical starting year';
       subEl.textContent = `Same inputs, replayed starting from each calendar year 1928–2025 that has a full ${projectionYears}-year run of actual S&P 500 returns, inflation, and bond returns available.`;
       legend.innerHTML = `<span><i class="swatch" style="background:#0e9f9a"></i><span>Survived</span></span><span><i class="swatch" style="background:#dc2626"></i><span>Depleted</span></span>`;
-      noteEl.textContent = `Bond pool sized to ${getBondYears()} years of expenses: down years draw cash then bonds only; up years pay from taxable→traditional→Roth and refill the bond pool the same way. Bond/HYSA/mortgage rates stay at your entered values — only stock growth and inflation follow history.`;
+      noteEl.textContent = `Bond reserve sized to ${getBondYears()} years of expenses: down years draw cash then bonds only; up years pay from taxable→traditional→Roth and refill the bond reserve the same way. Bond/HYSA/mortgage rates stay at your entered values — only stock growth and inflation follow history.`;
       canvas.setAttribute(
         'aria-label',
         `Projected total assets by age across ${cycles.length} historical starting years`,
