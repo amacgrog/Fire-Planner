@@ -105,7 +105,7 @@
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
     <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V17</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
-    <div class="topbar-actions"><span class="save-status" id="saveStatus">Saved on this device</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
+    <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
     <button type="button" class="plan-status-bar" id="planStatusBar" aria-expanded="false">
@@ -336,21 +336,21 @@
             <button type="button" data-question="ssTiming"><span class="q-title">How does Social Security timing change the picture?</span><span class="q-desc">Compare claiming early vs. later.</span></button>
             <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span></button>
             <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
-            <button type="button" data-question="returns"><span class="q-title">What if returns are worse than expected?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
+            <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
           </div>
           <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
         </details>
         <div class="metrics metrics-primary">
           <div class="metric"><div class="kicker">Investable at retirement</div><strong id="retireAssets">—</strong><small id="retireAssetsSub"></small></div>
           <div class="metric"><div class="kicker">Retirement age</div><strong id="dashRetireAge">—</strong><small id="dashRetireAgeSub">when both retire</small></div>
-          <div class="metric"><div class="kicker">Portfolio lasts to</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
+          <div class="metric"><div class="kicker">Investments last through</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
           <div class="metric"><div class="kicker">Historical success</div><strong id="dashHistSuccess">—</strong><small id="dashHistSuccessSub">Every 1928–2025 starting year</small></div>
         </div>
         <details class="result-card" id="moreResultsCard">
           <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)">More results<span class="caret" aria-hidden="true">▾</span></summary>
           <div class="metrics" style="margin-top:14px">
             <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
-            <div class="metric"><div class="kicker">Bond ladder at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
+            <div class="metric"><div class="kicker">Bond reserve at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
             <div class="metric"><div class="kicker">FI number (25× today's spend)</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small></div>
             <div class="metric"><div class="kicker">FIRE number (25× retirement spend)</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small></div>
             <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
@@ -359,7 +359,7 @@
 
         <div class="result-card" id="scenarioCompareCard" hidden>
           <div class="result-head"><div><h2>Scenario comparison</h2><p>Key outcomes for "Current" (your live inputs above) and any scenarios checked for comparison in the sidebar.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Retirement age(s)</th><th>Investable at retirement</th><th>Net worth at retirement</th><th>Portfolio lasts to</th><th>End assets</th></tr></thead><tbody id="scenarioCompareRows"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Retirement age(s)</th><th>Investable at retirement</th><th>Net worth at retirement</th><th>Investments last through</th><th>End assets</th></tr></thead><tbody id="scenarioCompareRows"></tbody></table></div>
         </div>
 
         <div class="result-card" id="mainChartCard">
@@ -406,7 +406,7 @@
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Roth conversion ladder optimizer</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target to estimate which minimizes lifetime tax paid (income + payroll tax, summed across the projection in today's dollars), while checking it doesn't shorten how long the portfolio lasts. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
-          <div class="table-wrap"><table><thead><tr><th>Fill to bracket</th><th>Lifetime tax (est.)</th><th>End assets</th><th>Portfolio lasts to</th></tr></thead><tbody id="rothOptimizerRows"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Fill to bracket</th><th>Lifetime tax (est.)</th><th>End assets</th><th>Investments last through</th></tr></thead><tbody id="rothOptimizerRows"></tbody></table></div>
         </details>
 
         <details class="result-card" id="sankeyCard">
@@ -4372,7 +4372,7 @@
     if (document.getElementById('workspace').dataset.mobileView === 'inputs') setMobileView('dashboard');
   }
   function renderDecisionCompareTable(rows) {
-    // "Portfolio lasts to" follows the same "Age {maxLifeExpectancy}+"
+    // "Investments last through" follows the same "Age {maxLifeExpectancy}+"
     // convention as the main scenario-compare table and the Roth optimizer
     // table (computeScenarioMetrics()/renderRothOptimizer() above) — a plan
     // that never depletes is described by the age it was actually modeled
@@ -5612,14 +5612,14 @@
     const statusEl = document.getElementById('saveStatus');
     if (!hasPersonalizedData) return;
     if (!storage) {
-      if (statusEl) statusEl.textContent = 'Not saved — storage unavailable';
+      if (statusEl) statusEl.textContent = 'Not autosaved — storage unavailable';
       return;
     }
     try {
       storage.setItem(storageKey, JSON.stringify({ state, mode }));
-      if (statusEl) statusEl.textContent = 'Saved on this device';
+      if (statusEl) statusEl.textContent = 'Plan autosaved in this browser';
     } catch {
-      if (statusEl) statusEl.textContent = 'Not saved — storage full or unavailable';
+      if (statusEl) statusEl.textContent = 'Not autosaved — storage full or unavailable';
     }
   }
   let saveDebounceTimer = null;
@@ -5957,7 +5957,7 @@
       ],
       ['Net worth at retirement', money(displayValue(retirement.total, retirement.year))],
       [
-        'Portfolio lasts to',
+        'Investments last through',
         sim.depletedAge
           ? `Age ${sim.depletedAge} (projected shortfall)`
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+ (not depleted)`,
@@ -5994,7 +5994,7 @@
       ['Bond return assumption', `${state.bondReturn}%`],
       ['HYSA / cash rate assumption', `${state.hysaRate}%`],
       ['Inflation assumption', `${state.inflation}%`],
-      ['Bond ladder', `${getBondYears()} years of expenses`],
+      ['Bond reserve', `${getBondYears()} years of expenses`],
     ]);
     const chartCanvas = document.getElementById('chart');
     let chartImg = '';
