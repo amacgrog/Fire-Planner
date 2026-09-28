@@ -1058,6 +1058,82 @@ the filter (the filter stays exactly as-is; this is purely additive).
   already byte-identical between `Planner_US.html`/`Planner_Canada.html`
   before this change.
 
+### Round 2: over-broad matching, mobile dropdown covering the form, and losing the filter on select
+
+Real-world feedback, verbatim: "the search returns too many results (i think
+it also searches the small text descriptors) for example, income returns
+~20 results... the original functionality of removing items from the form
+that didn't fit the search was great, however it only does that currently
+when actively typing in the search box. in mobile, the search as navigator
+dropdown covers most of the screen and you can't see the form as it is
+simplifying it. when you click the search button, it takes you to the
+first available option, but removes the search term and all of the
+original form items come back, negating the usefulness of the search bar."
+Four distinct problems, all in the same feature, fixed together:
+
+1. **Matching searched the field's full `label.textContent`**, which
+   includes the nested `<small>` help blurb (and the "Estimated ✓" badge)
+   — deliberately broad at the time, on the theory that jargon often lives
+   in the blurb, but in practice this made a common word absurdly
+   over-broad: "income" matched ~20 fields because most field *descriptions*
+   mention income somewhere, not because ~20 fields are actually about
+   income. Fixed by matching against `mainLabelText(label)` (the label's
+   own direct text nodes — already existed, previously used only for the
+   dropdown's display text) everywhere, so what's searched is exactly what
+   a person sees as the field's name. Confirmed with Playwright: "income"
+   now matches 17 fields in the US file, all of them genuinely income
+   fields (`Partner A/B income`, `bridge income`, `Income source 1-3`,
+   `One-time income 1-3`, etc.) — none of the previous false-positive noise
+   from an unrelated field's blurb happening to mention the word.
+2. **The dropdown navigator (`#fieldSearchResults`) is now desktop-only**
+   (`isMobileSearch()`, checking the same `(max-width:820px)` breakpoint
+   used throughout this file). On a phone it used to render as a box up to
+   `50vh` tall directly over the very fields it had just filtered down to —
+   with the on-screen keyboard open, that's most of the visible viewport,
+   hiding the simplified list a person could otherwise just scroll straight
+   through. The field-hiding filter (`.field-match`/`.field-hidden`) is
+   untouched and still runs identically on mobile — it's the part that was
+   "great" per the feedback and never needed a dropdown to be useful on a
+   small screen; narrowing 100+ fields down to a handful is enough on its
+   own to scan directly. `runSearch()` (the old anonymous `input` listener,
+   now a named function so it can be called from a second place — see
+   point 4) skips building/showing `resultsEl` whenever `isMobileSearch()`
+   is true, same as it already did for zero matches.
+3. **`selectResult()` used to clear the search box and call `endSearch()`**
+   — un-hiding every filtered-out field and restoring every group's
+   pre-search open state — *before* jumping to the picked field. That threw
+   away the narrowed view the person had just used to find that field,
+   which is exactly the "negating the usefulness of the search bar"
+   complaint. It now only closes the dropdown (`hideResults()`); the
+   filter, the search term, and the match count are left exactly as they
+   were. This was the "only removes items while actively typing" complaint
+   too, from the other direction — the filter was never being removed
+   *while* typing, it was being removed the moment you *stopped* (by acting
+   on a result), which reads the same way from the outside: the simplified
+   view doesn't survive the interaction it exists to support.
+4. **A new complication from fix 3**: since the search term and filter now
+   persist after picking a result, refocusing the search box afterward (to
+   look at another match) showed a *stale, empty* dropdown rather than
+   nothing happening — the dropdown only ever gets (re)built inside the
+   `input` event's handler, and no `input` event fires from just clicking
+   back into a box whose value hasn't changed. Fixed by extracting that
+   handler into a named `runSearch()` function and adding a `focus`
+   listener that calls it whenever the box regains focus with a non-empty
+   query on desktop (`isMobileSearch()` guards this the same as the main
+   path) — so tabbing away and back re-populates the same dropdown instead
+   of requiring the query to be retyped.
+- **Verified** with Playwright, both files: "income" now returns a materially
+  smaller, entirely on-topic match set; the dropdown never renders at
+  390×844 regardless of match count, while `.field-match`/`.field-hidden`
+  still apply identically to the desktop behavior; clicking a dropdown
+  result on desktop leaves the search box's value, the match count, and
+  every other field's hidden/shown state completely unchanged, only closing
+  the dropdown itself; refocusing the search box afterward reopens the
+  dropdown with the same results, with no retyping needed; Escape still
+  fully clears the query and restores every field/group to its pre-search
+  state, exactly as before. `npm test` and a syntax check of both files
+  also pass.
+
 ## Default-value field marker (`markDefaultFields`, `.is-default`)
 
 Every field in the `ids` array (see "Architecture, per planner file" above)
