@@ -89,6 +89,8 @@
     .decision-questions button{padding:12px 14px}
     .decision-questions button .q-title{display:block;font-weight:800;font-size:.86rem;margin-bottom:3px}
     .decision-questions button .q-desc{display:block;font-weight:500;font-size:.75rem;color:var(--muted);line-height:1.3}
+    .decision-questions button .q-delta{display:block;font-weight:700;font-size:.72rem;color:var(--blue);line-height:1.3;margin-top:5px}
+    .decision-questions button .q-delta:empty{display:none}
     .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800;grid-column:1/-1}
     .wizard-subhead:first-of-type{margin-top:0}
     /* Wizard readability + Step 2 flow, round 3: the description text under
@@ -335,12 +337,12 @@
           <summary>💡 What do you want to figure out?<span class="caret" aria-hidden="true">▾</span></summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p>
           <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
-            <button type="button" data-question="retireTiming"><span class="q-title">Should I retire earlier or later?</span><span class="q-desc">Compare retiring a few years earlier or later.</span></button>
-            <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span></button>
-            <button type="button" data-question="rothLadder"><span class="q-title">Should I do an RRSP meltdown?</span><span class="q-desc">Explore an RRSP meltdown ladder in retirement.</span></button>
-            <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span></button>
-            <button type="button" data-question="ssTiming"><span class="q-title">How does CPP/OAS timing change the picture?</span><span class="q-desc">Compare claiming early vs. later.</span></button>
-            <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span></button>
+            <button type="button" data-question="retireTiming"><span class="q-title">Should I retire earlier or later?</span><span class="q-desc">Compare retiring a few years earlier or later.</span><span class="q-delta" aria-hidden="true"></span></button>
+            <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span><span class="q-delta" aria-hidden="true"></span></button>
+            <button type="button" data-question="rothLadder"><span class="q-title">Should I do an RRSP meltdown?</span><span class="q-desc">Explore an RRSP meltdown ladder in retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
+            <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span><span class="q-delta" aria-hidden="true"></span></button>
+            <button type="button" data-question="ssTiming"><span class="q-title">How does CPP/OAS timing change the picture?</span><span class="q-desc">Compare claiming early vs. later.</span><span class="q-delta" aria-hidden="true"></span></button>
+            <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
             <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
           </div>
@@ -3266,6 +3268,7 @@
     rothOptimizerCard.hidden = !state.meltdownEnabled;
     if (state.meltdownEnabled && rothOptimizerCard.open) renderRothOptimizer(selected);
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
+    if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
     window.fireProjection = {
       mode,
       retirementAgeA: state.retireAgeA,
@@ -3653,6 +3656,59 @@
           : `${delta >= 0 ? 'adds' : 'costs'} ${compact(Math.abs(delta))} in end assets`;
     if (fromSim.depletedAge === toSim.depletedAge) return assetsPart;
     return `${assetsPart} and moves your depletion point from ${decisionDepletionLabel(fromSim)} to ${decisionDepletionLabel(toSim)}`;
+  }
+  // A compact one-line preview shown right on each "Explore a question"
+  // button, so the likely answer is visible at a glance without clicking
+  // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
+  // Deliberately reuses the two most extreme rows a compare-question's
+  // run() already returns (rows[0]/rows.at(-1) — for a 2-row question
+  // that's just both rows, for a 3-row question like retireTiming/ssTiming
+  // it's the two endpoints, skipping the middle "current" row) rather than
+  // introducing a second, separate metric: the full comparison table
+  // behind the click uses the same decisionEndAssets()/depletedAge data,
+  // so the preview and the detail it expands into never disagree with each
+  // other. Doesn't use a success-rate delta (the "+6pts" a UX suggestion
+  // proposed) on purpose — that would need a historical backtest per
+  // question, and the whole reason the Plan Status Bar's own backtest is
+  // debounced (see CLAUDE.md) is that it's too expensive to run this
+  // casually; end-assets + depletion age are already computed as part of
+  // run()'s normal simulate() calls, so this preview costs nothing extra.
+  function compactDecisionDelta(rows) {
+    const left = rows[0],
+      right = rows[rows.length - 1],
+      fromEnd = decisionEndAssets(left.sim),
+      toEnd = decisionEndAssets(right.sim),
+      delta = toEnd - fromEnd,
+      dollarPart =
+        fromEnd <= 1 && toEnd <= 1
+          ? 'depletes either way'
+          : `${delta >= 0 ? '+' : '-'}${compact(Math.abs(delta))} end assets`,
+      lastsPart =
+        left.sim.depletedAge === right.sim.depletedAge
+          ? ''
+          : ` · lasts to ${decisionDepletionLabel(right.sim)}`,
+      // Strip only the "(current)" annotation some labels carry — unlike a
+      // substantive parenthetical (e.g. rothLadder's/meltdown's window
+      // annotation), that tag is just noise once shown as A → B on a button.
+      stripCurrent = (s) => s.replace(/\s*\(current\)\s*$/, '').trim();
+    return `${stripCurrent(left.label)} → ${stripCurrent(right.label)}: ${dollarPart}${lastsPart}`;
+  }
+  // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
+  // ones (sensitivity, returns) don't compare two scenarios, they just hand
+  // off to an existing card, so there's nothing to preview. Gated by
+  // #decisionCard's own open state (see its 'toggle' listener and the
+  // matching render() call below), same lazy-compute pattern already used
+  // for the tornado/Roth-optimizer/Sankey cards — these are up to 6
+  // questions × 2-3 simulate() calls each, cheap individually but pointless
+  // work on every keystroke while the card is collapsed and invisible.
+  function renderDecisionQuestionPreviews() {
+    Object.keys(DECISION_QUESTIONS).forEach((id) => {
+      const q = DECISION_QUESTIONS[id];
+      if (q.kind !== 'compare') return;
+      const el = document.querySelector(`#decisionQuestions button[data-question="${id}"] .q-delta`);
+      if (!el) return;
+      el.textContent = compactDecisionDelta(q.run().rows);
+    });
   }
   // Assigned by the mobile-tab setup further down; declared here (rather
   // than left to that block alone) so the 'open' questions below can flip
@@ -6883,6 +6939,13 @@
   });
   document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
+  });
+  // Same lazy-compute reasoning as the three toggle listeners above: the
+  // per-button delta previews cost a handful of simulate() calls each, so
+  // they're only worth computing once the "Explore a question" bubble is
+  // actually expanded and visible.
+  document.getElementById('decisionCard').addEventListener('toggle', (e) => {
+    if (e.target.open) renderDecisionQuestionPreviews();
   });
   document.getElementById('sankeyAge').addEventListener('input', () => {
     if (document.getElementById('sankeyCard').open) renderSankey(simulate());

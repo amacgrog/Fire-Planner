@@ -2888,6 +2888,74 @@ any state.
   post-change verification whenever a new `hidden`-toggled element is added
   in this codebase, not just something to remember after the fact.
 
+## "Explore a question" inline delta previews
+
+Each of the 6 `kind:'compare'` `DECISION_QUESTIONS` buttons (not the 2
+`kind:'open'` ones, `sensitivity`/`returns` — there's no two-scenario
+comparison to summarize for those) now shows a compact one-line delta right
+on the button itself, e.g. `Own → Rent: -$257.1K end assets · lasts to age
+72`, so the gist of the answer is visible at a glance without clicking in
+first — the click still reveals the full sentence + comparison table as
+before, unchanged.
+
+- **`compactDecisionDelta(rows)`** (defined right after `decisionDeltaPhrase`,
+  both files) reuses `rows[0]`/`rows.at(-1)` — the two most extreme rows a
+  question's own `run()` already returns (for a 2-row question that's just
+  both rows; for a 3-row question like `retireTiming`/`ssTiming` it skips
+  the middle "current" row and shows the full swing between the two
+  endpoints) — and formats them against the same `decisionEndAssets()`/
+  `depletedAge` data `decisionDeltaPhrase()`/`renderDecisionCompareTable()`
+  already use. This is deliberate: the preview and the full detail it
+  expands into are reading the exact same numbers, so they can never
+  disagree with each other. `stripCurrent()` trims only a trailing
+  `" (current)"` annotation some labels carry (not any parenthetical —
+  `rothLadder`'s/`meltdownEnabled`'s window-and-bracket detail is
+  substantive and stays) since that tag is redundant noise once shown as
+  a bare `A → B` on a button.
+- **Deliberately does not show a success-rate delta** (a "+6pts"-style
+  number, which was the original suggestion this feature came from) — that
+  would need a full historical backtest (`runHistoricalCycles()`) per
+  question, and the entire reason the Plan Status Bar's own backtest is
+  debounced 500ms (see "Plan status bar" above) is that it's too expensive
+  to run casually. End-assets and depletion age are already produced as a
+  side effect of `run()`'s normal `simulate()` calls, so this preview costs
+  nothing beyond what `run()` already does.
+- **Lazily computed, same pattern as the tornado/Roth-optimizer/Sankey
+  cards**: `renderDecisionQuestionPreviews()` (iterates `DECISION_QUESTIONS`,
+  skips `kind:'open'`, writes into each button's `.q-delta` span) only runs
+  while `#decisionCard` is expanded — gated both by a `render()` call
+  (`if (document.getElementById('decisionCard').open)
+  renderDecisionQuestionPreviews()`, right after the sensitivity/Roth/Sankey
+  equivalents) and by `#decisionCard`'s own `toggle` listener (so expanding
+  it populates the previews immediately, not just on the next unrelated
+  edit). Up to 6 questions × 2-3 `simulate()` calls each is cheap
+  individually but pointless work on every keystroke while the card is
+  collapsed and invisible — same reasoning as those three cards.
+- **Markup**: each compare-kind button's existing `.q-title`/`.q-desc` spans
+  gained a third `<span class="q-delta" aria-hidden="true"></span>` (empty
+  until `renderDecisionQuestionPreviews()` first runs). `aria-hidden` since
+  the full sentence a screen-reader user reaches by actually clicking the
+  button already says the same thing, just in prose rather than an
+  abbreviated `A → B: delta` shorthand — the preview is a sighted-glance
+  affordance, not new information. `.q-delta:empty{display:none}` keeps a
+  not-yet-computed (or `kind:'open'`, which never gets one) button's layout
+  identical to before this feature, rather than reserving dead space for a
+  line that isn't there.
+- Ported identically to both files — `DECISION_QUESTIONS`' shape (`run()`
+  returning `{rows, sentence}`), `decisionEndAssets()`/`decisionDepletionLabel()`,
+  and the button markup are already structurally identical between US and
+  Canada for this surface (only the underlying `run()` bodies differ, e.g.
+  `rothConvEnabled` vs. `meltdownEnabled` — irrelevant to
+  `compactDecisionDelta()`, which only ever looks at the `rows` it's handed).
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — deltas are empty before `#decisionCard` is expanded, populate for
+  all 6 compare buttons (and stay absent for `sensitivity`/`returns`) the
+  moment it's expanded, update live after an input edit while the card
+  stays open, survive a collapse/re-expand cycle, and clicking through to
+  the full answer still works exactly as before; no horizontal overflow at
+  either desktop or 390×844 mobile width, light or dark theme (screenshots
+  confirm clean wrapping on mobile card width).
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
