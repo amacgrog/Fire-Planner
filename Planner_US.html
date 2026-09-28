@@ -153,9 +153,12 @@
         </details>
         <details class="group" id="taxFilingGroup" open>
           <summary>Tax filing status</summary>
-          <div class="field"><label>Current filing status</label><div class="choice" role="radiogroup" aria-label="Filing status"><button type="button" id="mfjBtn" role="radio">MFJ</button><button type="button" id="singleBtn" role="radio">Two single filers</button></div></div>
-          <div class="field"><label for="marryLater"><input id="marryLater" type="checkbox"> Start single, then file MFJ</label></div>
-          <div class="field" id="marriageAgeField"><label for="marriageAgeA">MFJ begins at Partner A age</label><input id="marriageAgeA" type="number" min="18" max="100" step="1"></div>
+          <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
+          <div id="filingStatusFields">
+            <div class="field"><label>Current filing status</label><div class="choice" role="radiogroup" aria-label="Filing status"><button type="button" id="mfjBtn" role="radio">MFJ</button><button type="button" id="singleBtn" role="radio">Two single filers</button></div></div>
+            <div class="field"><label for="marryLater"><input id="marryLater" type="checkbox"> Start single, then file MFJ</label></div>
+            <div class="field" id="marriageAgeField"><label for="marriageAgeA">MFJ begins at Partner A age</label><input id="marriageAgeA" type="number" min="18" max="100" step="1"></div>
+          </div>
         </details>
         <details class="group" open>
           <summary>State income tax</summary>
@@ -163,7 +166,6 @@
         </details>
         <details class="group" open>
           <summary><span class="group-summary-text"><span class="group-title">Timeline</span><span class="group-state" id="timelineGroupState"></span></span></summary>
-          <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
           <div class="field"><label for="ageA">Partner A starting age</label><input id="ageA" type="number" min="18" max="70" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="lifeExpectancyA">Partner A: plan finances through age</label><span class="range-value" id="lifeExpectancyAOut"></span></div><input id="lifeExpectancyA" type="range" min="50" max="110" step="1"><small class="range-note">Sets how many years the projection runs. Lowering this also lets the historical backtest use more starting years, since fewer years of data are needed to complete a full replay.</small></div>
           <div class="range-field"><div class="range-head"><label for="retireAgeA">Partner A retirement age</label><span class="range-value" id="retireAgeAOut"></span></div><input id="retireAgeA" type="range" min="18" max="70" step="1"></div>
@@ -6559,7 +6561,7 @@
     document
       .querySelectorAll('[data-partner-b]')
       .forEach((el) => (el.hidden = !!state.singlePerson));
-    document.getElementById('taxFilingGroup').hidden = !!state.singlePerson;
+    document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';

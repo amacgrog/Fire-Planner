@@ -3376,6 +3376,42 @@ shouldn't interrupt live typing/dragging.
   unchanged and still passes in full, confirming this addition didn't
   disturb that layer.
 
+## Single-person checkbox moved from Timeline to Tax filing status / Province of residence
+
+Real-world feedback (a tester trying the app cold): the "Single-person plan"
+checkbox was hard to find, buried as the first field inside the Timeline
+group alongside ages/retirement-age sliders — nothing about "Timeline"
+suggests "this is where you say whether it's one person or a couple."
+Moved to the first field inside `taxFilingGroup` ("Tax filing status" on
+US) / the "Province of residence" group on Canada — both are short,
+always-open, near-the-top groups, and singlePerson meaningfully affects tax
+filing (MFJ vs. single-filer) anyway, so the pairing makes sense
+conceptually too.
+
+- **A real self-hiding bug this move would have introduced, caught before
+  shipping**: `syncControls()` already had
+  `document.getElementById('taxFilingGroup').hidden = !!state.singlePerson`
+  — the whole group (MFJ/two-single-filers choice, the `marryLater`
+  checkbox, `marriageAgeField`) is irrelevant once modeling a single
+  person, so it collapses itself away. Moving the `singlePerson` checkbox
+  *into* that same group without changing that line would mean checking it
+  hides the entire group, including the checkbox itself — no way to uncheck
+  it again from the UI. Fixed by wrapping just the three filing-status-
+  specific fields in a new `<div id="filingStatusFields">` and retargeting
+  the hide to that wrapper instead of `#taxFilingGroup`; the group
+  `<details>` itself is never hidden anymore, only the fields inside it
+  that stop being relevant. Canada has no equivalent hide-on-singlePerson
+  logic for "Province of residence" (it's just the one `province` select,
+  always relevant regardless of household size), so no analogous fix was
+  needed there — the checkbox was simply added as that group's first field.
+- **Verified with Playwright, not just visual inspection**: in both files,
+  `#singlePerson` is visible on load, lives inside the correct group
+  (`closest('details.group')`'s summary text), stays visible and checked
+  immediately after checking it (US: with `#filingStatusFields` — not
+  `#taxFilingGroup` — actually hidden), and can be unchecked again through
+  a real UI click with no dead end. `npm test`, a syntax check of both
+  files, and a 390×844 mobile overflow check all pass.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
