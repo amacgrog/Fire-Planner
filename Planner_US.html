@@ -6642,20 +6642,37 @@
       // match every field whose *description* merely mentioned it in
       // passing (~20 fields), which defeated the point of a filter meant
       // to narrow things down to what someone is actually looking for.
-      let matchList = fieldInfo.filter((info) => info.name.toLowerCase().includes(q));
-      // Pass 2 (fallback, only when pass 1 comes back empty): match
-      // against the field's own top-level group/section title instead. A
-      // section can be named for something no single field inside it
-      // repeats in its own label — "Assets" holds fields like "Stocks %"
-      // or "Cash reserve," none of which contain the word "asset" — so a
-      // section-level query like "assets" should still find that whole
-      // group rather than coming back with zero matches. This only kicks
-      // in when nothing matched by name, so it can't reintroduce the
-      // over-broad matching pass 1 exists to avoid: a query that already
-      // matches real field names (like "income") never reaches this pass,
-      // even though several *group* titles also happen to contain
-      // "income" ("Retirement income & healthcare," which is mostly about
-      // Social Security/pensions/healthcare, not income specifically).
+      const directSet = new Set(fieldInfo.filter((info) => info.name.toLowerCase().includes(q)));
+      // Pass 1.5: also union in every field whose top-level group/section
+      // title *exactly* matches the query (not merely contains it) — this
+      // runs unconditionally, not just when pass 1 finds nothing. A query
+      // naming a whole section precisely ("assets", "other loans") should
+      // pull in that entire section even when one of its fields *also*
+      // happens to match by name directly, rather than only kicking in on a
+      // literal zero: "other loans" without this pass would match only the
+      // one field literally titled "Model other loans" and stop there,
+      // missing all 25 of the actual per-loan fields (original principal,
+      // remaining balance, interest rate, term, extra principal — none of
+      // which say "other loans" in their own label) that are exactly what
+      // someone searching "other loans" is looking for. Requiring an
+      // *exact* title match (not a
+      // substring) is what keeps this from reintroducing the over-broad
+      // matching pass 1 exists to avoid: "income" doesn't exactly equal
+      // "Retirement income & healthcare" (a compound title that's mostly
+      // Social Security/pensions/healthcare, not income specifically), so
+      // that section is never pulled in wholesale just because the word
+      // "income" happens to appear inside its name — it only fires for a
+      // section actually *named* the query, like the "Income" group itself
+      // (whose few fields already match directly anyway) or "Housing".
+      const exactSectionSet = new Set(fieldInfo.filter((info) => info.group.trim().toLowerCase() === q));
+      let matchList = fieldInfo.filter((info) => directSet.has(info) || exactSectionSet.has(info));
+      // Pass 2 (fallback, only when passes 1 and 1.5 together come back
+      // empty): match against the field's own top-level group/section
+      // title as a *substring* instead of requiring an exact title match.
+      // Covers a section-level query that isn't quite the section's exact
+      // name (plural/wording mismatch, etc.) when nothing else matched at
+      // all — a looser bar than pass 1.5, but only reached once there's
+      // nothing to lose by widening it.
       if (matchList.length === 0) {
         matchList = fieldInfo.filter((info) => info.group.toLowerCase().includes(q));
       }

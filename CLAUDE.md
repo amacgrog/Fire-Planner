@@ -1182,6 +1182,64 @@ Two fixes, in `runSearch()`:
   the field-hiding filter (no dropdown there either way, per round 2).
   `npm test` and a syntax check of both files also pass.
 
+### Round 4: the zero-match gate on its own missed a real case — a few direct matches can still hide a whole section
+
+Follow-up question, before this had come up as a live bug: is "the
+section-title fallback only fires on literally zero direct matches" enough,
+or can a query return a *small* number of direct matches while the section
+it's really asking about has more? Yes — found a concrete instance while
+checking: **"other loans"** matched exactly one field directly (the
+`otherLoansEnabled` checkbox, labeled "Model other loans"), because none of
+the actual per-loan fields say "other loans" in their own label — they're
+just "Original principal," "Remaining balance," "Interest rate," "Loan term
+(years)," "Extra monthly principal," repeated per loan slot. Round 3's
+zero-match gate never triggered for this query (1 ≠ 0), so searching "other
+loans" returned only the enable checkbox and hid all 25 of the fields it
+actually turns on.
+
+- **Fix**: added a second, *unconditional* matching pass (labeled "pass
+  1.5" in the code, between the existing direct-label pass and the
+  zero-match substring fallback) that unions in every field whose top-level
+  group/section title **exactly** equals the query (case-insensitive,
+  trimmed) — not merely *contains* it, and not gated on the direct pass
+  coming back empty. "other loans" now returns all 26 fields (the
+  checkbox plus every per-loan field across all 5 slots).
+- **Why exact-title, not substring, and why still unconditional**: an
+  *unconditional substring* check (matching, say, "Retirement income &
+  healthcare" against the query "income") is exactly what round 2 fixed —
+  it would pull in every Social Security/pension/ACA/LTC field just
+  because the word "income" happens to sit inside a compound section name
+  that's mostly about something else. Requiring the section title to
+  **exactly** equal the query rules that out: "income" doesn't exactly
+  equal "Retirement income & healthcare," so that section is left alone,
+  while a query that *is* a section's whole name — "other loans," "assets,"
+  the "Income" group itself — still gets the full section regardless of
+  how many (if any) of its fields also happen to match directly. This is
+  strictly narrower than round 3's substring fallback, which is why it's
+  safe to run unconditionally rather than only on a literal zero — the two
+  rules serve different roles: this one (exact title) catches "the query
+  *is* a section name" whether or not a coincidental direct hit already
+  happened; the older substring fallback (still zero-match-gated) catches
+  a looser section-name-ish query only once nothing else matched at all.
+- **A tried-and-discarded example while writing this**: the code comment
+  originally illustrated the problem with "mortgage" (as in "Mortgage
+  interest rate," inside the "Housing" section) — but that turned out to
+  be wrong on inspection: "mortgage" isn't the *Housing* section's name,
+  so the exact-title rule correctly does nothing for it, and "mortgage"
+  still returns just the 1 literal field, same as before this round. That
+  is expected, not a gap this round claims to close — solving "a query
+  names a sub-topic within a larger, differently-named section" would
+  need either a manually curated per-group keyword/alias list or a looser
+  always-on substring match (which reopens round 2's problem), and neither
+  was attempted here. "Other loans" is the one that's actually fixed,
+  because the query and the section's own name are the same thing.
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — "other loans" now returns 26 matches (was 1); "assets" and
+  "income" are unaffected (7 and 17/18 respectively, same as round 3);
+  the round 2/3 behaviors (filter and query persisting after selecting a
+  dropdown result, no dropdown on mobile, Escape fully clearing) all
+  re-verified working.
+
 ## Default-value field marker (`markDefaultFields`, `.is-default`)
 
 Every field in the `ids` array (see "Architecture, per planner file" above)
