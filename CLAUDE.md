@@ -3167,6 +3167,141 @@ its own top.
   `scrollTop` is `0` on Step 2; scroll to the bottom on Step 2, click Back,
   confirm `scrollTop` is `0` back on Step 1.
 
+## Surfacing unusual/important assumptions (`UNUSUAL_RANGES`, `.unusual-banner`, `#unusualToast`)
+
+The last of the original ChatGPT-sourced UX suggestions not yet built. This
+is a **second, independent layer** on top of the "Estimated" field badges
+above — deliberately not merged into that feature, because the two flag
+genuinely different things:
+
+- The estimated-fields rollup flags a **personal fact** still sitting at
+  its meaningless placeholder default (income, balances, ages) — the
+  default itself is never wrong, it just isn't *this person's* number yet.
+- This feature flags a **modeling assumption** whose current value —
+  default or hand-typed, doesn't matter — sits outside a realistic
+  real-world range. A 15% investment return or a 0% inflation rate are
+  both allowed by the field's own wide HTML `min`/`max` (e.g. `returnRate`
+  is `min="-10" max="20"` — nothing stops a browser from accepting either
+  extreme), but neither is a sane planning assumption.
+
+**Scope, decided with the user before writing any code** (three explicit
+choices, each with a rejected alternative):
+1. "Unusual" = **outside a curated realistic range** per field, not
+   "far from this app's shipped default" (the latter would just be a
+   second `markDefaultFields()`/`.is-default`, not a new signal).
+2. "Important" = **quantify the impact** of the flagged value by comparing
+   the current plan against the same plan with just that one field nudged
+   back to the nearer edge of its realistic range — reusing the
+   `SENSITIVITY_LEVERS`/`decisionDeltaPhrase()` mutate-simulate-restore
+   idiom and wording (not a fixed hand-picked "these 3 assumptions always
+   matter" list, and not literally pulling from `SENSITIVITY_LEVERS`
+   itself, since most of the flaggable fields — `lifeExpectancyA/B`,
+   `incomeGrowth`, `propertyTaxGrowth`, `homeInsuranceGrowth`,
+   `rentGrowth`, `mortgageRate`, `bondYears` — have no matching lever in
+   that array to begin with).
+3. Placement is a **dashboard callout**, shown only while something is
+   actually flagged (never an empty "0 unusual assumptions" card), easy to
+   dismiss per-field, plus a brief pop-up toast so a person working
+   elsewhere on the dashboard (or the Inputs tab, on mobile) still finds
+   out about a *newly* flagged value — but a dismissal must **not**
+   re-trigger just because the same field moves from one unusual value to
+   a different unusual one.
+
+**`UNUSUAL_RANGES`** — a flat array of `{ id, label, unit, min, max,
+applicable? }`, reusing exactly the field-id set the estimated-fields spec
+already classified as "Assumption, never counted" (`lifeExpectancyA/B`,
+`incomeGrowth`, `inflation`, `bondYears`, `returnRate`, `bondReturn`,
+`hysaRate`, `homeGrowth`, `propertyTaxGrowth`, `homeInsuranceGrowth`,
+`rentGrowth`) plus `mortgageRate`, which that spec didn't need to classify.
+Ages/retirement ages are **deliberately excluded** — this is a FIRE app, so
+a 35-year-old retirement age is the expected case for a real slice of
+users, not something to nag about; flagging it would undermine the exact
+audience the tool is for. `propertyTaxGrowth`/`homeInsuranceGrowth`/
+`mortgageRate` are gated on `state.tenure !== 'rent'` and `rentGrowth` on
+`state.tenure !== 'own'` (both apply during `'rentThenBuy'`, since that
+transition uses both halves at different points); `lifeExpectancyB` is
+gated on `!state.singlePerson`. Field ids and every range value are
+identical between `Planner_US.html`/`Planner_Canada.html` — no
+US/Canada divergence was needed for this feature, unlike most of this
+file's other US-vs-Canada notes.
+
+**`computeUnusualAssumptions()`** filters `UNUSUAL_RANGES` down to
+currently-out-of-range, not-dismissed items. It has one deliberate side
+effect: the moment a field's value moves back **inside** its range, its id
+is spliced out of `state.dismissedUnusualAssumptions` right there, rather
+than waiting for a dedicated "un-dismiss" pass — so a *future* move back
+out of range is treated as a fresh flag. This is the mechanism behind the
+explicit "don't re-nag for a different unusual value on the same field"
+requirement: dismissal is keyed to the field being out-of-range at all, not
+to the exact value that was dismissed, and it only clears when the
+value genuinely becomes normal again. This is the opposite of
+`dismissedEstimates`'s own auto-undismiss rule (which clears on *any* edit,
+regardless of the new value) — the two dismiss arrays look similar but
+intentionally behave differently, matching what each feature is actually
+guarding against.
+
+**`unusualAssumptionImpact(item, currentSim)`** mutates `state[item.id]` to
+the nearer range edge, re-runs `simulate()`, restores the field, and hands
+both sims to the existing `decisionDeltaPhrase(fromSim, toSim)` helper
+("Explore a question" already built) to get a ready-made sentence — "using
+a typical value adds/costs $X in end assets[, and moves your depletion
+point from A to B]" — rather than inventing a second delta phrasing that
+could drift out of sync with the one "Explore a question" already uses.
+
+**The toast (`#unusualToast`)** exists because the callout itself
+(`#unusualAssumptionsBanner`, inside `.content`) is easy to miss if the
+person is scrolled elsewhere on the Dashboard, or on the Inputs tab on
+mobile. It's `position:fixed` (reusing the `.undo-toast` class/positioning,
+offset above it via `#unusualToast{bottom:96px}` so the two never overlap
+if both happen to be visible at once), so it's visible regardless of
+scroll position or which mobile tab is active — same reasoning as
+`#reviewNav`. It fires **only for newly-flagged items**
+(`previousUnusualIds`, an in-memory `Set`, not persisted — compared each
+render) and **never for the very first render** (`unusualToastArmed`),
+so loading a saved plan with an already-unusual assumption never pops an
+unsolicited toast the instant the page settles — only a value that
+becomes newly unusual *during* the session does. It also skips a field
+that's currently `document.activeElement` — if the person is mid-typing
+into the very field that just became unusual, they're already looking
+right at it, so a toast announcing it would be pure noise on top of what
+they can already see; the toast is for a value that turns unusual as a
+side effect while attention is elsewhere. Auto-dismisses after 8s or on
+its own ✕/Review buttons.
+
+**`jumpToUnusualField(id)`** is a near-duplicate of the existing
+`jumpToEstimateField()` (open the field's group, land it ~30% down the
+viewport, 2.6s flash-highlight, focus) with no `reviewingFieldId`-style
+guided-review state to track — deliberately kept as its own small function
+rather than sharing one with the estimated-fields feature, per this file's
+own "`simulate()`/`simulateHistorical()` duplication trap" reasoning: two
+independently-evolving features are safer kept separate than coupled
+through a shared helper that either one might need to change out from
+under the other later.
+
+**Not done here**: no MCP tool schema change (`dismissedUnusualAssumptions`
+is left out of `update_fire_assumptions`'s allow-list for the same reason
+`dismissedEstimates` was — `loans`, an existing array field, isn't in that
+allow-list either, so this stays consistent); no change to `ids`,
+`normalizeState()`'s other fields, `simulate()`/`simulateHistorical()`, or
+the sensitivity/tornado chart — this reuses their existing outputs without
+touching either function's own internals.
+
+**Verified**: `npm test`; a syntax check of both files; Playwright, both
+files — the banner and toast are both hidden at boot; setting `returnRate`
+to 18% (outside the flagged range) shows the banner with the impact
+sentence and pops the toast (once attention is simulated as elsewhere, not
+mid-edit on that exact field); nudging the same still-out-of-range field to
+a different unusual value re-triggers neither the toast nor a new list
+entry; dismissing the item removes it from the list and it stays dismissed
+across further edits to other unusual values on that same field; returning
+the value to a realistic number clears the banner and the dismissal
+silently; pushing it out of range again afterward re-flags it as a fresh
+item and re-pops the toast; the dismissal survives a real page reload
+(`localStorage`); clicking either the toast's "Review →" button or a
+banner item's own inline link opens the field's sidebar group, focuses it,
+and applies the flash-highlight; no horizontal overflow at 390×844 mobile
+width with the banner visible, in either theme.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
