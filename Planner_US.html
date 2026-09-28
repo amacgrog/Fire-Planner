@@ -7657,6 +7657,15 @@
     document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
     document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
     document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
+    // #wizardModal itself is the scrolling container (overflow:auto) — it's
+    // one persistent element across both steps, never recreated, so its
+    // scrollTop carries over from whatever step was showing before. Without
+    // this, clicking "Next" from partway (or all the way) down a long Step 1
+    // left Step 2 rendered already scrolled to that same position — often
+    // right at the bottom, since the Next button itself sits at the very
+    // end of Step 1. Reset on every step change (including the initial
+    // open) so each step always starts at its own top.
+    document.getElementById('wizardModal').scrollTop = 0;
   }
   document.getElementById('wizardBtn').addEventListener('click', () => {
     wizardStep = 1;

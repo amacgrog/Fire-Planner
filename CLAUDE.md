@@ -2956,6 +2956,35 @@ before, unchanged.
   either desktop or 390×844 mobile width, light or dark theme (screenshots
   confirm clean wrapping on mobile card width).
 
+## Wizard bug: Step 2 opened scrolled to the bottom
+
+Real-world bug report: clicking "Next" at the bottom of wizard Step 1 left
+Step 2 rendered already scrolled all the way down, instead of starting at
+its own top.
+
+- **Root cause**: `#wizardModal` (not `#wizardStep1`/`#wizardStep2`
+  individually) is the actual scrolling container — `overflow:auto` lives
+  on the modal itself, and it's one persistent DOM element shared across
+  both steps, toggled via `#wizardStep1`/`#wizardStep2`'s own `hidden`
+  attribute rather than being torn down and recreated. Its `scrollTop`
+  therefore carries straight over from whichever step was showing before.
+  Step 1 is long, and the Next button sits at the very bottom of it, so the
+  common path (scroll down to find Next, click it) leaves the modal's
+  `scrollTop` near its maximum right as Step 2 becomes visible — Step 2
+  then renders starting from that same scroll position, which for a
+  shorter Step 2 can mean at or near its bottom.
+- **Fix**: `renderWizardStep()` (called on open, Next, and Back — the
+  single choke point for every step transition) now resets
+  `document.getElementById('wizardModal').scrollTop = 0` every time it
+  runs, right after the `hidden`/title/button-visibility updates. Resetting
+  unconditionally (rather than only on the Next path) also fixes the
+  reverse case for free: scrolling down on Step 2 and clicking "Back" used
+  to leave Step 1 scrolled down too.
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — scroll the modal to the bottom on Step 1, click Next, confirm
+  `scrollTop` is `0` on Step 2; scroll to the bottom on Step 2, click Back,
+  confirm `scrollTop` is `0` back on Step 1.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
