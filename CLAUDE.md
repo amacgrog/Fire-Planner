@@ -3302,6 +3302,80 @@ banner item's own inline link opens the field's sidebar group, focuses it,
 and applies the flash-highlight; no horizontal overflow at 390×844 mobile
 width with the banner visible, in either theme.
 
+### Follow-up: a third, Inputs-side layer — live field marker + blur-gated note
+
+Real-world feedback: the toast/banner above are effectively Dashboard-
+oriented signals — the toast is a one-shot pop-up and the banner lives in
+`.content` (invisible on the mobile Inputs tab) — so a person could type an
+unusual value directly into the sidebar and see nothing at all until they
+happened to look at the Dashboard. The person's own request, verbatim: they
+didn't notice a toast after setting `returnRate` to 20% and `inflation` to
+0% back-to-back — only saw it once on the Dashboard — and reasoned through
+the fix themselves: warning shouldn't fire the instant a value changes
+(too naggy while still typing/dragging), firing on "navigating away from
+the field" is the right moment, *except* for whichever field is the very
+last one edited, since a blur may never happen for it.
+
+That last caveat is exactly why this is a **third, independent layer**
+rather than a tweak to the toast: a passive, always-current visual marker
+right on the field itself, updated on every `render()` (same cadence as
+`markDefaultFields()`'s amber dot) — so even the last field edited, with no
+blur ever occurring, is correctly marked the instant its value goes out of
+range. A second, separate mechanism — a brief "Unusual value" note — is
+blur-gated per the person's own reasoning, since that part genuinely
+shouldn't interrupt live typing/dragging.
+
+- **`markUnusualFields(flaggedIds)`** (both files) walks `UNUSUAL_RANGES`
+  and toggles a plain `.unusual-value` class on each field's `.field`/
+  `.range-field` wrapper — `flaggedIds` is the same `Set` of currently-
+  flagged-and-not-dismissed ids `renderUnusualAssumptions()` already
+  computes via `computeUnusualAssumptions()`, so there's no second range
+  check to keep in sync; `renderUnusualAssumptions()` calls it once, before
+  its own early-return for "nothing flagged" (so the marker set correctly
+  clears to empty in that case too, not just when something's flagged).
+  CSS: `.unusual-value>input,>select` get a red border + inset box-shadow,
+  a `.range-field.unusual-value input[type=range]` gets the same box-shadow
+  (a native range track has no border to color), and both variants get a
+  red underline on the field's own `<label>` — deliberately two visual
+  treatments at once (border + underline), not just one, since the person
+  listed both as candidate options and a field that's out of realistic
+  range is worth making hard to miss.
+- **The "Unusual value" note is the one blur-gated piece.** A single
+  delegated `document.addEventListener('focusout', ...)` (not `blur`,
+  which doesn't bubble) checks whether the event's target is one of the
+  `UNUSUAL_RANGES` ids and is currently flagged, and if so injects (or
+  reuses) a `.unusual-field-note` div right inside that field's wrapper,
+  showing it via a `.show` class for 3s. This only fires once focus
+  actually leaves the field — exactly the "navigating away" trigger the
+  person asked for — so it never interrupts someone still typing or
+  dragging a slider. Delegated on `document` rather than wired per-field,
+  so no per-field listener registration is needed as `UNUSUAL_RANGES`
+  grows.
+- **Why the live marker (not the note) is what actually closes the "last
+  field, never navigates away" gap**: the marker doesn't wait for any
+  event at all — it's recomputed from scratch on every `render()`, which
+  already fires on every keystroke via the existing `ids.forEach` input
+  listener. So even a field that's never blurred (the very last thing
+  someone touches before closing the tab, or before clicking a totally
+  unrelated button that happens to not trigger `focusout` in a way this
+  cares about) is still visibly marked the instant its own value crosses
+  out of range — the passive visual cue has no "did they navigate away"
+  precondition; only the transient text note does.
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — the field marker (`.unusual-value` class present, confirmed via
+  the wrapper's classList) appears immediately while a field is still
+  focused/mid-edit, with the "Unusual value" note staying hidden the whole
+  time; moving focus to a different field pops the note on the
+  now-unfocused, still-unusual field; nudging an already-flagged,
+  currently-unfocused field to a *different* unusual value leaves the
+  marker correctly still present (no flicker/clear); returning the value to
+  a realistic number while still focused clears the marker immediately,
+  with no blur required; no horizontal overflow at 390×844 mobile width
+  with both the marker and the note visible, in either theme. The existing
+  banner/toast Playwright suite (immediately above) was also re-run
+  unchanged and still passes in full, confirming this addition didn't
+  disturb that layer.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
