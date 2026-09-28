@@ -2623,16 +2623,21 @@ suppression API; it's just normal DOM layering.
   plain desktop-viewport (`hasTouch` unset, fine-pointer) page confirms the
   catcher is `pointer-events:none` and `(pointer:coarse)` doesn't match, so
   the click reaches the real input exactly as before this feature existed;
-  no horizontal overflow at mobile width in either theme. **Not yet
-  re-verified on the actual S23 this round** — the previous two rounds
-  were each confirmed working via on-device console diagnostics before
-  being disproven by the *next* round of real usage, so treat this as
-  strong-but-not-final until it's been checked on the device the same way:
-  load the branch via `raw.githack.com`, and this time check the visible
-  behavior directly (does an intentional vertical swipe scroll the page
-  cleanly, does an intentional horizontal drag move the slider, does a tap
-  jump the value) rather than console diagnostics, since diagnostics have
-  already served their purpose in root-causing this.
+  no horizontal overflow at mobile width in either theme. **Confirmed
+  working on the actual S23** (Android Chrome, via `raw.githack.com`,
+  checked visually rather than via console diagnostics this time): an
+  intentional vertical swipe over a slider scrolls the page cleanly with no
+  knob movement, and an intentional horizontal drag moves the slider
+  without scrolling the page. Unlike the previous two rounds — each
+  confirmed via on-device diagnostics only to be disproven by the *next*
+  round of real usage — this is the first version of this fix where the
+  actual reported complaint ("clicking anywhere on the bar immediately
+  moves the knob") no longer reproduces on the device it was originally
+  reported from. Treat the touch-catcher-overlay pattern established here
+  as the correct approach for any future native-form-control touch-
+  suppression need in this file — not `touch-action`/`preventDefault()`
+  alone, which this whole investigation showed cannot be trusted to
+  suppress a native control's own default action on every browser.
 
 ## Testing checklist for any change
 
