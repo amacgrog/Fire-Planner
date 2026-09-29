@@ -79,6 +79,11 @@ async function testDrawdown(file, label, ssFields) {
   await setInput(page, 'bondReturn', 0);
   await setInput(page, 'hysaRate', 0);
   await setInput(page, 'healthcare', 0);
+  // US-only field (Canada has no Medicare Part B/D concept); guard so this
+  // shared helper still works against Planner_Canada.html.
+  if (await page.evaluate(() => !!document.getElementById('medicareYearly'))) {
+    await setInput(page, 'medicareYearly', 0);
+  }
   await setChecked(page, 'ltcEnabled', false);
   for (const [id, value] of ssFields) {
     if (typeof value === 'boolean') await setChecked(page, id, value);
@@ -133,6 +138,11 @@ async function testCompounding(file, label, ssFields) {
   await setInput(page, 'bondReturn', 0);
   await setInput(page, 'hysaRate', 0);
   await setInput(page, 'healthcare', 0);
+  // US-only field (Canada has no Medicare Part B/D concept); guard so this
+  // shared helper still works against Planner_Canada.html.
+  if (await page.evaluate(() => !!document.getElementById('medicareYearly'))) {
+    await setInput(page, 'medicareYearly', 0);
+  }
   await setChecked(page, 'ltcEnabled', false);
   for (const [id, value] of ssFields) {
     if (typeof value === 'boolean') await setChecked(page, id, value);

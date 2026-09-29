@@ -3847,6 +3847,88 @@ uses. Implementation:
   repeatedly) both ran with zero `pageerror` events; mobile-overflow check
   unaffected (no new fields).
 
+## A dedicated Medicare Part B/D + supplement line, split from the pre-65 healthcare premium
+
+The pre-65 `state.healthcare` field (the "annual post-retirement health
+insurance premium") was, before this change, doing double duty: pre-65 it
+was the gross ACA/retiree premium netted against the ACA subsidy via
+`acaNetCost()`; once both partners had aged past 65 it silently fell into
+the non-ACA `else` branch and was charged again at *full, unsubsidized face
+value*, forever, as a stand-in for Medicare — even though its own tooltip
+said "applies once retired and under 65." Investigating a user question
+about why healthcare cost jumped from a subsidized ~$1,934/yr at 63–64 back
+up to the full $18,000/yr at 65 in a real scenario surfaced this: the jump
+wasn't a subsidy phase-out, it was the same input being reused unmodified
+as a "Medicare" cost with no relationship to actual Medicare pricing, and
+gated on `bothRetired` alone (couple case) rather than on age at all, so a
+still-working 66-year-old with a retired spouse would get $0 charged for
+either era — clearly wrong once traced through.
+
+Fix: added a second field, `state.medicareYearly` (default $10,000/yr
+household, i.e. roughly Part B + Part D + a Medigap/supplement policy for
+two people at 2026 prices — noticeably less than an $18,000 pre-65 ACA
+family premium, which is realistic since Medicare is materially cheaper
+than marketplace coverage), and split the "who pays what, when" logic
+cleanly by age rather than by household retirement status:
+
+- **Pre-65 branch** (`acaEligibleA`/`acaEligibleB`, unchanged trigger
+  conditions: both partners retired AND that specific partner under 65):
+  nets `state.healthcare` against the ACA subsidy when `acaEnabled`, or
+  charges it flat otherwise. The flat (non-ACA) fallback branch was also
+  rewritten to reuse `acaEligibleA`/`acaEligibleB` instead of `bothRetired`
+  alone, so it now actually respects the age-65 cutoff its own tooltip
+  always claimed, instead of continuing at full price for life.
+- **New Medicare block**, evaluated unconditionally right after: for each
+  partner, `age >= 65` (`ageB >= 65` for partner B) triggers their half of
+  `state.medicareYearly` (the full amount for a single person), regardless
+  of `workingA`/`workingB`/`bothRetired` — Medicare eligibility is purely
+  age-based in real life, unlike ACA marketplace eligibility, which is why
+  this deliberately does **not** reuse the `acaEligibleA`/`acaEligibleB`
+  flags. It is never run through `acaNetCost()` (Medicare isn't
+  ACA-subsidized), but the existing IRMAA surcharge block right below it
+  (already gated on `age >= 65` per partner, already lag-aware) stacks on
+  top unchanged — it was already forward-compatible with this addition.
+- Net effect for a couple with a gap between the partners' ages: the
+  younger, still-under-65 partner can keep drawing an ACA-subsidized
+  premium (if retired) while the older, 65+ partner simultaneously draws
+  Medicare — previously impossible, since the old code only had one
+  household-wide `healthcare` number gated on both-retired-and-ACA-eligible
+  vs. a single unconditional post-65 fallback.
+- New `medicareYearly` field: plain `ids`-array money field (same pattern
+  as `healthcare`), added to `ESTIMATE_ALWAYS_IDS` (always counted for the
+  "still estimated" rollup, same as `healthcare`, since it's not gated
+  behind a toggle), and given its own tornado-chart sensitivity lever
+  (`medicare`, ±20%) alongside the existing `healthcare` lever — off by
+  default, matching `healthcare`/`ltc`/`ss`.
+- Rewrote the `#healthcare` field's tooltip (now explicitly "pre-65", with
+  a pointer to the new field for coverage after that), added the new
+  `#medicareYearly` field's own tooltip, and rewrote the in-app "Healthcare,
+  ACA & IRMAA" methodology callout (now "Healthcare, ACA, Medicare &
+  IRMAA") to describe both lines' separate trigger conditions precisely.
+- `tests/golden.js`'s two shared helper functions (`testDrawdown`,
+  `testCompounding` — both run against Planner_US.html AND
+  Planner_Canada.html) zero every cost knob including `healthcare`, but
+  didn't know about the new field; since one of the drawdown scenario's
+  fixed inputs is `ageA: 65, retireAgeA: 65`, the new $10,000 default
+  Medicare cost was silently being withdrawn from the very first
+  projection year, breaking the golden Roth-balance assertion by exactly
+  $10,000. Fixed by zeroing `medicareYearly` in both helpers too, guarded
+  by a `document.getElementById('medicareYearly')` existence check so the
+  same shared helper still runs cleanly against the Canada file, which has
+  no such field (see the US-vs-Canada divergence note in CLAUDE.md — no
+  Medicare equivalent exists to build for Canada's provincial coverage).
+
+- **Verified**: `npm test` (after the golden-test fixture fix above, all
+  four US/Canada × drawdown/compounding cases pass exact-to-the-cent);
+  Playwright against the real reported scenario (partners 1 year apart in
+  age) confirms the split works mid-transition — at the row where only the
+  younger partner has reached 65, healthcare cost is exactly the older
+  partner's still-subsidized ACA half plus the younger partner's new flat
+  Medicare half; once both are 65+, cost settles at the full
+  `medicareYearly` figure ($10,000) rather than the old, unrelated $18,000
+  ACA figure; zero `pageerror` events; mobile-overflow check (390×844)
+  unaffected.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

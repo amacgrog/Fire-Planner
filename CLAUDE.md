@@ -136,6 +136,19 @@ side before porting a feature:
   withdrawals before 59.5; Canada has no equivalent to build, since RRSP/RRIF
   withdrawals carry no age-based penalty at any age (only withholding tax,
   already captured via `taxFor()`) — don't port this feature to Canada.
+- US splits post-retirement healthcare into two separate cost lines —
+  `state.healthcare` (pre-65 ACA/retiree premium, gated on `acaEligibleA`/
+  `acaEligibleB`: both partners retired AND that partner under 65) and
+  `state.medicareYearly` (Part B/D + supplement, gated per-partner on
+  `age >= 65`/`ageB >= 65` alone, independent of retirement status or the
+  other partner) — because real Medicare eligibility is purely age-based,
+  unlike ACA marketplace eligibility. Canada has no equivalent split to
+  build: `state.healthcare` there is a flat "supplemental private
+  insurance once retired" figure with no age-65 transition at all, because
+  provincial coverage (OHIP/MSP) is universal at every age — if anything,
+  some provinces' senior drug programs (e.g. Ontario Drug Benefit at 65)
+  argue for *lower* supplemental cost at 65, not a new mandatory expense —
+  don't port `medicareYearly` to Canada.
 
 ## Money-field formatting
 
