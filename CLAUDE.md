@@ -148,6 +148,13 @@ Stable filenames (`Planner_US.html`, `Planner_Canada.html`), no
 version-numbered copies. Full history lives in `git log`, not in old files;
 `index.html`'s links never go stale.
 
+Each planner's topbar also carries a small hand-maintained version badge
+(the `<span>V19</span>`/`<span>V4</span>` inside the `<h1>`) — bump the
+relevant file's badge in the same commit as any other user-facing change to
+that file. It's the one piece of on-page provenance a person (or a
+screenshot sent to Claude) can use to tell which build they're looking at,
+and it only stays trustworthy if every batch bumps it, not just some.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — exact-to-the-cent).
