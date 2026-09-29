@@ -5855,7 +5855,7 @@
       // are toggled/edited after 'gap' was already selected.
       const gapMode =
         chartShiftMode === 'gap' && !state.singlePerson && state.retireAgeA !== state.retireAgeB;
-      let early, late, earlyLabel, lateLabel, ariaSuffix;
+      let early, late, earlyLabel, lateLabel, ariaSuffix, note;
       if (gapMode) {
         const aIsEarlier = state.retireAgeA < state.retireAgeB;
         // Only the earlier-retiring partner's date moves; the later
@@ -5873,6 +5873,14 @@
         earlyLabel = `Closer (−${label})`;
         lateLabel = `Farther (+${label})`;
         ariaSuffix = `${label} closer together and farther apart`;
+        // Spelled out explicitly, not just implied by the button name: this
+        // moves ONE partner's date only, not both toward/away from a
+        // midpoint — easy to misread "Gap narrows/widens" as a symmetric
+        // two-person move otherwise.
+        const movingLabel = aIsEarlier ? 'Partner A' : 'Partner B',
+          fixedLabel = aIsEarlier ? 'Partner B' : 'Partner A',
+          fixedAge = aIsEarlier ? state.retireAgeB : state.retireAgeA;
+        note = `Only ${movingLabel}'s date moves (currently the earlier of the two); ${fixedLabel}'s stays fixed at retirement age ${fixedAge}.`;
       } else {
         early = simulate(
           Math.max(state.ageA, state.retireAgeA - yrs),
@@ -5882,12 +5890,13 @@
         earlyLabel = `Both −${label}`;
         lateLabel = `Both +${label}`;
         ariaSuffix = `${label} apart`;
+        note = state.singlePerson ? '' : "Both partners' dates move together, by the same amount.";
       }
       titleEl.textContent = 'Total assets across retirement dates';
       subEl.textContent =
         'Investments + cash + home equity, after projected spending and estimated federal and state income tax.';
       legend.innerHTML = `<span><i class="swatch early"></i><span>${earlyLabel}</span></span><span><i class="swatch"></i><span>Selected dates</span></span><span><i class="swatch late"></i><span>${lateLabel}</span></span>`;
-      noteEl.textContent = '';
+      noteEl.textContent = note;
       canvas.setAttribute(
         'aria-label',
         `Projected total assets by age for three retirement dates, ${ariaSuffix}`,
