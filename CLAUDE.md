@@ -3412,6 +3412,54 @@ conceptually too.
   a real UI click with no dead end. `npm test`, a syntax check of both
   files, and a 390×844 mobile overflow check all pass.
 
+## Bug: US resident state (`stateTax`) never synced back into its `<select>` on scenario Load/import
+
+Real-world bug report: "scenario files don't save the state / province tax
+setting."
+
+- **The underlying `state` object was never actually losing the value.**
+  `state.stateTax` is a normal `state` field (in `defaults`, spread through
+  by `normalizeState()` like everything else, and `cloneState()` —
+  `JSON.parse(JSON.stringify(state))`, used by `saveScenario()` — is a full
+  deep clone, not a field allow-list), so it was always present, correct,
+  and round-tripping through save/export/import/autosave. The actual bug
+  was one step downstream: `syncControls()` never wrote `state.stateTax`
+  back into the `#stateTax` `<select>` element's `.value` anywhere. Every
+  other hand-wired enum control in this file (`payFrequency`, the
+  `mfjBtn`/`singleBtn` filing-status pair, `k401Type`/`iraType`/
+  `pensionCoverage`, and — critically — Canada's directly analogous
+  `#province` select, which already had this line) is written back inside
+  `syncControls()`/`syncContributionControls()`; `#stateTax` was simply
+  missing its own line, so after `loadScenario()` (or an autosave restore)
+  the dropdown kept showing whatever the visitor had last picked by hand,
+  even though `state.stateTax` — and every number actually computed from
+  it — was already correct. This read exactly like "the state tax setting
+  doesn't save," even though the save/export machinery itself had no bug.
+- **Fix**: added `document.getElementById('stateTax').value = state.stateTax;`
+  to `syncControls()`, immediately after the existing `payFrequency` sync
+  line — the same spot, same pattern, as Canada's `#province` line.
+- **Audited every other hand-wired (non-`ids`-array) `<select>`/checkbox
+  control in both files** for the same "sets `state[x]` on change but is
+  never written back to the DOM on load" gap, by cross-referencing every
+  `addEventListener('change', ...)` registration against
+  `syncControls()`/`syncContributionControls()`. `#stateTax` was the only
+  gap found in either file — every other control (ACA, Roth conversion
+  ladder/RRSP meltdown, survivor planning, mega backdoor, guardrails,
+  bridge/other income/other loans, LTC, pension splitting, filing status,
+  contribution-type toggles) already has a matching sync line.
+- **Verified with Playwright, through the real UI** (not by poking
+  module-scoped JS variables, which aren't exposed on `window`): picked a
+  non-default `#stateTax` value, saved a named scenario via the real "Save
+  current" button, changed the dropdown again, then clicked that
+  scenario's real "Load" button — the `<select>`'s DOM value now correctly
+  reflects the loaded value. Separately, clicked the scenario's real
+  "Export" button and read the actual downloaded `.json` file (via
+  Playwright's `download` event, not an in-page shortcut) to confirm
+  `state.stateTax` is present and correct in the exported file. Re-ran the
+  equivalent check against Canada's `#province` as a regression guard
+  (already working; unaffected by this fix). `npm test`, a syntax check of
+  both files, and a 390×844 mobile overflow check on both files all pass.
+
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).

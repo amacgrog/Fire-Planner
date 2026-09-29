@@ -6608,6 +6608,7 @@
         ? 'Applies once you buy; keeps applying after the mortgage is paid off'
         : 'Applies once you own; keeps applying after the mortgage is paid off';
     document.getElementById('payFrequency').value = state.payFrequency;
+    document.getElementById('stateTax').value = state.stateTax;
     document.getElementById('ltcEnabled').checked = !!state.ltcEnabled;
     document.getElementById('ltcFields').hidden = !state.ltcEnabled;
     document.getElementById('bridgeEnabled').checked = !!state.bridgeEnabled;
