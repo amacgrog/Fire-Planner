@@ -3568,6 +3568,72 @@ Five small, independently-verified copy/markup fixes from two real testers
   more subjective UI calls than the copy/markup fixes above and are
   planned as separate follow-up work.
 
+## Follow-up: banner/CTA restyle + mobile default-view-for-first-time-visitors
+
+The two bigger items deferred from the "Real-world tester feedback batch"
+above, scoped with the user before implementing and done together on the
+same branch (`ux-feedback-quick-wins`):
+
+- **`.cta-btn` ("✨ Get started") restyled from an orange/red gradient pill
+  to a flat app-blue rounded button.** Fiorella's "looks like an ad"
+  complaint was traced to `.cta-btn` specifically, not `#firstRunBanner`
+  itself — the banner already uses the app's plain `.callout` treatment
+  (same family as the amber shortfall banner / green plan-headline), so it
+  already read as part of the interface; the button was the outlier. Old:
+  `background:linear-gradient(145deg,#fbbf24,#ea580c);...border-radius:
+  999px;...box-shadow:0 3px 10px rgba(234,88,12,.35)` — a glossy gradient
+  pill with a colored glow is the exact visual language of a "Buy Now"
+  promo button, and nothing else in the app uses a gradient or a colored
+  drop-shadow. New: `background:#2563eb;color:#fff;border-radius:9px;
+  box-shadow:0 1px 3px rgba(0,0,0,.3)` — flat fill, the app's own existing
+  accent blue (same hex as light-mode `--blue`), a neutral (not
+  color-tinted) shadow, and the same `9px` corner radius `.reset`/
+  `.btn-card` already use instead of a full pill — a pill shape reads more
+  "badge/promo," a rounded rectangle reads more "ordinary toolbar button."
+  **Deliberately hardcoded, not `var(--blue)`**: `.cta-btn` lives on the
+  topbar, which — per the "Accessibility pass" section above — is *always*
+  dark regardless of theme (`--topbar-fg`, fixed), same reasoning that
+  already makes `.reset` use hardcoded colors instead of theme variables.
+  Dark mode's `var(--blue)` is a lighter blue (`#5b8def`) meant for
+  buttons/links that sit on a theme-following background; using it here
+  would reduce white-text-on-blue contrast rather than improve anything,
+  since the background it would render against (the topbar) never actually
+  changes with theme. Confirmed with a screenshot in both themes that the
+  button looks identical and correctly contrasted either way (expected,
+  since the topbar itself doesn't change).
+- **Mobile now defaults to the Inputs tab for a first-time visitor, and
+  Dashboard for a returning one** (previously: always Dashboard,
+  regardless). The one-line change is `setMobileView(hadSavedState ?
+  'dashboard' : 'inputs')` in place of the old unconditional
+  `setMobileView('dashboard')`, reusing the exact same `hadSavedState`
+  boot-time signal (a real `localStorage` read, set before this line runs)
+  that already decides whether to skip `#firstRunBanner` — so "first-time"
+  is now treated consistently by both features instead of the banner
+  correctly detecting a fresh visitor while the tab default didn't. The
+  original reasoning for always defaulting to Dashboard ("the plan is
+  already fully computed, show results first") was true but incomplete: on
+  a first visit, what's computed is the generic example data, not the
+  visitor's own plan, so "results first" was actually "a stranger's
+  numbers first." A returning visitor's boot-time computed plan **is**
+  their real data, so Dashboard-first is still correct and unchanged for
+  them. Desktop is unaffected either way — `data-mobile-view` has no CSS
+  effect above the 820px breakpoint, same as every other mobile-tab
+  interaction in this file. The wizard's "Done" button (`#wizardCloseBtn`)
+  still unconditionally calls `setMobileView('dashboard')` on its own
+  click handler, so a first-time visitor who completes the wizard still
+  lands on their results immediately afterward, same as before this change
+  — confirmed with Playwright (open on Inputs → wizard Step 1 → Next →
+  Done → view is `dashboard`).
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — a fresh browser context (no prior `localStorage`) boots to
+  `data-mobile-view="inputs"` with no overflow; a context that's made one
+  real edit and reloaded (so autosave has written real state) boots to
+  `"dashboard"`; desktop is unaffected in either case; the wizard-Done path
+  still ends on `"dashboard"` for a first-time visitor; `#wizardBtn`'s
+  computed `background-color`/`box-shadow` confirm the flat blue fill and
+  neutral shadow landed correctly in both files, with a visual screenshot
+  of the topbar in both light and dark mode as a final sanity check.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

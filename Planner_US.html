@@ -15,7 +15,7 @@
     .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--topbar-fg)}
     .dollar-mode-dd{position:relative}#dollarModeBtn{font-size:.78rem}.dollar-mode-panel{position:absolute;top:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--surface-border);border-radius:12px;box-shadow:var(--shadow);padding:6px;width:230px;z-index:30}.dollar-mode-panel button{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:8px 9px;color:var(--ink2)}.dollar-mode-panel button:hover{background:var(--surface-hover)}.dollar-mode-panel button small{display:block;color:var(--hint);font-weight:400;font-size:.72rem;line-height:1.3;margin-top:2px}.dollar-mode-panel button .dot{flex:0 0 auto;width:11px;height:11px;border-radius:50%;border:2px solid var(--surface-border);margin-top:3px}.dollar-mode-panel button.active .dot{border-color:var(--blue);background:var(--blue)}
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
-    .cta-btn{background:linear-gradient(145deg,#fbbf24,#ea580c);border:0;color:#23140b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 3px 10px rgba(234,88,12,.35)}.cta-btn:hover{filter:brightness(1.05)}
+    .cta-btn{background:#2563eb;border:0;color:#fff;border-radius:9px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 1px 3px rgba(0,0,0,.3)}.cta-btn:hover{background:#3b74f0}
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}.mobile-header-toggle{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 22px);max-height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V18</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V19</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -8182,13 +8182,19 @@
     };
     tabInputs.addEventListener('click', () => setMobileView('inputs'));
     tabDashboard.addEventListener('click', () => setMobileView('dashboard'));
-    // Dashboard (not Inputs) is the mobile default: on load the plan is
-    // already fully computed (even before someone's entered their own
-    // numbers, it's the generic example data), so the results — the actual
-    // point of the tool — are what a mobile visitor should see first,
-    // consistent with the Plan status bar's job of always surfacing the
-    // model's current answer rather than starting on a blank-feeling form.
-    setMobileView('dashboard');
+    // Dashboard is the mobile default for a RETURNING visitor — on load
+    // their real plan is already fully computed, so the results are what
+    // they should see first, consistent with the Plan status bar's job of
+    // always surfacing the model's current answer. But for a FIRST-TIME
+    // visitor there's no real plan yet, only the generic example data —
+    // "results first" there just means showing someone else's numbers,
+    // which is exactly what the (separate) first-run banner already exists
+    // to warn about. `hadSavedState` (set at boot from a real localStorage
+    // read, before this block runs) is the same signal that already
+    // decides whether to skip the first-run banner, so reusing it here
+    // keeps first-time vs. returning treated consistently across both
+    // features rather than introducing a second, possibly-divergent check.
+    setMobileView(hadSavedState ? 'dashboard' : 'inputs');
   }
 
   // Mobile-only "minimize sticky header" toggle: collapses the
