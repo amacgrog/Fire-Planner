@@ -3637,6 +3637,88 @@ same branch (`ux-feedback-quick-wins`):
   neutral shadow landed correctly in both files, with a visual screenshot
   of the topbar in both light and dark mode as a final sanity check.
 
+## 10% early-withdrawal penalty, Rule of 55, and 72(t) SEPP (US only)
+
+Investigating a user-reported scenario (retiring at 34 with a partner working
+to 55, all 401(k)/IRA contributions maxed at Roth) surfaced that traditional
+withdrawals well before age 59.5 were happening constantly with no
+early-withdrawal penalty applied at all — `simulate()`/`simulateHistorical()`
+only ever ran withdrawals through `taxFor()`. Added:
+
+- **`singleLifeDivisor(age)`** (next to `rmdDivisor()`): the IRS Single Life
+  Expectancy Table (Pub. 590-B, 2022+), ages 18–65, clamped at the edges. This
+  is a *different* table from `rmdDivisor()`'s Uniform Lifetime Table (used
+  for real RMDs) — the two are for different purposes and their divisors
+  don't need to line up at any shared age (Single Life gives smaller
+  divisors, since Uniform Lifetime assumes a hypothetical beneficiary 10
+  years younger).
+- **10% penalty on discretionary traditional/bondTraditional withdrawals**
+  before 59.5, unless exempted. Computed once per year as `penalizedFraction`
+  (0, 0.5, or 1) right before the withdrawal waterfall, using each partner's
+  `age`/`ageB` vs. 59.5 and Rule of 55 eligibility. `traditional`/
+  `bondTraditional` are a single pooled household balance (not split per
+  partner), so when only one partner is exempt, `penalizedFraction = 0.5` —
+  reusing the same 50/50 ownership assumption `traditionalShare` already uses
+  for RMDs. The penalty is folded straight into each binary search's `net`
+  formula (`net = mid - tax - mid * 0.1 * penalizedFraction`) so withdrawal
+  sizing correctly grosses up for it, not applied as an afterthought on top
+  of an already-sized withdrawal. Same change applied in parallel to all 5
+  binary-search sites: `simulate()`'s smooth-withdrawals traditional draw,
+  its non-smooth traditional draw, its bondTraditional draw, and
+  `simulateHistorical()`'s `stepTraditional`/`stepBondTraditional`. Tracked
+  per-year as `earlyPenalty` and folded into `totalTax` (and thus the Sankey,
+  relabeled "Taxes & penalties") in `simulate()`; `simulateHistorical()` has
+  no per-row tax breakdown at all (bucket-strategy backtest/Monte Carlo only
+  cares about balances/depletion), so the penalty there only reduces net
+  withdrawal proceeds, nothing to add to a row.
+- **`ruleOf55Enabled`** (checkbox): waives the penalty from age 55–59.5 for
+  whichever partner retires at or after 55. Doesn't help a partner retiring
+  younger than 55 — real Rule of 55 requires separating from service in the
+  year you turn 55 or later.
+- **`sepp72tEnabled`** (checkbox): models a mandatory 72(t) SEPP distribution
+  via the "RMD method" for a partner retiring before 59.5, running from their
+  retirement age through `max(retireAge + 5, 59.5)` (real 72(t) plans must
+  run the *longer* of 5 years or until 59.5 — starting younger locks in a
+  longer commitment, it doesn't cap out at retireAge+5). Implemented by
+  computing `sepp72A`/`sepp72B` alongside `rmdA`/`rmdB` and folding them
+  straight in (`rmdA += sepp72A`) *before* any downstream consumer
+  (`otherA`/`otherB`, the `profile` object, the forced traditional/
+  bondTraditional draw, `flow`) reads `rmdA`/`rmdB` — since SEPP income is
+  ordinary income forced out of the account exactly like an RMD, this let
+  the whole mechanism ride on RMD's existing plumbing with one edit block
+  instead of threading a second variable through every downstream site. The
+  un-merged `sepp72A + sepp72B` is still exposed separately as `row.sepp72`
+  for display/debugging. Deliberately does **not** exempt further
+  discretionary withdrawals beyond the SEPP schedule from the 10% penalty
+  (`penalizedFraction`'s exemption check has no 72(t) case) — matches real
+  IRS rules, where only the exact scheduled SEPP amount is protected; a
+  partner drawing more than their SEPP payment in the same year is still
+  penalized on the excess, same as if 72(t) were off. The 72(t)
+  "recapture" rule (modifying/stopping a plan early retroactively penalizes
+  *all* prior payments) is out of scope and disclosed as such in the
+  checkbox's own tooltip, since nothing in this planner can actually trigger
+  a stop/modification mid-plan.
+- **Live-verified** against a real user scenario (`k401Type`/`iraType` both
+  Roth at 100%, retiring at 34): baseline (`ruleOf55Enabled`/
+  `sepp72tEnabled` both off) shows a real early-withdrawal penalty from the
+  first year traditional actually gets drawn down for need; `ruleOf55Enabled`
+  cuts the penalty roughly in half starting at the retiring partner's age 55
+  (the other partner, retiring at 34, is never exempt, so `penalizedFraction`
+  drops from 1 to 0.5, not to 0); `sepp72tEnabled` shows `sepp72` distributing
+  from the day the early-retiring partner stops working, growing with the
+  balance/divisor each year, *and* `earlyPenalty` still firing whenever
+  discretionary need exceeds that year's SEPP amount — all as designed.
+- **Canada has no equivalent to add.** RRSP/RRIF withdrawals carry no
+  age-based penalty in Canada at any age — only withholding tax, which is a
+  prepayment against the real tax bill already computed via `taxFor()`, not
+  an additional cost. `Planner_Canada.html` is untouched; see the CLAUDE.md
+  US-vs-Canada divergence list.
+- **Verified**: `npm test` (unaffected — all new toggles default off); a
+  Playwright run against the real reported scenario with each toggle
+  combination showing the expected numbers above and zero `pageerror`
+  events; a 390×844 mobile-viewport check confirms no horizontal overflow
+  from the two new sidebar checkboxes.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

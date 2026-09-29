@@ -131,6 +131,11 @@ side before porting a feature:
   fields — survivor modeling has to actively remap the surviving partner's
   data into the `A` slot when Partner A died, rather than just flipping
   `profile.singlePerson = true` in place.
+- US models a 10% early-withdrawal penalty (`ruleOf55Enabled`,
+  `sepp72tEnabled`, `singleLifeDivisor(age)`) on traditional/bondTraditional
+  withdrawals before 59.5; Canada has no equivalent to build, since RRSP/RRIF
+  withdrawals carry no age-based penalty at any age (only withholding tax,
+  already captured via `taxFor()`) — don't port this feature to Canada.
 
 ## Money-field formatting
 

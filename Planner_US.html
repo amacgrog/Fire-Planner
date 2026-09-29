@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V19</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V20</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -331,6 +331,8 @@
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal bracket<small>The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it's also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
+          <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of 55<small>Waives the 10% early-withdrawal penalty on traditional withdrawals from age 55 through 59½, for whichever partner retires at or after age 55. Doesn't apply to a partner who retires before 55.</small></label></div>
+          <div class="field"><label for="sepp72tEnabled"><input id="sepp72tEnabled" type="checkbox"> 72(t) SEPP payments<small>For a partner retiring before 59½, models a mandatory, penalty-free annual distribution (IRS "RMD method": balance ÷ single life expectancy divisor, recalculated each year) from their retirement age through the later of 5 years or age 59½. Real 72(t) plans must continue this exact schedule unmodified for that whole period — stopping or changing it early retroactively triggers the 10% penalty on every prior payment, which isn't modeled here.</small></label></div>
         </details>
       </aside>
 
@@ -607,6 +609,8 @@
     rothConvStartAge: 60,
     rothConvEndAge: 63,
     rothConvBracket: 22,
+    ruleOf55Enabled: false,
+    sepp72tEnabled: false,
     buyAge: 50,
     buyCash: false,
     buyDownPct: 20,
@@ -1568,10 +1572,12 @@
 
     // Withdrawal & tax strategy: no single master flag — off means every
     // one of these is false.
-    if (state.guardrailsEnabled || state.rothConvEnabled) {
+    if (state.guardrailsEnabled || state.rothConvEnabled || state.ruleOf55Enabled || state.sepp72tEnabled) {
       const parts = [];
       if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
       if (state.rothConvEnabled) parts.push('Roth ladder on');
+      if (state.ruleOf55Enabled) parts.push('Rule of 55');
+      if (state.sepp72tEnabled) parts.push('72(t) SEPP');
       setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
     } else {
       setGroupState('withdrawalStrategyGroupState', '', false);
@@ -2352,6 +2358,23 @@
     };
     return table[age] || Math.max(2.0, 6.4 - (age - 100) * 0.2);
   }
+  // IRS Single Life Expectancy Table (Pub. 590-B, effective for distribution
+  // calendar years beginning 2022+) — used only for the 72(t) SEPP "RMD
+  // method" mandatory distribution below, not for actual RMDs (which use the
+  // Uniform Lifetime Table via rmdDivisor() above; the two tables are
+  // intentionally different and don't need to line up at any shared age).
+  function singleLifeDivisor(age) {
+    const table = {
+      18: 67.0, 19: 66.0, 20: 65.0, 21: 64.1, 22: 63.1, 23: 62.1, 24: 61.1, 25: 60.2,
+      26: 59.2, 27: 58.2, 28: 57.3, 29: 56.3, 30: 55.3, 31: 54.4, 32: 53.4, 33: 52.5,
+      34: 51.5, 35: 50.5, 36: 49.6, 37: 48.6, 38: 47.7, 39: 46.7, 40: 45.7, 41: 44.8,
+      42: 43.8, 43: 42.9, 44: 41.9, 45: 41.0, 46: 40.0, 47: 39.0, 48: 38.1, 49: 37.1,
+      50: 36.2, 51: 35.3, 52: 34.3, 53: 33.4, 54: 32.5, 55: 31.6, 56: 30.6, 57: 29.8,
+      58: 28.9, 59: 28.0, 60: 27.1, 61: 26.2, 62: 25.4, 63: 24.5, 64: 23.7, 65: 22.9,
+    };
+    const clamped = Math.max(18, Math.min(65, Math.round(age)));
+    return table[clamped];
+  }
   function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj') {
     if (gain <= 0) return 0;
     const factor = Math.pow(1 + pct(state.inflation), yearIndex),
@@ -3017,10 +3040,43 @@
           singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
       let rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
         rmdB = !singlePerson && ageB >= 75 ? traditionalShare / rmdDivisor(ageB) : 0;
+      // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
+      // retiring before 59.5, running from their retirement age through the
+      // later of 5 years or age 59.5 (IRS "RMD method"). Folded directly into
+      // rmdA/rmdB so it's taxed and force-withdrawn from traditional exactly
+      // like an RMD (SEPP income is ordinary income, same as an RMD);
+      // sepp72A/B are kept separately only so they can be exposed on the row
+      // for display, below.
+      const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
+        sepp72EndB = Math.max(retireAgeB + 5, 59.5);
+      let sepp72A =
+          state.sepp72tEnabled &&
+          !workingA &&
+          retireAgeA < 59.5 &&
+          age >= retireAgeA &&
+          age < sepp72EndA
+            ? traditionalShare / singleLifeDivisor(age)
+            : 0,
+        sepp72B =
+          !singlePerson &&
+          state.sepp72tEnabled &&
+          !workingB &&
+          retireAgeB < 59.5 &&
+          ageB >= retireAgeB &&
+          ageB < sepp72EndB
+            ? traditionalShare / singleLifeDivisor(ageB)
+            : 0;
       if (isSurvivorPeriod) {
-        if (deceasedIsA) rmdA = 0;
-        else rmdB = 0;
+        if (deceasedIsA) {
+          rmdA = 0;
+          sepp72A = 0;
+        } else {
+          rmdB = 0;
+          sepp72B = 0;
+        }
       }
+      rmdA += sepp72A;
+      rmdB += sepp72B;
       const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
       let housing;
       const ownsHome =
@@ -3244,7 +3300,8 @@
       // look artificially small in years the bond-traditional reserve was
       // doing a lot of the work.
       let traditionalWithdrawn = rmd,
-        taxableWithdrawn = 0;
+        taxableWithdrawn = 0,
+        earlyPenalty = 0;
       if (conversionAmount > 0) {
         const fromTradConv = Math.min(traditional, conversionAmount);
         traditional -= fromTradConv;
@@ -3297,6 +3354,29 @@
         }
         let traditionalGross = conversionAmount,
           taxableGainGross = 0;
+        // Discretionary traditional/bondTraditional withdrawals (RMDs and
+        // 72(t) SEPP payments are mandatory, separate distributions handled
+        // above and are never penalized) owe the IRS's 10% early-withdrawal
+        // penalty unless the withdrawing partner is 59.5+ or covered by Rule
+        // of 55. traditional/bondTraditional are a single pooled household
+        // balance rather than split per partner, so when only one partner is
+        // exempt, half the withdrawal (that partner's assumed share, per the
+        // same 50/50 split traditionalShare above uses for RMDs) is treated
+        // as penalty-free.
+        const earlyExemptA = age >= 59.5 || (state.ruleOf55Enabled && !workingA && retireAgeA >= 55),
+          earlyExemptB =
+            singlePerson ||
+            ageB >= 59.5 ||
+            (state.ruleOf55Enabled && !workingB && retireAgeB >= 55),
+          penalizedFraction = singlePerson
+            ? earlyExemptA
+              ? 0
+              : 1
+            : earlyExemptA && earlyExemptB
+              ? 0
+              : !earlyExemptA && !earlyExemptB
+                ? 1
+                : 0.5;
         if (state.smoothWithdrawals) {
           // Draw taxable and traditional in proportion to their current
           // balances instead of draining taxable first, so taxable income
@@ -3327,17 +3407,23 @@
                 hi = Math.min(traditional, traditionalShare * 3 + 1);
               for (let i = 0; i < 24; i++) {
                 const mid = (lo + hi) / 2,
-                  net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+                  net =
+                    mid -
+                    (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+                    mid * 0.1 * penalizedFraction;
                 if (net < traditionalShare) lo = mid;
                 else hi = mid;
               }
               const fromTrad = Math.min(traditional, hi),
+                tradPenalty = fromTrad * 0.1 * penalizedFraction,
                 tradNet =
                   fromTrad -
-                  (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
+                  (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) -
+                  tradPenalty;
               traditional -= fromTrad;
               traditionalGross += fromTrad;
               traditionalWithdrawn += fromTrad;
+              earlyPenalty += tradPenalty;
               need = Math.max(0, need - tradNet);
             }
           }
@@ -3361,17 +3447,23 @@
               hi = need * 6 + 1;
             for (let i = 0; i < 24; i++) {
               const mid = (lo + hi) / 2,
-                net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+                net =
+                  mid -
+                  (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+                  mid * 0.1 * penalizedFraction;
               if (net < need) lo = mid;
               else hi = mid;
             }
             const fromTrad = Math.min(traditional, hi),
+              tradPenalty = fromTrad * 0.1 * penalizedFraction,
               tradNet =
                 fromTrad -
-                (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
+                (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) -
+                tradPenalty;
             traditional -= fromTrad;
             traditionalGross += fromTrad;
             traditionalWithdrawn += fromTrad;
+            earlyPenalty += tradPenalty;
             need = Math.max(0, need - tradNet);
           }
         }
@@ -3402,17 +3494,23 @@
             hi = need * 6 + 1;
           for (let i = 0; i < 24; i++) {
             const mid = (lo + hi) / 2,
-              net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+              net =
+                mid -
+                (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+                mid * 0.1 * penalizedFraction;
             if (net < need) lo = mid;
             else hi = mid;
           }
           const fromBondTrad = Math.min(bondTraditional, hi),
+            bondPenalty = fromBondTrad * 0.1 * penalizedFraction,
             net =
               fromBondTrad -
-              (taxFor(profile, taxableGainGross, traditionalGross + fromBondTrad) - baseTax);
+              (taxFor(profile, taxableGainGross, traditionalGross + fromBondTrad) - baseTax) -
+              bondPenalty;
           bondTraditional -= fromBondTrad;
           traditionalGross += fromBondTrad;
           traditionalWithdrawn += fromBondTrad;
+          earlyPenalty += bondPenalty;
           need = Math.max(0, need - net);
         }
         const fromBondRoth = Math.min(bondRoth, need);
@@ -3424,7 +3522,7 @@
           need -= fromHome;
         }
         if (need > 1 && !depletedAge) depletedAge = age;
-        totalTax = ficaTax + taxFor(profile, taxableGainGross, traditionalGross);
+        totalTax = ficaTax + taxFor(profile, taxableGainGross, traditionalGross) + earlyPenalty;
         totalIncome = otherA + otherB + ss + traditionalGross + taxableGainGross;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
@@ -3463,6 +3561,8 @@
         ss,
         pension,
         rmd,
+        sepp72: sepp72A + sepp72B,
+        earlyPenalty,
         traditionalWithdrawn,
         taxableWithdrawn,
         housing,
@@ -3694,10 +3794,43 @@
           singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
       let rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
         rmdB = !singlePerson && ageB >= 75 ? traditionalShare / rmdDivisor(ageB) : 0;
+      // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
+      // retiring before 59.5, running from their retirement age through the
+      // later of 5 years or age 59.5 (IRS "RMD method"). Folded directly into
+      // rmdA/rmdB so it's taxed and force-withdrawn from traditional exactly
+      // like an RMD (SEPP income is ordinary income, same as an RMD);
+      // sepp72A/B are kept separately only so they can be exposed on the row
+      // for display, below.
+      const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
+        sepp72EndB = Math.max(retireAgeB + 5, 59.5);
+      let sepp72A =
+          state.sepp72tEnabled &&
+          !workingA &&
+          retireAgeA < 59.5 &&
+          age >= retireAgeA &&
+          age < sepp72EndA
+            ? traditionalShare / singleLifeDivisor(age)
+            : 0,
+        sepp72B =
+          !singlePerson &&
+          state.sepp72tEnabled &&
+          !workingB &&
+          retireAgeB < 59.5 &&
+          ageB >= retireAgeB &&
+          ageB < sepp72EndB
+            ? traditionalShare / singleLifeDivisor(ageB)
+            : 0;
       if (isSurvivorPeriod) {
-        if (deceasedIsA) rmdA = 0;
-        else rmdB = 0;
+        if (deceasedIsA) {
+          rmdA = 0;
+          sepp72A = 0;
+        } else {
+          rmdB = 0;
+          sepp72B = 0;
+        }
       }
+      rmdA += sepp72A;
+      rmdB += sepp72B;
       const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
       let housing;
       const ownsHome =
@@ -3905,6 +4038,22 @@
       const bondTarget = totalExpense * bondYears;
       let taxableGainGross = 0,
         traditionalGross = conversionAmount;
+      // Same 10% early-withdrawal penalty logic as simulate() (see the
+      // comment there) — RMDs/72(t) SEPP payments are mandatory and already
+      // folded into rmd above, so only these discretionary bucket draws are
+      // penalized.
+      const earlyExemptA = age >= 59.5 || (state.ruleOf55Enabled && !workingA && retireAgeA >= 55),
+        earlyExemptB =
+          singlePerson || ageB >= 59.5 || (state.ruleOf55Enabled && !workingB && retireAgeB >= 55),
+        penalizedFraction = singlePerson
+          ? earlyExemptA
+            ? 0
+            : 1
+          : earlyExemptA && earlyExemptB
+            ? 0
+            : !earlyExemptA && !earlyExemptB
+              ? 1
+              : 0.5;
       const stepCash = (need) => {
         const from = Math.min(cash, need);
         cash -= from;
@@ -3932,12 +4081,18 @@
           hi = need * 6 + 1;
         for (let i = 0; i < 24; i++) {
           const mid = (lo + hi) / 2,
-            net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+            net =
+              mid -
+              (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+              mid * 0.1 * penalizedFraction;
           if (net < need) lo = mid;
           else hi = mid;
         }
         const from = Math.min(traditional, hi),
-          net = from - (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax);
+          net =
+            from -
+            (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax) -
+            from * 0.1 * penalizedFraction;
         traditional -= from;
         traditionalGross += from;
         return Math.max(0, need - net);
@@ -3969,12 +4124,18 @@
           hi = need * 6 + 1;
         for (let i = 0; i < 24; i++) {
           const mid = (lo + hi) / 2,
-            net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+            net =
+              mid -
+              (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+              mid * 0.1 * penalizedFraction;
           if (net < need) lo = mid;
           else hi = mid;
         }
         const from = Math.min(bondTraditional, hi),
-          net = from - (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax);
+          net =
+            from -
+            (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax) -
+            from * 0.1 * penalizedFraction;
         bondTraditional -= from;
         traditionalGross += from;
         return Math.max(0, need - net);
@@ -5086,7 +5247,7 @@
       { label: 'Taxable/brokerage', value: val(row.taxableWithdrawn), color: sankeyHue('magenta', dark) },
     ].filter((s) => s.value > 1);
     const uses = [
-      { label: 'Taxes', value: val(row.tax), color: sankeyHue('blue', dark) },
+      { label: 'Taxes & penalties', value: val(row.tax), color: sankeyHue('blue', dark) },
       { label: 'Housing', value: val(row.housing), color: sankeyHue('orange', dark) },
       { label: 'Healthcare', value: val(row.healthcare), color: sankeyHue('aqua', dark) },
       { label: 'Long-term care', value: val(row.ltc), color: sankeyHue('yellow', dark) },
@@ -6636,6 +6797,8 @@
     document.getElementById('wizardSpending').value = state.spending;
     document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
     document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
+    document.getElementById('ruleOf55Enabled').checked = !!state.ruleOf55Enabled;
+    document.getElementById('sepp72tEnabled').checked = !!state.sepp72tEnabled;
     [
       ['buyMortgageBtn', false],
       ['buyCashBtn', true],
@@ -7165,6 +7328,18 @@
   });
   document.getElementById('guardrailsEnabled').addEventListener('change', (e) => {
     state.guardrailsEnabled = e.target.checked;
+    syncControls();
+    render();
+    saveInputs();
+  });
+  document.getElementById('ruleOf55Enabled').addEventListener('change', (e) => {
+    state.ruleOf55Enabled = e.target.checked;
+    syncControls();
+    render();
+    saveInputs();
+  });
+  document.getElementById('sepp72tEnabled').addEventListener('change', (e) => {
+    state.sepp72tEnabled = e.target.checked;
     syncControls();
     render();
     saveInputs();
@@ -8273,6 +8448,8 @@
           ltcEnabled: { type: 'boolean' },
           acaEnabled: { type: 'boolean' },
           rothConvEnabled: { type: 'boolean' },
+          ruleOf55Enabled: { type: 'boolean' },
+          sepp72tEnabled: { type: 'boolean' },
           bridgeEnabled: { type: 'boolean' },
           otherIncomeEnabled: { type: 'boolean' },
           otherLoansEnabled: { type: 'boolean' },
@@ -8297,6 +8474,8 @@
           if (k === 'ltcEnabled' && typeof v === 'boolean') state.ltcEnabled = v;
           if (k === 'acaEnabled' && typeof v === 'boolean') state.acaEnabled = v;
           if (k === 'rothConvEnabled' && typeof v === 'boolean') state.rothConvEnabled = v;
+          if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;
+          if (k === 'sepp72tEnabled' && typeof v === 'boolean') state.sepp72tEnabled = v;
           if (k === 'bridgeEnabled' && typeof v === 'boolean') state.bridgeEnabled = v;
           if (k === 'otherIncomeEnabled' && typeof v === 'boolean') state.otherIncomeEnabled = v;
           if (k === 'otherLoansEnabled' && typeof v === 'boolean') state.otherLoansEnabled = v;
