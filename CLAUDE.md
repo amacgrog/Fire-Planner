@@ -88,15 +88,23 @@ Each planner is one big IIFE. Core shape:
 - `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
   tornado chart; levers swept are read live from checked `data-lever`
   checkboxes (a display choice, not part of `state`/scenario export).
-- `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode` (declared
-  together near `normalizeState`) are all plain closure variables, not
-  `state` fields — chart-display preferences that reset on reload and
-  never round-trip through scenario export/import. `chartShiftMode`
-  ('together'/'gap') controls whether the ±1yr/±3yr comparison chart
-  shifts both partners' retirement ages together or shifts only whichever
-  partner currently retires earlier, toward/away from the other partner's
-  (fixed) date — its visibility/disabled state is recomputed on every
-  `renderChartView()` call, not just on a view-button click, so it stays
+- `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
+  `chartGapPartner` (declared together near `normalizeState`) are all
+  plain closure variables, not `state` fields — chart-display preferences
+  that reset on reload and never round-trip through scenario
+  export/import. `chartShiftMode` ('together'/'gap') controls whether the
+  ±1yr/±3yr comparison chart shifts both partners' retirement ages
+  together, or shifts only one partner's date toward/away from the other
+  partner's (fixed) date. `chartGapPartner` (`null`/'A'/'B') controls
+  *which* partner moves in 'gap' mode: `null` auto-tracks whichever
+  partner currently retires earlier (the original behavior); an explicit
+  `'A'`/`'B'` pick sticks even against the grain (varying the
+  later-retiring partner while the earlier one stays fixed) — the
+  "Closer"/"Farther" math is sign-based on `movingAge <= fixedAge` to
+  handle both directions correctly, not hard-coded to "moving partner is
+  always earlier." Both variables' dependent UI (`#chartShiftModeRow`,
+  `#chartGapPartnerRow`, button active/disabled states) is recomputed on
+  every `renderChartView()` call, not just on a button click, so it stays
   correct as retirement-age sliders or single-person mode change live.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
   Sankey; routes every source through a single neutral hub node rather than

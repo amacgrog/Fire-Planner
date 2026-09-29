@@ -4029,6 +4029,69 @@ Implementation:
   one gets a visual review from the user first, since it's a new UI
   control rather than a backend calculation fix.
 
+### Follow-up: explicit note text, and a manual "Vary: Partner A/B" picker
+
+Two rounds of user feedback on the branch above, before merging:
+
+1. **"Gap narrows/widens" read ambiguously.** The user's first reaction on
+   seeing the feature described was to assume it meant *both* partners
+   moving symmetrically toward/away from each other (the
+   symmetric-around-the-midpoint design explicitly rejected during the
+   design conversation) — when the actual behavior has only ever moved
+   *one* partner while holding the other fixed. Fixed by adding explicit
+   `noteEl.textContent` under the chart for both shift modes, computed
+   from the actual resolved partner/ages each render: `"Only Partner B's
+   date moves (currently the earlier of the two); Partner A's stays fixed
+   at retirement age 55."` for Gap mode, `"Both partners' dates move
+   together, by the same amount."` for Both mode. Words, not just the
+   button name, now carry the precise meaning.
+2. **Auto-picking "whichever partner is earlier" wasn't enough — the user
+   wanted to explicitly choose** which partner is fixed vs. varying,
+   independent of who currently retires earlier. Added a second small
+   control, `#chartGapPartnerRow` ("Vary: Partner A / Partner B"), shown
+   only while Gap mode is active and enabled. New closure variable
+   `chartGapPartner` (`null` = auto-track the earlier partner, matching
+   the original behavior; `'A'`/`'B'` = an explicit pick that sticks even
+   against the grain — e.g. deliberately varying the *later*-retiring
+   partner's date while the earlier-retiring partner's date stays fixed,
+   which was never possible before this).
+
+   This required generalizing the "Closer"/"Farther" math, which
+   previously hard-coded the assumption that the moving partner is always
+   the earlier one (so "closer" always meant "retire later," i.e. age
+   goes up). With an explicit pick, the moving partner might now be the
+   *later*-retiring one, in which case "closer" means the opposite —
+   "retire earlier," age goes down. Resolved with a `sign` computed from
+   `movingAge <= fixedAge`: `sign > 0` is the original earlier-partner
+   case (closer = age + yrs, clamped at the fixed partner's date; farther
+   = age − yrs, floored at that partner's current age); `sign < 0` is the
+   new against-the-grain case (closer = age − yrs, clamped at the fixed
+   partner's date; farther = age + yrs, capped at 70) — same clamp/floor
+   bounds as before, just applied in the opposite direction. Both `early`/
+   `late` `simulate()` calls read `movingIsA` to decide which argument
+   slot gets the computed age and which gets the fixed partner's
+   unchanged `state.retireAgeA`/`state.retireAgeB`.
+
+   `updateChartGapPartnerButtons()` follows the same "visual sync only,
+   no `render()`, safe to call mid-render-pass" pattern as
+   `updateChartShiftModeButtons()` — both buttons always show a
+   determinate active state (the explicit pick if there is one, otherwise
+   the auto-detected earlier partner), so the picker never reads as
+   "nothing selected."
+
+- **Verified**: `npm test` (unaffected, chart/UI-only); Playwright against
+  the "Draining bonds" scenario confirms: the partner-row shows/hides
+  correctly with Gap mode, the auto-default correctly highlights Partner B
+  (the earlier-retiring partner in that scenario), clicking "Partner A"
+  switches the moving partner and note text correctly, the pick survives
+  toggling back to "Both together" and back to "Gap" (sticky), and — the
+  actual new capability — explicitly varying Partner A (the later-retiring
+  partner at 55) while Partner B (34) stays fixed produces correctly
+  *inverted* Closer/Farther lines relative to the auto-tracked case
+  (screenshot-verified: "Closer" tracks lowest since A retiring earlier
+  means fewer working years, "Farther" tracks highest). Zero `pageerror`
+  events; mobile-overflow check (390×844) unaffected.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
