@@ -3779,6 +3779,74 @@ fixing in its own pass rather than folding into this one.
   zero `pageerror` events; 390×844 mobile-overflow check unaffected (no new
   fields, tooltip text only).
 
+## ACA/IRMAA MAGI proxy now includes a lagged estimate of realized withdrawal income
+
+Follow-up to the spousal-healthcare fix above: verifying it surfaced that
+with the ACA subsidy toggle on, a household funding retirement mostly from
+discretionary taxable/traditional withdrawals showed `magiProxy: 0` forever
+once both partners retired (confirmed live: `healthcare: 0` indefinitely in
+the reported scenario once both stopped working) — a far larger subsidy than
+reality, since `magiProxy` genuinely never counted that income at all. This
+is the same limitation the in-app "Healthcare, ACA & IRMAA" callout already
+disclosed for capital gains ("modeled brokerage capital gains are not
+included in this MAGI estimate"); it turned out to extend to discretionary
+traditional withdrawals too, which the callout hadn't mentioned.
+
+The reason it was ever excluded: `magiProxy` is computed *before* the
+withdrawal waterfall runs each year, because it's needed to size that same
+year's ACA-subsidized `healthcare` cost, which is itself one of the expenses
+that determines how much needs to be withdrawn — genuine circularity, not
+an oversight. Fixed the same way a real ACA application handles it: `magiProxy`
+now adds the *prior* year's realized `traditionalGross` (discretionary
+traditional/bondTraditional withdrawals plus any Roth conversion) and
+`taxableGainGross` (realized taxable-brokerage capital gains) as an
+estimate, reconciled implicitly each year rather than exactly — the same
+"estimate now, true up later via Form 8962" logic the real ACA program
+uses. Implementation:
+
+- `traditionalGross`/`taxableGainGross` were previously declared *inside*
+  the withdrawal (`else`) branch in `simulate()` only, so they didn't exist
+  in a surplus (contributing) year. Moved the declaration above the
+  `if (flow >= 0)` check so both are always defined (as `conversionAmount`/
+  `0` in a surplus year, or the fuller realized totals in a withdrawal
+  year) — `simulateHistorical()` already declared them outside its
+  if/else, so no equivalent move was needed there.
+- Added `prevTraditionalGross`/`prevTaxableGainGross`, declared once before
+  each function's per-year loop (both `simulate()` and
+  `simulateHistorical()`), assigned from that year's final
+  `traditionalGross`/`taxableGainGross` right after the `if (flow >= 0) {…}
+  else {…}` block closes (covers both branches), and read by `magiProxy`
+  and the Roth-conversion cap's `preConvMagi` at the top of the *next*
+  year's iteration.
+- Same lag pattern already existed in this codebase for a structurally
+  identical reason — the Guyton-Klinger guardrail multiplier lags a year
+  for the same "this year's own withdrawal isn't known yet" reason (see its
+  comment a few lines above `prevTraditionalGross`'s declaration).
+- `magiHistory[year]` (used for the 2-year IRMAA lookback) now inherits the
+  lag automatically, since it's just `magiHistory[year] = magiProxy`, so
+  IRMAA at year Y now effectively reflects withdrawal data from year Y-3
+  (2-year lookback + 1-year MAGI lag) rather than Y-2 with withdrawals
+  excluded outright — described accurately in the updated in-app callout
+  rather than left implicit.
+- `totalIncome` (the *display-only* running income total shown in the
+  table/report, separate from `magiProxy`) was already corrected after the
+  withdrawal waterfall runs each year with that *same* year's real
+  `traditionalGross`/`taxableGainGross` — left untouched, since it has no
+  circularity problem (nothing downstream depends on it to size a
+  withdrawal) and was already accurate.
+- Rewrote the in-app "Healthcare, ACA & IRMAA" callout and the README's ACA
+  bullet to describe the lagged-estimate behavior precisely, rather than
+  the flatly-incorrect "capital gains ... not included" line.
+
+- **Verified**: `npm test`; Playwright against the real reported scenario
+  shows `magiProxy`/`healthcare` correctly jumping to realistic non-zero
+  values starting the year *after* both partners retire (the first
+  post-retirement year still shows the old near-zero MAGI, by design — the
+  lag needs one year of realized data to catch up); a default-scenario and
+  Monte-Carlo-view smoke test (which calls `simulateHistorical()`
+  repeatedly) both ran with zero `pageerror` events; mobile-overflow check
+  unaffected (no new fields).
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

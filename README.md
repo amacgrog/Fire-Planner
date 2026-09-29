@@ -80,7 +80,7 @@ Both tools run on the same underlying engine and share these features:
 - Mega backdoor Roth
 - Social Security, with a start-age slider per partner
 - Medicare IRMAA surcharge modeling
-- ACA premium tax credit (2026 sliding-scale structure, with an option to model the enhanced ARPA/IRA-style subsidy instead)
+- ACA premium tax credit (2026 sliding-scale structure, with an option to model the enhanced ARPA/IRA-style subsidy instead). MAGI for the subsidy (and the Medicare IRMAA lookback, and the Roth-conversion ACA-cliff cap) includes the prior year's realized discretionary traditional withdrawals and taxable-brokerage gains as a one-year-lagged estimate — the same way a real ACA application estimates current income from a recent tax return and reconciles later — rather than excluding withdrawal/gains income entirely
 - **Post-retirement healthcare only applies once both partners have stopped working.** A retired partner is assumed to be covered under a still-working spouse's employer plan (size that partner's own per-paycheck premium field to include a non-working spouse, if that's the real cost) rather than needing their own individual ACA/COBRA policy — so for a couple, the "annual post-retirement health insurance premium" input doesn't start for either partner until neither is working, even if one retires years before the other
 - Required Minimum Distributions (RMDs)
 - 10% early-withdrawal penalty: any discretionary traditional/bond-traditional withdrawal taken before age 59½ is penalized unless the withdrawing partner is covered by Rule of 55 or a 72(t) SEPP plan; traditional is a single pooled household balance rather than split per partner, so a withdrawal is treated as half-penalized when only one partner is currently exempt
