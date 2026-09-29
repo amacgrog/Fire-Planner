@@ -88,6 +88,16 @@ Each planner is one big IIFE. Core shape:
 - `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
   tornado chart; levers swept are read live from checked `data-lever`
   checkboxes (a display choice, not part of `state`/scenario export).
+- `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode` (declared
+  together near `normalizeState`) are all plain closure variables, not
+  `state` fields — chart-display preferences that reset on reload and
+  never round-trip through scenario export/import. `chartShiftMode`
+  ('together'/'gap') controls whether the ±1yr/±3yr comparison chart
+  shifts both partners' retirement ages together or shifts only whichever
+  partner currently retires earlier, toward/away from the other partner's
+  (fixed) date — its visibility/disabled state is recomputed on every
+  `renderChartView()` call, not just on a view-button click, so it stays
+  correct as retirement-age sliders or single-person mode change live.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
   Sankey; routes every source through a single neutral hub node rather than
   drawing direct source→expense ribbons (no per-dollar tracking exists).

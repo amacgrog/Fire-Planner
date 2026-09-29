@@ -3929,6 +3929,106 @@ cleanly by age rather than by household retirement status:
   ACA figure; zero `pageerror` events; mobile-overflow check (390×844)
   unaffected.
 
+## "Both together" / "Gap narrows/widens" shift mode for the ±1yr/±3yr comparison chart
+
+The ±1yr/±3yr comparison chart (`renderChartView()`'s final `else`
+branch) always shifted **both** partners' retirement ages by the same `N`
+years in the same direction — lines literally labeled "Both −N"/"Both +N".
+Raised by a user question: when the two partners retire in different
+years, this comparison is effectively dominated by whichever partner
+retires *later* — shifting the earlier-retiring partner's date by a year
+or three barely moves the outcome (they're already not earning, or their
+income is a small piece of the picture during that stretch), while
+shifting the later-retiring partner's date moves it a lot. There was no
+way to see the two dates converging or diverging without manually editing
+one partner's slider and losing the three-line comparison.
+
+Design process (worth preserving — several framings were considered and
+rejected before landing here): a per-partner "vary A only / B only"
+toggle was proposed first, but doesn't by itself frame the result as
+"gap narrows/widens" (it answers "what if one partner's date moves in
+isolation," not "what if the two dates move together toward/apart"). A
+symmetric-around-the-midpoint approach (both partners move toward or away
+from their shared midpoint by N/2 each) was considered next, but rejected
+as too abstract — moving *both* dates for a "gap" concept doesn't map
+to a single real decision the way "the earlier partner retires later/
+earlier, the other partner's plan doesn't change" does. A 2D heatmap/grid
+of outcomes across both partners' dates was also considered (and even
+mocked up) but rejected in favor of staying a full age-by-age line chart,
+consistent with every other chart view in the app.
+
+Landed design: rather than a new, separate chart view, added a second
+dimension to the *existing* ±1yr/±3yr chart — a small "Both together" /
+"Gap narrows/widens" switch that changes how the `N`-year shift is split
+between the two partners, reusing every other piece of that chart
+unchanged (magnitude buttons, `renderChart()`, legend mechanics, hover,
+colors, aria-labels):
+
+- **Both together** (unchanged default): `deltaA = deltaB = ∓N`.
+- **Gap narrows/widens**: only the partner who currently retires *earlier*
+  has their date shifted (determined automatically by comparing
+  `state.retireAgeA`/`state.retireAgeB` — no manual "pick the anchor
+  partner" control); the later-retiring partner's date is held exactly
+  fixed. "Closer (−N)" moves the earlier partner's date *later*, clamped
+  at the other partner's own date (narrowing can close the gap to zero
+  but never overshoots into flipping who's earlier); "Farther (+N)"
+  moves it *earlier*, floored at that partner's current age (same floor
+  the existing "Both −N" line already used).
+
+Implementation:
+- New closure variable `chartShiftMode` (default `'together'`), declared
+  alongside `chartView`/`mode`/`logScale`/`mcPathCount` — same category:
+  a **display preference, not part of `state`/scenario export**, resets
+  on reload.
+- New HTML row `#chartShiftModeRow` (mirrors the existing
+  `#mcPathCountRow` pattern exactly: small label + a `chart-view-toggle`
+  radiogroup), placed directly under the existing `#projectionSubToggle`
+  row.
+- Visibility/disabled state is recomputed on **every** `renderChartView()`
+  call (not just on a view-button click), so it reacts live to
+  slider/toggle edits, not just explicit view switches:
+  - Hidden entirely when `chartView` isn't `'1yr'`/`'3yr'`, or when
+    `state.singlePerson` is true (a "gap between two partners" has no
+    meaning for a single-person plan).
+  - The "Gap narrows/widens" button specifically disables itself (with an
+    explanatory `title` tooltip) when `retireAgeA === retireAgeB` — no
+    gap left to narrow — and if `chartShiftMode` was already `'gap'` when
+    the dates become equal (e.g. the user just edited a slider), it's
+    forced back to `'together'` automatically rather than silently
+    rendering a would-be-identical "Closer" line next to "Selected."
+- `updateChartShiftModeButtons()` only syncs the two buttons' visual
+  state and never calls `render()` itself, specifically so it's safe to
+  call from *inside* an in-progress `renderChartView()` pass (the live
+  disabled/auto-revert check above) as well as from the click handlers,
+  which call `render()` themselves afterward — avoids the recursive-render
+  trap that would come from a naive "just call the same setter everywhere"
+  approach.
+- Legend swatch reuse: "Closer"/"Farther" reuse the exact same
+  `.swatch.early`/`.swatch.late` CSS classes "Both −N"/"Both +N" already
+  used (confirmed these are purely amber/cyan color classes, not
+  semantically tied to "earlier retirement" in CSS) — no new color
+  tokens needed.
+
+- **Verified**: `npm test` (all four golden cases, unaffected — this
+  feature touches only chart-rendering/UI state, never `simulate()`'s
+  math); Playwright against the "Draining bonds" scenario (Partner A
+  retires 55, Partner B retires 34 — a 21-year gap) confirms: the switch
+  appears/hides correctly across view changes, single-person toggling,
+  and the equal-dates auto-revert case; with Partner B's income set to $0
+  (as in that scenario), the three Gap-mode lines were visually
+  indistinguishable — correct, not a bug, since shifting B's retirement
+  date changes nothing when B was never earning income to begin with;
+  re-tested with a nonzero Partner B income (screenshot-verified) and the
+  three lines diverge exactly as expected, with "Closer" (B retiring
+  later) ending with more assets than "Selected" and "Farther" (B
+  retiring earlier) ending with less. Zero `pageerror` events;
+  mobile-overflow check (390×844) unaffected.
+
+- **Rollout note**: built and verified on a feature branch
+  (`retirement-gap-chart`) rather than merged straight to `main` — this
+  one gets a visual review from the user first, since it's a new UI
+  control rather than a backend calculation fix.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
