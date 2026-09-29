@@ -3719,6 +3719,66 @@ only ever ran withdrawals through `taxFor()`. Added:
   events; a 390×844 mobile-viewport check confirms no horizontal overflow
   from the two new sidebar checkboxes.
 
+## Post-retirement healthcare shouldn't apply while a spouse still works
+
+A user with a real scenario (Partner B retires immediately at 34, Partner A
+works to 55 at $155k) noticed the same 10% penalty investigation's numbers
+still looked off even after that fix, and correctly guessed why:
+`state.healthcare` ("annual post-retirement health insurance premium") was
+being charged for a retired partner from the moment *they* stopped working,
+independent of whether their spouse was still employed (and presumably had
+group health coverage the retired partner could realistically be added to).
+In the reported scenario this meant ~$9,000/yr (half of `state.healthcare`,
+growing with inflation) was charged for the retired partner every year from
+age 34 to 55 — 21 years — on top of everything the 10%-penalty fix already
+found, compounding the premature taxable/traditional drain.
+
+Root cause, in both `simulate()` and `simulateHistorical()`: the healthcare
+cost formula (both the flat-premium branch and the ACA-net-cost branch) gated
+each partner's own healthcare cost on *that partner's own* `workingA`/
+`workingB` flag only — `(workingA ? 0 : state.healthcare/2) + (workingB ? 0
+: state.healthcare/2)` — with no cross-check against the *other* partner's
+employment. Fixed by introducing `bothRetired = !workingA && !workingB` and
+gating the couple's (non-single, non-survivor) healthcare cost — and ACA
+eligibility (`acaEligibleA`/`acaEligibleB`), and the Roth-conversion-cap's
+separate `acaEligibleNow` check — on `bothRetired` instead of each partner's
+individual status: as long as *either* partner still works, neither
+partner's `state.healthcare` cost applies (their coverage is assumed to
+ride on the working partner's own `healthPremiumA`/`healthPremiumB`, which
+the person needs to size to include a non-working spouse if that's their
+real premium). Single-person and survivor-period logic are unaffected —
+there's no spouse's plan to fall back on in either case, so those branches
+keep gating on the individual's own `workingA`/`workingB` exactly as before.
+
+Both the `healthcare` and `healthPremiumA`/`healthPremiumB` field tooltips
+were rewritten to state this assumption explicitly, since it's a real,
+consequential modeling choice a user needs to know about, not just an
+implementation detail — if a retired partner's spousal coverage costs more
+than what's already reflected in the working partner's premium field, the
+plan will understate healthcare cost during that stretch.
+
+A separate, pre-existing (not introduced by this fix) quirk surfaced while
+verifying this: with the ACA subsidy toggle on, `magiProxy` is computed
+*before* the withdrawal waterfall runs each year, so it only reflects wages/
+pension/RMD/Social Security/Roth-conversion income — a household funding
+retirement mostly from discretionary taxable/traditional withdrawals (as in
+the reported scenario, once both partners are retired) shows `magiProxy: 0`
+and gets a fully-subsidized ACA premium (`healthcare: 0`), which is far more
+generous than reality. This is the same known limitation the app's own
+"Healthcare, ACA & IRMAA" callout already discloses for capital gains
+("modeled brokerage capital gains are not included in this MAGI estimate")
+— it just turned out to extend to traditional withdrawals too, and is worth
+fixing in its own pass rather than folding into this one.
+
+- **Verified**: `npm test` (both golden scenarios are `singlePerson: true`,
+  so this couple-only code path is untouched by them — unaffected either
+  way, confirmed passing); Playwright against the real reported scenario
+  showing `healthcare: 0` for every year one partner still works, the flat
+  premium correctly starting the year both retire when ACA is disabled
+  (isolating the `bothRetired` gate from the separate MAGI quirk above);
+  zero `pageerror` events; 390×844 mobile-overflow check unaffected (no new
+  fields, tooltip text only).
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

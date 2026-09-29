@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V20</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V21</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -197,7 +197,7 @@
         </details>
         <details class="group">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
-          <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer medical plan) — reduces taxable wages just like a 401(k). Fold medications, copays, and other after-tax healthcare costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
+          <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer medical plan) — reduces taxable wages just like a 401(k). If your spouse is (or will be) retired while you're still working, this is assumed to cover both of you — the "post-retirement" premium below doesn't start for either partner until you've both stopped working, so use the employee+spouse rate here if that's the real cost. Fold medications, copays, and other after-tax healthcare costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
           <div class="field"><label for="payFrequency">Paycheck frequency</label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
@@ -272,7 +272,7 @@
           <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
           <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual pension</label><input id="pensionYearlyB" type="number" class="money" min="0" step="500"></div>
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
-          <div class="field"><label for="healthcare">Annual post-retirement health insurance premium<small id="healthcareHint">Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy — applies once retired and under 65. Fold medications and copays into household spending above instead.</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="healthcare">Annual post-retirement health insurance premium<small id="healthcareHint">Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy — applies once retired and under 65. For a couple, this only starts once BOTH partners have stopped working: a retired partner is assumed to be covered under the other partner's employer plan (via that partner's own premium field above) until then, not shopping the ACA market alone. Fold medications and copays into household spending above instead.</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium subsidy<small>Applies while retired and under 65; nets the figure above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you'll have employer retiree coverage, COBRA, or are self-pay.</small></label></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies return<small>Current law for 2026 restored the 400%-of-poverty "subsidy cliff" after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it's extended by Congress.</small></label></div>
           <div class="field"><label for="ltcEnabled"><input id="ltcEnabled" type="checkbox"> Model long-term care costs<small>Turn off to exclude LTC entirely from the projection.</small></label></div>
@@ -3175,9 +3175,18 @@
         // 400% of the federal poverty line, the full premium is owed with
         // no phase-out, which can cost far more than a lower future tax
         // bracket is worth.
-        const acaEligibleNow =
-          (!workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)) ||
-          (!singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB));
+        // A retired partner is assumed covered under a still-working spouse's
+        // employer plan (sized via that partner's own healthPremiumA/B),
+        // rather than needing their own individual ACA/COBRA policy — so for
+        // a couple, nobody is actually shopping the ACA marketplace (and
+        // isn't at risk of the subsidy cliff this guards against) until BOTH
+        // partners have stopped working. See the healthcare cost calc below,
+        // which uses the same both-retired condition.
+        const acaEligibleNow = singlePerson
+          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
+          : isSurvivorPeriod
+            ? (deceasedIsA ? !workingB && ageB < 65 : !workingA && age < 65)
+            : !workingA && !workingB && (age < 65 || ageB < 65);
         if (state.acaEnabled && !state.acaEnhanced && acaEligibleNow) {
           magiCeiling = Math.min(
             magiCeiling,
@@ -3221,8 +3230,27 @@
         factor *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      const acaEligibleA = !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA),
-        acaEligibleB = !singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB);
+      // A couple is assumed to have employer coverage available (via
+      // whichever partner's own healthPremiumA/B) for BOTH partners as long
+      // as either one is still working — a retired partner isn't shopping
+      // the ACA/COBRA market solo while their spouse still has a job-based
+      // plan they can be added to. So for a couple, neither partner's
+      // individual "post-retirement healthcare" cost applies until BOTH
+      // have stopped working; while one still works, size that partner's
+      // healthPremiumA/B to include the cost of covering a non-working
+      // spouse. Single-person and survivor cases are unaffected — there's
+      // no spouse's plan to fall back on.
+      const bothRetired = !workingA && !workingB;
+      const acaEligibleA = singlePerson
+          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
+          : isSurvivorPeriod
+            ? !deceasedIsA && !workingA && age < 65
+            : bothRetired && age < 65,
+        acaEligibleB =
+          !singlePerson &&
+          (isSurvivorPeriod
+            ? !deceasedIsB && !workingB && ageB < 65
+            : bothRetired && ageB < 65);
       let healthcare;
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
         const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
@@ -3238,8 +3266,7 @@
           ? (workingA ? 0 : state.healthcare) * factor
           : isSurvivorPeriod
             ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
-            : (workingA ? 0 : state.healthcare / 2) * factor +
-              (workingB ? 0 : state.healthcare / 2) * factor;
+            : (bothRetired ? state.healthcare : 0) * factor;
       }
       const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
       if (!workingA && age >= 65 && !(isSurvivorPeriod && deceasedIsA))
@@ -3929,9 +3956,18 @@
         // 400% of the federal poverty line, the full premium is owed with
         // no phase-out, which can cost far more than a lower future tax
         // bracket is worth.
-        const acaEligibleNow =
-          (!workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)) ||
-          (!singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB));
+        // A retired partner is assumed covered under a still-working spouse's
+        // employer plan (sized via that partner's own healthPremiumA/B),
+        // rather than needing their own individual ACA/COBRA policy — so for
+        // a couple, nobody is actually shopping the ACA marketplace (and
+        // isn't at risk of the subsidy cliff this guards against) until BOTH
+        // partners have stopped working. See the healthcare cost calc below,
+        // which uses the same both-retired condition.
+        const acaEligibleNow = singlePerson
+          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
+          : isSurvivorPeriod
+            ? (deceasedIsA ? !workingB && ageB < 65 : !workingA && age < 65)
+            : !workingA && !workingB && (age < 65 || ageB < 65);
         if (state.acaEnabled && !state.acaEnhanced && acaEligibleNow) {
           magiCeiling = Math.min(
             magiCeiling,
@@ -3969,8 +4005,27 @@
         factor *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      const acaEligibleA = !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA),
-        acaEligibleB = !singlePerson && !workingB && ageB < 65 && !(isSurvivorPeriod && deceasedIsB);
+      // A couple is assumed to have employer coverage available (via
+      // whichever partner's own healthPremiumA/B) for BOTH partners as long
+      // as either one is still working — a retired partner isn't shopping
+      // the ACA/COBRA market solo while their spouse still has a job-based
+      // plan they can be added to. So for a couple, neither partner's
+      // individual "post-retirement healthcare" cost applies until BOTH
+      // have stopped working; while one still works, size that partner's
+      // healthPremiumA/B to include the cost of covering a non-working
+      // spouse. Single-person and survivor cases are unaffected — there's
+      // no spouse's plan to fall back on.
+      const bothRetired = !workingA && !workingB;
+      const acaEligibleA = singlePerson
+          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
+          : isSurvivorPeriod
+            ? !deceasedIsA && !workingA && age < 65
+            : bothRetired && age < 65,
+        acaEligibleB =
+          !singlePerson &&
+          (isSurvivorPeriod
+            ? !deceasedIsB && !workingB && ageB < 65
+            : bothRetired && ageB < 65);
       let healthcare;
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
         const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
@@ -3986,8 +4041,7 @@
           ? (workingA ? 0 : state.healthcare) * factor
           : isSurvivorPeriod
             ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
-            : (workingA ? 0 : state.healthcare / 2) * factor +
-              (workingB ? 0 : state.healthcare / 2) * factor;
+            : (bothRetired ? state.healthcare : 0) * factor;
       }
       const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
       if (!workingA && age >= 65 && !(isSurvivorPeriod && deceasedIsA))
