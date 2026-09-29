@@ -3491,6 +3491,83 @@ setting."
    bug (see "Plan status bar" above) went unnoticed through every earlier
    mobile-width check this session.
 
+## Real-world tester feedback batch: SS/CPP links, contribution-cap blurbs, rent wording, search caption, group-title clarity, version badge
+
+Five small, independently-verified copy/markup fixes from two real testers
+(Ellery, Fiorella) trying the app cold, done together as one low-risk batch
+(branch `ux-feedback-quick-wins`) — none touch `state`/`defaults`/
+`normalizeState()`/`simulate()`/`simulateHistorical()`, all are label/
+`<small>`-text or attribute additions:
+
+- **Social Security / CPP fields now link to where to actually look up the
+  real number.** `ssMonthlyA`/`ssMonthlyB` (US) got a `<small>` pointing to
+  `ssa.gov/myaccount`; `cppMonthlyA`/`cppMonthlyB` (Canada) got one pointing
+  to the My Service Canada Account page. `oasMonthlyA`'s existing "Defaults
+  to the 2026 maximum" note was left as-is — OAS doesn't need a lookup link
+  the way an earnings-history-dependent benefit like SS/CPP does.
+- **401(k)/RRSP contribution sliders clarify what "%" means.** A tester
+  read `k401PctA`'s "Partner A 401(k) contribution" slider as a percentage
+  of the federal contribution limit itself, when it's actually a percentage
+  of pay that then gets capped by that limit (see `k401PctA`/`baseLimitA`
+  math elsewhere in this file). Added a `<small>` to `k401PctA`/`k401PctB`
+  (US) and the equivalent `rrspPctA`/`rrspPctB` (Canada, same
+  percentage-of-pay-capped-by-annual-room mechanic) spelling this out —
+  same `.range-head`-nested `<small>` pattern already used by `incomeA`/
+  `catchupPctA`/etc. TFSA (`tfsaPctA`/`tfsaPctB`) has no equivalent cap
+  mechanic worth calling out and was left untouched.
+- **Household spending's "Excludes:" clause now names rent explicitly** (in
+  both files) — it already said "housing" but a tester read that as
+  mortgage-only and wasn't sure whether to also fold rent payments into
+  the spending figure, risking double-counting against the `rent`/tenure
+  fields. Now reads "housing (including rent or mortgage)".
+- **Search box placeholder/title clarify what it searches.** Changed from
+  a bare "Search fields…" to `Search fields — e.g. "income", "mortgage"…`
+  plus a `title` attribute ("Find and jump to any assumption field by
+  name") — a tester didn't understand what the box was for at a glance.
+  Deliberately did **not** add a new caption `<div>`/`<p>` near the sticky
+  search box — this file has a long history of gap/overlap bugs (see the
+  several "Mobile bug: gap ... sticky ..." sections above) from adding
+  elements into this exact sticky stack, so widening the existing
+  placeholder/title text was the lower-risk way to add the same
+  information without touching layout or the sticky-offset math at all.
+- **"Retirement income & healthcare" group title now names what's in it**
+  — US: `Retirement income & healthcare (Social Security, pensions)`;
+  Canada: `Retirement income & healthcare (CPP, OAS, pensions)` — a tester
+  didn't think to look in a group titled just "healthcare" for their
+  pension field. This is the same string the field-search's exact-title
+  match (`groupBreadcrumb()`, see "Round 4" under "Sidebar field search"
+  above) and dropdown breadcrumbs read live from the DOM, so nothing needed
+  updating in the search JS itself — confirmed no regression in the
+  "income"/"assets"/"other loans" match counts documented in that section
+  (still 17/18, 7, 26 respectively).
+- **Version badge**: the topbar's hand-maintained `<span>V17</span>` (US) /
+  `<span>V2</span>` (Canada) inside the `<h1>` — previously undocumented
+  anywhere in this file, discovered only from a user screenshot — is a
+  real, existing version indicator, just one that had gone stale/
+  inconsistent (Canada's badge had drifted far behind US's despite most
+  features in this file being "ported identically to both planners"). Bumped
+  to V18/V3 as part of this batch. **Going forward, bump the relevant
+  file's version badge in the same commit as any user-facing change to
+  that file** — it's the one piece of on-page provenance a person (or a
+  screenshot sent to Claude) can use to tell which build they're looking
+  at, and it only works if it's kept current every time, not just when
+  someone happens to remember.
+- **Verified**: `npm test`; a syntax check of both files; Playwright, both
+  files — the SS/CPP link and contribution-cap blurb are present and
+  correctly worded, the spending helper text mentions rent, the group
+  title reads correctly and doesn't introduce mobile overflow even
+  expanded, the version badge shows the bumped value, and the "income"/
+  "assets"/"other loans" field-search match counts are unchanged from the
+  values already documented under "Sidebar field search" above (17/18, 7,
+  26) — confirming the group-title change didn't alter search behavior.
+- **Deliberately deferred, not part of this batch** (per the user's own
+  scoping): restyling `#firstRunBanner`/`.cta-btn` so it reads as part of
+  the app rather than "looks like an ad" (Fiorella's exact phrase), and
+  defaulting the mobile view to Inputs specifically for first-time/
+  non-personalized visitors rather than Dashboard. Both are bigger-scope,
+  more subjective UI calls than the copy/markup fixes above and are
+  planned as separate follow-up work.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
@@ -3511,3 +3588,9 @@ setting."
   machine), so the two docs, kept current in the repo itself, are what let
   a session with no memory of prior conversations — or a differently-synced
   copy of the repo — pick up accurately from the repo contents alone.
+- **Bump the topbar version badge** (the `<span>` inside `<h1>` in each
+  planner file — see "Real-world tester feedback batch" above) alongside
+  any other user-facing change to that file, in the same commit — it's a
+  cheap, always-visible way for a person (or a screenshot) to signal which
+  build is running, and it only stays trustworthy if every batch bumps it,
+  not just some.
