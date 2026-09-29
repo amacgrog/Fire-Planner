@@ -1,6 +1,9 @@
-# CLAUDE.md
+# Architecture reference
 
-Guidance for Claude Code (or any AI assistant) working in this repo.
+Detailed, chronological guidance for Claude Code (or any AI assistant) working
+in this repo — the deep-dive companion to the root `CLAUDE.md`, which covers
+commands and a condensed architecture summary. Consult this file for the full
+history behind any gotcha it references.
 
 ## What this is
 
@@ -3648,10 +3651,11 @@ same branch (`ux-feedback-quick-wins`):
   pattern — e.g. the commit that documented the survivor-planning and
   cash-flow-Sankey features). If a change is architectural — a new shared
   helper, a new US/Canada divergence, a new gotcha worth knowing about —
-  update this file (`CLAUDE.md`) the same way. The repo may exist as
+  update the root `CLAUDE.md` (condensed summary) and/or this file (`docs/
+  reference.md`, the detailed log) the same way. The repo may exist as
   multiple independent local clones with no shared remote between them
   (e.g. a disposable cloud-agent working copy alongside the person's own
-  machine), so the two docs, kept current in the repo itself, are what let
+  machine), so these docs, kept current in the repo itself, are what let
   a session with no memory of prior conversations — or a differently-synced
   copy of the repo — pick up accurately from the repo contents alone.
 - **Bump the topbar version badge** (the `<span>` inside `<h1>` in each
