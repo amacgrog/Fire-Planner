@@ -15,7 +15,7 @@
     .view-toggle{background:#1b2939;border:1px solid #33445a;padding:4px;border-radius:999px;display:flex}.view-toggle button{color:#aeb9c8;border:0;background:transparent;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.view-toggle button.active{background:white;color:var(--topbar-fg)}
     .dollar-mode-dd{position:relative}#dollarModeBtn{font-size:.78rem}.dollar-mode-panel{position:absolute;top:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--surface-border);border-radius:12px;box-shadow:var(--shadow);padding:6px;width:230px;z-index:30}.dollar-mode-panel button{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:8px 9px;color:var(--ink2)}.dollar-mode-panel button:hover{background:var(--surface-hover)}.dollar-mode-panel button small{display:block;color:var(--hint);font-weight:400;font-size:.72rem;line-height:1.3;margin-top:2px}.dollar-mode-panel button .dot{flex:0 0 auto;width:11px;height:11px;border-radius:50%;border:2px solid var(--surface-border);margin-top:3px}.dollar-mode-panel button.active .dot{border-color:var(--blue);background:var(--blue)}
     .theme-toggle{background:#1b2939;border:1px solid #33445a;color:#aeb9c8;border-radius:999px;padding:7px 13px;font-weight:700;font-size:.82rem}.theme-toggle:hover{background:#223247}
-    .cta-btn{background:linear-gradient(145deg,#fbbf24,#ea580c);border:0;color:#23140b;border-radius:999px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 3px 10px rgba(234,88,12,.35)}.cta-btn:hover{filter:brightness(1.05)}
+    .cta-btn{background:#2563eb;border:0;color:#fff;border-radius:9px;padding:8px 16px;font-weight:800;font-size:.84rem;box-shadow:0 1px 3px rgba(0,0,0,.3)}.cta-btn:hover{background:#3b74f0}
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}.mobile-header-toggle{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 22px);max-height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V17</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V19</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -132,7 +132,7 @@
         <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
         <div class="field-search-wrap">
           <div class="field-search-input-wrap">
-            <input type="search" id="fieldSearch" placeholder="Search fields…" aria-label="Search assumptions" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="fieldSearchResults" aria-autocomplete="list">
+            <input type="search" id="fieldSearch" placeholder="Search fields — e.g. &quot;income&quot;, &quot;mortgage&quot;…" title="Find and jump to any assumption field by name" aria-label="Search assumptions by field name" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="fieldSearchResults" aria-autocomplete="list">
             <div class="field-search-results" id="fieldSearchResults" role="listbox" aria-label="Matching fields" hidden></div>
           </div>
           <span id="fieldSearchCount" class="field-search-count" hidden></span>
@@ -182,11 +182,11 @@
         <details class="group">
           <summary><span class="group-summary-text"><span class="group-title">Retirement contributions</span><span class="group-state" id="retireContribGroupState"></span></span></summary>
           <div class="field"><label for="matchA">Partner A employer 401(k) match<small>Percentage of annual pay; modeled as an additional traditional 401(k) contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
-          <div class="range-field"><div class="range-head"><label for="k401PctA">Partner A 401(k) contribution</label><span class="range-value" id="k401PctAOut"></span></div><input id="k401PctA" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="k401PctA">Partner A 401(k) contribution<small>Percentage of pay, capped by the federal elective-deferral limit — not a percentage of the limit itself.</small></label><span class="range-value" id="k401PctAOut"></span></div><input id="k401PctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="catchupPctA">Partner A catch-up contribution<small>Only applies at age 50+; automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed)</small></label><span class="range-value" id="catchupPctAOut"></span></div><input id="catchupPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="iraPctA">Partner A IRA contribution</label><span class="range-value" id="iraPctAOut"></span></div><input id="iraPctA" type="range" min="0" max="100" step="1"></div>
           <div class="field" data-partner-b><label for="matchB">Partner B employer 401(k) match<small>Percentage of annual pay; modeled as an additional traditional 401(k) contribution</small></label><input id="matchB" type="number" min="0" max="100" step="0.1"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="k401PctB">Partner B 401(k) contribution</label><span class="range-value" id="k401PctBOut"></span></div><input id="k401PctB" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="k401PctB">Partner B 401(k) contribution<small>Percentage of pay, capped by the federal elective-deferral limit — not a percentage of the limit itself.</small></label><span class="range-value" id="k401PctBOut"></span></div><input id="k401PctB" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="catchupPctB">Partner B catch-up contribution<small>Only applies at age 50+; automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed)</small></label><span class="range-value" id="catchupPctBOut"></span></div><input id="catchupPctB" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="iraPctB">Partner B IRA contribution</label><span class="range-value" id="iraPctBOut"></span></div><input id="iraPctB" type="range" min="0" max="100" step="1"></div>
           <div class="field" style="display:block"><label style="display:block;margin-bottom:8px">401(k) contribution type</label><div class="choice" role="radiogroup" aria-label="401(k) contribution type"><button type="button" id="k401TraditionalBtn" role="radio">Traditional</button><button type="button" id="k401RothBtn" role="radio">Roth</button></div></div>
@@ -203,7 +203,7 @@
         </details>
         <details class="group" open>
           <summary><span class="group-summary-text"><span class="group-title">Household spending</span><span class="group-state" id="spendingGroupState"></span></span></summary>
-          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs: groceries, dining, utilities, transportation, subscriptions, entertainment, travel, and similar. <b>Excludes:</b> housing, health/LTC premiums, and retirement saving — tracked separately elsewhere.</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="spending">Annual household spending<small>The catch-all for everyday costs: groceries, dining, utilities, transportation, subscriptions, entertainment, travel, and similar. <b>Excludes:</b> housing (including rent or mortgage), health/LTC premiums, and retirement saving — tracked separately elsewhere.</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
           <details class="group" id="spendingTiersGroup" style="padding:12px 0 0;border:0">
             <summary>Spending changes (up to 5)</summary>
             <p class="range-note">Optional: add up to five sequential spending changes, each triggered once Partner A reaches a given age (e.g. mortgage payoff, an empty nest, or slowing down in your 80s). Each new tier fully replaces the household spending figure above once active.</p>
@@ -262,10 +262,10 @@
           </div>
         </details>
         <details class="group" open>
-          <summary><span class="group-summary-text"><span class="group-title">Retirement income & healthcare</span><span class="group-state" id="retireIncomeHealthGroupState"></span></span></summary>
-          <div class="field"><label for="ssMonthlyA">Partner A Social Security / month</label><input id="ssMonthlyA" type="number" class="money" min="0" step="100"></div>
+          <summary><span class="group-summary-text"><span class="group-title">Retirement income & healthcare (Social Security, pensions)</span><span class="group-state" id="retireIncomeHealthGroupState"></span></span></summary>
+          <div class="field"><label for="ssMonthlyA">Partner A Social Security / month<small>Estimate yours at <a href="https://www.ssa.gov/myaccount/" target="_blank" rel="noopener">ssa.gov/myaccount</a>.</small></label><input id="ssMonthlyA" type="number" class="money" min="0" step="100"></div>
           <div class="field"><label for="ssStartAgeA">Partner A Social Security start age</label><input id="ssStartAgeA" type="number" min="62" max="70" step="1"></div>
-          <div data-partner-b class="field"><label for="ssMonthlyB">Partner B Social Security / month</label><input id="ssMonthlyB" type="number" class="money" min="0" step="100"></div>
+          <div data-partner-b class="field"><label for="ssMonthlyB">Partner B Social Security / month<small>Estimate yours at <a href="https://www.ssa.gov/myaccount/" target="_blank" rel="noopener">ssa.gov/myaccount</a>.</small></label><input id="ssMonthlyB" type="number" class="money" min="0" step="100"></div>
           <div data-partner-b class="field"><label for="ssStartAgeB">Partner B Social Security start age</label><input id="ssStartAgeB" type="number" min="62" max="70" step="1"></div>
           <div class="field"><label>Pension coverage</label><div class="choice" role="radiogroup" aria-label="Pension coverage"><button type="button" id="pensionNoneBtn" role="radio">None</button><button type="button" id="pensionABtn" role="radio">A only</button><button type="button" id="pensionBBtn" role="radio">B only</button><button type="button" id="pensionBothBtn" role="radio">Both</button></div></div>
           <div class="field"><label for="pensionYearlyA">Partner A annual pension</label><input id="pensionYearlyA" type="number" class="money" min="0" step="500"></div>
@@ -8182,13 +8182,19 @@
     };
     tabInputs.addEventListener('click', () => setMobileView('inputs'));
     tabDashboard.addEventListener('click', () => setMobileView('dashboard'));
-    // Dashboard (not Inputs) is the mobile default: on load the plan is
-    // already fully computed (even before someone's entered their own
-    // numbers, it's the generic example data), so the results — the actual
-    // point of the tool — are what a mobile visitor should see first,
-    // consistent with the Plan status bar's job of always surfacing the
-    // model's current answer rather than starting on a blank-feeling form.
-    setMobileView('dashboard');
+    // Dashboard is the mobile default for a RETURNING visitor — on load
+    // their real plan is already fully computed, so the results are what
+    // they should see first, consistent with the Plan status bar's job of
+    // always surfacing the model's current answer. But for a FIRST-TIME
+    // visitor there's no real plan yet, only the generic example data —
+    // "results first" there just means showing someone else's numbers,
+    // which is exactly what the (separate) first-run banner already exists
+    // to warn about. `hadSavedState` (set at boot from a real localStorage
+    // read, before this block runs) is the same signal that already
+    // decides whether to skip the first-run banner, so reusing it here
+    // keeps first-time vs. returning treated consistently across both
+    // features rather than introducing a second, possibly-divergent check.
+    setMobileView(hadSavedState ? 'dashboard' : 'inputs');
   }
 
   // Mobile-only "minimize sticky header" toggle: collapses the
