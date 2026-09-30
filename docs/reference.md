@@ -5134,6 +5134,42 @@ categories (its single "Province of residence" group takes the
 healthcare" and "Retirement income & healthcare (CPP, OAS, pensions)"
 groups both take `healthcare`, mirroring US's ACA/Medicare split).
 
+## Full-width layout on desktop (V45/V18)
+
+Immediate follow-up to the category rail, from a screenshot showing a
+~250px empty gap between the browser's left edge and the sidebar on a
+wide monitor. Root cause: `main{width:min(1600px,100%);margin:auto;...}`
+capped the whole app's content at 1600px and centered it — on anything
+wider than that (most modern monitors), the leftover width became two
+equal empty margins rather than being handed to the sidebar/dashboard.
+
+**Fix**: dropped the `min(1600px,100%)` cap and the centering `margin:
+auto` entirely — `main{width:100%;padding:24px clamp(16px,2.5vw,38px)
+54px}` — so `main` always fills the actual viewport width, with only
+the existing responsive side padding (already there for normal edge
+breathing room at any width) separating content from the browser edge.
+`.workspace`'s grid (`minmax(330px,410px) minmax(0,1fr)`) already caps
+the *sidebar* at 410px regardless of how wide `.workspace` itself gets,
+so the reclaimed width all flows into the dashboard column — the
+metrics tiles/charts/tables spread out to fill it rather than the
+sidebar stretching absurdly wide.
+
+No other rule in either file referenced the removed `1600px` value (grepped
+to confirm), and the `@media(max-width:1100px)` sidebar-width rule and the
+`@media(max-width:820px)`/`@media(max-width:520px)` mobile rules are all
+keyed to *viewport* width via `@media`, not to `main`'s own width, so none
+of them needed touching.
+
+Verified via Playwright at 1400px/1920px/2560px: the sidebar's left edge
+sits at a constant ~35-38px from the browser edge at every width (just the
+responsive padding) instead of growing with viewport width the way a
+centered margin would; `document.documentElement.scrollWidth >
+clientWidth` stayed `false` at all three plus 390px mobile; a full-page
+screenshot at 2560px confirmed the dashboard's extra width reads as more
+breathing room between metric tiles and a wider chart, not as anything
+visually broken. `npm test` passed unchanged (no math touched). Identical
+one-line change ported to `Planner_Canada.html`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
