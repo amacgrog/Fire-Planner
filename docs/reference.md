@@ -5170,6 +5170,58 @@ breathing room between metric tiles and a wider chart, not as anything
 visually broken. `npm test` passed unchanged (no math touched). Identical
 one-line change ported to `Planner_Canada.html`.
 
+## Cap the dashboard column's width so widgets don't over-stretch (V46/V19)
+
+Immediate follow-up to the full-width layout change above, from feedback
+that the metric tiles and main chart looked "very stretched" on a wide
+monitor once `main` itself stopped being capped — four metric tiles
+splitting `repeat(4,minmax(0,1fr))` across the full extra width turned
+into wide, sparse-looking boxes, and the chart's line data stretched
+into a flatter, harder-to-read shape than before.
+
+**Fix**: added `max-width:1400px` to the existing `.content{display:
+grid;gap:18px;min-width:0}` rule (the grid column holding the metrics
+row, the main chart card, and every other dashboard result-card).
+`.content` is a grid item inside `.workspace`'s `minmax(0,1fr)` second
+track; with the default `justify-items:stretch` and no `max-width`, it
+grew to fill that entire track (all the reclaimed width from the
+previous change). Adding the cap makes the browser stop stretching it
+past 1400px and fall back to start-aligned positioning within the
+track — confirmed empirically (not just assumed from spec reading) that
+this lands `.content` flush against the sidebar's side of the dashboard
+column, not centered within the remaining space, which is what keeps
+this consistent with "the sidebar sits near the left edge" from the
+previous change rather than reopening a left-side gap.
+
+**Deliberately one shared cap on the whole column, not per-widget
+tuning.** The metrics grid, the chart card, and every table/card below
+all read their available width from the same `.content` box, so capping
+it once fixes every widget's stretch at the same time — a tornado
+chart, Sankey diagram, or any future card added to `.content` inherits
+the same sane max-width automatically, rather than needing its own
+special-cased rule.
+
+**The expanded/fullscreen chart view is unaffected on purpose.**
+`#mainChartCard.chart-expanded` uses `position:fixed;inset:0`, which
+takes it out of `.content`'s box flow entirely (fixed positioning is
+relative to the viewport, not any ancestor's content box) — confirmed
+via Playwright that the expanded chart still measures the full 2560px
+viewport width at that test size, not 1400px. Fullscreen is explicitly
+meant to use all available screen space; capping it would have
+defeated its purpose.
+
+Verified via Playwright on both files at 1400px/1920px/2560px:
+`.content`'s rendered width stays exactly 1400px at 1920px and 2560px
+(and naturally narrower, unaffected by the cap, at 1400px where there's
+no extra width to begin with); a 2560px screenshot showed metric tiles
+and the chart back to a normal, readable proportion with the leftover
+width appearing as plain empty space to the right of the dashboard
+rather than distorting its widgets; the cap holds with the sidebar both
+expanded and collapsed; the fullscreen chart still fills the whole
+viewport; `document.documentElement.scrollWidth > clientWidth` stayed
+`false` at 390px mobile. `npm test` passed unchanged (no math touched).
+Identical one-line change ported to `Planner_Canada.html`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
