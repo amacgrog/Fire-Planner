@@ -482,8 +482,8 @@
         </details>
         <details class="group" data-cat="advanced">
           <summary><span class="group-summary-text"><span class="group-title">Withdrawal & tax strategy</span><span class="group-state" id="withdrawalStrategyGroupState"></span></span></summary>
-          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and traditional proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order. Has no effect while "Optimized withdrawal mix" below is on.</small></label></div>
-          <div class="field"><label for="withdrawalMixEnabled"><input id="withdrawalMixEnabled" type="checkbox"> Optimized withdrawal mix (live)<small>Each year, picks whichever taxable/traditional/Roth split (from the same menu the Withdrawal &amp; conversion optimizer below searches) minimizes that year's own tax + early-withdrawal penalty, treating Roth as a real lever rather than a last-resort fallback — and avoids realizing more income than the year's ACA-subsidy/IRMAA safe room, the same ceiling the Roth conversion ladder above already respects. This is a fast, always-current heuristic based on that year's own numbers (a one-year lookahead, not a lifetime plan) — for a deeper, multi-year-aware schedule, use the optimizer below and apply its recommendation by hand. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
+          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and traditional proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order. Has no effect while "Optimized withdrawal order" below is on.</small></label></div>
+          <div class="field"><label for="withdrawalMixEnabled"><input id="withdrawalMixEnabled" type="checkbox"> Optimized withdrawal order (live)<small>Each year, draws from whichever of taxable or traditional is cheaper this year first (fully covering the need from the other if the first runs short), instead of always draining taxable first — and leans toward whichever realizes less income when the year's ACA-subsidy/IRMAA safe room is tight, the same ceiling the Roth conversion ladder above already respects. A fast, always-current, one-year-lookahead heuristic — it can't see multi-year tradeoffs the way the Withdrawal &amp; conversion optimizer below can (apply its recommendation by hand for that), and it never touches Roth itself, which is still only reached once taxable and traditional together run short, same as the plain default. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
           <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Simplified dynamic-spending strategy: instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; toggle on to compare outcomes.</small></label></div>
           <div class="field"><label for="rothConvEnabled"><input id="rothConvEnabled" type="checkbox"> Enable Roth conversion ladder<small>Converts traditional balances to Roth each year in the window below, filling ordinary income up to the top of the selected federal bracket — automatically capped short of the ACA subsidy cliff (400% FPL, non-enhanced mode) and the next Medicare IRMAA tier, whichever binds first, so the bracket target is a ceiling rather than a guarantee.</small></label></div>
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
@@ -3065,26 +3065,60 @@
   // Live, always-cheap sibling of the multi-lever optimizer's full
   // lifetime coordinate-ascent search above — the search is too expensive
   // to re-run on every render (it calls simulate() thousands of times), so
-  // it stays an explicit, on-demand "Optimize" report. This instead picks,
-  // inline inside a single simulate() pass, whichever of the same
-  // WITHDRAWAL_MIX_CANDIDATES weightings minimizes THIS year's own
-  // incremental tax + early-withdrawal penalty — a one-year-lookahead
-  // heuristic, not a lifetime search, the same tradeoff the Roth ladder's
-  // always-on flat bracket target already makes against its own per-year
-  // optimizer. `remainingMagiRoom` is the same ACA-cliff/IRMAA-tier safe
-  // ceiling already computed for sizing this year's Roth conversion (see
-  // magiSafeRoom in simulate()); a candidate that would realize more
-  // ordinary/gain income than that remaining room is always ranked behind
-  // one that doesn't (the *1e6 term below), since that overage's real
-  // cost lands on a future year's healthcare premium via the one-year
-  // MAGI lag and isn't something this year's own tax comparison alone
-  // would ever catch — only once no candidate fits under the room does
-  // this fall back to plain this-year tax-minimization among all of them.
-  function pickLiveWithdrawalMix(
+  // it stays an explicit, on-demand "Optimize" report.
+  //
+  // This went through two broken designs before landing here, both found
+  // by testing against a real uploaded scenario rather than caught in
+  // review — worth recording so neither gets reintroduced:
+  //
+  // 1. Scoring all WITHDRAWAL_MIX_CANDIDATES on "this year's own tax"
+  //    alone: a Roth withdrawal is *always* tax-free this year, so every
+  //    Roth-inclusive candidate trivially looks free and the picker drains
+  //    Roth almost immediately, with nothing left for a future year that
+  //    actually needs it. Drove lifetime cost up by ~$900k instead of down
+  //    in testing.
+  // 2. Restricting to the menu's "spread" candidates (taxTradHalf/thirds/
+  //    balanced/smoothed) to avoid (1): still worse than doing nothing,
+  //    by ~$270k. The menu's candidates are fixed PROPORTIONAL splits —
+  //    each bucket's share is sized against `need` independently, so if
+  //    one bucket's own share exceeds what it actually holds, that
+  //    shortfall does NOT roll over into the other buckets; it falls
+  //    straight through to the Roth/cash/bond/home fallback below. That's
+  //    fine for the full lifetime search above, which evaluates the
+  //    resulting multi-year depletion pattern directly and simply
+  //    wouldn't pick a candidate that stranded a large balance — but a
+  //    one-year-only picker has no way to know whether "leaving
+  //    traditional untouched this year" is a deliberate multi-year
+  //    strategy (it sometimes is, see the full search's own picks) or an
+  //    accident, so it can't safely choose from the same proportional-
+  //    split menu at all.
+  //
+  // What's actually safe for a single year to decide on its own is
+  // *order*, not proportion: which of taxable-or-traditional to draw from
+  // first, fully cascading into the other for any shortfall — exactly the
+  // shape the plain taxable-first default already uses, just choosing
+  // which bucket leads based on this year's own marginal tax rates
+  // instead of always taxable. Both orders are guaranteed to satisfy
+  // `need` out of combined taxable+traditional capacity whenever that
+  // combined capacity allows it (never stranding one while draining Roth/
+  // cash/bonds for the other), and since one of the two orders (taxable-
+  // first) is exactly what the plain default already does, picking
+  // whichever of the two costs less this year can never come out ahead of
+  // the default by choosing worse — only by choosing traditional-first
+  // when that's genuinely cheaper (e.g. a low-bracket year with little
+  // taxable gain to save, or one where taxable's own gain would blow the
+  // MAGI room traditional wouldn't). `remainingMagiRoom` (the same ACA-
+  // cliff/IRMAA-tier ceiling the Roth ladder's conversion sizing already
+  // respects) is folded into the cost so an order that would overshoot it
+  // is preferred against only when the other order overshoots it more.
+  // Roth itself is deliberately left untouched here — it's still reached
+  // exactly as it always was, as the shortfall fallback immediately below
+  // this branch, once combined taxable+traditional genuinely can't cover
+  // `need`.
+  function pickLiveWithdrawalOrder(
     need,
     taxableBal,
     traditionalBal,
-    rothBal,
     taxableBasis,
     profile,
     taxableGainGross,
@@ -3092,43 +3126,70 @@
     penalizedFraction,
     remainingMagiRoom,
   ) {
-    let best = 0,
-      bestCost = Infinity;
-    for (const candidate of WITHDRAWAL_MIX_CANDIDATES) {
-      if (!candidate) continue; // skip the 0 "no override" sentinel
-      const weights = withdrawalMixWeights(candidate, taxableBal, traditionalBal, rothBal);
-      if (!weights) continue;
-      const [wTaxable, wTraditional] = weights;
-      const taxableShare = need * wTaxable,
-        traditionalShare = need * wTraditional;
-      const taxableDraw = drawTaxable(
-        taxableBal,
-        taxableBasis,
-        taxableShare,
-        profile,
-        taxableGainGross,
-        traditionalGross,
-      );
-      const { fromTrad, penalty } = solveTraditionalForNet(
-        traditionalBal,
-        traditionalShare,
-        taxableGainGross + taxableDraw.gain,
-        traditionalGross,
-        profile,
-        penalizedFraction,
-      );
-      const incrementalTax =
-        taxFor(profile, taxableGainGross + taxableDraw.gain, traditionalGross + fromTrad) -
-        taxFor(profile, taxableGainGross, traditionalGross) +
-        penalty;
-      const overage = Math.max(0, taxableDraw.gain + fromTrad - remainingMagiRoom);
-      const cost = overage * 1e6 + incrementalTax;
-      if (cost < bestCost) {
-        bestCost = cost;
-        best = candidate;
+    function cascade(traditionalFirst) {
+      let remaining = need,
+        fromTaxable = 0,
+        taxableGain = 0,
+        taxableBasisTaken = 0,
+        fromTraditional = 0,
+        penalty = 0,
+        gainAcc = taxableGainGross,
+        tradAcc = traditionalGross;
+      function drawTax(amount) {
+        if (amount <= 0) return;
+        const d = drawTaxable(
+          taxableBal - fromTaxable,
+          taxableBasis - taxableBasisTaken,
+          amount,
+          profile,
+          gainAcc,
+          tradAcc,
+        );
+        fromTaxable += d.taken;
+        taxableGain += d.gain;
+        taxableBasisTaken += d.basisTaken;
+        gainAcc += d.gain;
+        remaining -= d.net;
       }
+      function drawTrad(amount) {
+        if (amount <= 0) return;
+        const t = solveTraditionalForNet(
+          traditionalBal - fromTraditional,
+          amount,
+          gainAcc,
+          tradAcc,
+          profile,
+          penalizedFraction,
+        );
+        fromTraditional += t.fromTrad;
+        tradAcc += t.fromTrad;
+        penalty += t.penalty;
+        remaining -= t.tradNet;
+      }
+      if (traditionalFirst) {
+        drawTrad(remaining);
+        drawTax(remaining);
+      } else {
+        drawTax(remaining);
+        drawTrad(remaining);
+      }
+      const incrementalTax =
+        taxFor(profile, gainAcc, tradAcc) - taxFor(profile, taxableGainGross, traditionalGross) +
+        penalty;
+      const overage = Math.max(0, taxableGain + fromTraditional - remainingMagiRoom);
+      return {
+        fromTaxable,
+        taxableGain,
+        taxableBasisTaken,
+        fromTraditional,
+        penalty,
+        remainingNeed: Math.max(0, remaining),
+        cost: overage * 1e6 + incrementalTax,
+      };
     }
-    return best;
+    const taxableFirst = cascade(false),
+      traditionalFirst = cascade(true);
+    return traditionalFirst.cost < taxableFirst.cost ? traditionalFirst : taxableFirst;
   }
   function wageFica(wages, yearIndex) {
     const f = Math.pow(1 + pct(state.inflation), yearIndex);
@@ -3717,7 +3778,7 @@
       // Lifted out of the block below (rather than left as the block's own
       // const) so the withdrawal waterfall further down can also respect
       // the same safe-MAGI ceiling once conversionAmount has already
-      // claimed its own share of it — see pickLiveWithdrawalMix's use of
+      // claimed its own share of it — see pickLiveWithdrawalOrder's use of
       // remainingMagiRoom.
       let magiSafeRoom = Infinity;
       {
@@ -4004,37 +4065,26 @@
                   ? 1 - pctA
                   : pctA;
         const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
+        // Only an explicit optimizer-search override (an "Optimize" run's
+        // applied schedule, or the optimizer report's own display
+        // re-simulation) resolves to a menu candidate here — the live
+        // state.withdrawalMixEnabled toggle below has its own dedicated,
+        // order-based path (see pickLiveWithdrawalOrder's comment for why
+        // it can't safely share this proportional-split menu).
         const mixCandidate =
           withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
             ? withdrawalMixOverrideByAge.get(age)
-            : state.withdrawalMixEnabled && need > 0
-              ? pickLiveWithdrawalMix(
-                  need,
-                  taxable,
-                  traditional,
-                  roth,
-                  taxableBasis,
-                  profile,
-                  taxableGainGross,
-                  traditionalGross,
-                  penalizedFraction,
-                  remainingMagiRoom,
-                )
-              : 0;
+            : 0;
         const mixWeights = withdrawalMixWeights(mixCandidate, taxable, traditional, roth);
         if (mixWeights && need > 0) {
-          // Optimized per-year withdrawal mix: draw taxable, traditional,
-          // AND Roth in whatever split this year's candidate specifies —
-          // a strict superset of what state.smoothWithdrawals (below) can
-          // do, since Roth participates as a real lever here instead of
-          // only being tapped as a last-resort fallback. Any shortfall
-          // (a bucket running low, or empty) falls through to the same
-          // Roth/cash/bond/home order used below, unchanged. mixCandidate
-          // comes either from an explicit optimizer-search override (an
-          // "Optimize" run's applied schedule, or the optimizer report's
-          // own display re-simulation) or, failing that, from the live
-          // state.withdrawalMixEnabled toggle's own one-year-lookahead
-          // pick above — either way this branch doesn't care which.
+          // Optimized per-year withdrawal mix (explicit override only —
+          // see above): draw taxable, traditional, AND Roth in whatever
+          // split this year's candidate specifies — a strict superset of
+          // what state.smoothWithdrawals (below) can do, since Roth
+          // participates as a real lever here instead of only being
+          // tapped as a last-resort fallback. Any shortfall (a bucket
+          // running low, or empty) falls through to the same Roth/cash/
+          // bond/home order used below, unchanged.
           resolvedMixCandidate = mixCandidate;
           const [wTaxable, wTraditional, wRoth] = mixWeights;
           const taxableShare = need * wTaxable,
@@ -4079,6 +4129,38 @@
             need -= fromRothMix;
             rothWithdrawn += fromRothMix;
           }
+        } else if (state.withdrawalMixEnabled && need > 0) {
+          // Live, always-on picker (see pickLiveWithdrawalOrder above):
+          // chooses whichever of taxable-first or traditional-first is
+          // cheaper this year, cascading fully into the other bucket for
+          // any shortfall — never strands one bucket while draining Roth/
+          // cash/bonds for the other, unlike a fixed proportional split
+          // would. 'live' is a display-only marker (not a
+          // WITHDRAWAL_MIX_CANDIDATES id); Roth itself isn't touched
+          // here, same as the plain default below — it's still reached
+          // through the ordinary shortfall fallback immediately after
+          // this whole if/else chain.
+          resolvedMixCandidate = 'live';
+          const live = pickLiveWithdrawalOrder(
+            need,
+            taxable,
+            traditional,
+            taxableBasis,
+            profile,
+            taxableGainGross,
+            traditionalGross,
+            penalizedFraction,
+            remainingMagiRoom,
+          );
+          taxable -= live.fromTaxable;
+          taxableBasis -= live.taxableBasisTaken;
+          taxableGainGross += live.taxableGain;
+          taxableWithdrawn += live.fromTaxable;
+          traditional -= live.fromTraditional;
+          traditionalGross += live.fromTraditional;
+          traditionalWithdrawn += live.fromTraditional;
+          earlyPenalty += live.penalty;
+          need = live.remainingNeed;
         } else if (state.smoothWithdrawals) {
           // Draw taxable and traditional in proportion to their current
           // balances instead of draining taxable first, so taxable income
@@ -10151,7 +10233,7 @@
   window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
   window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
-  window.__test_pickLiveWithdrawalMix = pickLiveWithdrawalMix;
+  window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
 })();
 </script>
 </body>
