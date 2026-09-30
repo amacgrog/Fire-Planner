@@ -4875,6 +4875,71 @@ previously. `npm test` and the mobile-overflow check both passed;
 identical change ported to `Planner_Canada.html`, verified with the same
 test producing byte-identical results on both files.
 
+## Right-justify the "Log scale" checkbox in the packed toolbar; !important-margin bugfix (V42/V15)
+
+Follow-up to the desktop toolbar-packing feature (two sections up):
+"Log scale" had lived inside `#chartGroupRow` since before this session,
+laid out via that row's own `justify-content:space-between` against the
+Projection/Historical/Monte Carlo toggle. That worked as long as
+`#chartGroupRow` was a full-width block (the old, unpacked layout) — but
+once it became a shrink-to-fit flex item of the packed `#chartToolbar`
+(see two sections up), `space-between` had no leftover width inside the
+row to distribute, so the checkbox ended up sitting immediately next to
+the "Monte Carlo" button instead of pushed to the far right of the card.
+
+Fix: pulled the checkbox out of `#chartGroupRow` into its own sibling
+row, `#chartLogScaleRow` (`display:flex;justify-content:flex-end`),
+placed *last* in `#chartToolbar`'s DOM order (after `#mcPathCountRow`)
+rather than where it used to sit (between `#chartGroupRow` and
+`#projectionSubToggle`). Order matters here: `margin-left:auto` on a
+flex item pushes *itself and every sibling after it on that line* to the
+right edge, not just itself — so putting it anywhere but last would have
+shoved whichever rows followed it along too. With it last, only the
+checkbox moves, landing flush against the right edge of whichever line
+it ends up sharing (or alone on its own line if the preceding rows
+already filled the width). On mobile/stacked layout (`#chartToolbar`
+still `display:contents` there), `#chartLogScaleRow`'s own
+`justify-content:flex-end` right-aligns it within its now-dedicated
+full-width row — an improvement over the old behavior, where at narrow
+widths the checkbox would wrap onto its own line but sit **left**-aligned
+(no partner left for `space-between` to distribute against), which read
+as arbitrary rather than intentional.
+
+**Bug found and fixed in the same pass: the desktop/expanded margin
+resets for every packed row had silently never been applying.** Each
+row (`#chartGroupRow`, `#projectionSubToggle`, `#chartShiftModeRow`,
+`#mcPathCountRow`, and the new `#chartLogScaleRow`) carries its own
+inline `style="margin:..."` for its normal/stacked-layout spacing (e.g.
+`margin:-6px 0 12px`), and the packed-layout CSS tried to reset that to
+`margin:0` (or `margin:0 0 0 auto` for the log-scale row) via plain
+ID-selector rules. Inline styles beat *any* external stylesheet
+selector regardless of specificity (short of `!important`), so those
+resets were dead code — confirmed via `getComputedStyle`:
+`#projectionSubToggle`'s `marginTop` stayed `-6px` instead of resetting
+to `0`, and critically `#chartLogScaleRow`'s `marginLeft` stayed `0px`
+instead of becoming `auto`, which is why the right-justify fix above
+didn't visibly work until this was also fixed. Small margins like
+`-6px` were cosmetically forgiving enough that the packed rows still
+looked roughly aligned in earlier screenshots, which is how this went
+unnoticed through the two prior toolbar-packing commits — but
+`margin-left:auto` failing silently is not forgiving at all, since the
+entire right-justify mechanism depends on it. Added `!important` to
+both margin resets (the `.chart-expanded` rule and the
+`@media(min-width:821px)` rule) to actually win over the inline styles.
+
+Verified via `getComputedStyle` before/after: `#chartLogScaleRow`'s
+`marginLeft` went from `0px` (broken) to `auto`/a large computed pixel
+value pushing it flush against the card's right edge, matching the
+legend's right edge above it, in both expanded and desktop-normal
+non-expanded modes. Screenshotted all four combinations (desktop
+normal, desktop expanded, mobile normal, mobile expanded/landscape) to
+confirm the checkbox lands flush right in every case. `npm test` and
+the existing toolbar-packing/shift-mode/toolbar-collapse Playwright
+checks from the prior two commits were re-run and still pass unchanged
+(this was a CSS-only fix, no JS or DOM-id changes beyond moving
+`#chartLogScaleRow`'s position in the markup). Identical fix ported to
+`Planner_Canada.html`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
