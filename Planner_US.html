@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V46</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V47</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -591,6 +591,14 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target to estimate which minimizes lifetime tax paid (income + payroll tax, summed across the projection in today's dollars), while checking it doesn't shorten how long the portfolio lasts. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
           <div class="table-wrap"><table><thead><tr><th>Fill to bracket</th><th>Lifetime tax (est.)</th><th>End assets</th><th>Investments last through</th></tr></thead><tbody id="rothOptimizerRows"></tbody></table></div>
+          <div style="margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line)">
+            <button type="button" id="rothPerYearOptimizeBtn" class="btn-card">Go further: optimize each year separately →</button>
+            <p style="color:var(--muted);font-size:.8rem;margin:8px 0 0">Instead of one fill target for every year above, lets each year pick its own — including skipping a year — scored against total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges), not tax alone, since a bracket choice can trade a bit more tax for a lot less of either. Takes a few seconds for a wide ladder window.</p>
+          </div>
+          <div id="rothPerYearResult" hidden>
+            <div id="rothPerYearSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
+            <div class="table-wrap"><table><thead><tr><th>Age</th><th>Recommended fill target</th><th>Conversion amount</th></tr></thead><tbody id="rothPerYearRows"></tbody></table></div>
+          </div>
         </details>
 
         <details class="result-card" id="sankeyCard">
@@ -2898,12 +2906,31 @@
     const found = brackets.find(([p]) => p === pctTarget);
     return found ? found[1] : brackets[brackets.length - 1][1];
   }
-  function solveRothConversion(profile, maxAvailable, yearIndex) {
+  // Per-year bracket override for the multi-lever optimizer
+  // (optimizeRothLadderPerYear() below) — null in normal operation, so
+  // every existing call site keeps using the flat state.rothConvBracket
+  // exactly as before. When the optimizer is evaluating a candidate
+  // schedule, it sets this to a Map<Partner-A age, bracket-pct-or-0> for
+  // the duration of one simulate() call, then restores it to null — same
+  // mutate/simulate/restore idiom SENSITIVITY_LEVERS and
+  // computeRothOptimizer() already use. A mapped value of 0 is a
+  // distinct sentinel meaning "convert nothing this year" (not a real
+  // bracket — bracketCeilingReal(0,...) would otherwise fall through to
+  // its "not found" branch and return the top bracket, the opposite of
+  // what 0 is supposed to mean), so it's checked before bracketCeilingReal
+  // is ever called.
+  let rothBracketOverrideByAge = null;
+  function solveRothConversion(profile, maxAvailable, yearIndex, ageKey) {
     if (maxAvailable <= 0) return 0;
+    const bracketPct =
+      rothBracketOverrideByAge && rothBracketOverrideByAge.has(ageKey)
+        ? rothBracketOverrideByAge.get(ageKey)
+        : state.rothConvBracket;
+    if (bracketPct === 0) return 0;
     const factor = Math.pow(1 + pct(state.inflation), yearIndex),
       filing = profile.filing === 'mfj' ? 'mfj' : 'single';
     const deduction = (filing === 'mfj' ? 32200 : 16100) * factor,
-      targetGrossOrdinary = bracketCeilingReal(state.rothConvBracket, filing) * factor + deduction;
+      targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
       if (filing === 'mfj') {
         const other = profile.otherA + profile.otherB + conv,
@@ -3549,7 +3576,7 @@
         }
         const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
-        conversionAmount = solveRothConversion(profile, conversionCap, year);
+        conversionAmount = solveRothConversion(profile, conversionCap, year, age);
       }
       const magiProxy = otherA + otherB + ss + conversionAmount + prevTraditionalGross + prevTaxableGainGross;
       magiHistory[year] = magiProxy;
@@ -5698,6 +5725,120 @@
     const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
     return { results, best, currentBracket: savedBracket };
   }
+  // Per-year multi-lever Roth optimizer -------------------------------
+  // Extends the flat optimizer above (one bracket applied every year of
+  // the ladder window) to let each year independently pick its own
+  // target — same candidate set, plus a 0 = "skip conversion this year"
+  // sentinel — rather than one setting applied uniformly across the
+  // whole window. See docs/reference.md for the full design writeup:
+  // why coordinate ascent with 3 structured multi-starts (not a
+  // general-purpose metaheuristic) is the right algorithm for this
+  // problem shape, why it provably terminates, and the performance
+  // budget these constants were chosen against (~0.9ms/simulate() call
+  // measured, so the 3000-call budget bounds worst case to a few
+  // seconds).
+  const ROTH_PER_YEAR_CANDIDATES = [0, 10, 12, 22, 24, 32, 35];
+  const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
+  const ROTH_PER_YEAR_MAX_PASSES = 5;
+  const ROTH_PER_YEAR_EVAL_BUDGET = 3000; // simulate() calls, hard cap for the whole run
+  // Total real-dollar tax + healthcare (income/payroll tax AND IRMAA
+  // surcharge/net ACA premium) across the full projection — deliberately
+  // wider than the flat optimizer's tax-only score above, since a
+  // bracket-target decision can trade a bit more tax for a lot less
+  // ACA/IRMAA cost, or vice versa, and only counting tax would miss that.
+  function rothScheduleCost(sim) {
+    return sim.rows.reduce((sum, r) => sum + displayValue(r.tax + r.healthcare, r.year), 0);
+  }
+  // Runs one full simulate() with `schedule` (Map<Partner-A age,
+  // candidate>) active as the per-year override, then restores the
+  // override to null immediately — never leaves it live for any other
+  // simulate() call (render(), other cards, etc.) to accidentally pick up.
+  function evaluateRothSchedule(schedule) {
+    rothBracketOverrideByAge = schedule;
+    const sim = simulate();
+    rothBracketOverrideByAge = null;
+    return { cost: rothScheduleCost(sim), depletedAge: sim.depletedAge };
+  }
+  function optimizeRothLadderPerYear(selected) {
+    const years = [];
+    for (let a = state.rothConvStartAge; a <= state.rothConvEndAge; a++) years.push(a);
+    const truncated = years.length > ROTH_PER_YEAR_MAX_WINDOW;
+    const activeYears = truncated ? years.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : years;
+    if (activeYears.length === 0) return { schedule: new Map(), truncated, budgetExhausted: false, activeYears };
+
+    const savedEnabled = state.rothConvEnabled,
+      savedBracket = state.rothConvBracket,
+      savedOverride = rothBracketOverrideByAge;
+    state.rothConvEnabled = true;
+    // Guardrail reference: the plan as it's actually configured right
+    // now (selected), not a recomputed baseline — same reference point
+    // the flat optimizer above uses, so "doesn't deplete earlier than
+    // what you have today" means the same thing in both features.
+    const notWorseThanSelected = (depletedAge) =>
+      selected.depletedAge ? !depletedAge || depletedAge >= selected.depletedAge : !depletedAge;
+
+    let evalCount = 0;
+    let budgetExhausted = false;
+    function coordinateAscent(startSchedule) {
+      const schedule = new Map(startSchedule);
+      let current = evaluateRothSchedule(schedule);
+      evalCount++;
+      let bestOverall = { schedule: new Map(schedule), cost: current.cost, depletedAge: current.depletedAge };
+      for (let pass = 0; pass < ROTH_PER_YEAR_MAX_PASSES && !budgetExhausted; pass++) {
+        let changedThisPass = false;
+        for (const age of activeYears) {
+          if (budgetExhausted) break;
+          const currentCandidate = schedule.get(age);
+          let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
+          for (const candidate of ROTH_PER_YEAR_CANDIDATES) {
+            if (candidate === currentCandidate) continue;
+            if (evalCount >= ROTH_PER_YEAR_EVAL_BUDGET) {
+              budgetExhausted = true;
+              break;
+            }
+            const trial = new Map(schedule);
+            trial.set(age, candidate);
+            const result = evaluateRothSchedule(trial);
+            evalCount++;
+            if (notWorseThanSelected(result.depletedAge) && result.cost < best.cost) {
+              best = { candidate, cost: result.cost, depletedAge: result.depletedAge };
+            }
+          }
+          if (best.candidate !== currentCandidate) {
+            schedule.set(age, best.candidate);
+            current = { cost: best.cost, depletedAge: best.depletedAge };
+            changedThisPass = true;
+            if (current.cost < bestOverall.cost) {
+              bestOverall = { schedule: new Map(schedule), cost: current.cost, depletedAge: current.depletedAge };
+            }
+          }
+        }
+        if (!changedThisPass) break;
+      }
+      return bestOverall;
+    }
+
+    // Three structured starts, not random — reproducible/explainable for
+    // a financial-planning recommendation, and they cover the distinct
+    // basins a cliff-driven cost landscape can create: doing nothing,
+    // converting as aggressively as every candidate allows, and today's
+    // actual flat-bracket setting (also useful on its own, since it's
+    // effectively "what would the flat optimizer above recommend, scored
+    // on the wider tax+healthcare objective").
+    const flatSchedule = new Map(activeYears.map((a) => [a, savedBracket]));
+    const zeroSchedule = new Map(activeYears.map((a) => [a, 0]));
+    const maxSchedule = new Map(activeYears.map((a) => [a, 35]));
+    const runs = [flatSchedule, zeroSchedule, maxSchedule].map(coordinateAscent);
+
+    state.rothConvEnabled = savedEnabled;
+    state.rothConvBracket = savedBracket;
+    rothBracketOverrideByAge = savedOverride;
+
+    const notWorseRuns = runs.filter((r) => notWorseThanSelected(r.depletedAge));
+    const pool = notWorseRuns.length ? notWorseRuns : runs;
+    const best = pool.reduce((a, b) => (b.cost < a.cost ? b : a));
+    return { ...best, truncated, budgetExhausted, activeYears, evalCount };
+  }
   // Validated categorical palette (see the `dataviz` skill's palette.md) —
   // fixed hue order, never cycled/reassigned by rank. Reused across the two
   // columns (sources / uses) since they're spatially separated by the hub,
@@ -6040,6 +6181,60 @@
       )
       .join('');
     card.hidden = false;
+  }
+  // On-demand only (button click, not auto-run on card expand like the
+  // flat optimizer above) — this is the heavier multi-second computation,
+  // so it shouldn't fire every time the card is opened or a sibling field
+  // changes.
+  function renderRothPerYearOptimizer(selected) {
+    const resultEl = document.getElementById('rothPerYearResult'),
+      summaryEl = document.getElementById('rothPerYearSummary'),
+      rowsEl = document.getElementById('rothPerYearRows');
+    const opt = optimizeRothLadderPerYear(selected);
+    if (opt.activeYears.length === 0) {
+      resultEl.hidden = true;
+      return;
+    }
+    // Re-simulate once more with the winning schedule active, purely to
+    // read each year's actual conversionAmount for display — opt itself
+    // only carries the schedule (bracket targets) and aggregate cost, not
+    // the per-row dollar detail.
+    rothBracketOverrideByAge = opt.schedule;
+    const detail = simulate();
+    rothBracketOverrideByAge = null;
+    const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
+
+    const currentCost = rothScheduleCost(selected);
+    const savings = currentCost - opt.cost;
+    const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
+    let notes = '';
+    if (opt.truncated) {
+      notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
+    }
+    if (opt.budgetExhausted) {
+      notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far, which may not be fully optimized.';
+    }
+    if (savings > 1) {
+      summaryEl.innerHTML = `Recommended: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current flat setting, without shortening how long the portfolio lasts.${notes}`;
+    } else {
+      summaryEl.innerHTML = `Your current flat <b>${state.rothConvBracket}%</b> setting is already at least as good as varying the target by year here.${notes}`;
+    }
+    rowsEl.innerHTML = opt.activeYears
+      .map((age) => {
+        const row = rowsByAge.get(age);
+        const amount = row ? displayValue(row.conversionAmount, row.year) : 0;
+        const candidate = opt.schedule.get(age);
+        // A candidate can tie at $0 with every other candidate once that
+        // year's traditional balance/conversion room is already
+        // exhausted (e.g. a prior year converted aggressively) — showing
+        // a specific bracket target next to $0 would read as a
+        // meaningful choice when coordinate ascent just kept whichever
+        // tied candidate it happened to land on.
+        const label = amount < 1 ? '—' : targetLabel(candidate);
+        return `<tr><td>${age}</td><td>${label}</td><td>${money(amount)}</td></tr>`;
+      })
+      .join('');
+    resultEl.hidden = false;
   }
 
   function simulateAtRealCagr(realCagrPct) {
@@ -9099,6 +9294,28 @@
   document.getElementById('rothOptimizerCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
+  // Deliberately not wired into render()/the toggle listener above — this
+  // can take a few seconds on a wide ladder window (see
+  // ROTH_PER_YEAR_MAX_WINDOW/ROTH_PER_YEAR_EVAL_BUDGET), so it only runs
+  // when explicitly asked for, not on every render() pass or card-open.
+  document.getElementById('rothPerYearOptimizeBtn').addEventListener('click', (e) => {
+    const btn = e.target;
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Optimizing…';
+    // Yield one frame so the browser actually paints the disabled/
+    // "Optimizing…" state before the synchronous coordinate-ascent loop
+    // blocks the main thread — without this the label swap and the
+    // blocking computation land in the same paint cycle and the button
+    // visually never changes until it's already done.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        renderRothPerYearOptimizer(simulate());
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }, 0);
+    });
+  });
   document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
@@ -9369,6 +9586,25 @@
       execute: async () => window.fireProjection,
     });
   }
+  // Test-only exports for test_roth_optimizer_per_year.js — specifically
+  // the brute-force-cross-check test, which needs to independently drive
+  // the per-year override and re-score arbitrary candidate schedules to
+  // verify optimizeRothLadderPerYear() actually finds the true global
+  // optimum, not just "some" answer. There's no way to construct that
+  // check through the DOM alone (the UI only ever sets one flat bracket
+  // across a whole window), so these mirror the same
+  // window.fireProjectionRows-style precedent already used above for the
+  // MCP tool hooks: a deliberate, narrow exposure of internal state for
+  // tooling, not an accident to clean up. Harmless in production (no
+  // user data, nothing network-reachable, purely references to functions
+  // that already exist in this closure).
+  window.__test_simulate = simulate;
+  window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
+  window.__test_rothScheduleCost = rothScheduleCost;
+  window.__test_setRothOverride = (m) => {
+    rothBracketOverrideByAge = m;
+  };
+  window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
 })();
 </script>
 </body>

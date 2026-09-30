@@ -5222,6 +5222,141 @@ viewport; `document.documentElement.scrollWidth > clientWidth` stayed
 `false` at 390px mobile. `npm test` passed unchanged (no math touched).
 Identical one-line change ported to `Planner_Canada.html`.
 
+## Per-year Roth conversion ladder optimizer (V47, US-only, `feature/roth-optimizer-per-year` branch)
+
+The existing "bracket optimizer" (`computeRothOptimizer()`) picks one flat
+bracket target for the whole conversion-ladder window and exhaustively
+evaluates a handful of candidates, so it's already immune to local optima
+by construction — but a single flat target can't respond to how MAGI
+headroom under the ACA 400%-FPL cliff and the Medicare IRMAA tiers, and
+the traditional balance itself, both change from year to year within the
+window. This feature adds a second, opt-in optimizer that independently
+picks each year's own bracket target instead.
+
+**Override hook.** `solveRothConversion(profile, maxAvailable, yearIndex,
+ageKey)` gained a 4th parameter and now checks a closure-level
+`rothBracketOverrideByAge` map (keyed by age) before falling back to the
+flat `state.rothConvBracket`. A mapped value of `0` is a distinct
+sentinel for "skip conversion this year" and short-circuits to `return 0`
+immediately — letting it fall through to `bracketCeilingReal` would
+incorrectly resolve an unrecognized `0` to the top bracket instead. Only
+`simulate()`'s call site passes `age` as `ageKey`; the near-identical
+call inside `simulateHistorical()` was deliberately left unchanged,
+matching the existing flat optimizer's scope (it also only drives
+`simulate()`, never the historical/Monte Carlo path).
+
+**Objective.** `rothScheduleCost(sim)` sums `r.tax + r.healthcare` (real
+dollars, via `displayValue()`) across every row of the *entire*
+projection, not just the ladder window — a conversion early in the
+window can move later-year RMDs, IRMAA tier, and ACA subsidy, so the
+cost has to be evaluated on the whole plan, not year-by-year in
+isolation. Including `r.healthcare` (IRMAA surcharge + net ACA premium)
+alongside tax is the actual gap this feature closes versus the flat
+optimizer, whose cost function only ever summed `r.tax`.
+
+**Algorithm: coordinate ascent with 3 structured multi-starts.**
+`optimizeRothLadderPerYear(selected)` runs the same cyclic-coordinate-ascent
+procedure from three different starting schedules (flat/all-zero/max
+bracket), each pass sweeping every active year and, holding all other
+years fixed, testing the same small candidate set the flat optimizer
+uses (0% + a handful of bracket-fill percentages) and keeping a
+candidate only if it strictly lowers `rothScheduleCost` *and* doesn't
+shorten `depletedAge` versus `selected.depletedAge` (the plan as
+actually configured right now — same reference semantics as the flat
+optimizer's guardrail, not a freshly recomputed baseline). A pass that
+changes nothing stops the run early; otherwise it's capped at
+`ROTH_PER_YEAR_MAX_PASSES = 5`. This provably terminates on its own
+(finite candidate grid, monotonically non-increasing cost per accepted
+move) — the pass cap is defense-in-depth, not something correctness
+depends on.
+
+Plain single-start coordinate ascent can get stuck: two years can each
+be individually optimal against the *other's current* value while a
+different joint combination is strictly better (a classic 2-variable
+trap). Running from 3 qualitatively different starting points is what
+catches that — proven with a small synthetic (non-browser) test
+reproducing exactly this trap, where single-start provably can't escape
+it but the multi-start driver does. Deliberately *not* random restarts:
+a financial-planning "recommendation" needs to be deterministic and
+explainable, so all three starts are fixed, structured schedules chosen
+to be about as far apart as candidates can get (nothing/flat/max),
+rather than seeded randomly — confirmed via an idempotency test that
+the same inputs always produce the identical output schedule.
+
+**Performance budget.** Calibrated against an in-browser benchmark
+(temporarily exposing `simulate` as `window.__bench_simulate` via a
+scratch `sed` edit reverted afterward, never committed) measuring
+**~0.87ms per `simulate()` call** worst-case (ACA on, MFJ, a wide
+20-year window). Two independent caps protect against a pathological
+input: `ROTH_PER_YEAR_MAX_WINDOW = 30` years hard-truncates a wider
+requested ladder window and sets `truncated: true` on the result;
+`ROTH_PER_YEAR_EVAL_BUDGET = 3000` total `simulate()` calls across the
+whole multi-start run is a second, independent ceiling that returns the
+best schedule found so far and sets `budgetExhausted: true` if hit —
+verified by temporarily lowering the budget far below what a real run
+needs and confirming it degrades gracefully (best-so-far result, no
+hang, no crash) rather than failing silently.
+
+**UI.** A "Per-year optimizer" button inside the existing
+`#rothOptimizerCard` (only meaningful once the ladder is on), run on
+demand rather than automatically, since a full multi-start run costs
+noticeably more than the flat optimizer's single pass. The click
+handler yields a frame (`requestAnimationFrame` + `setTimeout(…, 0)`)
+before running the blocking coordinate-ascent loop, so the button's
+"Optimizing…"/disabled state actually paints first. The result table
+re-simulates once more with the winning schedule to read back each
+year's real converted dollar amount; a year whose amount comes out
+under $1 (the traditional balance already drained by other years'
+conversions, so several candidates tie at $0) renders as `"—"` instead
+of whichever bracket label the tie happened to land on first — the
+initial version showed a specific bracket percentage next to a $0
+amount, which read as a meaningful choice that wasn't actually made.
+
+**Test-support exports.** A small, permanent set of `window.__test_*`
+globals at the bottom of the IIFE (`__test_simulate`,
+`__test_optimizeRothLadderPerYear`, `__test_rothScheduleCost`,
+`__test_setRothOverride`, `__test_ROTH_PER_YEAR_CANDIDATES`) — following
+the same precedent as the existing `window.fireProjectionRows`/
+`window.mcp` tooling exposure — because the strongest correctness check
+(brute-forcing every combination on a small 3-year window and
+confirming the optimizer lands on the actual minimum-cost schedule)
+can't be built through the DOM alone: the UI only ever sets one flat
+bracket across a whole window, never a per-year schedule.
+
+**Testing.** `test_roth_optimizer_per_year.js` (ad-hoc, repo root,
+gitignored, run individually — not wired into `npm test`/CI):
+- a pure-algorithm (no browser) test reproducing the 2-variable
+  local-optimum trap described above, proving single-start coordinate
+  ascent gets stuck on it while the 3-start driver escapes it
+- a 3-year brute-force cross-check: every one of the 7³ combinations is
+  evaluated directly against the real engine and compared to the
+  optimizer's output, which must match the true minimum (within $1)
+- a 1-year regression against the existing flat optimizer's recommended
+  bracket, read from the real DOM
+- a guardrail test under a stressed early-retirement scenario, confirming
+  the optimizer never returns a schedule that depletes earlier than the
+  currently-configured plan
+- a determinism/idempotency test (same inputs → byte-identical schedule
+  across repeated runs)
+- a 20-year performance test asserting the run completes well inside the
+  evaluation budget
+- an empty-window edge case (ladder off, or zero active years)
+- a 46-year edge case confirming the window truncates to 30 years and
+  flags `truncated: true`
+
+All 11 tests pass. `npm test` (golden math) and the existing mobile/UI
+Playwright checks were re-run and remain green — this feature only adds
+a new code path gated behind an explicit button click; it doesn't touch
+any existing call site's default behavior.
+
+`Planner_Canada.html` is intentionally untouched: Canada's RRSP meltdown
+ladder has no ACA/IRMAA-style income-tested healthcare cliff to optimize
+against (see "US vs. Canada" in `CLAUDE.md`), so there's no equivalent
+gap for a per-year optimizer to close there.
+
+This feature lives on the `feature/roth-optimizer-per-year` branch, not
+yet merged to `main`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
