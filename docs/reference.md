@@ -4523,6 +4523,48 @@ via Playwright and `npm test`:
   narrower than the requested ±1/±3 yrs, the shift row correctly hiding
   in single-person mode, and no mobile overflow at 390×844.
 
+## Historical backtest: identify which starting year a line is (`chartHoverEnabled`, V35/V8)
+
+The historical backtest chart (`chartView === 'hist'`) draws one line per
+replayed starting year (1928 through however many years back a full
+projection-length run of data allows), colored red if that starting year
+depleted the portfolio, teal if it survived — but the lines themselves
+never said *which* starting year they were, only the color. Two changes,
+requested together ("when viewing the red years it'd be interesting to
+know which start years cause failures"):
+
+- **`noteEl` now lists every depleted starting year by name** (`cycles.filter((c) => c.depletedAge).map((c) => c.startYear)`,
+  joined into the existing note text), so the full list is visible without
+  hovering at all — `simulateHistorical()` already returns `startYear:
+  rowFn(0)[0]` on every cycle, so no new simulation data was needed.
+- **`chartHoverEnabled()` now includes `'hist'`** (previously only
+  `'3yr'/'1yr'/'cagr'`), and `initChartHover()`'s `handleMove()` branches
+  on `chartView === 'hist'` before building the tooltip. The existing
+  multi-series tooltip (one line per series, all series' values shown at
+  once) doesn't scale to 30-70+ overlapping historical lines, so the hist
+  branch instead finds the single line **vertically closest to the mouse**
+  at the hovered age (`Math.abs(py - my)`, minimized across `series`) —
+  the same "nearest curve" convention most multi-line charting libraries
+  use — redraws just that one line bold on top of the others so it's
+  visually unambiguous which line the tooltip describes, and shows its
+  `startYear`, outcome (`Survived the full projection` / `Depleted at age
+  N`), and value at that age. The 3yr/1yr/cagr tooltip path is unchanged
+  (still shows every series at once, since there are only ever 2-3 lines
+  there). Monte Carlo hover remains disabled — its bootstrapped paths
+  don't correspond to a single identifiable historical starting year, so
+  there'd be nothing meaningful to name.
+- `clearChartHover()` needed no change: it already just calls
+  `renderChart(lastChart.series, lastChart.valueFn)` on mouseleave, which
+  redraws without the bold highlight since each `renderChart()` call
+  starts from a clean canvas.
+
+Implemented and verified in `Planner_US.html` (V35) first, then ported to
+`Planner_Canada.html` (V8) — the code is byte-for-byte identical between
+the two files at every site touched (`chartHoverEnabled()`, the hist
+branch's `noteEl.textContent`, and `handleMove()`'s tooltip-building
+block), since none of this touches tax/simulation logic, only chart
+rendering that's already shared in shape between the two planners.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
