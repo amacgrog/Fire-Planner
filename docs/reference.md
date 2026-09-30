@@ -4576,6 +4576,108 @@ starting years`) already gives the count. The hover-identification
 mechanism itself (`chartHoverEnabled()`, the nearest-line `handleMove()`
 branch) is unchanged from the V35/V8 pass above.
 
+## Expand-to-fullscreen chart view (V37/V10)
+
+Requested after discussing the CAGR sweep's scale problem (0%/7% real
+return lines differ by ~260x by the end of a long projection — see the
+git log around this commit for the concrete numbers) and whether zoom/pan
+would help; the conclusion there was that log scale (already existed) is
+the better fix for a *multiplicative* spread, and zoom was tabled in
+favor of this instead, which addresses a different problem: not enough
+pixels on screen, especially on a phone.
+
+**Deliberately a CSS-only fixed-position overlay, not the browser's
+native Fullscreen API**, because the native API (`element.requestFullscreen()`)
+doesn't work for arbitrary elements on iOS Safari — only `<video>` — so it
+can't be the sole mechanism for a feature that needs to work identically
+everywhere, including the phone this matters most for. `#mainChartCard`
+gets a `.chart-expanded` class (`position:fixed;inset:0`, full-viewport,
+`display:flex;flex-direction:column`) toggled by `setChartExpanded()`;
+`body.chart-scroll-locked` (`overflow:hidden`) is toggled alongside it to
+freeze background scroll. `#chartExpandBtn` (a small ⤢ button next to
+`#chartLegend`, wrapped together in a flex div so `.result-head`'s
+`justify-content:space-between` still only splits two groups — title vs.
+legend+button — rather than spreading three items apart) opens it;
+`#chartCollapseBtn` (an × pinned `position:absolute` top-right, `display:
+none` outside `.chart-expanded`) and the Escape key both close it.
+
+**Why no new canvas-sizing logic was needed**: `renderChart()` already
+calls `canvas.getBoundingClientRect()` fresh on every draw and sizes the
+canvas (with DPR scaling) to whatever box it's actually sitting in — the
+same pattern the "Mobile layout" note above relies on for the Dashboard
+tab switch. So entering/leaving the overlay just needs another `render()`
+after the CSS class change has actually been painted — done via a
+double `requestAnimationFrame` (the first rAF fires before the browser
+has necessarily laid out the new size; the second one is scheduled after
+that layout pass has happened) rather than a synchronous call, or the
+canvas would measure its *old* box.
+
+**Toolbar and content restyled smaller inside `.chart-expanded`**, per
+request — all the same DOM elements (`.chart-view-toggle`,
+`#chartXAxisRow`, `#chartShiftModeRow`, `#mcPathCountRow`), just tighter
+padding/font-size and reduced margins, so the toolbar stays compact and
+the canvas (`flex:1`) gets the bulk of the vertical space. `.result-head
+p` (the descriptive subtitle) and `.metrics` (the histSuccessCard/
+mcSuccessCard rate tiles) are hidden entirely while expanded — legend and
+note stay, per explicit request; the subtitle/metrics didn't come up and
+were dropped to save space, easy to bring back if that trade-off is
+wrong.
+
+**Mobile specifics, discussed before building**:
+- `height:100vh;height:100dvh` (the second declaration wins where
+  supported, a standard progressive-enhancement fallback pattern) is the
+  actual fix for "the expanded chart is slightly taller than the screen
+  and needs a small scroll" — that's a stale-viewport-height problem
+  (`100vh` on mobile Safari/Chrome doesn't shrink live as the address bar
+  collapses/expands), not real content overflow. `dvh` recalculates live.
+- **True auto-rotate was investigated and found unreliable enough that
+  it can't be the primary mechanism**: `screen.orientation.lock()` isn't
+  supported at all on iOS Safari, and Chrome/Android only grants it while
+  the page is in real Fullscreen. So instead: a `#chartRotateHint` banner
+  ("↻ Rotate your phone for a better view") shows via a pure CSS media
+  query (`@media(max-width:768px) and (orientation:portrait)`, scoped
+  under `.chart-expanded`) whenever the phone is still in portrait —
+  no JS polling needed, it tracks live as the device actually rotates.
+  On top of that, `tryEnterLandscapeFullscreen()` opportunistically
+  attempts real `requestFullscreen()` + `screen.orientation.lock('landscape')`
+  together (chained, since Chrome's orientation lock requires fullscreen
+  first) wrapped in try/catch — this succeeds on capable browsers (mainly
+  Android Chrome), giving true address-bar-hiding fullscreen and
+  auto-rotation, and silently no-ops everywhere else (notably iOS
+  Safari), leaving the plain CSS overlay + rotate hint as the fallback
+  that works unconditionally. A `fullscreenchange` listener catches the
+  case where real fullscreen is exited by some other means (system back
+  gesture, hardware Escape) than this page's own collapse button, and
+  calls `setChartExpanded(false)` to keep the CSS overlay state in sync
+  rather than leaving a stuck "collapsed-fullscreen-but-still-expanded-
+  overlay" mismatch; `chartExpanded` is already `false` by the time that
+  fires from `setChartExpanded()`'s own `tryExitLandscapeFullscreen()`
+  call, so there's no re-entrant loop.
+- Real-device verification of the Fullscreen/orientation-lock path
+  wasn't possible in this environment (headless Chromium has no real
+  screen to rotate); verified instead that it throws no errors and falls
+  back cleanly (Playwright's headless context rejects both APIs, which is
+  exactly the no-op path this is designed to hit), plus the CSS-overlay
+  mechanics themselves (canvas resize, scroll lock, rotate-hint visibility
+  tracking a simulated viewport rotation, no mobile overflow at 390×844).
+
+**Found and fixed a real bug from the earlier gap-shift-mode Canada port
+(V7) while touching this same CSS block**: `#chartShiftModeRow`/
+`#chartGapPartnerRow` both have an inline `style="display:flex;..."`
+*and* a `hidden` attribute in their markup. Inline `style` has higher
+CSS specificity than the browser's default `[hidden]{display:none}`
+user-agent rule, so without an explicit `#chartShiftModeRow[hidden],
+#chartGapPartnerRow[hidden]{display:none!important}` override (present
+in `Planner_US.html` from the original feature, but missed when porting
+to Canada), setting `.hidden = true` in JS left the row visually showing
+anyway (`getComputedStyle().display` stayed `'flex'` even though the
+`hidden` IDL property correctly read `true`) — confirmed by directly
+checking computed style, not just the JS property, in single-person mode
+where the whole row is supposed to disappear. Added the missing selector
+to Canada's `.chart-view-toggle` CSS rule (along with the also-missing
+`.chart-view-toggle button:disabled{opacity:.4;cursor:not-allowed}` rule
+the US file has), fixed in the same commit as this feature.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

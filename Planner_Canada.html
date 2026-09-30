@@ -46,7 +46,40 @@
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
     .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + var(--plan-status-h,0px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
     .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:var(--hint)}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
-    .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}#projectionSubToggle[hidden],#mcPathCountRow[hidden]{display:none!important}
+    .chart-view-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--surface-border);border-radius:999px;padding:4px;width:fit-content;margin:2px 0 12px}.chart-view-toggle button{border:0;background:transparent;color:var(--hint);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.76rem}.chart-view-toggle button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.chart-view-toggle button:disabled{opacity:.4;cursor:not-allowed}#projectionSubToggle[hidden],#mcPathCountRow[hidden],#chartShiftModeRow[hidden],#chartGapPartnerRow[hidden]{display:none!important}
+    /* Chart "expand" overlay: a CSS-only fixed-position takeover of the
+       viewport rather than the browser's native Fullscreen API — the
+       native API doesn't work for arbitrary elements on iOS Safari, so it
+       can't be the only mechanism. #chartExpandBtn/#chartCollapseBtn are
+       swapped via [hidden] in JS; the toolbar rows (view/x-axis/shift/path
+       toggles) are the same elements as in the normal layout, just
+       restyled smaller/tighter here so more vertical space goes to the
+       canvas. body.chart-scroll-locked (set alongside .chart-expanded)
+       freezes background scroll while the overlay is open,
+       independently of whether the browser's real Fullscreen API also
+       engaged (see setChartExpanded()/tryEnterLandscapeFullscreen()).
+       height:100dvh (after the 100vh fallback) is the actual fix for
+       mobile Safari/Chrome sizing the overlay taller than the visible
+       area while the address bar is showing — dvh recalculates live as
+       browser chrome shows/hides, so the overlay always exactly fills
+       whatever's actually visible instead of needing a manual scroll. */
+    #mainChartCard.chart-expanded{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;background:var(--card);border-radius:0;padding:10px 14px;height:100vh;height:100dvh;overflow:hidden}
+    body.chart-scroll-locked{overflow:hidden}
+    #mainChartCard.chart-expanded .result-head{margin-bottom:6px;flex-wrap:wrap;gap:10px}
+    #mainChartCard.chart-expanded .result-head h2{font-size:.86rem}
+    #mainChartCard.chart-expanded .result-head p{display:none}
+    #mainChartCard.chart-expanded .legend{font-size:.68rem;gap:10px}
+    #mainChartCard.chart-expanded .chart-view-toggle{margin:2px 0;padding:3px}
+    #mainChartCard.chart-expanded .chart-view-toggle button{padding:4px 9px;font-size:.7rem}
+    #mainChartCard.chart-expanded #chartXAxisRow,#mainChartCard.chart-expanded #projectionSubToggle,#mainChartCard.chart-expanded #chartShiftModeRow,#mainChartCard.chart-expanded #mcPathCountRow{margin:-2px 0 6px}
+    #mainChartCard.chart-expanded .chart-wrap{flex:1;height:auto;min-height:0}
+    #mainChartCard.chart-expanded .chart-note{flex-shrink:0}
+    #mainChartCard.chart-expanded .metrics{display:none}
+    #chartExpandBtn{border:0;background:var(--surface);color:var(--hint);border-radius:9px;width:30px;height:30px;font-size:.9rem;cursor:pointer;flex-shrink:0}
+    #chartCollapseBtn{display:none;position:absolute;top:10px;right:14px;z-index:81;border:0;background:var(--surface);color:var(--ink2);border-radius:9px;width:34px;height:34px;font-size:1.1rem;cursor:pointer;box-shadow:0 2px 7px rgba(15,23,42,.15)}
+    #mainChartCard.chart-expanded #chartCollapseBtn{display:block}
+    #chartRotateHint{display:none;flex-shrink:0;background:var(--surface);color:var(--hint);border-radius:9px;padding:6px 10px;font-size:.72rem;font-weight:700;text-align:center;margin-bottom:6px}
+    @media(max-width:768px) and (orientation:portrait){#mainChartCard.chart-expanded #chartRotateHint{display:block}}
     .chart-wrap{height:390px;position:relative}.chart-wrap canvas{width:100%;height:100%;display:block}.chart-note{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:5px;gap:10px}
     .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:12px 13px;text-align:right;border-bottom:1px solid var(--row-line);font-size:.8rem;white-space:nowrap}th{background:var(--th-bg);color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-size:.67rem;position:sticky;top:0}th:first-child,td:first-child{text-align:left}tr:last-child td{border:0}tbody tr:hover{background:var(--surface-hover)}.table-status{display:inline-flex;padding:3px 7px;border-radius:999px;background:#e7f7f2;color:#08705f;font-weight:800;font-size:.69rem}.table-status.warn{background:#fff5dc;color:#986307}.table-status.fail{background:#ffe9ee;color:#ae2944}.delta{display:inline-block;margin-left:6px;font-size:.72rem;font-weight:700}.delta.up{color:var(--green)}.delta.down{color:var(--red)}.decision-table-wrap{margin-top:12px}.decision-compare-table{min-width:0;width:100%}.decision-compare-table th,.decision-compare-table td{padding:8px 10px;font-size:.76rem}
     .assumptions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:15px}.callout{border-radius:12px;padding:13px 14px;background:var(--callout-bg);color:var(--hint);font-size:.76rem}.callout b{color:var(--ink2)}.method{border-left:3px solid var(--blue)}.callout.full{grid-column:1/-1}.shortfall-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5}.shortfall-banner b{color:var(--ink2)}.plan-headline{border-left:3px solid var(--green);margin-bottom:16px;font-size:.82rem;line-height:1.5}.plan-headline b{color:var(--ink2)}.estimated-rollup{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.estimated-rollup b{color:var(--ink2)}.estimated-rollup #reviewEstimatesBtn{border:none;background:transparent;color:var(--amber-text);font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit;padding:0;white-space:nowrap}.change-assumptions-btn{display:none;align-items:center;gap:6px;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:8px 13px;font-size:.8rem;font-weight:700;margin:-4px 0 16px;font-family:inherit}.change-assumptions-btn:hover{background:var(--surface-hover)}.unusual-banner{border-left:3px solid var(--red);margin-bottom:16px;font-size:.82rem;line-height:1.5}.unusual-banner b{color:var(--ink2)}.unusual-banner ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}.unusual-banner li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.unusual-banner .unusual-jump{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-underline-offset:2px}.unusual-banner .unusual-jump:hover{color:var(--blue)}.unusual-banner .unusual-dismiss{margin-left:auto}#unusualToast{bottom:96px}#unusualToast #unusualToastBtn{background:#3b6fe0;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:800;font-size:.82rem;cursor:pointer}#unusualToast #unusualToastBtn:hover{background:#4c7ceb}#unusualToast #unusualToastClose{background:transparent;color:#c9d3e0;border:0;font-size:.85rem;cursor:pointer;padding:4px}.field.unusual-value>input,.field.unusual-value>select{border-color:var(--red)!important;box-shadow:0 0 0 1px var(--red) inset}.range-field.unusual-value input[type=range]{box-shadow:0 0 0 1px var(--red)}.field.unusual-value>label,.range-field.unusual-value .range-head>label{text-decoration:underline;text-decoration-color:var(--red);text-decoration-thickness:2px;text-underline-offset:3px}.unusual-field-note{display:block;font-size:.72rem;color:var(--red);font-weight:700;max-height:0;opacity:0;overflow:hidden;transition:opacity .2s,max-height .2s}.unusual-field-note.show{max-height:20px;opacity:1;margin-top:4px}
@@ -114,7 +147,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V9</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V10</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -371,7 +404,9 @@
         </div>
 
         <div class="result-card" id="mainChartCard">
-          <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.</p></div><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div></div>
+          <button id="chartCollapseBtn" type="button" aria-label="Exit expanded chart view" title="Exit expanded view">×</button>
+          <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.</p></div><div style="display:flex;align-items:center;gap:12px"><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div><button id="chartExpandBtn" type="button" aria-label="Expand chart" title="Expand chart">⤢</button></div></div>
+          <div id="chartRotateHint">↻ Rotate your phone for a better view</div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
             <div class="chart-view-toggle" id="chartGroupToggle" role="radiogroup" aria-label="Chart view"><button id="chartGroupProjectionBtn" class="active" role="radio" aria-checked="true">Projection</button><button id="chartGroupHistBtn" role="radio" aria-checked="false">Historical</button><button id="chartGroupMcBtn" role="radio" aria-checked="false">Monte Carlo</button></div>
             <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;color:var(--muted);margin:2px 0 12px"><input id="logScaleToggle" type="checkbox">Log scale</label>
@@ -708,6 +743,13 @@
     // 'ageA' on reload.
     chartXAxisMode = 'ageA',
     logScale = false,
+    // Display-only, like the above: whether the chart card is in its
+    // CSS-overlay "expanded" (fixed, full-viewport) presentation. Not
+    // part of state/scenario export, resets to false on reload/tab
+    // switch — see setChartExpanded() for the CSS class it toggles and
+    // the best-effort real-Fullscreen/landscape-lock attempt layered on
+    // top of it for capable mobile browsers.
+    chartExpanded = false,
     mcPathCount = 1000,
     lastProjectionView = '3yr',
     scenarios = [],
@@ -6800,6 +6842,61 @@
   document.getElementById('logScaleToggle').addEventListener('change', (e) => {
     logScale = e.target.checked;
     render();
+  });
+  // Best-effort only: real browser Fullscreen (which also hides the
+  // mobile address bar) plus a landscape orientation lock, attempted
+  // together since Chrome/Android requires the page to already be in
+  // Fullscreen before it will grant an orientation lock at all. Neither
+  // API is required for the expand feature to work — the CSS overlay
+  // above is the actual mechanism, functional with or without this —
+  // this only reaches for the nicer outcome where the browser supports
+  // it (mainly Android Chrome) and silently does nothing everywhere else
+  // (notably iOS Safari, which supports neither API for a plain <div>).
+  async function tryEnterLandscapeFullscreen() {
+    try {
+      const el = document.getElementById('mainChartCard');
+      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+    } catch (err) {
+      // Unsupported or denied (e.g. iOS Safari, or a desktop browser with
+      // no orientation to lock) — the CSS overlay already covers the
+      // viewport regardless, so there's nothing to recover from here.
+    }
+  }
+  function tryExitLandscapeFullscreen() {
+    try {
+      if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    } catch (err) {}
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  function setChartExpanded(next) {
+    chartExpanded = next;
+    document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
+    document.body.classList.toggle('chart-scroll-locked', next);
+    if (next) tryEnterLandscapeFullscreen();
+    else tryExitLandscapeFullscreen();
+    // The canvas is sized from its own bounding box on every renderChart()
+    // call (see the "Mobile layout" note in CLAUDE.md on this same
+    // pattern for the Dashboard tab switch), so entering/leaving the
+    // overlay just needs another render() once the CSS transition has
+    // actually resized the box — a microtask via requestAnimationFrame,
+    // not immediately synchronously, since the class toggle above hasn't
+    // been painted yet at this point in the same call stack.
+    requestAnimationFrame(() => requestAnimationFrame(render));
+  }
+  document.getElementById('chartExpandBtn').addEventListener('click', () => setChartExpanded(true));
+  document.getElementById('chartCollapseBtn').addEventListener('click', () => setChartExpanded(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && chartExpanded) setChartExpanded(false);
+  });
+  // If the browser's real Fullscreen mode (entered opportunistically by
+  // tryEnterLandscapeFullscreen above) is exited some other way — the
+  // system back gesture, a hardware Escape outside this page's own
+  // listener, browser chrome — bring the CSS overlay state back in sync
+  // rather than leaving a "collapsed fullscreen but still expanded
+  // overlay" mismatch.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && chartExpanded) setChartExpanded(false);
   });
   function setChartView(next) {
     chartView = next;
