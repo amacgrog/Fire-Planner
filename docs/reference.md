@@ -4833,6 +4833,48 @@ overflow check (`document.documentElement.scrollWidth >
 `Planner_Canada.html` in the same commit, verified with the same test
 producing byte-identical results on both files.
 
+## Toolbar-collapse toggle now also hides the X-axis row (V41/V14)
+
+Follow-up to the X-axis-row move above, requested specifically for
+mobile: "the x axis change buttons... take up a lot of the bottom of
+the screen" in the expanded/fullscreen view. `#chartXAxisRow` lives
+below the canvas (see the previous section), outside `#chartToolbar`,
+so `#chartToolbarToggleBtn`'s existing collapse mechanism — which only
+ever targeted `#chartToolbar` — didn't touch it; on a phone in landscape
+fullscreen, that left the x-axis row as one of the only remaining things
+still eating vertical space once the rest of the toolbar was already
+collapsed.
+
+Fix: added `#chartXAxisRow` as a second target, alongside `#chartToolbar`,
+on both existing hiding-rule selectors — `#mainChartCard.chart-expanded.
+chart-toolbar-collapsed #chartToolbar,#mainChartCard.chart-expanded.
+chart-toolbar-collapsed #chartXAxisRow{display:none!important}` and the
+matching `@media(max-width:520px)` block. No JS changes needed —
+`setChartToolbarCollapsed()` only ever toggled the `.chart-toolbar-
+collapsed` class and swapped the button icon; CSS was the only thing
+that needed to know about the new target. Kept the *exact* same two
+scoping conditions used for `#chartToolbar` (expanded at any width, or
+`@media(max-width:520px)` even without expanding) rather than inventing
+separate conditions for the x-axis row, for the same stuck-hidden-trap
+reason documented in the toolbar-collapse section above: whatever
+conditions govern the hiding effect must exactly match the conditions
+that keep the toggle button itself visible, or a stale collapsed class
+could leave a row hidden with no reachable button to bring it back.
+`setChartExpanded(false)`'s existing explicit `setChartToolbarCollapsed(false)`
+reset (belt-and-suspenders against that same trap) needed no changes
+either, since it already un-collapses everything the class controls.
+
+Verified at 390×844 (mobile) in expanded view: canvas height grew from
+483px to 671px after collapsing (up from the ~48px gain the toolbar-only
+collapse gave on a mobile-width canvas before this change, confirming
+the x-axis row's height is now actually being reclaimed); toggling back
+restored the row; collapsing then exiting expanded mode via Escape left
+neither the collapsed class nor the row's hidden state stuck — both
+reset cleanly, matching the desktop toolbar-only case verified
+previously. `npm test` and the mobile-overflow check both passed;
+identical change ported to `Planner_Canada.html`, verified with the same
+test producing byte-identical results on both files.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
