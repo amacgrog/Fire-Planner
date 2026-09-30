@@ -4231,6 +4231,45 @@ per partner rather than as one household-wide toggle — matching how a real
   a 390×844 mobile-overflow check with the "Withdrawal & tax strategy"
   group expanded.
 
+## Gap-mode "Closer/Farther" labels understated the requested ±1yr/±3yr when clamped by a small age gap
+
+In `renderChartView()`'s 'gap' mode (the "Gap narrows/widens" shift mode
+added in the "Both together"/"Gap narrows/widens" section above), the
+`closerAge`/`fartherAge` computation was always correct — `closerAge`
+clamps at the fixed partner's own retirement age so the moving partner's
+date can't overshoot past it — but the legend/tooltip labels
+(`Closer (−${label})`/`Farther (+${label})`) always displayed the
+*requested* ±1yr/±3yr (`label`), not the *actual* number of years the
+line moved. When the two partners' retirement ages were already closer
+together than the requested window (e.g. 1 year apart on the ±3yr view),
+"Closer" would clamp at a 1-year move but the legend/hover tooltip still
+read "Closer (−3 yrs)" — nonsensical, since that line never actually
+moved 3 years. Fixed by computing `closerYrs`/`fartherYrs` as
+`Math.round(Math.abs(closerAge/fartherAge - movingAge))` and formatting
+the label from that actual delta instead of the requested one; unclamped
+cases (a normal-sized gap) are unaffected since the actual delta still
+equals the requested one there. `ariaSuffix` changed from `"${label}
+closer together and farther apart"` to `"up to ${label} closer..."` to
+match. When "Closer" clamps short, an extra sentence is appended to the
+Gap-mode note explaining why (`"Closer" stops at N yr(s) here since
+that's as far as it can move before reaching <fixed partner>'s date.`) —
+tested by setting retirement ages 1 year apart on the ±3yr view (legend
+correctly reads "Closer (−1 yr)"/"Farther (+2 yrs)") and 5 years apart
+(unclamped, reads "Closer (−3 yrs)"/"Farther (+3 yrs)" as before). The
+"Both together" mode's own, much rarer clamping case (a partner starting
+within ±yrs years of their own retirement date) has the same theoretical
+label-accuracy issue but wasn't touched — not what was reported, and an
+uneven per-partner clamp there doesn't reduce cleanly to one displayed
+number the way the single-partner 'gap' case does.
+
+Also added a pointer in "Both together" mode's note text (when the Gap
+toggle is available: `!gapDisabled`) — `Switch to "Gap narrows/widens"
+above to instead fix one partner's date and vary only the other's.` —
+since a real user reported not knowing which chart/toggle let them fix
+one partner's retirement date while varying the other's; the Gap mode's
+own note already explained this once selected, but there was previously
+no hint of its existence from the default "Both together" view.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
