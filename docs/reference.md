@@ -4092,6 +4092,145 @@ Two rounds of user feedback on the branch above, before merging:
   means fewer working years, "Farther" tracks highest). Zero `pageerror`
   events; mobile-overflow check (390×844) unaffected.
 
+## CAGR sweep reorder, ±1yr/±3yr hover-order, and hiding the Gap row when there's no gap (three small follow-ups)
+
+Three quick fixes/tweaks on top of the Gap shift-mode feature above, done in
+one sitting after it shipped to `main`:
+
+- **CAGR sweep legend/hover reordered high-to-low.** Was ascending (0% at
+  top, 7% at bottom); now descending (7% at top, 0% at bottom), on request
+  ("the list should go in order from top to bottom from 7% to 0%"). Colors
+  are assigned by rank via a `ratesAsc`/`colorFor` map built *before* the
+  final descending sort, not by post-sort array index — otherwise reversing
+  display order would also reverse the red-(worst)-to-teal-(best) color
+  scale's meaning. Also added: in "Future dollars" (nominal) display mode,
+  each line's % label converts to its nominal-equivalent rate (real rate
+  compounded with the entered inflation assumption) via a `toNominal()`
+  helper, so the label matches what's actually driving the future-dollar
+  values on screen — the underlying `simulateAtRealCagr(r)` calls are
+  unchanged, only the displayed label.
+- **±1yr/±3yr (both "Both together" and "Gap") legend/hover reordered to
+  match**: "+N"/"Farther" first, "Selected" in the middle, "-N"/"Closer"
+  last — same top-to-bottom convention as the CAGR change above. This is a
+  static label-based order (matching the CAGR precedent), not a
+  per-hover-point sort by actual value, since the two lines can cross
+  depending on the scenario. The hover tooltip's line order comes directly
+  from the `series` array passed to `renderChart()`/stored as
+  `lastChart.series` (see `handleMove`'s `series.forEach` in
+  `initChartHover()`), so reordering that one array reorders both the
+  legend *and* the tooltip together — no separate tooltip-specific code
+  path exists.
+- **The whole `#chartShiftModeRow` (not just the "Gap" button) now hides**
+  whenever both partners share a retirement year (or single-person mode),
+  instead of showing "Gap narrows/widens" permanently greyed out. Root
+  cause of a real "the button doesn't work" report from Android Chrome:
+  turned out retireAgeA/B genuinely were equal in the tester's scenario, and
+  a disabled-but-visible button read as broken rather than "not
+  applicable." With nothing to narrow/widen, "Both together" is the only
+  real choice anyway — identical to not having the switch at all — so
+  hiding the whole row (the same treatment singlePerson already got) is
+  more honest than a dead control. Extensive false-lead debugging happened
+  first (slider touch-gesture code, `pointer:coarse` CSS, document-level
+  capture-phase listeners, `.range-touch-catcher` overlay bounds — all
+  ruled out via headless Playwright mobile emulation, including a full
+  synthetic-touch-drag repro) before the person confirmed via manual
+  testing that the ages were simply equal.
+- **Verified**: `npm test` after each change; Playwright checks of legend
+  text/order and hover-tooltip text/order in both real and nominal dollar
+  modes; swatch `background-color` sampling confirmed the CAGR color scale
+  stayed rank-ordered (teal top → red bottom) after the reorder; a
+  mobile-viewport (390×844) overflow check for both the CAGR view and the
+  row-hide states (ages equal → hidden, differing → visible, differing
+  then equal again → hidden, confirming the existing auto-revert-to-"Both
+  together" logic still fires).
+
+## Traditional balance ownership split + independent per-partner 72(t) SEPP (US only)
+
+A user with a real 4x-Roth/3x-Traditional skew between partners asked
+whether the existing RMD/penalty/SEPP math's flat 50/50 pooled-balance
+assumption (documented in the "10% early-withdrawal penalty" section above)
+could meaningfully distort results for a lopsided household, then asked to
+make the split itself configurable and to allow 72(t) SEPP to be elected
+per partner rather than as one household-wide toggle — matching how a real
+72(t) plan is elected on a specific IRA/account, not a whole household.
+
+- **`state.traditionalSharePctA`** (0-100 slider, default 50, US-only,
+  hidden via `data-partner-b` in single-person mode): Partner A's assumed
+  ownership share of the pooled `traditional + bondTraditional` balance.
+  The balance itself is still one pooled household total — this only
+  controls how RMD sizing/timing, the 72(t)/early-withdrawal-penalty
+  fraction, and 72(t) SEPP sizing divide it between partners. Clamped to
+  0-100 in `normalizeState()` (`Number.isFinite` guard, not `|| 50`, since
+  a legitimate 0% share is falsy and `||` would wrongly reset it to 50).
+- **`traditionalShareA`/`traditionalShareB`** (computed once per loop year
+  in both `simulate()`/`simulateHistorical()`, right where the old single
+  `traditionalShare` used to be) replace it everywhere: `traditionalShareA
+  = traditionalBeforeRmd * pctA`, `traditionalShareB = traditionalBeforeRmd
+  * (1 - pctA)`, with `pctA = state.traditionalSharePctA / 100` hoisted
+  once near the top of each function (it's a fixed input, doesn't change
+  year to year, unlike `traditionalBeforeRmd`). During survivor period or
+  single-person mode both collapse to the full pooled balance — the
+  ownership split stops meaning anything once there's only one living
+  partner — exactly matching the old `traditionalShare`'s
+  `singlePerson || isSurvivorPeriod` branch; whichever RMD doesn't apply is
+  still zeroed immediately after via the pre-existing
+  `isSurvivorPeriod`/`deceasedIsA` guard, unchanged.
+- **`sepp72tEnabledA`/`sepp72tEnabledB`** replace the old single
+  `sepp72tEnabled` boolean — two independent checkboxes (Partner B's
+  hidden via `data-partner-b` in single-person mode) rather than one
+  household-wide toggle, so 72(t) can be elected for just one partner's
+  account while the other partner's traditional balance is left alone by
+  SEPP (real 72(t) plans work exactly this way — elected per IRA, not per
+  household). `normalizeState()` migrates old saved scenarios: if `raw`
+  has a boolean `sepp72tEnabled` and lacks *both* new fields, both A and B
+  inherit that old value (preserves old on/off behavior exactly); if a
+  scenario was already saved with the new fields (even picking just one
+  partner), that's left alone rather than being re-merged back to "both."
+- **`penalizedFraction`** (the 10% early-withdrawal-penalty split, in both
+  `simulate()`/`simulateHistorical()`) changed from a hardcoded `0.5` when
+  exactly one partner is exempt to `earlyExemptA ? 1 - pctA : pctA` — the
+  *non-exempt* partner's real share is what's penalized, not an assumed
+  half, so it now moves correctly with the ownership-split slider instead
+  of always splitting 50/50 regardless of the real balance split.
+- **UI**: a new range slider ("Traditional balance ownership split") added,
+  `data-partner-b`-gated like the couple-only fields elsewhere, with a live
+  `"NN% / MM%"` readout (`#traditionalSharePctAOut`, wired the same way
+  `#basisRatioOut` already was — both the `syncControls()` full-refresh path
+  and the per-input live-update path in the `ids.forEach` handler). The old
+  single "72(t) SEPP payments" checkbox became two: "72(t) SEPP payments —
+  Partner A" and "— Partner B," the latter `data-partner-b`-gated.
+  **UI polish pass (V29→V30)**: the slider was moved from the "Withdrawal &
+  tax strategy" group into "Assets" (directly under the "Traditional
+  retirement" balance field it governs — the natural place to set an
+  ownership split for a balance you're looking right at), and its `<small>`
+  description was cut from a multi-sentence paragraph down to one short
+  line. Both SEPP checkboxes' descriptions were similarly trimmed. `.range-
+  value` gained `white-space:nowrap;flex-shrink:0` so the `"NN% / MM%"`
+  readout chip can no longer wrap onto two lines when squeezed by a long
+  label in the same flex row — a fix that applies to every range-value chip
+  in the app, not just this one, since none of them were meant to wrap.
+- **MCP tool schema**: `sepp72tEnabled: { type: 'boolean' }` in
+  `update_fire_assumptions`'s schema/allow-list replaced with
+  `sepp72tEnabledA`/`sepp72tEnabledB` entries;
+  `traditionalSharePctA` needed no schema entry since it's a plain numeric
+  `ids`-array field (auto-included). `read_fire_projection`'s row output
+  (`rmd`, `sepp72: sepp72A + sepp72B`) was left as combined totals — no
+  per-partner RMD/SEPP breakdown is exposed on the row today, on either
+  side of this change.
+- **Verified**: `npm test` (unaffected — defaults are still 50/50 pooling
+  and both SEPP toggles off, identical to pre-feature behavior); a
+  Playwright check confirming RMD scales *exactly* linearly with the
+  slider when only one partner is RMD-eligible (pctA 20 vs. 80 → RMD ratio
+  exactly 4.0, matching 80/20); a check confirming SEPP is fully
+  independent per partner in a symmetric both-retired-early scenario (0 →
+  enabling A alone → enabling both doubles it, confirming no hidden
+  coupling between the two toggles); a legacy-scenario-import check
+  confirming a saved file with the old boolean `sepp72tEnabled: true` and
+  no new fields correctly migrates to both `sepp72tEnabledA`/`B` checked;
+  the `data-partner-b` hide-in-single-person-mode check on the new slider;
+  a 390×844 mobile-overflow check with the "Withdrawal & tax strategy"
+  group expanded.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
