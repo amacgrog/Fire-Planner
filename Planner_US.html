@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V26</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V27</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -5837,25 +5837,43 @@
           closestInt = n;
         }
       }
-      const rates = baseInts.filter((n) => n !== closestInt).concat([currentReal]).sort((a, b) => a - b);
+      // Colors are assigned by rank (lowest real return = red, highest = teal)
+      // via ratesAsc/colorFor, independent of the order `rates` is finally
+      // displayed/sorted in below — so reversing the display order doesn't
+      // flip the color scale's meaning.
+      const ratesAsc = baseInts.filter((n) => n !== closestInt).concat([currentReal]).sort((a, b) => a - b);
+      const colorFor = new Map(ratesAsc.map((r, i) => [r, cagrColors[i]]));
+      // Displayed top-to-bottom from the highest real return (7%) down to the
+      // lowest (0%), so the legend/line order matches "better plan at top."
+      const rates = ratesAsc.slice().sort((a, b) => b - a);
       const fmtRate = (r) => (Number.isInteger(r) ? `${r}%` : `${r.toFixed(1)}%`);
-      subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} assumption included exactly.`;
-      const series = rates.map((r, i) => ({
+      // In "Future dollars" (nominal) display mode, the % labels shown are
+      // the nominal growth rate (real rate + inflation compounded) so they
+      // line up with what's actually driving the nominal-dollar lines on the
+      // chart — the underlying simulateAtRealCagr(r) call and simulated
+      // lines are unchanged either way; only the displayed label converts.
+      const toNominal = (r) => ((1 + r / 100) * (1 + pct(state.inflation)) - 1) * 100;
+      const fmtDisplayRate = (r) => fmtRate(mode === 'nominal' ? toNominal(r) : r);
+      subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} real assumption included exactly.`;
+      const series = rates.map((r) => ({
         sim: simulateAtRealCagr(r),
-        color: cagrColors[i],
+        color: colorFor.get(r),
         highlight: r === currentReal,
-        label: `${fmtRate(r)}${r === currentReal ? ' (current)' : ''}`,
+        label: `${fmtDisplayRate(r)}${r === currentReal ? ' (current)' : ''}`,
       }));
       legend.innerHTML = series
         .map(
           (s, i) =>
-            `<span><i class="swatch" style="background:${s.color}"></i><span>${fmtRate(rates[i])}${rates[i] === currentReal ? ' (current)' : ''}</span></span>`,
+            `<span><i class="swatch" style="background:${s.color}"></i><span>${fmtDisplayRate(rates[i])}${rates[i] === currentReal ? ' (current)' : ''}</span></span>`,
         )
         .join('');
-      noteEl.textContent = `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. ${state.inflation}% inflation applied on top of each real rate.`;
+      noteEl.textContent =
+        mode === 'nominal'
+          ? `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. Percentages shown are nominal (real return + ${state.inflation}% inflation) to match the future-dollar values on this chart.`
+          : `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. ${state.inflation}% inflation applied on top of each real rate.`;
       canvas.setAttribute(
         'aria-label',
-        `Projected total assets by age across a sweep of real investment returns, including your current ${fmtRate(currentReal)} assumption`,
+        `Projected total assets by age across a sweep of real investment returns, including your current ${fmtRate(currentReal)} real assumption`,
       );
       renderChart(series);
     } else {
