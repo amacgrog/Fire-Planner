@@ -5507,6 +5507,42 @@ provably-equivalent, but re-run for real rather than assumed) and
 `npm test`'s golden math (unaffected — this only adds new code paths
 gated behind explicit overrides that default to null/unchecked).
 
+**Bugfix (V49, same branch): display table showed $0/— for every row
+despite a real, correctly-costed recommendation.** Reported by a user
+whose plan had `rothConvEnabled: false` going in: the optimizer's summary
+line correctly claimed real savings, but every row of the Roth columns
+read "—"/"$0" regardless. Root cause: `optimizeMultiLever()` sets
+`state.rothConvEnabled = true` (when `includeRoth`) only for the duration
+of its internal search, then restores it to whatever it was before
+returning — matching every other optimizer's no-side-effects precedent.
+`renderMultiLeverOptimizer()` then re-simulates *once more*, after that
+restore, purely to read each year's dollar amounts for display — but it
+only saved/forced/restored `state.smoothWithdrawals` around that second
+simulate() call, never `state.rothConvEnabled`. Since `simulate()` gates
+the entire conversion-sizing call on `if (state.rothConvEnabled &&
+age-in-window)` — a check independent of `rothBracketOverrideByAge` — a
+plan with the ladder off going in silently produced `conversionAmount: 0`
+for every row in that second, display-only simulate() call, even though
+`gainHarvestOverrideByAge`/`rothBracketOverrideByAge` were both set
+correctly and `opt.cost` (computed earlier, before the restore) was
+correct the whole time. The harvest lever has no equivalent on/off gate
+in `simulate()` (`gainHarvestOverrideByAge` alone controls it), so
+harvest-only runs were never affected by this bug — only rows from a
+`includeRoth` run where the ladder started off. Fixed by adding the same
+save/force/restore around `state.rothConvEnabled` in the display
+re-simulation that `state.smoothWithdrawals` already had. Verified by
+reproducing against the user's exact uploaded scenario file (MA,
+`rothConvEnabled: false`, ages 60–63 window): before the fix, all four
+Roth rows read "—"/"$0"; after, they show the real recommended schedule
+(`12%`/`12%`/`22%`/`22%`, non-zero dollar amounts) while correctly still
+showing "—"/"$0" for harvest, since that scenario's 90% basis ratio,
+Massachusetts state tax, and enhanced-ACA-subsidy stack genuinely leave
+no harvest benefit (confirmed separately, not a symptom of this bug).
+No test in the 17-test suite caught this, because all 17 check
+`optimizeMultiLever()`'s returned schedule Map directly, never
+`renderMultiLeverOptimizer()`'s own display re-simulation — the one place
+the bug actually lived.
+
 `Planner_Canada.html` is untouched for the same reason as the per-year
 Roth optimizer above: no ACA/IRMAA-style MAGI cliff for gain harvesting
 to be optimized against, and Canada's RRSP withdrawals carry no
