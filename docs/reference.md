@@ -4768,6 +4768,71 @@ class and the icon/toolbar back to their normal state, confirming no
 stuck-hidden case. `npm test` unaffected (UI-only), identical behavior
 ported to `Planner_Canada.html`.
 
+## X-axis row moved under the chart; toolbar rows pack onto shared lines on desktop (V40/V13)
+
+Two more layout follow-ups, both about giving the canvas more vertical
+room without touching `simulate()`/`simulateHistorical()` or any math:
+
+**`#chartXAxisRow` ("X-axis: Partner A age / Partner B age / Year") moved
+out of `#chartToolbar` entirely**, from its old spot between
+`#chartGroupRow` and `#projectionSubToggle` (above the canvas) to right
+after `.chart-wrap` in the DOM, before `.chart-note` — i.e. genuinely
+below the chart's x-axis, not just visually deprioritized above it. Its
+buttons also shrank (`.78rem`/`5px 10px` padding → `.68rem`/`3px 8px`)
+and the row is centered (`justify-content:center`) rather than
+left-aligned, since it's reached far less often than the view/shift
+toggles and doesn't need to draw the eye the way they do. This is a pure
+DOM/CSS move — `chartXAxisMode` (the closure var it drives) and every
+function that reads it are untouched, so nothing about which x-axis is
+actually plotted changed. Because it's no longer inside `#chartToolbar`,
+it's no longer part of that wrapper's `display:contents`/`display:flex`
+switch (see the toolbar-reflow section above) or `#chartToolbarToggleBtn`'s
+collapse target — it now stays visible under the chart even when the
+rest of the toolbar is collapsed, which is correct: collapsing exists to
+free up canvas height, and the x-axis row already only costs one thin
+line below the chart, not above it competing for the same space as the
+canvas. In expanded mode, `#mainChartCard.chart-expanded #chartXAxisRow`
+gets a tighter `margin:4px 0 2px` to match the compact expanded spacing
+used elsewhere in that view. `#chartToolbar`'s own doc comment and
+`#chartToolbarToggleBtn`'s were both updated to drop "x-axis" from their
+"(the view/x-axis/shift/path rows)" phrasing, since that's no longer
+accurate.
+
+**The remaining toolbar rows (`#chartGroupRow`, `#projectionSubToggle`,
+`#chartShiftModeRow` — which already contains the "Vary: Partner A /
+Partner B" picker as a nested span — and `#mcPathCountRow`) now pack onto
+shared lines on desktop, not just while expanded.** Previously
+`#chartToolbar{display:contents}` was a no-op at every width outside
+`.chart-expanded`, so on an ordinary wide desktop window each row still
+claimed its own full-width line even though there was plenty of
+horizontal space to share. Added a `@media(min-width:821px)` block
+(reusing the same ~820px breakpoint the rest of the app already uses for
+its mobile/desktop switch — see `window.innerWidth <= 820` checks
+elsewhere in the script) that applies the *identical* flex-wrap rule set
+already used for expanded mode — `#chartToolbar{display:flex;flex-wrap:
+wrap;align-items:center;gap:4px 18px}` plus `margin:0;flex:0 0 auto` on
+each row — to `#mainChartCard:not(.chart-expanded)` at desktop widths.
+Below 820px, `#chartToolbar` still falls through to its default
+`display:contents`, so mobile keeps the original one-row-per-line stack
+unchanged. `#chartGroupRow`'s own internal `justify-content:space-between`
+(between its view-toggle buttons and the "Log scale" checkbox) still
+applies inside the row itself; once the row is a shrink-to-fit flex item
+rather than a full-width block, that just means the toggle and checkbox
+sit directly adjacent with no forced gap between them, which reads fine.
+
+Verified via Playwright at 1280×900: `#chartGroupRow` and
+`#projectionSubToggle` land on the same `top` (935–937px, off by a
+sub-pixel rounding difference) both in the default ±3yr view and after
+switching to ±1yr (which is when `#chartShiftModeRow` would also join
+the line, in couple mode with a retirement-age gap); `#chartXAxisRow`'s
+top sits below `.chart-wrap`'s bottom edge in all three of normal
+desktop, normal mobile (390px, rows still stack, confirmed by differing
+`top` values), and expanded mode. `npm test` and the 390×844 mobile
+overflow check (`document.documentElement.scrollWidth >
+...clientWidth` stayed `false`) both passed. Identical change ported to
+`Planner_Canada.html` in the same commit, verified with the same test
+producing byte-identical results on both files.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
