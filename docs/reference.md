@@ -5611,6 +5611,174 @@ to be optimized against, and Canada's RRSP withdrawals carry no
 age-based penalty needing a "smoothed" withdrawal order to protect
 against either.
 
+## Gain harvesting removed; replaced with an optimized per-year withdrawal mix (V51, US-only, same branch)
+
+Raised by the same user who filed the V49/V50 reports above, this time as
+a direct critique of the harvest lever's value rather than its
+mechanics: "it feels like it doesn't really add anything in any
+situation," plus the real underlying question the V48 section's harvest
+design never actually answered — does `smoothWithdrawals` already
+optimize the taxable/traditional/Roth mix, or is there a real optimizer
+missing? Both turned out to be correct. `smoothWithdrawals` is (and
+always was) a fixed heuristic: a single household-wide "split taxable
+and traditional proportionally to balance" rule with no tax/ACA/IRMAA
+awareness at all, and Roth only ever touched as a last-resort fallback
+once both other buckets hit zero — never a considered lever. And gain
+harvesting, despite the V48/V50 write-ups' honest account of a real but
+narrow win condition, could not be made to matter in any scenario tried
+beyond an engineered best case (bridge income sized to exactly cover
+spending during the harvest window, so no same-year withdrawal competed
+for the 0% bracket room) — and even that best case only found ~$2,783 of
+benefit across a full projection, against ~$27k from the Roth ladder and
+~$369k from smoothed withdrawals in the same test scenario. The reason
+is structural, not a tuning problem: a real portfolio withdrawal already
+realizes its own gain at whatever LTCG bracket applies that year, so a
+low-income gap year's 0%/15% bracket room gets consumed "for free" by
+ordinary withdrawals whether or not anyone deliberately harvests — there
+is rarely unclaimed room left over for harvesting to find.
+
+**Gain harvesting removed entirely.** `solveGainHarvest()`,
+`gainHarvestOverrideByAge`, `gainHarvestStartAge`/`gainHarvestEndAge`
+(state fields, `ids` entries, and sidebar inputs), `GAIN_HARVEST_CANDIDATES`,
+the `includeHarvest` option and its coordinate-ascent branch inside
+`optimizeMultiLever()`, the `#mlHarvestLever` checkbox and its table
+columns in `renderMultiLeverOptimizer()`, and the `harvestAmount`/
+`harvestGain` row fields and test hooks (`__test_setGainHarvestOverride`/
+`__test_solveGainHarvest`/`__test_GAIN_HARVEST_CANDIDATES`) are all gone.
+`simulate()`'s tax/MAGI/basis lines revert to their pre-V48 shape
+(`taxFor(profile, 0, conversionAmount)`, no harvest term in `magiProxy`/
+`totalIncome`, `taxableGainGross` starting at `0` again instead of at
+`harvestGain`). The V48/V49/V50 sections above are left in place as
+historical record per this file's "chronological log" convention, not
+because any of that code still exists.
+
+**New lever: optimized withdrawal mix (`withdrawalMixOverrideByAge`,
+`WITHDRAWAL_MIX_CANDIDATES`, `withdrawalMixWeights()`).** Rather than
+creating new discretionary income the way harvesting and Roth conversions
+both do (and therefore needing MAGI-room accounting to avoid tipping an
+ACA/IRMAA cliff), this lever is about *how* to fund a spending need that
+is already mandatory that year — minimizing MAGI to dodge a cliff/tier is
+exactly what the cost function (`rothScheduleCost()`) already scores for,
+so no separate ceiling logic is needed the way harvesting required. Each
+in-window age can be overridden to one of eight fixed candidates
+(`0` sentinel = no override, plus `'taxable'`/`'traditional'`/`'roth'`
+(100% from one bucket), `'taxTradHalf'` (50/50, no Roth), `'thirds'`
+(even three-way split), `'balanced'` (proportional to all three current
+balances), and `'smoothed'` — see below); `withdrawalMixWeights()` maps a
+candidate plus the three current balances to a `[taxable, traditional,
+roth]` weight triple, consulted inside `simulate()`'s withdrawal branch
+ahead of both the `smoothWithdrawals` branch and the plain taxable-first
+default. The `'taxable'`/`'traditional'` shares are funded through the
+same bisection-for-net helpers the rest of the withdrawal waterfall
+already uses (`drawTaxable()`'s pattern for taxable, the equivalent
+gross-up-for-tax bisection for traditional); the Roth share, having no
+tax gross-up to solve for, is a straight balance draw. Unlike the Roth
+ladder, **Roth is a first-class, equally-weighted lever here** rather
+than a fallback only reached once taxable and traditional are both
+empty — directly answering the question that started this change.
+
+**The `'smoothed'` candidate makes the superset claim provable, not just
+observed.** The natural `'balanced'` candidate (all three balances,
+Roth included) is *not* mathematically identical to `state
+.smoothWithdrawals`'s own formula, which excludes Roth from its
+proportional split — so "the mix lever can always find at least as good
+an answer as smoothed withdrawals" would otherwise have been an
+empirical claim, true in every scenario tried but not guaranteed. Adding
+`'smoothed'` as its own candidate — reproducing `smoothWithdrawals`'s
+exact two-way (taxable/traditional only, no Roth) formula — makes mix-
+only search a literal superset of what `smoothWithdrawals` can find,
+verified directly in `test_multi_lever_optimizer.js` (mix-only vs.
+smooth-only, on the same scenario, mix-only never scores worse). Smoothed
+withdrawals is kept as a normal, separate, coexisting option (the user's
+explicit request, not a deprecation) — a fast, easy-to-reason-about
+household-wide baseline for anyone who doesn't want to run the fuller
+per-year search.
+
+**Automatic window, unlike the Roth ladder's configurable one.** The
+Roth ladder keeps its own dedicated `rothConvStartAge`/`rothConvEndAge`
+sidebar fields, because converting is optional — there's a real "don't
+convert this year" choice outside the window. Funding retirement
+spending isn't optional in the same way: every year of retirement needs
+*some* withdrawal mix, so there's no meaningful "off" window to expose as
+a setting. `optimizeMultiLever()` instead derives the mix window itself:
+`min(retireAgeA, retireAgeB)` through `max(lifeExpectancyA,
+lifeExpectancyB)` (or just the `A` values in single-person mode), capped
+at the same `ROTH_PER_YEAR_MAX_WINDOW` (30 years) safety rail the Roth
+window already uses. This is deliberately independent of, and typically
+much wider than, the Roth ladder's own window — verified in a dedicated
+test (`retireAgeA`/`B` = 60/62, `lifeExpectancyA`/`B` = 75/75 → `mixYears`
+= ages 60–75, 16 entries, regardless of a narrower 3-year Roth window set
+in the same scenario).
+
+**Driver changes.** `optimizeMultiLever()`'s per-lever option renamed
+`includeHarvest` → `includeMix`; the starting-point set grew from five to
+six structured (non-random) Maps to cover both levers' corners:
+`[flatRoth, zeroMix]`, `[zeroRoth, zeroMix]`, `[maxRoth, zeroMix]`,
+`[zeroRoth, balancedMix]`, `[zeroRoth, taxableMix]`, `[maxRoth,
+balancedMix]`. `ROTH_PER_YEAR_EVAL_BUDGET` raised 6000 → 8000 to
+accommodate the mix lever's larger per-age candidate set (8 candidates
+vs. harvest's narrower size-only search) and its typically much wider
+window (often full retirement vs. a several-year Roth ladder). Return
+shape drops `harvestTruncated`/`harvestYears` in favor of `mixTruncated`/
+`mixYears`/`includeMix`; `activeYears` remains the disjoint union of
+`rothYears` and (now) `mixYears`.
+
+**UI and display.** `#mlHarvestLever` replaced by `#mlMixLever`
+("Optimized withdrawal mix (per-year taxable / traditional / Roth
+split)"), with explanatory `<small>` text; `#mlSmoothLever`'s own
+`<small>` now explicitly frames it as "the simple version... kept as a
+fast, easy-to-reason-about baseline — the mix lever above is a strict
+superset of what this can find." The card's intro paragraph explains the
+Roth-window-vs-automatic-mix-window split and the "review annually"
+framing (below). `renderMultiLeverOptimizer()`'s table replaces the old
+"Harvest target"/"Harvest $" columns with "Mix"/"From taxable"/"From
+traditional"/"From Roth" — the three dollar columns always show real
+numbers straight from each row (`row.taxableWithdrawn`/
+`traditionalWithdrawn`/`rothWithdrawn`), not dimmed to "–" outside the mix
+window the way the Roth column is, since every year has *some* real
+withdrawal mix whether or not the optimizer chose to override it that
+year.
+
+**Is this realistic for a retiree to actually do?** The user asked this
+directly: can someone really figure out their exact expenses, ACA
+subsidy/IRMAA exposure, and taxes for a given year, and pick an exact
+withdrawal mix accordingly? Yes, in the same sense the pre-existing Roth
+ladder already assumes — this isn't a 30-year plan decided today and
+locked in. It models a retiree (or their advisor) reviewing this
+annually with that year's actual, already-mostly-known numbers: income
+already realized so far, actual ACA subsidy cliffs and IRMAA tier
+thresholds as published for that tax year, and a much smaller forecasting
+problem (the rest of one year's spending, not three decades of it). The
+app is meant to be re-run periodically as a plan evolves, with each run's
+recommendation reflecting that year's real situation — not a single
+irrevocable schedule. This is exactly the assumption the Roth ladder
+already made before this change; the mix lever doesn't introduce a new
+one.
+
+**Testing.** `test_multi_lever_optimizer.js` rewritten around a new ACA-
+cliff scenario (`setupAcaCliffScenario()`, FL, both partners 45 retiring
+at 55, large taxable/traditional/Roth balances, ACA enabled) in place of
+the old `setupHarvestFavorable()`. 12 test blocks, 31 assertions, all
+passing: `withdrawalMixWeights()` unit tests for every candidate; an
+end-to-end test that forcing `'roth'` actually draws primarily from Roth
+in the real simulation; mix-only finds a real improvement, respects the
+never-worse-than-current-plan guardrail, and picks a non-default
+candidate; mix-only is never worse than smooth-only (the superset
+property); mix-only respects the depletion guardrail under a stressed
+scenario; Roth+mix together is never worse than either alone; the
+existing smooth-only A/B and backward-compatibility wrapper tests
+(unchanged); determinism under all three levers; a performance test
+(well under 15s); a no-levers-checked edge case; and the mix-window
+independence test described above. `test_roth_optimizer_per_year.js`'s
+original 11-test suite re-verified unaffected (11/11). Golden math
+(`npm test`) unaffected.
+
+`Planner_Canada.html` is untouched, for the same reason as every other
+lever in this family: the mix lever exists to minimize tax/ACA/IRMAA
+impact, and Canada has no ACA/IRMAA-style MAGI cliff for it to optimize
+against (RRSP/RRIF withdrawals carry withholding tax already captured in
+`taxFor()`, but no age-based penalty or income-tested healthcare cliff).
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

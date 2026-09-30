@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V50</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V51</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -488,8 +488,6 @@
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal bracket<small>The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it's also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
-          <div class="field"><label for="gainHarvestStartAge">Capital-gain harvest window start age<small>Own window for the harvesting lever in the Withdrawal &amp; conversion optimizer below — independent of the Roth ladder window above, since a low-income harvest year can happen any time in retirement, not just during a conversion ladder. Only matters when that lever is checked and Optimize is run.</small></label><input id="gainHarvestStartAge" type="number" min="18" max="100" step="1"></div>
-          <div class="field"><label for="gainHarvestEndAge">Capital-gain harvest window end age</label><input id="gainHarvestEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of 55<small>Waives the 10% early-withdrawal penalty on traditional withdrawals from age 55 through 59½, for whichever partner retires at or after age 55. Doesn't apply to a partner who retires before 55.</small></label></div>
           <div class="field"><label for="sepp72tEnabledA"><input id="sepp72tEnabledA" type="checkbox"> 72(t) SEPP payments — Partner A<small>Penalty-free early withdrawals from Partner A's share of the traditional balance, via a fixed annual amount (IRS "RMD method") for 5 years or until 59½, whichever is later.</small></label></div>
           <div class="field" data-partner-b><label for="sepp72tEnabledB"><input id="sepp72tEnabledB" type="checkbox"> 72(t) SEPP payments — Partner B<small>Same, but for Partner B's share — can be toggled independently of Partner A's.</small></label></div>
@@ -605,11 +603,11 @@
 
         <details class="result-card" id="multiLeverOptimizerCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Withdrawal &amp; conversion optimizer</summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Optimize. Scored the same way as the per-year Roth optimizer above: total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection, never recommending a change that would deplete the portfolio earlier than your current plan. The Roth lever searches the Roth ladder's own start/end age window above; the harvest lever searches its own, separate capital-gain harvest window above — they don't have to overlap.</p>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Optimize. Scored the same way as the per-year Roth optimizer above: total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection, never recommending a change that would deplete the portfolio earlier than your current plan. The Roth lever searches the Roth ladder's own start/end age window above; the withdrawal-mix lever searches every year of retirement automatically (no window to set — a retiree funds spending every year, not just during a conversion ladder). Like the Roth ladder, this models what a retiree reviews once a year with their actual numbers in hand (this year's income already locked in, this year's ACA/IRMAA thresholds), not a 30-year plan fixed in stone today — re-run it as the plan updates.</p>
           <div class="field" style="max-width:520px">
             <label style="display:flex;align-items:center;gap:8px;font-weight:600"><input id="mlRothLever" type="checkbox"> Roth conversion ladder (per-year fill target)</label>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlHarvestLever" type="checkbox"> Capital-gain harvesting (per-year, in the taxable brokerage account)</label>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlSmoothLever" type="checkbox"> Smoothed withdrawals (try both on and off, household-wide)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlMixLever" type="checkbox"> Optimized withdrawal mix (per-year taxable / traditional / Roth split)<small>Goes further than "smoothed withdrawals" below — picks each year's own split (including how much, if any, to pull from Roth) to minimize that year's tax + ACA/IRMAA impact, instead of a single fixed rule applied every year.</small></label>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlSmoothLever" type="checkbox"> Smoothed withdrawals (try both on and off, household-wide)<small>The simple version: draws taxable and traditional proportional to their balances every year, no tax-awareness, never touches Roth early. Kept as a fast, easy-to-reason-about baseline — the mix lever above is a strict superset of what this can find.</small></label>
           </div>
           <button type="button" id="multiLeverOptimizeBtn" class="btn-card" style="margin-top:14px">Optimize →</button>
           <p id="multiLeverNoLeversNote" style="color:var(--muted);font-size:.8rem;margin:8px 0 0" hidden>Check at least one lever above to run the optimizer.</p>
@@ -803,15 +801,6 @@
     rothConvStartAge: 60,
     rothConvEndAge: 63,
     rothConvBracket: 22,
-    // Capital-gain harvesting's own active window — deliberately NOT tied
-    // to rothConvStartAge/EndAge (see docs/reference.md): a 0%/15%
-    // LTCG-bracket year can happen any time there's spare room in
-    // retirement, not just during a Roth ladder's narrower window, so this
-    // defaults to spanning the rest of a typical retirement (retireAgeA's
-    // own default through lifeExpectancyA's own default) rather than
-    // reusing the Roth fields' narrower 60-63 default.
-    gainHarvestStartAge: 55,
-    gainHarvestEndAge: 100,
     ruleOf55Enabled: false,
     // Partner A's assumed share (%) of the pooled traditional 401(k)/IRA +
     // bond-traditional balance, used only for RMD sizing/timing, 72(t) SEPP
@@ -1138,8 +1127,6 @@
     'survivorSpendingPct',
     'rothConvStartAge',
     'rothConvEndAge',
-    'gainHarvestStartAge',
-    'gainHarvestEndAge',
     'buyAge',
     'buyDownPct',
     'buyClosingPct',
@@ -2981,64 +2968,62 @@
     }
     return lo;
   }
-  // Per-year capital-gain harvest override for the multi-lever optimizer
-  // (see rothBracketOverrideByAge above for the same idiom). null in normal
-  // operation, so no existing behavior changes unless the optimizer is
-  // actively evaluating a candidate schedule. Map<Partner-A age, 'zero' |
-  // 'fifteen' | 0>. Harvesting means selling an in-kind slice of the
-  // taxable brokerage account and immediately buying the same position
-  // back: no change in market exposure or account balance, but the
-  // realized gain is taxed now (often at 0%, if there's room under the 0%
-  // LTCG bracket that year) and that slice's cost basis resets to today's
-  // price — permanently erasing the embedded gain rather than deferring
-  // its tax to a future year that might land in a higher bracket. 'zero'
-  // fills to the top of the 0% LTCG bracket; 'fifteen' fills to the top of
-  // the 15% bracket (harvesting the 0-15% region too — worthwhile when a
-  // future year's rate would otherwise be higher still). 0 means "harvest
-  // nothing this year." Shares the same MAGI ceiling as the Roth
-  // conversion ladder (both raise MAGI the same way), with the conversion
-  // getting first claim on that room each year and harvest sized off
-  // whatever's left — a fixed claim order like the rest of this file's
-  // withdrawal waterfalls, not a joint optimization within the year; the
-  // per-year optimizer driver still reaches every achievable combination
-  // by varying each lever's own target across years.
-  let gainHarvestOverrideByAge = null;
-  function solveGainHarvest(
-    profile,
-    taxablePool,
-    taxableBasisNow,
-    maxMagiRoom,
-    conversionAmount,
-    yearIndex,
-    ageKey,
-  ) {
-    const targetKey =
-      gainHarvestOverrideByAge && gainHarvestOverrideByAge.has(ageKey)
-        ? gainHarvestOverrideByAge.get(ageKey)
-        : 0;
-    if (!targetKey || taxablePool <= 0 || maxMagiRoom <= 0) return { amount: 0, gain: 0 };
-    const gainRatio = clamp(1 - taxableBasisNow / Math.max(taxablePool, 1e-9), 0, 1);
-    if (gainRatio <= 0) return { amount: 0, gain: 0 };
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
-      filing = profile.filing === 'mfj' ? 'mfj' : 'single',
-      deduction = (filing === 'mfj' ? 32200 : 16100) * factor,
-      zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
-      fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor;
-    // Same simplification solveRothConversion's ordinaryAt() above already
-    // makes: this year's own brokerage gains aren't folded into the Social
-    // Security taxability estimate here, since the withdrawal waterfall
-    // that would realize them hasn't run yet at this point in the loop.
-    const other = profile.otherA + (profile.otherB || 0) + conversionAmount,
-      taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing),
-      ordinaryTaxable = Math.max(0, other + taxableSS - deduction);
-    const bracketRoom =
-      targetKey === 'zero'
-        ? Math.max(0, zeroLimit - ordinaryTaxable)
-        : Math.max(0, fifteenLimit - ordinaryTaxable);
-    const maxGainFromPool = taxablePool * gainRatio,
-      harvestGain = Math.max(0, Math.min(bracketRoom, maxMagiRoom, maxGainFromPool)),
-      harvestAmount = harvestGain / gainRatio;
-    return { amount: harvestAmount, gain: harvestGain };
+  // Per-year withdrawal-mix override for the multi-lever optimizer — same
+  // idiom as rothBracketOverrideByAge above. null in normal operation.
+  // Map<Partner-A age, candidate-id-or-0>. Unlike the Roth ladder (which
+  // creates NEW discretionary income you choose to generate) or the old
+  // gain-harvesting lever it replaces the working half of (removed after
+  // real-world testing found its effect was consistently negligible — see
+  // docs/reference.md), this is about HOW to fund a spending need that's
+  // already mandatory that year — so there's no MAGI cap to size against;
+  // minimizing MAGI (to dodge an ACA cliff or IRMAA tier) is exactly what
+  // the search is scoring for via rothScheduleCost, which already sums
+  // tax+healthcare across the projection. A mapped 0 (or no entry) means
+  // "no override this year" — falls through to state.smoothWithdrawals'
+  // simple proportional-by-balance rule, then the plain taxable-first
+  // default, unchanged.
+  let withdrawalMixOverrideByAge = null;
+  // Candidate withdrawal splits the per-year optimizer searches, as
+  // [taxable, traditional, roth] fractions of that year's spending need
+  // (always summing to 1). 'balanced' is resolved dynamically from that
+  // year's live account balances (a 3-way extension of what
+  // state.smoothWithdrawals already does 2-way) rather than a fixed
+  // triple, since the "right" balance-proportional split obviously shifts
+  // as each account drains at a different rate. Deliberately a small,
+  // fixed menu rather than a continuous 2-simplex search — richer
+  // resolution would multiply the coordinate-ascent search space (already
+  // combined with the Roth ladder's own per-year coordinates) far past
+  // what a few seconds of browser-side search can cover.
+  const WITHDRAWAL_MIX_CANDIDATES = [0, 'taxable', 'traditional', 'roth', 'balanced', 'smoothed', 'taxTradHalf', 'thirds'];
+  function withdrawalMixWeights(candidate, taxableBal, traditionalBal, rothBal) {
+    switch (candidate) {
+      case 'taxable':
+        return [1, 0, 0];
+      case 'traditional':
+        return [0, 1, 0];
+      case 'roth':
+        return [0, 0, 1];
+      case 'taxTradHalf':
+        return [0.5, 0.5, 0];
+      case 'thirds':
+        return [1 / 3, 1 / 3, 1 / 3];
+      case 'balanced': {
+        const pool = taxableBal + traditionalBal + rothBal;
+        return pool > 0 ? [taxableBal / pool, traditionalBal / pool, rothBal / pool] : [1 / 3, 1 / 3, 1 / 3];
+      }
+      case 'smoothed': {
+        // Exactly state.smoothWithdrawals' own 2-way formula (taxable +
+        // traditional only, proportional to balance, Roth left at 0 here
+        // so it only gets tapped via the shortfall fallback below) —
+        // included as its own candidate so the mix lever is a strict
+        // superset of what the simple smoothWithdrawals toggle can find,
+        // not just "usually at least as good" empirically.
+        const pool = taxableBal + traditionalBal;
+        return pool > 0 ? [taxableBal / pool, traditionalBal / pool, 0] : [0.5, 0.5, 0];
+      }
+      default:
+        return null; // 0, or an unrecognized id — "no override this year"
+    }
   }
   function wageFica(wages, yearIndex) {
     const f = Math.pow(1 + pct(state.inflation), yearIndex);
@@ -3623,9 +3608,7 @@
               singlePerson: singlePerson || isSurvivorPeriod,
               year,
             };
-      let conversionAmount = 0,
-        harvestAmount = 0,
-        harvestGain = 0;
+      let conversionAmount = 0;
       {
         // Lagged, same as magiProxy below — see prevTraditionalGross's
         // declaration comment near the top of this function.
@@ -3642,10 +3625,6 @@
         // isn't at risk of the subsidy cliff this guards against) until BOTH
         // partners have stopped working. See the healthcare cost calc below,
         // which uses the same both-retired condition.
-        // Computed unconditionally (not gated on the Roth ladder being
-        // enabled) so the per-year gain-harvest lever below can share this
-        // same MAGI ceiling even in a plan where the conversion ladder
-        // itself is off.
         const acaEligibleNow = singlePerson
           ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
           : isSurvivorPeriod
@@ -3673,32 +3652,12 @@
           const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
           conversionAmount = solveRothConversion(profile, conversionCap, year, age);
         }
-        // Capital-gain harvest lever (see solveGainHarvest/
-        // gainHarvestOverrideByAge above) — null except while the per-year
-        // optimizer is evaluating a candidate schedule, so this is a no-op
-        // in normal operation. Sized off whatever MAGI room the conversion
-        // above didn't already use.
-        if (gainHarvestOverrideByAge) {
-          const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
-          const harvest = solveGainHarvest(
-            profile,
-            taxable,
-            taxableBasis,
-            remainingMagiRoom,
-            conversionAmount,
-            year,
-            age,
-          );
-          harvestAmount = harvest.amount;
-          harvestGain = harvest.gain;
-        }
       }
       const magiProxy =
         otherA +
         otherB +
         ss +
         conversionAmount +
-        harvestGain +
         prevTraditionalGross +
         prevTaxableGainGross;
       magiHistory[year] = magiProxy;
@@ -3707,7 +3666,7 @@
       // waterfall runs to also include realized traditional withdrawals and
       // taxable-brokerage gains, so it does not understate income in years
       // funded mostly by withdrawals.
-      let totalIncome = otherA + otherB + ss + conversionAmount + harvestGain;
+      let totalIncome = otherA + otherB + ss + conversionAmount;
       if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
         const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
         if (guardrailInitialWR > 0) {
@@ -3803,12 +3762,9 @@
         wageFica(Math.max(0, wageB - healthPremiumB), year) +
         wageFica(bridgeA, year) +
         wageFica(bridgeB, year);
-      const tax = taxFor(profile, harvestGain, conversionAmount) + ficaTax;
-      // `tax` above only covers wages/SS/pension/RMD/conversion/harvest
-      // income and is what the cash-flow waterfall below uses to size
-      // withdrawals (the harvest's realized gain is known up front, same as
-      // the conversion amount, so it belongs here rather than in the
-      // lagged prevTaxableGainGross treatment withdrawal-driven gains get).
+      const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+      // `tax` above only covers wages/SS/pension/RMD/conversion income and
+      // is what the cash-flow waterfall below uses to size withdrawals.
       // Once traditional withdrawals and further taxable-brokerage gains
       // are known (after the withdrawal waterfall runs), `totalTax` is
       // corrected to include the tax those withdrawals themselves
@@ -3849,22 +3805,14 @@
       // doing a lot of the work.
       let traditionalWithdrawn = rmd,
         taxableWithdrawn = 0,
-        earlyPenalty = 0;
+        rothWithdrawn = 0,
+        earlyPenalty = 0,
+        resolvedMixCandidate = null;
       if (conversionAmount > 0) {
         const fromTradConv = Math.min(traditional, conversionAmount);
         traditional -= fromTradConv;
         bondTraditional = Math.max(0, bondTraditional - (conversionAmount - fromTradConv));
         roth += conversionAmount;
-      }
-      if (harvestGain > 0) {
-        // In-kind sell/rebuy: the taxable pool itself is unchanged (same
-        // dollars, same position, immediately bought back), but the
-        // harvested slice's cost basis resets to today's price — so the
-        // pool's basis rises by exactly the gain that was just realized
-        // and taxed via `tax` above. Capped at `taxable` as a defensive
-        // clamp against float drift; harvestGain was sized off the
-        // pre-growth pool/basis, and growth only ever widens the gap.
-        taxableBasis = Math.min(taxable, taxableBasis + harvestGain);
       }
       cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
@@ -3894,16 +3842,14 @@
       }
       const guardrailPortfolioNow = taxable + bondTaxable + traditional + bondTraditional + roth + bondRoth + cash;
       // Declared here (rather than inside the withdrawal branch below) so
-      // both end up correctly set — to just conversionAmount/harvestGain in
-      // a surplus year, or the fuller realized-withdrawal totals in a
-      // withdrawal year — for the prevTraditionalGross/prevTaxableGainGross
-      // MAGI lag below, which needs a value from every year, not just
-      // withdrawal years. taxableGainGross starts at harvestGain (already
-      // realized and taxed above, same as conversionAmount does for
-      // traditionalGross) rather than 0; the withdrawal-branch draws below
-      // add to it rather than overwrite it.
+      // both end up correctly set — to just conversionAmount in a surplus
+      // year, or the fuller realized-withdrawal totals in a withdrawal
+      // year — for the prevTraditionalGross/prevTaxableGainGross MAGI lag
+      // below, which needs a value from every year, not just withdrawal
+      // years. taxableGainGross starts at 0; the withdrawal-branch draws
+      // below add to it.
       let traditionalGross = conversionAmount,
-        taxableGainGross = harvestGain;
+        taxableGainGross = 0;
       if (flow >= 0) {
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash)),
           toTaxable = flow - cashTopUp;
@@ -3946,7 +3892,74 @@
                 : earlyExemptA
                   ? 1 - pctA
                   : pctA;
-        if (state.smoothWithdrawals) {
+        const mixCandidate =
+          withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
+            ? withdrawalMixOverrideByAge.get(age)
+            : 0;
+        const mixWeights = withdrawalMixWeights(mixCandidate, taxable, traditional, roth);
+        if (mixWeights && need > 0) {
+          // Optimized per-year withdrawal mix: draw taxable, traditional,
+          // AND Roth in whatever split this year's candidate specifies —
+          // a strict superset of what state.smoothWithdrawals (below) can
+          // do, since Roth participates as a real lever here instead of
+          // only being tapped as a last-resort fallback. Any shortfall
+          // (a bucket running low, or empty) falls through to the same
+          // Roth/cash/bond/home order used below, unchanged.
+          resolvedMixCandidate = mixCandidate;
+          const [wTaxable, wTraditional, wRoth] = mixWeights;
+          const taxableShare = need * wTaxable,
+            traditionalShare = need * wTraditional,
+            rothShare = need * wRoth;
+          const taxableDraw = drawTaxable(
+            taxable,
+            taxableBasis,
+            taxableShare,
+            profile,
+            taxableGainGross,
+            traditionalGross,
+          );
+          taxable -= taxableDraw.taken;
+          taxableBasis -= taxableDraw.basisTaken;
+          need -= taxableDraw.net;
+          taxableGainGross += taxableDraw.gain;
+          taxableWithdrawn += taxableDraw.taken;
+          if (traditionalShare > 0 && traditional > 0) {
+            const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+            let lo = 0,
+              hi = Math.min(traditional, traditionalShare * 3 + 1);
+            for (let i = 0; i < 24; i++) {
+              const mid = (lo + hi) / 2,
+                net =
+                  mid -
+                  (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+                  mid * 0.1 * penalizedFraction;
+              if (net < traditionalShare) lo = mid;
+              else hi = mid;
+            }
+            const fromTrad = Math.min(traditional, hi),
+              tradPenalty = fromTrad * 0.1 * penalizedFraction,
+              tradNet =
+                fromTrad -
+                (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) -
+                tradPenalty;
+            traditional -= fromTrad;
+            traditionalGross += fromTrad;
+            traditionalWithdrawn += fromTrad;
+            earlyPenalty += tradPenalty;
+            need = Math.max(0, need - tradNet);
+          }
+          if (rothShare > 0 && roth > 0) {
+            // Roth withdrawals aren't bisection-solved like taxable/
+            // traditional above — same simplification the pre-existing
+            // fallback draw below already makes (no tax, no penalty
+            // modeled), just applied deliberately here instead of only as
+            // leftover shortfall funding.
+            const fromRothMix = Math.min(roth, rothShare);
+            roth -= fromRothMix;
+            need -= fromRothMix;
+            rothWithdrawn += fromRothMix;
+          }
+        } else if (state.smoothWithdrawals) {
           // Draw taxable and traditional in proportion to their current
           // balances instead of draining taxable first, so taxable income
           // stays flatter year to year and doesn't jump sharply once
@@ -4039,6 +4052,7 @@
         const fromRoth = Math.min(roth, need);
         roth -= fromRoth;
         need -= fromRoth;
+        rothWithdrawn += fromRoth;
         const fromCash = Math.min(cash, need);
         cash -= fromCash;
         need -= fromCash;
@@ -4124,8 +4138,7 @@
         workingA,
         workingB,
         conversionAmount,
-        harvestAmount,
-        harvestGain,
+        mixCandidate: resolvedMixCandidate,
         magiProxy,
         expenses,
         tax: totalTax,
@@ -4138,6 +4151,7 @@
         earlyPenalty,
         traditionalWithdrawn,
         taxableWithdrawn,
+        rothWithdrawn,
         housing,
         healthcare,
         ltc,
@@ -5873,30 +5887,34 @@
   // off by default so the optimizer never changes anything you haven't
   // explicitly asked it to search over:
   //   - Roth conversion ladder: per-year bracket-fill target (as before).
-  //   - Capital-gain harvesting: per-year LTCG-bracket-fill target,
-  //     sharing the Roth lever's MAGI ceiling (see solveGainHarvest).
+  //   - Optimized withdrawal mix: per-year taxable/traditional/Roth split
+  //     (see withdrawalMixOverrideByAge/WITHDRAWAL_MIX_CANDIDATES above).
+  //     Unlike the Roth ladder (creates new discretionary income) this is
+  //     about how to fund a spending need that's already mandatory that
+  //     year, so it doesn't share the Roth ladder's MAGI-room gating —
+  //     minimizing MAGI to dodge an ACA cliff/IRMAA tier is exactly what
+  //     the cost function below already scores for.
   //   - Smoothed withdrawals: state.smoothWithdrawals is a single
   //     household-wide toggle, not a per-year choice, so "optimizing" it
   //     just means trying the whole search once with it forced on and
   //     once forced off and keeping whichever wins — it doesn't add a
-  //     per-year coordinate, just a 2x outer loop.
-  // Each per-year lever searches its OWN configured start/end age window —
-  // rothConvStartAge/EndAge for the Roth lever, gainHarvestStartAge/EndAge
-  // for the harvest lever — rather than sharing one window. A gain-harvest
-  // opportunity isn't bound to a Roth ladder's narrower window: any
-  // low-income year in retirement can have 0%/15%-bracket room worth
-  // using, so the harvest window defaults much wider (retireAgeA's own
-  // default through lifeExpectancyA's own default) than the Roth ladder's.
+  //     per-year coordinate, just a 2x outer loop. Kept alongside the mix
+  //     lever (not replaced by it) as a fast, easy-to-reason-about
+  //     baseline — see docs/reference.md.
+  // The Roth lever searches its own configured rothConvStartAge/EndAge
+  // window. The mix lever has no configurable window: a retiree funds
+  // spending every year of retirement, not just during a conversion
+  // ladder, so it automatically spans retirement through life expectancy
+  // (capped at ROTH_PER_YEAR_MAX_WINDOW like the Roth lever).
   // See docs/reference.md for the full design writeup: why coordinate
   // ascent with structured multi-starts (not a general-purpose
   // metaheuristic) is the right algorithm for this problem shape, why it
   // provably terminates, and the performance budget these constants were
-  // chosen against (~0.9ms/simulate() call measured).
+  // chosen against.
   const ROTH_PER_YEAR_CANDIDATES = [0, 10, 12, 22, 24, 32, 35];
-  const GAIN_HARVEST_CANDIDATES = [0, 'zero', 'fifteen'];
   const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
   const ROTH_PER_YEAR_MAX_PASSES = 5;
-  const ROTH_PER_YEAR_EVAL_BUDGET = 6000; // simulate() calls, hard cap for the whole run (shared across every lever/smooth-branch in one call)
+  const ROTH_PER_YEAR_EVAL_BUDGET = 8000; // simulate() calls, hard cap for the whole run (shared across every lever/smooth-branch in one call)
   // Total real-dollar tax + healthcare (income/payroll tax AND IRMAA
   // surcharge/net ACA premium) across the full projection — deliberately
   // wider than the flat optimizer's tax-only score above, since a
@@ -5907,31 +5925,29 @@
   }
   function optimizeMultiLever(selected, options) {
     const includeRoth = !!(options && options.includeRoth),
-      includeHarvest = !!(options && options.includeHarvest),
+      includeMix = !!(options && options.includeMix),
       includeSmooth = !!(options && options.includeSmooth);
     const rothYearsFull = [];
     for (let a = state.rothConvStartAge; a <= state.rothConvEndAge; a++) rothYearsFull.push(a);
-    const harvestYearsFull = [];
-    for (let a = state.gainHarvestStartAge; a <= state.gainHarvestEndAge; a++) harvestYearsFull.push(a);
+    const mixStartAge = state.singlePerson ? state.retireAgeA : Math.min(state.retireAgeA, state.retireAgeB),
+      mixEndAge = state.singlePerson ? state.lifeExpectancyA : Math.max(state.lifeExpectancyA, state.lifeExpectancyB);
+    const mixYearsFull = [];
+    for (let a = mixStartAge; a <= mixEndAge; a++) mixYearsFull.push(a);
     const rothTruncated = includeRoth && rothYearsFull.length > ROTH_PER_YEAR_MAX_WINDOW;
-    const harvestTruncated = includeHarvest && harvestYearsFull.length > ROTH_PER_YEAR_MAX_WINDOW;
+    const mixTruncated = includeMix && mixYearsFull.length > ROTH_PER_YEAR_MAX_WINDOW;
     const rothYears = includeRoth ? (rothTruncated ? rothYearsFull.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : rothYearsFull) : [];
-    const harvestYears = includeHarvest
-      ? harvestTruncated
-        ? harvestYearsFull.slice(0, ROTH_PER_YEAR_MAX_WINDOW)
-        : harvestYearsFull
-      : [];
+    const mixYears = includeMix ? (mixTruncated ? mixYearsFull.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : mixYearsFull) : [];
     // Union, sorted — used for the "nothing to optimize" check and as the
     // table's row list downstream; the two lever windows don't have to
     // coincide or even overlap.
-    const activeYears = Array.from(new Set([...rothYears, ...harvestYears])).sort((a, b) => a - b);
-    const truncated = rothTruncated || harvestTruncated;
+    const activeYears = Array.from(new Set([...rothYears, ...mixYears])).sort((a, b) => a - b);
+    const truncated = rothTruncated || mixTruncated;
 
     const savedEnabled = state.rothConvEnabled,
       savedBracket = state.rothConvBracket,
       savedSmooth = state.smoothWithdrawals,
       savedRothOverride = rothBracketOverrideByAge,
-      savedHarvestOverride = gainHarvestOverrideByAge;
+      savedMixOverride = withdrawalMixOverrideByAge;
     if (includeRoth) state.rothConvEnabled = true;
     // Guardrail reference: the plan as it's actually configured right
     // now (selected), not a recomputed baseline — same reference point
@@ -5943,20 +5959,20 @@
 
     let evalCount = 0;
     let budgetExhausted = false;
-    function evaluate(rothMap, harvestMap) {
+    function evaluate(rothMap, mixMap) {
       rothBracketOverrideByAge = includeRoth ? rothMap : null;
-      gainHarvestOverrideByAge = includeHarvest ? harvestMap : null;
+      withdrawalMixOverrideByAge = includeMix ? mixMap : null;
       const sim = simulate();
       evalCount++;
       return { cost: rothScheduleCost(sim), depletedAge: sim.depletedAge };
     }
-    function coordinateAscent(startRoth, startHarvest) {
+    function coordinateAscent(startRoth, startMix) {
       const rothMap = new Map(startRoth),
-        harvestMap = new Map(startHarvest);
-      let current = evaluate(rothMap, harvestMap);
+        mixMap = new Map(startMix);
+      let current = evaluate(rothMap, mixMap);
       let bestOverall = {
         rothSchedule: new Map(rothMap),
-        harvestSchedule: new Map(harvestMap),
+        mixSchedule: new Map(mixMap),
         cost: current.cost,
         depletedAge: current.depletedAge,
       };
@@ -5966,13 +5982,13 @@
       // except the one entry under test.
       const coords = [];
       if (includeRoth) rothYears.forEach((age) => coords.push({ lever: 'roth', age }));
-      if (includeHarvest) harvestYears.forEach((age) => coords.push({ lever: 'harvest', age }));
+      if (includeMix) mixYears.forEach((age) => coords.push({ lever: 'mix', age }));
       for (let pass = 0; pass < ROTH_PER_YEAR_MAX_PASSES && !budgetExhausted; pass++) {
         let changedThisPass = false;
         for (const { lever, age } of coords) {
           if (budgetExhausted) break;
-          const map = lever === 'roth' ? rothMap : harvestMap,
-            candidates = lever === 'roth' ? ROTH_PER_YEAR_CANDIDATES : GAIN_HARVEST_CANDIDATES;
+          const map = lever === 'roth' ? rothMap : mixMap,
+            candidates = lever === 'roth' ? ROTH_PER_YEAR_CANDIDATES : WITHDRAWAL_MIX_CANDIDATES;
           const currentCandidate = map.get(age);
           let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
           for (const candidate of candidates) {
@@ -5983,7 +5999,7 @@
             }
             const trial = new Map(map);
             trial.set(age, candidate);
-            const result = lever === 'roth' ? evaluate(trial, harvestMap) : evaluate(rothMap, trial);
+            const result = lever === 'roth' ? evaluate(trial, mixMap) : evaluate(rothMap, trial);
             if (notWorseThanSelected(result.depletedAge) && result.cost < best.cost) {
               best = { candidate, cost: result.cost, depletedAge: result.depletedAge };
             }
@@ -5995,7 +6011,7 @@
             if (current.cost < bestOverall.cost) {
               bestOverall = {
                 rothSchedule: new Map(rothMap),
-                harvestSchedule: new Map(harvestMap),
+                mixSchedule: new Map(mixMap),
                 cost: current.cost,
                 depletedAge: current.depletedAge,
               };
@@ -6008,32 +6024,35 @@
     }
 
     // Structured multi-starts, not random — reproducible/explainable for
-    // a financial-planning recommendation. Five joint starting points
-    // cover the corners a cliff-driven, two-lever cost landscape can
-    // create: today's actual flat-bracket Roth setting with no
-    // harvesting (also useful on its own — "what would the flat
-    // optimizer recommend, scored on the wider objective"), nothing at
-    // all, both levers maxed out, and each lever maxed out alone (so a
-    // year where harvesting alone beats converting, or vice versa, isn't
-    // missed just because the other lever's aggressive start crowded out
-    // its MAGI room from the first pass). Harmless no-ops for whichever
-    // lever isn't included this run.
+    // a financial-planning recommendation. Six joint starting points cover
+    // the corners a cliff-driven, two-lever cost landscape can create:
+    // today's actual flat-bracket Roth setting with no mix override (also
+    // useful on its own — "what would the flat optimizer recommend,
+    // scored on the wider objective"), nothing at all, max Roth alone,
+    // and the mix lever's two natural anchors (balance-proportional, and
+    // taxable-preserve-traditional) each tried alone and combined with max
+    // Roth — so a year where a deliberate mix choice beats converting, or
+    // vice versa, isn't missed just because the other lever's aggressive
+    // start crowded out its own room on the first pass. Harmless no-ops
+    // for whichever lever isn't included this run.
     const flatRoth = new Map(rothYears.map((a) => [a, savedBracket])),
       zeroRoth = new Map(rothYears.map((a) => [a, 0])),
       maxRoth = new Map(rothYears.map((a) => [a, 35])),
-      zeroHarvest = new Map(harvestYears.map((a) => [a, 0])),
-      maxHarvest = new Map(harvestYears.map((a) => [a, 'fifteen']));
+      zeroMix = new Map(mixYears.map((a) => [a, 0])),
+      balancedMix = new Map(mixYears.map((a) => [a, 'balanced'])),
+      taxableMix = new Map(mixYears.map((a) => [a, 'taxable']));
     const starts = [
-      [flatRoth, zeroHarvest],
-      [zeroRoth, zeroHarvest],
-      [maxRoth, maxHarvest],
-      [zeroRoth, maxHarvest],
-      [maxRoth, zeroHarvest],
+      [flatRoth, zeroMix],
+      [zeroRoth, zeroMix],
+      [maxRoth, zeroMix],
+      [zeroRoth, balancedMix],
+      [zeroRoth, taxableMix],
+      [maxRoth, balancedMix],
     ];
 
     function runForSmooth(smoothValue) {
       if (includeSmooth) state.smoothWithdrawals = smoothValue;
-      const runs = starts.map(([r, h]) => coordinateAscent(r, h));
+      const runs = starts.map(([r, m]) => coordinateAscent(r, m));
       const notWorseRuns = runs.filter((r) => notWorseThanSelected(r.depletedAge));
       const pool = notWorseRuns.length ? notWorseRuns : runs;
       const best = pool.reduce((a, b) => (b.cost < a.cost ? b : a));
@@ -6050,20 +6069,20 @@
     state.rothConvBracket = savedBracket;
     state.smoothWithdrawals = savedSmooth;
     rothBracketOverrideByAge = savedRothOverride;
-    gainHarvestOverrideByAge = savedHarvestOverride;
+    withdrawalMixOverrideByAge = savedMixOverride;
 
     return {
       ...best,
       truncated,
       rothTruncated,
-      harvestTruncated,
+      mixTruncated,
       budgetExhausted,
       activeYears,
       rothYears,
-      harvestYears,
+      mixYears,
       evalCount,
       includeRoth,
-      includeHarvest,
+      includeMix,
       includeSmooth,
     };
   }
@@ -6482,8 +6501,8 @@
   }
   // Generalized sibling of renderRothPerYearOptimizer above — same
   // on-demand-only pattern, but drives optimizeMultiLever() with whichever
-  // of the 3 levers (Roth/harvest/smooth) the checkboxes have turned on,
-  // and builds its results table's columns dynamically around just those.
+  // of the 3 levers (Roth/mix/smooth) the checkboxes have turned on, and
+  // builds its results table's columns dynamically around just those.
   function renderMultiLeverOptimizer(selected, options) {
     const resultEl = document.getElementById('multiLeverResult'),
       summaryEl = document.getElementById('multiLeverSummary'),
@@ -6491,7 +6510,7 @@
       rowsEl = document.getElementById('multiLeverRows'),
       tableWrap = rowsEl.closest('.table-wrap');
     const opt = optimizeMultiLever(selected, options);
-    const hasPerYear = options.includeRoth || options.includeHarvest;
+    const hasPerYear = options.includeRoth || options.includeMix;
     if (hasPerYear && opt.activeYears.length === 0) {
       resultEl.hidden = true;
       return;
@@ -6513,10 +6532,10 @@
     if (options.includeRoth) state.rothConvEnabled = true;
     if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
     rothBracketOverrideByAge = options.includeRoth ? opt.rothSchedule : null;
-    gainHarvestOverrideByAge = options.includeHarvest ? opt.harvestSchedule : null;
+    withdrawalMixOverrideByAge = options.includeMix ? opt.mixSchedule : null;
     const detail = simulate();
     rothBracketOverrideByAge = null;
-    gainHarvestOverrideByAge = null;
+    withdrawalMixOverrideByAge = null;
     state.rothConvEnabled = savedEnabled;
     state.smoothWithdrawals = savedSmooth;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
@@ -6524,14 +6543,31 @@
     const currentCost = rothScheduleCost(selected);
     const savings = currentCost - opt.cost;
     const rothLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
-    const harvestLabel = (c) => (c === 0 ? 'None' : c === 'zero' ? 'Fill to 0% bracket' : 'Fill to 15% bracket');
+    const mixLabel = (c) =>
+      !c
+        ? 'Default'
+        : c === 'taxable'
+          ? 'Taxable only'
+          : c === 'traditional'
+            ? 'Traditional only'
+            : c === 'roth'
+              ? 'Roth only'
+              : c === 'balanced'
+                ? 'Balanced (3-way)'
+                : c === 'smoothed'
+                  ? 'Smoothed (tax./trad. only)'
+                  : c === 'taxTradHalf'
+                    ? '50/50 tax./trad.'
+                    : c === 'thirds'
+                      ? 'Even thirds'
+                      : c;
 
     let notes = '';
     if (opt.rothTruncated) {
       notes += ` Your Roth ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.rothYears.at(-1)}) are covered.`;
     }
-    if (opt.harvestTruncated) {
-      notes += ` Your capital-gain harvest window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.harvestYears.at(-1)}) are covered.`;
+    if (opt.mixTruncated) {
+      notes += ` Your retirement is longer than the ${ROTH_PER_YEAR_MAX_WINDOW} years the withdrawal-mix lever can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.mixYears.at(-1)}) are covered.`;
     }
     if (opt.budgetExhausted) {
       notes += ' Stopped early after reaching its evaluation budget — showing the best combination found so far, which may not be fully optimized.';
@@ -6542,7 +6578,7 @@
         ? ' Recommends turning <b>on</b> smoothed withdrawals (drawing taxable and traditional proportionally, instead of taxable-first).'
         : ' Recommends keeping smoothed withdrawals <b>off</b>.';
     }
-    const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeHarvest && 'a per-year gain-harvest schedule']
+    const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeMix && 'a per-year withdrawal mix']
       .filter(Boolean)
       .join(' + ');
     if (savings > 1) {
@@ -6557,10 +6593,10 @@
       tableWrap.hidden = false;
       const cols = ['Age'];
       if (options.includeRoth) cols.push('Roth target', 'Conversion $');
-      if (options.includeHarvest) cols.push('Harvest target', 'Harvest $');
+      if (options.includeMix) cols.push('Mix', 'From taxable', 'From traditional', 'From Roth');
       headEl.innerHTML = `<tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>`;
       const rothYearSet = new Set(opt.rothYears || []),
-        harvestYearSet = new Set(opt.harvestYears || []);
+        mixYearSet = new Set(opt.mixYears || []);
       rowsEl.innerHTML = opt.activeYears
         .map((age) => {
           const row = rowsByAge.get(age);
@@ -6580,13 +6616,22 @@
               cells.push(`<td>${amt < 1 ? '—' : rothLabel(opt.rothSchedule.get(age))}</td><td>${money(amt)}</td>`);
             }
           }
-          if (options.includeHarvest) {
-            if (!harvestYearSet.has(age)) {
-              cells.push(`<td style="opacity:.5">–</td><td style="opacity:.5">–</td>`);
-            } else {
-              const amt = row ? displayValue(row.harvestAmount, row.year) : 0;
-              cells.push(`<td>${amt < 1 ? '—' : harvestLabel(opt.harvestSchedule.get(age))}</td><td>${money(amt)}</td>`);
-            }
+          if (options.includeMix) {
+            // Unlike the Roth column, the $ breakdown here always shows
+            // the year's real taxable/traditional/Roth draw — even when
+            // this age fell outside the mix lever's own search window (no
+            // candidate chosen, so it fell through to
+            // state.smoothWithdrawals/the plain default) or the winning
+            // candidate was 0 ("default," no override) — that's still
+            // genuinely useful information, unlike a Roth conversion
+            // target which has no meaning at all outside its window.
+            const label = mixYearSet.has(age) ? mixLabel(row ? row.mixCandidate : 0) : '–';
+            const fromTaxable = row ? displayValue(row.taxableWithdrawn, row.year) : 0,
+              fromTraditional = row ? displayValue(row.traditionalWithdrawn, row.year) : 0,
+              fromRoth = row ? displayValue(row.rothWithdrawn, row.year) : 0;
+            cells.push(
+              `<td>${label}</td><td>${money(fromTaxable)}</td><td>${money(fromTraditional)}</td><td>${money(fromRoth)}</td>`,
+            );
           }
           return `<tr>${cells.join('')}</tr>`;
         })
@@ -9677,11 +9722,11 @@
   document.getElementById('multiLeverOptimizeBtn').addEventListener('click', (e) => {
     const options = {
       includeRoth: document.getElementById('mlRothLever').checked,
-      includeHarvest: document.getElementById('mlHarvestLever').checked,
+      includeMix: document.getElementById('mlMixLever').checked,
       includeSmooth: document.getElementById('mlSmoothLever').checked,
     };
     const noteEl = document.getElementById('multiLeverNoLeversNote');
-    if (!options.includeRoth && !options.includeHarvest && !options.includeSmooth) {
+    if (!options.includeRoth && !options.includeMix && !options.includeSmooth) {
       noteEl.hidden = false;
       document.getElementById('multiLeverResult').hidden = true;
       return;
@@ -9992,12 +10037,12 @@
   window.__test_setRothOverride = (m) => {
     rothBracketOverrideByAge = m;
   };
-  window.__test_setGainHarvestOverride = (m) => {
-    gainHarvestOverrideByAge = m;
+  window.__test_setWithdrawalMixOverride = (m) => {
+    withdrawalMixOverrideByAge = m;
   };
-  window.__test_solveGainHarvest = solveGainHarvest;
   window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
-  window.__test_GAIN_HARVEST_CANDIDATES = GAIN_HARVEST_CANDIDATES;
+  window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
+  window.__test_withdrawalMixWeights = withdrawalMixWeights;
 })();
 </script>
 </body>
