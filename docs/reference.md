@@ -4322,6 +4322,89 @@ farther-side clamp) shows "Partner A → 46 (farther)" / "Partner A → 48
 "Both together" note correctly names the new button; 390×844
 mobile-overflow check clean with the slightly longer button text.
 
+## Chart x-axis picker: Partner A age / Partner B age / calendar year (`chartXAxisMode`)
+
+A user reading the ±1yr/±3yr chart with the two partners' retirement
+dates apart found it hard to reason about a line in terms of whichever
+partner *isn't* on the x-axis (the x-axis has always been Partner A's
+age; Partner B's age at any point had to be worked out by hand from the
+gap between them), and separately wanted to be able to read the chart in
+calendar years instead of an age at all.
+
+**The key insight that made this cheap**: every row every chart draws
+from (`simulate()`/`simulateHistorical()`) already carries `.age`
+(always Partner A's age) and `.year` (a 0-indexed offset from now,
+`age = state.ageA + year`), and the two partners always age in lockstep
+(`ageB = state.ageB + year`) — there's no scenario where the "gap"
+between the partners' ages changes over the course of one simulate()
+call. That means Partner B's age and the calendar year are both just an
+**affine transform of the same internal `age`** already being used to
+position every point on the x-axis (`x(age) = p.l + ((age - state.ageA)
+/ (maxAge - state.ageA)) * (w - p.l - p.r)`, unchanged). So this didn't
+need a second simulation, a second data model, or any change to how
+points are positioned — only how the axis *labels* are formatted.
+
+- **`chartXAxisMode`** (new closure variable, `'ageA'`/`'ageB'`/`'year'`,
+  default `'ageA'`): display-only, same category as `chartView`/`mode`/
+  `chartShiftMode` — not part of `state`/scenario export, resets to
+  `'ageA'` on reload.
+- **`CURRENT_YEAR = new Date().getFullYear()`** (new top-level constant,
+  declared once near `chartAxisColor()`/`chartGridColor()`): computed
+  from the device clock rather than hardcoded, unlike the existing
+  "2026 dollars" real-dollar-mode label elsewhere in the app — a visibly
+  wrong chart axis past this year would be a lot more obviously broken
+  than a stale dollar-mode label, so this one didn't get to inherit that
+  shortcut.
+- **`xAxisLabel(age)`** (new helper, the only place that reads
+  `chartXAxisMode`): `'ageB'` → `age - state.ageA + state.ageB`; `'year'`
+  → `CURRENT_YEAR + (age - state.ageA)`; otherwise the age itself
+  (rounded in all three branches). Called from the x-axis tick-drawing
+  loop in both `renderChart()` and `renderMonteCarloChart()` (previously
+  identical `ctx.fillText(age, x(age), ...)` code in each, now
+  `ctx.fillText(xAxisLabel(age), x(age), ...)`) — `x(age)` itself, and
+  every other use of `age` for pixel positioning (drawing the lines
+  themselves, `drawRetirementMarker`), stays entirely in Partner-A-age
+  space, untouched.
+- **Deliberately NOT applied to `renderOverlayChart()`** (the saved-
+  scenario comparison chart, a separate renderer): `computeOverlaySeriesFor`
+  temporarily swaps in each saved scenario's own `state` to simulate it,
+  so the ages plotted there aren't all relative to the *live* `state.ageA`
+  the way a single chart's rows are — running them through `xAxisLabel()`
+  (which reads live `state.ageA`/`state.ageB`) would silently mix each
+  scenario's own timeline with whichever one is currently loaded. Left
+  reading plain `age` as before, with a comment explaining why.
+- **Hover tooltip header** (`renderChart`'s `mousemove` handler): always
+  shows all three — `` `${calYear} · Partner A: ${age} · Partner B:
+  ${ageBVal}` `` (or just `` `${calYear} · Age ${age}` `` in single-person
+  mode) — computed inline the same way as `xAxisLabel()`, regardless of
+  which one `chartXAxisMode` currently has on the axis. This was the
+  other half of the request: not just letting the axis show a different
+  value, but never making the person mentally convert to see the other
+  two.
+- **UI**: a new `#chartXAxisRow` ("X-axis: Partner A age / Partner B age
+  / Year", same `.chart-view-toggle` segmented-button pattern as the
+  existing "Shift:"/"Vary:"/"Paths:" rows) added above the ±1yr/±3yr/CAGR
+  sub-toggle, visible for all three chart groups (Projection, Historical,
+  Monte Carlo) since the x-axis applies to all of them, not just
+  Projection. The old static `#chartAgeNote` ("Chart age refers to
+  Partner A.") text was removed — the toggle's own active-button state
+  now carries that information instead of a separate sentence.
+  `updateChartXAxisButtons()` (same visual-sync-only, safe-to-call-mid-
+  render pattern as `updateChartShiftModeButtons()`) hides the "Partner B
+  age" button in single-person mode and falls back `chartXAxisMode` to
+  `'ageA'` if it was `'ageB'` when single-person mode gets turned on —
+  same shape as `chartShiftMode`'s `gapDisabled` fallback.
+- **Verified**: `npm test`; a scenario with `ageA=40`/`ageB=42` shows tick
+  labels 40/50/.../100 on the Partner A axis, 42/52/.../102 on Partner B
+  (screenshot-verified, correctly offset by the 2-year gap), and
+  2026/2036/.../2086 on Year (offset from `CURRENT_YEAR`); hover tooltip
+  header cross-checked against the axis math (e.g. age 68 on the Partner
+  B axis correctly showed "2054 · Partner A: 68 · Partner B: 70" in the
+  header); toggling `#singlePerson` while on the Partner B axis correctly
+  falls back to Partner A age and hides the Partner B button; 390×844
+  mobile-overflow check clean, including the new row's own layout on the
+  Dashboard tab.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
