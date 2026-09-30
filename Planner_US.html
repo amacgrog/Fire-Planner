@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V47</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V48</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -598,6 +598,22 @@
           <div id="rothPerYearResult" hidden>
             <div id="rothPerYearSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
             <div class="table-wrap"><table><thead><tr><th>Age</th><th>Recommended fill target</th><th>Conversion amount</th></tr></thead><tbody id="rothPerYearRows"></tbody></table></div>
+          </div>
+        </details>
+
+        <details class="result-card" id="multiLeverOptimizerCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Withdrawal &amp; conversion optimizer</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Optimize. Scored the same way as the per-year Roth optimizer above: total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection, never recommending a change that would deplete the portfolio earlier than your current plan. Uses the same start/end age window as the Roth ladder above for whichever per-year levers are checked.</p>
+          <div class="field" style="max-width:520px">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600"><input id="mlRothLever" type="checkbox"> Roth conversion ladder (per-year fill target)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlHarvestLever" type="checkbox"> Capital-gain harvesting (per-year, in the taxable brokerage account)</label>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlSmoothLever" type="checkbox"> Smoothed withdrawals (try both on and off, household-wide)</label>
+          </div>
+          <button type="button" id="multiLeverOptimizeBtn" class="btn-card" style="margin-top:14px">Optimize →</button>
+          <p id="multiLeverNoLeversNote" style="color:var(--muted);font-size:.8rem;margin:8px 0 0" hidden>Check at least one lever above to run the optimizer.</p>
+          <div id="multiLeverResult" hidden>
+            <div id="multiLeverSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
+            <div class="table-wrap"><table><thead id="multiLeverHead"></thead><tbody id="multiLeverRows"></tbody></table></div>
           </div>
         </details>
 
@@ -2952,6 +2968,65 @@
     }
     return lo;
   }
+  // Per-year capital-gain harvest override for the multi-lever optimizer
+  // (see rothBracketOverrideByAge above for the same idiom). null in normal
+  // operation, so no existing behavior changes unless the optimizer is
+  // actively evaluating a candidate schedule. Map<Partner-A age, 'zero' |
+  // 'fifteen' | 0>. Harvesting means selling an in-kind slice of the
+  // taxable brokerage account and immediately buying the same position
+  // back: no change in market exposure or account balance, but the
+  // realized gain is taxed now (often at 0%, if there's room under the 0%
+  // LTCG bracket that year) and that slice's cost basis resets to today's
+  // price — permanently erasing the embedded gain rather than deferring
+  // its tax to a future year that might land in a higher bracket. 'zero'
+  // fills to the top of the 0% LTCG bracket; 'fifteen' fills to the top of
+  // the 15% bracket (harvesting the 0-15% region too — worthwhile when a
+  // future year's rate would otherwise be higher still). 0 means "harvest
+  // nothing this year." Shares the same MAGI ceiling as the Roth
+  // conversion ladder (both raise MAGI the same way), with the conversion
+  // getting first claim on that room each year and harvest sized off
+  // whatever's left — a fixed claim order like the rest of this file's
+  // withdrawal waterfalls, not a joint optimization within the year; the
+  // per-year optimizer driver still reaches every achievable combination
+  // by varying each lever's own target across years.
+  let gainHarvestOverrideByAge = null;
+  function solveGainHarvest(
+    profile,
+    taxablePool,
+    taxableBasisNow,
+    maxMagiRoom,
+    conversionAmount,
+    yearIndex,
+    ageKey,
+  ) {
+    const targetKey =
+      gainHarvestOverrideByAge && gainHarvestOverrideByAge.has(ageKey)
+        ? gainHarvestOverrideByAge.get(ageKey)
+        : 0;
+    if (!targetKey || taxablePool <= 0 || maxMagiRoom <= 0) return { amount: 0, gain: 0 };
+    const gainRatio = clamp(1 - taxableBasisNow / Math.max(taxablePool, 1e-9), 0, 1);
+    if (gainRatio <= 0) return { amount: 0, gain: 0 };
+    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+      filing = profile.filing === 'mfj' ? 'mfj' : 'single',
+      deduction = (filing === 'mfj' ? 32200 : 16100) * factor,
+      zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
+      fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor;
+    // Same simplification solveRothConversion's ordinaryAt() above already
+    // makes: this year's own brokerage gains aren't folded into the Social
+    // Security taxability estimate here, since the withdrawal waterfall
+    // that would realize them hasn't run yet at this point in the loop.
+    const other = profile.otherA + (profile.otherB || 0) + conversionAmount,
+      taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing),
+      ordinaryTaxable = Math.max(0, other + taxableSS - deduction);
+    const bracketRoom =
+      targetKey === 'zero'
+        ? Math.max(0, zeroLimit - ordinaryTaxable)
+        : Math.max(0, fifteenLimit - ordinaryTaxable);
+    const maxGainFromPool = taxablePool * gainRatio,
+      harvestGain = Math.max(0, Math.min(bracketRoom, maxMagiRoom, maxGainFromPool)),
+      harvestAmount = harvestGain / gainRatio;
+    return { amount: harvestAmount, gain: harvestGain };
+  }
   function wageFica(wages, yearIndex) {
     const f = Math.pow(1 + pct(state.inflation), yearIndex);
     return Math.min(wages, 184500 * f) * 0.062 + wages * 0.0145;
@@ -3535,8 +3610,10 @@
               singlePerson: singlePerson || isSurvivorPeriod,
               year,
             };
-      let conversionAmount = 0;
-      if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
+      let conversionAmount = 0,
+        harvestAmount = 0,
+        harvestGain = 0;
+      {
         // Lagged, same as magiProxy below — see prevTraditionalGross's
         // declaration comment near the top of this function.
         const preConvMagi = otherA + otherB + ss + prevTraditionalGross + prevTaxableGainGross;
@@ -3552,6 +3629,10 @@
         // isn't at risk of the subsidy cliff this guards against) until BOTH
         // partners have stopped working. See the healthcare cost calc below,
         // which uses the same both-retired condition.
+        // Computed unconditionally (not gated on the Roth ladder being
+        // enabled) so the per-year gain-harvest lever below can share this
+        // same MAGI ceiling even in a plan where the conversion ladder
+        // itself is off.
         const acaEligibleNow = singlePerson
           ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
           : isSurvivorPeriod
@@ -3575,17 +3656,45 @@
           magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
         }
         const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
-        const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
-        conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+        if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
+          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
+          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+        }
+        // Capital-gain harvest lever (see solveGainHarvest/
+        // gainHarvestOverrideByAge above) — null except while the per-year
+        // optimizer is evaluating a candidate schedule, so this is a no-op
+        // in normal operation. Sized off whatever MAGI room the conversion
+        // above didn't already use.
+        if (gainHarvestOverrideByAge) {
+          const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
+          const harvest = solveGainHarvest(
+            profile,
+            taxable,
+            taxableBasis,
+            remainingMagiRoom,
+            conversionAmount,
+            year,
+            age,
+          );
+          harvestAmount = harvest.amount;
+          harvestGain = harvest.gain;
+        }
       }
-      const magiProxy = otherA + otherB + ss + conversionAmount + prevTraditionalGross + prevTaxableGainGross;
+      const magiProxy =
+        otherA +
+        otherB +
+        ss +
+        conversionAmount +
+        harvestGain +
+        prevTraditionalGross +
+        prevTaxableGainGross;
       magiHistory[year] = magiProxy;
       // Display-only running total: like totalTax below, this starts as the
       // pre-withdrawal MAGI proxy and is corrected after the withdrawal
       // waterfall runs to also include realized traditional withdrawals and
       // taxable-brokerage gains, so it does not understate income in years
       // funded mostly by withdrawals.
-      let totalIncome = otherA + otherB + ss + conversionAmount;
+      let totalIncome = otherA + otherB + ss + conversionAmount + harvestGain;
       if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
         const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
         if (guardrailInitialWR > 0) {
@@ -3681,13 +3790,17 @@
         wageFica(Math.max(0, wageB - healthPremiumB), year) +
         wageFica(bridgeA, year) +
         wageFica(bridgeB, year);
-      const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
-      // `tax` above only covers wages/SS/pension/RMD/conversion income and is
-      // what the cash-flow waterfall below uses to size withdrawals. Once
-      // taxable-brokerage gains and traditional withdrawals are known (after
-      // the withdrawal waterfall runs), `totalTax` is corrected to include
-      // the tax those withdrawals themselves generate; it's `tax` unchanged
-      // in a no-withdrawal (contributing) year.
+      const tax = taxFor(profile, harvestGain, conversionAmount) + ficaTax;
+      // `tax` above only covers wages/SS/pension/RMD/conversion/harvest
+      // income and is what the cash-flow waterfall below uses to size
+      // withdrawals (the harvest's realized gain is known up front, same as
+      // the conversion amount, so it belongs here rather than in the
+      // lagged prevTaxableGainGross treatment withdrawal-driven gains get).
+      // Once traditional withdrawals and further taxable-brokerage gains
+      // are known (after the withdrawal waterfall runs), `totalTax` is
+      // corrected to include the tax those withdrawals themselves
+      // generate; it's `tax` unchanged in a no-withdrawal (contributing)
+      // year.
       let totalTax = tax;
       const expenses = baseSpend + healthcare + ltc + housing + loanPayment;
       let flow =
@@ -3730,6 +3843,16 @@
         bondTraditional = Math.max(0, bondTraditional - (conversionAmount - fromTradConv));
         roth += conversionAmount;
       }
+      if (harvestGain > 0) {
+        // In-kind sell/rebuy: the taxable pool itself is unchanged (same
+        // dollars, same position, immediately bought back), but the
+        // harvested slice's cost basis resets to today's price — so the
+        // pool's basis rises by exactly the gain that was just realized
+        // and taxed via `tax` above. Capped at `taxable` as a defensive
+        // clamp against float drift; harvestGain was sized off the
+        // pre-growth pool/basis, and growth only ever widens the gap.
+        taxableBasis = Math.min(taxable, taxableBasis + harvestGain);
+      }
       cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
       if (cash > reserveTarget) {
@@ -3758,12 +3881,16 @@
       }
       const guardrailPortfolioNow = taxable + bondTaxable + traditional + bondTraditional + roth + bondRoth + cash;
       // Declared here (rather than inside the withdrawal branch below) so
-      // both end up correctly set — to just conversionAmount/0 in a surplus
-      // year, or the fuller realized-withdrawal totals in a withdrawal year
-      // — for the prevTraditionalGross/prevTaxableGainGross MAGI lag below,
-      // which needs a value from every year, not just withdrawal years.
+      // both end up correctly set — to just conversionAmount/harvestGain in
+      // a surplus year, or the fuller realized-withdrawal totals in a
+      // withdrawal year — for the prevTraditionalGross/prevTaxableGainGross
+      // MAGI lag below, which needs a value from every year, not just
+      // withdrawal years. taxableGainGross starts at harvestGain (already
+      // realized and taxed above, same as conversionAmount does for
+      // traditionalGross) rather than 0; the withdrawal-branch draws below
+      // add to it rather than overwrite it.
       let traditionalGross = conversionAmount,
-        taxableGainGross = 0;
+        taxableGainGross = harvestGain;
       if (flow >= 0) {
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash)),
           toTaxable = flow - cashTopUp;
@@ -3822,13 +3949,13 @@
               taxableBasis,
               taxableShare,
               profile,
-              0,
+              taxableGainGross,
               traditionalGross,
             );
             taxable -= taxableDraw.taken;
             taxableBasis -= taxableDraw.basisTaken;
             need -= taxableDraw.net;
-            taxableGainGross = taxableDraw.gain;
+            taxableGainGross += taxableDraw.gain;
             taxableWithdrawn += taxableDraw.taken;
             if (traditionalShare > 0 && traditional > 0) {
               const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
@@ -3862,13 +3989,13 @@
             taxableBasis,
             need,
             profile,
-            0,
+            taxableGainGross,
             traditionalGross,
           );
           taxable -= taxableDraw.taken;
           taxableBasis -= taxableDraw.basisTaken;
           need -= taxableDraw.net;
-          taxableGainGross = taxableDraw.gain;
+          taxableGainGross += taxableDraw.gain;
           taxableWithdrawn += taxableDraw.taken;
           if (need > 0) {
             const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
@@ -3984,6 +4111,8 @@
         workingA,
         workingB,
         conversionAmount,
+        harvestAmount,
+        harvestGain,
         magiProxy,
         expenses,
         tax: totalTax,
@@ -5725,22 +5854,32 @@
     const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
     return { results, best, currentBracket: savedBracket };
   }
-  // Per-year multi-lever Roth optimizer -------------------------------
+  // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of
-  // the ladder window) to let each year independently pick its own
-  // target — same candidate set, plus a 0 = "skip conversion this year"
-  // sentinel — rather than one setting applied uniformly across the
-  // whole window. See docs/reference.md for the full design writeup:
-  // why coordinate ascent with 3 structured multi-starts (not a
-  // general-purpose metaheuristic) is the right algorithm for this
-  // problem shape, why it provably terminates, and the performance
-  // budget these constants were chosen against (~0.9ms/simulate() call
-  // measured, so the 3000-call budget bounds worst case to a few
-  // seconds).
+  // the ladder window) with three independently toggleable levers, each
+  // off by default so the optimizer never changes anything you haven't
+  // explicitly asked it to search over:
+  //   - Roth conversion ladder: per-year bracket-fill target (as before).
+  //   - Capital-gain harvesting: per-year LTCG-bracket-fill target,
+  //     sharing the Roth lever's MAGI ceiling (see solveGainHarvest).
+  //   - Smoothed withdrawals: state.smoothWithdrawals is a single
+  //     household-wide toggle, not a per-year choice, so "optimizing" it
+  //     just means trying the whole search once with it forced on and
+  //     once forced off and keeping whichever wins — it doesn't add a
+  //     per-year coordinate, just a 2x outer loop.
+  // Both per-year levers share the Roth ladder's configured start/end age
+  // as their active window — they're both only useful in the years you'd
+  // actually be managing MAGI, which in practice is the same window.
+  // See docs/reference.md for the full design writeup: why coordinate
+  // ascent with structured multi-starts (not a general-purpose
+  // metaheuristic) is the right algorithm for this problem shape, why it
+  // provably terminates, and the performance budget these constants were
+  // chosen against (~0.9ms/simulate() call measured).
   const ROTH_PER_YEAR_CANDIDATES = [0, 10, 12, 22, 24, 32, 35];
+  const GAIN_HARVEST_CANDIDATES = [0, 'zero', 'fifteen'];
   const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
   const ROTH_PER_YEAR_MAX_PASSES = 5;
-  const ROTH_PER_YEAR_EVAL_BUDGET = 3000; // simulate() calls, hard cap for the whole run
+  const ROTH_PER_YEAR_EVAL_BUDGET = 6000; // simulate() calls, hard cap for the whole run (shared across every lever/smooth-branch in one call)
   // Total real-dollar tax + healthcare (income/payroll tax AND IRMAA
   // surcharge/net ACA premium) across the full projection — deliberately
   // wider than the flat optimizer's tax-only score above, since a
@@ -5749,67 +5888,88 @@
   function rothScheduleCost(sim) {
     return sim.rows.reduce((sum, r) => sum + displayValue(r.tax + r.healthcare, r.year), 0);
   }
-  // Runs one full simulate() with `schedule` (Map<Partner-A age,
-  // candidate>) active as the per-year override, then restores the
-  // override to null immediately — never leaves it live for any other
-  // simulate() call (render(), other cards, etc.) to accidentally pick up.
-  function evaluateRothSchedule(schedule) {
-    rothBracketOverrideByAge = schedule;
-    const sim = simulate();
-    rothBracketOverrideByAge = null;
-    return { cost: rothScheduleCost(sim), depletedAge: sim.depletedAge };
-  }
-  function optimizeRothLadderPerYear(selected) {
+  function optimizeMultiLever(selected, options) {
+    const includeRoth = !!(options && options.includeRoth),
+      includeHarvest = !!(options && options.includeHarvest),
+      includeSmooth = !!(options && options.includeSmooth);
     const years = [];
     for (let a = state.rothConvStartAge; a <= state.rothConvEndAge; a++) years.push(a);
-    const truncated = years.length > ROTH_PER_YEAR_MAX_WINDOW;
-    const activeYears = truncated ? years.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : years;
-    if (activeYears.length === 0) return { schedule: new Map(), truncated, budgetExhausted: false, activeYears };
+    const usesPerYearLevers = includeRoth || includeHarvest;
+    const truncated = usesPerYearLevers && years.length > ROTH_PER_YEAR_MAX_WINDOW;
+    const activeYears = usesPerYearLevers ? (truncated ? years.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : years) : [];
 
     const savedEnabled = state.rothConvEnabled,
       savedBracket = state.rothConvBracket,
-      savedOverride = rothBracketOverrideByAge;
-    state.rothConvEnabled = true;
+      savedSmooth = state.smoothWithdrawals,
+      savedRothOverride = rothBracketOverrideByAge,
+      savedHarvestOverride = gainHarvestOverrideByAge;
+    if (includeRoth) state.rothConvEnabled = true;
     // Guardrail reference: the plan as it's actually configured right
     // now (selected), not a recomputed baseline — same reference point
     // the flat optimizer above uses, so "doesn't deplete earlier than
-    // what you have today" means the same thing in both features.
+    // what you have today" means the same thing in every one of these
+    // optimizers.
     const notWorseThanSelected = (depletedAge) =>
       selected.depletedAge ? !depletedAge || depletedAge >= selected.depletedAge : !depletedAge;
 
     let evalCount = 0;
     let budgetExhausted = false;
-    function coordinateAscent(startSchedule) {
-      const schedule = new Map(startSchedule);
-      let current = evaluateRothSchedule(schedule);
+    function evaluate(rothMap, harvestMap) {
+      rothBracketOverrideByAge = includeRoth ? rothMap : null;
+      gainHarvestOverrideByAge = includeHarvest ? harvestMap : null;
+      const sim = simulate();
       evalCount++;
-      let bestOverall = { schedule: new Map(schedule), cost: current.cost, depletedAge: current.depletedAge };
+      return { cost: rothScheduleCost(sim), depletedAge: sim.depletedAge };
+    }
+    function coordinateAscent(startRoth, startHarvest) {
+      const rothMap = new Map(startRoth),
+        harvestMap = new Map(startHarvest);
+      let current = evaluate(rothMap, harvestMap);
+      let bestOverall = {
+        rothSchedule: new Map(rothMap),
+        harvestSchedule: new Map(harvestMap),
+        cost: current.cost,
+        depletedAge: current.depletedAge,
+      };
+      // One coordinate per (lever, age) pair that's actually active this
+      // run — cyclic coordinate ascent sweeps every coordinate each pass,
+      // regardless of which lever it belongs to, holding both maps fixed
+      // except the one entry under test.
+      const coords = [];
+      if (includeRoth) activeYears.forEach((age) => coords.push({ lever: 'roth', age }));
+      if (includeHarvest) activeYears.forEach((age) => coords.push({ lever: 'harvest', age }));
       for (let pass = 0; pass < ROTH_PER_YEAR_MAX_PASSES && !budgetExhausted; pass++) {
         let changedThisPass = false;
-        for (const age of activeYears) {
+        for (const { lever, age } of coords) {
           if (budgetExhausted) break;
-          const currentCandidate = schedule.get(age);
+          const map = lever === 'roth' ? rothMap : harvestMap,
+            candidates = lever === 'roth' ? ROTH_PER_YEAR_CANDIDATES : GAIN_HARVEST_CANDIDATES;
+          const currentCandidate = map.get(age);
           let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
-          for (const candidate of ROTH_PER_YEAR_CANDIDATES) {
+          for (const candidate of candidates) {
             if (candidate === currentCandidate) continue;
             if (evalCount >= ROTH_PER_YEAR_EVAL_BUDGET) {
               budgetExhausted = true;
               break;
             }
-            const trial = new Map(schedule);
+            const trial = new Map(map);
             trial.set(age, candidate);
-            const result = evaluateRothSchedule(trial);
-            evalCount++;
+            const result = lever === 'roth' ? evaluate(trial, harvestMap) : evaluate(rothMap, trial);
             if (notWorseThanSelected(result.depletedAge) && result.cost < best.cost) {
               best = { candidate, cost: result.cost, depletedAge: result.depletedAge };
             }
           }
           if (best.candidate !== currentCandidate) {
-            schedule.set(age, best.candidate);
+            map.set(age, best.candidate);
             current = { cost: best.cost, depletedAge: best.depletedAge };
             changedThisPass = true;
             if (current.cost < bestOverall.cost) {
-              bestOverall = { schedule: new Map(schedule), cost: current.cost, depletedAge: current.depletedAge };
+              bestOverall = {
+                rothSchedule: new Map(rothMap),
+                harvestSchedule: new Map(harvestMap),
+                cost: current.cost,
+                depletedAge: current.depletedAge,
+              };
             }
           }
         }
@@ -5818,26 +5978,68 @@
       return bestOverall;
     }
 
-    // Three structured starts, not random — reproducible/explainable for
-    // a financial-planning recommendation, and they cover the distinct
-    // basins a cliff-driven cost landscape can create: doing nothing,
-    // converting as aggressively as every candidate allows, and today's
-    // actual flat-bracket setting (also useful on its own, since it's
-    // effectively "what would the flat optimizer above recommend, scored
-    // on the wider tax+healthcare objective").
-    const flatSchedule = new Map(activeYears.map((a) => [a, savedBracket]));
-    const zeroSchedule = new Map(activeYears.map((a) => [a, 0]));
-    const maxSchedule = new Map(activeYears.map((a) => [a, 35]));
-    const runs = [flatSchedule, zeroSchedule, maxSchedule].map(coordinateAscent);
+    // Structured multi-starts, not random — reproducible/explainable for
+    // a financial-planning recommendation. Five joint starting points
+    // cover the corners a cliff-driven, two-lever cost landscape can
+    // create: today's actual flat-bracket Roth setting with no
+    // harvesting (also useful on its own — "what would the flat
+    // optimizer recommend, scored on the wider objective"), nothing at
+    // all, both levers maxed out, and each lever maxed out alone (so a
+    // year where harvesting alone beats converting, or vice versa, isn't
+    // missed just because the other lever's aggressive start crowded out
+    // its MAGI room from the first pass). Harmless no-ops for whichever
+    // lever isn't included this run.
+    const flatRoth = new Map(activeYears.map((a) => [a, savedBracket])),
+      zeroRoth = new Map(activeYears.map((a) => [a, 0])),
+      maxRoth = new Map(activeYears.map((a) => [a, 35])),
+      zeroHarvest = new Map(activeYears.map((a) => [a, 0])),
+      maxHarvest = new Map(activeYears.map((a) => [a, 'fifteen']));
+    const starts = [
+      [flatRoth, zeroHarvest],
+      [zeroRoth, zeroHarvest],
+      [maxRoth, maxHarvest],
+      [zeroRoth, maxHarvest],
+      [maxRoth, zeroHarvest],
+    ];
+
+    function runForSmooth(smoothValue) {
+      if (includeSmooth) state.smoothWithdrawals = smoothValue;
+      const runs = starts.map(([r, h]) => coordinateAscent(r, h));
+      const notWorseRuns = runs.filter((r) => notWorseThanSelected(r.depletedAge));
+      const pool = notWorseRuns.length ? notWorseRuns : runs;
+      const best = pool.reduce((a, b) => (b.cost < a.cost ? b : a));
+      return { ...best, smoothWithdrawals: smoothValue };
+    }
+
+    const smoothCandidates = includeSmooth ? [true, false] : [savedSmooth];
+    const smoothRuns = smoothCandidates.map(runForSmooth);
+    const notWorseSmoothRuns = smoothRuns.filter((r) => notWorseThanSelected(r.depletedAge));
+    const smoothPool = notWorseSmoothRuns.length ? notWorseSmoothRuns : smoothRuns;
+    const best = smoothPool.reduce((a, b) => (b.cost < a.cost ? b : a));
 
     state.rothConvEnabled = savedEnabled;
     state.rothConvBracket = savedBracket;
-    rothBracketOverrideByAge = savedOverride;
+    state.smoothWithdrawals = savedSmooth;
+    rothBracketOverrideByAge = savedRothOverride;
+    gainHarvestOverrideByAge = savedHarvestOverride;
 
-    const notWorseRuns = runs.filter((r) => notWorseThanSelected(r.depletedAge));
-    const pool = notWorseRuns.length ? notWorseRuns : runs;
-    const best = pool.reduce((a, b) => (b.cost < a.cost ? b : a));
-    return { ...best, truncated, budgetExhausted, activeYears, evalCount };
+    return { ...best, truncated, budgetExhausted, activeYears, evalCount, includeRoth, includeHarvest, includeSmooth };
+  }
+  // Roth-only convenience wrapper, kept for the existing flat-window
+  // single-lever card and its test suite — identical behavior/shape to
+  // the original single-lever optimizer, implemented as the general
+  // driver above with only the Roth lever included.
+  function optimizeRothLadderPerYear(selected) {
+    const r = optimizeMultiLever(selected, { includeRoth: true });
+    return {
+      schedule: r.rothSchedule,
+      cost: r.cost,
+      depletedAge: r.depletedAge,
+      truncated: r.truncated,
+      budgetExhausted: r.budgetExhausted,
+      activeYears: r.activeYears,
+      evalCount: r.evalCount,
+    };
   }
   // Validated categorical palette (see the `dataviz` skill's palette.md) —
   // fixed hue order, never cycled/reassigned by rank. Reused across the two
@@ -6234,6 +6436,92 @@
         return `<tr><td>${age}</td><td>${label}</td><td>${money(amount)}</td></tr>`;
       })
       .join('');
+    resultEl.hidden = false;
+  }
+  // Generalized sibling of renderRothPerYearOptimizer above — same
+  // on-demand-only pattern, but drives optimizeMultiLever() with whichever
+  // of the 3 levers (Roth/harvest/smooth) the checkboxes have turned on,
+  // and builds its results table's columns dynamically around just those.
+  function renderMultiLeverOptimizer(selected, options) {
+    const resultEl = document.getElementById('multiLeverResult'),
+      summaryEl = document.getElementById('multiLeverSummary'),
+      headEl = document.getElementById('multiLeverHead'),
+      rowsEl = document.getElementById('multiLeverRows'),
+      tableWrap = rowsEl.closest('.table-wrap');
+    const opt = optimizeMultiLever(selected, options);
+    const hasPerYear = options.includeRoth || options.includeHarvest;
+    if (hasPerYear && opt.activeYears.length === 0) {
+      resultEl.hidden = true;
+      return;
+    }
+    // Re-simulate once more with the winning schedule(s)/setting active,
+    // purely to read each year's actual dollar amounts for display — opt
+    // itself only carries the schedules/flag and aggregate cost.
+    const savedSmooth = state.smoothWithdrawals;
+    if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
+    rothBracketOverrideByAge = options.includeRoth ? opt.rothSchedule : null;
+    gainHarvestOverrideByAge = options.includeHarvest ? opt.harvestSchedule : null;
+    const detail = simulate();
+    rothBracketOverrideByAge = null;
+    gainHarvestOverrideByAge = null;
+    state.smoothWithdrawals = savedSmooth;
+    const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
+
+    const currentCost = rothScheduleCost(selected);
+    const savings = currentCost - opt.cost;
+    const rothLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
+    const harvestLabel = (c) => (c === 0 ? 'None' : c === 'zero' ? 'Fill to 0% bracket' : 'Fill to 15% bracket');
+
+    let notes = '';
+    if (opt.truncated) {
+      notes += ` Your window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered.`;
+    }
+    if (opt.budgetExhausted) {
+      notes += ' Stopped early after reaching its evaluation budget — showing the best combination found so far, which may not be fully optimized.';
+    }
+    let smoothNote = '';
+    if (options.includeSmooth) {
+      smoothNote = opt.smoothWithdrawals
+        ? ' Recommends turning <b>on</b> smoothed withdrawals (drawing taxable and traditional proportionally, instead of taxable-first).'
+        : ' Recommends keeping smoothed withdrawals <b>off</b>.';
+    }
+    const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeHarvest && 'a per-year gain-harvest schedule']
+      .filter(Boolean)
+      .join(' + ');
+    if (savings > 1) {
+      summaryEl.innerHTML = `Recommended: ${leverNames || 'the settings below'} — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current settings, without shortening how long the portfolio lasts.${smoothNote}${notes}`;
+    } else {
+      summaryEl.innerHTML = `Your current settings are already at least as good as anything these levers found.${smoothNote}${notes}`;
+    }
+
+    if (!hasPerYear) {
+      tableWrap.hidden = true;
+    } else {
+      tableWrap.hidden = false;
+      const cols = ['Age'];
+      if (options.includeRoth) cols.push('Roth target', 'Conversion $');
+      if (options.includeHarvest) cols.push('Harvest target', 'Harvest $');
+      headEl.innerHTML = `<tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>`;
+      rowsEl.innerHTML = opt.activeYears
+        .map((age) => {
+          const row = rowsByAge.get(age);
+          const cells = [`<td>${age}</td>`];
+          if (options.includeRoth) {
+            const amt = row ? displayValue(row.conversionAmount, row.year) : 0;
+            // See the same-named comment in renderRothPerYearOptimizer
+            // above: a candidate can tie at $0 once that year's room is
+            // already exhausted, so showing a specific target next to $0
+            // would read as a meaningful choice that wasn't really made.
+            cells.push(`<td>${amt < 1 ? '—' : rothLabel(opt.rothSchedule.get(age))}</td><td>${money(amt)}</td>`);
+          }
+          if (options.includeHarvest) {
+            const amt = row ? displayValue(row.harvestAmount, row.year) : 0;
+            cells.push(`<td>${amt < 1 ? '—' : harvestLabel(opt.harvestSchedule.get(age))}</td><td>${money(amt)}</td>`);
+          }
+          return `<tr>${cells.join('')}</tr>`;
+        })
+        .join('');
+    }
     resultEl.hidden = false;
   }
 
@@ -9316,6 +9604,35 @@
       }, 0);
     });
   });
+  document.getElementById('multiLeverOptimizeBtn').addEventListener('click', (e) => {
+    const options = {
+      includeRoth: document.getElementById('mlRothLever').checked,
+      includeHarvest: document.getElementById('mlHarvestLever').checked,
+      includeSmooth: document.getElementById('mlSmoothLever').checked,
+    };
+    const noteEl = document.getElementById('multiLeverNoLeversNote');
+    if (!options.includeRoth && !options.includeHarvest && !options.includeSmooth) {
+      noteEl.hidden = false;
+      document.getElementById('multiLeverResult').hidden = true;
+      return;
+    }
+    noteEl.hidden = true;
+    const btn = e.target;
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Optimizing…';
+    // Same paint-before-block yield as the per-year Roth optimizer above —
+    // this run can cost noticeably more (up to 3 active levers × up to 5
+    // structured starts × coordinate-ascent passes), so the button state
+    // needs to actually be visible before the main thread blocks.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        renderMultiLeverOptimizer(simulate(), options);
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }, 0);
+    });
+  });
   document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
@@ -9600,11 +9917,17 @@
   // that already exist in this closure).
   window.__test_simulate = simulate;
   window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
+  window.__test_optimizeMultiLever = optimizeMultiLever;
   window.__test_rothScheduleCost = rothScheduleCost;
   window.__test_setRothOverride = (m) => {
     rothBracketOverrideByAge = m;
   };
+  window.__test_setGainHarvestOverride = (m) => {
+    gainHarvestOverrideByAge = m;
+  };
+  window.__test_solveGainHarvest = solveGainHarvest;
   window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
+  window.__test_GAIN_HARVEST_CANDIDATES = GAIN_HARVEST_CANDIDATES;
 })();
 </script>
 </body>

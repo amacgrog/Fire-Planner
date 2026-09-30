@@ -5357,6 +5357,162 @@ gap for a per-year optimizer to close there.
 This feature lives on the `feature/roth-optimizer-per-year` branch, not
 yet merged to `main`.
 
+## Multi-lever withdrawal & conversion optimizer: gain harvesting + smoothed withdrawals (V48, US-only, same branch)
+
+Extends the per-year Roth optimizer above with two more independent
+levers, generalizing `optimizeRothLadderPerYear()` into
+`optimizeMultiLever(selected, { includeRoth, includeHarvest,
+includeSmooth })` — each lever off by default, so a run with none checked
+is a no-op and any subset can be tried alone or together. Motivated by
+asking what ProjectionLab's "capital gain harvesting" and "withdrawal
+shielding" features are actually for (see the chat that led here): the
+existing engine already tracks per-year cost basis dynamically
+(`state.taxableBasis`, updated every withdrawal via `drawTaxable()`'s
+pro-rata gain/basis split) but never *managed* that basis on purpose, and
+the withdrawal waterfall's taxable-vs-traditional split was either a
+fixed order or the existing flat `state.smoothWithdrawals` toggle, never
+searched.
+
+**Capital-gain harvesting (`solveGainHarvest()`, `gainHarvestOverrideByAge`).**
+Harvesting means selling an in-kind slice of the taxable brokerage
+account and immediately buying the same position back: no change in
+market exposure or account balance, but the realized gain is taxed now
+(often at 0%, in the room under the 0% LTCG bracket) and that slice's
+basis resets to today's price — permanently erasing the embedded gain
+rather than deferring its tax to a future year that might land in a
+higher bracket. Implemented as a second per-year override, mirroring
+`rothBracketOverrideByAge`'s exact idiom: `gainHarvestOverrideByAge` is a
+`Map<age, 'zero' | 'fifteen' | 0>`, consulted only in `simulate()` (not
+`simulateHistorical()`, matching the Roth override's scope), null in
+normal operation.
+
+- *Sizing:* `solveGainHarvest()` computes the room under the 0% or 15%
+  LTCG bracket ceiling (the same `zeroLimit`/`fifteenLimit`/`deduction`
+  constants `longTermGainTax()` uses) net of this year's ordinary income
+  and any Roth conversion already decided, capped by whatever MAGI room
+  the conversion lever didn't already claim and by how much gain the
+  taxable pool can actually supply (`taxablePool * gainRatio`). No
+  separate size cap beyond those — "unlimited" per the explicit design
+  discussion, since there's no downside to harvesting more within room
+  that's already safe.
+- *MAGI sharing:* the ACA-cliff/IRMAA-tier `magiCeiling` calculation that
+  used to live inside `if (state.rothConvEnabled...)` was pulled out to
+  compute unconditionally, so harvesting can use the same ceiling even in
+  a plan where the Roth ladder itself is off. The conversion lever gets
+  first claim on that shared room each year, harvest is sized off
+  whatever's left — a fixed claim order, like every other withdrawal
+  waterfall in this file, not a joint per-year optimization; the outer
+  coordinate-ascent driver still reaches every achievable combination by
+  varying each lever's own target across years independently.
+- *Funding and basis update:* the harvested gain is folded into `tax`
+  (`taxFor(profile, harvestGain, conversionAmount)`) the same way the
+  Roth conversion's tax already is — known up front, unlike a real
+  withdrawal's gain, which stays on the existing one-year MAGI lag. Its
+  basis effect is one line, applied alongside the conversion's
+  traditional→Roth transfer: `taxableBasis = Math.min(taxable,
+  taxableBasis + harvestGain)` — the pool itself is untouched (in-kind
+  sell/rebuy), only the basis rises by exactly the gain that was just
+  taxed. `taxableGainGross` (which used to always start at `0` each year
+  and get *overwritten* by the first regular withdrawal's own gain) now
+  starts at `harvestGain` and the two withdrawal-branch assignment sites
+  were changed from `=` to `+=` so a real withdrawal's gain adds to the
+  harvest's rather than replacing it — and both `drawTaxable()` calls in
+  that branch now pass `taxableGainGross` (the harvest amount) as
+  `priorGains` instead of a hardcoded `0`, so the withdrawal's own
+  incremental-tax bisection correctly sees that the harvest may have
+  already used up some of the 0%/15% room.
+- *A real, non-bug interaction found while verifying this:* forcing a
+  harvest in a year that *also* has a real portfolio withdrawal can
+  increase total cost, even though the harvest itself is taxed at 0%
+  federal — because the harvest's dollar of 0%-bracket room is no longer
+  available to the regular withdrawal's own gain that year, which gets
+  pushed into a higher bracket instead. This isn't a flaw in the
+  mechanism; it's exactly the tradeoff the optimizer exists to detect,
+  and it does — `notWorseThanSelected` plus every coordinate always
+  including a `0` ("don't harvest") candidate means a forced, unoptimized
+  full-window harvest can underperform, but the *optimizer's own*
+  recommendation never does (verified below). Confirmed with a favorable
+  scenario (bridge income sized to exactly cover spending during the
+  harvest window, so there's no same-year withdrawal competing for the
+  0% room, and real withdrawals resume once the bridge ends to cash in
+  the reset basis) that a genuine win is found and selected when one
+  exists.
+
+**Smoothed withdrawals (`includeSmooth`).** `state.smoothWithdrawals` is
+a single household-wide toggle (draw taxable/traditional proportionally
+to their balances instead of taxable-first), not a per-year choice, so
+"optimizing" it doesn't add a per-year coordinate — it just runs the
+whole multi-start coordinate-ascent search twice, once with the setting
+forced `true` and once forced `false` (`runForSmooth()`), and keeps
+whichever produces the lower cost. Doubles the eval budget consumption
+of a run but not its structural complexity.
+
+**Generalized driver.** `optimizeMultiLever()` replaces the old
+single-Map coordinate-ascent loop with one over a combined coordinate
+list — one entry per `(lever, age)` pair for whichever of Roth/harvest is
+included this run — cycling through both levers' years together each
+pass, so a move in one lever can be found and accepted alongside moves in
+the other within the same pass. Five structured starting points (not
+three, and not random) cover the corners a two-lever cliff-driven
+landscape can create: today's flat Roth setting with no harvest (useful
+on its own as "what would the flat optimizer recommend, scored on the
+wider objective"), nothing at all, both levers maxed, and each lever
+maxed *alone* — the last two specifically so a year where harvesting
+alone beats converting (or vice versa) isn't missed just because the
+other lever's aggressive start crowded out its MAGI room on the first
+pass. The eval budget (`ROTH_PER_YEAR_EVAL_BUDGET`) was raised from 3000
+to 6000 to accommodate the larger joint coordinate list and (when
+`includeSmooth` is on) the doubled outer loop; benchmarked at a 20-year
+window with all three levers on: ~2.3s with just Roth+harvest, ~3.5s
+with all three (hits the budget cap and returns the best schedule found
+so far) — both well inside "doesn't run for an incredibly long time."
+`optimizeRothLadderPerYear()` is kept as a thin Roth-only wrapper around
+the general driver (`optimizeMultiLever(selected, { includeRoth: true
+})`, reshaping the field names back to the original single-lever shape)
+so the existing flat-window card and its whole test suite needed zero
+changes.
+
+**UI.** A new, separate `#multiLeverOptimizerCard` — deliberately *not*
+nested inside `#rothOptimizerCard` and not gated on
+`state.rothConvEnabled`, since harvest-only or smooth-only runs need to
+work whether or not the Roth ladder itself is on. Three checkboxes
+(`#mlRothLever`/`#mlHarvestLever`/`#mlSmoothLever`), all unchecked by
+default and not wired into `state`/scenario export — read directly from
+the DOM at click time, the same "display choice, not state" pattern
+`SENSITIVITY_LEVERS`' checkboxes already use. The results table's columns
+are built dynamically around whichever per-year levers actually ran
+(`Roth target`/`Conversion $` and/or `Harvest target`/`Harvest $`), and
+hidden entirely when only the smooth lever ran (there's no per-year
+schedule to show, just the on/off recommendation in the summary line).
+Same async-yield-before-blocking-compute pattern as the per-year Roth
+button (`requestAnimationFrame` + `setTimeout(...,0)` so the
+"Optimizing…" disabled state actually paints).
+
+**Testing.** `test_multi_lever_optimizer.js` (ad-hoc, gitignored, run
+individually): `solveGainHarvest()` sizing verified against a
+hand-computed 0%-bracket ceiling and the `0`-sentinel guard; an
+end-to-end basis-correctness test proving a forced harvest schedule
+lowers total cost in the favorable scenario described above; a
+harvest-only optimizer test confirming it discovers that same win on its
+own and never recommends worse than doing nothing; a guardrail test
+under a stressed scenario; a monotonic-improvement test (Roth+harvest
+together is never worse than either alone); a smooth-lever test
+confirming the optimizer's pick matches whichever of forced-on/forced-off
+is actually cheaper; a backward-compatibility test that the Roth-only
+wrapper still matches the general driver exactly; a determinism test
+under the full 3-lever search; a 20-year/all-3-levers performance test;
+and a no-levers-checked edge case. All 17 pass, alongside the original
+11-test Roth-only suite (still green — the wrapper is trivially
+provably-equivalent, but re-run for real rather than assumed) and
+`npm test`'s golden math (unaffected — this only adds new code paths
+gated behind explicit overrides that default to null/unchecked).
+
+`Planner_Canada.html` is untouched for the same reason as the per-year
+Roth optimizer above: no ACA/IRMAA-style MAGI cliff for gain harvesting
+to be optimized against, and Canada's RRSP withdrawals carry no
+age-based penalty needing a "smoothed" withdrawal order to protect
+against either.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
