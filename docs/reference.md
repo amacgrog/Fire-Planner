@@ -4678,6 +4678,35 @@ to Canada's `.chart-view-toggle` CSS rule (along with the also-missing
 `.chart-view-toggle button:disabled{opacity:.4;cursor:not-allowed}` rule
 the US file has), fixed in the same commit as this feature.
 
+**Follow-up (V38/V11): reflow the toolbar rows horizontally in expanded
+mode.** First-pass feedback: on a landscape phone especially, each toggle
+row (view/x-axis/±1yr-3yr-CAGR/shift/path-count) still claimed a full
+line top-to-bottom regardless of how little width its own buttons
+actually needed, compressing the canvas vertically even though there was
+spare width doing nothing beside each row.
+
+Wrapped the toolbar rows (`#chartGroupRow` — newly given an id, it was
+previously an anonymous `<div>` — through `#mcPathCountRow`) in a new
+`#chartToolbar` container. `#chartToolbar{display:contents}` by default
+makes the wrapper a complete no-op outside expanded mode: `display:
+contents` removes the wrapper from the box-rendering tree entirely, so
+its children lay out exactly as if it weren't there — no change to the
+normal (non-expanded) view at all, and no need to duplicate any of that
+view's existing CSS. Inside `.chart-expanded`, the same selector switches
+to `display:flex;flex-wrap:wrap`: each toggle row is already its own
+self-contained `display:flex` group (view buttons, or a label + button
+group), so as flex *items* of this wrapping row they naturally sit side
+by side and only drop to an additional line once they collectively run
+out of horizontal room — verified this actually reduces the row count
+(2 lines instead of 4-5 for a scenario with the "Fix one partner" shift
+row showing, at a simulated 844×390 landscape phone size), which
+measurably grew the canvas's available height in the same layout.
+
+Also bumped `#chartExpandBtn` itself from 30×30px to 38×38px under the
+existing `@media(max-width:520px)` breakpoint (already used elsewhere in
+this file for other mobile-only sizing) — easier to hit reliably with a
+thumb; unchanged at desktop widths.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
