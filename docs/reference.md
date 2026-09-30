@@ -4707,6 +4707,67 @@ existing `@media(max-width:520px)` breakpoint (already used elsewhere in
 this file for other mobile-only sizing) — easier to hit reliably with a
 thumb; unchanged at desktop widths.
 
+## Bigger expand icon + toolbar-collapse toggle (V39/V12)
+
+Two follow-ups from trying the reflowed toolbar above:
+
+**The ⤢ glyph inside `#chartExpandBtn` looked tiny relative to its
+button box.** The button had no `display:flex` centering and only a
+`.9rem` font-size, so the glyph sat small and slightly off-center rather
+than filling the button. Added `display:flex;align-items:center;
+justify-content:center` and bumped the font-size to `1.15rem` (`1.35rem`
+under the mobile breakpoint, up from `1.15rem`) — the same rule now also
+covers the new `#chartToolbarToggleBtn` below, since both are small
+square icon buttons that want identical sizing/centering.
+
+**New `#chartToolbarToggleBtn`** ("⌃"/"⌄", toggling between "Hide chart
+options"/"Show chart options") collapses `#chartToolbar` (the whole
+view/x-axis/shift/path-count row group added earlier this session)
+entirely out of the DOM's visual flow via `display:none!important`, on
+top of whatever `display:contents`/`display:flex` state that same
+element is already in from the reflow feature — "clear the way for
+expanding the chart more vertically once the right settings are picked."
+`chartToolbarCollapsed` is a new display-only closure var, independent
+of `chartExpanded`.
+
+**Scoped to only where it actually helps, via CSS conditions on both the
+button's own visibility and the hiding effect — not JS logic.** On an
+ordinary desktop-width, non-expanded view, `.chart-wrap` is a *fixed*
+height (it's only `flex:1`, competing with the toolbar for space, inside
+`.chart-expanded`), so collapsing the toolbar there wouldn't grow the
+canvas at all — there's nothing to gain, so the button stays hidden
+(`display:none` by default). It's shown, and the collapse actually has
+an effect, under exactly two conditions, matching what was asked for:
+`.chart-expanded` (any viewport — the canvas directly grows into
+whatever space the toolbar frees up), and `@media(max-width:520px)`
+(mobile width, even without expanding — the canvas itself doesn't grow
+since `.chart-wrap` is still fixed-height there, but there's less to
+scroll past above the chart card, and the expand button stays reachable
+right next to it). Both the button's `display` and the
+`.chart-toolbar-collapsed #chartToolbar{display:none!important}` hiding
+rule use the *same* two conditions (`.chart-expanded.chart-toolbar-
+collapsed` and the matching `@media` block), rather than one shared
+`.chart-toolbar-collapsed` selector covering all cases — this was
+deliberate, to close off a stuck-hidden trap: if the class merely
+persisted (e.g. collapsed while expanded, then the person exits expanded
+back onto a wide desktop window) but only the *hiding* rule ignored
+context while the *button's* visibility rule respected it, the toolbar
+could end up invisible with no remaining way to bring it back. As a second,
+belt-and-suspenders layer against that same trap, `setChartExpanded(false)`
+also explicitly calls `setChartToolbarCollapsed(false)` — so leaving
+expanded mode always resets the collapsed flag outright, not just relying
+on the CSS scoping alone.
+
+Verified: toggle button hidden at desktop-width non-expanded; visible
+and functional once expanded (canvas measurably grew after collapsing,
+e.g. 592px → 640px tall in one test run); visible and functional at
+390px-wide mobile portrait without expanding (toolbar hides, expand
+button stays reachable, no horizontal overflow); collapsing then
+exiting expanded mode via Escape correctly resets both the collapsed
+class and the icon/toolbar back to their normal state, confirming no
+stuck-hidden case. `npm test` unaffected (UI-only), identical behavior
+ported to `Planner_Canada.html`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
