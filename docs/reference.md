@@ -5032,6 +5032,108 @@ just `getComputedStyle`) that the button is genuinely unreachable, and
 (no overflow introduced). `npm test` passed unchanged (no math touched).
 Identical implementation ported to `Planner_Canada.html`.
 
+## Category rail for the inputs sidebar (V44/V17)
+
+Second piece of the same "give desktop more room" request, and the
+higher-risk direction the person explicitly chose over the smaller
+recommended option: rather than just a jump-nav that scrolls to and
+force-opens an existing `<details class="group">`, this actually
+*hides* every group but the selected category, cutting down how far
+you have to scroll through a long sidebar to reach e.g. "Advanced."
+Hide/show of individual dashboard cards and drag-and-drop widget
+reordering, both mentioned in the same original ask, remain unbuilt.
+
+**Markup**: the sidebar's existing flat sequence of top-level
+`<details class="group">` elements (17 in US, 16 in Canada, each tagged
+with a `data-cat` attribute — `scenarios`/`profile`/`timeline`/
+`income`/`spending`/`assets`/`housing`/`healthcare`/`extra`/`advanced`)
+is now wrapped in `<div class="panel-body" id="panelBody"><nav
+class="category-rail" id="categoryRail">` (one button per category,
+plus an `all` button) `</nav><div class="category-fields"
+id="categoryFields">...groups...</div></div>`, sitting below
+`.field-search-wrap` and above where the groups used to start directly.
+The one pre-existing *nested* `<details class="group"
+id="spendingTiersGroup">` (inside "Household spending") is deliberately
+left untagged — `setActiveCategory()` only ever queries direct children
+of `#categoryFields` (`#categoryFields > details.group`), so a nested
+group is never independently hidden/shown and just rides along with its
+parent.
+
+**Filtering is JS-driven `style.display` toggling, not CSS.** CSS has
+no way to match one element's `data-cat` against a *different*
+element's (the currently-active rail button) state, so
+`setActiveCategory(cat)` does the work directly: sets `activeCategory`,
+toggles `.active` on the matching rail button, and loops
+`#categoryFields > details.group` setting `style.display = ''` (shown)
+or `'none'` (hidden) per group, based on whether `cat === 'all'` or the
+group's own `data-cat` matches. It also resets `.panel`'s `scrollTop` to
+0 — clicking a category while scrolled halfway down the sidebar should
+land you at the top of the new filtered set, not wherever the scroll
+position happened to be.
+
+**Desktop-only via the same viewport-width pattern already used for the
+collapsible sidebar**, not a specificity fight: `#categoryRail{display:
+none}` lives inside the existing `@media(max-width:820px)` block, and
+`setActiveCategory()` itself checks `window.innerWidth > 820` before
+ever hiding a group — so on mobile, no matter what `activeCategory`
+currently is, every group always shows (`show = cat === 'all' ||
+!isDesktop || group.dataset.cat === cat`). This mirrors the
+collapsible-sidebar entry above's reasoning for scoping rather than
+relying on CSS specificity, just enforced in JS here since the
+filtering itself is JS, not CSS.
+
+**A filter chosen on desktop can't strand a resized-down mobile view.**
+The existing `window resize` handler (already calling `render()`,
+`syncTopbarHeight()`, `syncPanelMaxHeight()`) now also calls
+`setActiveCategory(activeCategory)` — re-running the same filter against
+the new width's `isDesktop` check. Crossing down to mobile mid-session
+(not just a hard reload) shows every group immediately, and crossing
+back up to desktop restores whatever filter was active before, rather
+than silently resetting it or leaving it stuck.
+
+**`jumpToSearchField()` and `jumpToEstimateField()` both reset the
+filter to `'all'` first**, before doing any of their existing
+group-opening/scrolling/focusing work. Without this, a search hit or a
+"Review →" jump for a field outside the currently-filtered category
+would land inside a `display:none` group — the group would still get
+force-opened via its own `<details open>` toggle, but the element stays
+invisible and unreachable, and the scroll-into-view math would measure
+a zero-size, off-screen target. Resetting to `'all'` first guarantees
+the target group is always visible by the time the rest of the function
+runs.
+
+**Not persisted to localStorage**, unlike `sidebarCollapsed`. A category
+filter is a "where am I looking right now" navigational state, not a
+standing layout preference — it always starts at `'all'` on a fresh
+load, deliberately, so a returning visitor is never stuck on a narrow
+filter they've forgotten about from a previous session.
+
+**Styling** reuses the app's existing small-pill visual language
+(`.chart-view-toggle`'s look) rather than a new icon set — text labels
+were chosen over icons since ~10 distinct financial categories
+("Retirement & healthcare," "Other income," etc.) don't have obvious,
+unambiguous pictograms, and this tool's users are already reading dense
+text-heavy forms.
+
+Verified via Playwright on both files: clicking a category pill shows
+only that category's groups and hides the rest (group count checked via
+`getComputedStyle().display`); the default "All" filter matches the
+pre-feature behavior exactly (every group visible); a field search hit
+and a "Review →" estimated-field jump each correctly reset an active
+filter back to "All" and land on/highlight the right field even when it
+belongs to a different category than the one previously selected;
+resizing down to 390px mobile width shows every group regardless of the
+selected filter and hides `#categoryRail` entirely (confirmed 0×0
+bounding rect, not just `getComputedStyle`); resizing back up to desktop
+restores the previously-active filter; `document.documentElement.
+scrollWidth > clientWidth` stayed `false` at 390px. `npm test` passed
+unchanged (no math touched). Identical implementation ported to
+`Planner_Canada.html`, whose 16 top-level groups map onto the same ten
+categories (its single "Province of residence" group takes the
+`profile` slot that US splits across two groups; its "Pre-retirement
+healthcare" and "Retirement income & healthcare (CPP, OAS, pensions)"
+groups both take `healthcare`, mirroring US's ACA/Medicare split).
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
