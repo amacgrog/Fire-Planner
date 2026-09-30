@@ -4533,10 +4533,6 @@ never said *which* starting year they were, only the color. Two changes,
 requested together ("when viewing the red years it'd be interesting to
 know which start years cause failures"):
 
-- **`noteEl` now lists every depleted starting year by name** (`cycles.filter((c) => c.depletedAge).map((c) => c.startYear)`,
-  joined into the existing note text), so the full list is visible without
-  hovering at all — `simulateHistorical()` already returns `startYear:
-  rowFn(0)[0]` on every cycle, so no new simulation data was needed.
 - **`chartHoverEnabled()` now includes `'hist'`** (previously only
   `'3yr'/'1yr'/'cagr'`), and `initChartHover()`'s `handleMove()` branches
   on `chartView === 'hist'` before building the tooltip. The existing
@@ -4564,6 +4560,21 @@ the two files at every site touched (`chartHoverEnabled()`, the hist
 branch's `noteEl.textContent`, and `handleMove()`'s tooltip-building
 block), since none of this touches tax/simulation logic, only chart
 rendering that's already shared in shape between the two planners.
+
+**Follow-up (V36/V9)**: the first pass (above) also listed every depleted
+starting year by name in `noteEl`'s text. Dropped after feedback that a
+rougher scenario — high spending, low returns, an aggressive retirement
+age — can fail dozens of the ~40-70 replayed starting years, and a long
+comma-separated year list crowds the note area under the chart (`.chart-
+note`, outside the fixed-height `.chart-wrap` but still on-page real
+estate) for little benefit once hovering any line already identifies it
+directly. `noteEl` now just points at hover ("Hover over any line to see
+its starting year, outcome, and value at that age.") without enumerating
+years; the existing `sub.textContent` success-rate line above the chart
+(`Portfolio survived to the end of the projection in X of Y historical
+starting years`) already gives the count. The hover-identification
+mechanism itself (`chartHoverEnabled()`, the nearest-line `handleMove()`
+branch) is unchanged from the V35/V8 pass above.
 
 ## Commit conventions
 
