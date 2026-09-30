@@ -4192,14 +4192,23 @@ per partner rather than as one household-wide toggle — matching how a real
   *non-exempt* partner's real share is what's penalized, not an assumed
   half, so it now moves correctly with the ownership-split slider instead
   of always splitting 50/50 regardless of the real balance split.
-- **UI**: a new range slider ("Traditional balance ownership split") added
-  to the "Withdrawal & tax strategy" sidebar group, `data-partner-b`-gated
-  like the couple-only fields elsewhere, with a live `"NN% / MM%"` readout
-  (`#traditionalSharePctAOut`, wired the same way `#basisRatioOut` already
-  was — both the `syncControls()` full-refresh path and the per-input
-  live-update path in the `ids.forEach` handler). The old single "72(t)
-  SEPP payments" checkbox became two: "72(t) SEPP payments — Partner A" and
-  "— Partner B," the latter `data-partner-b`-gated.
+- **UI**: a new range slider ("Traditional balance ownership split") added,
+  `data-partner-b`-gated like the couple-only fields elsewhere, with a live
+  `"NN% / MM%"` readout (`#traditionalSharePctAOut`, wired the same way
+  `#basisRatioOut` already was — both the `syncControls()` full-refresh path
+  and the per-input live-update path in the `ids.forEach` handler). The old
+  single "72(t) SEPP payments" checkbox became two: "72(t) SEPP payments —
+  Partner A" and "— Partner B," the latter `data-partner-b`-gated.
+  **UI polish pass (V29→V30)**: the slider was moved from the "Withdrawal &
+  tax strategy" group into "Assets" (directly under the "Traditional
+  retirement" balance field it governs — the natural place to set an
+  ownership split for a balance you're looking right at), and its `<small>`
+  description was cut from a multi-sentence paragraph down to one short
+  line. Both SEPP checkboxes' descriptions were similarly trimmed. `.range-
+  value` gained `white-space:nowrap;flex-shrink:0` so the `"NN% / MM%"`
+  readout chip can no longer wrap onto two lines when squeezed by a long
+  label in the same flex row — a fix that applies to every range-value chip
+  in the app, not just this one, since none of them were meant to wrap.
 - **MCP tool schema**: `sepp72tEnabled: { type: 'boolean' }` in
   `update_fire_assumptions`'s schema/allow-list replaced with
   `sepp72tEnabledA`/`sepp72tEnabledB` entries;
