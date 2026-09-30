@@ -5779,6 +5779,152 @@ impact, and Canada has no ACA/IRMAA-style MAGI cliff for it to optimize
 against (RRSP/RRIF withdrawals carry withholding tax already captured in
 `taxFor()`, but no age-based penalty or income-tested healthcare cliff).
 
+## Live withdrawal-mix toggle: applying the mix lever to the actual plan, not just a report (V52, US-only, same branch)
+
+Follow-up from the same user, right after the V51 write-up above: could
+the main projection actually *use* the withdrawal-mix lever instead of
+it only existing as a separate what-if report? The literal ask was a
+sidebar checkbox alongside `smoothWithdrawals`. The blocker is cost:
+`optimizeMultiLever()` is a lifetime coordinate-ascent search that calls
+`simulate()` thousands of times on its own, and `simulate()` itself is
+already called dozens of times per `render()` (current settings,
+±1yr/±3yr lines, sensitivity sweeps, Monte Carlo paths) — wiring the full
+search directly into every keystroke would turn an instant UI into a
+multi-second one. Presented three options and the user picked **"both"**:
+a new, cheap, always-on live toggle for everyday use, *and* keep the
+existing heavier optimizer exactly as it was (an on-demand report,
+applied by hand) — deliberately mirroring how the Roth conversion ladder
+already offers both shapes (an always-on flat bracket target, and a
+separate, heavier per-year optimizer that's a report only).
+
+**`state.withdrawalMixEnabled` / `pickLiveWithdrawalMix()`.** A new
+boolean, off by default, wired the same way `smoothWithdrawals` is (no
+`ids`/`normalizeState` guard needed — plain boolean, merged automatically
+by `{...defaults, ...raw}`). When on, `simulate()`'s withdrawal branch
+computes `mixCandidate` for each in-need year via
+`pickLiveWithdrawalMix()` instead of defaulting to `0` — a **one-year
+lookahead heuristic**, not a lifetime search: for each of the real
+`WITHDRAWAL_MIX_CANDIDATES` (skipping the `0` sentinel), it does a cheap
+dry-run of that candidate's taxable/traditional/Roth split (via the same
+`drawTaxable()` and a new `solveTraditionalForNet()` helper — see below)
+and picks whichever minimizes **this year's own incremental tax + early-
+withdrawal penalty**, with one addition: a candidate that would realize
+more ordinary/gain income than `remainingMagiRoom` (see below) is always
+ranked behind one that doesn't, via a `overage * 1e6` term in its cost —
+effectively lexicographic ("first avoid a known MAGI overage, then
+minimize this year's tax"), not a calibrated dollar-for-dollar estimate
+of the overage's real cost. This whole evaluation is just ~7 candidates ×
+a ~24-iteration bisection each — cheap enough to run inline on every
+`simulate()` call without any perceptible lag, unlike the full search.
+
+**Why a one-year lookahead still catches the ACA/IRMAA cliff, even
+though the app's own MAGI accounting has a 1-2 year lag.** `acaNetCost()`
+uses `magiProxy`, which is last year's realized income (the one-year lag
+already documented for the Roth ladder); `irmaaSurcharge()` uses a
+two-year lag. So a purely "minimize this year's own tax" comparison,
+taken alone, would be blind to the fact that *this* year's realized
+income is what tips *next* year's (or two years out) healthcare cost —
+exactly the blind spot a real greedy, single-year-only evaluator would
+have. Rather than inventing new machinery to project a future year's
+MAGI ceiling, this reuses what already exists: `magiCeiling`/
+`magiSafeRoom`, computed just above in the same `simulate()` pass to size
+the Roth conversion's own room under the ACA-cliff/IRMAA-tier ceiling.
+`magiSafeRoom` was lifted from that block's local `const` to an
+outer-scoped `let` (the block's only other change) so the withdrawal
+branch can read it too; `remainingMagiRoom = Math.max(0, magiSafeRoom -
+conversionAmount)` — whatever of that same safe room the conversion
+lever didn't already claim this year. A withdrawal candidate is scored
+against what's *left* of the ceiling after conversions, the same
+first-claim ordering every other shared-room calculation in this file
+already uses (documented back in the V48 section above for harvesting,
+which claimed room the same way before it was removed).
+
+**`solveTraditionalForNet()`: a real de-duplication, not just new code.**
+The mix branch, the `smoothWithdrawals` branch, and the plain
+taxable-first default each carried their own copy of the same 24-
+iteration bisection (solving for how much gross traditional withdrawal
+nets a target amount after tax + early-withdrawal penalty) — three
+near-identical ~20-line blocks that had already drifted slightly (the
+default branch's search bracket started at `[need, need*6+1]`; the
+mix/smooth branches used `[0, traditionalShare*3+1]`). Pulling this out
+into one shared `solveTraditionalForNet(traditionalBal, targetNet,
+taxableGainGross, traditionalGross, profile, penalizedFraction)` was a
+prerequisite for `pickLiveWithdrawalMix()` anyway (it needs the exact
+same bisection to dry-run each candidate), so all three existing call
+sites were switched to call it too rather than leaving a fourth copy.
+Standardized on `[0, min(traditionalBal, targetNet*6+1)]` for every call
+site (a superset of the old narrower bounds) — bisection's 24-iteration
+precision is unaffected by a wider starting bracket (2^24 halvings of a
+6×-wider range is still far finer than a cent), and the boundary case
+where the true solution would exceed the available traditional balance
+still converges to `traditionalBal` exactly as before (verified: `npm
+test`'s golden math, `test_roth_optimizer_per_year.js` (11/11), and
+`test_multi_lever_optimizer.js` (31/31) all pass unchanged after this
+refactor — bit-for-bit identical results, not just "close enough").
+
+**Priority order, unchanged in shape.** `mixCandidate` resolves to (1) an
+explicit optimizer-search override (`withdrawalMixOverrideByAge`, only
+ever set transiently during an "Optimize" run or its display
+re-simulation) if one is set for this age, else (2) the live picker's own
+choice if `state.withdrawalMixEnabled` and there's a real `need` this
+year, else (3) `0` ("no override"), which then falls through to
+`smoothWithdrawals` if that's on, else the plain taxable-first default —
+same three-tier fallback structure the V51 write-up already described,
+just with a real (rather than always-null) source feeding tier (2) in
+normal live use. The sidebar's `smoothWithdrawals` checkbox label now
+notes "(has no effect while 'Optimized withdrawal mix' below is on)",
+since tier (2) always wins over tier (3) when both are checked.
+
+**Scope: `simulate()` only, not `simulateHistorical()`.** Same boundary
+as the existing `withdrawalMixOverrideByAge`/`rothBracketOverrideByAge`
+and `smoothWithdrawals` before it — the historical backtest and Monte
+Carlo views keep their own bucket-strategy withdrawal order (cash → bond
+reserve → taxable → traditional → Roth, sized for sequence-of-returns
+protection), which this live toggle does not touch.
+
+**What this deliberately doesn't do.** It's not a replacement for the
+full `optimizeMultiLever()` search above — a real multi-year tradeoff
+(e.g. "draw down Roth a little extra this year to preserve more MAGI
+room three years from now, even though that's not the cheapest thing to
+do this year in isolation") is invisible to a one-year lookahead by
+construction. The live toggle is the fast, always-current default; the
+optimizer card remains the deeper, occasional, apply-by-hand tool for
+squeezing out more — exactly the same division of labor the Roth ladder
+already had before any of this withdrawal-mix work started.
+
+**UI.** New checkbox `#withdrawalMixEnabled`, directly below
+`#smoothWithdrawals` in "Withdrawal & tax strategy," off by default, with
+`<small>` text explaining the one-year-lookahead/MAGI-room framing and
+pointing at the fuller optimizer below for anyone who wants more. Synced
+in the same block as `smoothWithdrawals` (`syncControls()`) and wired
+with its own plain `change` listener (`render()` + `saveInputs()`, no
+`syncControls()` call needed — nothing else's visibility depends on it).
+Added to the `update_fire_assumptions` MCP tool's schema and
+`execute()` allow-list (boolean, alongside `rothConvEnabled`) — notably,
+`smoothWithdrawals` itself was never added to that allow-list in any
+earlier version; this new field gets it done correctly rather than
+inheriting that pre-existing gap.
+
+**Testing.** New `test_live_withdrawal_mix.js` (ad-hoc, gitignored): the
+checkbox is off by default; toggling it on changes at least one year's
+`mixCandidate` and produces real non-default picks; toggling on then off
+reproduces the untouched plan exactly (depleted age and final assets both
+match); a `pickLiveWithdrawalMix()` unit test with a deliberately tiny
+`remainingMagiRoom` confirms it favors Roth over taxable/traditional (the
+MAGI-overage lexicographic preference actually fires); a companion test
+with `remainingMagiRoom: Infinity` confirms it still returns one of the
+real candidates when there's no cliff to avoid; and a combined live-mix +
+Roth-ladder run confirms the two toggles coexist without throwing and
+without depleting the portfolio earlier than the plain default. All 7
+pass. `test_roth_optimizer_per_year.js` (11/11) and
+`test_multi_lever_optimizer.js` (31/31) re-verified unaffected by the
+`solveTraditionalForNet()` refactor. Golden math (`npm test`) unaffected.
+Mobile-width check (390×844) clean for the new sidebar field.
+
+`Planner_Canada.html` is untouched, for the same reason the mix lever
+itself is US-only (see V51 above): no ACA/IRMAA-style MAGI cliff for a
+live picker to avoid tipping.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

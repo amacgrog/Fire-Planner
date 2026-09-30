@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V51</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V52</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -482,7 +482,8 @@
         </details>
         <details class="group" data-cat="advanced">
           <summary><span class="group-summary-text"><span class="group-title">Withdrawal & tax strategy</span><span class="group-state" id="withdrawalStrategyGroupState"></span></span></summary>
-          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and traditional proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
+          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across accounts<small>Draws from taxable and traditional proportional to their balances each year instead of draining taxable first, so taxable income stays flatter and doesn't jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order. Has no effect while "Optimized withdrawal mix" below is on.</small></label></div>
+          <div class="field"><label for="withdrawalMixEnabled"><input id="withdrawalMixEnabled" type="checkbox"> Optimized withdrawal mix (live)<small>Each year, picks whichever taxable/traditional/Roth split (from the same menu the Withdrawal &amp; conversion optimizer below searches) minimizes that year's own tax + early-withdrawal penalty, treating Roth as a real lever rather than a last-resort fallback — and avoids realizing more income than the year's ACA-subsidy/IRMAA safe room, the same ceiling the Roth conversion ladder above already respects. This is a fast, always-current heuristic based on that year's own numbers (a one-year lookahead, not a lifetime plan) — for a deeper, multi-year-aware schedule, use the optimizer below and apply its recommendation by hand. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.</small></label></div>
           <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>Simplified dynamic-spending strategy: instead of a fixed inflation-adjusted spending amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; toggle on to compare outcomes.</small></label></div>
           <div class="field"><label for="rothConvEnabled"><input id="rothConvEnabled" type="checkbox"> Enable Roth conversion ladder<small>Converts traditional balances to Roth each year in the window below, filling ordinary income up to the top of the selected federal bracket — automatically capped short of the ACA subsidy cliff (400% FPL, non-enhanced mode) and the next Medicare IRMAA tier, whichever binds first, so the bracket target is a ceiling rather than a guarantee.</small></label></div>
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
@@ -741,6 +742,7 @@
     cashReserve: 30000,
     bondYears: 5,
     smoothWithdrawals: false,
+    withdrawalMixEnabled: false,
     guardrailsEnabled: false,
     survivorEnabled: false,
     survivorPartner: 'A',
@@ -3025,6 +3027,109 @@
         return null; // 0, or an unrecognized id — "no override this year"
     }
   }
+  // Solves for how much must come out of the traditional balance so that,
+  // net of the tax (and early-withdrawal penalty, if applicable) that
+  // marginal withdrawal itself triggers, `targetNet` actually lands in
+  // hand — the same bisection every withdrawal branch below needs (a
+  // traditional withdrawal's own tax depends on its size, so the size
+  // can't be solved for directly). Pulled out as a shared helper so the
+  // mix/smoothed/default branches and the live greedy picker below don't
+  // each carry their own copy of this loop.
+  function solveTraditionalForNet(
+    traditionalBal,
+    targetNet,
+    taxableGainGross,
+    traditionalGross,
+    profile,
+    penalizedFraction,
+  ) {
+    if (traditionalBal <= 0 || targetNet <= 0) return { fromTrad: 0, tradNet: 0, penalty: 0 };
+    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    let lo = 0,
+      hi = Math.min(traditionalBal, targetNet * 6 + 1);
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2,
+        net =
+          mid -
+          (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+          mid * 0.1 * penalizedFraction;
+      if (net < targetNet) lo = mid;
+      else hi = mid;
+    }
+    const fromTrad = Math.min(traditionalBal, hi),
+      penalty = fromTrad * 0.1 * penalizedFraction,
+      tradNet =
+        fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
+    return { fromTrad, tradNet, penalty };
+  }
+  // Live, always-cheap sibling of the multi-lever optimizer's full
+  // lifetime coordinate-ascent search above — the search is too expensive
+  // to re-run on every render (it calls simulate() thousands of times), so
+  // it stays an explicit, on-demand "Optimize" report. This instead picks,
+  // inline inside a single simulate() pass, whichever of the same
+  // WITHDRAWAL_MIX_CANDIDATES weightings minimizes THIS year's own
+  // incremental tax + early-withdrawal penalty — a one-year-lookahead
+  // heuristic, not a lifetime search, the same tradeoff the Roth ladder's
+  // always-on flat bracket target already makes against its own per-year
+  // optimizer. `remainingMagiRoom` is the same ACA-cliff/IRMAA-tier safe
+  // ceiling already computed for sizing this year's Roth conversion (see
+  // magiSafeRoom in simulate()); a candidate that would realize more
+  // ordinary/gain income than that remaining room is always ranked behind
+  // one that doesn't (the *1e6 term below), since that overage's real
+  // cost lands on a future year's healthcare premium via the one-year
+  // MAGI lag and isn't something this year's own tax comparison alone
+  // would ever catch — only once no candidate fits under the room does
+  // this fall back to plain this-year tax-minimization among all of them.
+  function pickLiveWithdrawalMix(
+    need,
+    taxableBal,
+    traditionalBal,
+    rothBal,
+    taxableBasis,
+    profile,
+    taxableGainGross,
+    traditionalGross,
+    penalizedFraction,
+    remainingMagiRoom,
+  ) {
+    let best = 0,
+      bestCost = Infinity;
+    for (const candidate of WITHDRAWAL_MIX_CANDIDATES) {
+      if (!candidate) continue; // skip the 0 "no override" sentinel
+      const weights = withdrawalMixWeights(candidate, taxableBal, traditionalBal, rothBal);
+      if (!weights) continue;
+      const [wTaxable, wTraditional] = weights;
+      const taxableShare = need * wTaxable,
+        traditionalShare = need * wTraditional;
+      const taxableDraw = drawTaxable(
+        taxableBal,
+        taxableBasis,
+        taxableShare,
+        profile,
+        taxableGainGross,
+        traditionalGross,
+      );
+      const { fromTrad, penalty } = solveTraditionalForNet(
+        traditionalBal,
+        traditionalShare,
+        taxableGainGross + taxableDraw.gain,
+        traditionalGross,
+        profile,
+        penalizedFraction,
+      );
+      const incrementalTax =
+        taxFor(profile, taxableGainGross + taxableDraw.gain, traditionalGross + fromTrad) -
+        taxFor(profile, taxableGainGross, traditionalGross) +
+        penalty;
+      const overage = Math.max(0, taxableDraw.gain + fromTrad - remainingMagiRoom);
+      const cost = overage * 1e6 + incrementalTax;
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = candidate;
+      }
+    }
+    return best;
+  }
   function wageFica(wages, yearIndex) {
     const f = Math.pow(1 + pct(state.inflation), yearIndex);
     return Math.min(wages, 184500 * f) * 0.062 + wages * 0.0145;
@@ -3609,6 +3714,12 @@
               year,
             };
       let conversionAmount = 0;
+      // Lifted out of the block below (rather than left as the block's own
+      // const) so the withdrawal waterfall further down can also respect
+      // the same safe-MAGI ceiling once conversionAmount has already
+      // claimed its own share of it — see pickLiveWithdrawalMix's use of
+      // remainingMagiRoom.
+      let magiSafeRoom = Infinity;
       {
         // Lagged, same as magiProxy below — see prevTraditionalGross's
         // declaration comment near the top of this function.
@@ -3647,7 +3758,7 @@
         ) {
           magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
         }
-        const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
+        magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
           const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
           conversionAmount = solveRothConversion(profile, conversionCap, year, age);
@@ -3892,10 +4003,24 @@
                 : earlyExemptA
                   ? 1 - pctA
                   : pctA;
+        const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
         const mixCandidate =
           withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
             ? withdrawalMixOverrideByAge.get(age)
-            : 0;
+            : state.withdrawalMixEnabled && need > 0
+              ? pickLiveWithdrawalMix(
+                  need,
+                  taxable,
+                  traditional,
+                  roth,
+                  taxableBasis,
+                  profile,
+                  taxableGainGross,
+                  traditionalGross,
+                  penalizedFraction,
+                  remainingMagiRoom,
+                )
+              : 0;
         const mixWeights = withdrawalMixWeights(mixCandidate, taxable, traditional, roth);
         if (mixWeights && need > 0) {
           // Optimized per-year withdrawal mix: draw taxable, traditional,
@@ -3904,7 +4029,12 @@
           // do, since Roth participates as a real lever here instead of
           // only being tapped as a last-resort fallback. Any shortfall
           // (a bucket running low, or empty) falls through to the same
-          // Roth/cash/bond/home order used below, unchanged.
+          // Roth/cash/bond/home order used below, unchanged. mixCandidate
+          // comes either from an explicit optimizer-search override (an
+          // "Optimize" run's applied schedule, or the optimizer report's
+          // own display re-simulation) or, failing that, from the live
+          // state.withdrawalMixEnabled toggle's own one-year-lookahead
+          // pick above — either way this branch doesn't care which.
           resolvedMixCandidate = mixCandidate;
           const [wTaxable, wTraditional, wRoth] = mixWeights;
           const taxableShare = need * wTaxable,
@@ -3924,28 +4054,18 @@
           taxableGainGross += taxableDraw.gain;
           taxableWithdrawn += taxableDraw.taken;
           if (traditionalShare > 0 && traditional > 0) {
-            const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
-            let lo = 0,
-              hi = Math.min(traditional, traditionalShare * 3 + 1);
-            for (let i = 0; i < 24; i++) {
-              const mid = (lo + hi) / 2,
-                net =
-                  mid -
-                  (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-                  mid * 0.1 * penalizedFraction;
-              if (net < traditionalShare) lo = mid;
-              else hi = mid;
-            }
-            const fromTrad = Math.min(traditional, hi),
-              tradPenalty = fromTrad * 0.1 * penalizedFraction,
-              tradNet =
-                fromTrad -
-                (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) -
-                tradPenalty;
+            const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
+              traditional,
+              traditionalShare,
+              taxableGainGross,
+              traditionalGross,
+              profile,
+              penalizedFraction,
+            );
             traditional -= fromTrad;
             traditionalGross += fromTrad;
             traditionalWithdrawn += fromTrad;
-            earlyPenalty += tradPenalty;
+            earlyPenalty += penalty;
             need = Math.max(0, need - tradNet);
           }
           if (rothShare > 0 && roth > 0) {
@@ -3984,28 +4104,18 @@
             taxableGainGross += taxableDraw.gain;
             taxableWithdrawn += taxableDraw.taken;
             if (traditionalShare > 0 && traditional > 0) {
-              const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
-              let lo = 0,
-                hi = Math.min(traditional, traditionalShare * 3 + 1);
-              for (let i = 0; i < 24; i++) {
-                const mid = (lo + hi) / 2,
-                  net =
-                    mid -
-                    (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-                    mid * 0.1 * penalizedFraction;
-                if (net < traditionalShare) lo = mid;
-                else hi = mid;
-              }
-              const fromTrad = Math.min(traditional, hi),
-                tradPenalty = fromTrad * 0.1 * penalizedFraction,
-                tradNet =
-                  fromTrad -
-                  (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) -
-                  tradPenalty;
+              const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
+                traditional,
+                traditionalShare,
+                taxableGainGross,
+                traditionalGross,
+                profile,
+                penalizedFraction,
+              );
               traditional -= fromTrad;
               traditionalGross += fromTrad;
               traditionalWithdrawn += fromTrad;
-              earlyPenalty += tradPenalty;
+              earlyPenalty += penalty;
               need = Math.max(0, need - tradNet);
             }
           }
@@ -4024,28 +4134,18 @@
           taxableGainGross += taxableDraw.gain;
           taxableWithdrawn += taxableDraw.taken;
           if (need > 0) {
-            const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
-            let lo = need,
-              hi = need * 6 + 1;
-            for (let i = 0; i < 24; i++) {
-              const mid = (lo + hi) / 2,
-                net =
-                  mid -
-                  (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-                  mid * 0.1 * penalizedFraction;
-              if (net < need) lo = mid;
-              else hi = mid;
-            }
-            const fromTrad = Math.min(traditional, hi),
-              tradPenalty = fromTrad * 0.1 * penalizedFraction,
-              tradNet =
-                fromTrad -
-                (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) -
-                tradPenalty;
+            const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
+              traditional,
+              need,
+              taxableGainGross,
+              traditionalGross,
+              profile,
+              penalizedFraction,
+            );
             traditional -= fromTrad;
             traditionalGross += fromTrad;
             traditionalWithdrawn += fromTrad;
-            earlyPenalty += tradPenalty;
+            earlyPenalty += penalty;
             need = Math.max(0, need - tradNet);
           }
         }
@@ -8081,6 +8181,7 @@
     document.getElementById('wizardCash').value = state.cash;
     document.getElementById('wizardSpending').value = state.spending;
     document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
+    document.getElementById('withdrawalMixEnabled').checked = !!state.withdrawalMixEnabled;
     document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
     document.getElementById('ruleOf55Enabled').checked = !!state.ruleOf55Enabled;
     document.getElementById('sepp72tEnabledA').checked = !!state.sepp72tEnabledA;
@@ -8616,6 +8717,11 @@
   });
   document.getElementById('smoothWithdrawals').addEventListener('change', (e) => {
     state.smoothWithdrawals = e.target.checked;
+    render();
+    saveInputs();
+  });
+  document.getElementById('withdrawalMixEnabled').addEventListener('change', (e) => {
+    state.withdrawalMixEnabled = e.target.checked;
     render();
     saveInputs();
   });
@@ -9956,6 +10062,7 @@
           ltcEnabled: { type: 'boolean' },
           acaEnabled: { type: 'boolean' },
           rothConvEnabled: { type: 'boolean' },
+          withdrawalMixEnabled: { type: 'boolean' },
           ruleOf55Enabled: { type: 'boolean' },
           sepp72tEnabledA: { type: 'boolean' },
           sepp72tEnabledB: { type: 'boolean' },
@@ -9983,6 +10090,7 @@
           if (k === 'ltcEnabled' && typeof v === 'boolean') state.ltcEnabled = v;
           if (k === 'acaEnabled' && typeof v === 'boolean') state.acaEnabled = v;
           if (k === 'rothConvEnabled' && typeof v === 'boolean') state.rothConvEnabled = v;
+          if (k === 'withdrawalMixEnabled' && typeof v === 'boolean') state.withdrawalMixEnabled = v;
           if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;
           if (k === 'sepp72tEnabledA' && typeof v === 'boolean') state.sepp72tEnabledA = v;
           if (k === 'sepp72tEnabledB' && typeof v === 'boolean') state.sepp72tEnabledB = v;
@@ -10043,6 +10151,7 @@
   window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
   window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
+  window.__test_pickLiveWithdrawalMix = pickLiveWithdrawalMix;
 })();
 </script>
 </body>
