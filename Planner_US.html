@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V28</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V29</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -332,8 +332,10 @@
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal bracket<small>The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it's also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="traditionalSharePctA">Traditional balance ownership split<small>The combined traditional 401(k)/IRA + bond-traditional balance above is tracked as one pooled household total, not two separate accounts. This only controls how that pooled total is divided between partners for RMD sizing/timing, 72(t) SEPP sizing, and the early-withdrawal-penalty fraction below — it doesn't change the total balance or its growth. Defaults to 50/50; set it to your real ownership split (e.g. if one partner's 401(k)/IRA is much larger) for more accurate results.</small></label><span class="range-value" id="traditionalSharePctAOut"></span></div><input id="traditionalSharePctA" type="range" min="0" max="100" step="1"></div>
           <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of 55<small>Waives the 10% early-withdrawal penalty on traditional withdrawals from age 55 through 59½, for whichever partner retires at or after age 55. Doesn't apply to a partner who retires before 55.</small></label></div>
-          <div class="field"><label for="sepp72tEnabled"><input id="sepp72tEnabled" type="checkbox"> 72(t) SEPP payments<small>For a partner retiring before 59½, models a mandatory, penalty-free annual distribution (IRS "RMD method": balance ÷ single life expectancy divisor, recalculated each year) from their retirement age through the later of 5 years or age 59½. Real 72(t) plans must continue this exact schedule unmodified for that whole period — stopping or changing it early retroactively triggers the 10% penalty on every prior payment, which isn't modeled here.</small></label></div>
+          <div class="field"><label for="sepp72tEnabledA"><input id="sepp72tEnabledA" type="checkbox"> 72(t) SEPP payments — Partner A<small>For Partner A retiring before 59½, models a mandatory, penalty-free annual distribution (IRS "RMD method": balance ÷ single life expectancy divisor, recalculated each year) from their retirement age through the later of 5 years or age 59½, sized off Partner A's share of the pooled traditional balance (see the ownership-split slider above). Electing this for Partner A doesn't require or affect Partner B's account. Real 72(t) plans must continue this exact schedule unmodified for that whole period — stopping or changing it early retroactively triggers the 10% penalty on every prior payment, which isn't modeled here.</small></label></div>
+          <div class="field" data-partner-b><label for="sepp72tEnabledB"><input id="sepp72tEnabledB" type="checkbox"> 72(t) SEPP payments — Partner B<small>Same as Partner A's 72(t) SEPP above, but for Partner B, sized off Partner B's own share of the pooled traditional balance. Independently toggleable — can be on for one partner and off for the other.</small></label></div>
         </details>
       </aside>
 
@@ -614,7 +616,15 @@
     rothConvEndAge: 63,
     rothConvBracket: 22,
     ruleOf55Enabled: false,
-    sepp72tEnabled: false,
+    // Partner A's assumed share (%) of the pooled traditional 401(k)/IRA +
+    // bond-traditional balance, used only for RMD sizing/timing, 72(t) SEPP
+    // sizing, and the early-withdrawal-penalty fraction — the balance
+    // itself stays one pooled household total (see traditionalShareA/B in
+    // simulate()/simulateHistorical()). Defaults to 50/50, matching the
+    // assumption this app used before the split was configurable.
+    traditionalSharePctA: 50,
+    sepp72tEnabledA: false,
+    sepp72tEnabledB: false,
     buyAge: 50,
     buyCash: false,
     buyDownPct: 20,
@@ -696,6 +706,23 @@
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
       : [];
+    {
+      const rawPct = Number(s.traditionalSharePctA);
+      s.traditionalSharePctA = Number.isFinite(rawPct) ? Math.min(100, Math.max(0, rawPct)) : 50;
+    }
+    // Migrate the old single household-wide `sepp72tEnabled` boolean (now
+    // split into sepp72tEnabledA/B) for scenarios saved before the split
+    // existed — only when the raw data predates the split entirely (both
+    // new fields absent), so a scenario that already picked, say, A-only
+    // isn't silently re-merged back into "both."
+    if (
+      typeof raw?.sepp72tEnabled === 'boolean' &&
+      raw?.sepp72tEnabledA === undefined &&
+      raw?.sepp72tEnabledB === undefined
+    ) {
+      s.sepp72tEnabledA = raw.sepp72tEnabled;
+      s.sepp72tEnabledB = raw.sepp72tEnabled;
+    }
     return s;
   }
   let state = normalizeState(null),
@@ -793,6 +820,7 @@
     'inflation',
     'taxable',
     'basisRatio',
+    'traditionalSharePctA',
     'traditional',
     'roth',
     'cash',
@@ -1592,12 +1620,20 @@
 
     // Withdrawal & tax strategy: no single master flag — off means every
     // one of these is false.
-    if (state.guardrailsEnabled || state.rothConvEnabled || state.ruleOf55Enabled || state.sepp72tEnabled) {
+    if (
+      state.guardrailsEnabled ||
+      state.rothConvEnabled ||
+      state.ruleOf55Enabled ||
+      state.sepp72tEnabledA ||
+      state.sepp72tEnabledB
+    ) {
       const parts = [];
       if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
       if (state.rothConvEnabled) parts.push('Roth ladder on');
       if (state.ruleOf55Enabled) parts.push('Rule of 55');
-      if (state.sepp72tEnabled) parts.push('72(t) SEPP');
+      if (state.sepp72tEnabledA && state.sepp72tEnabledB) parts.push('72(t) SEPP (both)');
+      else if (state.sepp72tEnabledA) parts.push('72(t) SEPP (A)');
+      else if (state.sepp72tEnabledB) parts.push('72(t) SEPP (B)');
       setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
     } else {
       setGroupState('withdrawalStrategyGroupState', '', false);
@@ -2806,6 +2842,9 @@
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
+    // Partner A's share of the pooled traditional balance (normalizeState
+    // already clamps this to 0-100) — see traditionalShareA/B below.
+    const pctA = state.traditionalSharePctA / 100;
     const nominalReturn = pct(state.returnRate),
       bondYield = pct(state.bondReturn),
       hysa = pct(state.hysaRate),
@@ -3067,35 +3106,49 @@
       }
       const pension = pensionA + pensionB;
       const traditionalBeforeRmd = traditional + bondTraditional,
-        traditionalShare =
-          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-      let rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
-        rmdB = !singlePerson && ageB >= 75 ? traditionalShare / rmdDivisor(ageB) : 0;
+        // Each partner's own share of the pooled traditional balance, per
+        // the household's ownership split (pctA above, defaulting to
+        // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
+        // early-withdrawal-penalty fraction below. During survivor period
+        // or single-person mode, whichever partner remains is treated as
+        // owning the whole pooled balance (the split only matters while
+        // both partners are alive and the balance is genuinely shared).
+        traditionalShareA =
+          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
+        traditionalShareB =
+          singlePerson || isSurvivorPeriod
+            ? traditionalBeforeRmd
+            : traditionalBeforeRmd * (1 - pctA);
+      let rmdA = age >= 75 ? traditionalShareA / rmdDivisor(age) : 0,
+        rmdB = !singlePerson && ageB >= 75 ? traditionalShareB / rmdDivisor(ageB) : 0;
       // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
       // retiring before 59.5, running from their retirement age through the
-      // later of 5 years or age 59.5 (IRS "RMD method"). Folded directly into
-      // rmdA/rmdB so it's taxed and force-withdrawn from traditional exactly
-      // like an RMD (SEPP income is ordinary income, same as an RMD);
-      // sepp72A/B are kept separately only so they can be exposed on the row
-      // for display, below.
+      // later of 5 years or age 59.5 (IRS "RMD method"), sized off that
+      // partner's own share of the pooled traditional balance. Folded
+      // directly into rmdA/rmdB so it's taxed and force-withdrawn from
+      // traditional exactly like an RMD (SEPP income is ordinary income,
+      // same as an RMD); sepp72A/B are kept separately only so they can be
+      // exposed on the row for display, below. Each partner's SEPP is
+      // independently toggleable (sepp72tEnabledA/B) — electing 72(t) for
+      // one partner's account doesn't require or affect the other's.
       const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
         sepp72EndB = Math.max(retireAgeB + 5, 59.5);
       let sepp72A =
-          state.sepp72tEnabled &&
+          state.sepp72tEnabledA &&
           !workingA &&
           retireAgeA < 59.5 &&
           age >= retireAgeA &&
           age < sepp72EndA
-            ? traditionalShare / singleLifeDivisor(age)
+            ? traditionalShareA / singleLifeDivisor(age)
             : 0,
         sepp72B =
           !singlePerson &&
-          state.sepp72tEnabled &&
+          state.sepp72tEnabledB &&
           !workingB &&
           retireAgeB < 59.5 &&
           ageB >= retireAgeB &&
           ageB < sepp72EndB
-            ? traditionalShare / singleLifeDivisor(ageB)
+            ? traditionalShareB / singleLifeDivisor(ageB)
             : 0;
       if (isSurvivorPeriod) {
         if (deceasedIsA) {
@@ -3450,9 +3503,9 @@
         // penalty unless the withdrawing partner is 59.5+ or covered by Rule
         // of 55. traditional/bondTraditional are a single pooled household
         // balance rather than split per partner, so when only one partner is
-        // exempt, half the withdrawal (that partner's assumed share, per the
-        // same 50/50 split traditionalShare above uses for RMDs) is treated
-        // as penalty-free.
+        // exempt, the non-exempt partner's own share (pctA above, not a
+        // flat 50/50) is treated as penalized and the exempt partner's
+        // share as penalty-free.
         const earlyExemptA = age >= 59.5 || (state.ruleOf55Enabled && !workingA && retireAgeA >= 55),
           earlyExemptB =
             singlePerson ||
@@ -3466,7 +3519,9 @@
               ? 0
               : !earlyExemptA && !earlyExemptB
                 ? 1
-                : 0.5;
+                : earlyExemptA
+                  ? 1 - pctA
+                  : pctA;
         if (state.smoothWithdrawals) {
           // Draw taxable and traditional in proportion to their current
           // balances instead of draining taxable first, so taxable income
@@ -3697,6 +3752,9 @@
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
+    // Partner A's share of the pooled traditional balance (normalizeState
+    // already clamps this to 0-100) — see traditionalShareA/B below.
+    const pctA = state.traditionalSharePctA / 100;
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
@@ -3886,35 +3944,49 @@
       }
       const pension = pensionA + pensionB;
       const traditionalBeforeRmd = traditional + bondTraditional,
-        traditionalShare =
-          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-      let rmdA = age >= 75 ? traditionalShare / rmdDivisor(age) : 0,
-        rmdB = !singlePerson && ageB >= 75 ? traditionalShare / rmdDivisor(ageB) : 0;
+        // Each partner's own share of the pooled traditional balance, per
+        // the household's ownership split (pctA above, defaulting to
+        // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
+        // early-withdrawal-penalty fraction below. During survivor period
+        // or single-person mode, whichever partner remains is treated as
+        // owning the whole pooled balance (the split only matters while
+        // both partners are alive and the balance is genuinely shared).
+        traditionalShareA =
+          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
+        traditionalShareB =
+          singlePerson || isSurvivorPeriod
+            ? traditionalBeforeRmd
+            : traditionalBeforeRmd * (1 - pctA);
+      let rmdA = age >= 75 ? traditionalShareA / rmdDivisor(age) : 0,
+        rmdB = !singlePerson && ageB >= 75 ? traditionalShareB / rmdDivisor(ageB) : 0;
       // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
       // retiring before 59.5, running from their retirement age through the
-      // later of 5 years or age 59.5 (IRS "RMD method"). Folded directly into
-      // rmdA/rmdB so it's taxed and force-withdrawn from traditional exactly
-      // like an RMD (SEPP income is ordinary income, same as an RMD);
-      // sepp72A/B are kept separately only so they can be exposed on the row
-      // for display, below.
+      // later of 5 years or age 59.5 (IRS "RMD method"), sized off that
+      // partner's own share of the pooled traditional balance. Folded
+      // directly into rmdA/rmdB so it's taxed and force-withdrawn from
+      // traditional exactly like an RMD (SEPP income is ordinary income,
+      // same as an RMD); sepp72A/B are kept separately only so they can be
+      // exposed on the row for display, below. Each partner's SEPP is
+      // independently toggleable (sepp72tEnabledA/B) — electing 72(t) for
+      // one partner's account doesn't require or affect the other's.
       const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
         sepp72EndB = Math.max(retireAgeB + 5, 59.5);
       let sepp72A =
-          state.sepp72tEnabled &&
+          state.sepp72tEnabledA &&
           !workingA &&
           retireAgeA < 59.5 &&
           age >= retireAgeA &&
           age < sepp72EndA
-            ? traditionalShare / singleLifeDivisor(age)
+            ? traditionalShareA / singleLifeDivisor(age)
             : 0,
         sepp72B =
           !singlePerson &&
-          state.sepp72tEnabled &&
+          state.sepp72tEnabledB &&
           !workingB &&
           retireAgeB < 59.5 &&
           ageB >= retireAgeB &&
           ageB < sepp72EndB
-            ? traditionalShare / singleLifeDivisor(ageB)
+            ? traditionalShareB / singleLifeDivisor(ageB)
             : 0;
       if (isSurvivorPeriod) {
         if (deceasedIsA) {
@@ -4203,7 +4275,9 @@
             ? 0
             : !earlyExemptA && !earlyExemptB
               ? 1
-              : 0.5;
+              : earlyExemptA
+                ? 1 - pctA
+                : pctA;
       const stepCash = (need) => {
         const from = Math.min(cash, need);
         cash -= from;
@@ -7001,6 +7075,8 @@
     document.getElementById('incomeBOut').textContent = money(state.incomeB);
     document.getElementById('cashReserveOut').textContent = money(state.cashReserve);
     document.getElementById('basisRatioOut').textContent = `${state.basisRatio}%`;
+    document.getElementById('traditionalSharePctAOut').textContent =
+      `${state.traditionalSharePctA}% / ${100 - state.traditionalSharePctA}%`;
     document.getElementById('extraPrincipalOut').textContent = `+${money(state.extraPrincipal)}/mo`;
     document.getElementById('buyDownPctOut').textContent = `${state.buyDownPct}%`;
     document.getElementById('buyClosingPctOut').textContent = `${state.buyClosingPct}%`;
@@ -7065,7 +7141,8 @@
     document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
     document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
     document.getElementById('ruleOf55Enabled').checked = !!state.ruleOf55Enabled;
-    document.getElementById('sepp72tEnabled').checked = !!state.sepp72tEnabled;
+    document.getElementById('sepp72tEnabledA').checked = !!state.sepp72tEnabledA;
+    document.getElementById('sepp72tEnabledB').checked = !!state.sepp72tEnabledB;
     [
       ['buyMortgageBtn', false],
       ['buyCashBtn', true],
@@ -7114,6 +7191,9 @@
         state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1));
       if (id === 'basisRatio')
         document.getElementById('basisRatioOut').textContent = `${state.basisRatio}%`;
+      if (id === 'traditionalSharePctA')
+        document.getElementById('traditionalSharePctAOut').textContent =
+          `${state.traditionalSharePctA}% / ${100 - state.traditionalSharePctA}%`;
       if (
         [
           'ageA',
@@ -7605,8 +7685,14 @@
     render();
     saveInputs();
   });
-  document.getElementById('sepp72tEnabled').addEventListener('change', (e) => {
-    state.sepp72tEnabled = e.target.checked;
+  document.getElementById('sepp72tEnabledA').addEventListener('change', (e) => {
+    state.sepp72tEnabledA = e.target.checked;
+    syncControls();
+    render();
+    saveInputs();
+  });
+  document.getElementById('sepp72tEnabledB').addEventListener('change', (e) => {
+    state.sepp72tEnabledB = e.target.checked;
     syncControls();
     render();
     saveInputs();
@@ -8754,7 +8840,8 @@
           acaEnabled: { type: 'boolean' },
           rothConvEnabled: { type: 'boolean' },
           ruleOf55Enabled: { type: 'boolean' },
-          sepp72tEnabled: { type: 'boolean' },
+          sepp72tEnabledA: { type: 'boolean' },
+          sepp72tEnabledB: { type: 'boolean' },
           bridgeEnabled: { type: 'boolean' },
           otherIncomeEnabled: { type: 'boolean' },
           otherLoansEnabled: { type: 'boolean' },
@@ -8780,7 +8867,8 @@
           if (k === 'acaEnabled' && typeof v === 'boolean') state.acaEnabled = v;
           if (k === 'rothConvEnabled' && typeof v === 'boolean') state.rothConvEnabled = v;
           if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;
-          if (k === 'sepp72tEnabled' && typeof v === 'boolean') state.sepp72tEnabled = v;
+          if (k === 'sepp72tEnabledA' && typeof v === 'boolean') state.sepp72tEnabledA = v;
+          if (k === 'sepp72tEnabledB' && typeof v === 'boolean') state.sepp72tEnabledB = v;
           if (k === 'bridgeEnabled' && typeof v === 'boolean') state.bridgeEnabled = v;
           if (k === 'otherIncomeEnabled' && typeof v === 'boolean') state.otherIncomeEnabled = v;
           if (k === 'otherLoansEnabled' && typeof v === 'boolean') state.otherLoansEnabled = v;

@@ -150,10 +150,31 @@ side before porting a feature:
   data into the `A` slot when Partner A died, rather than just flipping
   `profile.singlePerson = true` in place.
 - US models a 10% early-withdrawal penalty (`ruleOf55Enabled`,
-  `sepp72tEnabled`, `singleLifeDivisor(age)`) on traditional/bondTraditional
-  withdrawals before 59.5; Canada has no equivalent to build, since RRSP/RRIF
-  withdrawals carry no age-based penalty at any age (only withholding tax,
-  already captured via `taxFor()`) — don't port this feature to Canada.
+  `sepp72tEnabledA`/`sepp72tEnabledB`, `singleLifeDivisor(age)`) on
+  traditional/bondTraditional withdrawals before 59.5; Canada has no
+  equivalent to build, since RRSP/RRIF withdrawals carry no age-based
+  penalty at any age (only withholding tax, already captured via
+  `taxFor()`) — don't port this feature to Canada.
+- `traditional`/`bondTraditional` are one pooled household balance (not
+  separate per-partner accounts), but RMDs, the 72(t)/early-withdrawal
+  penalty fraction, and 72(t) SEPP sizing all need to know each partner's
+  own share of that pool. `state.traditionalSharePctA` (a 0-100 slider,
+  default 50) is that assumed ownership split; `traditionalShareA`/
+  `traditionalShareB` (computed fresh each loop year in both
+  `simulate()`/`simulateHistorical()` from `traditionalBeforeRmd * pctA`/
+  `* (1 - pctA)`) replace the old single `traditionalShare` variable
+  everywhere RMD/SEPP/penalty math reads it. During survivor period or
+  single-person mode, both shares collapse to the full pooled balance
+  (ownership stops being split once there's only one living partner) —
+  whichever partner's RMD doesn't apply gets zeroed immediately after via
+  the existing `isSurvivorPeriod`/`deceasedIsA` guard, same as before this
+  feature existed. `sepp72tEnabledA`/`sepp72tEnabledB` are independently
+  toggleable (replacing the old single `sepp72tEnabled` boolean, migrated
+  in `normalizeState()` for old saved scenarios) since a real 72(t) SEPP
+  plan is elected per account, not per household — enabling it for one
+  partner doesn't require or affect the other's. Canada has no equivalent
+  needing this split (no RMD-style age-based mandatory distribution
+  penalty, no 72(t)), so `traditionalSharePctA` is US-only.
 - US splits post-retirement healthcare into two separate cost lines —
   `state.healthcare` (pre-65 ACA/retiree premium, gated on `acaEligibleA`/
   `acaEligibleB`: both partners retired AND that partner under 65) and
