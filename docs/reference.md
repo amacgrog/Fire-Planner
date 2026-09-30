@@ -4270,6 +4270,58 @@ one partner's retirement date while varying the other's; the Gap mode's
 own note already explained this once selected, but there was previously
 no hint of its existence from the default "Both together" view.
 
+## "Gap narrows/widens" renamed to "Fix one partner"; Closer/Farther legend labels name the moving partner
+
+A real user hit the exact ambiguity the "Follow-up: explicit note text..."
+section above was trying to head off, despite that fix already being in
+place: seeing "Closer (−1 yr)" / "Farther (+1 yr)" in the legend, their
+first guess was that *both* partners' dates move toward/away from each
+other symmetrically (e.g. reading "Closer (−1 yr)" on a 47/50 scenario as
+"48/49" instead of the actual "48/50, B unchanged"). The explanatory
+`noteEl.textContent` sentence added previously was correct and already
+answered this, but it turned out not to be enough on its own — a user
+scanning the legend/tooltip first, before reading the note below the
+chart, had nothing there to contradict the "both move" assumption, since
+neither the button name ("Gap narrows/widens") nor the bare adjectives
+("Closer"/"Farther") name a partner or show a concrete resulting age.
+
+Two changes, both scoped to `renderChartView()`'s 'gap' branch and the
+`#chartShiftGapBtn` button:
+
+- **Button renamed** from "Gap narrows/widens" to "Fix one partner" (and
+  its `title` attribute, and the two spots — the inline HTML and
+  `shiftGapBtn.title` inside `render()` — that both set it, updated to
+  match). "Gap narrows/widens" described what happens to an abstract
+  quantity (the gap); "Fix one partner" describes what the person
+  actually does, which was the part getting lost.
+- **Legend/tooltip labels now name the moving partner and their actual
+  resulting age** instead of the bare "Closer"/"Farther": `` `${movingLabel} → ${closerAge} (closer)` ``
+  / `` `${movingLabel} → ${fartherAge} (farther)` `` — e.g. "Partner A
+  → 48 (closer)" — computed from the same `movingLabel`/`closerAge`/
+  `fartherAge` values already used to build the `note` sentence, just
+  surfaced one level up into the legend/tooltip itself rather than only
+  in the note underneath. Since the hover tooltip reads directly from
+  each series' `.label` (`renderChartView` → `series` → the canvas
+  `mousemove` handler in the chart-tooltip setup), this fix applies to
+  both the legend and the hover tooltip with the one label-string change
+  — no separate tooltip-formatting code to touch.
+- The "Both together" mode's note also now points at the renamed button
+  by name: `Switch to "Fix one partner" above to instead hold one
+  partner's date and vary only the other's.` (unchanged behavior from
+  the previous entry, just following the rename).
+- `ariaSuffix` (feeds the canvas's `aria-label`) reworded from "up to
+  {label} closer together and farther apart" to name the moving/fixed
+  partners and the fixed partner's age explicitly, matching the same
+  information now visible in the legend and note.
+
+**Verified**: `npm test`; a 47/50 (±1yr view) scenario with `ageA`/`ageB`
+set below both retirement ages (avoiding the degenerate case where a
+default `ageA` above the requested retirement age masks the
+farther-side clamp) shows "Partner A → 46 (farther)" / "Partner A → 48
+(closer)" in both the legend and the canvas hover tooltip; the
+"Both together" note correctly names the new button; 390×844
+mobile-overflow check clean with the slightly longer button text.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
