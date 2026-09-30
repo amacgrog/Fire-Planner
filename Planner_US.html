@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V49</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V50</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -488,6 +488,8 @@
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal bracket<small>The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it's also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
+          <div class="field"><label for="gainHarvestStartAge">Capital-gain harvest window start age<small>Own window for the harvesting lever in the Withdrawal &amp; conversion optimizer below — independent of the Roth ladder window above, since a low-income harvest year can happen any time in retirement, not just during a conversion ladder. Only matters when that lever is checked and Optimize is run.</small></label><input id="gainHarvestStartAge" type="number" min="18" max="100" step="1"></div>
+          <div class="field"><label for="gainHarvestEndAge">Capital-gain harvest window end age</label><input id="gainHarvestEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of 55<small>Waives the 10% early-withdrawal penalty on traditional withdrawals from age 55 through 59½, for whichever partner retires at or after age 55. Doesn't apply to a partner who retires before 55.</small></label></div>
           <div class="field"><label for="sepp72tEnabledA"><input id="sepp72tEnabledA" type="checkbox"> 72(t) SEPP payments — Partner A<small>Penalty-free early withdrawals from Partner A's share of the traditional balance, via a fixed annual amount (IRS "RMD method") for 5 years or until 59½, whichever is later.</small></label></div>
           <div class="field" data-partner-b><label for="sepp72tEnabledB"><input id="sepp72tEnabledB" type="checkbox"> 72(t) SEPP payments — Partner B<small>Same, but for Partner B's share — can be toggled independently of Partner A's.</small></label></div>
@@ -603,7 +605,7 @@
 
         <details class="result-card" id="multiLeverOptimizerCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Withdrawal &amp; conversion optimizer</summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Optimize. Scored the same way as the per-year Roth optimizer above: total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection, never recommending a change that would deplete the portfolio earlier than your current plan. Uses the same start/end age window as the Roth ladder above for whichever per-year levers are checked.</p>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Optimize. Scored the same way as the per-year Roth optimizer above: total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection, never recommending a change that would deplete the portfolio earlier than your current plan. The Roth lever searches the Roth ladder's own start/end age window above; the harvest lever searches its own, separate capital-gain harvest window above — they don't have to overlap.</p>
           <div class="field" style="max-width:520px">
             <label style="display:flex;align-items:center;gap:8px;font-weight:600"><input id="mlRothLever" type="checkbox"> Roth conversion ladder (per-year fill target)</label>
             <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlHarvestLever" type="checkbox"> Capital-gain harvesting (per-year, in the taxable brokerage account)</label>
@@ -801,6 +803,15 @@
     rothConvStartAge: 60,
     rothConvEndAge: 63,
     rothConvBracket: 22,
+    // Capital-gain harvesting's own active window — deliberately NOT tied
+    // to rothConvStartAge/EndAge (see docs/reference.md): a 0%/15%
+    // LTCG-bracket year can happen any time there's spare room in
+    // retirement, not just during a Roth ladder's narrower window, so this
+    // defaults to spanning the rest of a typical retirement (retireAgeA's
+    // own default through lifeExpectancyA's own default) rather than
+    // reusing the Roth fields' narrower 60-63 default.
+    gainHarvestStartAge: 55,
+    gainHarvestEndAge: 100,
     ruleOf55Enabled: false,
     // Partner A's assumed share (%) of the pooled traditional 401(k)/IRA +
     // bond-traditional balance, used only for RMD sizing/timing, 72(t) SEPP
@@ -1127,6 +1138,8 @@
     'survivorSpendingPct',
     'rothConvStartAge',
     'rothConvEndAge',
+    'gainHarvestStartAge',
+    'gainHarvestEndAge',
     'buyAge',
     'buyDownPct',
     'buyClosingPct',
@@ -5867,9 +5880,13 @@
   //     just means trying the whole search once with it forced on and
   //     once forced off and keeping whichever wins — it doesn't add a
   //     per-year coordinate, just a 2x outer loop.
-  // Both per-year levers share the Roth ladder's configured start/end age
-  // as their active window — they're both only useful in the years you'd
-  // actually be managing MAGI, which in practice is the same window.
+  // Each per-year lever searches its OWN configured start/end age window —
+  // rothConvStartAge/EndAge for the Roth lever, gainHarvestStartAge/EndAge
+  // for the harvest lever — rather than sharing one window. A gain-harvest
+  // opportunity isn't bound to a Roth ladder's narrower window: any
+  // low-income year in retirement can have 0%/15%-bracket room worth
+  // using, so the harvest window defaults much wider (retireAgeA's own
+  // default through lifeExpectancyA's own default) than the Roth ladder's.
   // See docs/reference.md for the full design writeup: why coordinate
   // ascent with structured multi-starts (not a general-purpose
   // metaheuristic) is the right algorithm for this problem shape, why it
@@ -5892,11 +5909,23 @@
     const includeRoth = !!(options && options.includeRoth),
       includeHarvest = !!(options && options.includeHarvest),
       includeSmooth = !!(options && options.includeSmooth);
-    const years = [];
-    for (let a = state.rothConvStartAge; a <= state.rothConvEndAge; a++) years.push(a);
-    const usesPerYearLevers = includeRoth || includeHarvest;
-    const truncated = usesPerYearLevers && years.length > ROTH_PER_YEAR_MAX_WINDOW;
-    const activeYears = usesPerYearLevers ? (truncated ? years.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : years) : [];
+    const rothYearsFull = [];
+    for (let a = state.rothConvStartAge; a <= state.rothConvEndAge; a++) rothYearsFull.push(a);
+    const harvestYearsFull = [];
+    for (let a = state.gainHarvestStartAge; a <= state.gainHarvestEndAge; a++) harvestYearsFull.push(a);
+    const rothTruncated = includeRoth && rothYearsFull.length > ROTH_PER_YEAR_MAX_WINDOW;
+    const harvestTruncated = includeHarvest && harvestYearsFull.length > ROTH_PER_YEAR_MAX_WINDOW;
+    const rothYears = includeRoth ? (rothTruncated ? rothYearsFull.slice(0, ROTH_PER_YEAR_MAX_WINDOW) : rothYearsFull) : [];
+    const harvestYears = includeHarvest
+      ? harvestTruncated
+        ? harvestYearsFull.slice(0, ROTH_PER_YEAR_MAX_WINDOW)
+        : harvestYearsFull
+      : [];
+    // Union, sorted — used for the "nothing to optimize" check and as the
+    // table's row list downstream; the two lever windows don't have to
+    // coincide or even overlap.
+    const activeYears = Array.from(new Set([...rothYears, ...harvestYears])).sort((a, b) => a - b);
+    const truncated = rothTruncated || harvestTruncated;
 
     const savedEnabled = state.rothConvEnabled,
       savedBracket = state.rothConvBracket,
@@ -5936,8 +5965,8 @@
       // regardless of which lever it belongs to, holding both maps fixed
       // except the one entry under test.
       const coords = [];
-      if (includeRoth) activeYears.forEach((age) => coords.push({ lever: 'roth', age }));
-      if (includeHarvest) activeYears.forEach((age) => coords.push({ lever: 'harvest', age }));
+      if (includeRoth) rothYears.forEach((age) => coords.push({ lever: 'roth', age }));
+      if (includeHarvest) harvestYears.forEach((age) => coords.push({ lever: 'harvest', age }));
       for (let pass = 0; pass < ROTH_PER_YEAR_MAX_PASSES && !budgetExhausted; pass++) {
         let changedThisPass = false;
         for (const { lever, age } of coords) {
@@ -5989,11 +6018,11 @@
     // missed just because the other lever's aggressive start crowded out
     // its MAGI room from the first pass). Harmless no-ops for whichever
     // lever isn't included this run.
-    const flatRoth = new Map(activeYears.map((a) => [a, savedBracket])),
-      zeroRoth = new Map(activeYears.map((a) => [a, 0])),
-      maxRoth = new Map(activeYears.map((a) => [a, 35])),
-      zeroHarvest = new Map(activeYears.map((a) => [a, 0])),
-      maxHarvest = new Map(activeYears.map((a) => [a, 'fifteen']));
+    const flatRoth = new Map(rothYears.map((a) => [a, savedBracket])),
+      zeroRoth = new Map(rothYears.map((a) => [a, 0])),
+      maxRoth = new Map(rothYears.map((a) => [a, 35])),
+      zeroHarvest = new Map(harvestYears.map((a) => [a, 0])),
+      maxHarvest = new Map(harvestYears.map((a) => [a, 'fifteen']));
     const starts = [
       [flatRoth, zeroHarvest],
       [zeroRoth, zeroHarvest],
@@ -6023,7 +6052,20 @@
     rothBracketOverrideByAge = savedRothOverride;
     gainHarvestOverrideByAge = savedHarvestOverride;
 
-    return { ...best, truncated, budgetExhausted, activeYears, evalCount, includeRoth, includeHarvest, includeSmooth };
+    return {
+      ...best,
+      truncated,
+      rothTruncated,
+      harvestTruncated,
+      budgetExhausted,
+      activeYears,
+      rothYears,
+      harvestYears,
+      evalCount,
+      includeRoth,
+      includeHarvest,
+      includeSmooth,
+    };
   }
   // Roth-only convenience wrapper, kept for the existing flat-window
   // single-lever card and its test suite — identical behavior/shape to
@@ -6485,8 +6527,11 @@
     const harvestLabel = (c) => (c === 0 ? 'None' : c === 'zero' ? 'Fill to 0% bracket' : 'Fill to 15% bracket');
 
     let notes = '';
-    if (opt.truncated) {
-      notes += ` Your window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered.`;
+    if (opt.rothTruncated) {
+      notes += ` Your Roth ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.rothYears.at(-1)}) are covered.`;
+    }
+    if (opt.harvestTruncated) {
+      notes += ` Your capital-gain harvest window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.harvestYears.at(-1)}) are covered.`;
     }
     if (opt.budgetExhausted) {
       notes += ' Stopped early after reaching its evaluation budget — showing the best combination found so far, which may not be fully optimized.';
@@ -6514,21 +6559,34 @@
       if (options.includeRoth) cols.push('Roth target', 'Conversion $');
       if (options.includeHarvest) cols.push('Harvest target', 'Harvest $');
       headEl.innerHTML = `<tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>`;
+      const rothYearSet = new Set(opt.rothYears || []),
+        harvestYearSet = new Set(opt.harvestYears || []);
       rowsEl.innerHTML = opt.activeYears
         .map((age) => {
           const row = rowsByAge.get(age);
           const cells = [`<td>${age}</td>`];
           if (options.includeRoth) {
-            const amt = row ? displayValue(row.conversionAmount, row.year) : 0;
-            // See the same-named comment in renderRothPerYearOptimizer
-            // above: a candidate can tie at $0 once that year's room is
-            // already exhausted, so showing a specific target next to $0
-            // would read as a meaningful choice that wasn't really made.
-            cells.push(`<td>${amt < 1 ? '—' : rothLabel(opt.rothSchedule.get(age))}</td><td>${money(amt)}</td>`);
+            if (!rothYearSet.has(age)) {
+              // Outside this lever's own window (the two windows don't
+              // have to coincide) — "not applicable," distinct from "—"
+              // below, which means evaluated but chose nothing.
+              cells.push(`<td style="opacity:.5">–</td><td style="opacity:.5">–</td>`);
+            } else {
+              const amt = row ? displayValue(row.conversionAmount, row.year) : 0;
+              // See the same-named comment in renderRothPerYearOptimizer
+              // above: a candidate can tie at $0 once that year's room is
+              // already exhausted, so showing a specific target next to $0
+              // would read as a meaningful choice that wasn't really made.
+              cells.push(`<td>${amt < 1 ? '—' : rothLabel(opt.rothSchedule.get(age))}</td><td>${money(amt)}</td>`);
+            }
           }
           if (options.includeHarvest) {
-            const amt = row ? displayValue(row.harvestAmount, row.year) : 0;
-            cells.push(`<td>${amt < 1 ? '—' : harvestLabel(opt.harvestSchedule.get(age))}</td><td>${money(amt)}</td>`);
+            if (!harvestYearSet.has(age)) {
+              cells.push(`<td style="opacity:.5">–</td><td style="opacity:.5">–</td>`);
+            } else {
+              const amt = row ? displayValue(row.harvestAmount, row.year) : 0;
+              cells.push(`<td>${amt < 1 ? '—' : harvestLabel(opt.harvestSchedule.get(age))}</td><td>${money(amt)}</td>`);
+            }
           }
           return `<tr>${cells.join('')}</tr>`;
         })

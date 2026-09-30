@@ -5543,6 +5543,68 @@ No test in the 17-test suite caught this, because all 17 check
 `renderMultiLeverOptimizer()`'s own display re-simulation — the one place
 the bug actually lived.
 
+**Decoupled harvest window (V50, same branch): `gainHarvestStartAge`/
+`gainHarvestEndAge`, independent of the Roth ladder's window.** Raised by
+the same user, right after the bug report above: "shouldn't gain
+harvesting be a life-long strategy?" — a fair critique of a shortcut taken
+during the original V48 implementation, which reused
+`rothConvStartAge`/`rothConvEndAge` as the harvest lever's active window
+purely because both levers already needed the same MAGI-ceiling
+machinery. There was never a real coupling reason: a 0%/15% LTCG-bracket
+opportunity can exist in any low-income retirement year, whether or not a
+Roth ladder is also running that year, so tying harvest to the ladder's
+(often much narrower — 3-4 years is typical) window silently understated
+its opportunity.
+
+- *New state fields:* `gainHarvestStartAge` (default `55`, matching
+  `retireAgeA`'s own default) and `gainHarvestEndAge` (default `100`,
+  matching `lifeExpectancyA`'s own default) — i.e. the default window now
+  spans a typical full retirement, not a narrow ladder window. Both are
+  plain numeric fields added to the `ids` array (auto-wired to
+  `state[id] = Number(...)` on input, auto-fed into the
+  `update_fire_assumptions` MCP tool schema, no `normalizeState` guard
+  needed — same treatment `rothConvStartAge`/`EndAge` already get). New
+  sidebar inputs sit directly below the Roth ladder's own start/end age
+  fields in "Withdrawal & tax strategy," **not** gated behind any
+  checkbox — unlike the Roth fields (gated on `rothConvEnabled`), there is
+  no "always apply harvesting to the live plan" toggle; harvesting only
+  ever runs inside the multi-lever optimizer's search, so these fields
+  are always visible, just inert until the harvest lever is checked and
+  Optimize is run.
+- *`optimizeMultiLever()` now tracks two independent year lists* instead
+  of one shared `activeYears`: `rothYears` (from `rothConvStartAge`/
+  `EndAge`) and `harvestYears` (from `gainHarvestStartAge`/`EndAge`),
+  each independently capped at `ROTH_PER_YEAR_MAX_WINDOW` (30) with its
+  own `rothTruncated`/`harvestTruncated` flag. The coordinate-ascent
+  `coords` list and the five structured starting-point Maps
+  (`flatRoth`/`zeroRoth`/`maxRoth` vs. `zeroHarvest`/`maxHarvest`) are
+  each built from their own lever's year list rather than a shared one.
+  `activeYears` is kept as a return field for backward compatibility
+  (the "nothing to optimize" check, the results table's row list) but is
+  now the **disjoint union** of `rothYears`/`harvestYears`, sorted — the
+  two windows don't have to overlap at all, and in the common case
+  (Roth ladder narrow, harvest wide) mostly won't.
+- *Table display:* `renderMultiLeverOptimizer()`'s results table iterates
+  `activeYears` (the union) as before, but a row's Roth/harvest cell pair
+  now renders a dimmed "–" (not "—") for any age outside that specific
+  lever's own window — distinct from "—", which still means "in-window,
+  evaluated, the optimizer chose not to act that year." Conflating the
+  two would read as the optimizer having considered and rejected a year
+  it never actually searched.
+- *`optimizeRothLadderPerYear()`'s wrapper is unaffected* — run with only
+  `includeRoth`, `harvestYears` is always `[]`, so `activeYears` equals
+  `rothYears` exactly as it did before this change; the original 11-test
+  suite needed no changes.
+- *Testing:* `test_multi_lever_optimizer.js` updated so every test that
+  exercises the harvest lever now sets `gainHarvestStartAge`/`EndAge`
+  explicitly (previously relying on `rothConvStartAge`/`EndAge` alone,
+  which no longer scopes harvest) — `setupHarvestFavorable()`, the
+  depletion-guardrail test, and the 20-year performance test. A new test
+  #12 sets the two windows to disjoint age ranges and asserts
+  `opt.rothYears`/`opt.harvestYears`/`opt.activeYears` each come back
+  correct — the regression test the original 17 didn't have, since they
+  never exercised two different windows. All 20 pass.
+
 `Planner_Canada.html` is untouched for the same reason as the per-year
 Roth optimizer above: no ACA/IRMAA-style MAGI cliff for gain harvesting
 to be optimized against, and Canada's RRSP withdrawals carry no

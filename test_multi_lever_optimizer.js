@@ -61,6 +61,15 @@ function setupHarvestFavorable(page) {
     document.getElementById('rothConvStartAge').dispatchEvent(new Event('input', { bubbles: true }));
     document.getElementById('rothConvEndAge').value = 59;
     document.getElementById('rothConvEndAge').dispatchEvent(new Event('input', { bubbles: true }));
+    // Harvest now has its own independent window (gainHarvestStartAge/
+    // EndAge, decoupled from the Roth fields above — see docs/
+    // reference.md) — scope it to match this scenario's favorable years
+    // so harvest-only runs here stay tight instead of searching the much
+    // wider life-long default (55-100, truncated to 30).
+    document.getElementById('gainHarvestStartAge').value = 55;
+    document.getElementById('gainHarvestStartAge').dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('gainHarvestEndAge').value = 59;
+    document.getElementById('gainHarvestEndAge').dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
 
@@ -161,6 +170,10 @@ function setupHarvestFavorable(page) {
       document.getElementById('rothConvStartAge').dispatchEvent(new Event('input', { bubbles: true }));
       document.getElementById('rothConvEndAge').value = 60;
       document.getElementById('rothConvEndAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('gainHarvestStartAge').value = 50;
+      document.getElementById('gainHarvestStartAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('gainHarvestEndAge').value = 60;
+      document.getElementById('gainHarvestEndAge').dispatchEvent(new Event('input', { bubbles: true }));
       const selected = window.__test_simulate();
       const opt = window.__test_optimizeMultiLever(selected, { includeHarvest: true });
       return { selectedDepletedAge: selected.depletedAge, optDepletedAge: opt.depletedAge };
@@ -268,6 +281,10 @@ function setupHarvestFavorable(page) {
       document.getElementById('rothConvStartAge').dispatchEvent(new Event('input', { bubbles: true }));
       document.getElementById('rothConvEndAge').value = 74;
       document.getElementById('rothConvEndAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('gainHarvestStartAge').value = 55;
+      document.getElementById('gainHarvestStartAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('gainHarvestEndAge').value = 74;
+      document.getElementById('gainHarvestEndAge').dispatchEvent(new Event('input', { bubbles: true }));
       if (!document.getElementById('acaEnabled').checked) document.getElementById('acaEnabled').click();
       const selected = window.__test_simulate();
       const t0 = performance.now();
@@ -287,6 +304,46 @@ function setupHarvestFavorable(page) {
       return { threw: false, activeYears: opt.activeYears.length, cost: opt.cost };
     });
     ok('no levers included: returns cleanly with no active per-year window', r.activeYears === 0 && !r.threw, r);
+  });
+
+  // 12. The two per-year levers search their OWN configured windows, not
+  // a shared one — set the Roth and harvest windows to disjoint age
+  // ranges and confirm each lever's returned year list matches its own
+  // field, never the other lever's, and the union (activeYears) covers
+  // both disjoint ranges with no overlap-assumption baked in.
+  await withPage(async (page) => {
+    const r = await page.evaluate(() => {
+      document.getElementById('rothConvStartAge').value = 60;
+      document.getElementById('rothConvStartAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('rothConvEndAge').value = 62;
+      document.getElementById('rothConvEndAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('gainHarvestStartAge').value = 70;
+      document.getElementById('gainHarvestStartAge').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('gainHarvestEndAge').value = 73;
+      document.getElementById('gainHarvestEndAge').dispatchEvent(new Event('input', { bubbles: true }));
+      const selected = window.__test_simulate();
+      const opt = window.__test_optimizeMultiLever(selected, { includeRoth: true, includeHarvest: true });
+      return {
+        rothYears: opt.rothYears,
+        harvestYears: opt.harvestYears,
+        activeYears: opt.activeYears,
+      };
+    });
+    ok(
+      'decoupled windows: Roth lever searches only its own configured range',
+      JSON.stringify(r.rothYears) === JSON.stringify([60, 61, 62]),
+      r,
+    );
+    ok(
+      'decoupled windows: harvest lever searches only its own configured range',
+      JSON.stringify(r.harvestYears) === JSON.stringify([70, 71, 72, 73]),
+      r,
+    );
+    ok(
+      'decoupled windows: activeYears is the disjoint union of both',
+      JSON.stringify(r.activeYears) === JSON.stringify([60, 61, 62, 70, 71, 72, 73]),
+      r,
+    );
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
