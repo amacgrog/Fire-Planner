@@ -4405,6 +4405,89 @@ points are positioned — only how the axis *labels* are formatted.
   mobile-overflow check clean, including the new row's own layout on the
   Dashboard tab.
 
+## Chart x-axis picker ported to `Planner_Canada.html` (V4 → V5)
+
+Straight port of the "Chart x-axis picker" section above — the feature
+has no US-specific tax logic in it at all (it only reformats how the
+existing `age`/`year` fields already on every row are labeled), so this
+was a mechanical port once the US version was verified: the
+`chartXAxisMode` closure variable, `CURRENT_YEAR`/`xAxisLabel()` next to
+`chartZeroLineColor()`, the `xAxisLabel(age)` swap-in on the same two
+`ctx.fillText(age, x(age), ...)` tick-drawing call sites in
+`renderMonteCarloChart()`/`renderChart()` (Canada's overlay-comparison
+chart has the identical third occurrence and was left alone for the same
+reason), the hover-tooltip header rewrite, the `#chartXAxisRow` HTML
+block (identical to the US markup), and `updateChartXAxisButtons()`/
+`setChartXAxisMode()` wired the same way. The old `#chartAgeNote` element
+and its `render()` assignment were removed in both files identically.
+
+One structural difference from the US file worth noting for future
+ports: Canada does **not** yet have the "Both together"/"Fix one
+partner" gap-shift-mode feature (see below), so `renderChartView()`'s
+Both/CAGR comparison-line logic in Canada is simpler than the US file's
+(no `gapMode` branch) — this port didn't need to touch that logic at
+all, since the x-axis picker only affects axis *labeling*, not which
+comparison lines get computed.
+
+**Verified**: `npm test` (both files); Playwright check confirming the
+toggle buttons render, the default Partner A axis and Year axis produce
+identical (correct) tooltip headers for the same hovered point, the
+single-person fallback out of Partner B axis works, and no console
+errors; 390×844 mobile-overflow check clean.
+
+## Feature-parity audit: `Planner_US.html` vs `Planner_Canada.html` (as of V34/V5)
+
+Prompted by the x-axis-picker port above — a check of what else has
+landed in the US file since the two planners' last common commit
+(`d616c58`) but never made it to Canada. Not everything is a gap: several
+US commits are correctly US-only (documented in this file's "US vs.
+Canada" section and in `CLAUDE.md`) because they model something Canada's
+tax system doesn't have. Sorted into the two buckets:
+
+**Correctly US-only, not a gap** — RRSP/RRIF withdrawals carry no
+age-based penalty, so none of these have a Canadian equivalent to build:
+- Traditional-balance ownership-split slider + independent per-partner
+  72(t) SEPP (`traditionalSharePctA`, `sepp72tEnabledA`/`B`) — needs a
+  US-style age-based mandatory-distribution penalty to matter at all.
+- The 10% early-withdrawal penalty / Rule of 55 / 72(t) SEPP feature
+  those build on.
+- ACA/IRMAA MAGI-proxy lag fix — ACA and IRMAA are US-only concepts.
+- Dedicated Medicare Part B/D + supplement cost line — same.
+- The `stateTax` `<select>` DOM-sync bug fix — audited at the time
+  against Canada's analogous `#province` select, which already had the
+  sync line it was missing.
+
+**Real gaps — generic features/fixes with no US-specific logic, not yet
+ported**:
+- **"Both together" / "Fix one partner" shift mode** for the ±1yr/±3yr
+  chart, and everything built on top of it in the same run: the CAGR
+  sweep's high-to-low reorder + nominal-mode % labels, the legend/hover-
+  tooltip line-order convention (+N/Farther first, Selected middle,
+  −N/Closer last), hiding the whole Shift row when both partners share a
+  retirement year, the "Vary: Partner A/B" picker, and the "Fix one
+  partner" rename with partner-named/resulting-age legend labels. None of
+  this touches tax logic — it's chart UI only.
+- **`.range-head label small{display:block}` CSS fix** — any range-field
+  slider with an inline `<small>` description in its label (Canada has
+  several: `incomeA`/`B`, `k401PctA`-equivalents, etc.) runs the
+  description text into the end of the label with no line break, same as
+  the US file had before that fix. Canada's `.range-head` CSS rule is
+  presumably still missing the same line.
+- **Post-retirement healthcare shouldn't apply while a spouse still
+  works** — confirmed Canada has the *identical* bug: `healthcare` in
+  Canada's `simulate()`/`simulateHistorical()` couple branches is gated
+  per-partner independently (`workingA ? 0 : state.healthcare / 2` +
+  `workingB ? 0 : state.healthcare / 2`) rather than on
+  `bothRetired = !workingA && !workingB`, so a retired partner in Canada
+  gets charged the full post-retirement healthcare premium even while
+  their spouse still works — the exact bug the US fix addressed. Not
+  fixed here; flagged for a follow-up pass.
+
+Not yet asked whether to port these — they're bundled asks (one feature
+plus its five follow-up refinement commits, one CSS one-liner, one
+logic-bug fix), each worth its own verification pass rather than a
+blind copy-paste, per this file's own "not a find-and-replace" guidance.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
