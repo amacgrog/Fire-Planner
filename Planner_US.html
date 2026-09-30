@@ -113,7 +113,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V25</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V26</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -5744,20 +5744,20 @@
     mcCard.hidden = chartView !== 'mc';
     document.getElementById('mcPathCountRow').hidden = chartView !== 'mc';
     // The Both/Gap shift-mode switch only applies to the ±1yr/±3yr
-    // comparison itself (not CAGR/Historical/Monte Carlo), and "Gap" is
-    // meaningless for a single-person plan or when both partners already
-    // share the same retirement year — re-checked on every render (not
-    // just on a chart-view change) so it reacts live to sliders/toggles.
+    // comparison itself (not CAGR/Historical/Monte Carlo), and the whole
+    // switch is meaningless — not just "Gap" — for a single-person plan or
+    // when both partners already share the same retirement year: with
+    // nothing to narrow/widen, "Both together" would be the only real
+    // choice anyway, which is identical to not having a switch at all. So
+    // the entire row hides rather than showing a permanently-disabled Gap
+    // button — re-checked on every render (not just on a chart-view
+    // change) so it reacts live to sliders/toggles.
     const shiftModeRow = document.getElementById('chartShiftModeRow'),
-      shiftGapBtn = document.getElementById('chartShiftGapBtn');
-    shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || state.singlePerson;
-    const gapDisabled = state.singlePerson || state.retireAgeA === state.retireAgeB;
+      shiftGapBtn = document.getElementById('chartShiftGapBtn'),
+      gapDisabled = state.singlePerson || state.retireAgeA === state.retireAgeB;
+    shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || gapDisabled;
     shiftGapBtn.disabled = gapDisabled;
-    shiftGapBtn.title = state.singlePerson
-      ? "Not applicable to a single-person plan"
-      : gapDisabled
-        ? "Both partners are set to retire in the same year — nothing to narrow"
-        : "Shift only one partner's date, toward or away from the other partner's (fixed) date";
+    shiftGapBtn.title = "Shift only one partner's date, toward or away from the other partner's (fixed) date";
     if (gapDisabled && chartShiftMode === 'gap') chartShiftMode = 'together';
     updateChartShiftModeButtons();
     // The Vary: Partner A/B picker only makes sense once Gap mode is
