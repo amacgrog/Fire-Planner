@@ -4488,6 +4488,41 @@ plus its five follow-up refinement commits, one CSS one-liner, one
 logic-bug fix), each worth its own verification pass rather than a
 blind copy-paste, per this file's own "not a find-and-replace" guidance.
 
+**Update (V7): all three real gaps above ported to Canada**, confirmed
+via Playwright and `npm test`:
+- The `.range-head label small{display:block}` CSS fix (bundled with the
+  `.range-value{white-space:nowrap;flex-shrink:0}` fix from the same
+  original US commit) — straight port, no logic involved.
+- The healthcare "spouse still working" bug fix — same `bothRetired =
+  !workingA && !workingB` gating applied to Canada's `simulate()`/
+  `simulateHistorical()` couple branches (Canada has no ACA/IRMAA
+  eligibility logic to touch, since that's US-only; only the
+  `state.healthcare` cost calc itself needed the fix). Both
+  `healthPremiumHint`/`healthcareHint` tooltips updated to state the
+  both-retired assumption, matching the US wording adapted for Canada's
+  "group benefits plan" terminology. Note: Canada's `projectedExpense()`
+  helper (used only for the bond-ladder-tranche sizing and the "current
+  expense" display figure, not the actual year-by-year simulation) still
+  uses the older `ageA >= retireAgeA` per-partner-independent pattern —
+  this is **not a Canada-specific gap**, since the US file's own
+  `projectedExpense()` (~line 2950) has the identical unfixed pattern;
+  the original US fix commit never touched that helper, only
+  `simulate()`/`simulateHistorical()`. Left alone in both files
+  consistently; a future pass could fix both at once if it matters.
+- The full "Fix one partner" gap-shift-mode chart feature: `chartShiftMode`/
+  `chartGapPartner` closure vars, the `#chartShiftModeRow`/
+  `#chartGapPartnerRow` HTML (inserted after `#projectionSubToggle`,
+  before `#mcPathCountRow`, same position as US), the `gapMode` branch in
+  `renderChartView()`'s ±1yr/±3yr else-branch (moving/fixed partner
+  detection, closer/farther clamping, actual-vs-requested-yrs label
+  math), the late/selected/early legend-and-draw-order convention, the
+  row-hides-when-dates-equal-or-single-person logic in `render()`, and
+  `updateChartShiftModeButtons()`/`setChartShiftMode()`/
+  `updateChartGapPartnerButtons()`/`setChartGapPartner()`. Verified: Vary:
+  Partner A/B picker, the clamp-note wording when the partners' gap is
+  narrower than the requested ±1/±3 yrs, the shift row correctly hiding
+  in single-person mode, and no mobile overflow at 390×844.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

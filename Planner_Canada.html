@@ -42,7 +42,7 @@
     .group-summary-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
     .group-state{font-size:.72rem;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--hint);display:block}
     .group-state.is-on{color:var(--green)}
-    .range-field{margin:17px 0 22px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800}input[type=range]{width:100%;accent-color:var(--blue);height:44px;padding:0;box-sizing:border-box;touch-action:none}input[type=range]::-webkit-slider-thumb{width:26px;height:26px}input[type=range]::-moz-range-thumb{width:26px;height:26px;border:none}.range-touch-wrap{position:relative;display:block}.range-touch-catcher{position:absolute;inset:0;z-index:1;touch-action:pan-y;pointer-events:none}@media(pointer:coarse){.range-touch-catcher{pointer-events:auto}}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
+    .range-field{margin:17px 0 22px}.range-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.range-head label{font-size:.84rem;font-weight:700}.range-head label small{display:block;color:var(--hint);font-weight:500;font-size:.76rem;line-height:1.3;margin-top:2px}.range-value{font-variant-numeric:tabular-nums;font-size:.84rem;background:var(--chip-bg);color:var(--chip-color);padding:4px 8px;border-radius:7px;font-weight:800;white-space:nowrap;flex-shrink:0}input[type=range]{width:100%;accent-color:var(--blue);height:44px;padding:0;box-sizing:border-box;touch-action:none}input[type=range]::-webkit-slider-thumb{width:26px;height:26px}input[type=range]::-moz-range-thumb{width:26px;height:26px;border:none}.range-touch-wrap{position:relative;display:block}.range-touch-catcher{position:absolute;inset:0;z-index:1;touch-action:pan-y;pointer-events:none}@media(pointer:coarse){.range-touch-catcher{pointer-events:auto}}.field select{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;color:var(--ink);font-weight:700}
     .choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface);border:1px solid var(--surface-border);border-radius:11px;padding:4px;margin:0 0 15px}.choice button{border:0;background:transparent;color:var(--hint);border-radius:8px;padding:8px 10px;font-weight:800;font-size:.82rem}.choice button.active{background:var(--card);color:var(--ink2);box-shadow:0 2px 7px rgba(15,23,42,.11)}.tenure-fields[hidden]{display:none}.single-person [data-partner-b]{display:none!important}
     .content{display:grid;gap:18px;min-width:0}.content>*{min-width:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;scroll-margin-top:calc(var(--topbar-h,82px) + var(--plan-status-h,0px) + 20px);border-radius:16px;transition:box-shadow .3s}.metrics.flash-highlight{box-shadow:0 0 0 3px var(--blue)}.metric{background:var(--topbar-fg);color:#fff;border-radius:16px;padding:17px;min-width:0}.metric:nth-child(2){background:#12344d}.metric:nth-child(3){background:#163b37}.metric:nth-child(4){background:#493617}.metric .kicker{color:#b8c4d2;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;margin:7px 0 4px;letter-spacing:-.04em;white-space:nowrap}.metric small{color:#cbd5df;font-size:.74rem}.positive{color:#6ee7b7!important}.warning{color:#fcd34d!important}.negative{color:#fda4af!important}
     .result-card{padding:20px}.result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:12px}.result-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;font-size:.76rem;color:var(--hint)}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:18px;height:3px;border-radius:8px;background:var(--blue)}.swatch.early{background:var(--amber)}.swatch.late{background:var(--cyan)}
@@ -114,7 +114,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V5</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V7</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -183,7 +183,7 @@
         </details>
         <details class="group">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
-          <div class="field"><label for="healthPremiumA">Partner A health/dental insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer group benefits plan) — reduces taxable wages. Fold prescriptions, copays, and other after-tax health costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
+          <div class="field"><label for="healthPremiumA">Partner A health/dental insurance premium, per paycheck<small id="healthPremiumHint">Pre-tax payroll deduction while working (e.g. an employer group benefits plan) — reduces taxable wages. If your spouse is (or will be) retired while you're still working, this is assumed to cover both of you — the "post-retirement" line below doesn't start for either partner until you've both stopped working, so use the employee+spouse rate here if that's the real cost. Fold prescriptions, copays, and other after-tax health costs into household spending below instead.</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health/dental insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
           <div class="field"><label for="payFrequency">Paycheck frequency</label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
@@ -266,7 +266,7 @@
           <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
           <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual pension</label><input id="pensionYearlyB" type="number" class="money" min="0" step="500"></div>
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
-          <div class="field"><label for="healthcare">Annual post-retirement extra health/dental insurance<small id="healthcareHint">Supplemental private coverage once retired; provincial healthcare (OHIP/MSP) itself is universal and not modeled as a cost</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="healthcare">Annual post-retirement extra health/dental insurance<small id="healthcareHint">Supplemental private coverage once retired; provincial healthcare (OHIP/MSP) itself is universal and not modeled as a cost. For a couple, this only starts once BOTH partners have stopped working: a retired partner is assumed to be covered under the other partner's group benefits plan (via that partner's own premium field above) until then.</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="ltcEnabled"><input id="ltcEnabled" type="checkbox"> Model long-term care costs<small>Turn off to exclude LTC entirely from the projection.</small></label></div>
           <div id="ltcFields">
             <div class="field"><label for="ltcYearlyA">Partner A annual LTC cost<span id="ltcLabelSuffix" hidden></span></label><input id="ltcYearlyA" type="number" class="money" min="0" step="1000"></div>
@@ -378,6 +378,7 @@
           </div>
           <div id="chartXAxisRow" style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px;flex-wrap:wrap"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">X-axis:</span><div class="chart-view-toggle" id="chartXAxisToggle" role="radiogroup" aria-label="Chart x-axis"><button id="chartXAxisAgeABtn" class="active" role="radio" aria-checked="true" style="font-size:.78rem;padding:5px 10px">Partner A age</button><button id="chartXAxisAgeBBtn" role="radio" aria-checked="false" style="font-size:.78rem;padding:5px 10px">Partner B age</button><button id="chartXAxisYearBtn" role="radio" aria-checked="false" style="font-size:.78rem;padding:5px 10px">Year</button></div></div>
           <div id="projectionSubToggle" class="chart-view-toggle" role="radiogroup" aria-label="Projection comparison" style="margin:-6px 0 12px"><button id="chartView1Btn" role="radio" aria-checked="false">±1 yr</button><button id="chartView3Btn" class="active" role="radio" aria-checked="true">±3 yrs</button><button id="chartViewCagrBtn" role="radio" aria-checked="false">CAGR</button></div>
+          <div id="chartShiftModeRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px;flex-wrap:wrap"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">Shift:</span><div class="chart-view-toggle" id="chartShiftModeToggle" role="radiogroup" aria-label="How the two partners' dates shift"><button id="chartShiftTogetherBtn" class="active" role="radio" aria-checked="true" style="font-size:.78rem;padding:5px 10px">Both together</button><button id="chartShiftGapBtn" role="radio" aria-checked="false" style="font-size:.78rem;padding:5px 10px" title="Hold one partner's retirement date fixed and vary only the other's">Fix one partner</button></div><span id="chartGapPartnerRow" hidden style="display:flex;align-items:center;gap:10px"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">Vary:</span><div class="chart-view-toggle" id="chartGapPartnerToggle" role="radiogroup" aria-label="Which partner's date varies"><button id="chartGapPartnerABtn" role="radio" aria-checked="false" style="font-size:.78rem;padding:5px 10px">Partner A</button><button id="chartGapPartnerBBtn" role="radio" aria-checked="false" style="font-size:.78rem;padding:5px 10px">Partner B</button></div></span></div>
           <div id="mcPathCountRow" hidden style="display:flex;align-items:center;gap:10px;margin:-6px 0 12px"><span style="font-size:.78rem;font-weight:700;color:var(--muted)">Paths:</span><div class="chart-view-toggle" role="radiogroup" aria-label="Monte Carlo path count"><button id="mcPaths500Btn" role="radio" aria-checked="false">500</button><button id="mcPaths1000Btn" class="active" role="radio" aria-checked="true">1,000</button><button id="mcPaths2000Btn" role="radio" aria-checked="false">2,000</button></div></div>
           <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Projected total assets by age for three retirement dates"></canvas></div>
           <div class="chart-note"><span id="viewCaption">Values shown in 2026 dollars.</span><span id="chartViewNote"></span></div>
@@ -682,6 +683,21 @@
   let state = normalizeState(null),
     mode = 'real',
     chartView = '3yr',
+    // Display-only, like chartView/mode/logScale below: which partner(s)
+    // move for the ±1yr/±3yr comparison chart. 'together' shifts both
+    // partners' dates by the same amount (today's original behavior);
+    // 'gap' shifts only one partner's date, narrowing or widening the gap
+    // between the two dates. Not part of state/scenario export, and reset
+    // to 'together' on reload — see chartShiftModeRow's visibility/
+    // disabled handling in render() for why.
+    chartShiftMode = 'together',
+    // Which partner moves in 'gap' mode: null means "auto" — track
+    // whichever partner currently retires earlier, same as this
+    // feature's original behavior. 'A' or 'B' means the person explicitly
+    // picked that partner via the Vary: Partner A/B buttons, which then
+    // sticks regardless of which partner is actually earlier — full
+    // manual control, not just auto-detection.
+    chartGapPartner = null,
     // Display-only: which value the chart's x-axis is labeled/scrubbed in.
     // All three are just an affine transform of the same underlying `age`
     // (Partner A's age) every row already carries — 'ageB' = age - ageA +
@@ -2546,12 +2562,19 @@
         factor *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+      // A couple is assumed to have coverage available for both partners as
+      // long as either one is still working — a retired partner isn't
+      // paying for private supplemental insurance solo while their spouse
+      // still has a job-based plan they can be added to. So for a couple,
+      // this cost doesn't apply until BOTH partners have stopped working.
+      // Single-person and survivor cases are unaffected — there's no
+      // spouse's plan to fall back on.
+      const bothRetired = !workingA && !workingB;
       const healthcare = singlePerson
         ? (workingA ? 0 : state.healthcare) * factor
         : isSurvivorPeriod
           ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
-          : (workingA ? 0 : state.healthcare / 2) * factor +
-            (workingB ? 0 : state.healthcare / 2) * factor;
+          : (bothRetired ? state.healthcare : 0) * factor;
       const ltc = state.ltcEnabled
         ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
             factor +
@@ -3138,12 +3161,19 @@
         factor *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+      // A couple is assumed to have coverage available for both partners as
+      // long as either one is still working — a retired partner isn't
+      // paying for private supplemental insurance solo while their spouse
+      // still has a job-based plan they can be added to. So for a couple,
+      // this cost doesn't apply until BOTH partners have stopped working.
+      // Single-person and survivor cases are unaffected — there's no
+      // spouse's plan to fall back on.
+      const bothRetired = !workingA && !workingB;
       const healthcare = singlePerson
         ? (workingA ? 0 : state.healthcare) * factor
         : isSurvivorPeriod
           ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
-          : (workingA ? 0 : state.healthcare / 2) * factor +
-            (workingB ? 0 : state.healthcare / 2) * factor;
+          : (bothRetired ? state.healthcare : 0) * factor;
       const ltc = state.ltcEnabled
         ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
             factor +
@@ -4742,6 +4772,29 @@
     histCard.hidden = chartView !== 'hist';
     mcCard.hidden = chartView !== 'mc';
     document.getElementById('mcPathCountRow').hidden = chartView !== 'mc';
+    // The Both/Gap shift-mode switch only applies to the ±1yr/±3yr
+    // comparison itself (not CAGR/Historical/Monte Carlo), and the whole
+    // switch is meaningless — not just "Gap" — for a single-person plan or
+    // when both partners already share the same retirement year: with
+    // nothing to narrow/widen, "Both together" would be the only real
+    // choice anyway, which is identical to not having a switch at all. So
+    // the entire row hides rather than showing a permanently-disabled Gap
+    // button — re-checked on every render (not just on a chart-view
+    // change) so it reacts live to sliders/toggles.
+    const shiftModeRow = document.getElementById('chartShiftModeRow'),
+      shiftGapBtn = document.getElementById('chartShiftGapBtn'),
+      gapDisabled = state.singlePerson || state.retireAgeA === state.retireAgeB;
+    shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || gapDisabled;
+    shiftGapBtn.disabled = gapDisabled;
+    shiftGapBtn.title = "Hold one partner's retirement date fixed and vary only the other's";
+    if (gapDisabled && chartShiftMode === 'gap') chartShiftMode = 'together';
+    updateChartShiftModeButtons();
+    // The Vary: Partner A/B picker only makes sense once Gap mode is
+    // actually active (and available) — hidden otherwise. Its two buttons
+    // always show a determinate choice: chartGapPartner if the person
+    // explicitly picked one, or the auto-detected earlier partner if not.
+    document.getElementById('chartGapPartnerRow').hidden = !(chartShiftMode === 'gap' && !gapDisabled);
+    updateChartGapPartnerButtons();
     if (chartView === 'mc') {
       const mc = runMonteCarlo(mcPathCount);
       const rate = document.getElementById('mcSuccessRate'),
@@ -4837,24 +4890,101 @@
     } else {
       const yrs = chartView === '1yr' ? 1 : 3,
         label = `${yrs} yr${yrs > 1 ? 's' : ''}`;
-      const early = simulate(
+      // 'gap' mode only makes sense with two partners on different dates;
+      // chartShiftModeRow's own visibility/disabled state (set in render())
+      // already prevents picking 'gap' in those cases, but this guards
+      // against a stale chartShiftMode value if singlePerson or the dates
+      // are toggled/edited after 'gap' was already selected.
+      const gapMode =
+        chartShiftMode === 'gap' && !state.singlePerson && state.retireAgeA !== state.retireAgeB;
+      let early, late, earlyLabel, lateLabel, ariaSuffix, note;
+      if (gapMode) {
+        // Which partner moves: an explicit pick (chartGapPartner) sticks
+        // regardless of who's actually earlier; with no explicit pick yet,
+        // default to auto-tracking whichever partner currently retires
+        // earlier (this feature's original behavior).
+        const movingIsA = chartGapPartner
+          ? chartGapPartner === 'A'
+          : state.retireAgeA < state.retireAgeB;
+        const movingAge = movingIsA ? state.retireAgeA : state.retireAgeB,
+          movingFloor = movingIsA ? state.ageA : state.ageB,
+          fixedAge = movingIsA ? state.retireAgeB : state.retireAgeA;
+        // sign > 0: moving partner currently retires before the fixed
+        // partner, so moving "closer" means retiring later (age goes up).
+        // sign < 0: moving partner currently retires after the fixed
+        // partner (only reachable via an explicit pick against the grain,
+        // e.g. deliberately varying the later-retiring partner instead),
+        // so "closer" means retiring earlier (age goes down) instead.
+        const sign = movingAge <= fixedAge ? 1 : -1;
+        // "Closer" clamps at the fixed partner's own date, so the gap can
+        // close to zero but never overshoots into flipping who's earlier.
+        // "Farther" floors/caps at the moving partner's current age / 70,
+        // same bounds the "Both" branch below already uses.
+        const closerAge =
+            sign > 0 ? Math.min(fixedAge, movingAge + yrs) : Math.max(fixedAge, movingAge - yrs),
+          fartherAge =
+            sign > 0 ? Math.max(movingFloor, movingAge - yrs) : Math.min(70, movingAge + yrs);
+        early = simulate(movingIsA ? closerAge : state.retireAgeA, movingIsA ? state.retireAgeB : closerAge);
+        late = simulate(movingIsA ? fartherAge : state.retireAgeA, movingIsA ? state.retireAgeB : fartherAge);
+        // Actual years moved, not the requested ±1/±3 — when the two
+        // partners are already closer together than that (e.g. 1 year
+        // apart on the ±3yr view), "Closer" clamps at the fixed partner's
+        // own date well short of a full 3-year move, so the label needs to
+        // say "1 yr" there, not a "3 yrs" that never actually happened.
+        const closerYrs = Math.round(Math.abs(closerAge - movingAge)),
+          fartherYrs = Math.round(Math.abs(fartherAge - movingAge));
+        // Labels name the moving partner and their resulting age directly
+        // (e.g. "Partner A → 48") rather than just "Closer"/"Farther" on
+        // their own — a real user read the bare adjectives as "both
+        // partners move toward/away from each other," when only the named
+        // partner's date ever changes; the other partner's date (spelled
+        // out in `note` below) never appears in the legend/tooltip at all
+        // otherwise, so there was nothing there to contradict that reading.
+        const movingLabel = movingIsA ? 'Partner A' : 'Partner B',
+          fixedLabel = movingIsA ? 'Partner B' : 'Partner A',
+          autoNote = chartGapPartner ? '' : ' (currently the earlier of the two)';
+        earlyLabel = `${movingLabel} → ${closerAge} (closer)`;
+        lateLabel = `${movingLabel} → ${fartherAge} (farther)`;
+        ariaSuffix = `for ${movingLabel} retiring up to ${label} earlier or later, while ${fixedLabel} stays fixed at retirement age ${fixedAge}`;
+        note = `Only ${movingLabel}'s date moves${autoNote}; ${fixedLabel}'s stays fixed at retirement age ${fixedAge}.`;
+        if (closerYrs < yrs)
+          note += ` "Closer" stops at ${closerYrs} yr${closerYrs === 1 ? '' : 's'} here since that's as far as it can move before reaching ${fixedLabel}'s date.`;
+      } else {
+        early = simulate(
           Math.max(state.ageA, state.retireAgeA - yrs),
           Math.max(state.ageB, state.retireAgeB - yrs),
-        ),
+        );
         late = simulate(Math.min(70, state.retireAgeA + yrs), Math.min(70, state.retireAgeB + yrs));
+        earlyLabel = `Both −${label}`;
+        lateLabel = `Both +${label}`;
+        ariaSuffix = `${label} apart`;
+        note = state.singlePerson
+          ? ''
+          : `Both partners' dates move together, by the same amount.${
+              gapDisabled ? '' : ' Switch to "Fix one partner" above to instead hold one partner\'s date and vary only the other\'s.'
+            }`;
+      }
       titleEl.textContent = 'Total assets across retirement dates';
       subEl.textContent =
         'Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.';
-      legend.innerHTML = `<span><i class="swatch early"></i><span>Both −${label}</span></span><span><i class="swatch"></i><span>Selected dates</span></span><span><i class="swatch late"></i><span>Both +${label}</span></span>`;
-      noteEl.textContent = '';
+      // Legend, hover-tooltip line order, and canvas draw order all follow
+      // the same top-to-bottom convention as the CAGR sweep: the "+N"/
+      // "Farther" line (later retirement — generally the higher line, more
+      // compounding time before withdrawals start) listed first, "Selected"
+      // in the middle, and the "-N"/"Closer" line (earlier retirement,
+      // generally the lower line) listed last — so the order on screen
+      // reads top-to-bottom the same way the lines themselves typically
+      // stack, rather than the reverse.
+      legend.innerHTML = `<span><i class="swatch late"></i><span>${lateLabel}</span></span><span><i class="swatch"></i><span>Selected dates</span></span><span><i class="swatch early"></i><span>${earlyLabel}</span></span>`;
+      noteEl.textContent = note;
       canvas.setAttribute(
         'aria-label',
-        `Projected total assets by age for three retirement dates, ${label} apart`,
+        `Projected total assets by age for three retirement dates, ${ariaSuffix}`,
       );
       renderChart([
-        { sim: early, color: '#d97706', label: `−${label}` },
+        { sim: late, color: '#0e9f9a', label: lateLabel },
         { sim: selected, color: '#2563eb', highlight: true, label: 'Selected' },
-        { sim: late, color: '#0e9f9a', label: `+${label}` },
+        { sim: early, color: '#d97706', label: earlyLabel },
       ]);
     }
   }
@@ -6501,6 +6631,44 @@
   document.getElementById('chartGroupProjectionBtn').addEventListener('click', () => setChartView(lastProjectionView));
   document.getElementById('chartGroupHistBtn').addEventListener('click', () => setChartView('hist'));
   document.getElementById('chartGroupMcBtn').addEventListener('click', () => setChartView('mc'));
+  // Syncs the Both/Gap switch's visual state only — doesn't trigger a
+  // render(), so it's safe to call from inside an in-progress render pass
+  // (renderChartView's own live disabled/correction check) as well as from
+  // the click handlers below, which do call render() themselves afterward.
+  function updateChartShiftModeButtons() {
+    document.getElementById('chartShiftTogetherBtn').classList.toggle('active', chartShiftMode === 'together');
+    document.getElementById('chartShiftTogetherBtn').setAttribute('aria-checked', chartShiftMode === 'together');
+    document.getElementById('chartShiftGapBtn').classList.toggle('active', chartShiftMode === 'gap');
+    document.getElementById('chartShiftGapBtn').setAttribute('aria-checked', chartShiftMode === 'gap');
+  }
+  function setChartShiftMode(next) {
+    chartShiftMode = next;
+    updateChartShiftModeButtons();
+    render();
+  }
+  document.getElementById('chartShiftTogetherBtn').addEventListener('click', () => setChartShiftMode('together'));
+  document.getElementById('chartShiftGapBtn').addEventListener('click', () => {
+    if (!document.getElementById('chartShiftGapBtn').disabled) setChartShiftMode('gap');
+  });
+  // Same pattern as updateChartShiftModeButtons(): visual sync only, no
+  // render(), safe to call from inside an in-progress render pass. Shows
+  // an explicit pick (chartGapPartner) if there is one, otherwise the
+  // auto-detected earlier partner, so the two buttons always reflect
+  // whichever partner would actually move right now.
+  function updateChartGapPartnerButtons() {
+    const resolvedA = chartGapPartner ? chartGapPartner === 'A' : state.retireAgeA < state.retireAgeB;
+    document.getElementById('chartGapPartnerABtn').classList.toggle('active', resolvedA);
+    document.getElementById('chartGapPartnerABtn').setAttribute('aria-checked', resolvedA);
+    document.getElementById('chartGapPartnerBBtn').classList.toggle('active', !resolvedA);
+    document.getElementById('chartGapPartnerBBtn').setAttribute('aria-checked', !resolvedA);
+  }
+  function setChartGapPartner(next) {
+    chartGapPartner = next;
+    updateChartGapPartnerButtons();
+    render();
+  }
+  document.getElementById('chartGapPartnerABtn').addEventListener('click', () => setChartGapPartner('A'));
+  document.getElementById('chartGapPartnerBBtn').addEventListener('click', () => setChartGapPartner('B'));
   // Visual-sync-only, safe to call mid-render. The "Partner B age" button
   // is hidden entirely in single-person mode (no second partner to switch
   // to), and chartXAxisMode is reset out of 'ageB' if the person was on it
