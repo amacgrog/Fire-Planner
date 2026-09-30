@@ -19,6 +19,33 @@
     main{width:min(1600px,100%);margin:auto;padding:24px clamp(16px,2.5vw,38px) 54px}.workspace{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}.workspace>*{min-width:0}.mobile-tabs{display:none}.mobile-header-toggle{display:none}
     #sensitivityCard,#mainChartCard{scroll-margin-top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 20px)}
     .panel,.result-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{overflow-x:hidden;overflow-y:auto;position:sticky;top:calc(var(--topbar-h, 82px) + var(--plan-status-h,0px) + 22px);max-height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}.panel-title{padding:19px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;position:sticky;top:0;background:var(--card);z-index:3}.panel-title h2,.result-head h2{margin:0;font-size:1rem;letter-spacing:-.01em}.panel-title span{font-size:.75rem;color:var(--muted)}
+    /* Collapsible inputs panel (desktop only — mobile already hides
+       .panel-title entirely in favor of the Inputs/Dashboard tabs, so
+       #sidebarCollapseBtn is naturally unreachable there too, and the
+       820px-scoped mobile grid-template-columns:1fr rule is left alone).
+       #sidebarCollapseBtn always stays visible (it lives in .panel-title,
+       which is position:sticky within .panel's own scroll container) so
+       there's always a way back out of the collapsed rail. Collapsing
+       hides everything in .panel except .panel-title via display:none —
+       instant, not animated — while .workspace's grid-template-columns
+       transitions smoothly, so the rail visually slides in even though
+       its contents vanish at the start of that motion rather than fading
+       with it; good enough for a first pass. setSidebarCollapsed() (JS)
+       toggles the .sidebar-collapsed class, swaps the button's «/» icon,
+       and persists the choice to its own localStorage key — deliberately
+       not folded into the gated autosave blob (writeStorageNow() no-ops
+       until real data has been entered), since a layout preference should
+       stick even on a browser that's never had a real plan saved. */
+    #sidebarCollapseBtn{border:0;background:var(--surface);color:var(--hint);border-radius:9px;width:30px;height:30px;font-size:1rem;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;margin-left:10px}
+    #sidebarCollapseBtn:hover{background:var(--surface-hover);color:var(--ink2)}
+    @media(min-width:821px){
+      .workspace{transition:grid-template-columns .22s ease}
+      .workspace.sidebar-collapsed{grid-template-columns:52px minmax(0,1fr)}
+      .workspace.sidebar-collapsed .panel-title{padding:14px 8px;justify-content:center}
+      .workspace.sidebar-collapsed .panel-title>div:first-child{display:none}
+      .workspace.sidebar-collapsed .panel>*:not(.panel-title){display:none}
+    }
+    @media(prefers-reduced-motion:reduce){.workspace{transition:none}}
     .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
     .field-search-input-wrap{position:relative;flex:1}
     #fieldSearch{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 10px;font-size:.82rem;color:var(--ink)}
@@ -207,7 +234,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V42</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V43</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -223,7 +250,7 @@
       </div>
       <button type="button" id="mobileHeaderToggle" class="mobile-header-toggle" aria-expanded="true" aria-label="Hide tabs and search">︿</button>
       <aside class="panel" aria-label="Projection assumptions">
-        <div class="panel-title"><h2>Your assumptions</h2><span>2026 starting dollars</span></div>
+        <div class="panel-title"><div><h2>Your assumptions</h2><span>2026 starting dollars</span></div><button type="button" id="sidebarCollapseBtn" aria-label="Collapse inputs panel" aria-expanded="true" title="Collapse inputs panel">«</button></div>
         <div class="field-search-wrap">
           <div class="field-search-input-wrap">
             <input type="search" id="fieldSearch" placeholder="Search fields — e.g. &quot;income&quot;, &quot;mortgage&quot;…" title="Find and jump to any assumption field by name" aria-label="Search assumptions by field name" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="fieldSearchResults" aria-autocomplete="list">
@@ -891,6 +918,29 @@
     const btn = document.getElementById('themeToggleBtn');
     if (btn) btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
     render();
+  }
+  // Collapsible inputs panel (desktop). A pure layout preference, so it
+  // gets its own localStorage key rather than riding along with the
+  // gated autosave blob (see writeStorageNow() — it no-ops until
+  // hasPersonalizedData is true, and a layout choice should persist even
+  // before that). Starts collapsed=false unless a prior choice is found.
+  let sidebarCollapsed = false;
+  try {
+    sidebarCollapsed = localStorage.getItem('fireCouplePlanner.sidebarCollapsed.v1') === '1';
+  } catch {}
+  function setSidebarCollapsed(next) {
+    sidebarCollapsed = next;
+    document.getElementById('workspace').classList.toggle('sidebar-collapsed', next);
+    const btn = document.getElementById('sidebarCollapseBtn');
+    if (btn) {
+      btn.textContent = next ? '»' : '«';
+      btn.setAttribute('aria-label', next ? 'Expand inputs panel' : 'Collapse inputs panel');
+      btn.title = next ? 'Expand inputs panel' : 'Collapse inputs panel';
+      btn.setAttribute('aria-expanded', String(!next));
+    }
+    try {
+      localStorage.setItem('fireCouplePlanner.sidebarCollapsed.v1', next ? '1' : '0');
+    } catch {}
   }
   // Whether a real, previously-saved plan was found in this browser at
   // boot — used below to skip showing the first-run banner (there's
@@ -8827,6 +8877,21 @@
     applyTheme();
   });
   applyTheme();
+  setSidebarCollapsed(sidebarCollapsed);
+  document.getElementById('sidebarCollapseBtn').addEventListener('click', () => setSidebarCollapsed(!sidebarCollapsed));
+  // Charts measure their canvas via getBoundingClientRect(), which is only
+  // correct once .workspace's grid-template-columns transition has
+  // actually finished (same reasoning as the chart-expand feature's
+  // double-rAF re-render) — re-render once that transition ends rather
+  // than mid-animation, so the main/tornado/overlay/Sankey charts end up
+  // sized to the panel's new (or restored) width, not its old one.
+  document.getElementById('workspace').addEventListener('transitionend', (e) => {
+    if (e.propertyName === 'grid-template-columns') {
+      render();
+      syncTopbarHeight();
+      syncPanelMaxHeight();
+    }
+  });
   window.addEventListener('resize', () => {
     render();
     syncTopbarHeight();

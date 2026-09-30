@@ -4940,6 +4940,98 @@ checks from the prior two commits were re-run and still pass unchanged
 `#chartLogScaleRow`'s position in the markup). Identical fix ported to
 `Planner_Canada.html`.
 
+## Collapsible inputs panel on desktop (V43/V16)
+
+First piece of a broader "give desktop more room to work with" ask —
+the person also described wanting to hide/delete individual dashboard
+cards (e.g. the estimated-fields banner) and drag-and-drop reorder them
+with a lock toggle, but explicitly wanted to start with just the
+sidebar since it's the lowest-risk, highest-value piece; the other two
+are intentionally not built yet.
+
+**Mechanism**: `.workspace` is already a two-column CSS grid
+(`minmax(330px,410px) minmax(0,1fr)`, narrowing to a fixed `360px` under
+`@media(max-width:1100px)`, and collapsing to a single `1fr` column on
+mobile under `@media(max-width:820px)`). A new `#sidebarCollapseBtn`
+lives inside `.panel-title` (now wrapping the existing `<h2>`+`<span>`
+pair in their own `<div>` so `.panel-title`'s `justify-content:
+space-between` has exactly two flex children — the text wrapper and the
+button — instead of three, which would've spaced them evenly rather
+than pushing the button to the far right). Clicking it toggles a
+`.sidebar-collapsed` class on `#workspace`; a
+`@media(min-width:821px){.workspace.sidebar-collapsed{grid-template-
+columns:52px minmax(0,1fr)}}` rule shrinks the sidebar to a 52px rail,
+and `.workspace.sidebar-collapsed .panel>*:not(.panel-title){display:
+none}` hides everything in `.panel` except the title bar (so the button
+itself, being inside `.panel-title`, always stays visible and
+clickable — same "never end up stuck with no way back" principle used
+for the chart-expand toolbar-collapse feature). `.workspace{transition:
+grid-template-columns .22s ease}` (also desktop-only, and skipped
+entirely under `@media(prefers-reduced-motion:reduce)`) animates the
+column-width change; the panel's *contents* disappear instantly at the
+start of that transition rather than fading with it, which is a
+deliberate simplification for this first pass, not an oversight.
+
+**Deliberately scoped to `@media(min-width:821px)`, not a bare
+`.workspace.sidebar-collapsed` rule.** `#sidebarCollapseBtn`'s CSS has
+no width/positioning of its own beyond the icon-button styling shared
+with the chart toolbar's icon buttons, so nothing stops the class from
+existing at any viewport width — but ID-selector specificity
+(`#sidebarCollapseBtn`) beats the mobile `.panel-title{display:none}`
+class rule where they'd otherwise conflict, and more importantly a
+*bare* (non-media-scoped) `.workspace.sidebar-collapsed{grid-template-
+columns:...}` rule has higher specificity than the mobile
+`@media(max-width:820px){.workspace{grid-template-columns:1fr}}` rule
+regardless of which is declared later, since two classes beats one —
+so without the `@media(min-width:821px)` guard, a sidebar collapsed on
+desktop and then viewed on a resized-down/mobile window would corrupt
+the mobile single-column layout back into a broken two-column one. The
+guard sidesteps the specificity question entirely by making the two
+rules mutually exclusive on viewport width. (Mobile also already hides
+`.panel-title` outright via its own `display:none`, which independently
+makes `#sidebarCollapseBtn` unreachable there too — confirmed via
+Playwright's `isVisible()`/bounding-rect checks, not just
+`getComputedStyle().display`, since a hidden ancestor doesn't change a
+descendant's own *computed* display value, only whether it's actually
+painted — this is what the verification below means by "computed
+display flex, but 0×0 and not interactable.")
+
+**Persistence is a separate, ungated localStorage key
+(`fireCouplePlanner.sidebarCollapsed.v1`), not folded into the existing
+autosave blob** (`storageKey` → `{state, mode}`, written by
+`writeStorageNow()`). `writeStorageNow()` no-ops entirely until
+`hasPersonalizedData` is true (no point autosaving the generic example
+data), but a layout preference should stick even on a browser that's
+never had real numbers entered — same reasoning that already kept
+`mode` inside the gated blob (a plan-shaping choice, saved alongside
+the plan itself) distinct from `theme` (not persisted at all, always
+re-reads the OS preference fresh). This is a third category: persisted,
+but independently of plan data.
+
+**Re-render on transition end, not immediately on click.** Charts size
+their canvas from `getBoundingClientRect()` (see `render()`'s existing
+DPR-scaling logic), so re-rendering the instant the class toggles would
+measure the *old* grid width mid-animation. A `transitionend` listener
+on `#workspace`, filtered to `e.propertyName === 'grid-template-
+columns'` (the element has no other transitioning properties, but this
+guards against ever adding one later), calls the same `render();
+syncTopbarHeight(); syncPanelMaxHeight();` trio already used by the
+`window resize` handler — reusing that exact function set rather than
+inventing a new one, since a sidebar collapse/expand is functionally
+just another "the available width changed" event.
+
+Verified via Playwright: collapsing shrinks the panel from 410px to
+52px and grows the main chart's canvas from 742px to 1100px wide; a
+`<details>` group inside the panel goes to `display:none`; the button's
+icon/aria-label/title swap («→»/"Collapse"→"Expand"); the choice
+survives a full page reload; expanding restores both the 410px panel
+width and the chart's original 742px width exactly. At 390px mobile
+width, confirmed via `page.isVisible()` and a 0×0 bounding rect (not
+just `getComputedStyle`) that the button is genuinely unreachable, and
+`document.documentElement.scrollWidth > clientWidth` stayed `false`
+(no overflow introduced). `npm test` passed unchanged (no math touched).
+Identical implementation ported to `Planner_Canada.html`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
