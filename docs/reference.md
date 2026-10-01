@@ -5938,6 +5938,21 @@ fully-funded choice under a tight MAGI ceiling. All 6 pass.
 `test_multi_lever_optimizer.js` (31/31) re-verified unaffected. Golden
 math (`npm test`) unaffected. Mobile-width check (390×844) clean.
 
+Since `test_live_withdrawal_mix.js` alone would not have stopped the
+original broken design from shipping (ad-hoc `test_*.js` scripts aren't
+wired into CI), two of its checks were promoted into `tests/golden.js`
+as permanent, CI-run invariants: Roth stays at its exact starting balance
+across 11 years when combined taxable+traditional comfortably cover
+spending (directly encodes the "Roth looks free so it gets drained
+immediately" failure mode), and the live toggle's lifetime tax+healthcare
+cost matches the plain default's to the cent on the real scenario that
+first exposed the bug (encodes "silently worse than doing nothing").
+Verified these actually catch the regression: run against a checked-out
+copy of the originally-shipped (broken) `pickLiveWithdrawalMix()`
+commit, the Roth-untouched check fails immediately — Roth drops from
+$500,000 to ~$71,585 instead of staying untouched — confirming the test
+has real teeth, not just a passing assertion against current behavior.
+
 `Planner_Canada.html` is untouched, for the same reason the mix lever
 itself is US-only (see V51 above): no ACA/IRMAA-style MAGI cliff for a
 live picker to avoid tipping.
