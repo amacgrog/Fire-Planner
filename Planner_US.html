@@ -416,6 +416,7 @@
           <div class="field"><label for="dividendYield">Taxable dividend <span class="info-nw">yield<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The part of your taxable brokerage return that is paid out as dividends each year (it is already inside the investment return above, not added on top). Dividends are taxed every year whether or not you spend them, count toward income-tested items like ACA subsidies, IRMAA and Social Security taxation, and reinvesting them raises your cost basis. Interest on cash and taxable bonds is taxed the same way automatically.">i</button></span><small>Share of the taxable account paid as dividends</small></label><input id="dividendYield" type="number" min="0" max="8" step="0.1"></div>
           <div class="field"><label for="qualifiedDivPct">Qualified share of <span class="info-nw">dividends<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Qualified dividends are taxed at long-term capital-gain rates; the rest is taxed as ordinary income like interest. Broad US stock index funds are typically 90-100% qualified; international and REIT-heavy funds are lower.">i</button></span></label><input id="qualifiedDivPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="inflation"><span class="info-nw">Inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The yearly rate used to grow everything you enter in 2026 dollars — spending, healthcare, benefits, pensions, LTC, and contribution limits. Investment returns are nominal, so higher inflation lowers your real return.">i</button></span></label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
+          <div class="field"><label for="medicalInflation">Healthcare cost growth above <span class="info-nw">inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Extra yearly growth, in percentage points above the inflation rate, for healthcare premiums, Medicare and long-term care. Medical costs have historically outrun general inflation; 1 means they grow 1 point faster than CPI each year (3.5% when inflation is 2.5%).">i</button></span><small>Points above CPI for health and LTC costs</small></label><input id="medicalInflation" type="number" min="0" max="5" step="0.1"></div>
         </details>
         <details class="group" data-cat="housing" open>
           <summary><span class="group-summary-text"><span class="group-title">Housing</span><span class="group-state" id="housingGroupState"></span></span></summary>
@@ -738,6 +739,7 @@
     incomeGrowth: 3,
     fiWithdrawalRate: 4,
     inflation: 2.5,
+    medicalInflation: 1,
     taxable: 50000,
     traditional: 200000,
     roth: 50000,
@@ -1228,6 +1230,7 @@
     'spending',
     'incomeGrowth',
     'inflation',
+    'medicalInflation',
     'taxable',
     'basisRatio',
     'traditionalSharePctA',
@@ -2255,6 +2258,15 @@
       if (f !== undefined) return f;
     }
     return Math.pow(1 + pct(state.inflation), yearIndex);
+  }
+  // Healthcare and long-term-care costs grow faster than general
+  // inflation. state.medicalInflation is the extra growth, in percentage
+  // points above CPI, applied on top of the engine's own CPI factor to the
+  // post-retirement healthcare premium, Medicare, LTC and pre-retirement
+  // health premiums. It is a steady relative premium over CPI even inside the
+  // historical backtest/Monte Carlo (where CPI itself follows the path).
+  function medicalGrowth(year) {
+    return Math.pow(1 + pct(state.medicalInflation), year);
   }
   function getBondYears() {
     const v = Number(state.bondYears);
@@ -3793,12 +3805,12 @@
       const ageA = state.ageA + year,
         ageB = state.ageB + year;
       const healthcare = singlePerson
-        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor
-        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor +
-          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor;
+        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor * medicalGrowth(year)
+        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
+          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
       const ltc = state.ltcEnabled
-        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
-          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
+        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor * medicalGrowth(year) +
+          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor * medicalGrowth(year)
         : 0;
       const extraRecurring = state.extraExpenses
         .filter((e) => ageA >= e.startAge && ageA <= e.endAge)
@@ -3851,8 +3863,8 @@
         .filter((e) => lumpExpenseHits(e, age))
         .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
+      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
+        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const limitFactor = Math.pow(1 + infl, year);
@@ -4206,11 +4218,11 @@
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
         const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
         const grossPremium = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor
+          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
           : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor;
+            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
+            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
+              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
         healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
       } else {
         // acaEligibleA/B already require age < 65, so this non-ACA flat
@@ -4220,11 +4232,11 @@
         // Medicare block right below, which is what actually covers a
         // partner from 65 onward.
         healthcare = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor
+          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
           : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor;
+            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
+            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
+              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
       }
       // Medicare Part B/D + supplement: unlike the pre-65 ACA/retiree-health
       // premium above (which requires BOTH partners retired), Medicare
@@ -4237,25 +4249,26 @@
       const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
         medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
       healthcare += singlePerson
-        ? (medicareEligibleA ? state.medicareYearly : 0) * factor
+        ? (medicareEligibleA ? state.medicareYearly : 0) * factor * medicalGrowth(year)
         : isSurvivorPeriod
           ? ((deceasedIsA ? medicareEligibleB : medicareEligibleA)
               ? state.medicareYearly / 2
-              : 0) * factor
-          : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor +
-            (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor;
+              : 0) * factor * medicalGrowth(year)
+          : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year) +
+            (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year);
       const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
-      if (!workingA && age >= 65 && !(isSurvivorPeriod && deceasedIsA))
-        healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (!singlePerson && !workingB && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB))
-        healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      // IRMAA is a Medicare surcharge, so like Medicare itself it follows
+      // age (65+), not retirement status: someone still working past 65 and
+      // enrolled in Part B pays it too, and their wages are in the MAGI.
+      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
       const ltc = state.ltcEnabled
         ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-            factor +
+            factor * medicalGrowth(year) +
           (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
             ? state.ltcYearlyB
             : 0) *
-            factor
+            factor * medicalGrowth(year)
         : 0;
       const ficaTax =
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
@@ -4799,8 +4812,8 @@
         .filter((e) => lumpExpenseHits(e, age))
         .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
+      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
+        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const catchupBaseA =
@@ -5129,11 +5142,11 @@
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
         const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
         const grossPremium = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor
+          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
           : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor;
+            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
+            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
+              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
         healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
       } else {
         // acaEligibleA/B already require age < 65, so this non-ACA flat
@@ -5143,11 +5156,11 @@
         // Medicare block right below, which is what actually covers a
         // partner from 65 onward.
         healthcare = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor
+          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
           : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor;
+            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
+            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
+              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
       }
       // Medicare Part B/D + supplement: unlike the pre-65 ACA/retiree-health
       // premium above (which requires BOTH partners retired), Medicare
@@ -5160,25 +5173,26 @@
       const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
         medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
       healthcare += singlePerson
-        ? (medicareEligibleA ? state.medicareYearly : 0) * factor
+        ? (medicareEligibleA ? state.medicareYearly : 0) * factor * medicalGrowth(year)
         : isSurvivorPeriod
           ? ((deceasedIsA ? medicareEligibleB : medicareEligibleA)
               ? state.medicareYearly / 2
-              : 0) * factor
-          : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor +
-            (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor;
+              : 0) * factor * medicalGrowth(year)
+          : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year) +
+            (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year);
       const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
-      if (!workingA && age >= 65 && !(isSurvivorPeriod && deceasedIsA))
-        healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (!singlePerson && !workingB && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB))
-        healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      // IRMAA is a Medicare surcharge, so like Medicare itself it follows
+      // age (65+), not retirement status: someone still working past 65 and
+      // enrolled in Part B pays it too, and their wages are in the MAGI.
+      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
       const ltc = state.ltcEnabled
         ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-            factor +
+            factor * medicalGrowth(year) +
           (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
             ? state.ltcYearlyB
             : 0) *
-            factor
+            factor * medicalGrowth(year)
         : 0;
       const tax =
         taxFor(profile, 0, conversionAmount) +

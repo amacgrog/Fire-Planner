@@ -401,6 +401,7 @@
           <div class="field"><label for="dividendYield">Taxable dividend <span class="info-nw">yield<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The part of your non-registered (taxable) account return that is paid out as dividends each year (it is already inside the investment return above, not added on top). Dividends are taxed every year whether or not you spend them, and they count toward net income for the OAS clawback. Reinvesting them raises your adjusted cost base. Interest on cash and taxable bonds is taxed the same way automatically.">i</button></span><small>Share of the taxable account paid as dividends</small></label><input id="dividendYield" type="number" min="0" max="8" step="0.1"></div>
           <div class="field"><label for="qualifiedDivPct">Eligible Canadian share of <span class="info-nw">dividends<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Eligible Canadian dividends get the 38% gross-up and the federal and provincial dividend tax credits. The rest (foreign and non-eligible dividends) is taxed like interest, at full marginal rates. A global all-in-one ETF is mostly foreign, so a low share is typical.">i</button></span></label><input id="qualifiedDivPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="inflation"><span class="info-nw">Inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The yearly rate used to grow everything you enter in 2026 dollars — spending, healthcare, CPP/OAS, pensions, LTC, and contribution limits. Investment returns are nominal, so higher inflation lowers your real return.">i</button></span></label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
+          <div class="field"><label for="medicalInflation">Healthcare cost growth above <span class="info-nw">inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Extra yearly growth, in percentage points above the inflation rate, for healthcare premiums, Medicare and long-term care. Medical costs have historically outrun general inflation; 1 means they grow 1 point faster than CPI each year (3.5% when inflation is 2.5%).">i</button></span><small>Points above CPI for health and LTC costs</small></label><input id="medicalInflation" type="number" min="0" max="5" step="0.1"></div>
         </details>
         <details class="group" data-cat="housing" open>
           <summary><span class="group-summary-text"><span class="group-title">Housing</span><span class="group-state" id="housingGroupState"></span></span></summary>
@@ -686,6 +687,7 @@
     incomeGrowth: 3,
     fiWithdrawalRate: 4,
     inflation: 2.5,
+    medicalInflation: 1,
     taxable: 50000,
     traditional: 200000,
     roth: 50000,
@@ -1088,6 +1090,7 @@
     'spending',
     'incomeGrowth',
     'inflation',
+    'medicalInflation',
     'taxable',
     'basisRatio',
     'traditional',
@@ -2105,6 +2108,15 @@
     }
     return Math.pow(1 + pct(state.inflation), yearIndex);
   }
+  // Healthcare and long-term-care costs grow faster than general
+  // inflation. state.medicalInflation is the extra growth, in percentage
+  // points above CPI, applied on top of the engine's own CPI factor to the
+  // post-retirement healthcare premium, Medicare, LTC and pre-retirement
+  // health premiums. It is a steady relative premium over CPI even inside the
+  // historical backtest/Monte Carlo (where CPI itself follows the path).
+  function medicalGrowth(year) {
+    return Math.pow(1 + pct(state.medicalInflation), year);
+  }
   function getBondYears() {
     const v = Number(state.bondYears);
     return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
@@ -2798,12 +2810,12 @@
       const ageA = state.ageA + year,
         ageB = state.ageB + year;
       const healthcare = singlePerson
-        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor
-        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor +
-          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor;
+        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor * medicalGrowth(year)
+        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
+          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
       const ltc = state.ltcEnabled
-        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
-          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
+        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor * medicalGrowth(year) +
+          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor * medicalGrowth(year)
         : 0;
       const extraRecurring = state.extraExpenses
         .filter((e) => ageA >= e.startAge && ageA <= e.endAge)
@@ -2856,8 +2868,8 @@
         .filter((e) => lumpExpenseHits(e, age))
         .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
+      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
+        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const limitFactor = Math.pow(1 + infl, year);
@@ -3063,17 +3075,17 @@
       // spouse's plan to fall back on.
       const bothRetired = !workingA && !workingB;
       const healthcare = singlePerson
-        ? (workingA ? 0 : state.healthcare) * factor
+        ? (workingA ? 0 : state.healthcare) * factor * medicalGrowth(year)
         : isSurvivorPeriod
-          ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
-          : (bothRetired ? state.healthcare : 0) * factor;
+          ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor * medicalGrowth(year)
+          : (bothRetired ? state.healthcare : 0) * factor * medicalGrowth(year);
       const ltc = state.ltcEnabled
         ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-            factor +
+            factor * medicalGrowth(year) +
           (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
             ? state.ltcYearlyB
             : 0) *
-            factor
+            factor * medicalGrowth(year)
         : 0;
       const cppTax =
         cppContribution(Math.max(0, wageA - healthPremiumA), year) +
@@ -3476,8 +3488,8 @@
         .filter((e) => lumpExpenseHits(e, age))
         .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
+      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
+        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const rrspRoomA = Math.min(wageA * 0.18, 33810 * limitFactor),
@@ -3677,17 +3689,17 @@
       // spouse's plan to fall back on.
       const bothRetired = !workingA && !workingB;
       const healthcare = singlePerson
-        ? (workingA ? 0 : state.healthcare) * factor
+        ? (workingA ? 0 : state.healthcare) * factor * medicalGrowth(year)
         : isSurvivorPeriod
-          ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor
-          : (bothRetired ? state.healthcare : 0) * factor;
+          ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor * medicalGrowth(year)
+          : (bothRetired ? state.healthcare : 0) * factor * medicalGrowth(year);
       const ltc = state.ltcEnabled
         ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-            factor +
+            factor * medicalGrowth(year) +
           (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
             ? state.ltcYearlyB
             : 0) *
-            factor
+            factor * medicalGrowth(year)
         : 0;
       const tax =
         taxFor(profile, 0, meltdownAmount) +
