@@ -2085,6 +2085,20 @@
   ];
   const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
   const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+  // Tax-parameter indexing. Brackets, credits, the OAS clawback threshold and
+  // CPP contribution limits all index by this factor. In the deterministic
+  // projection it is the steady state.inflation compounded by yearIndex;
+  // inside simulateHistorical() (backtest and Monte Carlo) it is the path's
+  // own cumulative CPI, so a 1970s-style inflation sequence raises the
+  // brackets along with spending instead of leaving them on a 2.5% schedule.
+  let histTaxFactors = null;
+  function taxIndexFactor(yearIndex) {
+    if (histTaxFactors) {
+      const f = histTaxFactors[Math.floor(yearIndex)];
+      if (f !== undefined) return f;
+    }
+    return Math.pow(1 + pct(state.inflation), yearIndex);
+  }
   function getBondYears() {
     const v = Number(state.bondYears);
     return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
@@ -2106,7 +2120,7 @@
   // BPA phase-out (reduces to a lower minimum amount above ~$181k) is not
   // modeled; the full basic personal amount is used at every income level.
   function federalTaxCA(income, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex);
+    const factor = taxIndexFactor(yearIndex);
     const brackets = [
       [58523, 0.14],
       [117045, 0.205],
@@ -2257,7 +2271,7 @@
     return 900 * factor;
   }
   function provincialTaxCA(income, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex);
+    const factor = taxIndexFactor(yearIndex);
     const table = PROVINCE_TAX[state.province] || PROVINCE_TAX.on;
     const brackets = table.brackets.map(([cap, rate]) => [
       cap === Infinity ? Infinity : cap * factor,
@@ -2336,7 +2350,7 @@
   // planner's IRMAA lookback approximation).
   function oasClawback(netIncomeInclOas, oasReceived, yearIndex) {
     if (oasReceived <= 0) return 0;
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       threshold = 95323 * factor;
     return Math.min(oasReceived, Math.max(0, (netIncomeInclOas - threshold) * 0.15));
   }
@@ -2402,7 +2416,7 @@
   }
   function solveMeltdown(otherIncome, maxAvailable, yearIndex) {
     if (maxAvailable <= 0) return 0;
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       bpa = 14829 * factor;
     const targetGross = federalBracketCeilingCA(state.meltdownBracket) * factor + bpa;
     if (otherIncome >= targetGross) return 0;
@@ -2434,7 +2448,7 @@
   // exemption and the YMPE, plus 4% (CPP2) between the YMPE and YAMPE. EI
   // premiums are not modeled.
   function cppContribution(wages, yearIndex) {
-    const f = Math.pow(1 + pct(state.inflation), yearIndex),
+    const f = taxIndexFactor(yearIndex),
       ympe = 74600 * f,
       yampe = 85000 * f,
       exemption = 3500 * f;
@@ -3297,6 +3311,15 @@
   // still use the assumed fixed rates from the sidebar, since no historical
   // series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
+    const prevTaxFactors = histTaxFactors;
+    histTaxFactors = [];
+    try {
+      return simulateHistoricalCore(rowFn, retireAgeA, retireAgeB);
+    } finally {
+      histTaxFactors = prevTaxFactors;
+    }
+  }
+  function simulateHistoricalCore(rowFn, retireAgeA, retireAgeB) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     const hysa = pct(state.hysaRate),
@@ -3347,6 +3370,7 @@
         yearReturn = histRow[1] / 100,
         yearInflation = histRow[2] / 100,
         yearBondReturn = histRow[3] / 100;
+      histTaxFactors[year] = cumFactor;
       const ageB = singlePerson ? null : state.ageB + year,
         factor = cumFactor,
         limitFactor = cumFactor,
@@ -8500,6 +8524,10 @@
       execute: async () => window.fireProjection,
     });
   }
+  // Test hooks (same convention as Planner_US.html).
+  window.__test_simulate = simulate;
+  window.__test_simulateHistorical = simulateHistorical;
+  window.__test_getState = () => state;
 })();
 </script>
 </body>

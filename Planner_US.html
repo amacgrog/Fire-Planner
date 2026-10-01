@@ -2236,13 +2236,27 @@
   ];
   const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
   const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+  // Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
+  // FICA wage base all index by this factor. In the deterministic projection
+  // it is the steady state.inflation compounded by yearIndex; inside
+  // simulateHistorical() (backtest and Monte Carlo) it is the path's own
+  // cumulative CPI, so a 1970s-style inflation sequence raises the brackets
+  // along with spending instead of leaving them on a 2.5% schedule.
+  let histTaxFactors = null;
+  function taxIndexFactor(yearIndex) {
+    if (histTaxFactors) {
+      const f = histTaxFactors[Math.floor(yearIndex)];
+      if (f !== undefined) return f;
+    }
+    return Math.pow(1 + pct(state.inflation), yearIndex);
+  }
   function getBondYears() {
     const v = Number(state.bondYears);
     return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
   }
 
   function ordinaryTax(income, yearIndex, filing = 'mfj') {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex);
+    const factor = taxIndexFactor(yearIndex);
     const baseBrackets =
       filing === 'mfj'
         ? [
@@ -2277,7 +2291,7 @@
     return tax;
   }
   function massachusettsTax(ordinary, gains, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       income = Math.max(0, ordinary + gains),
       surtaxThreshold = 1107750 * factor;
     return income * 0.05 + Math.max(0, income - surtaxThreshold) * 0.04;
@@ -2695,7 +2709,7 @@
     ]);
   }
   function retirementExclusion(sources, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       retirement = Math.max(0, sources.pension + sources.retirement),
       ages = sources.ages || [],
       eligible = ages.filter((a) => a >= 59.5).length || 0,
@@ -2751,7 +2765,7 @@
     return `<b>${stateName} state-tax treatment.</b> ${notes[code] || `${base} ${ssText} The planner then applies the selected state\'s configured 2026 brackets or flat rate and standard deduction.`} ${gainText}`;
   }
   function stateIncomeTax(sources, filing, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
       gains = Math.max(0, sources.gains),
       taxableSS = Math.max(0, sources.taxableSS),
@@ -2918,7 +2932,7 @@
   }
   function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj') {
     if (gain <= 0) return 0;
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
       fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor,
       deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
@@ -3046,7 +3060,7 @@
   // "Assume enhanced subsidies return" models the 2021-2025 ARPA/IRA structure
   // instead (no cliff, capped at 8.5% of income), in case Congress extends it.
   function fplForHousehold(size, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex);
+    const factor = taxIndexFactor(yearIndex);
     return (15650 + (Math.max(1, size) - 1) * 5500) * factor;
   }
   function acaExpectedPct(ratioFpl, enhanced) {
@@ -3085,7 +3099,7 @@
   // applied per Medicare-enrolled partner against MAGI from two simulated
   // years prior, as required by the actual two-year lookback rule.
   function irmaaTiers(filing, yearIndex) {
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex);
+    const factor = taxIndexFactor(yearIndex);
     return (
       filing === 'mfj'
         ? [
@@ -3176,7 +3190,7 @@
           ? state.appliedRothSchedule[ageKey]
           : state.rothConvBracket;
     if (bracketPct === 0) return 0;
-    const factor = Math.pow(1 + pct(state.inflation), yearIndex),
+    const factor = taxIndexFactor(yearIndex),
       filing = profile.filing === 'mfj' ? 'mfj' : 'single';
     const deduction = (filing === 'mfj' ? 32200 : 16100) * factor,
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
@@ -3428,7 +3442,7 @@
     return traditionalFirst.cost < taxableFirst.cost ? traditionalFirst : taxableFirst;
   }
   function wageFica(wages, yearIndex) {
-    const f = Math.pow(1 + pct(state.inflation), yearIndex);
+    const f = taxIndexFactor(yearIndex);
     return Math.min(wages, 184500 * f) * 0.062 + wages * 0.0145;
   }
   function mortgagePayment(principal, annualRate, years) {
@@ -4631,6 +4645,15 @@
   // still use the assumed fixed rates from the sidebar, since no historical
   // series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
+    const prevTaxFactors = histTaxFactors;
+    histTaxFactors = [];
+    try {
+      return simulateHistoricalCore(rowFn, retireAgeA, retireAgeB);
+    } finally {
+      histTaxFactors = prevTaxFactors;
+    }
+  }
+  function simulateHistoricalCore(rowFn, retireAgeA, retireAgeB) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     // Partner A's share of the pooled traditional balance (normalizeState
@@ -4685,6 +4708,7 @@
         yearReturn = histRow[1] / 100,
         yearInflation = histRow[2] / 100,
         yearBondReturn = histRow[3] / 100;
+      histTaxFactors[year] = cumFactor;
       const ageB = singlePerson ? null : state.ageB + year,
         factor = cumFactor,
         limitFactor = cumFactor,
@@ -10754,6 +10778,7 @@
   // user data, nothing network-reachable, purely references to functions
   // that already exist in this closure).
   window.__test_simulate = simulate;
+  window.__test_simulateHistorical = simulateHistorical;
   window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
   window.__test_optimizeMultiLever = optimizeMultiLever;
   window.__test_rothScheduleCost = rothScheduleCost;

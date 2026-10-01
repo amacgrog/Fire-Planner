@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Offline, single-file HTML FIRE calculators (US + Canada)",
   "scripts": {
-    "test": "node tests/golden.js"
+    "test": "node tests/golden.js && node tests/historical_tax_indexing.js"
   },
   "devDependencies": {
     "playwright": "1.56.1"
