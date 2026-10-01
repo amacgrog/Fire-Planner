@@ -129,7 +129,7 @@ async function run(browser, file) {
   const ra = await num(page, '#retireAgeA'),
     rb = await num(page, '#retireAgeB');
   const chipText = await page.$eval('#dashRetireAge', (e) => e.textContent);
-  check(chipText === `A ${ra} · B ${rb}`, `chip shows each partner's own retirement age: "${chipText}" vs A ${ra} / B ${rb}`);
+  check(chipText === `A ${ra} / B ${rb}`, `chip shows each partner's own retirement age: "${chipText}" vs A ${ra} / B ${rb}`);
   check(!/both retire/i.test(await page.$eval('#dashRetireChip', (e) => e.textContent)), 'no "when both retire" text');
   const cb = await page.locator('#dashRetireChip').boundingBox(),
     sb = await page.locator('.content').boundingBox();
@@ -143,6 +143,25 @@ async function run(browser, file) {
   await tips[0].click();
   check((await page.locator('#infoBubble').isVisible()) && /first year of retirement/.test(await page.locator('#infoBubble').textContent()), 'info bubble explains the withdrawal rate');
   await page.keyboard.press('Escape');
+  check((await tips[0].getAttribute('data-tip')).split(/[.!?]\s/).length === 1, 'withdrawal-rate explanation is a single sentence');
+  // Chip sits beside the on-track banner and is roughly square-ish (two lines)
+  const banner = page.locator('#planHeadlineBanner');
+  if (await banner.isVisible()) {
+    const bb = await banner.boundingBox(),
+      cc = await page.locator('#dashRetireChip').boundingBox();
+    check(Math.abs(cc.y - bb.y) < 20 && cc.x > bb.x + bb.width - 5, 'retirement box sits beside the on-track banner');
+  }
+  check((await page.$eval('#dashRetireChip .kicker', (e) => e.getBoundingClientRect().bottom)) <= (await page.$eval('#dashRetireAge', (e) => e.getBoundingClientRect().top)) + 1, 'ages are on their own line');
+  // Headline tiles: 4-across when roomy, 2x2 once they would get cramped
+  const colsAt = async (w) => {
+    await page.setViewportSize({ width: w, height: 900 });
+    await page.waitForTimeout(250);
+    return page.$eval('.metrics-primary', (e) => getComputedStyle(e).gridTemplateColumns.split(' ').length);
+  };
+  check((await colsAt(1900)) === 4, 'four across at a wide window');
+  check((await colsAt(1400)) === 2, '2x2 once the tile row drops below ~1000px');
+  check((await colsAt(1700)) === 4, 'back to four across when widened');
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   // Safe withdrawal rate
   const swr = await page.$$('.swr-input');

@@ -6436,6 +6436,18 @@ Branch `spending-changes-and-fi-widgets` (off `dynamic-additional-items`).
   (shared `#infoBubble`) next to the label. The row wraps instead of clipping
   the input on narrow tiles.
 
+## Headline row, tighter top spacing, 2x2 tile breakpoint (V64 US / V27 Canada)
+
+- The retirement-age box (two lines: "Retire at" / "A 55 / B 55") now shares a
+  `.headline-row` with the On-track banner. Don't make the banner itself
+  `display:flex` — it splits "On track:" from its text into separate flex items.
+- Vertical rhythm: `.content` gap 12px, and the banners/decision card lose
+  their own bottom margins (they stacked on top of the grid gap, ~34px).
+- The four headline tiles switch to 2x2 by a ResizeObserver on the tile row
+  (`.two-col` when its width < 1000px), not by a viewport media query, because
+  the sidebar takes a variable share of the window. The old 1100px viewport
+  query still governs the other `.metrics` grids.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
