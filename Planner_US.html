@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V53</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V54</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -605,16 +605,21 @@
         <details class="result-card" id="multiLeverOptimizerCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Withdrawal &amp; conversion optimizer</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Optimize. Scored the same way as the per-year Roth optimizer above: total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection, never recommending a change that would deplete the portfolio earlier than your current plan. The Roth lever searches the Roth ladder's own start/end age window above; the withdrawal-mix lever searches every year of retirement automatically (no window to set — a retiree funds spending every year, not just during a conversion ladder). Like the Roth ladder, this models what a retiree reviews once a year with their actual numbers in hand (this year's income already locked in, this year's ACA/IRMAA thresholds), not a 30-year plan fixed in stone today — re-run it as the plan updates.</p>
-          <div class="field" style="max-width:520px">
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600"><input id="mlRothLever" type="checkbox"> Roth conversion ladder (per-year fill target)</label>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlMixLever" type="checkbox"> Optimized withdrawal mix (per-year taxable / traditional / Roth split)<small>Goes further than "smoothed withdrawals" below — picks each year's own split (including how much, if any, to pull from Roth) to minimize that year's tax + ACA/IRMAA impact, instead of a single fixed rule applied every year.</small></label>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:8px"><input id="mlSmoothLever" type="checkbox"> Smoothed withdrawals (try both on and off, household-wide)<small>The simple version: draws taxable and traditional proportional to their balances every year, no tax-awareness, never touches Roth early. Kept as a fast, easy-to-reason-about baseline — the mix lever above is a strict superset of what this can find.</small></label>
+          <div id="multiLeverAppliedStatus" style="font-size:.8rem;margin:0 0 14px" hidden></div>
+          <div style="display:flex;flex-direction:column;gap:12px;max-width:560px">
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlRothLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Roth conversion ladder (per-year fill target)</span></label>
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlMixLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Optimized withdrawal mix (per-year taxable / traditional / Roth split)<small style="display:block;color:var(--muted);font-weight:500;margin-top:2px">Goes further than "smoothed withdrawals" below — picks each year's own split (including how much, if any, to pull from Roth) to minimize that year's tax + ACA/IRMAA impact, instead of a single fixed rule applied every year.</small></span></label>
+            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlSmoothLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Smoothed withdrawals (try both on and off, household-wide)<small style="display:block;color:var(--muted);font-weight:500;margin-top:2px">The simple version: draws taxable and traditional proportional to their balances every year, no tax-awareness, never touches Roth early. Kept as a fast, easy-to-reason-about baseline — the mix lever above is a strict superset of what this can find.</small></span></label>
           </div>
           <button type="button" id="multiLeverOptimizeBtn" class="btn-card" style="margin-top:14px">Optimize →</button>
           <p id="multiLeverNoLeversNote" style="color:var(--muted);font-size:.8rem;margin:8px 0 0" hidden>Check at least one lever above to run the optimizer.</p>
           <div id="multiLeverResult" hidden>
             <div id="multiLeverSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
             <div class="table-wrap"><table><thead id="multiLeverHead"></thead><tbody id="multiLeverRows"></tbody></table></div>
+            <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button type="button" id="multiLeverApplyBtn" class="btn-card">Apply this schedule to my plan →</button>
+              <span id="multiLeverApplyNote" style="font-size:.78rem;color:var(--muted)"></span>
+            </div>
           </div>
         </details>
 
@@ -743,6 +748,20 @@
     bondYears: 5,
     smoothWithdrawals: false,
     withdrawalMixEnabled: false,
+    // Per-year schedules written by the "Apply this schedule" button on the
+    // Withdrawal & conversion optimizer card (see renderMultiLeverOptimizer/
+    // applyMultiLeverSchedule below) — plain {age: value} objects (not Maps,
+    // so they round-trip through JSON/localStorage/scenario export), null
+    // when nothing's been applied. simulate() (not simulateHistorical() —
+    // same scope as withdrawalMixEnabled above) consults these as a
+    // fallback at the exact two spots that already read
+    // rothBracketOverrideByAge/withdrawalMixOverrideByAge for the
+    // optimizer's own transient search, so an applied schedule behaves
+    // exactly like an in-progress optimizer run that never gets un-set —
+    // only for whichever ages it actually covers; other years fall through
+    // to the ordinary flat-bracket/live-toggle/default behavior unchanged.
+    appliedRothSchedule: null,
+    appliedMixSchedule: null,
     guardrailsEnabled: false,
     survivorEnabled: false,
     survivorPartner: 'A',
@@ -894,6 +913,42 @@
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
       : [];
+    // appliedRothSchedule/appliedMixSchedule (see defaults above): plain
+    // {age: value} objects written by the optimizer's "Apply this
+    // schedule" button. Validated defensively — a hand-edited or stale
+    // export could otherwise carry a bogus value straight into
+    // simulate()'s withdrawal math. The allowed-value lists are duplicated
+    // here rather than referencing ROTH_PER_YEAR_CANDIDATES/
+    // WITHDRAWAL_MIX_CANDIDATES (declared later in the file) because
+    // normalizeState() runs before those consts exist — keep both lists in
+    // sync if the candidate menus ever change.
+    {
+      const sanitizeSchedule = (obj, allowedValues) => {
+        if (!obj || typeof obj !== 'object') return null;
+        const out = {};
+        let any = false;
+        for (const key of Object.keys(obj)) {
+          const age = Number(key);
+          if (!Number.isFinite(age) || age < 0 || age > 120) continue;
+          const val = obj[key];
+          if (!allowedValues.includes(val)) continue;
+          out[age] = val;
+          any = true;
+        }
+        return any ? out : null;
+      };
+      s.appliedRothSchedule = sanitizeSchedule(s.appliedRothSchedule, [0, 10, 12, 22, 24, 32, 35]);
+      s.appliedMixSchedule = sanitizeSchedule(s.appliedMixSchedule, [
+        0,
+        'taxable',
+        'traditional',
+        'roth',
+        'balanced',
+        'smoothed',
+        'taxTradHalf',
+        'thirds',
+      ]);
+    }
     {
       const rawPct = Number(s.traditionalSharePctA);
       s.traditionalSharePctA = Number.isFinite(rawPct) ? Math.min(100, Math.max(0, rawPct)) : 50;
@@ -2940,10 +2995,20 @@
   let rothBracketOverrideByAge = null;
   function solveRothConversion(profile, maxAvailable, yearIndex, ageKey) {
     if (maxAvailable <= 0) return 0;
+    // Transient optimizer-search override takes priority (set only for the
+    // duration of one simulate() call, see above); next, a schedule
+    // previously written by the optimizer's "Apply this schedule" button
+    // (state.appliedRothSchedule, see defaults/normalizeState) — both are
+    // keyed by Partner A's age and only ever reached when ageKey is defined,
+    // i.e. from simulate(), not simulateHistorical() (which calls this
+    // without an ageKey), so this stays scoped the same way the live
+    // withdrawalMixEnabled toggle is. Falls through to the flat bracket.
     const bracketPct =
       rothBracketOverrideByAge && rothBracketOverrideByAge.has(ageKey)
         ? rothBracketOverrideByAge.get(ageKey)
-        : state.rothConvBracket;
+        : state.appliedRothSchedule && Object.prototype.hasOwnProperty.call(state.appliedRothSchedule, ageKey)
+          ? state.appliedRothSchedule[ageKey]
+          : state.rothConvBracket;
     if (bracketPct === 0) return 0;
     const factor = Math.pow(1 + pct(state.inflation), yearIndex),
       filing = profile.filing === 'mfj' ? 'mfj' : 'single';
@@ -2985,6 +3050,11 @@
   // simple proportional-by-balance rule, then the plain taxable-first
   // default, unchanged.
   let withdrawalMixOverrideByAge = null;
+  // Last completed optimizeMultiLever() run shown in the result card —
+  // { opt, options, savings } or null before the first run this session.
+  // Read by applyMultiLeverSchedule() so "Apply" writes exactly what the
+  // table is currently showing, not a freshly re-run search.
+  let lastMultiLeverRun = null;
   // Candidate withdrawal splits the per-year optimizer searches, as
   // [taxable, traditional, roth] fractions of that year's spending need
   // (always summing to 1). 'balanced' is resolved dynamically from that
@@ -4074,7 +4144,9 @@
         const mixCandidate =
           withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
             ? withdrawalMixOverrideByAge.get(age)
-            : 0;
+            : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
+              ? state.appliedMixSchedule[age]
+              : 0;
         const mixWeights = withdrawalMixWeights(mixCandidate, taxable, traditional, roth);
         if (mixWeights && need > 0) {
           // Optimized per-year withdrawal mix (explicit override only —
@@ -5272,6 +5344,7 @@
     const rothOptimizerCard = document.getElementById('rothOptimizerCard');
     rothOptimizerCard.hidden = !state.rothConvEnabled;
     if (state.rothConvEnabled && rothOptimizerCard.open) renderRothOptimizer(selected);
+    renderMultiLeverAppliedStatus();
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
     window.fireProjection = {
@@ -6820,6 +6893,78 @@
         .join('');
     }
     resultEl.hidden = false;
+    // Remembered so the "Apply this schedule" button (below) knows exactly
+    // what the table above is showing — the button applies this run's
+    // result, not a fresh re-optimization, so what you see is what you get.
+    lastMultiLeverRun = { opt, options, savings };
+    const applyBtn = document.getElementById('multiLeverApplyBtn'),
+      applyNote = document.getElementById('multiLeverApplyNote');
+    if (savings > 1) {
+      applyBtn.disabled = false;
+      applyNote.textContent = '';
+    } else {
+      applyBtn.disabled = true;
+      applyNote.textContent = "Nothing to apply — your current settings already match what was found.";
+    }
+  }
+  // Writes a finished optimizeMultiLever() run's schedule(s) into state so
+  // simulate() (the main projection, not just this card's own re-simulation
+  // above) picks them up from now on — see appliedRothSchedule/
+  // appliedMixSchedule in defaults/normalizeState and the two fallback
+  // reads in solveRothConversion()/the mixCandidate line. Only touches the
+  // lever(s) this run actually searched; a lever left unchecked this run
+  // keeps whatever was applied (or not applied) before.
+  function applyMultiLeverSchedule() {
+    if (!lastMultiLeverRun) return;
+    const { opt, options } = lastMultiLeverRun;
+    snapshotForUndo('Applied optimizer schedule');
+    if (options.includeRoth) {
+      state.rothConvEnabled = true;
+      state.appliedRothSchedule = Object.fromEntries(opt.rothSchedule);
+    }
+    if (options.includeMix) {
+      state.appliedMixSchedule = Object.fromEntries(opt.mixSchedule);
+    }
+    if (options.includeSmooth) {
+      state.smoothWithdrawals = opt.smoothWithdrawals;
+    }
+    syncControls();
+    syncContributionControls();
+    render();
+    saveInputs();
+  }
+  function clearAppliedMultiLeverSchedule(which) {
+    snapshotForUndo('Cleared applied optimizer schedule');
+    if (which === 'roth' || which === 'both') state.appliedRothSchedule = null;
+    if (which === 'mix' || which === 'both') state.appliedMixSchedule = null;
+    render();
+    saveInputs();
+  }
+  // Always-visible summary of whatever's currently applied — shown whether
+  // or not the card is expanded/has just been run, so a schedule applied in
+  // an earlier session isn't silently invisible the next time this page
+  // loads (it's otherwise undiscoverable: it doesn't show up as a checked
+  // box anywhere, only as a change in the numbers).
+  function renderMultiLeverAppliedStatus() {
+    const el = document.getElementById('multiLeverAppliedStatus');
+    const rothAges = state.appliedRothSchedule ? Object.keys(state.appliedRothSchedule) : [],
+      mixAges = state.appliedMixSchedule ? Object.keys(state.appliedMixSchedule) : [];
+    if (!rothAges.length && !mixAges.length) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    const parts = [];
+    if (rothAges.length)
+      parts.push(
+        `a per-year Roth conversion schedule (ages ${Math.min(...rothAges)}–${Math.max(...rothAges)}) <button type="button" class="link-btn" data-clear-applied="roth">clear</button>`,
+      );
+    if (mixAges.length)
+      parts.push(
+        `a per-year withdrawal mix (ages ${Math.min(...mixAges)}–${Math.max(...mixAges)}) <button type="button" class="link-btn" data-clear-applied="mix">clear</button>`,
+      );
+    el.hidden = false;
+    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the optimizer below: ${parts.join(' and ')}.</div>`;
   }
 
   function simulateAtRealCagr(realCagrPct) {
@@ -9936,6 +10081,13 @@
       }, 0);
     });
   });
+  document.getElementById('multiLeverApplyBtn').addEventListener('click', () => {
+    applyMultiLeverSchedule();
+  });
+  document.getElementById('multiLeverAppliedStatus').addEventListener('click', (e) => {
+    const which = e.target.getAttribute('data-clear-applied');
+    if (which) clearAppliedMultiLeverSchedule(which);
+  });
   document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
@@ -10234,6 +10386,12 @@
   window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
+  window.__test_getState = () => state;
+  window.__test_applyMultiLeverSchedule = (opt, options) => {
+    lastMultiLeverRun = { opt, options, savings: 2 };
+    applyMultiLeverSchedule();
+  };
+  window.__test_clearAppliedMultiLeverSchedule = clearAppliedMultiLeverSchedule;
 })();
 </script>
 </body>

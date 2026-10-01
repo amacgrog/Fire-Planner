@@ -5957,6 +5957,188 @@ has real teeth, not just a passing assertion against current behavior.
 itself is US-only (see V51 above): no ACA/IRMAA-style MAGI cliff for a
 live picker to avoid tipping.
 
+## "Apply this schedule to my plan": the multi-lever optimizer finally writes back (V54, US-only, same branch)
+
+**The report**, verbatim: a user ran the "Withdrawal & conversion
+optimizer" card against a real saved scenario, with the live
+`withdrawalMixEnabled` toggle (see V52/V53 above) already on, and
+compared the "Selected retirement timeline" table's total-assets figure
+at age 62/63 before and after clicking Optimize. It never moved — same
+figure to the dollar, which seemed implausible for a dedicated
+multi-year search to add literally nothing over the one-year-lookahead
+live toggle.
+
+**Root cause: the optimizer never wrote anything back, by design, and
+nothing in the UI said so.** `optimizeMultiLever()`/
+`renderMultiLeverOptimizer()` only ever set `rothBracketOverrideByAge`/
+`withdrawalMixOverrideByAge` (the same transient module-level `let`s the
+live toggle's priority-order code already reads) for the duration of one
+`simulate()` call — purely to read each year's dollar amounts for the
+optimizer card's own result table — then immediately reset both back to
+`null`. The main dashboard's own `simulate()` call, a few lines later in
+`render()`, never saw them. So "Optimize →" could never move the main
+plan no matter what it found; it was a pure report, and the card's own
+copy ("this never changes your plan unless you turn a lever on and click
+Optimize") actively implied otherwise. Verified empirically before
+concluding this was the explanation (not, say, a search bug returning
+nothing useful): applying the found Roth-ladder + mix schedule by hand
+via the `__test_*` hooks and re-simulating showed a real
+**$132,548** (then, after a second confirmation pass with slightly
+different inputs, **$128,481**) reduction in lifetime tax + healthcare
+cost on the reported scenario — a genuine, non-trivial finding the main
+table was silently missing.
+
+**Fix: promote the found schedule into real, persisted state fields.**
+`defaults.appliedRothSchedule`/`defaults.appliedMixSchedule` (both `null`
+by default) are plain `{age: value}` objects — deliberately plain objects
+rather than `Map`s, so they round-trip through `JSON.stringify`/
+`localStorage`/scenario export/import exactly like every other state
+field, unlike the pre-existing transient override `Map`s. `simulate()`'s
+two existing override-read sites each gained one more fallback tier,
+*inside the same function* rather than via some new sync step:
+- `solveRothConversion()`'s bracket lookup: transient
+  `rothBracketOverrideByAge` (if set) → `state.appliedRothSchedule[ageKey]`
+  (if present) → flat `state.rothConvBracket`, unchanged.
+- The `mixCandidate` line in `simulate()`'s withdrawal branch: transient
+  `withdrawalMixOverrideByAge` → `state.appliedMixSchedule[age]` → `0`
+  ("no override"), unchanged.
+
+Both reads already only ever reached their per-year map from `simulate()`
+proper, never `simulateHistorical()` — `solveRothConversion()` is called
+from `simulateHistorical()` *without* the `ageKey` argument at all, so
+`.has(undefined)`/`hasOwnProperty(appliedObj, undefined)` are reliably
+false there, and the mix-candidate branch's whole withdrawal-order
+if/else chain only exists once in the file, inside `simulate()`. So the
+new fallback inherits the existing `simulate()`-only scope for free,
+without needing a second copy or an explicit guard — same boundary as
+the live `withdrawalMixEnabled` toggle and `smoothWithdrawals` before it.
+
+This design means **no module-level sync step is needed anywhere state
+gets reloaded** (initial load, localStorage restore, `loadScenario()`,
+undo/redo) — every `simulate()` call reads `state.appliedRothSchedule`/
+`state.appliedMixSchedule` fresh, so whatever's in `state` is what's
+live, full stop. The only remaining moving part is writing to those
+fields in the first place.
+
+**`applyMultiLeverSchedule()`** (new): reads `lastMultiLeverRun` — the
+`{ opt, options, savings }` from whichever `optimizeMultiLever()` run is
+currently showing in the result table, set at the end of
+`renderMultiLeverOptimizer()` so "Apply" always applies exactly what's on
+screen, never a silently-re-run search. `snapshotForUndo()`s first (so
+the existing Undo toast/Ctrl+Z path covers this like any other plan
+edit), then: if `options.includeRoth`, turns `state.rothConvEnabled` on
+and writes `state.appliedRothSchedule = Object.fromEntries(opt.rothSchedule)`;
+if `options.includeMix`, writes `state.appliedMixSchedule` the same way;
+if `options.includeSmooth`, sets `state.smoothWithdrawals =
+opt.smoothWithdrawals`. Only touches the lever(s) that run actually
+searched — applying a mix-only run afterward leaves an already-applied
+Roth schedule from an earlier run alone, and vice versa (each is its own
+independent field). `syncControls()`/`syncContributionControls()`/
+`render()`/`saveInputs()` afterward, same as every other state-mutating
+action in the file.
+
+**"Apply" button disabled, not hidden, when there's nothing worth
+applying** — `renderMultiLeverOptimizer()` now sets
+`#multiLeverApplyBtn.disabled` based on the exact same `savings > 1`
+threshold the summary text's "recommended" vs. "already as good as"
+branch already used, with a `#multiLeverApplyNote` explaining why,
+rather than leaving an enabled button that'd just reapply the current
+plan with a few extra dollars of noise.
+
+**`clearAppliedMultiLeverSchedule(which)`** (new, `which` one of
+`'roth'`/`'mix'`/`'both'`): sets the corresponding applied-schedule
+field(s) back to `null` and re-renders. Deliberately does *not* also
+turn `state.rothConvEnabled` back off — Apply turning the ladder on
+behaves exactly like the person checking that box by hand, and clearing
+only undoes the *schedule*, not every checkbox Apply happened to flip
+along the way; if they want the ladder off entirely they uncheck it
+themselves, same as any other box. (Confirmed by test: post-clear state
+matches a fresh scenario where the ladder box was checked by hand with
+its flat default bracket, to the cent.)
+
+**`renderMultiLeverAppliedStatus()`** (new, called from the main
+`render()`, not gated on the card being open or a run having just
+happened): an always-current `#multiLeverAppliedStatus` banner at the top
+of the optimizer card reading "Applied from the optimizer below: a
+per-year Roth conversion schedule (ages X–Y) `clear` and/or a per-year
+withdrawal mix (ages X–Y) `clear`" whenever either field is non-null,
+hidden otherwise. This exists specifically so a schedule applied in an
+earlier session isn't silently invisible on a later page load — unlike
+every other toggle in the sidebar, an applied schedule doesn't show up as
+a checked checkbox anywhere; the only other sign it's active is the
+numbers themselves quietly being different from what the visible
+checkboxes alone would produce. The `clear` buttons are plain `.link-btn`
+elements with `data-clear-applied="roth"|"mix"`, handled by one delegated
+click listener on the banner container rather than per-button listeners
+(the banner's own `innerHTML` gets fully rebuilt on every render, so
+per-button listeners would need re-attaching every time anyway).
+
+**Validation in `normalizeState()`.** Per this file's own standing rule
+("any new enum-like field needs a guard here, or a bad value can
+silently corrupt the simulation" — see `CLAUDE.md`), a hand-edited or
+stale scenario export carrying a bogus `appliedRothSchedule`/
+`appliedMixSchedule` value is sanitized rather than trusted: each key is
+coerced to a number and dropped if not finite/in `[0, 120]`; each value
+is dropped unless it's literally a member of the bracket-pct menu (`[0,
+10, 12, 22, 24, 32, 35]`) or the mix-candidate menu (`[0, 'taxable',
+'traditional', 'roth', 'balanced', 'smoothed', 'taxTradHalf',
+'thirds']`). Those two allowed-value lists are duplicated inline inside
+`normalizeState()` (rather than referencing
+`ROTH_PER_YEAR_CANDIDATES`/`WITHDRAWAL_MIX_CANDIDATES`, declared much
+later in the file) because `normalizeState()` runs — at module
+initialization, before `defaults` is even fully consumed — well before
+those `const`s exist; keep both copies in sync if the candidate menus
+ever change.
+
+**Layout bug fixed in the same pass: the lever checkboxes were silently
+rendering as an auto-placed 2-column CSS grid.** The three lever
+`<label>`s lived inside a `<div class="field" style="max-width:520px">`
+— but `.field` is the shared *input-row* layout class
+(`display:grid;grid-template-columns:minmax(0,1fr) 116px`), meant for a
+label-plus-number-input pair, not a free-standing stack of checkboxes.
+With three `<label>` children and no `display` override on the wrapper,
+the grid's implicit auto-placement put label 1 in row 1's 1fr column,
+label 2 in row 1's 116px column (overflowing it badly, since that
+label's content — checkbox, text, and a `<small>` description — is far
+wider than 116px), and label 3 back in row 2's 1fr column, producing the
+enormous, inconsistent blank gaps a screenshot caught. Fixed by dropping
+`class="field"` entirely and wrapping the three labels in a plain
+`display:flex;flex-direction:column;gap:12px` div instead, and by
+restructuring each label's own markup (`display:flex;align-items:
+flex-start`, checkbox then a `<span>` holding the label text and a
+`display:block` `<small>` on its own line beneath it) so a label's
+description wraps under its own checkbox instead of becoming a sibling
+flex item fighting for horizontal space. No other `.field`-classed
+wrapper in the file holds more than one label, so this was a one-off
+misuse, not a pattern needing a wider audit.
+
+**Testing.** New `test_apply_optimizer_schedule.js` (17/17 passing):
+`appliedRothSchedule`/`appliedMixSchedule` are `null` by default; Apply
+is enabled after a run with real savings; clicking Apply actually moves
+the main plan's own `simulate()` output (the exact failure mode
+reported, re-created and shown fixed) and turns `rothConvEnabled` on;
+both applied fields land as non-empty plain objects; the applied
+schedule survives a full page reload via the ordinary `localStorage`
+autosave path (and the banner is visible immediately on reload, not just
+mid-session); clearing removes just the schedule fields (ladder checkbox
+stays on, confirmed to match a hand-checked equivalent to the cent) and
+hides the banner; applying only the mix lever on a second run leaves an
+already-applied Roth schedule from an earlier run byte-for-byte
+untouched; and `normalizeState()` drops a negative/non-numeric age, an
+out-of-menu bracket value, and an unrecognized mix-candidate string from
+a hand-edited imported scenario while keeping the valid entries
+alongside them. `npm test` (golden math, including the two V53 live-mix
+checks), `test_multi_lever_optimizer.js` (31/31), `test_live_withdrawal_
+mix.js` (6/6), and `test_roth_optimizer_per_year.js` (11/11) all
+re-verified unaffected — the two new `solveRothConversion()`/
+`mixCandidate` fallback tiers are no-ops for every one of those existing
+tests, since none of them ever populate `state.appliedRothSchedule`/
+`state.appliedMixSchedule`. Mobile-width check (390×844) on the expanded
+optimizer card clean. Visual check via Playwright screenshot confirmed
+both the layout fix (labels now stack in one column, descriptions
+wrapping underneath instead of off to the side) and the applied-status
+banner/Undo-toast integration render correctly.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
