@@ -5325,7 +5325,7 @@ can't be built through the DOM alone: the UI only ever sets one flat
 bracket across a whole window, never a per-year schedule.
 
 **Testing.** `test_roth_optimizer_per_year.js` (ad-hoc, repo root,
-gitignored, run individually — not wired into `npm test`/CI):
+committed, run individually — not wired into `npm test`/CI):
 - a pure-algorithm (no browser) test reproducing the 2-variable
   local-optimum trap described above, proving single-start coordinate
   ascent gets stuck on it while the 3-start driver escapes it
@@ -5489,7 +5489,7 @@ Same async-yield-before-blocking-compute pattern as the per-year Roth
 button (`requestAnimationFrame` + `setTimeout(...,0)` so the
 "Optimizing…" disabled state actually paints).
 
-**Testing.** `test_multi_lever_optimizer.js` (ad-hoc, gitignored, run
+**Testing.** `test_multi_lever_optimizer.js` (ad-hoc, committed, run
 individually): `solveGainHarvest()` sizing verified against a
 hand-computed 0%-bracket ceiling and the `0`-sentinel guard; an
 end-to-end basis-correctness test proving a forced harvest schedule

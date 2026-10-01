@@ -21,7 +21,7 @@ feature list.
 - `index.html` — a small landing page linking to both tools.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
   checks, run via `npm test`. This is the only test wired into CI.
-- `test_*.js` (repo root, gitignored) — ad-hoc Playwright scripts covering
+- `test_*.js` (repo root, committed) — ad-hoc Playwright scripts covering
   UI/feature behavior; not run by CI. Run individually with `node test_foo.js`.
 - `docs/reference.md` — a much longer, chronological architecture/gotcha log
   (bug postmortems, CSS traps, the full history of specific features). Consult
@@ -32,7 +32,7 @@ feature list.
 
 - `npm test` — runs `tests/golden.js` (requires `playwright`; `npm install`
   first if `node_modules` isn't present). Must stay exact-to-the-cent.
-- `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, gitignored,
+- `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, committed,
   not wired into CI or `npm test`). Add/extend one of these when you add a
   feature and actually run it.
 - Syntax-check a planner file without a browser: `node --check Planner_US.html`
