@@ -6355,6 +6355,36 @@ the question id (the menu is plain markup plus the `DECISION_QUESTIONS`
 object), so no other code needed changing; the remaining 7 questions were
 re-verified in Playwright.
 
+## Add-as-you-go lists + additional/one-time expenses (V60 US / V23 Canada, both files)
+
+Branch `dynamic-additional-items`. User ask: additional expenses/income/loans
+should start at zero with a "+" button, income and expenses get start/end
+ages plus a checkbox to follow income growth / inflation or use their own
+rate, and a new tab for one-time ("lumpy") expenses with optional repeat.
+
+Decisions:
+- Lists default to `[]`, cap 10, removal is undoable (`snapshotForUndo`).
+- Age windows are Partner A's age (matches how the other sidebar
+  windows work); growth runs from today, not from the start age, so "today's
+  dollars" stays the convention everywhere.
+- Extras are not scaled by the survivor-spending % or guardrail cuts (they are
+  explicit user-entered items, not baseline spending).
+- One-time expenses are excluded from guardrail needs, `firstWithdrawal`, and
+  `bondTarget` so a spike doesn't trigger cuts or inflate the reserve;
+  recurring extras ARE included in `projectedExpense()` for ladder sizing.
+- Wizard step-2 checkboxes for loans/additional income removed (replaced by
+  a note); category rail label renamed "Other items"; US MCP
+  `otherLoansEnabled`/`otherIncomeEnabled` flags removed (Canada never had
+  them).
+- Rows render only when the row count changes (focus-preserving guard), so
+  typing never loses the caret; a count change re-renders everything.
+- Gotchas found in testing: money fields read back as "$777" (strip non-digits
+  in tests); the Sankey slider value is an index from current age, not an age,
+  and its max only updates after the card's toggle event fires; importing a
+  scenario appends to the list, so tests must load the *last* `[data-load]`.
+- Verified: legacy payload with enabled loan/stream/lump produces
+  `fireProjectionRows` identical to main to the cent, both planners.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

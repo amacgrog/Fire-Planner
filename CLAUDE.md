@@ -189,6 +189,26 @@ side before porting a feature:
   argue for *lower* supplemental cost at 65, not a new mandatory expense —
   don't port `medicareYearly` to Canada.
 
+## Add-as-you-go lists (loans, extra income, extra expenses, one-time items)
+
+`state.loans`, `incomeSources`, `oneTimeIncome`, `extraExpenses`, and
+`lumpExpenses` are arrays that **default to `[]`** (cap `LIST_MAX = 10`);
+the old fixed slots and the `otherLoansEnabled`/`otherIncomeEnabled` master
+flags are gone. All five render from one generic DYN block (specs per list,
+`renderDynList(name)`, delegated input/change/click handlers) — add a field
+by editing the spec, not by hand-writing HTML. Ids are `<prefix><index><Field>`
+(e.g. `extraExp0Amount`, `lumpExp0RepeatEvery`). Growth model: items have
+`followGrowth` (true = income growth for income, inflation for expenses) or
+their own `growth` %; `itemGrowthFactor()` applies it from today, and the
+historical engine substitutes its actual-inflation `factor`. Age windows use
+Partner A's age. `lumpExpenseHits(e, age)` handles repeat-every/until.
+Lump expenses are subtracted out of guardrail needs, `firstWithdrawal`, and
+`bondTarget` sizing. `normalizeLists()` (called from `normalizeState`)
+migrates legacy saves: flag present+off → list dropped; flag on → only
+configured loans / `enabled` streams kept, legacy income streams pinned to
+`followGrowth:false, growth=inflation` so old projections reproduce exactly.
+Test: `node test_dynamic_lists.js`.
+
 ## Money-field formatting
 
 Every dollar field has `class="money"` and is runtime-converted from

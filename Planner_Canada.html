@@ -87,6 +87,14 @@
     .info-tip[aria-expanded="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
     .info-bubble{position:fixed;z-index:70;box-sizing:border-box;width:max-content;max-width:min(340px,calc(100vw - 24px));padding:11px 13px;background:var(--card);color:var(--ink);border:1px solid var(--field-border);border-radius:11px;box-shadow:var(--shadow);font-size:.8rem;font-weight:500;line-height:1.45;text-transform:none;letter-spacing:normal;text-align:left}
     .info-bubble[hidden]{display:none}
+    .dyn-row{border-top:1px solid var(--group-line);padding:9px 0 2px}
+    .dyn-row-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .dyn-row-head b{font-size:.78rem;color:var(--muted)}
+    .dyn-remove{border:0;background:transparent;color:var(--hint);font-size:1.25rem;line-height:1;width:34px;height:34px;border-radius:8px}
+    .dyn-remove:hover,.dyn-remove:focus-visible{color:var(--red);background:var(--surface)}
+    .dyn-empty{font-size:.8rem;color:var(--hint);margin:4px 0 10px}
+    .dyn-add{margin-top:8px}.dyn-add:disabled{opacity:.5;cursor:not-allowed}
+    .field[hidden],.range-field[hidden]{display:none}
     details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
     details.group summary::-webkit-details-marker{display:none}
     details.group summary::after{content:'▾';font-size:.9rem;color:var(--hint);transition:transform .15s ease;flex-shrink:0;margin-left:8px}
@@ -262,7 +270,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V22</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V23</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -297,7 +305,7 @@
           <button type="button" data-cat="assets">Assets</button>
           <button type="button" data-cat="housing">Housing</button>
           <button type="button" data-cat="healthcare">Retirement &amp; healthcare</button>
-          <button type="button" data-cat="extra">Other income</button>
+          <button type="button" data-cat="extra">Other items</button>
           <button type="button" data-cat="advanced">Advanced</button>
         </nav>
         <div class="category-fields" id="categoryFields">
@@ -440,11 +448,7 @@
         </details>
         <details class="group" id="otherLoansGroup" data-cat="extra">
           <summary><span class="group-summary-text"><span class="group-title">Other loans</span><span class="group-state" id="otherLoansGroupState"></span></span></summary>
-          <div class="field"><label for="otherLoansEnabled"><input id="otherLoansEnabled" type="checkbox"> Model other loans<small>Turn off to exclude this section entirely from the projection.</small></label></div>
-          <div id="otherLoansFields">
-            <p class="range-note">Add up to five amortizing loans. Payments and remaining balances are included in the projection.</p>
-            <div id="loanFields"></div>
-          </div>
+          <div id="loanFields"></div>
         </details>
         <details class="group" id="bridgeGroup" data-cat="extra">
           <summary><span class="group-summary-text"><span class="group-title">Bridge / part-time income</span><span class="group-state" id="bridgeGroupState"></span></span></summary>
@@ -461,13 +465,16 @@
         </details>
         <details class="group" id="otherIncomeGroup" data-cat="extra">
           <summary><span class="group-summary-text"><span class="group-title">Additional income</span><span class="group-state" id="otherIncomeGroupState"></span></span></summary>
-          <div class="field"><label for="otherIncomeEnabled"><input id="otherIncomeEnabled" type="checkbox"> Model additional income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
-          <div id="otherIncomeFields">
-            <p class="range-note">Up to three recurring income sources over an age <span class="info-nw">window.<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="e.g. rental income or alimony — taxed as ordinary income attributed to Partner A. Amounts are in today&#x27;s dollars.">i</button></span></p>
-            <div id="incomeSourceFields"></div>
-            <p class="range-note">Up to three one-time, tax-free lump <span class="info-nw">sums.<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today&#x27;s dollars.">i</button></span></p>
-            <div id="oneTimeIncomeFields"></div>
-          </div>
+          <div id="incomeSourceFields"></div>
+          <div id="oneTimeIncomeFields"></div>
+        </details>
+        <details class="group" id="extraExpensesGroup" data-cat="extra">
+          <summary><span class="group-summary-text"><span class="group-title">Additional expenses</span><span class="group-state" id="extraExpensesGroupState"></span></span></summary>
+          <div id="extraExpenseFields"></div>
+        </details>
+        <details class="group" id="lumpExpensesGroup" data-cat="extra">
+          <summary><span class="group-summary-text"><span class="group-title">One-time expenses</span><span class="group-state" id="lumpExpensesGroupState"></span></span></summary>
+          <div id="lumpExpenseFields"></div>
         </details>
         <details class="group" id="survivorGroup" data-cat="extra">
           <summary><span class="group-summary-text"><span class="group-title">Survivor planning</span><span class="group-state" id="survivorGroupState"></span></span></summary>
@@ -642,13 +649,11 @@
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
       <h3 class="wizard-subhead">Income</h3>
       <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Part-time income<small>Income from part-time work or consulting during an early-retirement window, before CPP/OAS start. Lives in the Bridge / part-time income section.</small></label></div>
-      <div class="field"><label for="wizardOtherIncomeEnabled"><input id="wizardOtherIncomeEnabled" type="checkbox"> Additional income<small>Recurring income streams (e.g. rental income) or one-time lump sums (e.g. an inheritance) at a chosen age. Lives in the Additional income section.</small></label></div>
       <h3 class="wizard-subhead">Taxes &amp; investing</h3>
       <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>Withdraws from your RRSP each year in retirement, filling a tax bracket you choose, and moves the proceeds into your TFSA — a way to pay tax at today's rate instead of on larger RRIF minimums later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
       <h3 class="wizard-subhead">Guardrails</h3>
       <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
-      <h3 class="wizard-subhead">Debt</h3>
-      <div class="field"><label for="wizardOtherLoansEnabled"><input id="wizardOtherLoansEnabled" type="checkbox"> Other loans<small>Tracks a car loan, personal loan, or similar — separate from your mortgage. Lives in the Other loans section.</small></label></div>
+      <p class="range-note" style="margin-top:14px">Other loans, additional income, additional expenses and one-time expenses can be added any time under “Other items” in the assumptions panel.</p>
     </div>
     <div class="wizard-actions">
       <button type="button" class="btn-card" id="wizardBackBtn" hidden>Back</button>
@@ -755,8 +760,6 @@
     bridgeIncomeB: 0,
     bridgeStartAgeB: 65,
     bridgeEndAgeB: 70,
-    otherIncomeEnabled: false,
-    otherLoansEnabled: false,
     meltdownEnabled: false,
     meltdownStartAge: 60,
     meltdownEndAge: 70,
@@ -770,21 +773,13 @@
     fhsa: 0,
     fhsaPctA: 0,
     fhsaPctB: 0,
-    loans: Array.from({ length: 5 }, () => ({
-      principal: 0,
-      balance: 0,
-      rate: 0,
-      term: 0,
-      extra: 0,
-    })),
+    // "Add another" lists — all start empty; see normalizeLists().
+    loans: [],
     spendingTiers: Array.from({ length: 5 }, () => ({ enabled: false, age: 65, amount: 60000 })),
-    incomeSources: Array.from({ length: 3 }, () => ({
-      enabled: false,
-      amount: 0,
-      startAge: 65,
-      endAge: 75,
-    })),
-    oneTimeIncome: Array.from({ length: 3 }, () => ({ enabled: false, age: 65, amount: 0 })),
+    incomeSources: [],
+    oneTimeIncome: [],
+    extraExpenses: [],
+    lumpExpenses: [],
     dismissedEstimates: [],
     dismissedUnusualAssumptions: [],
   };
@@ -814,6 +809,77 @@
   // today's defaults. Fields the raw object is missing fall back to the
   // current default; fields it has that no longer exist are simply dropped.
   // This is what keeps saved scenarios working across future tool updates.
+  // Variable-length "add another" lists. Every list starts empty. Older saves
+  // (and scenario exports) stored fixed-length arrays gated by master
+  // `otherLoansEnabled` / `otherIncomeEnabled` flags plus per-row `enabled`
+  // flags; those flags no longer exist, so a legacy payload is recognised by
+  // the presence of the flag key and converted so the projection it produced
+  // before is unchanged: a list whose master flag was off is dropped, and
+  // disabled/all-zero rows are dropped. Legacy income streams were indexed to
+  // inflation, so they migrate as "own growth rate" pinned to the inflation
+  // value at load time instead of silently switching to income growth.
+  const LIST_MAX = 10;
+  function normalizeLists(s, raw) {
+    const num = (v, d, lo = -Infinity, hi = Infinity) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;
+      },
+      rows = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : []),
+      legacyLoans = !!raw && 'otherLoansEnabled' in raw,
+      legacyIncome = !!raw && 'otherIncomeEnabled' in raw;
+    let loans = rows(raw?.loans),
+      streams = rows(raw?.incomeSources),
+      lumps = rows(raw?.oneTimeIncome);
+    if (legacyLoans)
+      loans = raw.otherLoansEnabled
+        ? loans.filter((l) => [l.principal, l.balance, l.rate, l.term, l.extra].some((v) => Number(v) > 0))
+        : [];
+    if (legacyIncome) {
+      streams = raw.otherIncomeEnabled ? streams.filter((x) => x.enabled) : [];
+      lumps = raw.otherIncomeEnabled ? lumps.filter((x) => x.enabled) : [];
+    }
+    const legacyGrowth = num(s.inflation, defaults.inflation, -10, 20),
+      growthOf = (x, legacy, ownDefault) => ({
+        followGrowth: legacy && x.followGrowth === undefined ? false : x.followGrowth !== false,
+        growth: num(x.growth, ownDefault, -10, 20),
+      });
+    s.loans = loans.slice(0, LIST_MAX).map((l) => ({
+      principal: num(l.principal, 0, 0),
+      balance: num(l.balance, 0, 0),
+      rate: num(l.rate, 0, 0, 40),
+      term: num(l.term, 0, 0, 50),
+      extra: num(l.extra, 0, 0),
+    }));
+    s.incomeSources = streams.slice(0, LIST_MAX).map((x) => ({
+      amount: num(x.amount, 0, 0),
+      startAge: num(x.startAge, 65, 0, 120),
+      endAge: num(x.endAge, 75, 0, 120),
+      ...growthOf(x, legacyIncome, legacyIncome ? legacyGrowth : defaults.incomeGrowth),
+    }));
+    s.oneTimeIncome = lumps.slice(0, LIST_MAX).map((x) => ({
+      amount: num(x.amount, 0, 0),
+      age: num(x.age, 65, 0, 120),
+    }));
+    s.extraExpenses = rows(raw?.extraExpenses)
+      .slice(0, LIST_MAX)
+      .map((x) => ({
+        amount: num(x.amount, 0, 0),
+        startAge: num(x.startAge, 65, 0, 120),
+        endAge: num(x.endAge, 75, 0, 120),
+        ...growthOf(x, false, defaults.inflation),
+      }));
+    s.lumpExpenses = rows(raw?.lumpExpenses)
+      .slice(0, LIST_MAX)
+      .map((x) => ({
+        amount: num(x.amount, 0, 0),
+        age: num(x.age, 65, 0, 120),
+        repeatEvery: Math.round(num(x.repeatEvery, 0, 0, 50)),
+        untilAge: num(x.untilAge, 85, 0, 120),
+        ...growthOf(x, false, defaults.inflation),
+      }));
+    delete s.otherLoansEnabled;
+    delete s.otherIncomeEnabled;
+  }
   function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
     if (!['own', 'rent', 'rentThenBuy'].includes(s.tenure)) s.tenure = 'own';
@@ -826,21 +892,10 @@
     s.retireAgeB = Math.max(s.ageB, Number(s.retireAgeB ?? s.retireAge ?? s.ageB));
     s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
     s.lifeExpectancyB = Math.min(110, Math.max(s.lifeExpectancyB, s.ageB + 1));
-    s.loans = Array.from({ length: 5 }, (_, i) => ({
-      ...defaults.loans[i],
-      ...(Array.isArray(s.loans) ? s.loans[i] : {}),
-    }));
+    normalizeLists(s, raw);
     s.spendingTiers = Array.from({ length: 5 }, (_, i) => ({
       ...defaults.spendingTiers[i],
       ...(Array.isArray(s.spendingTiers) ? s.spendingTiers[i] : {}),
-    }));
-    s.incomeSources = Array.from({ length: 3 }, (_, i) => ({
-      ...defaults.incomeSources[i],
-      ...(Array.isArray(s.incomeSources) ? s.incomeSources[i] : {}),
-    }));
-    s.oneTimeIncome = Array.from({ length: 3 }, (_, i) => ({
-      ...defaults.oneTimeIncome[i],
-      ...(Array.isArray(s.oneTimeIncome) ? s.oneTimeIncome[i] : {}),
     }));
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
@@ -1849,18 +1904,14 @@
     // --- Hide-when-off groups: empty string when off, '✓ ...' when on. ---
 
     // Other loans.
-    if (state.otherLoansEnabled) {
-      const loans = state.loans || [];
-      const activeLoans = loans.filter(
-        (l) => (Number(l.balance) || 0) > 0 || (Number(l.principal) || 0) > 0,
-      );
-      const annualPayment = activeLoans.reduce((sum, l) => {
+    if (state.loans.length) {
+      const annualPayment = state.loans.reduce((sum, l) => {
         const originalPrincipal = Number(l.principal) > 0 ? Number(l.principal) : Number(l.balance) || 0;
         return sum + mortgagePayment(originalPrincipal, Number(l.rate) || 0, Number(l.term) || 0) * 12;
       }, 0);
       setGroupState(
         'otherLoansGroupState',
-        `✓ ${activeLoans.length} loan${activeLoans.length === 1 ? '' : 's'} · ${compact(annualPayment)}/yr`,
+        `✓ ${state.loans.length} loan${state.loans.length === 1 ? '' : 's'} · ${compact(annualPayment)}/yr`,
         true,
       );
     } else {
@@ -1881,18 +1932,40 @@
     }
 
     // Additional income.
-    if (state.otherIncomeEnabled) {
-      const enabledSources = (state.incomeSources || []).filter((s) => s.enabled);
-      const enabledLumpSums = (state.oneTimeIncome || []).filter((o) => o.enabled);
-      const sourcesTotal = enabledSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+    if (state.incomeSources.length || state.oneTimeIncome.length) {
+      const sourcesTotal = state.incomeSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
       let text;
-      if (sourcesTotal > 0 && enabledLumpSums.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
+      if (sourcesTotal > 0 && state.oneTimeIncome.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
       else if (sourcesTotal > 0) text = `✓ ${compact(sourcesTotal)}/yr`;
-      else if (enabledLumpSums.length > 0) text = '✓ lump sum planned';
-      else text = '✓ enabled';
+      else if (state.oneTimeIncome.length > 0) text = '✓ lump sum planned';
+      else text = '✓ stream added';
       setGroupState('otherIncomeGroupState', text, true);
     } else {
       setGroupState('otherIncomeGroupState', '', false);
+    }
+
+    // Additional expenses.
+    if (state.extraExpenses.length) {
+      const total = state.extraExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      setGroupState(
+        'extraExpensesGroupState',
+        `✓ ${state.extraExpenses.length} added · ${compact(total)}/yr`,
+        true,
+      );
+    } else {
+      setGroupState('extraExpensesGroupState', '', false);
+    }
+
+    // One-time expenses.
+    if (state.lumpExpenses.length) {
+      const repeating = state.lumpExpenses.filter((e) => Number(e.repeatEvery) > 0).length;
+      setGroupState(
+        'lumpExpensesGroupState',
+        `✓ ${state.lumpExpenses.length} planned${repeating ? ` · ${repeating} repeating` : ''}`,
+        true,
+      );
+    } else {
+      setGroupState('lumpExpensesGroupState', '', false);
     }
 
     // Survivor planning.
@@ -2393,6 +2466,24 @@
       n = years * 12;
     return r ? (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1) : principal / n;
   }
+  // Growth multiplier for an "add another" income/expense item at `year`
+  // (years from today). `followGrowth` items track the engine's own running
+  // inflation factor (expenses — so the historical backtest uses actual
+  // historical inflation) or the Annual income growth factor (income); the
+  // rest compound at their own `growth` rate. Amounts are entered in today's
+  // dollars, so growth runs from today, not from the item's start age.
+  function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
+    if (item.followGrowth) return kind === 'income' ? incomeFactor : inflationFactor;
+    return Math.pow(1 + pct(Number(item.growth) || 0), year);
+  }
+  // A one-time expense hits at its first age, and (if repeatEvery > 0) again
+  // every repeatEvery years after that through untilAge.
+  function lumpExpenseHits(e, age) {
+    const first = Math.round(e.age),
+      every = Math.round(Number(e.repeatEvery) || 0);
+    if (age === first) return true;
+    return every > 0 && age > first && age <= e.untilAge && (age - first) % every === 0;
+  }
   function loanSchedules() {
     return state.loans.map((loan) => {
       let balance = Math.max(0, Number(loan.balance) || 0),
@@ -2579,7 +2670,7 @@
       fhsaUsedA = 0,
       fhsaUsedB = 0;
     const schedule = mortgageSchedule(),
-      loans = state.otherLoansEnabled ? loanSchedules() : [],
+      loans = loanSchedules(),
       rows = [],
       magiHistory = [];
     let depletedAge = null,
@@ -2654,7 +2745,13 @@
         ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor +
           (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor
         : 0;
-      return activeSpending(ageA) * factor + healthcare + ltc + shelter;
+      const extraRecurring = state.extraExpenses
+        .filter((e) => ageA >= e.startAge && ageA <= e.endAge)
+        .reduce(
+          (sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, Math.pow(1 + wageGrowth, year)),
+          0,
+        );
+      return activeSpending(ageA) * factor + healthcare + ltc + shelter + extraRecurring;
     };
     const retirementYear = singlePerson
       ? Math.max(0, retireAgeA - state.ageA)
@@ -2702,16 +2799,18 @@
         if (deceasedIsA) bridgeA = 0;
         else bridgeB = 0;
       }
-      const extraIncome = state.otherIncomeEnabled
-        ? state.incomeSources
-            .filter((s) => s.enabled && age >= s.startAge && age <= s.endAge)
-            .reduce((sum, s) => sum + s.amount * factor, 0)
-        : 0;
-      const oneTimeAmount = state.otherIncomeEnabled
-        ? state.oneTimeIncome
-            .filter((o) => o.enabled && Math.round(o.age) === age)
-            .reduce((sum, o) => sum + o.amount * factor, 0)
-        : 0;
+      const extraIncome = state.incomeSources
+        .filter((s) => age >= s.startAge && age <= s.endAge)
+        .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
+      const oneTimeAmount = state.oneTimeIncome
+        .filter((o) => Math.round(o.age) === age)
+        .reduce((sum, o) => sum + o.amount * factor, 0);
+      const extraExpense = state.extraExpenses
+        .filter((e) => age >= e.startAge && age <= e.endAge)
+        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
+      const lumpExpense = state.lumpExpenses
+        .filter((e) => lumpExpenseHits(e, age))
+        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
@@ -2930,7 +3029,7 @@
       // is corrected after the waterfall to include realized RRSP
       // withdrawals and taxable-brokerage gains.
       let totalIncome = totalA + totalB + meltdownAmount;
-      const expenses = baseSpend + healthcare + ltc + housing + loanPayment;
+      const expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow =
         wages +
         cppA +
@@ -2944,6 +3043,8 @@
         ltc -
         housing -
         loanPayment -
+        extraExpense -
+        lumpExpense -
         tax -
         traditionalContrib -
         rothContrib -
@@ -3014,11 +3115,11 @@
         fhsa += fhsaContrib;
       } else {
         let need = -flow;
-        if (!working && year === retirementYear) firstWithdrawal = need;
+        if (!working && year === retirementYear) firstWithdrawal = Math.max(0, need - lumpExpense);
         if (state.guardrailsEnabled && !working) {
           if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-            guardrailInitialWR = need / guardrailPortfolioNow;
-          guardrailPrevNeed = need;
+            guardrailInitialWR = Math.max(0, need - lumpExpense) / guardrailPortfolioNow;
+          guardrailPrevNeed = Math.max(0, need - lumpExpense);
           guardrailPrevPortfolio = guardrailPortfolioNow;
         }
         let traditionalGross = meltdownAmount,
@@ -3188,6 +3289,8 @@
         healthcare,
         ltc,
         loanPayment,
+        extraExpense,
+        lumpExpense,
         baseSpend,
       });
     }
@@ -3243,7 +3346,7 @@
       fhsaUsedA = 0,
       fhsaUsedB = 0;
     const schedule = mortgageSchedule(),
-      loans = state.otherLoansEnabled ? loanSchedules() : [],
+      loans = loanSchedules(),
       rows = [],
       magiHistory = [];
     let depletedAge = null,
@@ -3307,16 +3410,18 @@
         if (deceasedIsA) bridgeA = 0;
         else bridgeB = 0;
       }
-      const extraIncome = state.otherIncomeEnabled
-        ? state.incomeSources
-            .filter((s) => s.enabled && age >= s.startAge && age <= s.endAge)
-            .reduce((sum, s) => sum + s.amount * factor, 0)
-        : 0;
-      const oneTimeAmount = state.otherIncomeEnabled
-        ? state.oneTimeIncome
-            .filter((o) => o.enabled && Math.round(o.age) === age)
-            .reduce((sum, o) => sum + o.amount * factor, 0)
-        : 0;
+      const extraIncome = state.incomeSources
+        .filter((s) => age >= s.startAge && age <= s.endAge)
+        .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
+      const oneTimeAmount = state.oneTimeIncome
+        .filter((o) => Math.round(o.age) === age)
+        .reduce((sum, o) => sum + o.amount * factor, 0);
+      const extraExpense = state.extraExpenses
+        .filter((e) => age >= e.startAge && age <= e.endAge)
+        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
+      const lumpExpense = state.lumpExpenses
+        .filter((e) => lumpExpenseHits(e, age))
+        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
@@ -3518,7 +3623,7 @@
         cppContribution(Math.max(0, wageB - healthPremiumB), year) +
         cppContribution(bridgeA, year) +
         cppContribution(bridgeB, year);
-      const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment;
+      const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow =
         wages +
         cppA +
@@ -3558,7 +3663,9 @@
         taxableBasis += moved;
         cash = reserveTarget;
       }
-      const bondTarget = totalExpense * bondYears;
+      // A one-time expense is paid from the portfolio like any other, but it would
+      // distort the reserve target if sized into "years of expenses".
+      const bondTarget = (totalExpense - lumpExpense) * bondYears;
       let taxableGainGross = 0,
         traditionalGross = meltdownAmount;
       const stepCash = (need) => {
@@ -3671,8 +3778,8 @@
         let need = -flow;
         if (state.guardrailsEnabled && !working) {
           if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-            guardrailInitialWR = need / guardrailPortfolioNow;
-          guardrailPrevNeed = need;
+            guardrailInitialWR = Math.max(0, need - lumpExpense) / guardrailPortfolioNow;
+          guardrailPrevNeed = Math.max(0, need - lumpExpense);
           guardrailPrevPortfolio = guardrailPortfolioNow;
         }
         if (yearReturn < 0) {
@@ -4691,6 +4798,7 @@
     yellow: { light: '#eda100', dark: '#c98500' },
     magenta: { light: '#e87ba4', dark: '#d55181' },
     green: { light: '#008300', dark: '#008300' },
+    violet: { light: '#7e57c2', dark: '#9575cd' },
   };
   function sankeyHue(name, dark) {
     return SANKEY_HUES[name][dark ? 'dark' : 'light'];
@@ -4728,6 +4836,11 @@
       { label: 'Healthcare', value: val(row.healthcare), color: sankeyHue('aqua', dark) },
       { label: 'Long-term care', value: val(row.ltc), color: sankeyHue('yellow', dark) },
       { label: 'Loan payments', value: val(row.loanPayment), color: sankeyHue('magenta', dark) },
+      {
+        label: 'Additional expenses',
+        value: val((row.extraExpense || 0) + (row.lumpExpense || 0)),
+        color: sankeyHue('violet', dark),
+      },
       { label: 'Discretionary spending', value: val(row.baseSpend), color: sankeyHue('green', dark) },
     ].filter((u) => u.value > 1);
     const totalIn = sources.reduce((a, s) => a + s.value, 0),
@@ -6207,39 +6320,300 @@
     link.remove();
     URL.revokeObjectURL(url);
   }
-  function renderLoanFields() {
-    const container = document.getElementById('loanFields');
-    // Loans are a fixed-length array (no add/remove UI), so the only reason
-    // to skip a rebuild is "nothing structural changed" — which for loans is
-    // always true once the row count matches. Skipping while a loan field is
-    // focused avoids destroying and recreating that field's DOM node (and
-    // therefore its focus/on-screen-keyboard state) on every keystroke of
-    // its own value, or on every unrelated slider drag elsewhere on the page
-    // that happens to funnel through render() -> syncContributionControls().
-    if (container.contains(document.activeElement) && container.dataset.rowCount === String(state.loans.length)) return;
-    container.dataset.rowCount = String(state.loans.length);
-    container.innerHTML = state.loans
+  // ---- "Add another" lists: loans, recurring income, one-time income, ----------
+  // ---- recurring expenses, one-time expenses --------------------------------
+  // Each list is a plain array on `state` (starts empty) rendered by one shared
+  // builder: rows of fields, an "×" per row, and a "+ Add" button. Field specs
+  // below drive the markup, the parsing, and which fields show/hide. Event
+  // handling is delegated on each list's container (attached once, below), so
+  // rebuilding a list's innerHTML never needs to re-wire listeners.
+  function dynTipBtn(tip) {
+    return `<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="${escapeHtml(tip)}">i</button>`;
+  }
+  // Last word + the ⓘ button share a no-wrap span so the button can never wrap
+  // onto a line of its own (see "Field descriptors and info bubbles" in CLAUDE.md).
+  function dynLabel(text, tip) {
+    if (!tip) return escapeHtml(text);
+    const m = text.match(/^(.*?)(\S+)$/);
+    return `${m ? escapeHtml(m[1]) : ''}<span class="info-nw">${escapeHtml(m ? m[2] : text)}${dynTipBtn(tip)}</span>`;
+  }
+  const DYN_GROWTH_FIELDS = (kind) => [
+    {
+      key: 'followGrowth',
+      kind: 'check',
+      label: kind === 'income' ? 'Grows with income growth' : 'Grows with inflation',
+      short: kind === 'income' ? 'Uses your annual income growth rate' : 'Uses your inflation rate',
+      tip:
+        kind === 'income'
+          ? 'Checked: this stream rises each year at the Annual income growth rate in the Income section. Unchecked: you set its own yearly growth rate instead — for example 0% for a fixed amount, or a rent-increase rate for rental income.'
+          : 'Checked: this expense rises each year with the Inflation rate in Market assumptions (actual historical inflation in the historical backtest). Unchecked: you set its own yearly growth rate instead — for example 0% for a fixed payment, or a higher rate for something like tuition.',
+    },
+    {
+      key: 'growth',
+      kind: 'num',
+      label: 'Annual growth (%)',
+      short: kind === 'income' ? "This stream's own yearly rate" : "This expense's own yearly rate",
+      min: -10,
+      max: 20,
+      step: 0.1,
+      showIf: (it) => !it.followGrowth,
+    },
+  ];
+  const DYN = {
+    loans: {
+      key: 'loans',
+      container: 'loanFields',
+      prefix: 'loan',
+      noun: 'loan',
+      rowTitle: (i) => `Loan ${i + 1}`,
+      addLabel: '+ Add a loan',
+      note: 'Car loans, personal loans, and similar — separate from your mortgage.',
+      tip: "Each loan's payment and remaining balance are included in the projection. Add as many as you have; remove one with the × on its row.",
+      fresh: () => ({ principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
+      fields: [
+        {
+          key: 'principal',
+          kind: 'money',
+          label: 'Original principal',
+          short: 'Amount originally borrowed',
+          tip: "The amount originally borrowed, before any payments. Used with the loan term below to work out the actual fixed payment — it's not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.",
+          step: 1000,
+        },
+        { key: 'balance', kind: 'money', label: 'Remaining balance', step: 1000 },
+        { key: 'rate', kind: 'num', label: 'Interest rate', min: 0, max: 40, step: 0.01 },
+        {
+          key: 'term',
+          kind: 'num',
+          label: 'Loan term (years)',
+          short: 'Original term, not years remaining',
+          tip: "The loan's original term — not how many years you have left. If you've paid extra, the model works out the real remaining time from your current balance.",
+          min: 0,
+          max: 50,
+          step: 1,
+        },
+        { key: 'extra', kind: 'money', label: 'Extra monthly principal', step: 50 },
+      ],
+    },
+    incomeSources: {
+      key: 'incomeSources',
+      container: 'incomeSourceFields',
+      prefix: 'incSrc',
+      noun: 'income stream',
+      rowTitle: (i) => `Income stream ${i + 1}`,
+      addLabel: '+ Add an income stream',
+      note: 'Recurring income over an age window.',
+      tip: 'e.g. rental income or alimony. Taxed as ordinary income attributed to Partner A. Add as many streams as you need; remove one with the × on its row.',
+      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth }),
+      fields: [
+        {
+          key: 'amount',
+          kind: 'money',
+          label: 'Annual amount',
+          short: "In today's dollars",
+          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a stream that starts years from now begins higher than the number you enter.",
+          step: 1000,
+        },
+        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 100, step: 1 },
+        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: "Last age it's received", min: 18, max: 100, step: 1 },
+        ...DYN_GROWTH_FIELDS('income'),
+      ],
+    },
+    oneTimeIncome: {
+      key: 'oneTimeIncome',
+      container: 'oneTimeIncomeFields',
+      prefix: 'oneTime',
+      noun: 'lump sum',
+      rowTitle: (i) => `One-time income ${i + 1}`,
+      addLabel: '+ Add a one-time income',
+      note: 'Tax-free lump sums received at a specific age.',
+      tip: "e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today's dollars and adjusted for inflation to that year.",
+      fresh: () => ({ amount: 0, age: 65 }),
+      fields: [
+        { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "In today's dollars", step: 1000 },
+        { key: 'age', kind: 'num', label: 'Received at Partner A age', min: 18, max: 100, step: 1 },
+      ],
+    },
+    extraExpenses: {
+      key: 'extraExpenses',
+      container: 'extraExpenseFields',
+      prefix: 'extraExp',
+      noun: 'expense',
+      rowTitle: (i) => `Expense ${i + 1}`,
+      addLabel: '+ Add an expense',
+      note: 'Recurring costs on top of household spending, over an age window.',
+      tip: "e.g. travel in early retirement, tuition, or support for a family member. Paid after tax on top of the household spending above. Unlike household spending, it isn't reduced by the survivor spending percentage or by guardrails. Add as many as you need; remove one with the × on its row.",
+      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.inflation }),
+      fields: [
+        {
+          key: 'amount',
+          kind: 'money',
+          label: 'Annual amount',
+          short: "In today's dollars, after tax",
+          tip: "Entered in today's dollars and grown from today at the rate chosen below, so an expense that starts years from now begins higher than the number you enter.",
+          step: 500,
+        },
+        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 100, step: 1 },
+        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: 'Last age it applies', min: 18, max: 100, step: 1 },
+        ...DYN_GROWTH_FIELDS('expense'),
+      ],
+    },
+    lumpExpenses: {
+      key: 'lumpExpenses',
+      container: 'lumpExpenseFields',
+      prefix: 'lumpExp',
+      noun: 'one-time expense',
+      rowTitle: (i) => `One-time expense ${i + 1}`,
+      addLabel: '+ Add a one-time expense',
+      note: 'Big, lumpy costs — optionally repeating.',
+      tip: 'e.g. a roof, a car, a wedding, or a new car every ten years. Paid in the year it occurs from your portfolio, like any other expense. It is left out of the guardrails withdrawal-rate check and the bond-reserve sizing, so one large purchase does not distort either.',
+      fresh: () => ({ amount: 0, age: 65, repeatEvery: 0, untilAge: 85, followGrowth: true, growth: defaults.inflation }),
+      fields: [
+        {
+          key: 'amount',
+          kind: 'money',
+          label: 'Amount',
+          short: "In today's dollars",
+          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a purchase years away costs more in future dollars than the number you enter.",
+          step: 1000,
+        },
+        { key: 'age', kind: 'num', label: 'Occurs at Partner A age', short: 'First (or only) occurrence', min: 18, max: 100, step: 1 },
+        {
+          key: 'repeatEvery',
+          kind: 'num',
+          label: 'Repeats every (years)',
+          short: '0 = one time only',
+          tip: "Leave at 0 for a single expense. Enter a number to have it recur — e.g. 10 for a new car every ten years — from the age above through the 'Repeat until' age.",
+          min: 0,
+          max: 50,
+          step: 1,
+          int: true,
+        },
+        {
+          key: 'untilAge',
+          kind: 'num',
+          label: 'Repeat until Partner A age',
+          short: 'Last age it can occur',
+          min: 18,
+          max: 120,
+          step: 1,
+          showIf: (it) => Number(it.repeatEvery) > 0,
+        },
+        ...DYN_GROWTH_FIELDS('expense'),
+      ],
+    },
+  };
+  function dynFieldHtml(spec, f, item, i) {
+    const id = `${spec.prefix}${i}${f.key[0].toUpperCase()}${f.key.slice(1)}`,
+      small = f.short ? `<small>${escapeHtml(f.short)}</small>` : '',
+      wrapAttrs = `class="field" data-dyn-wrap="${f.key}"${f.showIf && !f.showIf(item) ? ' hidden' : ''}`;
+    if (f.kind === 'check') {
+      return `<div ${wrapAttrs}><label for="${id}"><input id="${id}" type="checkbox" data-dyn-i="${i}" data-dyn-k="${f.key}" ${item[f.key] ? 'checked' : ''}> ${dynLabel(f.label, f.tip)}${small}</label></div>`;
+    }
+    const money = f.kind === 'money' ? ' class="money"' : '',
+      bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`;
+    return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds} value="${Number(item[f.key]) || 0}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
+  }
+  function renderDynList(name, force) {
+    const spec = DYN[name],
+      container = document.getElementById(spec.container),
+      items = state[spec.key];
+    if (!container) return;
+    // Skip a rebuild while someone is typing inside this list (it would drop
+    // focus/caret on every keystroke) as long as the row count hasn't changed;
+    // show/hide of dependent fields is handled in place by dynApplyVisibility().
+    if (!force && container.contains(document.activeElement) && container.dataset.rowCount === String(items.length)) {
+      dynApplyVisibility(name);
+      return;
+    }
+    container.dataset.rowCount = String(items.length);
+    const rows = items
       .map(
-        (l, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><b style="font-size:.78rem;color:var(--muted)">Loan ${i + 1}</b><div class="field"><label for="loan${i}Principal">Original <span class="info-nw">principal<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The amount originally borrowed, before any payments. Used with the loan term below to work out the actual fixed payment — it&#x27;s not recalculated from the remaining balance, so extra principal you&#x27;ve already paid doesn&#x27;t inflate the payment.">i</button></span><small>Amount originally borrowed</small></label><input id="loan${i}Principal" type="number" class="money" min="0" step="1000" value="${l.principal || 0}"></div><div class="field"><label for="loan${i}Balance">Remaining balance</label><input id="loan${i}Balance" type="number" class="money" min="0" step="1000" value="${l.balance || 0}"></div><div class="field"><label for="loan${i}Rate">Interest rate</label><input id="loan${i}Rate" type="number" min="0" max="40" step="0.01" value="${l.rate || 0}"></div><div class="field"><label for="loan${i}Term">Loan term <span class="info-nw">(years)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The loan&#x27;s original term — not how many years you have left. If you&#x27;ve paid extra, the model works out the real remaining time from your current balance.">i</button></span><small>Original term, not years remaining</small></label><input id="loan${i}Term" type="number" min="0" max="50" step="1" value="${l.term || 0}"></div><div class="field"><label for="loan${i}Extra">Extra monthly principal</label><input id="loan${i}Extra" type="number" class="money" min="0" step="50" value="${l.extra || 0}"></div></div>`,
+        (item, i) =>
+          `<div class="dyn-row"><div class="dyn-row-head"><b>${escapeHtml(spec.rowTitle(i))}</b><button type="button" class="dyn-remove" data-dyn-remove="${i}" aria-label="Remove ${escapeHtml(spec.rowTitle(i).toLowerCase())}" title="Remove">×</button></div>${spec.fields.map((f) => dynFieldHtml(spec, f, item, i)).join('')}</div>`,
       )
       .join('');
-    state.loans.forEach((_, i) =>
-      ['principal', 'balance', 'rate', 'term', 'extra'].forEach((key) =>
-        document
-          .getElementById(`loan${i}${key[0].toUpperCase() + key.slice(1)}`)
-          .addEventListener('input', (e) => {
-            state.loans[i][key] = Number(
-              e.target.classList.contains('money')
-                ? e.target.value.replace(/[^0-9]/g, '')
-                : e.target.value,
-            ) || 0;
-            render();
-            saveInputs();
-          }),
-      ),
-    );
+    const full = items.length >= LIST_MAX;
+    container.innerHTML =
+      `<p class="range-note">${escapeHtml(spec.note)}${dynTipBtn(spec.tip)}</p>` +
+      (items.length ? rows : '<p class="dyn-empty">None added yet.</p>') +
+      `<button type="button" class="btn-card dyn-add" data-dyn-add="${name}"${full ? ' disabled title="Up to ' + LIST_MAX + '"' : ''}>${escapeHtml(spec.addLabel)}</button>`;
     refreshMoneyPreviews(container);
+  }
+  function dynApplyVisibility(name) {
+    const spec = DYN[name],
+      container = document.getElementById(spec.container);
+    if (!container) return;
+    state[spec.key].forEach((item, i) =>
+      spec.fields.forEach((f) => {
+        if (!f.showIf) return;
+        const input = container.querySelector(`[data-dyn-i="${i}"][data-dyn-k="${f.key}"]`),
+          wrap = input && input.closest('[data-dyn-wrap]');
+        if (wrap) wrap.hidden = !f.showIf(item);
+      }),
+    );
+  }
+  Object.keys(DYN).forEach((name) => {
+    const spec = DYN[name],
+      container = document.getElementById(spec.container);
+    if (!container) return;
+    const apply = (el) => {
+      const i = Number(el.dataset.dynI),
+        f = spec.fields.find((x) => x.key === el.dataset.dynK),
+        item = state[spec.key][i];
+      if (!item || !f) return;
+      if (f.kind === 'check') item[f.key] = el.checked;
+      else if (f.kind === 'money') item[f.key] = Number(String(el.value).replace(/[^0-9]/g, '')) || 0;
+      else {
+        const n = Number(el.value) || 0;
+        item[f.key] = f.int ? Math.max(0, Math.round(n)) : n;
+      }
+      dynApplyVisibility(name);
+      render();
+      saveInputs();
+    };
+    container.addEventListener('input', (e) => {
+      if (e.target.matches('input[data-dyn-k]') && e.target.type !== 'checkbox') apply(e.target);
+    });
+    container.addEventListener('change', (e) => {
+      if (e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') apply(e.target);
+    });
+    container.addEventListener('click', (e) => {
+      const add = e.target.closest('[data-dyn-add]'),
+        remove = e.target.closest('[data-dyn-remove]');
+      if (add) {
+        if (state[spec.key].length >= LIST_MAX) return;
+        state[spec.key].push(spec.fresh());
+        renderDynList(name, true);
+        render();
+        saveInputs();
+        const rows = container.querySelectorAll('.dyn-row'),
+          first = rows.length && rows[rows.length - 1].querySelector('input:not([type=checkbox])');
+        if (first) first.focus();
+      } else if (remove) {
+        const i = Number(remove.dataset.dynRemove);
+        if (!state[spec.key][i]) return;
+        snapshotForUndo(`Removed ${spec.rowTitle(i).toLowerCase()}`);
+        state[spec.key].splice(i, 1);
+        renderDynList(name, true);
+        render();
+        saveInputs();
+      }
+    });
+  });
+  function renderLoanFields() {
+    renderDynList('loans');
+  }
+  function renderIncomeSourceFields() {
+    renderDynList('incomeSources');
+  }
+  function renderOneTimeIncomeFields() {
+    renderDynList('oneTimeIncome');
+  }
+  function renderExtraExpenseFields() {
+    renderDynList('extraExpenses');
+  }
+  function renderLumpExpenseFields() {
+    renderDynList('lumpExpenses');
   }
   function renderSpendingTierFields() {
     const container = document.getElementById('spendingTierFields');
@@ -6270,73 +6644,6 @@
       });
       document.getElementById(`tier${i}Amount`).addEventListener('input', (e) => {
         state.spendingTiers[i].amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
-        render();
-        saveInputs();
-      });
-    });
-    refreshMoneyPreviews(container);
-  }
-  function renderIncomeSourceFields() {
-    const container = document.getElementById('incomeSourceFields');
-    const sig = state.incomeSources.length + ':' + state.incomeSources.map((s) => (s.enabled ? 1 : 0)).join('');
-    if (container.contains(document.activeElement) && container.dataset.sig === sig) return;
-    container.dataset.sig = sig;
-    container.innerHTML = state.incomeSources
-      .map(
-        (s, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="incSrc${i}Enabled"><input id="incSrc${i}Enabled" type="checkbox" ${s.enabled ? 'checked' : ''}> Income source ${i + 1}</label></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}AmountField"><label for="incSrc${i}Amount">Annual amount</label><input id="incSrc${i}Amount" type="number" class="money" min="0" step="1000" value="${s.amount || 0}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}StartField"><label for="incSrc${i}Start">Starts at Partner A age</label><input id="incSrc${i}Start" type="number" min="18" max="100" step="1" value="${s.startAge || 65}"></div><div class="field" ${s.enabled ? '' : 'hidden'} id="incSrc${i}EndField"><label for="incSrc${i}End">Ends at Partner A age</label><input id="incSrc${i}End" type="number" min="18" max="100" step="1" value="${s.endAge || 75}"></div></div>`,
-      )
-      .join('');
-    state.incomeSources.forEach((_, i) => {
-      document.getElementById(`incSrc${i}Enabled`).addEventListener('change', (e) => {
-        state.incomeSources[i].enabled = e.target.checked;
-        renderIncomeSourceFields();
-        render();
-        saveInputs();
-      });
-      document.getElementById(`incSrc${i}Amount`).addEventListener('input', (e) => {
-        state.incomeSources[i].amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
-        render();
-        saveInputs();
-      });
-      document.getElementById(`incSrc${i}Start`).addEventListener('input', (e) => {
-        state.incomeSources[i].startAge = Number(e.target.value) || 0;
-        render();
-        saveInputs();
-      });
-      document.getElementById(`incSrc${i}End`).addEventListener('input', (e) => {
-        state.incomeSources[i].endAge = Number(e.target.value) || 0;
-        render();
-        saveInputs();
-      });
-    });
-    refreshMoneyPreviews(container);
-  }
-  function renderOneTimeIncomeFields() {
-    const container = document.getElementById('oneTimeIncomeFields');
-    const sig = state.oneTimeIncome.length + ':' + state.oneTimeIncome.map((o) => (o.enabled ? 1 : 0)).join('');
-    if (container.contains(document.activeElement) && container.dataset.sig === sig) return;
-    container.dataset.sig = sig;
-    container.innerHTML = state.oneTimeIncome
-      .map(
-        (o, i) =>
-          `<div style="border-top:1px solid #edf1f5;padding:9px 0 2px"><div class="field"><label for="oneTime${i}Enabled"><input id="oneTime${i}Enabled" type="checkbox" ${o.enabled ? 'checked' : ''}> One-time income ${i + 1}</label></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AmountField"><label for="oneTime${i}Amount">Lump sum amount</label><input id="oneTime${i}Amount" type="number" class="money" min="0" step="1000" value="${o.amount || 0}"></div><div class="field" ${o.enabled ? '' : 'hidden'} id="oneTime${i}AgeField"><label for="oneTime${i}Age">Received at Partner A age</label><input id="oneTime${i}Age" type="number" min="18" max="100" step="1" value="${o.age || 65}"></div></div>`,
-      )
-      .join('');
-    state.oneTimeIncome.forEach((_, i) => {
-      document.getElementById(`oneTime${i}Enabled`).addEventListener('change', (e) => {
-        state.oneTimeIncome[i].enabled = e.target.checked;
-        renderOneTimeIncomeFields();
-        render();
-        saveInputs();
-      });
-      document.getElementById(`oneTime${i}Amount`).addEventListener('input', (e) => {
-        state.oneTimeIncome[i].amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
-        render();
-        saveInputs();
-      });
-      document.getElementById(`oneTime${i}Age`).addEventListener('input', (e) => {
-        state.oneTimeIncome[i].age = Number(e.target.value) || 0;
         render();
         saveInputs();
       });
@@ -6419,14 +6726,8 @@
     document.getElementById('ltcFields').hidden = !state.ltcEnabled;
     document.getElementById('bridgeEnabled').checked = !!state.bridgeEnabled;
     document.getElementById('bridgeFields').hidden = !state.bridgeEnabled;
-    document.getElementById('otherIncomeEnabled').checked = !!state.otherIncomeEnabled;
-    document.getElementById('otherIncomeFields').hidden = !state.otherIncomeEnabled;
-    document.getElementById('otherLoansEnabled').checked = !!state.otherLoansEnabled;
-    document.getElementById('otherLoansFields').hidden = !state.otherLoansEnabled;
     document.getElementById('wizardLtcEnabled').checked = !!state.ltcEnabled;
     document.getElementById('wizardBridgeEnabled').checked = !!state.bridgeEnabled;
-    document.getElementById('wizardOtherIncomeEnabled').checked = !!state.otherIncomeEnabled;
-    document.getElementById('wizardOtherLoansEnabled').checked = !!state.otherLoansEnabled;
     document.getElementById('wizardGuardrailsEnabled').checked = !!state.guardrailsEnabled;
     document.getElementById('wizardSinglePerson').checked = !!state.singlePerson;
     document.getElementById('wizardAgeA').value = state.ageA;
@@ -6882,6 +7183,8 @@
     renderSpendingTierFields();
     renderIncomeSourceFields();
     renderOneTimeIncomeFields();
+    renderExtraExpenseFields();
+    renderLumpExpenseFields();
   }
   ['rrspPctA', 'rrspPctB', 'tfsaPctA', 'tfsaPctB', 'fhsaPctA', 'fhsaPctB'].forEach((id) =>
     document.getElementById(id).addEventListener('input', () => syncContributionControls()),
@@ -6921,18 +7224,6 @@
   });
   document.getElementById('bridgeEnabled').addEventListener('change', (e) => {
     state.bridgeEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('otherIncomeEnabled').addEventListener('change', (e) => {
-    state.otherIncomeEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('otherLoansEnabled').addEventListener('change', (e) => {
-    state.otherLoansEnabled = e.target.checked;
     syncControls();
     render();
     saveInputs();
@@ -7258,6 +7549,8 @@
       spendingTiers: defaults.spendingTiers.map((t) => ({ ...t })),
       incomeSources: defaults.incomeSources.map((t) => ({ ...t })),
       oneTimeIncome: defaults.oneTimeIncome.map((t) => ({ ...t })),
+      extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
+      lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
     };
     mode = 'real';
     logScale = false;
@@ -7877,8 +8170,6 @@
     ['wizardLtcEnabled', 'ltcEnabled'],
     ['wizardMeltdownEnabled', 'meltdownEnabled'],
     ['wizardBridgeEnabled', 'bridgeEnabled'],
-    ['wizardOtherIncomeEnabled', 'otherIncomeEnabled'],
-    ['wizardOtherLoansEnabled', 'otherLoansEnabled'],
     ['wizardGuardrailsEnabled', 'guardrailsEnabled'],
     ['wizardSinglePerson', 'singlePerson'],
   ].forEach(([wizardId, realId]) => {
