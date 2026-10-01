@@ -6203,6 +6203,69 @@ both the layout fix (labels now stack in one column, descriptions
 wrapping underneath instead of off to the side) and the applied-status
 banner/Undo-toast integration render correctly.
 
+## Category rail now works on mobile, not just desktop (V57 US / V20 Canada, both files)
+
+The sidebar's category filter rail (`#categoryRail`, the "All / Scenarios /
+Profile & taxes / ... / Advanced" pills above the assumption groups,
+`setActiveCategory()`) was desktop-only from the day it shipped — the
+`@media(max-width:820px)` block had a flat `.category-rail{display:none}`
+rule, and `setActiveCategory()` itself had `const isDesktop =
+window.innerWidth > 820;` gating the actual group-hiding logic
+(`show = cat === 'all' || !isDesktop || group.dataset.cat === cat`), so
+even un-hiding the CSS alone would have produced a rail full of no-op
+buttons. A user flagged this directly as "a huge improvement" they wanted
+on mobile too, after already living with it on desktop.
+
+Fix, applied identically to both planner files:
+
+- CSS: replaced the mobile `.category-rail{display:none}` rule with
+  `.category-rail{padding:10px 20px 2px;scroll-margin-top:calc(var(--mobile-sticky-h,0px)
+  + var(--field-search-h,0px))}` — the padding matches the rail's existing
+  desktop spacing, and the `scroll-margin-top` is what makes a
+  programmatic `scrollIntoView()` land below the sticky
+  status-bar/tabs/search stack instead of underneath it.
+- `setActiveCategory()`: dropped the `isDesktop` gate entirely (filtering
+  is now unconditional at every width) and added an opt-in `{scrollToRail
+  = false}` second parameter. When true (mobile only), it calls
+  `rail?.scrollIntoView({behavior:'smooth', block:'start'})` after
+  filtering, since mobile's `.panel` has no independent scroll container
+  (`position:static` there — see the max-width:820px rule) so tapping a
+  pill partway down a filtered list would otherwise leave the rail itself
+  scrolled off-screen with no visual feedback that anything happened.
+  Desktop keeps the pre-existing `panel.scrollTop = 0` reset instead,
+  unchanged.
+- The opt-in shape matters: `setActiveCategory()` has three other callers
+  besides the rail's own click handler — `jumpToEstimateField()` (the
+  "Estimated" badge rollup's "Review →" links), the desktop search
+  dropdown's `jumpToSearchField()`/`selectResult`, and the window resize
+  listener's `setActiveCategory(activeCategory)` reapply-on-resize call.
+  Each of those already scrolls to its own more specific target
+  immediately after resetting the filter (the field itself, the search
+  hit, or nothing at all for the resize case) — only the rail's own click
+  handler was changed to pass `{scrollToRail: true}`; the other three
+  correctly keep the default `false` and were left untouched.
+- `syncPlanStatusOffsets()`: added a `--field-search-h` custom property,
+  measured from `.field-search-wrap`'s `offsetHeight` on mobile only,
+  alongside the existing `--mobile-sticky-h`/`--panel-title-h` properties
+  it already sets — this is what the rail's `scroll-margin-top` above
+  reads, so the computed scroll target accounts for the full sticky stack
+  (status bar + tabs + search box) above the rail, not just the first two
+  pieces.
+- Comment block above the rail's CSS/JS rewritten from "desktop only" to
+  describe availability at every width.
+
+Verified with a new `test_mobile_category_rail.js` (14 checks, 7 per
+planner file, parameterized rather than duplicated): rail visibility at
+mobile width, tapping a pill filters correctly on mobile, "All" restores
+everything, no horizontal overflow at 390×844, tapping a pill after
+scrolling down brings the rail back into view, desktop filtering/scroll
+behavior unaffected, and a mobile-chosen filter survives a resize up to
+desktop width. `npm test` and the full existing ad-hoc suite
+(`test_multi_lever_optimizer.js`, `test_live_withdrawal_mix.js`,
+`test_apply_optimizer_schedule.js`, `test_roth_optimizer_per_year.js`) all
+re-verified unaffected, since this change touches only sidebar-filter
+display state, nothing `simulate()`/`simulateHistorical()` reads.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.
