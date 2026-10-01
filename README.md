@@ -146,5 +146,5 @@ If you're using GitHub Desktop: open the app, you'll see the changed file listed
 - Dividends and interest on the taxable account and cash are taxed annually (US: ordinary vs. qualified split, counted in MAGI; Canada: eligible-dividend gross-up and credit, counted in net income for OAS clawback), and reinvested dividends raise cost basis. New inputs: dividend yield, qualified/eligible share
 - Healthcare and long-term-care costs can grow faster than CPI (`Medical inflation above CPI`, default 1%)
 - Fixed: US federal ordinary brackets above the 10% bracket were charged on the whole taxable amount instead of the slice in that bracket (overtaxed in every projection); long-term gain tax now uses unused standard deduction
-- Historical backtest and Monte Carlo now tax interest on the taxable bond reserve at that year's actual 10-year Treasury yield (start of year, from Shiller's long-rate series), instead of your Bond return assumption. 2024-2025 have no yield in the source and use the bond return floored at zero
+- Historical backtest and Monte Carlo now tax interest on the taxable bond reserve at that year's actual 10-year Treasury yield (start of year, from Shiller's long-rate series), instead of your Bond return assumption.
 

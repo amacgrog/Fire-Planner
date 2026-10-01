@@ -2147,7 +2147,8 @@
   // Source: Damodaran/NYU Stern historical returns dataset.
   // [year, nominal S&P500 total return %, CPI inflation %, 10yr T-Bond total return %, 10yr Treasury yield % at the START of the year].
   // The yield column is the prior December's Shiller long interest rate (monthly average,
-  // not an exact year-end print); null for 2024-2025 (no prior-December value in the source).
+  // not an exact year-end print). 2025 is the December 2024 monthly figure (4.39); 2024 uses January 2024 (4.06)
+  // because no December 2023 value was supplied (both from multpl.com monthly 10-year rates).
   // It is the coupon on a par bond bought at the start of the year, so it is what taxable bond
   // interest uses in the historical engine (the bond *return* includes price change, which is not interest).
   const HIST = [
@@ -2247,8 +2248,8 @@
     [2021, 28.71, 7.04, -4.42, 0.93],
     [2022, -18.11, 6.45, -17.83, 1.47],
     [2023, 26.29, 3.35, 3.88, 3.62],
-    [2024, 25.02, 2.89, -1.64, null],
-    [2025, 17.88, 2.68, 7.8, null],
+    [2024, 25.02, 2.89, -1.64, 4.06],
+    [2025, 17.88, 2.68, 7.8, 4.39],
   ];
   const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
   const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
@@ -4932,7 +4933,7 @@
         yearInflation = histRow[2] / 100,
         yearBondReturn = histRow[3] / 100,
         // Interest paid on the taxable bond reserve: the start-of-year Treasury yield from the
-        // dataset, or (2024-2025, no yield in the source) the bond return floored at zero.
+        // dataset, or, for any row without a yield, the bond return floored at zero.
         yearBondYield = histRow[4] != null ? histRow[4] / 100 : Math.max(0, yearBondReturn);
       histTaxFactors[year] = cumFactor;
       const ageB = singlePerson ? null : state.ageB + year,
