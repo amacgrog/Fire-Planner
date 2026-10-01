@@ -269,7 +269,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V64</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V65</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -404,6 +404,7 @@
           <div class="field"><label for="traditional">Traditional <span class="info-nw">retirement<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The combined balance of every traditional 401(k) and traditional IRA you (and your partner, if applicable) hold — one number, not per-account.">i</button></span><small>Combined 401(k) and traditional IRA balance</small></label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="traditionalSharePctA">Traditional balance ownership <span class="info-nw">split<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The Partner A / Partner B split of the traditional balance above. It only affects RMDs, 72(t) SEPP, and the early-withdrawal penalty — not the total balance.">i</button></span><small>Affects RMDs, 72(t), and early-withdrawal penalty only</small></label><span class="range-value" id="traditionalSharePctAOut"></span></div><input id="traditionalSharePctA" type="range" min="0" max="100" step="1"></div>
           <div class="field"><label for="roth">Roth retirement<small>Combined Roth 401(k) and Roth IRA balance</small></label><input id="roth" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="rothBasisPct">Roth balance that is <span class="info-nw">contributions<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of your current Roth balance that is contributions plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty. The rest (earnings) is taxed and penalized if withdrawn before 59.5. New Roth contributions and conversions are tracked from here on; investment growth counts as earnings.">i</button></span><small>Penalty-free principal, in percent</small></label><input id="rothBasisPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash <span class="info-nw">reserve<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Cash above this target moves into your taxable brokerage account; the target itself grows with inflation.">i</button></span></label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond reserve size (years of <span class="info-nw">expenses)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="A reserve of bonds sized in years of expenses. Used by the standard pre-retirement bond reserve and by the historical backtest and Monte Carlo bucket strategy, which draw cash and bonds only in down-market years.">i</button></span><small>0 turns the bond reserve off; fractions allowed</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
@@ -743,6 +744,7 @@
     taxable: 50000,
     traditional: 200000,
     roth: 50000,
+    rothBasisPct: 100,
     cash: 50000,
     cashReserve: 30000,
     bondYears: 5,
@@ -1236,6 +1238,7 @@
     'traditionalSharePctA',
     'traditional',
     'roth',
+    'rothBasisPct',
     'cash',
     'cashReserve',
     'bondYears',
@@ -2301,7 +2304,7 @@
       prev = 0;
     for (const [cap, rate] of baseBrackets) {
       const ceiling = cap === Infinity ? Infinity : cap * factor;
-      const slice = Math.min(taxable, ceiling - prev);
+      const slice = Math.min(taxable - prev, ceiling - prev);
       if (slice > 0) tax += slice * rate;
       if (taxable <= ceiling) break;
       prev = ceiling;
@@ -3338,6 +3341,105 @@
         return null; // 0, or an unrecognized id — "no override this year"
     }
   }
+  // Roth early-access rules. The Roth balance is tracked as: `basis`
+  // (contributions plus conversions already seasoned for 5 years — always
+  // withdrawable with no tax or penalty), `conv` (conversions still inside
+  // their 5-year window, oldest first — no tax but a 10% penalty if taken
+  // before 59.5), and earnings (everything else — ordinary income plus the
+  // 10% penalty before 59.5, free after). Withdrawals come out in that order.
+  // The ledger covers the pooled Roth account (roth + bondRoth together);
+  // the 5-year conversion clock runs from the conversion year, so a
+  // conversion in year y is seasoned from year y + 5.
+  function rothLedgerNew(balance) {
+    return {
+      basis: Math.max(0, balance) * clamp(pct(state.rothBasisPct), 0, 1),
+      conv: [],
+    };
+  }
+  function rothLedgerSeason(L, year) {
+    while (L.conv.length && L.conv[0].year + 5 <= year) L.basis += L.conv.shift().amount;
+  }
+  function rothLedgerSplit(L, gross) {
+    const fromBasis = Math.min(gross, Math.max(0, L.basis));
+    let rem = gross - fromBasis;
+    const unseasoned = L.conv.reduce((sum, c) => sum + c.amount, 0),
+      fromConv = Math.min(rem, unseasoned);
+    rem -= fromConv;
+    return { fromBasis, fromConv, fromEarn: rem };
+  }
+  function rothLedgerApply(L, split) {
+    L.basis -= split.fromBasis;
+    let c = split.fromConv;
+    while (c > 1e-9 && L.conv.length) {
+      const entry = L.conv[0],
+        take = Math.min(entry.amount, c);
+      entry.amount -= take;
+      c -= take;
+      if (entry.amount <= 1e-9) L.conv.shift();
+    }
+  }
+  // Fraction of a Roth withdrawal that is before the owner's 59.5th
+  // birthday. Rule of 55 and SEPP don't apply to Roth IRAs, so unlike the
+  // traditional penalty this depends on age alone.
+  function rothPenaltyFraction(age, ageB, singlePerson, pctA) {
+    const exemptA = age >= 59.5,
+      exemptB = singlePerson || ageB >= 59.5;
+    return singlePerson
+      ? exemptA
+        ? 0
+        : 1
+      : exemptA && exemptB
+        ? 0
+        : !exemptA && !exemptB
+          ? 1
+          : exemptA
+            ? 1 - pctA
+            : pctA;
+  }
+  // Draw `targetNet` (after the tax and penalty the draw itself triggers)
+  // from a Roth bucket holding `bucketBal`, updating the ledger. The
+  // taxable-earnings part is returned as `earn` so the caller can add it to
+  // traditionalGross (ordinary income, and the MAGI lag); `penalty` is the
+  // 10% early-withdrawal penalty, which the caller adds to earlyPenalty.
+  function rothDraw(L, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, f) {
+    const none = { gross: 0, net: 0, penalty: 0, earn: 0 };
+    if (targetNet > 0 && bucketBal <= 0) return none;
+    // A slightly negative target (the withdrawal bisections above overshoot
+    // by a fraction of a cent) is handed back to the bucket, exactly as the
+    // pre-ledger code did with Math.min(bucket, need).
+    const apply = (gross, penalty, earn) => {
+      rothLedgerApply(L, rothLedgerSplit(L, gross));
+      return { gross, net: 0, penalty, earn };
+    };
+    // Everything comes out of penalty-free basis (or nobody is under 59.5):
+    // dollar for dollar, no tax or penalty.
+    if (f <= 0 || targetNet <= L.basis) {
+      const gross = Math.min(bucketBal, targetNet);
+      const d = apply(gross, 0, 0);
+      d.net = gross;
+      return d;
+    }
+    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    const cost = (gross) => {
+      const sp = rothLedgerSplit(L, gross),
+        penalty = f * 0.1 * (sp.fromConv + sp.fromEarn),
+        earn = f * sp.fromEarn,
+        tax = earn > 0 ? taxFor(profile, taxableGainGross, traditionalGross + earn) - baseTax : 0;
+      return { penalty, earn, net: gross - tax - penalty };
+    };
+    let lo = 0,
+      hi = Math.min(bucketBal, targetNet * 6 + 1);
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (cost(mid).net < targetNet) lo = mid;
+      else hi = mid;
+    }
+    const gross = Math.min(bucketBal, hi),
+      c = cost(gross);
+    const d = apply(gross, c.penalty, c.earn);
+    d.net = c.net;
+    return d;
+  }
   // Solves for how much must come out of the traditional balance so that,
   // net of the tax (and early-withdrawal penalty, if applicable) that
   // marginal withdrawal itself triggers, `targetNet` actually lands in
@@ -3736,6 +3838,8 @@
       loans = loanSchedules(),
       rows = [],
       magiHistory = [];
+    // Roth contribution/conversion/earnings ledger (see rothLedgerNew).
+    const rothLedger = rothLedgerNew(state.roth);
     let depletedAge = null,
       firstWithdrawal = 0;
     // MAGI proxy lag, same idea as the Guyton-Klinger note below: this
@@ -4112,6 +4216,7 @@
               invQual: inv.qualified,
               year,
             };
+      rothLedgerSeason(rothLedger, year);
       let conversionAmount = 0;
       // Lifted out of the block below (rather than left as the block's own
       // const) so the withdrawal waterfall further down can also respect
@@ -4330,6 +4435,7 @@
         traditional -= fromTradConv;
         bondTraditional = Math.max(0, bondTraditional - (conversionAmount - fromTradConv));
         roth += conversionAmount;
+        rothLedger.conv.push({ year, amount: conversionAmount });
       }
       cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
@@ -4375,6 +4481,7 @@
         taxableBasis += toTaxable;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
+        rothLedger.basis += rothContrib;
       } else {
         let need = -flow;
         if (!working && year === retirementYear) firstWithdrawal = Math.max(0, need - lumpExpense);
@@ -4409,6 +4516,7 @@
                 : earlyExemptA
                   ? 1 - pctA
                   : pctA;
+        const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
         const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
         // Only an explicit optimizer-search override (an "Optimize" run's
         // applied schedule, or the optimizer report's own display
@@ -4471,10 +4579,20 @@
             // fallback draw below already makes (no tax, no penalty
             // modeled), just applied deliberately here instead of only as
             // leftover shortfall funding.
-            const fromRothMix = Math.min(roth, rothShare);
-            roth -= fromRothMix;
-            need -= fromRothMix;
-            rothWithdrawn += fromRothMix;
+            const d = rothDraw(
+              rothLedger,
+              roth,
+              rothShare,
+              taxableGainGross,
+              traditionalGross,
+              profile,
+              rothPenalizedFraction,
+            );
+            roth -= d.gross;
+            need -= d.net;
+            rothWithdrawn += d.gross;
+            traditionalGross += d.earn;
+            earlyPenalty += d.penalty;
           }
         } else if (state.withdrawalMixEnabled && need > 0) {
           // Live, always-on picker (see pickLiveWithdrawalOrder above):
@@ -4578,10 +4696,20 @@
             need = Math.max(0, need - tradNet);
           }
         }
-        const fromRoth = Math.min(roth, need);
-        roth -= fromRoth;
-        need -= fromRoth;
-        rothWithdrawn += fromRoth;
+        const rothFallback = rothDraw(
+          rothLedger,
+          roth,
+          need,
+          taxableGainGross,
+          traditionalGross,
+          profile,
+          rothPenalizedFraction,
+        );
+        roth -= rothFallback.gross;
+        need -= rothFallback.net;
+        rothWithdrawn += rothFallback.gross;
+        traditionalGross += rothFallback.earn;
+        earlyPenalty += rothFallback.penalty;
         const fromCash = Math.min(cash, need);
         cash -= fromCash;
         need -= fromCash;
@@ -4625,9 +4753,20 @@
           earlyPenalty += bondPenalty;
           need = Math.max(0, need - net);
         }
-        const fromBondRoth = Math.min(bondRoth, need);
-        bondRoth -= fromBondRoth;
-        need -= fromBondRoth;
+        const bondRothDraw = rothDraw(
+          rothLedger,
+          bondRoth,
+          need,
+          taxableGainGross,
+          traditionalGross,
+          profile,
+          rothPenalizedFraction,
+        );
+        bondRoth -= bondRothDraw.gross;
+        need -= bondRothDraw.net;
+        rothWithdrawn += bondRothDraw.gross;
+        traditionalGross += bondRothDraw.earn;
+        earlyPenalty += bondRothDraw.penalty;
         if (need > 0 && (state.tenure === 'own' || state.tenure === 'rentThenBuy')) {
           const fromHome = Math.min(Math.max(0, home - mortgage), need);
           home -= fromHome;
@@ -4639,6 +4778,7 @@
           otherA + otherB + ss + inv.ordinary + inv.qualified + traditionalGross + taxableGainGross;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
+        rothLedger.basis += rothContrib;
       }
       prevTraditionalGross = traditionalGross;
       prevTaxableGainGross = taxableGainGross;
@@ -4755,6 +4895,8 @@
       loans = loanSchedules(),
       rows = [],
       magiHistory = [];
+    // Roth contribution/conversion/earnings ledger (see rothLedgerNew).
+    const rothLedger = rothLedgerNew(state.roth);
     let depletedAge = null,
       cumFactor = 1;
     const bondYears = getBondYears();
@@ -5057,6 +5199,7 @@
               invQual: inv.qualified,
               year,
             };
+      rothLedgerSeason(rothLedger, year);
       let conversionAmount = 0;
       if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
         // Lagged, same as magiProxy below — see prevTraditionalGross's
@@ -5220,6 +5363,7 @@
         traditional -= fromTradConv;
         bondTraditional = Math.max(0, bondTraditional - (conversionAmount - fromTradConv));
         roth += conversionAmount;
+        rothLedger.conv.push({ year, amount: conversionAmount });
       }
       cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
@@ -5252,6 +5396,7 @@
               : earlyExemptA
                 ? 1 - pctA
                 : pctA;
+      const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
       const stepCash = (need) => {
         const from = Math.min(cash, need);
         cash -= from;
@@ -5296,9 +5441,18 @@
         return Math.max(0, need - net);
       };
       const stepRoth = (need) => {
-        const from = Math.min(roth, need);
-        roth -= from;
-        return need - from;
+        const d = rothDraw(
+          rothLedger,
+          roth,
+          need,
+          taxableGainGross,
+          traditionalGross,
+          profile,
+          rothPenalizedFraction,
+        );
+        roth -= d.gross;
+        traditionalGross += d.earn;
+        return Math.max(0, need - d.net);
       };
       const stepBondTaxable = (need) => {
         if (bondTaxable <= 0) return need;
@@ -5339,9 +5493,18 @@
         return Math.max(0, need - net);
       };
       const stepBondRoth = (need) => {
-        const from = Math.min(bondRoth, need);
-        bondRoth -= from;
-        return need - from;
+        const d = rothDraw(
+          rothLedger,
+          bondRoth,
+          need,
+          taxableGainGross,
+          traditionalGross,
+          profile,
+          rothPenalizedFraction,
+        );
+        bondRoth -= d.gross;
+        traditionalGross += d.earn;
+        return Math.max(0, need - d.net);
       };
       const stepHome = (need) => {
         if (state.tenure !== 'own' && state.tenure !== 'rentThenBuy') return need;
@@ -5368,6 +5531,7 @@
         taxableBasis += remainder;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
+        rothLedger.basis += rothContrib;
       } else {
         let need = -flow;
         if (state.guardrailsEnabled && !working) {
@@ -5431,6 +5595,7 @@
         if (need > 1 && !depletedAge) depletedAge = age;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
+        rothLedger.basis += rothContrib;
       }
       prevTraditionalGross = traditionalGross;
       prevTaxableGainGross = taxableGainGross;

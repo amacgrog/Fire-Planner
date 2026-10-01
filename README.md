@@ -89,7 +89,8 @@ Both tools run on the same underlying engine and share these features:
 - Catch-up contributions (age 50+, enhanced age 60–63), auto-Roth above the SECURE 2.0 wage threshold
 - Mega backdoor Roth
 - Social Security, with a start-age slider per partner
-- Medicare IRMAA surcharge modeling
+- Medicare IRMAA surcharge modeling (applies from each partner's Medicare age of 65, regardless of work status, using the two-year MAGI lookback)
+- **Roth early-access rules**: Roth withdrawals follow the real ordering (contributions, then conversions, then earnings). Set the share of the Roth balance that is contributions (`Roth principal %`); conversions older than 5 years are free, younger ones and earnings owe the 10% penalty before 59.5, and earnings are also taxed as ordinary income. Everything is free after 59.5
 - ACA premium tax credit (2026 sliding-scale structure, with an option to model the enhanced ARPA/IRA-style subsidy instead). MAGI for the subsidy (and the Medicare IRMAA lookback, and the Roth-conversion ACA-cliff cap) includes the prior year's realized discretionary traditional withdrawals and taxable-brokerage gains as a one-year-lagged estimate — the same way a real ACA application estimates current income from a recent tax return and reconciles later — rather than excluding withdrawal/gains income entirely
 - **Post-retirement healthcare only applies once both partners have stopped working, and only while each is under 65.** A retired partner is assumed to be covered under a still-working spouse's employer plan (size that partner's own per-paycheck premium field to include a non-working spouse, if that's the real cost) rather than needing their own individual ACA/COBRA policy — so for a couple, the "annual pre-65 health insurance premium" input doesn't start for either partner until neither is working, even if one retires years before the other, and stops for a given partner once they individually turn 65
 - **Separate Medicare Part B/D + supplement cost**, starting for each partner individually the year they turn 65 — unlike the pre-65 premium above, this is age-gated only: it applies whether that partner (or their spouse) is still working or retired, isn't netted against the ACA subsidy schedule (Medicare isn't ACA-subsidized), but is still subject to the Medicare IRMAA surcharge modeled above. A single household figure is halved per partner (the full amount for a single person)
@@ -138,3 +139,10 @@ These files use **stable filenames** — always `Planner_US.html` / `Planner_Can
 Keeping README.md and CLAUDE.md current alongside the code (rather than as an occasional separate pass) is what lets a future session — one with no memory of this conversation, possibly running in a different, disconnected copy of this repo — pick up accurately from just the repo contents.
 
 If you're using GitHub Desktop: open the app, you'll see the changed file listed, write a one-line summary in the box at bottom left, click **Commit to main**, then click **Push origin** to sync it to GitHub.
+
+## Tax-model refinements (both planners unless noted)
+
+- Tax brackets, deductions and credits follow each historical path's own inflation in the backtest and Monte Carlo, not a steady 2.5%
+- Dividends and interest on the taxable account and cash are taxed annually (US: ordinary vs. qualified split, counted in MAGI; Canada: eligible-dividend gross-up and credit, counted in net income for OAS clawback), and reinvested dividends raise cost basis. New inputs: dividend yield, qualified/eligible share
+- Healthcare and long-term-care costs can grow faster than CPI (`Medical inflation above CPI`, default 1%)
+- Fixed: US federal ordinary brackets above the 10% bracket were charged on the whole taxable amount instead of the slice in that bracket (overtaxed in every projection); long-term gain tax now uses unused standard deduction

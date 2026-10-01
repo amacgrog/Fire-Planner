@@ -6475,3 +6475,13 @@ Branch `spending-changes-and-fi-widgets` (off `dynamic-additional-items`).
   cheap, always-visible way for a person (or a screenshot) to signal which
   build is running, and it only stays trustworthy if every batch bumps it,
   not just some.
+
+## Tax-model refinements batch (branch `tax-model-refinements`)
+
+- `taxIndexFactor(yearIndex)`: tax parameters index with the path's own CPI inside the historical engine (`histTaxFactors`); `simulateHistorical` is a wrapper around `simulateHistoricalCore`. Test: `tests/historical_tax_indexing.js` (real withdrawal is invariant to the inflation rate).
+- Investment income: `investmentIncome()` (US) / `investmentIncomeCA()` (Canada) feed `taxFor` as ordinary/qualified (US) or grossed-up eligible dividends with `dtcA/dtcB` credit (Canada). Dividends raise basis (reinvested). Golden isolation scenarios set `dividendYield` to 0. Test: `tests/dividend_income.js`.
+- `medicalGrowth(year)` = `(1+medicalInflation%)^year` applied on top of the CPI factor to healthcare, Medicare and LTC. Test: `tests/medical_inflation.js`.
+- IRMAA uses `medicareEligibleA/B` (age >= 65), not `!working`. Test: `tests/irmaa_gating.js`.
+- US Roth ledger (`rothLedgerNew/Season/Split/Apply`, `rothDraw`, `rothPenaltyFraction`): basis, conversions (seasoned after 5 years), earnings; earnings are ordinary income, penalty goes to `earlyPenalty`. `rothDraw` keeps the old behaviour of handing a negative target back to the Roth bucket (bisection overshoot refund). Canada has no equivalent (TFSA). Test: `tests/roth_early_access.js`.
+- Gotcha fixed: `ordinaryTax` computed each slice as `min(taxable, ceiling - prev)` instead of `min(taxable - prev, ceiling - prev)`, so the 12%+ rates applied to the whole taxable amount. Canada's `progressiveTax` was already correct.
+
