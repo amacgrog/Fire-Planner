@@ -6266,6 +6266,75 @@ desktop width. `npm test` and the full existing ad-hoc suite
 re-verified unaffected, since this change touches only sidebar-filter
 display state, nothing `simulate()`/`simulateHistorical()` reads.
 
+## Sidebar info bubbles (ⓘ) + shortened field descriptors (V58 US / V21 Canada, both files)
+
+**What**: the sidebar's `<small>` descriptors under field labels had grown into
+paragraphs (the Withdrawal & tax strategy group, survivor planning, the
+pre-65/Medicare health fields, the loan rows). Each is now a one-line
+descriptor, with the longer explanation moved into a small **ⓘ** button placed
+in the label: `<button type="button" class="info-tip" aria-label="More info"
+aria-expanded="false" data-tip="…">i</button>`.
+
+**One shared bubble, one delegated listener.** `#infoBubble` (`.info-bubble`,
+`role="tooltip"`) is created once and appended to `<body>` with
+`position:fixed` — the sidebar's scroll container would clip an absolutely
+positioned child. A single delegated `document` click handler opens/closes it
+for any `.info-tip`; Escape, an outside click, a resize, or a scroll that
+actually moves the button (>4px) closes it. The movement check matters: a
+browser can fire a stray `scroll` right after a tap (focus/scroll-into-view),
+and an unconditional close-on-scroll dismissed the bubble the tap had just
+opened (seen in Playwright, plausible on real phones). Placement is below the
+button, flipped above when it won't fit, clamped to the viewport. No hover
+behavior on purpose — mobile has no hover, and click-only keeps desktop and
+mobile identical.
+
+**Gotchas worth knowing (reusable for any new control inside a field label):**
+- The button sits **inside** `<label for="…">`, so the click handler calls
+  `e.preventDefault()`; otherwise label activation would focus/toggle the
+  control the label points at (same trap as the `.estimate-dismiss` button).
+- The label's **last word and the button are wrapped together in
+  `<span class="info-nw">` (`white-space:nowrap`)** so the ⓘ can never wrap
+  onto a line of its own in narrow labels. `&nbsp;`/U+2060 glue was tried
+  first and still orphaned the button at ~8% of widths in Chromium. Because
+  that last word is no longer a direct text node of the label, `mainLabelText()`
+  (field-search names/breadcrumbs) was extended to also read text nodes inside
+  `.info-nw`; anything else that reads a label's direct text nodes must do the
+  same. `renderEstimateBadges()` inserts its badge before the label's
+  `<small>`, i.e. after the ⓘ, so the two coexist.
+- Group `<summary>` elements get no bubbles (a click there toggles the group).
+- Tooltips are static HTML attributes (escaped) or, for the five repeated loan
+  rows, part of the JS template string in `renderLoanFields()` — there is no
+  runtime decorator, so adding a bubble means adding the button in markup.
+- The three housing hints whose text JS rewrites per tenure
+  (`maintenanceHint`/`propertyTaxHint`/`homeInsuranceHint`) were left as-is;
+  they were already short.
+
+**Copy was written from the code, not from the old blurbs.** Checking each
+claim against `simulate()` turned up three places where the old text didn't
+match the math, so the tooltips describe what the model actually does:
+- `k401PctA/B` (US) and `rrspPctA/B` (Canada) are a **share of the maximum
+  contribution** — `Math.min(wage, limit) * pct` / `min(wage, rrspRoom) * pct`
+  — not "a percentage of pay capped by the limit" as the previous blurb (and
+  the earlier "clarify what % means" note in this file) said. 100% (the
+  default) means contribute the full limit/room.
+- `ssStartAgeA/B` (US) and `cppStartAgeA/B` / `oasStartAgeA/B` (Canada) only
+  gate *when* the flat monthly amount begins; the amount is **not** adjusted
+  for claiming early or late. The old Canada text ("earlier means a reduced
+  benefit… deferring increases ~0.6%/month") implied an adjustment that isn't
+  modeled. Same root cause makes the "Social Security timing" decision
+  question compare claim-at-62/70 using the *same* monthly benefit — flagged
+  but deliberately not changed here.
+- `tfsaPct`/`fhsaPct` (Canada) *are* a percentage of pay, capped at the annual
+  limit — a different mechanic from the RRSP slider next to them.
+
+**Verification**: `test_info_tips.js` (both files, 1280×900 and 390×844) —
+bubble opens/closes via click, outside click, Escape, and scroll; clicking ⓘ
+inside a checkbox or slider label does not toggle the checkbox or move the
+slider; one bubble open at a time; bubble stays inside the viewport; no ⓘ
+orphaned from its label's last word; field search names keep that last word;
+no horizontal overflow; no page errors. `npm test` and the other `test_*.js`
+scripts unchanged and passing.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

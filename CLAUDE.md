@@ -199,6 +199,17 @@ type (`attachMoneyPreview`/`refreshMoneyPreviews`). Any code reading a
 and falls back to `|| 0`. A new dollar field needs both: the `class="money"`
 attribute, and non-digit stripping at every call site that parses it.
 
+## Field descriptors and info bubbles
+
+A field's `<small>` is a one-line descriptor (aim for under ~70 characters);
+anything longer goes in a `<button class="info-tip" data-tip="…">` placed in
+the label, which opens the shared `#infoBubble`. Wrap the label's last word
+and the button together in `<span class="info-nw">` so the button can't wrap
+alone — and note `mainLabelText()` (field search) reads that span's text too.
+The button lives inside `<label for>`, so its click handler must
+`preventDefault()`. Write tooltip copy from what `simulate()` actually does,
+not from older blurbs (see `docs/reference.md`, "Sidebar info bubbles").
+
 ## Versioning
 
 Stable filenames (`Planner_US.html`, `Planner_Canada.html`), no
