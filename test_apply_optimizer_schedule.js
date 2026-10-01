@@ -126,6 +126,11 @@ async function runOptimizer(page, options) {
     ok('applying the Roth lever turns rothConvEnabled on', state.rothConvEnabled === true);
     ok('appliedRothSchedule is a non-empty plain object after applying', !!state.roth && Object.keys(state.roth).length > 0, state.roth);
     ok('appliedMixSchedule is a non-empty plain object after applying', !!state.mix && Object.keys(state.mix).length > 0, state.mix);
+    const applyBtnHidden = await page.evaluate(() => document.getElementById('multiLeverApplyBtn').hidden);
+    ok('Apply button hides itself immediately after being clicked (nothing left to apply from that run)', applyBtnHidden === true);
+    await runOptimizer(page, {}); // re-click Optimize with the same (still-checked) levers
+    const applyBtnHiddenAfterRerun = await page.evaluate(() => document.getElementById('multiLeverApplyBtn').hidden);
+    ok('Apply button reappears after a fresh Optimize run', applyBtnHiddenAfterRerun === false);
   });
 
   // 3. The applied schedule survives a page reload (it's a real state

@@ -6054,6 +6054,61 @@ it below the (often long) per-year schedule table genuinely hard to
 find; now it's impossible to miss once a run finishes, right where the
 button that triggered the run still is.)
 
+**(V56 follow-up:** the button now hides itself immediately after being
+clicked — `applyMultiLeverSchedule()` sets `#multiLeverApplyBtn.hidden =
+true`, its note to `'Applied.'`, and `lastMultiLeverRun = null` as its
+last steps before `render()`/`saveInputs()` — rather than sitting there
+enabled, inviting a redundant re-click of a schedule that's already live.
+It reappears, freshly evaluated, the next time Optimize produces a
+result.)
+
+**Why the applied schedule survives a knob round-trip, and why
+re-running Optimize right after says "already as good as."** A person
+applied a schedule, changed `retireAgeA`, changed it back to its original
+value, and found the optimized numbers unchanged — then re-ran the
+optimizer and got "already as good as anything these levers found,"
+which read as suspicious (why would a dedicated search find nothing?).
+Both are correct, not bugs, and follow directly from the V54 design:
+
+- `state.appliedRothSchedule`/`appliedMixSchedule` are ordinary state
+  fields now, exactly as sticky as every other checkbox/slider in the
+  sidebar — `smoothWithdrawals` or `rothConvEnabled` don't un-check
+  themselves when you nudge `retireAgeA` either. Reverting a knob to its
+  *exact original value* makes `simulate()`'s output byte-identical to
+  before the round trip (it's a pure function of `state`), so "the
+  optimized values remain" after a round trip isn't the applied schedule
+  surviving something that should have cleared it — it's just determinism
+  working correctly: same inputs in, same outputs out, both before and
+  after the detour.
+- `optimizeMultiLever()`'s `selected` baseline — the thing its
+  `currentCost`/"savings" comparison and its depletion guardrail are both
+  measured against — has always been "the plan exactly as currently
+  configured" (`simulate()` on live `state`), from before Apply existed:
+  if someone manually checked `smoothWithdrawals` and ran the per-year
+  optimizer, it would correctly search for something better than
+  *smoothed withdrawals*, not better than the plain default. Apply just
+  means that baseline can now also include a previously-applied optimizer
+  schedule. So re-running Optimize with the same schedule still applied
+  is asking "is there anything better than the schedule I already found
+  and applied?" — and since that schedule either *is* the true optimum
+  the search converges to, or is extremely close to it, the honest answer
+  is "no, you're already there," not a sign the search silently failed to
+  run.
+
+One real, separate risk worth naming: the applied schedule is a frozen
+per-age snapshot, not a live formula — if you change something the
+original search result actually depended on (the Roth ladder's own
+`rothConvStartAge`/`rothConvEndAge` window, ACA/IRMAA-relevant inputs,
+account balances, `retireAgeA`/`B` *landing on a genuinely different
+value*, not just round-tripped back), the previously-applied schedule
+keeps using its original per-age values regardless, which may no longer
+be the optimal choice for the new configuration — same staleness risk as
+leaving `smoothWithdrawals` checked after a big assumption change, not a
+new problem Apply introduced. There's no automatic invalidation; the
+applied-status banner (see V54 above) is the standing reminder that a
+schedule is active, and re-running Optimize + Apply after a meaningfully
+different change is how to refresh it.
+
 **`clearAppliedMultiLeverSchedule(which)`** (new, `which` one of
 `'roth'`/`'mix'`/`'both'`): sets the corresponding applied-schedule
 field(s) back to `null` and re-renders. Deliberately does *not* also
