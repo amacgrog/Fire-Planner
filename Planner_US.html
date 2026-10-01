@@ -11049,6 +11049,7 @@
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
+  window.__test_tax = { ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();

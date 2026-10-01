@@ -20,7 +20,10 @@ feature list.
   file, not a rename-and-fix-links exercise.
 - `index.html` — a small landing page linking to both tools.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
-  checks, run via `npm test`. This is the only test wired into CI.
+  checks, run via `npm test` along with the other `tests/*.js` files listed in
+  `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
+  schedule (federal, each state/province, NIIT, OAS clawback) via
+  `window.__test_tax`; run it whenever a bracket or tax function changes.
 - `test_*.js` (repo root, committed) — ad-hoc Playwright scripts covering
   UI/feature behavior; not run by CI. Run individually with `node test_foo.js`.
 - `docs/reference.md` — a much longer, chronological architecture/gotcha log
