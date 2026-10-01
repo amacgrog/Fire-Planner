@@ -59,7 +59,7 @@ async function run(browser, file) {
   const lists = ['loans', 'incomeSources', 'oneTimeIncome', 'extraExpenses', 'lumpExpenses'];
   for (const l of lists) check(await page.$(`[data-dyn-add="${l}"]`), `Add button for ${l}`);
   check((await page.$$('.dyn-row')).length === 0, 'no rows by default');
-  check((await page.$$('.dyn-empty')).length === 5, 'empty-state text in all five lists');
+  check((await page.$$('.dyn-empty')).length === 6, 'empty-state text in all six lists');
   const base = await rows(page);
   const ageA = await num(page, '#ageA'),
     infl = (await num(page, '#inflation')) / 100,

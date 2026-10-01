@@ -6403,6 +6403,25 @@ Decisions:
   explicitly in `normalizeLists()` or they re-migrate (duplicating streams) on
   every scenario load — caught by `test_dynamic_lists.js`.
 
+## Spending changes list, Additional expenses → Spending, nest-egg tiles (V62 US / V25 Canada)
+
+Branch `spending-changes-and-fi-widgets` (off `dynamic-additional-items`).
+- Spending changes became an add-as-you-go list (cap 10) with start/end age and
+  inflation-or-own growth, replacing five fixed slots; see CLAUDE.md for the
+  `baseSpendingNominal` rule and the legacy migration. Default new change:
+  $60K, ages 65–110, follows inflation.
+- Additional expenses moved to the Spending rail pill; one-time expenses stayed
+  under Other items (not asked to move — easy to flip via `data-cat`).
+- Dashboard: tiles are Investable at retirement / FI nest egg / FIRE nest egg /
+  Investments last through. FI = today's spend ÷ SWR; FIRE = retirement-year
+  spend ÷ SWR; both compare liquid assets only (the old numerator was already
+  liquid-only — the label now says so). Retirement age became a small chip;
+  Historical success moved into More results (the chart-adjacent success card
+  is unchanged). The estimated-early-retirement-age row now uses the SWR-based
+  FIRE number, so changing the rate moves it too. Layman names are headings
+  only; "FI number"/"FIRE number" stay visible on each tile's second line.
+- Printed/exported summary labels use the live multiplier and rate.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

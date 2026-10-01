@@ -215,7 +215,27 @@ section (`bridge*` fields) is removed; `normalizeLists()` converts a saved
 retirement age, Partner B's window shifted into Partner A's age) and deletes
 every `bridge*` key — note `normalizeState` spreads unknown keys, so any
 retired field must be deleted explicitly or it re-migrates on every load.
-Test: `node test_dynamic_lists.js`.
+`state.spendingTiers` is a sixth DYN list (ids `tier<i>…`): amount, startAge,
+endAge, followGrowth/growth. `baseSpendingNominal(age, year, factor, incomeFactor)`
+is the single place both engines (and `projectedExpense`) read household
+spending — the active tier that started latest wins (ties: first in list),
+else `state.spending * factor`. Legacy five-slot saves (`enabled`/`age`) are
+migrated in `normalizeLists()` as open-ended (end 120) inflation-following
+changes, which reproduces the old projections exactly. Additional expenses
+(`#extraExpensesGroup`) is `data-cat="spending"`; one-time expenses stay in
+`extra`.
+Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
+
+## Dashboard tiles and the safe withdrawal rate
+
+The four `.metrics-primary` tiles are Investable at retirement, `#fiNumber`,
+`#fireNumber`, and Investments last through; `#dashRetireAge` is a small
+`.retire-chip` below them, and `#dashHistSuccess` lives in More results.
+`state.fiWithdrawalRate` (default 4, clamped 0.5–15 in `normalizeState`) feeds
+`fiMultiple()` (= 100 / rate). It is edited via two `.swr-input` boxes (one
+per tile) that are synced by hand in `syncControls()` — it is deliberately not
+in `ids`, since there is no sidebar element with that id. Funded % compares
+`currentInvestable` (liquid accounts only, no home equity) to the number.
 
 ## Money-field formatting
 
