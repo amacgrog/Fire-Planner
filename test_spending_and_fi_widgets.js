@@ -96,13 +96,23 @@ async function run(browser, file) {
   }
   check((await page.$$('#spendingTierFields .dyn-row')).length === 10, 'spending changes cap at 10');
 
-  // --- Additional expenses live under the Spending pill
-  check((await page.getAttribute('#extraExpensesGroup', 'data-cat')) === 'spending', 'Additional expenses is in the spending category');
-  check((await page.getAttribute('#lumpExpensesGroup', 'data-cat')) === 'extra', 'One-time expenses stays in Other items');
+  // --- Pill membership
+  const cat = (sel) => page.getAttribute(sel, 'data-cat');
+  check((await cat('#extraExpensesGroup')) === 'spending', 'Additional expenses is in the spending category');
+  check((await cat('#lumpExpensesGroup')) === 'spending', 'One-time expenses is in the spending category');
+  check((await cat('#otherLoansGroup')) === 'spending', 'Other loans is in the spending category');
+  check((await cat('#otherIncomeGroup')) === 'income', 'Additional income is in the income category');
+  check((await page.$eval('#preRetireHealthGroupState', (e) => e.closest('details').dataset.cat)) === 'spending', 'Pre-retirement healthcare is in the spending category');
   await page.click('button[data-cat="spending"]');
   await page.waitForTimeout(200);
-  check(await page.locator('#extraExpensesGroup').isVisible(), 'Spending pill shows Additional expenses');
-  check(!(await page.locator('#lumpExpensesGroup').isVisible()), 'Spending pill hides one-time expenses');
+  for (const id of ['#extraExpensesGroup', '#lumpExpensesGroup', '#otherLoansGroup'])
+    check(await page.locator(id).isVisible(), `Spending pill shows ${id}`);
+  check(await page.locator('#preRetireHealthGroupState').isVisible(), 'Spending pill shows pre-retirement healthcare');
+  check(!(await page.locator('#otherIncomeGroup').isVisible()), 'Spending pill hides additional income');
+  await page.click('button[data-cat="income"]');
+  await page.waitForTimeout(200);
+  check(await page.locator('#otherIncomeGroup').isVisible(), 'Income pill shows additional income');
+  check(!(await page.locator('#lumpExpensesGroup').isVisible()), 'Income pill hides one-time expenses');
   await page.click('button[data-cat="all"]').catch(() => {});
 
   // --- Dashboard tiles
@@ -116,7 +126,23 @@ async function run(browser, file) {
     tileBox = await page.locator('.metrics-primary .metric').first().boundingBox();
   check(chipBox && tileBox && chipBox.height < tileBox.height / 2, 'retirement age is a small chip, not a tile');
   check(!(await page.$('.metrics-primary #dashRetireAge')), 'retirement age no longer one of the four tiles');
-  check(/\d/.test(await page.$eval('#dashRetireAge', (e) => e.textContent)), 'retirement age still populated');
+  const ra = await num(page, '#retireAgeA'),
+    rb = await num(page, '#retireAgeB');
+  const chipText = await page.$eval('#dashRetireAge', (e) => e.textContent);
+  check(chipText === `A ${ra} · B ${rb}`, `chip shows each partner's own retirement age: "${chipText}" vs A ${ra} / B ${rb}`);
+  check(!/both retire/i.test(await page.$eval('#dashRetireChip', (e) => e.textContent)), 'no "when both retire" text');
+  const cb = await page.locator('#dashRetireChip').boundingBox(),
+    sb = await page.locator('.content').boundingBox();
+  check(cb.x + cb.width > sb.x + sb.width - 6 && cb.y < sb.y + 60, 'chip sits in the upper-right of the results area');
+  check(/rgb\(18, 52, 77\)/.test(await page.$eval('#dashRetireChip', (e) => getComputedStyle(e).backgroundColor)), 'chip is a colored box');
+  // Rate boxes: no spinner arrows, explained by an info bubble rather than a hover tooltip
+  check((await page.$eval('.swr-input', (e) => getComputedStyle(e).appearance)) === 'textfield', 'rate box has no spinner arrows');
+  check(!(await page.$('.swr-row[title]')) && !(await page.$('.swr-input[title]')), 'no hover tooltip on the rate row');
+  const tips = await page.$$('.swr-row .info-tip');
+  check(tips.length === 2, 'info icon beside both withdrawal-rate labels');
+  await tips[0].click();
+  check((await page.locator('#infoBubble').isVisible()) && /first year of retirement/.test(await page.locator('#infoBubble').textContent()), 'info bubble explains the withdrawal rate');
+  await page.keyboard.press('Escape');
 
   // Safe withdrawal rate
   const swr = await page.$$('.swr-input');

@@ -6422,6 +6422,20 @@ Branch `spending-changes-and-fi-widgets` (off `dynamic-additional-items`).
   only; "FI number"/"FIRE number" stay visible on each tile's second line.
 - Printed/exported summary labels use the live multiplier and rate.
 
+## Pill regrouping, retirement-age box, withdrawal-rate polish (V63 US / V26 Canada)
+
+- Spending pill now holds Household spending, Additional expenses, One-time
+  expenses, Other loans, Pre-retirement healthcare (DOM order matches, so the
+  "All" view groups them too); Additional income moved to the Income pill.
+- Retirement-age chip: `state.retireAgeA/B` ("A 55 · B 55"), moved to the
+  top-right of the results. The old tile showed the sim's both-retired year
+  (A's age when the later partner retires), which read as "60/55" for ages
+  that were really 55/55.
+- Rate boxes: spinner arrows removed (`appearance:textfield` + webkit
+  spin-button reset); the hover `title` was dropped in favor of an ⓘ
+  (shared `#infoBubble`) next to the label. The row wraps instead of clipping
+  the input on narrow tiles.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

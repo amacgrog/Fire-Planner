@@ -222,15 +222,15 @@ spending — the active tier that started latest wins (ties: first in list),
 else `state.spending * factor`. Legacy five-slot saves (`enabled`/`age`) are
 migrated in `normalizeLists()` as open-ended (end 120) inflation-following
 changes, which reproduces the old projections exactly. Additional expenses
-(`#extraExpensesGroup`) is `data-cat="spending"`; one-time expenses stay in
-`extra`.
+(`#extraExpensesGroup`) is `data-cat="spending"`; one-time expenses, other loans and the pre-retirement healthcare group are
+also `spending`; additional income is `income`; `extra` keeps survivor planning.
 Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
 
 ## Dashboard tiles and the safe withdrawal rate
 
 The four `.metrics-primary` tiles are Investable at retirement, `#fiNumber`,
 `#fireNumber`, and Investments last through; `#dashRetireAge` is a small
-`.retire-chip` below them, and `#dashHistSuccess` lives in More results.
+`.retire-chip` box at the top-right of `.content` showing `state.retireAgeA/B` (each partner's own retirement age, not the sim's both-retired year), and `#dashHistSuccess` lives in More results.
 `state.fiWithdrawalRate` (default 4, clamped 0.5–15 in `normalizeState`) feeds
 `fiMultiple()` (= 100 / rate). It is edited via two `.swr-input` boxes (one
 per tile) that are synced by hand in `syncControls()` — it is deliberately not
