@@ -398,6 +398,8 @@
           <div class="field"><label for="returnRate">Investment <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Nominal annual return on your investments (before inflation). Subtract the inflation rate below to get the real return.">i</button></span></label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
           <div class="field"><label for="bondReturn">Bond <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Nominal annual return on the bond reserve — a separate rate from the investment return above.">i</button></span></label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
           <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
+          <div class="field"><label for="dividendYield">Taxable dividend <span class="info-nw">yield<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The part of your non-registered (taxable) account return that is paid out as dividends each year (it is already inside the investment return above, not added on top). Dividends are taxed every year whether or not you spend them, and they count toward net income for the OAS clawback. Reinvesting them raises your adjusted cost base. Interest on cash and taxable bonds is taxed the same way automatically.">i</button></span><small>Share of the taxable account paid as dividends</small></label><input id="dividendYield" type="number" min="0" max="8" step="0.1"></div>
+          <div class="field"><label for="qualifiedDivPct">Eligible Canadian share of <span class="info-nw">dividends<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Eligible Canadian dividends get the 38% gross-up and the federal and provincial dividend tax credits. The rest (foreign and non-eligible dividends) is taxed like interest, at full marginal rates. A global all-in-one ETF is mostly foreign, so a low share is typical.">i</button></span></label><input id="qualifiedDivPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="inflation"><span class="info-nw">Inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The yearly rate used to grow everything you enter in 2026 dollars — spending, healthcare, CPP/OAS, pensions, LTC, and contribution limits. Investment returns are nominal, so higher inflation lowers your real return.">i</button></span></label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
         </details>
         <details class="group" data-cat="housing" open>
@@ -695,6 +697,8 @@
     returnRate: 7,
     bondReturn: 4,
     hysaRate: 4,
+    dividendYield: 2,
+    qualifiedDivPct: 25,
     tenure: 'own',
     homeValue: 450000,
     homeGrowth: 3,
@@ -1094,6 +1098,8 @@
     'returnRate',
     'bondReturn',
     'hysaRate',
+    'dividendYield',
+    'qualifiedDivPct',
     'homeValue',
     'homeGrowth',
     'mortgagePrincipal',
@@ -2358,22 +2364,69 @@
   // inclusion rate (added directly to taxable ordinary income) rather than a
   // separate preferential bracket, per Canadian tax treatment. CPP and OAS
   // (gross, before any clawback) are fully taxable ordinary income.
-  function personTaxCA(ordinaryIncome, gains, yearIndex) {
+  // Eligible-dividend tax credit. The grossed-up dividend (1.38x) is already
+  // inside the ordinaryIncome passed to personTaxCA(); dtcBase is that
+  // grossed-up amount, and the non-refundable credit (federal 15.0198% plus
+  // the provincial rate below, both of the grossed-up amount) is subtracted
+  // from tax, floored at zero. Ontario's surtax is not recomputed after the
+  // credit and Quebec's federal abatement is applied to the federal credit —
+  // planning-level simplifications.
+  const PROVINCE_ELIGIBLE_DTC = {
+    on: 0.1,
+    bc: 0.12,
+    ab: 0.0812,
+    sk: 0.11,
+    mb: 0.08,
+    qc: 0.117,
+    nb: 0.14,
+    ns: 0.0885,
+    pe: 0.105,
+    nl: 0.063,
+  };
+  const DIVIDEND_GROSS_UP = 1.38,
+    FEDERAL_ELIGIBLE_DTC = 0.150198;
+  // Annual taxable investment income on the taxable account, taxable bond
+  // reserve and cash, on start-of-year balances. Dividends/interest are part
+  // of the modeled total return (never added on top of it) but are taxed in
+  // the year paid: interest and non-eligible/foreign dividends at ordinary
+  // rates, eligible Canadian dividends grossed up with a credit. Reinvested
+  // amounts raise adjusted cost base (see the callers) so the gain realized
+  // at sale is not taxed again. Bond interest uses the bond return
+  // assumption as its yield in both engines.
+  function investmentIncomeCA(taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
+    const divTotal = Math.max(0, taxableBal) * pct(state.dividendYield),
+      eligible = divTotal * clamp(pct(state.qualifiedDivPct), 0, 1),
+      bondInterest = Math.max(0, bondTaxableBal) * Math.max(0, bondRate),
+      cashInterest = Math.max(0, cashBal) * Math.max(0, cashRate);
+    return {
+      ordinary: divTotal - eligible + bondInterest + cashInterest,
+      eligGrossed: eligible * DIVIDEND_GROSS_UP,
+      divTotal,
+      bondInterest,
+    };
+  }
+  function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0) {
     const taxableIncome = Math.max(0, ordinaryIncome + Math.max(0, gains) * 0.5);
-    const fedTax = federalTaxCA(taxableIncome, yearIndex) * (state.province === 'qc' ? 0.835 : 1);
-    return fedTax + provincialTaxCA(taxableIncome, yearIndex);
+    const isQc = state.province === 'qc';
+    const fedTax = federalTaxCA(taxableIncome, yearIndex) * (isQc ? 0.835 : 1);
+    const tax = fedTax + provincialTaxCA(taxableIncome, yearIndex);
+    if (dtcBase <= 0) return tax;
+    const credit =
+      dtcBase *
+      (FEDERAL_ELIGIBLE_DTC * (isQc ? 0.835 : 1) + (PROVINCE_ELIGIBLE_DTC[state.province] ?? 0.1));
+    return Math.max(0, tax - credit);
   }
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     if (profile.singlePerson) {
-      return personTaxCA(profile.otherA + traditionalExtra, gains, profile.year);
+      return personTaxCA(profile.otherA + traditionalExtra, gains, profile.year, profile.dtcA);
     }
     const gainA = gains / 2,
       gainB = gains / 2,
       tradA = traditionalExtra / 2,
       tradB = traditionalExtra / 2;
     return (
-      personTaxCA(profile.otherA + tradA, gainA, profile.year) +
-      personTaxCA(profile.otherB + tradB, gainB, profile.year)
+      personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA) +
+      personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB)
     );
   }
   function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
@@ -2940,8 +2993,21 @@
       // It naturally disables once the household is effectively single
       // (either state.singlePerson, or one partner has died).
       const effectiveSingle = singlePerson || isSurvivorPeriod;
-      const totalA = otherA + cppA + oasGrossA,
-        totalB = effectiveSingle ? 0 : otherB + cppB + oasGrossB;
+      // Dividends/interest earned this year on start-of-year balances, taxed
+      // now. A couple is assumed to hold the taxable account jointly, so the
+      // income splits evenly; a household that is effectively single puts it
+      // all on the surviving partner's return (the B slot when Partner A is
+      // the deceased, matching how the profile below is remapped).
+      const inv = investmentIncomeCA(taxable, bondTaxable, cash, bondYield, hysa);
+      const invToB = isSurvivorPeriod && deceasedIsA,
+        shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
+        shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
+      const totalA = otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA,
+        totalB =
+          (effectiveSingle ? 0 : otherB + cppB + oasGrossB) +
+          (inv.ordinary + inv.eligGrossed) * shareB;
+      const dtcA = inv.eligGrossed * shareA,
+        dtcB = inv.eligGrossed * shareB;
       const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
         eligibleB = effectiveSingle ? 0 : pensionB + (ageB >= 65 ? rrifB : 0);
       const splitTransfer =
@@ -2952,8 +3018,17 @@
         splitB = totalB + splitTransfer;
       const profile =
         isSurvivorPeriod && deceasedIsA
-          ? { otherA: splitB, otherB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
-          : { otherA: splitA, otherB: splitB, ageA: age, ageB, singlePerson: effectiveSingle, year };
+          ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
+          : {
+              otherA: splitA,
+              otherB: splitB,
+              dtcA,
+              dtcB,
+              ageA: age,
+              ageB,
+              singlePerson: effectiveSingle,
+              year,
+            };
       let meltdownAmount = 0;
       if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
         meltdownAmount = solveMeltdown(
@@ -3042,6 +3117,10 @@
       traditional *= 1 + nominalReturn;
       roth *= 1 + nominalReturn;
       cash *= 1 + hysa;
+      // Reinvested dividends and interest were taxed above, so they raise
+      // adjusted cost base rather than sitting as untaxed embedded gain.
+      taxableBasis = Math.min(taxable, taxableBasis + inv.divTotal);
+      bondTaxableBasis = Math.min(bondTaxable, bondTaxableBasis + inv.bondInterest);
       fhsa *= 1 + nominalReturn;
       if (state.tenure === 'own' || state.tenure === 'rentThenBuy') home *= 1 + homeGrowth;
       const rmdFromTraditional = Math.min(traditional, rmd);
@@ -3528,8 +3607,21 @@
           pensionB +
           rrifB;
       const effectiveSingle = singlePerson || isSurvivorPeriod;
-      const totalA = otherA + cppA + oasGrossA,
-        totalB = effectiveSingle ? 0 : otherB + cppB + oasGrossB;
+      // Dividends/interest earned this year on start-of-year balances, taxed
+      // now. A couple is assumed to hold the taxable account jointly, so the
+      // income splits evenly; a household that is effectively single puts it
+      // all on the surviving partner's return (the B slot when Partner A is
+      // the deceased, matching how the profile below is remapped).
+      const inv = investmentIncomeCA(taxable, bondTaxable, cash, pct(state.bondReturn), hysa);
+      const invToB = isSurvivorPeriod && deceasedIsA,
+        shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
+        shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
+      const totalA = otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA,
+        totalB =
+          (effectiveSingle ? 0 : otherB + cppB + oasGrossB) +
+          (inv.ordinary + inv.eligGrossed) * shareB;
+      const dtcA = inv.eligGrossed * shareA,
+        dtcB = inv.eligGrossed * shareB;
       const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
         eligibleB = effectiveSingle ? 0 : pensionB + (ageB >= 65 ? rrifB : 0);
       const splitTransfer =
@@ -3540,8 +3632,17 @@
         splitB = totalB + splitTransfer;
       const profile =
         isSurvivorPeriod && deceasedIsA
-          ? { otherA: splitB, otherB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
-          : { otherA: splitA, otherB: splitB, ageA: age, ageB, singlePerson: effectiveSingle, year };
+          ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
+          : {
+              otherA: splitA,
+              otherB: splitB,
+              dtcA,
+              dtcB,
+              ageA: age,
+              ageB,
+              singlePerson: effectiveSingle,
+              year,
+            };
       let meltdownAmount = 0;
       if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
         meltdownAmount = solveMeltdown(
@@ -3613,6 +3714,10 @@
       bondTraditional *= 1 + yearBondReturn;
       bondRoth *= 1 + yearBondReturn;
       cash *= 1 + hysa;
+      // Reinvested dividends and interest were taxed above, so they raise
+      // adjusted cost base rather than sitting as untaxed embedded gain.
+      taxableBasis = Math.min(taxable, taxableBasis + inv.divTotal);
+      bondTaxableBasis = Math.min(bondTaxable, bondTaxableBasis + inv.bondInterest);
       fhsa *= 1 + yearReturn;
       if (state.tenure === 'own' || state.tenure === 'rentThenBuy') home *= 1 + homeGrowth;
       const rmdFromTraditional = Math.min(traditional, rmd);

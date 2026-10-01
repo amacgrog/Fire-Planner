@@ -413,6 +413,8 @@
           <div class="field"><label for="returnRate">Investment <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Nominal annual return on your investments (before inflation). Subtract the inflation rate below to get the real return.">i</button></span></label><input id="returnRate" type="number" min="-10" max="20" step="0.1"></div>
           <div class="field"><label for="bondReturn">Bond <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Nominal annual return on the bond reserve — a separate rate from the investment return above.">i</button></span></label><input id="bondReturn" type="number" min="-5" max="15" step="0.1"></div>
           <div class="field"><label for="hysaRate">HYSA interest rate</label><input id="hysaRate" type="number" min="0" max="12" step="0.1"></div>
+          <div class="field"><label for="dividendYield">Taxable dividend <span class="info-nw">yield<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The part of your taxable brokerage return that is paid out as dividends each year (it is already inside the investment return above, not added on top). Dividends are taxed every year whether or not you spend them, count toward income-tested items like ACA subsidies, IRMAA and Social Security taxation, and reinvesting them raises your cost basis. Interest on cash and taxable bonds is taxed the same way automatically.">i</button></span><small>Share of the taxable account paid as dividends</small></label><input id="dividendYield" type="number" min="0" max="8" step="0.1"></div>
+          <div class="field"><label for="qualifiedDivPct">Qualified share of <span class="info-nw">dividends<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Qualified dividends are taxed at long-term capital-gain rates; the rest is taxed as ordinary income like interest. Broad US stock index funds are typically 90-100% qualified; international and REIT-heavy funds are lower.">i</button></span></label><input id="qualifiedDivPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="inflation"><span class="info-nw">Inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The yearly rate used to grow everything you enter in 2026 dollars — spending, healthcare, benefits, pensions, LTC, and contribution limits. Investment returns are nominal, so higher inflation lowers your real return.">i</button></span></label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
         </details>
         <details class="group" data-cat="housing" open>
@@ -766,6 +768,8 @@
     returnRate: 7,
     bondReturn: 4,
     hysaRate: 4,
+    dividendYield: 1.5,
+    qualifiedDivPct: 90,
     tenure: 'own',
     homeValue: 450000,
     homeGrowth: 3,
@@ -1235,6 +1239,8 @@
     'returnRate',
     'bondReturn',
     'hysaRate',
+    'dividendYield',
+    'qualifiedDivPct',
     'homeValue',
     'homeGrowth',
     'mortgagePrincipal',
@@ -2930,12 +2936,39 @@
     const clamped = Math.max(18, Math.min(65, Math.round(age)));
     return table[clamped];
   }
+  // Annual taxable investment income on the taxable brokerage account and
+  // the taxable bond reserve/cash. Dividends and interest are part of the
+  // modeled total return (never added on top of it), but unlike unrealized
+  // growth they are taxed in the year they are paid: non-qualified
+  // dividends and interest as ordinary income, qualified dividends at
+  // long-term gain rates. Computed on start-of-year balances. Reinvested
+  // dividends/interest raise cost basis (see the callers) so the gain
+  // realized at sale is not taxed a second time. Taxable-bond interest uses
+  // the planner's bond return assumption as its yield in both engines.
+  function investmentIncome(taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
+    const divTotal = Math.max(0, taxableBal) * pct(state.dividendYield),
+      qualified = divTotal * clamp(pct(state.qualifiedDivPct), 0, 1),
+      bondInterest = Math.max(0, bondTaxableBal) * Math.max(0, bondRate),
+      cashInterest = Math.max(0, cashBal) * Math.max(0, cashRate);
+    return {
+      ordinary: divTotal - qualified + bondInterest + cashInterest,
+      qualified,
+      divTotal,
+      bondInterest,
+    };
+  }
   function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj') {
     if (gain <= 0) return 0;
     const factor = taxIndexFactor(yearIndex),
       zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
       fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor,
       deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
+    // Any standard deduction left over after ordinary income also shelters
+    // long-term gains/qualified dividends (taxable income is gains plus
+    // ordinary income minus the deduction), which matters most for an early
+    // retiree living mostly on dividends and realized gains.
+    gain = Math.max(0, gain - Math.max(0, deduction - ordinary));
+    if (gain <= 0) return 0;
     const ordinaryTaxable = Math.max(0, ordinary - deduction),
       zeroRoom = Math.max(0, zeroLimit - ordinaryTaxable),
       zeroGain = Math.min(gain, zeroRoom),
@@ -2956,15 +2989,21 @@
     return Math.min(benefits * 0.85, (provisional - upper) * 0.85 + Math.min(base, benefits * 0.5));
   }
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
+    // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
+    // qualified) are household-level and taxed every year; qualified
+    // dividends stack with realized gains at long-term rates and, like
+    // ordinary interest, count toward provisional income and NIIT.
+    const invOrd = Math.max(0, profile.invOrd || 0);
+    gains += Math.max(0, profile.invQual || 0);
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
     if (profile.filing === 'mfj') {
-      const other = profile.otherA + profile.otherB + gains + traditionalExtra;
+      const other = profile.otherA + profile.otherB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
-      const ordinary = profile.otherA + profile.otherB + traditionalExtra + taxableSS;
+      const ordinary = profile.otherA + profile.otherB + traditionalExtra + invOrd + taxableSS;
       const sources = {
-        wages: profile.wageA + profile.wageB,
+        wages: profile.wageA + profile.wageB + invOrd,
         pension: profile.pensionA + profile.pensionB,
         retirement: profile.rmdA + profile.rmdB + traditionalExtra,
         gains,
@@ -2975,18 +3014,18 @@
         ordinaryTax(ordinary, profile.year, 'mfj') +
         longTermGainTax(gains, ordinary, profile.year, 'mfj') +
         stateIncomeTax(sources, 'mfj', profile.year) +
-        niitTax(ordinary + gains, gains, 'mfj')
+        niitTax(ordinary + gains, gains + invOrd, 'mfj')
       );
     }
     if (profile.singlePerson) {
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
-        profile.otherA + gains + traditionalExtra,
+        profile.otherA + gains + traditionalExtra + invOrd,
         'single',
       );
-      const ordinary = profile.otherA + traditionalExtra + taxableSS;
+      const ordinary = profile.otherA + traditionalExtra + invOrd + taxableSS;
       const sources = {
-        wages: profile.wageA,
+        wages: profile.wageA + invOrd,
         pension: profile.pensionA,
         retirement: profile.rmdA + traditionalExtra,
         gains,
@@ -2997,19 +3036,29 @@
         ordinaryTax(ordinary, profile.year, 'single') +
         longTermGainTax(gains, ordinary, profile.year, 'single') +
         stateIncomeTax(sources, 'single', profile.year) +
-        niitTax(ordinary + gains, gains, 'single')
+        niitTax(ordinary + gains, gains + invOrd, 'single')
       );
     }
     const gainA = gains / 2,
       gainB = gains / 2,
       tradA = traditionalExtra / 2,
-      tradB = traditionalExtra / 2;
-    const taxableSSA = taxableSocialSecurity(profile.ssA, profile.otherA + gainA + tradA, 'single');
-    const taxableSSB = taxableSocialSecurity(profile.ssB, profile.otherB + gainB + tradB, 'single');
-    const ordinaryA = profile.otherA + tradA + taxableSSA,
-      ordinaryB = profile.otherB + tradB + taxableSSB;
+      tradB = traditionalExtra / 2,
+      invA = invOrd / 2,
+      invB = invOrd / 2;
+    const taxableSSA = taxableSocialSecurity(
+      profile.ssA,
+      profile.otherA + gainA + tradA + invA,
+      'single',
+    );
+    const taxableSSB = taxableSocialSecurity(
+      profile.ssB,
+      profile.otherB + gainB + tradB + invB,
+      'single',
+    );
+    const ordinaryA = profile.otherA + tradA + invA + taxableSSA,
+      ordinaryB = profile.otherB + tradB + invB + taxableSSB;
     const sourcesA = {
-        wages: profile.wageA,
+        wages: profile.wageA + invA,
         pension: profile.pensionA,
         retirement: profile.rmdA + tradA,
         gains: gainA,
@@ -3017,7 +3066,7 @@
         ages: [profile.ageA],
       },
       sourcesB = {
-        wages: profile.wageB,
+        wages: profile.wageB + invB,
         pension: profile.pensionB,
         retirement: profile.rmdB + tradB,
         gains: gainB,
@@ -3031,8 +3080,8 @@
       longTermGainTax(gainB, ordinaryB, profile.year, 'single') +
       stateIncomeTax(sourcesA, 'single', profile.year) +
       stateIncomeTax(sourcesB, 'single', profile.year) +
-      niitTax(ordinaryA + gainA, gainA, 'single') +
-      niitTax(ordinaryB + gainB, gainB, 'single')
+      niitTax(ordinaryA + gainA, gainA + invA, 'single') +
+      niitTax(ordinaryB + gainB, gainB + invB, 'single')
     );
   }
   function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
@@ -4008,6 +4057,9 @@
             : state.filingStatus;
       const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
         profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
+      // Dividends and interest earned this year on start-of-year balances;
+      // taxed now (via profile.invOrd/invQual) and counted in MAGI.
+      const inv = investmentIncome(taxable, bondTaxable, cash, bondYield, hysa);
       const profile =
         isSurvivorPeriod && deceasedIsA
           ? {
@@ -4025,6 +4077,8 @@
               ageA: ageB,
               ageB: null,
               singlePerson: true,
+              invOrd: inv.ordinary,
+              invQual: inv.qualified,
               year,
             }
           : {
@@ -4042,6 +4096,8 @@
               ageA: age,
               ageB,
               singlePerson: singlePerson || isSurvivorPeriod,
+              invOrd: inv.ordinary,
+              invQual: inv.qualified,
               year,
             };
       let conversionAmount = 0;
@@ -4054,7 +4110,8 @@
       {
         // Lagged, same as magiProxy below — see prevTraditionalGross's
         // declaration comment near the top of this function.
-        const preConvMagi = otherA + otherB + ss + prevTraditionalGross + prevTaxableGainGross;
+        const preConvMagi =
+          otherA + otherB + ss + inv.ordinary + inv.qualified + prevTraditionalGross + prevTaxableGainGross;
         let magiCeiling = Infinity;
         // Avoid the ACA subsidy cliff: once non-enhanced-mode MAGI crosses
         // 400% of the federal poverty line, the full premium is owed with
@@ -4099,6 +4156,8 @@
         otherA +
         otherB +
         ss +
+        inv.ordinary +
+        inv.qualified +
         conversionAmount +
         prevTraditionalGross +
         prevTaxableGainGross;
@@ -4108,7 +4167,7 @@
       // waterfall runs to also include realized traditional withdrawals and
       // taxable-brokerage gains, so it does not understate income in years
       // funded mostly by withdrawals.
-      let totalIncome = otherA + otherB + ss + conversionAmount;
+      let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
       if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
         const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
         if (guardrailInitialWR > 0) {
@@ -4233,6 +4292,10 @@
       traditional *= 1 + nominalReturn;
       roth *= 1 + nominalReturn;
       cash *= 1 + hysa;
+      // Reinvested dividends and interest were taxed above, so they raise
+      // cost basis rather than sitting as untaxed embedded gain.
+      taxableBasis = Math.min(taxable, taxableBasis + inv.divTotal);
+      bondTaxableBasis = Math.min(bondTaxable, bondTaxableBasis + inv.bondInterest);
       if (state.tenure === 'own' || state.tenure === 'rentThenBuy') home *= 1 + homeGrowth;
       const rmdFromTraditional = Math.min(traditional, rmd);
       traditional = Math.max(0, traditional - rmdFromTraditional);
@@ -4559,7 +4622,8 @@
         }
         if (need > 1 && !depletedAge) depletedAge = age;
         totalTax = ficaTax + taxFor(profile, taxableGainGross, traditionalGross) + earlyPenalty;
-        totalIncome = otherA + otherB + ss + traditionalGross + taxableGainGross;
+        totalIncome =
+          otherA + otherB + ss + inv.ordinary + inv.qualified + traditionalGross + taxableGainGross;
         traditional += traditionalContrib + employerMatch;
         roth += rothContrib;
       }
@@ -4937,6 +5001,9 @@
             : state.filingStatus;
       const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
         profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
+      // Dividends and interest earned this year on start-of-year balances;
+      // taxed now (via profile.invOrd/invQual) and counted in MAGI.
+      const inv = investmentIncome(taxable, bondTaxable, cash, pct(state.bondReturn), hysa);
       const profile =
         isSurvivorPeriod && deceasedIsA
           ? {
@@ -4954,6 +5021,8 @@
               ageA: ageB,
               ageB: null,
               singlePerson: true,
+              invOrd: inv.ordinary,
+              invQual: inv.qualified,
               year,
             }
           : {
@@ -4971,13 +5040,16 @@
               ageA: age,
               ageB,
               singlePerson: singlePerson || isSurvivorPeriod,
+              invOrd: inv.ordinary,
+              invQual: inv.qualified,
               year,
             };
       let conversionAmount = 0;
       if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
         // Lagged, same as magiProxy below — see prevTraditionalGross's
         // declaration comment near the top of this function.
-        const preConvMagi = otherA + otherB + ss + prevTraditionalGross + prevTaxableGainGross;
+        const preConvMagi =
+          otherA + otherB + ss + inv.ordinary + inv.qualified + prevTraditionalGross + prevTaxableGainGross;
         let magiCeiling = Infinity;
         // Avoid the ACA subsidy cliff: once non-enhanced-mode MAGI crosses
         // 400% of the federal poverty line, the full premium is owed with
@@ -5016,7 +5088,8 @@
         const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
         conversionAmount = solveRothConversion(profile, conversionCap, year);
       }
-      const magiProxy = otherA + otherB + ss + conversionAmount + prevTraditionalGross + prevTaxableGainGross;
+      const magiProxy =
+        otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount + prevTraditionalGross + prevTaxableGainGross;
       magiHistory[year] = magiProxy;
       if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
         const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
@@ -5120,6 +5193,10 @@
       bondTraditional *= 1 + yearBondReturn;
       bondRoth *= 1 + yearBondReturn;
       cash *= 1 + hysa;
+      // Reinvested dividends and interest were taxed above, so they raise
+      // cost basis rather than sitting as untaxed embedded gain.
+      taxableBasis = Math.min(taxable, taxableBasis + inv.divTotal);
+      bondTaxableBasis = Math.min(bondTaxable, bondTaxableBasis + inv.bondInterest);
       if (state.tenure === 'own' || state.tenure === 'rentThenBuy') home *= 1 + homeGrowth;
       const rmdFromTraditional = Math.min(traditional, rmd);
       traditional = Math.max(0, traditional - rmdFromTraditional);

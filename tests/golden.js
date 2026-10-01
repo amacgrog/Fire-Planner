@@ -78,6 +78,9 @@ async function testDrawdown(file, label, ssFields) {
   await setInput(page, 'returnRate', 0);
   await setInput(page, 'bondReturn', 0);
   await setInput(page, 'hysaRate', 0);
+  // Dividends are taxed every year, so the hand-derivable scenarios below
+  // switch them off to isolate the one piece of the engine each one tests.
+  await setInput(page, 'dividendYield', 0);
   await setInput(page, 'healthcare', 0);
   // US-only field (Canada has no Medicare Part B/D concept); guard so this
   // shared helper still works against Planner_Canada.html.
@@ -137,6 +140,9 @@ async function testCompounding(file, label, ssFields) {
   await setInput(page, 'returnRate', 8);
   await setInput(page, 'bondReturn', 0);
   await setInput(page, 'hysaRate', 0);
+  // Dividends are taxed every year, so the hand-derivable scenarios below
+  // switch them off to isolate the one piece of the engine each one tests.
+  await setInput(page, 'dividendYield', 0);
   await setInput(page, 'healthcare', 0);
   // US-only field (Canada has no Medicare Part B/D concept); guard so this
   // shared helper still works against Planner_Canada.html.
@@ -221,6 +227,9 @@ async function testLiveMixRothUntouched(file, label) {
   await setInput(page, 'returnRate', 0);
   await setInput(page, 'bondReturn', 0);
   await setInput(page, 'hysaRate', 0);
+  // Dividends are taxed every year, so the hand-derivable scenarios below
+  // switch them off to isolate the one piece of the engine each one tests.
+  await setInput(page, 'dividendYield', 0);
   await setInput(page, 'healthcare', 0);
   await setInput(page, 'medicareYearly', 0);
   await setChecked(page, 'ltcEnabled', false);
