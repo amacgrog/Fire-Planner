@@ -6037,13 +6037,22 @@ independent field). `syncControls()`/`syncContributionControls()`/
 `render()`/`saveInputs()` afterward, same as every other state-mutating
 action in the file.
 
-**"Apply" button disabled, not hidden, when there's nothing worth
-applying** — `renderMultiLeverOptimizer()` now sets
-`#multiLeverApplyBtn.disabled` based on the exact same `savings > 1`
-threshold the summary text's "recommended" vs. "already as good as"
-branch already used, with a `#multiLeverApplyNote` explaining why,
-rather than leaving an enabled button that'd just reapply the current
-plan with a few extra dollars of noise.
+**"Apply" button hidden until a run completes, then disabled (not
+re-hidden) when there's nothing worth applying** — `#multiLeverApplyBtn`
+starts `hidden` in the markup (there's nothing to apply before the first
+run), set visible by `renderMultiLeverOptimizer()` once a run actually
+produces a result, and re-hidden by the two early-return paths (no
+levers checked; a per-year lever checked but its window has zero active
+years). From then on it stays visible but its `disabled` state tracks the
+exact same `savings > 1` threshold the summary text's "recommended" vs.
+"already as good as" branch already used, with `#multiLeverApplyNote`
+explaining why when disabled — a later re-run with less promising levers
+disables it again rather than hiding it, so it doesn't jump around.
+**(V55 follow-up:** moved from its own row below the result table to sit
+directly next to the "Optimize →" button — a person testing this found
+it below the (often long) per-year schedule table genuinely hard to
+find; now it's impossible to miss once a run finishes, right where the
+button that triggered the run still is.)
 
 **`clearAppliedMultiLeverSchedule(which)`** (new, `which` one of
 `'roth'`/`'mix'`/`'both'`): sets the corresponding applied-schedule

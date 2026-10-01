@@ -253,7 +253,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V54</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V55</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -611,15 +611,15 @@
             <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlMixLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Optimized withdrawal mix (per-year taxable / traditional / Roth split)<small style="display:block;color:var(--muted);font-weight:500;margin-top:2px">Goes further than "smoothed withdrawals" below — picks each year's own split (including how much, if any, to pull from Roth) to minimize that year's tax + ACA/IRMAA impact, instead of a single fixed rule applied every year.</small></span></label>
             <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlSmoothLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Smoothed withdrawals (try both on and off, household-wide)<small style="display:block;color:var(--muted);font-weight:500;margin-top:2px">The simple version: draws taxable and traditional proportional to their balances every year, no tax-awareness, never touches Roth early. Kept as a fast, easy-to-reason-about baseline — the mix lever above is a strict superset of what this can find.</small></span></label>
           </div>
-          <button type="button" id="multiLeverOptimizeBtn" class="btn-card" style="margin-top:14px">Optimize →</button>
+          <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button type="button" id="multiLeverOptimizeBtn" class="btn-card">Optimize →</button>
+            <button type="button" id="multiLeverApplyBtn" class="btn-card" hidden>Apply this schedule to my plan →</button>
+            <span id="multiLeverApplyNote" style="font-size:.78rem;color:var(--muted)"></span>
+          </div>
           <p id="multiLeverNoLeversNote" style="color:var(--muted);font-size:.8rem;margin:8px 0 0" hidden>Check at least one lever above to run the optimizer.</p>
           <div id="multiLeverResult" hidden>
             <div id="multiLeverSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
             <div class="table-wrap"><table><thead id="multiLeverHead"></thead><tbody id="multiLeverRows"></tbody></table></div>
-            <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <button type="button" id="multiLeverApplyBtn" class="btn-card">Apply this schedule to my plan →</button>
-              <span id="multiLeverApplyNote" style="font-size:.78rem;color:var(--muted)"></span>
-            </div>
           </div>
         </details>
 
@@ -6768,6 +6768,8 @@
     const hasPerYear = options.includeRoth || options.includeMix;
     if (hasPerYear && opt.activeYears.length === 0) {
       resultEl.hidden = true;
+      document.getElementById('multiLeverApplyBtn').hidden = true;
+      document.getElementById('multiLeverApplyNote').textContent = '';
       return;
     }
     // Re-simulate once more with the winning schedule(s)/setting active,
@@ -6893,12 +6895,14 @@
         .join('');
     }
     resultEl.hidden = false;
-    // Remembered so the "Apply this schedule" button (below) knows exactly
-    // what the table above is showing — the button applies this run's
-    // result, not a fresh re-optimization, so what you see is what you get.
+    // Remembered so the "Apply this schedule" button (next to Optimize,
+    // above) knows exactly what the table below is showing — the button
+    // applies this run's result, not a fresh re-optimization, so what you
+    // see is what you get.
     lastMultiLeverRun = { opt, options, savings };
     const applyBtn = document.getElementById('multiLeverApplyBtn'),
       applyNote = document.getElementById('multiLeverApplyNote');
+    applyBtn.hidden = false;
     if (savings > 1) {
       applyBtn.disabled = false;
       applyNote.textContent = '';
@@ -10062,6 +10066,8 @@
     if (!options.includeRoth && !options.includeMix && !options.includeSmooth) {
       noteEl.hidden = false;
       document.getElementById('multiLeverResult').hidden = true;
+      document.getElementById('multiLeverApplyBtn').hidden = true;
+      document.getElementById('multiLeverApplyNote').textContent = '';
       return;
     }
     noteEl.hidden = true;
