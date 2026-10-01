@@ -148,4 +148,6 @@ If you're using GitHub Desktop: open the app, you'll see the changed file listed
 - Fixed: US federal ordinary brackets above the 10% bracket were charged on the whole taxable amount instead of the slice in that bracket (overtaxed in every projection); long-term gain tax now uses unused standard deduction
 - Historical backtest and Monte Carlo now tax interest on the taxable bond reserve at that year's actual 10-year Treasury yield (start of year, from Shiller's long-rate series), instead of your Bond return assumption.
 - Historical S&P 500 and 10-year Treasury returns now come straight from Damodaran's January 2026 "Historical Returns on Stocks, Bonds and Bills" table (https://pages.stern.nyu.edu/~adamodar/pc/datasets/histretSP.xls); the previous S&P series ran about 0.24 points a year higher. Historical and Monte Carlo success rates are slightly lower as a result
+- RMD start age now follows birth year (estimated from today's age): 75 for people born in 1960 or later, 73 for 1951-1959, with the Uniform Lifetime divisors for 73 and 74 added
+- The historical success rate now says how many starting windows overlap and roughly how many are independent, and the investment return input is labeled as net of fund expense ratios and advisory fees
 
