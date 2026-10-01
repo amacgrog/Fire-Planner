@@ -261,7 +261,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V58</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V59</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -519,7 +519,6 @@
             <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="rothLadder"><span class="q-title">Should I do Roth conversions?</span><span class="q-desc">Explore a Roth conversion ladder in retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="ssTiming"><span class="q-title">How does Social Security timing change the picture?</span><span class="q-desc">Compare claiming early vs. later.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
             <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
@@ -5856,7 +5855,7 @@
   // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
   // Deliberately reuses the two most extreme rows a compare-question's
   // run() already returns (rows[0]/rows.at(-1) — for a 2-row question
-  // that's just both rows, for a 3-row question like retireTiming/ssTiming
+  // that's just both rows, for a 3-row question like retireTiming
   // it's the two endpoints, skipping the middle "current" row) rather than
   // introducing a second, separate metric: the full comparison table
   // behind the click uses the same decisionEndAssets()/depletedAge data,
@@ -6014,29 +6013,6 @@
           { label: `Pay extra ${money(payExtra)}/mo${saved === payExtra ? ' (current)' : ''}`, sim: pay },
         ];
         const sentence = `Paying an extra ${money(payExtra)}/mo toward the mortgage instead of investing it ${decisionDeltaPhrase(invest, pay)} compared with investing the difference.`;
-        return { rows, sentence };
-      },
-    },
-    ssTiming: {
-      kind: 'compare',
-      run() {
-        const savedA = state.ssStartAgeA,
-          savedB = state.ssStartAgeB;
-        const current = simulate();
-        state.ssStartAgeA = 62;
-        state.ssStartAgeB = 62;
-        const early = simulate();
-        state.ssStartAgeA = 70;
-        state.ssStartAgeB = 70;
-        const late = simulate();
-        state.ssStartAgeA = savedA;
-        state.ssStartAgeB = savedB;
-        const rows = [
-          { label: 'Claim at 62', sim: early },
-          { label: `Current (age ${savedA}${state.singlePerson ? '' : `/${savedB}`})`, sim: current },
-          { label: 'Claim at 70', sim: late },
-        ];
-        const sentence = `Claiming Social Security at 62 instead of your current plan ${decisionDeltaPhrase(current, early)}. Claiming at 70 instead ${decisionDeltaPhrase(current, late)}.`;
         return { rows, sentence };
       },
     },

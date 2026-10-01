@@ -485,7 +485,8 @@ Each planner is one big IIFE. The core shape:
     conversion ladder" vs. "RRSP meltdown ladder"), same pattern as
     `SENSITIVITY_LEVERS`' `ss` lever already diverging between the two files.
   - **v3 (built):** `mortgagePayoff`, `ssTiming`, and `longevity` — three
-    more `kind: 'compare'` questions, all following the same mutate/
+    more `kind: 'compare'` questions (**`ssTiming` was later removed — see
+    "`ssTiming` removed" below**), all following the same mutate/
     simulate/restore idiom (none of the three can use `retireTiming`'s
     override-params path, since `simulate()` only accepts retirement-age
     overrides).
@@ -502,7 +503,7 @@ Each planner is one big IIFE. The core shape:
       mortgage to accelerate under `'rent'`/`'rentThenBuy'`, so rather than
       showing a comparison that isn't really answerable, the button doesn't
       appear until `tenure === 'own'`.
-    - `ssTiming` compares claim-age extremes (62 vs. 70 in the US) rather
+    - `ssTiming` (REMOVED, see below) compared claim-age extremes (62 vs. 70 in the US) rather
       than a small offset, since Social Security/CPP/OAS claiming has hard
       legal bounds and the real question is "early vs. late," not a nudge.
       **US** is a single lever (`ssStartAgeA`/`B`, 62–70) so this is a
@@ -3086,7 +3087,7 @@ before, unchanged.
 - **`compactDecisionDelta(rows)`** (defined right after `decisionDeltaPhrase`,
   both files) reuses `rows[0]`/`rows.at(-1)` — the two most extreme rows a
   question's own `run()` already returns (for a 2-row question that's just
-  both rows; for a 3-row question like `retireTiming`/`ssTiming` it skips
+  both rows; for a 3-row question like `retireTiming` it skips
   the middle "current" row and shows the full swing between the two
   endpoints) — and formats them against the same `decisionEndAssets()`/
   `depletedAge` data `decisionDeltaPhrase()`/`renderDecisionCompareTable()`
@@ -6321,9 +6322,10 @@ match the math, so the tooltips describe what the model actually does:
   gate *when* the flat monthly amount begins; the amount is **not** adjusted
   for claiming early or late. The old Canada text ("earlier means a reduced
   benefit… deferring increases ~0.6%/month") implied an adjustment that isn't
-  modeled. Same root cause makes the "Social Security timing" decision
-  question compare claim-at-62/70 using the *same* monthly benefit — flagged
-  but deliberately not changed here.
+  modeled. Same root cause made the "Social Security timing" decision
+  question compare claim-at-62/70 using the *same* monthly benefit, so it
+  couldn't answer an early-vs-late question — that question was removed
+  (next section) rather than fixed.
 - `tfsaPct`/`fhsaPct` (Canada) *are* a percentage of pay, capped at the annual
   limit — a different mechanic from the RRSP slider next to them.
 
@@ -6334,6 +6336,24 @@ slider; one bubble open at a time; bubble stays inside the viewport; no ⓘ
 orphaned from its label's last word; field search names keep that last word;
 no horizontal overflow; no page errors. `npm test` and the other `test_*.js`
 scripts unchanged and passing.
+
+## `ssTiming` decision question removed (V59 US / V22 Canada, both files)
+
+The "How does Social Security timing change the picture?" (US) / "How does
+CPP/OAS timing change the picture?" (Canada) entry in "What do you want to
+figure out?" is gone: its `<button data-question="ssTiming">` and its
+`DECISION_QUESTIONS.ssTiming` `run()` were deleted from both planners.
+Reason: SS/CPP/OAS are deliberately a flat monthly amount that simply starts
+at the chosen age (no early/late reduction or deferral credit is modeled), so
+rerunning the plan at 62 vs. 70 only moved the start date of an identical
+benefit and made early claiming look free. Claiming-age optimization is
+better done outside this calculator; the person enters whatever monthly
+figure their own estimate gives for the age they plan to claim. The
+`ssStartAgeA/B` / `cppStartAgeA/B` / `oasStartAgeA/B` inputs, the `ss`
+sensitivity lever, and everything else are untouched. Nothing else keyed off
+the question id (the menu is plain markup plus the `DECISION_QUESTIONS`
+object), so no other code needed changing; the remaining 7 questions were
+re-verified in Playwright.
 
 ## Commit conventions
 
