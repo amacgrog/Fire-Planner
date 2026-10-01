@@ -207,6 +207,14 @@ Lump expenses are subtracted out of guardrail needs, `firstWithdrawal`, and
 migrates legacy saves: flag present+off → list dropped; flag on → only
 configured loans / `enabled` streams kept, legacy income streams pinned to
 `followGrowth:false, growth=inflation` so old projections reproduce exactly.
+`flat: true` on `oneTimeIncome`/`lumpExpenses` makes `itemGrowthFactor` return
+1 (and one-time income skip `factor`) — the amount is exact dollars at that
+age; the growth fields hide via `showIf`. The old Bridge / part-time income
+section (`bridge*` fields) is removed; `normalizeLists()` converts a saved
+`bridgeEnabled` plan into income streams (start clamped to that partner's
+retirement age, Partner B's window shifted into Partner A's age) and deletes
+every `bridge*` key — note `normalizeState` spreads unknown keys, so any
+retired field must be deleted explicitly or it re-migrates on every load.
 Test: `node test_dynamic_lists.js`.
 
 ## Money-field formatting

@@ -6385,6 +6385,24 @@ Decisions:
 - Verified: legacy payload with enabled loan/stream/lump produces
   `fireProjectionRows` identical to main to the cent, both planners.
 
+## Fixed-amount option; Bridge / part-time income removed (V61 US / V24 Canada, both files)
+
+- One-time expenses and one-time income gained a "Fixed amount" checkbox
+  (`flat`): exact dollars at that age, no inflation/growth (for repeating
+  expenses, every occurrence). Checked hides the growth controls.
+- The Bridge / part-time income section was redundant with additional income
+  streams and was deleted (UI, defaults, `ids`, estimate-gating, summaries,
+  both engines' `bridgeA/bridgeB`, wizard checkbox + empty "Income" subhead,
+  US MCP flag). Legacy saves migrate to income streams (see CLAUDE.md).
+- Intentional behavior differences for migrated bridge income: no payroll tax
+  (FICA/CPP) is charged on it any more, it is no longer gated on "not
+  working" (start is clamped to retirement age instead), it isn't zeroed
+  individually for a deceased partner, and it isn't counted as earned wages
+  in the tax profile. Wages are identical; tax and balances differ slightly.
+- `normalizeState` keeps unknown keys, so removed fields must be deleted
+  explicitly in `normalizeLists()` or they re-migrate (duplicating streams) on
+  every scenario load — caught by `test_dynamic_lists.js`.
+
 ## Commit conventions
 
 - Regular commits, no special attribution needed for local/manual edits.

@@ -200,6 +200,67 @@ async function run(browser, file) {
   check(errors.length === 0, 'no page errors: ' + errors.join('; '));
   await ctx.close();
 
+  // 12b. "Fixed amount" (flat) option on one-time expenses and one-time income.
+  {
+    const { ctx: c3, page: p3, errors: e3 } = await open(browser, file);
+    const a3 = await num(p3, '#ageA'),
+      f3 = (await num(p3, '#inflation')) / 100;
+    await add(p3, 'lumpExpenses');
+    await fill(p3, '#lumpExp0Amount', 5000);
+    await fill(p3, '#lumpExp0Age', 62);
+    let r3 = await rows(p3);
+    check(near(atAge(r3, 62).lumpExpense, 5000 * Math.pow(1 + f3, 62 - a3)), 'one-time expense inflates by default');
+    check(!(await p3.$eval('#lumpExp0FollowGrowth', (e) => e.closest('[data-dyn-wrap]').hidden)), 'growth checkbox shown when not fixed');
+    await p3.check('#lumpExp0Flat');
+    r3 = await rows(p3);
+    check(near(atAge(r3, 62).lumpExpense, 5000, 0.001), 'fixed one-time expense is the exact amount: ' + atAge(r3, 62).lumpExpense);
+    check(await p3.$eval('#lumpExp0FollowGrowth', (e) => e.closest('[data-dyn-wrap]').hidden), 'growth checkbox hidden when fixed');
+    await p3.uncheck('#lumpExp0FollowGrowth').catch(() => {});
+    await fill(p3, '#lumpExp0RepeatEvery', 5);
+    await fill(p3, '#lumpExp0UntilAge', 72);
+    r3 = await rows(p3);
+    check([62, 67, 72].every((g) => near(atAge(r3, g).lumpExpense, 5000, 0.001)), 'fixed amount repeats unchanged each time');
+    await p3.uncheck('#lumpExp0Flat');
+    check(!(await p3.$eval('#lumpExp0FollowGrowth', (e) => e.closest('[data-dyn-wrap]').hidden)), 'growth fields return when unchecked');
+    // One-time income: a fixed amount must behave exactly like the inflated amount typed in directly.
+    await add(p3, 'oneTimeIncome');
+    await fill(p3, '#oneTime0Amount', 20000);
+    await fill(p3, '#oneTime0Age', 63);
+    const infl3 = await rows(p3);
+    const uplift = Math.round(20000 * Math.pow(1 + f3, 63 - a3));
+    await p3.check('#oneTime0Flat');
+    const flat3 = await rows(p3);
+    check(Math.abs(atAge(infl3, 63).total - atAge(flat3, 63).total) > 1000, 'fixed one-time income differs from the inflated default');
+    await fill(p3, '#oneTime0Amount', uplift);
+    const same3 = await rows(p3);
+    check(near(atAge(same3, 63).total, atAge(infl3, 63).total, 5) && near(atAge(same3, 70).total, atAge(infl3, 70).total, 20), 'fixed amount equals the inflated amount entered directly');
+    await p3.reload();
+    await p3.waitForTimeout(400);
+    await p3.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
+    check(await p3.isChecked('#oneTime0Flat'), 'fixed flag persists across reload');
+    check(e3.length === 0, 'flat: no page errors ' + e3.join('; '));
+    await c3.close();
+  }
+
+  // 12c. The old Bridge / part-time section is gone; saved bridge income migrates to income streams.
+  {
+    const { ctx: c4, page: p4, errors: e4 } = await open(browser, file);
+    check(!(await p4.$('#bridgeGroup')) && !(await p4.$('#bridgeEnabled')) && !(await p4.$('#wizardBridgeEnabled')), 'no bridge section or wizard checkbox');
+    await importLegacy(p4, {
+      ageA: 48, ageB: 46, retireAgeA: 55, retireAgeB: 55,
+      bridgeEnabled: true,
+      bridgeIncomeA: 20000, bridgeStartAgeA: 50, bridgeEndAgeA: 62,
+      bridgeIncomeB: 10000, bridgeStartAgeB: 57, bridgeEndAgeB: 60,
+    });
+    const n4 = (await p4.$$('#incomeSourceFields .dyn-row')).length;
+    check(n4 === 2, 'bridge income migrates to two streams (got ' + n4 + ')');
+    check((await num(p4, '#incSrc0StartAge')) === 55 && (await num(p4, '#incSrc0EndAge')) === 62, 'A stream starts at retirement, ends at its end age');
+    check((await num(p4, '#incSrc1StartAge')) === 59 && (await num(p4, '#incSrc1EndAge')) === 62, 'B window converted to Partner A age');
+    check(await p4.isChecked('#incSrc0FollowGrowth'), 'migrated stream follows income growth, as bridge income did');
+    check(e4.length === 0, 'bridge migration: no page errors ' + e4.join('; '));
+    await c4.close();
+  }
+
   // 13. Legacy saves migrate without changing what they projected.
   {
     const { ctx: c2, page: p2, errors: e2 } = await open(browser, file);

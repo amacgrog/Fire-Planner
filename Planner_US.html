@@ -269,7 +269,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V60</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V61</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -460,19 +460,6 @@
           <summary><span class="group-summary-text"><span class="group-title">Other loans</span><span class="group-state" id="otherLoansGroupState"></span></span></summary>
           <div id="loanFields"></div>
         </details>
-        <details class="group" id="bridgeGroup" data-cat="extra">
-          <summary><span class="group-summary-text"><span class="group-title">Bridge / part-time income</span><span class="group-state" id="bridgeGroupState"></span></span></summary>
-          <div class="field"><label for="bridgeEnabled"><input id="bridgeEnabled" type="checkbox"> Model bridge / part-time income<small>Turn off to exclude this section entirely from the projection.</small></label></div>
-          <div id="bridgeFields">
-            <p class="range-note">Consulting or part-time income after leaving full-time <span class="info-nw">work.<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Taxed as ordinary income with employee-side payroll tax; not eligible for 401(k)/IRA contributions.">i</button></span></p>
-            <div class="field"><label for="bridgeIncomeA">Partner A bridge income / year</label><input id="bridgeIncomeA" type="number" class="money" min="0" step="1000"></div>
-            <div class="field"><label for="bridgeStartAgeA">Partner A bridge income start age</label><input id="bridgeStartAgeA" type="number" min="18" max="100" step="1"></div>
-            <div class="field"><label for="bridgeEndAgeA">Partner A bridge income end age</label><input id="bridgeEndAgeA" type="number" min="18" max="100" step="1"></div>
-            <div data-partner-b class="field"><label for="bridgeIncomeB">Partner B bridge income / year</label><input id="bridgeIncomeB" type="number" class="money" min="0" step="1000"></div>
-            <div data-partner-b class="field"><label for="bridgeStartAgeB">Partner B bridge income start age</label><input id="bridgeStartAgeB" type="number" min="18" max="100" step="1"></div>
-            <div data-partner-b class="field"><label for="bridgeEndAgeB">Partner B bridge income end age</label><input id="bridgeEndAgeB" type="number" min="18" max="100" step="1"></div>
-          </div>
-        </details>
         <details class="group" id="otherIncomeGroup" data-cat="extra">
           <summary><span class="group-summary-text"><span class="group-title">Additional income</span><span class="group-state" id="otherIncomeGroupState"></span></span></summary>
           <div id="incomeSourceFields"></div>
@@ -655,11 +642,11 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, healthcare/ACA/IRMAA rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>
           <div class="assumptions">
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
-            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Optional bridge/part-time/consulting income (per partner, with its own age window) is taxed as ordinary income with employee-side payroll tax but is not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time and split evenly between taxable and traditional accounts. An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity.</div>
+            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time and split evenly between taxable and traditional accounts. An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own age 75 using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled.</div>
             <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> For a couple, the "annual pre-65 healthcare" figure only applies once BOTH partners have stopped working and only while each is under 65 — a retired partner is assumed covered under a still-working spouse's employer plan instead, via that partner's own pre-tax premium field. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI (wages, pension, RMDs, Social Security, any Roth conversion realized that year, and the prior year's realized discretionary traditional withdrawals and taxable-brokerage gains — estimated with a one-year lag, the same way a real ACA application estimates current-year income from a recent tax return and reconciles later via Form 8962, since this year's own withdrawal isn't known until after it's sized off this same MAGI) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually the year they turn 65 — unlike the pre-65 premium, this is age-gated only: it applies whether or not that partner (or their spouse) is still working or retired, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner against household MAGI (same one-year-lagged estimate) from two simulated years prior, matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
-            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested, CPI inflation, and 10-year US Treasury bond total returns, all from the Damodaran/NYU Stern dataset), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → traditional → Roth and any bond-reserve shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, bridge income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
+            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested, CPI inflation, and 10-year US Treasury bond total returns, all from the Damodaran/NYU Stern dataset), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → traditional → Roth and any bond-reserve shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
         <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal tax parameters are held constant in real terms and increase with inflation in nominal projections. Sources: IRS 2026 federal brackets, Tax Foundation 2026 state brackets, IRS 2026 retirement contribution limits, IRS 2026 capital-gains thresholds, IRS RMD tables, CMS 2026 Medicare IRMAA tiers, IRS ACA premium tax credit rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
@@ -691,8 +678,6 @@
       <h3 class="wizard-subhead">Healthcare</h3>
       <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Nets your entered pre-65 healthcare premium against the ACA marketplace subsidy for your income. Turn off if you'll have employer retiree coverage, COBRA, or are paying full price. Lives in the Retirement income &amp; healthcare section.</small></label></div>
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
-      <h3 class="wizard-subhead">Income</h3>
-      <div class="field"><label for="wizardBridgeEnabled"><input id="wizardBridgeEnabled" type="checkbox"> Part-time income<small>Income from part-time work or consulting during an early-retirement window, before Social Security starts. Lives in the Bridge / part-time income section.</small></label></div>
       <h3 class="wizard-subhead">Taxes &amp; investing</h3>
       <div class="field"><label for="wizardRothConvEnabled"><input id="wizardRothConvEnabled" type="checkbox"> Roth conversions<small>Converts traditional-account balances to Roth each year in retirement, filling a tax bracket you choose — a way to pay tax at today's rate instead of on larger required withdrawals later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
       <div class="field"><label for="wizardMegaBackdoor"><input id="wizardMegaBackdoor" type="checkbox"> Mega backdoor Roth<small>For high earners whose 401(k) plan specifically allows extra after-tax contributions converted to Roth. Leave this off unless you already know your plan supports it. Lives in the Retirement contributions section.</small></label></div>
@@ -821,13 +806,6 @@
     filingStatus: 'mfj',
     marryLater: false,
     marriageAgeA: 55,
-    bridgeEnabled: false,
-    bridgeIncomeA: 0,
-    bridgeStartAgeA: 65,
-    bridgeEndAgeA: 70,
-    bridgeIncomeB: 0,
-    bridgeStartAgeB: 65,
-    bridgeEndAgeB: 70,
     rothConvEnabled: false,
     rothConvStartAge: 60,
     rothConvEndAge: 63,
@@ -934,6 +912,7 @@
     s.oneTimeIncome = lumps.slice(0, LIST_MAX).map((x) => ({
       amount: num(x.amount, 0, 0),
       age: num(x.age, 65, 0, 120),
+      flat: x.flat === true,
     }));
     s.extraExpenses = rows(raw?.extraExpenses)
       .slice(0, LIST_MAX)
@@ -950,8 +929,29 @@
         age: num(x.age, 65, 0, 120),
         repeatEvery: Math.round(num(x.repeatEvery, 0, 0, 50)),
         untilAge: num(x.untilAge, 85, 0, 120),
+        flat: x.flat === true,
         ...growthOf(x, false, defaults.inflation),
       }));
+    // The old Bridge / part-time income section was folded into additional
+    // income streams: carry a saved plan's bridge income over as streams
+    // (Partner B's age window converted to Partner A's age), starting no
+    // earlier than that partner's retirement, as the old section did.
+    if (raw && raw.bridgeEnabled === true) {
+      const offsetB = (Number(s.ageA) || 0) - (Number(s.ageB) || 0),
+        migrated = [];
+      [
+        ['A', 0],
+        ['B', offsetB],
+      ].forEach(([p, off]) => {
+        if (p === 'B' && raw.singlePerson) return;
+        const amount = Number(raw['bridgeIncome' + p]) || 0,
+          start = Math.max(Number(raw['bridgeStartAge' + p]) || 0, Number(s['retireAge' + p]) || 0) + off,
+          end = (Number(raw['bridgeEndAge' + p]) || 0) + off;
+        if (amount > 0 && start <= end) migrated.push({ amount, startAge: num(start, 65, 0, 120), endAge: num(end, 75, 0, 120), followGrowth: true, growth: defaults.incomeGrowth });
+      });
+      s.incomeSources = s.incomeSources.concat(migrated).slice(0, LIST_MAX);
+    }
+    ['bridgeEnabled', 'bridgeIncomeA', 'bridgeStartAgeA', 'bridgeEndAgeA', 'bridgeIncomeB', 'bridgeStartAgeB', 'bridgeEndAgeB'].forEach((k) => delete s[k]);
     delete s.otherLoansEnabled;
     delete s.otherIncomeEnabled;
   }
@@ -1258,12 +1258,6 @@
     'ltcYearlyB',
     'ltcAgeB',
     'marriageAgeA',
-    'bridgeIncomeA',
-    'bridgeStartAgeA',
-    'bridgeEndAgeA',
-    'bridgeIncomeB',
-    'bridgeStartAgeB',
-    'bridgeEndAgeB',
     'survivorDeathAge',
     'survivorSpendingPct',
     'rothConvStartAge',
@@ -1390,13 +1384,6 @@
   ];
   const ESTIMATE_GATED_GROUPS = [
     { ids: ['megaPctA', 'megaPctB'], gate: () => !!state.megaBackdoor },
-    {
-      ids: [
-        'bridgeIncomeA', 'bridgeStartAgeA', 'bridgeEndAgeA',
-        'bridgeIncomeB', 'bridgeStartAgeB', 'bridgeEndAgeB',
-      ],
-      gate: () => !!state.bridgeEnabled,
-    },
     { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
     { ids: ['rothConvStartAge', 'rothConvEndAge'], gate: () => !!state.rothConvEnabled },
     { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
@@ -2058,19 +2045,6 @@
       );
     } else {
       setGroupState('otherLoansGroupState', '', false);
-    }
-
-    // Bridge / part-time income.
-    if (state.bridgeEnabled) {
-      const bridgeIncome =
-        (Number(state.bridgeIncomeA) || 0) +
-        (state.singlePerson ? 0 : Number(state.bridgeIncomeB) || 0);
-      const bridgeEndAge = state.singlePerson
-        ? state.bridgeEndAgeA
-        : Math.max(state.bridgeEndAgeA, state.bridgeEndAgeB);
-      setGroupState('bridgeGroupState', `✓ ${compact(bridgeIncome)}/yr to age ${bridgeEndAge}`, true);
-    } else {
-      setGroupState('bridgeGroupState', '', false);
     }
 
     // Additional income.
@@ -3462,6 +3436,7 @@
   // rest compound at their own `growth` rate. Amounts are entered in today's
   // dollars, so growth runs from today, not from the item's start age.
   function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
+    if (item.flat) return 1; // fixed dollar amount at the occurrence — no growth
     if (item.followGrowth) return kind === 'income' ? incomeFactor : inflationFactor;
     return Math.pow(1 + pct(Number(item.growth) || 0), year);
   }
@@ -3782,28 +3757,12 @@
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      let bridgeA =
-        state.bridgeEnabled && !workingA && age >= state.bridgeStartAgeA && age <= state.bridgeEndAgeA
-          ? state.bridgeIncomeA * incomeFactor
-          : 0;
-      let bridgeB =
-        state.bridgeEnabled &&
-        !singlePerson &&
-        !workingB &&
-        ageB >= state.bridgeStartAgeB &&
-        ageB <= state.bridgeEndAgeB
-          ? state.bridgeIncomeB * incomeFactor
-          : 0;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) bridgeA = 0;
-        else bridgeB = 0;
-      }
       const extraIncome = state.incomeSources
         .filter((s) => age >= s.startAge && age <= s.endAge)
         .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
       const oneTimeAmount = state.oneTimeIncome
         .filter((o) => Math.round(o.age) === age)
-        .reduce((sum, o) => sum + o.amount * factor, 0);
+        .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
       const extraExpense = state.extraExpenses
         .filter((e) => age >= e.startAge && age <= e.endAge)
         .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
@@ -3814,7 +3773,7 @@
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
       const wages =
-        wageA + wageB + bridgeA + bridgeB + extraIncome - healthPremiumA - healthPremiumB;
+        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const limitFactor = Math.pow(1 + infl, year);
       const catchupBaseA =
           age >= 60 && age <= 63 ? 11250 * limitFactor : age >= 50 ? 8000 * limitFactor : 0,
@@ -4001,12 +3960,11 @@
           : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
       const otherA =
           Math.max(0, wageA - traditionalContribA - healthPremiumA) +
-          bridgeA +
           pensionA +
           rmdA +
           extraIncome,
         otherB =
-          Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB + pensionB + rmdB;
+          Math.max(0, wageB - traditionalContribB - healthPremiumB) + pensionB + rmdB;
       const filing = isSurvivorPeriod
         ? 'single'
         : singlePerson
@@ -4016,8 +3974,8 @@
               ? 'mfj'
               : 'single'
             : state.filingStatus;
-      const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + bridgeA,
-        profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB;
+      const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
+        profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
       const profile =
         isSurvivorPeriod && deceasedIsA
           ? {
@@ -4211,9 +4169,7 @@
         : 0;
       const ficaTax =
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
-        wageFica(Math.max(0, wageB - healthPremiumB), year) +
-        wageFica(bridgeA, year) +
-        wageFica(bridgeB, year);
+        wageFica(Math.max(0, wageB - healthPremiumB), year);
       const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
       // `tax` above only covers wages/SS/pension/RMD/conversion income and
       // is what the cash-flow waterfall below uses to size withdrawals.
@@ -4731,28 +4687,12 @@
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      let bridgeA =
-        state.bridgeEnabled && !workingA && age >= state.bridgeStartAgeA && age <= state.bridgeEndAgeA
-          ? state.bridgeIncomeA * incomeFactor
-          : 0;
-      let bridgeB =
-        state.bridgeEnabled &&
-        !singlePerson &&
-        !workingB &&
-        ageB >= state.bridgeStartAgeB &&
-        ageB <= state.bridgeEndAgeB
-          ? state.bridgeIncomeB * incomeFactor
-          : 0;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) bridgeA = 0;
-        else bridgeB = 0;
-      }
       const extraIncome = state.incomeSources
         .filter((s) => age >= s.startAge && age <= s.endAge)
         .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
       const oneTimeAmount = state.oneTimeIncome
         .filter((o) => Math.round(o.age) === age)
-        .reduce((sum, o) => sum + o.amount * factor, 0);
+        .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
       const extraExpense = state.extraExpenses
         .filter((e) => age >= e.startAge && age <= e.endAge)
         .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
@@ -4763,7 +4703,7 @@
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor : 0;
       const wages =
-        wageA + wageB + bridgeA + bridgeB + extraIncome - healthPremiumA - healthPremiumB;
+        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const catchupBaseA =
           age >= 60 && age <= 63 ? 11250 * limitFactor : age >= 50 ? 8000 * limitFactor : 0,
         catchupBaseB = singlePerson
@@ -4946,12 +4886,11 @@
           : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
       const otherA =
           Math.max(0, wageA - traditionalContribA - healthPremiumA) +
-          bridgeA +
           pensionA +
           rmdA +
           extraIncome,
         otherB =
-          Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB + pensionB + rmdB;
+          Math.max(0, wageB - traditionalContribB - healthPremiumB) + pensionB + rmdB;
       const filing = isSurvivorPeriod
         ? 'single'
         : singlePerson
@@ -4961,8 +4900,8 @@
               ? 'mfj'
               : 'single'
             : state.filingStatus;
-      const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + bridgeA,
-        profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + bridgeB;
+      const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
+        profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
       const profile =
         isSurvivorPeriod && deceasedIsA
           ? {
@@ -5137,9 +5076,7 @@
       const tax =
         taxFor(profile, 0, conversionAmount) +
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
-        wageFica(Math.max(0, wageB - healthPremiumB), year) +
-        wageFica(bridgeA, year) +
-        wageFica(bridgeB, year);
+        wageFica(Math.max(0, wageB - healthPremiumB), year);
       const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
       taxable *= 1 + yearReturn;
@@ -8404,6 +8341,7 @@
     {
       key: 'followGrowth',
       kind: 'check',
+      showIf: (it) => !it.flat,
       label: kind === 'income' ? 'Grows with income growth' : 'Grows with inflation',
       short: kind === 'income' ? 'Uses your annual income growth rate' : 'Uses your inflation rate',
       tip:
@@ -8419,7 +8357,7 @@
       min: -10,
       max: 20,
       step: 0.1,
-      showIf: (it) => !it.followGrowth,
+      showIf: (it) => !it.flat && !it.followGrowth,
     },
   ];
   const DYN = {
@@ -8489,11 +8427,18 @@
       rowTitle: (i) => `One-time income ${i + 1}`,
       addLabel: '+ Add a one-time income',
       note: 'Tax-free lump sums received at a specific age.',
-      tip: "e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today's dollars and adjusted for inflation to that year.",
-      fresh: () => ({ amount: 0, age: 65 }),
+      tip: "e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
+      fresh: () => ({ amount: 0, age: 65, flat: false }),
       fields: [
-        { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "In today's dollars", step: 1000 },
+        { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
         { key: 'age', kind: 'num', label: 'Received at Partner A age', min: 18, max: 100, step: 1 },
+        {
+          key: 'flat',
+          kind: 'check',
+          label: 'Fixed amount (no inflation)',
+          short: 'Exact dollars at that age',
+          tip: "Checked: the amount is the exact dollars received at that age — it is not inflated from today. Unchecked: the amount is in today's dollars and is adjusted for inflation to the year it is received.",
+        },
       ],
     },
     extraExpenses: {
@@ -8529,14 +8474,14 @@
       addLabel: '+ Add a one-time expense',
       note: 'Big, lumpy costs — optionally repeating.',
       tip: 'e.g. a roof, a car, a wedding, or a new car every ten years. Paid in the year it occurs from your portfolio, like any other expense. It is left out of the guardrails withdrawal-rate check and the bond-reserve sizing, so one large purchase does not distort either.',
-      fresh: () => ({ amount: 0, age: 65, repeatEvery: 0, untilAge: 85, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
       fields: [
         {
           key: 'amount',
           kind: 'money',
           label: 'Amount',
-          short: "In today's dollars",
-          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a purchase years away costs more in future dollars than the number you enter.",
+          short: "Today's dollars unless fixed below",
+          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a purchase years away costs more in future dollars than the number you enter. Check 'Fixed amount' to use the exact dollars instead.",
           step: 1000,
         },
         { key: 'age', kind: 'num', label: 'Occurs at Partner A age', short: 'First (or only) occurrence', min: 18, max: 100, step: 1 },
@@ -8560,6 +8505,13 @@
           max: 120,
           step: 1,
           showIf: (it) => Number(it.repeatEvery) > 0,
+        },
+        {
+          key: 'flat',
+          kind: 'check',
+          label: 'Fixed amount (no inflation)',
+          short: 'Exact dollars at that age',
+          tip: "Checked: the amount is the exact dollars paid at that age (every occurrence, if it repeats) — it is not inflated or grown from today. Unchecked: the amount is in today's dollars and grows at the rate below.",
         },
         ...DYN_GROWTH_FIELDS('expense'),
       ],
@@ -8790,10 +8742,7 @@
     document.getElementById('stateTax').value = state.stateTax;
     document.getElementById('ltcEnabled').checked = !!state.ltcEnabled;
     document.getElementById('ltcFields').hidden = !state.ltcEnabled;
-    document.getElementById('bridgeEnabled').checked = !!state.bridgeEnabled;
-    document.getElementById('bridgeFields').hidden = !state.bridgeEnabled;
     document.getElementById('wizardLtcEnabled').checked = !!state.ltcEnabled;
-    document.getElementById('wizardBridgeEnabled').checked = !!state.bridgeEnabled;
     document.getElementById('wizardGuardrailsEnabled').checked = !!state.guardrailsEnabled;
     document.getElementById('wizardSinglePerson').checked = !!state.singlePerson;
     document.getElementById('wizardAgeA').value = state.ageA;
@@ -9333,12 +9282,6 @@
     render();
     saveInputs();
   });
-  document.getElementById('bridgeEnabled').addEventListener('change', (e) => {
-    state.bridgeEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
   document.getElementById('smoothWithdrawals').addEventListener('change', (e) => {
     state.smoothWithdrawals = e.target.checked;
     render();
@@ -9801,7 +9744,7 @@
   // Checking/unchecking a sidebar checkbox (or changing a <select> like
   // tenure/k401Type) can add or remove other fields elsewhere in the panel
   // -- singlePerson hides/shows every data-partner-b field across several
-  // groups at once, and most opt-in checkboxes (ACA, LTC, bridge, other
+  // groups at once, and most opt-in checkboxes (ACA, LTC, other
   // income, other loans, survivor, guardrails, Roth conversion/RRSP
   // meltdown, mega backdoor) show/hide fields within their own group. The
   // resulting height change shifts everything below the toggle, which can
@@ -10333,7 +10276,6 @@
     ['wizardAcaEnabled', 'acaEnabled'],
     ['wizardRothConvEnabled', 'rothConvEnabled'],
     ['wizardMegaBackdoor', 'megaBackdoor'],
-    ['wizardBridgeEnabled', 'bridgeEnabled'],
     ['wizardGuardrailsEnabled', 'guardrailsEnabled'],
     ['wizardSinglePerson', 'singlePerson'],
   ].forEach(([wizardId, realId]) => {
@@ -10708,7 +10650,6 @@
           ruleOf55Enabled: { type: 'boolean' },
           sepp72tEnabledA: { type: 'boolean' },
           sepp72tEnabledB: { type: 'boolean' },
-          bridgeEnabled: { type: 'boolean' },
           tenure: { type: 'string', enum: ['own', 'rent', 'rentThenBuy'] },
           buyCash: { type: 'boolean' },
           k401Type: { type: 'string', enum: ['traditional', 'roth'] },
@@ -10734,7 +10675,6 @@
           if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;
           if (k === 'sepp72tEnabledA' && typeof v === 'boolean') state.sepp72tEnabledA = v;
           if (k === 'sepp72tEnabledB' && typeof v === 'boolean') state.sepp72tEnabledB = v;
-          if (k === 'bridgeEnabled' && typeof v === 'boolean') state.bridgeEnabled = v;
           if (k === 'tenure' && ['own', 'rent', 'rentThenBuy'].includes(v)) state.tenure = v;
           if (k === 'buyCash' && typeof v === 'boolean') state.buyCash = v;
           if (k === 'k401Type' && ['traditional', 'roth'].includes(v)) state.k401Type = v;

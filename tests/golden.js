@@ -8,7 +8,7 @@
 //
 //  1. Pure drawdown: a fully-retired single person with every account zeroed
 //     except a Roth/TFSA balance, 0% growth/inflation, and every other income or
-//     cost knob (Social Security/CPP/OAS, healthcare, LTC, housing, bridge income)
+//     cost knob (Social Security/CPP/OAS, healthcare, LTC, housing, additional income)
 //     zeroed out. Roth/TFSA withdrawals are tax-free, so each year's balance must
 //     drop by exactly the spending figure — a direct check on the withdrawal
 //     waterfall and the "no tax on Roth withdrawals" rule.
