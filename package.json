@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Offline, single-file HTML FIRE calculators (US + Canada)",
   "scripts": {
-    "test": "node tests/golden.js && node tests/historical_tax_indexing.js && node tests/dividend_income.js && node tests/medical_inflation.js && node tests/irmaa_gating.js && node tests/roth_early_access.js && node tests/tax_brackets.js && node tests/historical_bond_yield.js && node tests/rmd_age.js"
+    "test": "node tests/golden.js && node tests/historical_tax_indexing.js && node tests/dividend_income.js && node tests/medical_inflation.js && node tests/irmaa_gating.js && node tests/roth_early_access.js && node tests/tax_brackets.js && node tests/historical_bond_yield.js && node tests/rmd_age.js && node tests/irmaa_startup.js"
   },
   "devDependencies": {
     "playwright": "1.56.1"

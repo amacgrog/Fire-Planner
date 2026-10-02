@@ -6497,3 +6497,12 @@ Both planners expose `window.__test_tax` (US: `ordinaryTax`, `longTermGainTax`, 
 
 `rmdStartAge(currentAge)` returns 75 when `currentYear - round(currentAge) >= 1960`, else 73 (SECURE 2.0). Birth year is estimated because the planner only collects age; `currentYear` is a closure variable (`window.__test_setCurrentYear` pins it in tests). Both engines call it per partner with `state.ageA` / `state.ageB`. `rmdDivisor` gained 72-74 (27.4, 26.5, 25.5). Anyone born before 1951 is already past either start age, so the 73 branch covers them. Test: `tests/rmd_age.js`. The historical success-rate subtitle reports the window count and about `98 / projectionYears` independent periods. Not done from the "smaller items" list: itemizing (mortgage interest, SALT), Canada age/pension credits, and CPP/OAS timing adjustments (the start-age tips tell users to enter the benefit for their claim age).
 
+## Phase 1 bug-fix batch (branch `claude/exciting-hopper-myw836`, V70+ US)
+
+Plan lives in `docs/roadmap.md`. One subsection per fix.
+
+### IRMAA startup MAGI and exact thresholds (V70, US only)
+
+- `irmaaLookbackMagi(magiHistory, year)` is the single place the two-year lookback is read (both engines). Plan years 0 and 1 assess IRMAA on a return filed before the plan existed: when `state.irmaaPriorKnown` is set it returns `irmaaMagiPrior2` (year 0) / `irmaaMagiPrior1` (year 1); otherwise it falls back to the old stand-in (`magiHistory[0]`, the plan's own first-year MAGI). From year 2 it is always the simulation's own `magiHistory[year-2]`. The two inputs are nominal dollars, never inflated. They are deliberately not in `ESTIMATE_ALWAYS_IDS`/`ESTIMATE_GATED_GROUPS` (no "estimated" badge); `irmaaPriorKnown` is hand-wired like `acaEnabled` (DOM sync in `syncContributionControls()`, change handler, MCP allow-list).
+- `irmaaTiers()` rows are `[bound, monthlySurcharge, inclusive]`. CMS lower tiers are "up to and including"; the top tier starts AT $500,000 / $750,000, so the second-highest tier's bound is exclusive. `irmaaTierCeiling()` returns `bound - 0.01` for an exclusive bound. The old `749999`/`499999` hard-codes (which were also scaled by the CPI factor, so the "one dollar" offset drifted) are gone. Bounds are still CPI-indexed from the 2026 base, a simplification (the CMS top thresholds are statutory and only begin indexing in 2028).
+- Test: `tests/irmaa_startup.js` (boundaries via `window.__test_tax.irmaaSurcharge/irmaaTierCeiling`, plus start-at-67 with and without the prior-MAGI inputs).

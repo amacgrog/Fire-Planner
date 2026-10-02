@@ -269,7 +269,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V69</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V70</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -468,6 +468,11 @@
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
           <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting the year they individually turn 65 (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
+          <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
+          <div id="irmaaPriorFields">
+            <div class="field"><label for="irmaaMagiPrior2">MAGI two tax years ago<small>Sets this year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior2" type="number" class="money" min="0" step="1000"></div>
+            <div class="field"><label for="irmaaMagiPrior1">MAGI last tax year<small>Sets next year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior1" type="number" class="money" min="0" step="1000"></div>
+          </div>
           <div class="field"><label for="ltcEnabled"><input id="ltcEnabled" type="checkbox"> Model long-term care costs<small>Turn off to exclude LTC entirely from the projection.</small></label></div>
           <div id="ltcFields">
             <div class="field"><label for="ltcYearlyA">Partner A annual LTC <span class="info-nw">cost<span id="ltcLabelSuffix" hidden></span><button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Charged every year from the start age below, adjusted for inflation.">i</button></span></label><input id="ltcYearlyA" type="number" class="money" min="0" step="1000"></div>
@@ -803,6 +808,9 @@
     payFrequency: 'biweekly',
     healthcare: 18000,
     medicareYearly: 10000,
+    irmaaPriorKnown: false,
+    irmaaMagiPrior2: 0,
+    irmaaMagiPrior1: 0,
     acaEnabled: false,
     acaEnhanced: false,
     ltcEnabled: false,
@@ -1273,6 +1281,8 @@
     'healthPremiumB',
     'healthcare',
     'medicareYearly',
+    'irmaaMagiPrior2',
+    'irmaaMagiPrior1',
     'ltcYearlyA',
     'ltcAgeA',
     'ltcYearlyB',
@@ -3182,41 +3192,58 @@
   }
   // Medicare IRMAA — 2026 Part B + Part D surcharge tiers (CMS, Nov 2025),
   // applied per Medicare-enrolled partner against MAGI from two simulated
-  // years prior, as required by the actual two-year lookback rule.
+  // years prior (the household's own entries for the first two plan years, if
+  // given — see irmaaLookbackMagi), as required by the actual two-year lookback rule.
   function irmaaTiers(filing, yearIndex) {
     const factor = taxIndexFactor(yearIndex);
+    // [upper bound, monthly surcharge per enrolled partner, bound inclusive?].
+    // CMS: the lower tiers read "greater than X, up to and including Y", but the
+    // top tier starts AT $500,000 / $750,000 ("$500,000 or above"), so the
+    // second-highest tier's bound is exclusive.
     return (
       filing === 'mfj'
         ? [
-            [218000, 0],
-            [274000, 95.7],
-            [342000, 240.4],
-            [410000, 385.0],
-            [749999, 529.6],
-            [Infinity, 578.0],
+            [218000, 0, true],
+            [274000, 95.7, true],
+            [342000, 240.4, true],
+            [410000, 385.0, true],
+            [750000, 529.6, false],
+            [Infinity, 578.0, true],
           ]
         : [
-            [109000, 0],
-            [137000, 95.7],
-            [171000, 240.4],
-            [205000, 385.0],
-            [499999, 529.6],
-            [Infinity, 578.0],
+            [109000, 0, true],
+            [137000, 95.7, true],
+            [171000, 240.4, true],
+            [205000, 385.0, true],
+            [500000, 529.6, false],
+            [Infinity, 578.0, true],
           ]
-    ).map(([cap, amt]) => [cap === Infinity ? Infinity : cap * factor, amt]);
+    ).map(([cap, amt, inclusive]) => [cap === Infinity ? Infinity : cap * factor, amt, inclusive]);
   }
   function irmaaSurcharge(magi2yr, filing, yearIndex) {
     const tiers = irmaaTiers(filing, yearIndex);
-    for (const [cap, amt] of tiers) if (magi2yr <= cap) return amt * 12;
+    for (const [cap, amt, inclusive] of tiers)
+      if (inclusive ? magi2yr <= cap : magi2yr < cap) return amt * 12;
     return tiers[tiers.length - 1][1] * 12;
   }
   // The highest MAGI that stays within magi0's current IRMAA tier (Infinity
   // if magi0 is already in the top tier, since there's no higher tier left
-  // to protect against).
+  // to protect against). An exclusive bound ("under $500,000") is one cent
+  // below the bound itself.
   function irmaaTierCeiling(magi0, filing, yearIndex) {
     const tiers = irmaaTiers(filing, yearIndex);
-    for (const [cap] of tiers) if (magi0 <= cap) return cap;
+    for (const [cap, , inclusive] of tiers)
+      if (inclusive ? magi0 <= cap : magi0 < cap) return cap === Infinity ? Infinity : inclusive ? cap : cap - 0.01;
     return Infinity;
+  }
+  // MAGI that IRMAA is assessed on for a given plan year: the return filed two
+  // years earlier. For the first two plan years that return predates the plan,
+  // so use the household's own entries when provided (irmaaPriorKnown), else
+  // fall back to the simulation's own earliest MAGI as a stand-in.
+  function irmaaLookbackMagi(magiHistory, year) {
+    if (year < 2 && state.irmaaPriorKnown)
+      return Math.max(0, Number(year === 0 ? state.irmaaMagiPrior2 : state.irmaaMagiPrior1) || 0);
+    return magiHistory[Math.max(0, year - 2)] || 0;
   }
   // Roth conversion ladder — converts traditional balances to Roth each year
   // in the chosen window, solving for the gross conversion that fills
@@ -4385,7 +4412,7 @@
               : 0) * factor * medicalGrowth(year)
           : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year) +
             (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year);
-      const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
+      const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
       // IRMAA is a Medicare surcharge, so like Medicare itself it follows
       // age (65+), not retirement status: someone still working past 65 and
       // enrolled in Part B pays it too, and their wages are in the MAGI.
@@ -5353,7 +5380,7 @@
               : 0) * factor * medicalGrowth(year)
           : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year) +
             (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year);
-      const lookbackMagi = magiHistory[Math.max(0, year - 2)] || 0;
+      const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
       // IRMAA is a Medicare surcharge, so like Medicare itself it follows
       // age (65+), not retirement status: someone still working past 65 and
       // enrolled in Part B pays it too, and their wages are in the MAGI.
@@ -9532,6 +9559,8 @@
     document.getElementById('acaEnabled').checked = !!state.acaEnabled;
     document.getElementById('acaEnhancedField').hidden = !state.acaEnabled;
     document.getElementById('acaEnhanced').checked = !!state.acaEnhanced;
+    document.getElementById('irmaaPriorKnown').checked = !!state.irmaaPriorKnown;
+    document.getElementById('irmaaPriorFields').hidden = !state.irmaaPriorKnown;
     document.getElementById('rothConvEnabled').checked = !!state.rothConvEnabled;
     document.getElementById('rothConvBracket').value = state.rothConvBracket;
     document.getElementById('survivorGroup').hidden = !!state.singlePerson;
@@ -9561,6 +9590,12 @@
   );
   document.getElementById('acaEnabled').addEventListener('change', (e) => {
     state.acaEnabled = e.target.checked;
+    syncContributionControls();
+    render();
+    saveInputs();
+  });
+  document.getElementById('irmaaPriorKnown').addEventListener('change', (e) => {
+    state.irmaaPriorKnown = e.target.checked;
     syncContributionControls();
     render();
     saveInputs();
@@ -10992,6 +11027,7 @@
           megaBackdoor: { type: 'boolean' },
           ltcEnabled: { type: 'boolean' },
           acaEnabled: { type: 'boolean' },
+          irmaaPriorKnown: { type: 'boolean' },
           rothConvEnabled: { type: 'boolean' },
           withdrawalMixEnabled: { type: 'boolean' },
           ruleOf55Enabled: { type: 'boolean' },
@@ -11017,6 +11053,7 @@
           if (k === 'megaBackdoor' && typeof v === 'boolean') state.megaBackdoor = v;
           if (k === 'ltcEnabled' && typeof v === 'boolean') state.ltcEnabled = v;
           if (k === 'acaEnabled' && typeof v === 'boolean') state.acaEnabled = v;
+          if (k === 'irmaaPriorKnown' && typeof v === 'boolean') state.irmaaPriorKnown = v;
           if (k === 'rothConvEnabled' && typeof v === 'boolean') state.rothConvEnabled = v;
           if (k === 'withdrawalMixEnabled' && typeof v === 'boolean') state.withdrawalMixEnabled = v;
           if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;
@@ -11080,7 +11117,7 @@
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
-  window.__test_tax = { ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
+  window.__test_tax = { irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();
