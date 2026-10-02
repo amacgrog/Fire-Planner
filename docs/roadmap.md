@@ -5,8 +5,9 @@ Canada V32). Sources: the earlier modeling-refinement list (what is done / not
 done is folded in below) and an external review of the US engine's ACA / IRMAA /
 payroll-tax handling.
 
-Phase 1 is merged to `main`. Phases 2 and 3 are **not** merged back from the
-same branch: each is started in its own session/branch.
+**Status:** Phase 1 is complete and merged to `main` (US V74 / Canada V33).
+Phases 2 and 3 are **not** merged back from the same branch: each is started
+in its own session/branch.
 
 ## Phase 0: baseline
 - `npm test` green (golden, historical_tax_indexing, dividend_income,
@@ -14,7 +15,7 @@ same branch: each is started in its own session/branch.
   historical_bond_yield, rmd_age).
 - Confirm CI is green on `main` (Actions tab).
 
-## Phase 1: bug fixes (US unless noted)
+## Phase 1: bug fixes (US unless noted) — done
 Each item is its own commit with its own test; docs and the version badge are
 updated in the same commit.
 
@@ -33,8 +34,9 @@ updated in the same commit.
    subsidy, the displayed healthcare cost, and the 400%-FPL cliff guard the
    Roth-conversion sizing uses.
 
-Canada has no ACA, IRMAA, or Additional Medicare Tax equivalent; the Canada
-survivor-income loose end below is checked in this phase.
+Canada has no ACA, IRMAA, or Additional Medicare Tax equivalent. The Canada
+survivor-income loose end was checked in this phase and was a real bug (fixed,
+with the US extra-income variant; see `docs/reference.md`).
 
 ## Phase 2: refactor (separate branch, not merged back)
 No behavior change; `npm test` must stay identical throughout.
