@@ -269,7 +269,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V71</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V72</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -393,8 +393,10 @@
         </details>
         <details class="group" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
-          <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per <span class="info-nw">paycheck<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Reduces taxable wages, just like a 401(k) (e.g. an employer medical plan). If your spouse is (or will be) retired while you&#x27;re still working, this is assumed to cover both of you — the post-retirement premium below doesn&#x27;t start for either partner until you&#x27;ve both stopped working, so use the employee+spouse rate here if that&#x27;s the real cost. Fold medications, copays, and other after-tax healthcare costs into household spending instead.">i</button></span><small id="healthPremiumHint">Pre-tax payroll deduction while you work</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
+          <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per <span class="info-nw">paycheck<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Reduces taxable wages, just like a 401(k) (e.g. an employer medical plan). If your spouse is (or will be) retired while you&#x27;re still working, this is assumed to cover both of you (unless you uncheck the &quot;employer plan covers spouse&quot; box below) — so use the employee+spouse rate here if that&#x27;s the real cost. Fold medications, copays, and other after-tax healthcare costs into household spending instead.">i</button></span><small id="healthPremiumHint">Pre-tax payroll deduction while you work</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
+          <div data-partner-b class="field"><label for="employerCoversSpouseA"><input id="employerCoversSpouseA" type="checkbox"> Partner A&#x27;s employer plan covers <span class="info-nw">Partner B<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies only while Partner A is working and Partner B has retired and is under 65. Checked (default): B rides on A&#x27;s employer plan, so B owes no separate pre-65 premium until A also stops working — include B in A&#x27;s per-paycheck premium above. Unchecked: B buys their own individual (ACA) coverage starting the year B retires, even while A still works; the subsidy, when modeled, uses your household size of 2 and household income including A&#x27;s wages.">i</button></span><small>If unchecked, B buys ACA coverage once B retires</small></label></div>
+          <div data-partner-b class="field"><label for="employerCoversSpouseB"><input id="employerCoversSpouseB" type="checkbox"> Partner B&#x27;s employer plan covers <span class="info-nw">Partner A<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies only while Partner B is working and Partner A has retired and is under 65. Checked (default): A rides on B&#x27;s employer plan, so A owes no separate pre-65 premium until B also stops working — include A in B&#x27;s per-paycheck premium above. Unchecked: A buys their own individual (ACA) coverage starting the year A retires, even while B still works; the subsidy, when modeled, uses your household size of 2 and household income including B&#x27;s wages.">i</button></span><small>If unchecked, A buys ACA coverage once A retires</small></label></div>
           <div class="field"><label for="payFrequency">Paycheck <span class="info-nw">frequency<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Used to turn the per-paycheck premium into a yearly amount.">i</button></span></label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
         <details class="group" data-cat="assets" open>
@@ -464,7 +466,7 @@
           <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
           <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual <span class="info-nw">pension<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Entered in today&#x27;s dollars; treated as fully inflation-indexed from the start age.">i</button></span></label><input id="pensionYearlyB" type="number" class="money" min="0" step="500"></div>
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
-          <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, this only starts once both partners have stopped working: a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until then. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
           <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting the year they individually turn 65 (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
@@ -652,7 +654,7 @@
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time and split evenly between taxable and traditional accounts. An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled.</div>
-            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> For a couple, the "annual pre-65 healthcare" figure only applies once BOTH partners have stopped working and only while each is under 65 — a retired partner is assumed covered under a still-working spouse's employer plan instead, via that partner's own pre-tax premium field. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI (wages, pension, RMDs, Social Security, any Roth conversion realized that year, and the prior year's realized discretionary traditional withdrawals and taxable-brokerage gains — estimated with a one-year lag, the same way a real ACA application estimates current-year income from a recent tax return and reconciles later via Form 8962, since this year's own withdrawal isn't known until after it's sized off this same MAGI) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually the year they turn 65 — unlike the pre-65 premium, this is age-gated only: it applies whether or not that partner (or their spouse) is still working or retired, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner against household MAGI (same one-year-lagged estimate) from two simulated years prior, matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
+            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI (wages, pension, RMDs, Social Security, any Roth conversion realized that year, and the prior year's realized discretionary traditional withdrawals and taxable-brokerage gains — estimated with a one-year lag, the same way a real ACA application estimates current-year income from a recent tax return and reconciles later via Form 8962, since this year's own withdrawal isn't known until after it's sized off this same MAGI) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually the year they turn 65 — unlike the pre-65 premium, this is age-gated only: it applies whether or not that partner (or their spouse) is still working or retired, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner against household MAGI (same one-year-lagged estimate) from two simulated years prior, matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → traditional → Roth and any bond-reserve shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
@@ -808,6 +810,8 @@
     payFrequency: 'biweekly',
     healthcare: 18000,
     medicareYearly: 10000,
+    employerCoversSpouseA: true,
+    employerCoversSpouseB: true,
     irmaaPriorKnown: false,
     irmaaMagiPrior2: 0,
     irmaaMagiPrior1: 0,
@@ -987,6 +991,8 @@
     if (!['own', 'rent', 'rentThenBuy'].includes(s.tenure)) s.tenure = 'own';
     if (!['mfj', 'single'].includes(s.filingStatus)) s.filingStatus = 'mfj';
     if (!['A', 'B'].includes(s.survivorPartner)) s.survivorPartner = 'A';
+    s.employerCoversSpouseA = s.employerCoversSpouseA !== false;
+    s.employerCoversSpouseB = s.employerCoversSpouseB !== false;
     if (!['weekly', 'biweekly', 'semimonthly', 'monthly'].includes(s.payFrequency))
       s.payFrequency = 'biweekly';
     s.retireAgeA = Math.max(s.ageA, Number(s.retireAgeA ?? s.retireAge ?? s.ageA));
@@ -3182,6 +3188,28 @@
     }
     return 9.96;
   }
+  // Which partners are on the individual (ACA / COBRA / retiree) health market
+  // this year: retired, under 65 (Medicare covers them from 65), and without a
+  // still-working spouse's employer plan to ride on. While a spouse works,
+  // their plan is assumed to cover the retired partner only when the
+  // employerCoversSpouse flag for that spouse is set (the default, which makes
+  // the pre-65 premium start once BOTH have stopped working); unchecked, the
+  // retired partner is on the market from their own retirement date. The
+  // household size and MAGI used for the subsidy stay the whole household's.
+  // Single-person and survivor cases have no spouse's plan to fall back on.
+  function acaEligibility(c) {
+    const { age, ageB, workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB } = c;
+    if (singlePerson) return [!workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA), false];
+    if (isSurvivorPeriod)
+      return [
+        !deceasedIsA && !workingA && age < 65,
+        !deceasedIsB && !workingB && ageB < 65,
+      ];
+    return [
+      !workingA && age < 65 && (!workingB || !state.employerCoversSpouseB),
+      !workingB && ageB < 65 && (!workingA || !state.employerCoversSpouseA),
+    ];
+  }
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
     if (magi <= 0) return 0;
@@ -4278,6 +4306,16 @@
               invQual: inv.qualified,
               year,
             };
+      const [acaEligibleA, acaEligibleB] = acaEligibility({
+        age,
+        ageB,
+        workingA,
+        workingB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        deceasedIsB,
+      });
       rothLedgerSeason(rothLedger, year);
       let conversionAmount = 0;
       // Lifted out of the block below (rather than left as the block's own
@@ -4296,19 +4334,9 @@
         // 400% of the federal poverty line, the full premium is owed with
         // no phase-out, which can cost far more than a lower future tax
         // bracket is worth.
-        // A retired partner is assumed covered under a still-working spouse's
-        // employer plan (sized via that partner's own healthPremiumA/B),
-        // rather than needing their own individual ACA/COBRA policy — so for
-        // a couple, nobody is actually shopping the ACA marketplace (and
-        // isn't at risk of the subsidy cliff this guards against) until BOTH
-        // partners have stopped working. See the healthcare cost calc below,
-        // which uses the same both-retired condition.
-        const acaEligibleNow = singlePerson
-          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
-          : isSurvivorPeriod
-            ? (deceasedIsA ? !workingB && ageB < 65 : !workingA && age < 65)
-            : !workingA && !workingB && (age < 65 || ageB < 65);
-        if (state.acaEnabled && !state.acaEnhanced && acaEligibleNow) {
+        // Only partners actually on the individual market (see
+        // acaEligibility) are exposed to the subsidy cliff.
+        if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
           magiCeiling = Math.min(
             magiCeiling,
             fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
@@ -4360,27 +4388,8 @@
         baseSpendingNominal(age, year, factor, incomeFactor) *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      // A couple is assumed to have employer coverage available (via
-      // whichever partner's own healthPremiumA/B) for BOTH partners as long
-      // as either one is still working — a retired partner isn't shopping
-      // the ACA/COBRA market solo while their spouse still has a job-based
-      // plan they can be added to. So for a couple, neither partner's
-      // individual "post-retirement healthcare" cost applies until BOTH
-      // have stopped working; while one still works, size that partner's
-      // healthPremiumA/B to include the cost of covering a non-working
-      // spouse. Single-person and survivor cases are unaffected — there's
-      // no spouse's plan to fall back on.
-      const bothRetired = !workingA && !workingB;
-      const acaEligibleA = singlePerson
-          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
-          : isSurvivorPeriod
-            ? !deceasedIsA && !workingA && age < 65
-            : bothRetired && age < 65,
-        acaEligibleB =
-          !singlePerson &&
-          (isSurvivorPeriod
-            ? !deceasedIsB && !workingB && ageB < 65
-            : bothRetired && ageB < 65);
+      // acaEligibleA/B (computed above, before the Roth-conversion guard) say
+      // which partners are on the individual market this year.
       let healthcare;
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
         const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
@@ -4393,7 +4402,7 @@
         healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
       } else {
         // acaEligibleA/B already require age < 65, so this non-ACA flat
-        // premium (used when ACA modeling is off, or once BOTH partners
+        // premium (used when ACA modeling is off, or once both partners
         // have aged past 65) now correctly stops for a partner at 65
         // rather than continuing at full price for life — see the
         // Medicare block right below, which is what actually covers a
@@ -4406,7 +4415,8 @@
               (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
       }
       // Medicare Part B/D + supplement: unlike the pre-65 ACA/retiree-health
-      // premium above (which requires BOTH partners retired), Medicare
+      // premium above (which needs the partner retired and not covered by a
+      // working spouse's plan; see acaEligibility), Medicare
       // eligibility is purely age-based — it begins for each partner
       // individually the year they turn 65, whether or not they're still
       // working and whether or not their spouse has retired or is 65 yet.
@@ -5268,6 +5278,16 @@
               invQual: inv.qualified,
               year,
             };
+      const [acaEligibleA, acaEligibleB] = acaEligibility({
+        age,
+        ageB,
+        workingA,
+        workingB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        deceasedIsB,
+      });
       rothLedgerSeason(rothLedger, year);
       let conversionAmount = 0;
       if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
@@ -5280,19 +5300,9 @@
         // 400% of the federal poverty line, the full premium is owed with
         // no phase-out, which can cost far more than a lower future tax
         // bracket is worth.
-        // A retired partner is assumed covered under a still-working spouse's
-        // employer plan (sized via that partner's own healthPremiumA/B),
-        // rather than needing their own individual ACA/COBRA policy — so for
-        // a couple, nobody is actually shopping the ACA marketplace (and
-        // isn't at risk of the subsidy cliff this guards against) until BOTH
-        // partners have stopped working. See the healthcare cost calc below,
-        // which uses the same both-retired condition.
-        const acaEligibleNow = singlePerson
-          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
-          : isSurvivorPeriod
-            ? (deceasedIsA ? !workingB && ageB < 65 : !workingA && age < 65)
-            : !workingA && !workingB && (age < 65 || ageB < 65);
-        if (state.acaEnabled && !state.acaEnhanced && acaEligibleNow) {
+        // Only partners actually on the individual market (see
+        // acaEligibility) are exposed to the subsidy cliff.
+        if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
           magiCeiling = Math.min(
             magiCeiling,
             fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
@@ -5329,27 +5339,8 @@
         baseSpendingNominal(age, year, factor, incomeFactor) *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      // A couple is assumed to have employer coverage available (via
-      // whichever partner's own healthPremiumA/B) for BOTH partners as long
-      // as either one is still working — a retired partner isn't shopping
-      // the ACA/COBRA market solo while their spouse still has a job-based
-      // plan they can be added to. So for a couple, neither partner's
-      // individual "post-retirement healthcare" cost applies until BOTH
-      // have stopped working; while one still works, size that partner's
-      // healthPremiumA/B to include the cost of covering a non-working
-      // spouse. Single-person and survivor cases are unaffected — there's
-      // no spouse's plan to fall back on.
-      const bothRetired = !workingA && !workingB;
-      const acaEligibleA = singlePerson
-          ? !workingA && age < 65 && !(isSurvivorPeriod && deceasedIsA)
-          : isSurvivorPeriod
-            ? !deceasedIsA && !workingA && age < 65
-            : bothRetired && age < 65,
-        acaEligibleB =
-          !singlePerson &&
-          (isSurvivorPeriod
-            ? !deceasedIsB && !workingB && ageB < 65
-            : bothRetired && ageB < 65);
+      // acaEligibleA/B (computed above, before the Roth-conversion guard) say
+      // which partners are on the individual market this year.
       let healthcare;
       if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
         const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
@@ -5362,7 +5353,7 @@
         healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
       } else {
         // acaEligibleA/B already require age < 65, so this non-ACA flat
-        // premium (used when ACA modeling is off, or once BOTH partners
+        // premium (used when ACA modeling is off, or once both partners
         // have aged past 65) now correctly stops for a partner at 65
         // rather than continuing at full price for life — see the
         // Medicare block right below, which is what actually covers a
@@ -5375,7 +5366,8 @@
               (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
       }
       // Medicare Part B/D + supplement: unlike the pre-65 ACA/retiree-health
-      // premium above (which requires BOTH partners retired), Medicare
+      // premium above (which needs the partner retired and not covered by a
+      // working spouse's plan; see acaEligibility), Medicare
       // eligibility is purely age-based — it begins for each partner
       // individually the year they turn 65, whether or not they're still
       // working and whether or not their spouse has retired or is 65 yet.
@@ -9122,6 +9114,8 @@
     document.getElementById('withdrawalMixEnabled').checked = !!state.withdrawalMixEnabled;
     document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
     document.getElementById('ruleOf55Enabled').checked = !!state.ruleOf55Enabled;
+    document.getElementById('employerCoversSpouseA').checked = !!state.employerCoversSpouseA;
+    document.getElementById('employerCoversSpouseB').checked = !!state.employerCoversSpouseB;
     document.getElementById('sepp72tEnabledA').checked = !!state.sepp72tEnabledA;
     document.getElementById('sepp72tEnabledB').checked = !!state.sepp72tEnabledB;
     [
@@ -9693,6 +9687,13 @@
     render();
     saveInputs();
   });
+  ['employerCoversSpouseA', 'employerCoversSpouseB'].forEach((id) =>
+    document.getElementById(id).addEventListener('change', (e) => {
+      state[id] = e.target.checked;
+      render();
+      saveInputs();
+    }),
+  );
   document.getElementById('ruleOf55Enabled').addEventListener('change', (e) => {
     state.ruleOf55Enabled = e.target.checked;
     syncControls();
@@ -11041,6 +11042,8 @@
           ltcEnabled: { type: 'boolean' },
           acaEnabled: { type: 'boolean' },
           irmaaPriorKnown: { type: 'boolean' },
+          employerCoversSpouseA: { type: 'boolean' },
+          employerCoversSpouseB: { type: 'boolean' },
           rothConvEnabled: { type: 'boolean' },
           withdrawalMixEnabled: { type: 'boolean' },
           ruleOf55Enabled: { type: 'boolean' },
@@ -11067,6 +11070,8 @@
           if (k === 'ltcEnabled' && typeof v === 'boolean') state.ltcEnabled = v;
           if (k === 'acaEnabled' && typeof v === 'boolean') state.acaEnabled = v;
           if (k === 'irmaaPriorKnown' && typeof v === 'boolean') state.irmaaPriorKnown = v;
+          if (k === 'employerCoversSpouseA' && typeof v === 'boolean') state.employerCoversSpouseA = v;
+          if (k === 'employerCoversSpouseB' && typeof v === 'boolean') state.employerCoversSpouseB = v;
           if (k === 'rothConvEnabled' && typeof v === 'boolean') state.rothConvEnabled = v;
           if (k === 'withdrawalMixEnabled' && typeof v === 'boolean') state.withdrawalMixEnabled = v;
           if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;

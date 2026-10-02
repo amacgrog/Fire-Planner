@@ -6513,3 +6513,12 @@ Plan lives in `docs/roadmap.md`. One subsection per fix.
 - Gotcha: the wage sliders cap at $350k (`#incomeA`/`#incomeB` `max`), so tests that need a larger wage must set `state` directly rather than the DOM.
 - Test: `tests/additional_medicare_tax.js` (unit values for both filing shapes, plus marginal-rate integration checks at $300k single, $150k single, and a $150k+$150k couple).
 
+### ACA coverage model (V72, US only)
+
+- `acaEligibility({age, ageB, workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB})` returns `[onMarketA, onMarketB]` and is the ONLY place that decides who pays the pre-65 `state.healthcare` premium. It replaced two near-duplicate inline expressions per engine (`acaEligibleNow` for the Roth-conversion cliff guard, and `acaEligibleA/B` for the cost) that had to be kept in step by hand. It is called once per year, before the guard block, and both the guard and the cost read the same result.
+- A retired partner X under 65 is on the market when the other partner Y has also stopped working, or when Y's plan doesn't cover X: `state.employerCoversSpouseY === false`. The flags default to true, which reproduces the old "both retired" rule exactly (`npm test` and all golden values unchanged). `employerCoversSpouseA` means "A's employer plan covers B", so it only matters when A works and B is retired. Survivor and single-person cases ignore the flags.
+- ACA math with one enrolled partner: `grossPremium` is just the enrolled partner's half of `state.healthcare`; household size and MAGI stay household-wide (2, and including the working spouse's wages), and the net cost is `min(grossPremium, expected contribution)`. That matches the law, where the expected contribution is a household share of income regardless of how many people enroll.
+- `normalizeState` coerces both flags with `!== false` so a missing/odd value in an old save means "covered". Wiring: `syncControls()` (next to `ruleOf55Enabled`), one change handler for both, the MCP schema and allow-list. Both checkboxes carry `data-partner-b` (hidden for a single person).
+- Known simplification left alone: `projectedExpense()` (used to size the bond-ladder target) still adds a retired partner's `healthcare/2` from their own retirement age, ignoring both this rule and the both-retired default.
+- Test: `tests/aca_coverage.js`.
+

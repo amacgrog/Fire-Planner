@@ -180,7 +180,11 @@ side before porting a feature:
   penalty, no 72(t)), so `traditionalSharePctA` is US-only.
 - US splits post-retirement healthcare into two separate cost lines —
   `state.healthcare` (pre-65 ACA/retiree premium, gated on `acaEligibleA`/
-  `acaEligibleB`: both partners retired AND that partner under 65) and
+  `acaEligibleB` from `acaEligibility()`: that partner retired AND under 65,
+  AND either the other partner has also stopped working or that other
+  partner's `employerCoversSpouseA/B` flag is off — the flags default to
+  true, which is the old "both retired" rule; the same helper feeds the
+  400%-FPL conversion guard, so cost and guard can't drift apart) and
   `state.medicareYearly` (Part B/D + supplement, gated per-partner on
   `age >= 65`/`ageB >= 65` alone, independent of retirement status or the
   other partner) — because real Medicare eligibility is purely age-based,
