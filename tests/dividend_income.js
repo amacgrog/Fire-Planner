@@ -79,18 +79,22 @@ async function testUS() {
     ['qualifiedDivPct', 0],
   ]);
   near(rows[0].tax, 390, 0.01, 'US ordinary dividends: year-0 tax');
-  near(rows[0].magiProxy, 20000, 0.01, 'US ordinary dividends: MAGI includes dividends');
+  // MAGI is the year's realized total: dividends plus the capital gain from
+  // selling shares to fund spending (computed below).
+  near(rows[0].magiProxy, rows[0].income, 0.01, 'US ordinary dividends: MAGI equals realized income');
   // Reinvested dividends raise basis: after 6% growth the pool is $1.06M and
   // basis is $1.0M + $20k, so the realized-gain share of the $40,390
   // withdrawal is 1 - 1.02/1.06, not the 1 - 1.0/1.06 it would be if basis
   // stayed flat.
   const gain = rows[0].income - 20000;
   near(gain, 40390 * (1 - 1020000 / 1060000), 0.5, 'US basis step-up: realized gain in year 0');
+  near(rows[0].magiProxy, 20000 + gain, 0.01, 'US ordinary dividends: MAGI = dividends + realized gain');
 
   // B. No dividends: no tax, no MAGI (regression guard for the old model).
   rows = await scenario(file, true, [['dividendYield', 0]]);
   near(rows[0].tax, 0, 0.01, 'US zero yield: tax');
-  near(rows[0].magiProxy, 0, 0.01, 'US zero yield: MAGI');
+  // MAGI is only the capital gain on the shares sold for spending.
+  near(rows[0].magiProxy, 40000 * (1 - 1000000 / 1060000), 0.5, 'US zero yield: MAGI = realized gain only');
 
   // B2. Interest on cash is taxed as ordinary income too: $500k at 4% = $20k.
   rows = await scenario(file, true, [
@@ -114,7 +118,7 @@ async function testUS() {
     ['qualifiedDivPct', 100],
   ]);
   near(rows[0].tax, 12667.5, 60, 'US qualified dividends: year-0 tax');
-  near(rows[0].magiProxy, 150000, 0.01, 'US qualified dividends: MAGI');
+  near(rows[0].magiProxy, 150000, 250, 'US qualified dividends: MAGI (plus a few dollars of realized gain)');
 
   // D. Unused standard deduction shelters qualified dividends: $40k of
   // qualified dividends with no other income is entirely in the 0% bracket.

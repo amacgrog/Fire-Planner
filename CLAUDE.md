@@ -67,6 +67,25 @@ Each planner is one big IIFE. Core shape:
   `{ rows, depletedAge, ... }` return. Called many times per render (current
   settings, ±1yr/±3yr lines, each Monte Carlo path, each sensitivity sweep),
   so it needs to stay cheap.
+- **MAGI iteration (both engines).** ACA subsidy, the ACA/IRMAA
+  Roth-conversion ceilings and the IRMAA lookback need THIS year's MAGI,
+  which includes this year's discretionary withdrawals, which depend on
+  the premium that MAGI sets. Inside each engine's year loop the body is
+  wrapped in `for (let iter = 0; ; iter++)`: it snapshots every mutated
+  balance (and the Roth ledger) before the first mutation, and if
+  `estUsed` (an ACA premium or a finite MAGI ceiling consumed
+  `estTrad`/`estGain`) and the realized discretionary traditional
+  withdrawals + taxable gains differ from the estimate by more than
+  `MAGI_ITER_TOL`, it restores the snapshot, updates the estimate, and
+  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3). Rules for
+  editing a year body: anything that mutates closure state before the
+  convergence check must be in `yearSnapshot` (add new `let` balances
+  there), and never add a `continue`/`break` that is meant for the year
+  loop. `prevDiscTraditional`/`prevTaxableGainGross` only seed pass 0.
+  `row.magiProxy` is the realized MAGI and `magiHistory[year]` is
+  overwritten with it after convergence; the in-body assignment is
+  provisional and only read by the plan's first-year IRMAA stand-in.
+  Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
 - `simulateHistorical(rowFn, retireAgeA, retireAgeB)` — a near-duplicate of
   `simulate()` used by the historical-backtest and Monte Carlo views; takes a
   `rowFn(year)` returning actual-historical `[calendarYear, stockReturn,
@@ -152,6 +171,11 @@ side before porting a feature:
   fields — survivor modeling has to actively remap the surviving partner's
   data into the `A` slot when Partner A died, rather than just flipping
   `profile.singlePerson = true` in place.
+  Anything summed into the A slot for the household (`extraIncome`) must be
+  re-attributed to the survivor in that remap too, and the Canada
+  `totalA`/`totalB`/OAS-clawback block keys off `aliveA`/`aliveB`, never off
+  `effectiveSingle` alone. `tests/survivor_symmetry.js` (identical partners,
+  A-dies must equal B-dies) guards both.
 - US models a 10% early-withdrawal penalty (`ruleOf55Enabled`,
   `sepp72tEnabledA`/`sepp72tEnabledB`, `singleLifeDivisor(age)`) on
   traditional/bondTraditional withdrawals before 59.5; Canada has no
@@ -180,7 +204,11 @@ side before porting a feature:
   penalty, no 72(t)), so `traditionalSharePctA` is US-only.
 - US splits post-retirement healthcare into two separate cost lines —
   `state.healthcare` (pre-65 ACA/retiree premium, gated on `acaEligibleA`/
-  `acaEligibleB`: both partners retired AND that partner under 65) and
+  `acaEligibleB` from `acaEligibility()`: that partner retired AND under 65,
+  AND either the other partner has also stopped working or that other
+  partner's `employerCoversSpouseA/B` flag is off — the flags default to
+  true, which is the old "both retired" rule; the same helper feeds the
+  400%-FPL conversion guard, so cost and guard can't drift apart) and
   `state.medicareYearly` (Part B/D + supplement, gated per-partner on
   `age >= 65`/`ageB >= 65` alone, independent of retirement status or the
   other partner) — because real Medicare eligibility is purely age-based,

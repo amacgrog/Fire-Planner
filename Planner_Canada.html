@@ -270,7 +270,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V32</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V33</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -3025,10 +3025,18 @@
       const invToB = isSurvivorPeriod && deceasedIsA,
         shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
         shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
-      const totalA = otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA,
-        totalB =
-          (effectiveSingle ? 0 : otherB + cppB + oasGrossB) +
-          (inv.ordinary + inv.eligGrossed) * shareB;
+      // Income belongs to whoever is alive: a deceased partner's slot is zero,
+      // and when Partner A is the one who died the survivor's own income
+      // (wages/pension/RRIF, CPP, OAS) is Partner B's, plus the household's
+      // extra-income streams, which live in Partner A's `otherA`. (Before this
+      // was fixed, B's income was zeroed whenever effectiveSingle was true, so
+      // a surviving Partner B owed almost no tax.)
+      const aliveA = !(isSurvivorPeriod && deceasedIsA),
+        aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB);
+      const totalA = aliveA ? otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA : 0,
+        totalB = aliveB
+          ? otherB + (invToB ? extraIncome : 0) + cppB + oasGrossB + (inv.ordinary + inv.eligGrossed) * shareB
+          : 0;
       const dtcA = inv.eligGrossed * shareA,
         dtcB = inv.eligGrossed * shareB;
       const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
@@ -3060,8 +3068,8 @@
           year,
         );
       }
-      const clawbackA = oasClawback(splitA, oasGrossA, year),
-        clawbackB = effectiveSingle ? 0 : oasClawback(splitB, oasGrossB, year);
+      const clawbackA = aliveA ? oasClawback(splitA, oasGrossA, year) : 0,
+        clawbackB = aliveB ? oasClawback(splitB, oasGrossB, year) : 0;
       const oasNetA = oasGrossA - clawbackA,
         oasNetB = oasGrossB - clawbackB;
       if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
@@ -3642,10 +3650,18 @@
       const invToB = isSurvivorPeriod && deceasedIsA,
         shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
         shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
-      const totalA = otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA,
-        totalB =
-          (effectiveSingle ? 0 : otherB + cppB + oasGrossB) +
-          (inv.ordinary + inv.eligGrossed) * shareB;
+      // Income belongs to whoever is alive: a deceased partner's slot is zero,
+      // and when Partner A is the one who died the survivor's own income
+      // (wages/pension/RRIF, CPP, OAS) is Partner B's, plus the household's
+      // extra-income streams, which live in Partner A's `otherA`. (Before this
+      // was fixed, B's income was zeroed whenever effectiveSingle was true, so
+      // a surviving Partner B owed almost no tax.)
+      const aliveA = !(isSurvivorPeriod && deceasedIsA),
+        aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB);
+      const totalA = aliveA ? otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA : 0,
+        totalB = aliveB
+          ? otherB + (invToB ? extraIncome : 0) + cppB + oasGrossB + (inv.ordinary + inv.eligGrossed) * shareB
+          : 0;
       const dtcA = inv.eligGrossed * shareA,
         dtcB = inv.eligGrossed * shareB;
       const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
@@ -3677,8 +3693,8 @@
           year,
         );
       }
-      const clawbackA = oasClawback(splitA, oasGrossA, year),
-        clawbackB = effectiveSingle ? 0 : oasClawback(splitB, oasGrossB, year);
+      const clawbackA = aliveA ? oasClawback(splitA, oasGrossA, year) : 0,
+        clawbackB = aliveB ? oasClawback(splitB, oasGrossB, year) : 0;
       const oasNetA = oasGrossA - clawbackA,
         oasNetB = oasGrossB - clawbackB;
       if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
