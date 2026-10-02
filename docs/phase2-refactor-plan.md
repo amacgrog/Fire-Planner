@@ -23,25 +23,11 @@ green.
   `syncControls`, ...) plus small cosmetic drift (`renderChartView`,
   `buildPrintReport`, `initChartHover`, ...).
 - **The two engines are not the same model with a different return source.**
-  The roadmap wording ("only the per-year return/inflation source differs") is
-  out of date. `simulateHistoricalCore` is a distinct *bucket strategy*
-  backtest. Measured against `simulate()` it:
-  - uses a step-function waterfall (`stepCash` / `stepBondTaxable` / ... /
-    `stepHome`) with a down-year / up-year branch (`yearReturn < 0`) instead
-    of `simulate()`'s single cascade;
-  - refills the bond reserve in up years (`bondTarget = ... * bondYears`) and
-    has no pre-retirement bond-ladder rotation (`ladderTarget`,
-    `rotationStartYear`, `projectedExpense` exist only in `simulate()`);
-  - has **no** applied/override withdrawal-mix, live-mix
-    (`pickLiveWithdrawalOrder`), smooth-withdrawal, or `magiSafeRoom` handling,
-    and calls `solveRothConversion(profile, cap, year)` without the `age` key;
-  - tracks `cumFactor` (actual inflation) and `histTaxFactors` instead of
-    `Math.pow(1 + infl, year)`, and uses the dataset's bond yield for taxable
-    interest instead of `bondReturn`.
-  - Some of these differences look deliberate, some look like features that
-    were added to `simulate()` only. **They have to be classified before
-    merging** (step 2.0), because "no behavior change" applies to *both*
-    engines' current outputs.
+  `simulateHistoricalCore` is a *bucket-strategy* backtest and, separately, is
+  missing several features `simulate()` has. The owner has confirmed the
+  missing features are accidental and should be added, while the bucket
+  waterfall is intentional and stays. The full classification is in
+  **Appendix A**.
 - Wiring a field touches up to four places: `defaults`, `normalizeState`,
   `ids` (or a hand-wired listener), and one of `syncControls` /
   `syncContributionControls`, plus the MCP allow-list. This is the repo's most
@@ -179,20 +165,22 @@ change after the refactor.
 
 ## 5. Step 2: merge `simulate()` and `simulateHistorical()` (roadmap item 1)
 
-2.0 **Difference audit.** Produce a table of every difference between the two
-    bodies (the numbers above are the start), each classified:
-    - *Source difference* (returns, inflation, bond yield, tax-index factor):
-      belongs in the pluggable "year source".
-    - *Strategy difference* (bucket-strategy waterfall, bond refill rule,
-      ladder rotation): belongs in a pluggable "withdrawal strategy".
-    - *Accidental drift* (a feature present in one engine only, with no
-      reason it should be): **do not silently unify.** Unifying changes the
-      historical numbers, which violates the contract. Keep behavior via an
-      explicit flag (`strategy.supportsMixOverrides = false`) and list each as
-      a follow-up bug/feature in the roadmap.
-    Review this table with the user before 2.1; it is the one place where a
-    product decision (is the backtest *supposed* to ignore withdrawal-mix?) is
-    needed.
+**The merge is split in two, because the owner's decisions are a behavior
+change and the refactor contract is "no behavior change".**
+
+- **2A: pure merge (snapshot-exact).** One engine, with the differences in
+  Appendix A expressed as explicit capability switches that reproduce today's
+  historical output exactly (e.g. `historical.mixModes = false`). Zero-tolerance
+  snapshot.
+- **2B: historical parity (deliberate behavior change).** Flip the switches
+  one commit at a time. Each commit regenerates *only* the historical
+  snapshots, includes a test for the new behavior, and records in
+  `docs/reference.md` the before/after change in the default scenario's
+  historical success rate and Monte Carlo success rate, so the effect of each
+  decision is visible and revertable on its own. The standard-projection
+  snapshot must not change in any 2B commit.
+
+2.0 **Difference audit: done, see Appendix A.** Decisions recorded there.
 
 2.1 **Design.** One `runEngine(ctx, yearSource, strategy, retireAgeA,
     retireAgeB)` loop. 
@@ -222,6 +210,14 @@ change after the refactor.
     5. Confirm the +/-1yr/+/-3yr, Monte Carlo (`runMonteCarlo`,
        `bootstrapReturnSeries`) and `simulateAtRealCagr` callers still go
        through the public wrappers only.
+
+2.2b **2B commits** (after 2A is green; order chosen so each is independently
+    reviewable): (1) pass `age` to `solveRothConversion`; (2) `magiSafeRoom`
+    lifted out of the conversion block and used by the withdrawal order;
+    (3) pre-retirement bond-ladder rotation; (4) smooth withdrawals;
+    (5) applied/override mix schedule; (6) live mix
+    (`pickLiveWithdrawalOrder`); (7) return the extra row columns/fields.
+    Canada gets (3), (4) and (7) only; it has no mix modes or MAGI room.
 
 2.3 **Performance gate.** `simulate()` is called thousands of times per render
     (MC paths, tornado, optimizer). Benchmark before/after (render time for the
@@ -345,16 +341,24 @@ one scroll gesture on the sticky areas).
   the same engine; land Phase 2 first or rebase Phase 3 onto it. Say so in the
   PR.
 
-## 10. Decisions needed from the owner
+## 10. Decisions
 
-1. Approve **Option A** (marked shared regions + sync script) for item 4, and
-   the matching rewording of "no build step" in `CLAUDE.md`.
-2. Review the **difference audit table** (step 2.0) before the engine merge:
-   specifically which historical-vs-standard differences are intentional.
-3. Confirm the **order** (helpers before engine merge, registry before sharing)
-   and that the roadmap's item numbering can be updated to match.
-4. Confirm pure-refactor commits do **not** bump version badges, with a single
-   bump at the end.
+Resolved by the owner:
+- Historical/backtest/Monte Carlo paths follow the plan: they gain the
+  pre-retirement ladder, smooth withdrawals, applied/override and live
+  withdrawal mix, `magiSafeRoom`, and the `age` argument to
+  `solveRothConversion`. The up/down-year bucket waterfall and bond refill stay.
+- Version badges are not bumped per commit.
+
+Still open (details in Appendix A, items marked **Q**):
+1. How the withdrawal-mix modes combine with the bucket order in a down year (A.2).
+2. Which inflation the ladder target is sized with on a historical path (A.3).
+3. Whether the standard `simulate()` also gets the up-year bond refill (A.4;
+   recommended no).
+4. Shared-code approach for item 4 (section 7, Option A recommended) and the
+   related rewording of "no build step".
+5. A single version bump at the very end (assumed from "skip the bump every
+   commit"; tell me if you want none at all).
 
 ## 11. Definition of done
 
@@ -365,3 +369,97 @@ desktop and 390x844 widths; one engine implementation per planner; one field
 registry per planner; shared US/Canada code kept in a single canonical copy;
 `CLAUDE.md`, `README.md`, `docs/reference.md`, and `docs/roadmap.md` updated;
 line counts reported before/after.
+
+## 12. Readability standards (what "human readable" means here)
+
+The refactor is meant to make the code *easier* to read, and these are
+acceptance criteria, not hopes:
+- The year loop reads as a short list of named stages (`assembleIncome`,
+  `sizeRothConversion`, `computeTaxes`, `withdraw`, `routeSurplus`,
+  `buildRow`), each a function of roughly 30-120 lines with a one-paragraph
+  comment saying *what rule it models*. No 1,000-line function remains.
+- Existing explanatory comments (Guyton-Klinger, survivor rules, MAGI
+  iteration) move with the code they describe; none are dropped.
+- Names say what the thing is (`bucketStrategy`, `yearSource`) rather than
+  `ctx2` / `tmp`. Related balances live in one `bal` object instead of a dozen
+  loose `let`s.
+- Each file gets banner section headers and a short table of contents comment
+  at the top of the script, so a 6,000-line file can be navigated.
+- Review checkpoint: the first extraction commit (one helper in US) is shown
+  to the owner for a style check before the rest follows the same pattern.
+- Sync-script regions (step 4) are marked with plain comments, and the
+  generated shared text is the same readable source, not minified or
+  templated.
+
+## Appendix A: differences between `simulate()` and `simulateHistorical()`
+
+Compiled from a line diff of the US and Canada engine bodies. "Hist" =
+`simulateHistoricalCore`. Owner decisions are applied. Items marked **Q** need
+a design answer before that 2B commit.
+
+### A.1 Source differences (belong in the year source; no behavior decision)
+
+| # | Item | `simulate()` | Hist | Merge treatment |
+|---|---|---|---|---|
+| S1 | Stock return | `nominalReturn` constant | `histRow[1]` | `yearSource.stockReturn` |
+| S2 | Bond return | `bondYield` constant (also the interest on the bond reserve) | `histRow[3]` | `yearSource.bondReturn` |
+| S3 | Taxable bond interest | `bondYield` | `histRow[4]` (Treasury yield) or `max(0, bond return)` | `yearSource.bondYield` |
+| S4 | Inflation factor | `(1 + infl)^year` | running `cumFactor` of actual inflation | `yearSource.factor` |
+| S5 | Tax-index factor | derived from `infl` | `histTaxFactors[year] = cumFactor` (saved/restored in `try/finally`) | `yearSource.taxFactor`, keep the `try/finally` |
+| S6 | Return shape | n/a | adds `startYear`, rows carry `cumFactor` | keep as extra fields |
+
+### A.2 Strategy difference that stays (the intended bucket behavior)
+
+| # | Item | Standard | Hist |
+|---|---|---|---|
+| B1 | Down year (`yearReturn < 0`) | single cascade, no down-year branch | cash -> bond taxable -> bond traditional -> bond Roth -> stocks -> home |
+| B2 | Up year (`yearReturn >= 0`) | single cascade | taxable -> traditional -> Roth -> cash -> bonds -> home, then refill bond bucket from stocks to `bondTarget` |
+| B3 | Surplus (`flow >= 0`) | cash top-up, then taxable | cash top-up, then (up years only) bond bucket to `bondTarget`, then taxable |
+| B4 | `bondTarget` | n/a | `(expenses - lump) * bondYears` using that year's realized expense |
+
+**Q1 (proposed rule for how mixes combine with buckets).** In a *down* year the
+bucket order wins for the cash/bond steps; whatever need remains is then drawn
+from the stock accounts with the active mix mode (applied/override, live,
+smooth, or default), then Roth fallback, then home. In an *up* year the draw is
+exactly `simulate()`'s cascade (mix modes -> Roth fallback -> cash -> bonds ->
+home) followed by the B2 refill. Note that with a constant positive return
+`simulate()` never has a down year, so the down-year branch is dormant there
+and the two engines agree by construction.
+
+### A.3 Features missing from Hist (accidental; to be added in 2B)
+
+| # | Item | US `simulate()` | Hist today | 2B action |
+|---|---|---|---|---|
+| F1 | `age` passed to `solveRothConversion(profile, cap, year, age)` | yes | no (`year` only) | pass `age` (US) |
+| F2 | `magiSafeRoom` lifted out of the conversion block and passed as `remainingMagiRoom` to the live-mix order | yes | scoped inside the `if`, never used by withdrawals | lift and use (US) |
+| F3 | Pre-retirement bond ladder (`ladderTarget`, `rotationStartYear/EndYear`, moves taxable/traditional into bond buckets) | yes (US and Canada) | none | add (US, Canada) |
+| F4 | Applied mix schedule (`state.appliedMixSchedule`) and override map (`withdrawalMixOverrideByAge`), `withdrawalMixWeights` | yes | none | add (US only) |
+| F5 | Live mix (`state.withdrawalMixEnabled` -> `pickLiveWithdrawalOrder`) | yes | none | add (US only) |
+| F6 | Smooth withdrawals (`state.smoothWithdrawals`) | yes (US and Canada) | none | add (US, Canada) |
+| F7 | Row/return columns: `expenses, tax, income, wages, ss, pension, rmd, sepp72, earlyPenalty, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, housing, ltc, loanPayment, extraExpense, lumpExpense, baseSpend, mixCandidate`; return fields `firstWithdrawal, retirementYear, currentExpense, retirementExpense, ladderTarget`; end-of-year `totalTax`/`totalIncome` correction | yes | absent | union; computed by the shared code (no new behavior, extra data only) |
+
+Canada specifics: Canada's `simulate()` has no applied/override/live mix and no
+MAGI room (those are US-only), so F1, F2, F4, F5 do not apply there. Canada
+gains F3, F6, F7 only. Do not add mix strategies to Canada.
+
+**Q2 (ladder sizing on a historical path).** `projectedExpense` uses the plan's
+constant inflation to size each ladder tranche, because the future is unknown
+at the time a real person would build a ladder. Proposal: size the ladder
+target and rotation window from the plan's assumptions (`state.inflation`) once
+at the start of the path, and let realized inflation affect only the executed
+dollars afterwards. After retirement the B4 refill target (realized
+expense) takes over.
+
+**Q3 (should standard `simulate()` also refill the bond bucket in up years?).**
+Recommend no. With constant growth, expenses inflate each year, so a refill
+would move stock into bonds every year and change the standard projection,
+which the contract forbids in 2A and the owner did not ask for. Keep it a
+historical-only rule (`bucketStrategy` flag).
+
+### A.4 Things checked and found identical (no action)
+Survivor modeling, Guyton-Klinger guardrails, RMD/SEPP/penalty fractions,
+MAGI iteration convergence, ACA/IRMAA, healthcare/LTC, loans/mortgage/lists,
+tax calls (`taxFor`, FICA, Additional Medicare Tax), the Roth ledger, cash
+reserve, and early-withdrawal penalty handling are textually the same between
+the two bodies apart from the S-items above (the only diffs are comments and
+local variable names, e.g. `totalExpense` vs `expenses`).
