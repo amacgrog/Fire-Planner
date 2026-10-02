@@ -67,6 +67,25 @@ Each planner is one big IIFE. Core shape:
   `{ rows, depletedAge, ... }` return. Called many times per render (current
   settings, ±1yr/±3yr lines, each Monte Carlo path, each sensitivity sweep),
   so it needs to stay cheap.
+- **MAGI iteration (both engines).** ACA subsidy, the ACA/IRMAA
+  Roth-conversion ceilings and the IRMAA lookback need THIS year's MAGI,
+  which includes this year's discretionary withdrawals, which depend on
+  the premium that MAGI sets. Inside each engine's year loop the body is
+  wrapped in `for (let iter = 0; ; iter++)`: it snapshots every mutated
+  balance (and the Roth ledger) before the first mutation, and if
+  `estUsed` (an ACA premium or a finite MAGI ceiling consumed
+  `estTrad`/`estGain`) and the realized discretionary traditional
+  withdrawals + taxable gains differ from the estimate by more than
+  `MAGI_ITER_TOL`, it restores the snapshot, updates the estimate, and
+  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3). Rules for
+  editing a year body: anything that mutates closure state before the
+  convergence check must be in `yearSnapshot` (add new `let` balances
+  there), and never add a `continue`/`break` that is meant for the year
+  loop. `prevDiscTraditional`/`prevTaxableGainGross` only seed pass 0.
+  `row.magiProxy` is the realized MAGI and `magiHistory[year]` is
+  overwritten with it after convergence; the in-body assignment is
+  provisional and only read by the plan's first-year IRMAA stand-in.
+  Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
 - `simulateHistorical(rowFn, retireAgeA, retireAgeB)` — a near-duplicate of
   `simulate()` used by the historical-backtest and Monte Carlo views; takes a
   `rowFn(year)` returning actual-historical `[calendarYear, stockReturn,
