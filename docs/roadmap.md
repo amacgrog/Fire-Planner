@@ -71,9 +71,9 @@ No behavior change; `npm test` must stay identical throughout.
   saved scenarios).
 
 ## Loose ends
-- Canada survivor period: when partner A dies first, partner B's income may be
-  zeroed (`totalB = effectiveSingle ? 0 : ...`). Suspected, never confirmed
-  (checked in Phase 1).
+- ~~Canada survivor period: partner B's income zeroed when partner A dies
+  first.~~ Confirmed and fixed in Phase 1 (V33 Canada, V74 US for the
+  extra-income variant); see `docs/reference.md`.
 - The standard projection (not the historical one) taxes bond interest at the
   `Bond return` input, a total return used as a proxy for the coupon.
 - The 2024 Treasury yield uses January 2024 (4.06%) because no December 2023

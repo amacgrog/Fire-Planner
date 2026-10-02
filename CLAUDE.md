@@ -171,6 +171,11 @@ side before porting a feature:
   fields — survivor modeling has to actively remap the surviving partner's
   data into the `A` slot when Partner A died, rather than just flipping
   `profile.singlePerson = true` in place.
+  Anything summed into the A slot for the household (`extraIncome`) must be
+  re-attributed to the survivor in that remap too, and the Canada
+  `totalA`/`totalB`/OAS-clawback block keys off `aliveA`/`aliveB`, never off
+  `effectiveSingle` alone. `tests/survivor_symmetry.js` (identical partners,
+  A-dies must equal B-dies) guards both.
 - US models a 10% early-withdrawal penalty (`ruleOf55Enabled`,
   `sepp72tEnabledA`/`sepp72tEnabledB`, `singleLifeDivisor(age)`) on
   traditional/bondTraditional withdrawals before 59.5; Canada has no
