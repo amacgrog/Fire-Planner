@@ -269,7 +269,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V70</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V71</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -346,8 +346,8 @@
         </details>
         <details class="group" data-cat="income" open>
           <summary><span class="group-summary-text"><span class="group-title">Income</span><span class="group-state" id="incomeGroupState"></span></span></summary>
-          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income <span class="info-nw">growth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Yearly raise on your pay, in nominal terms — it already includes inflation, so a raise equal to inflation means no real growth.">i</button></span></label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group" data-cat="income">
@@ -3656,6 +3656,17 @@
     const f = taxIndexFactor(yearIndex);
     return Math.min(wages, 184500 * f) * 0.062 + wages * 0.0145;
   }
+  // Additional Medicare Tax (IRC 3101(b)(2)/1401(b)(2)): 0.9% of Medicare
+  // wages above $250,000 (MFJ, combined) or $200,000 (single). The thresholds
+  // are set by statute and are NOT inflation-indexed, so they deliberately skip
+  // taxIndexFactor — bracket creep applies to them in nominal projections.
+  // `filing === 'single'` covers both one person and two separate filers
+  // (marry-later, before the wedding), each measured against their own $200k.
+  function additionalMedicareTax(wagesA, wagesB, filing) {
+    const rate = 0.009;
+    if (filing === 'mfj') return Math.max(0, wagesA + wagesB - 250000) * rate;
+    return (Math.max(0, wagesA - 200000) + Math.max(0, wagesB - 200000)) * rate;
+  }
   function mortgagePayment(principal, annualRate, years) {
     if (!principal || !years) return 0;
     const r = annualRate / 12,
@@ -4428,7 +4439,8 @@
         : 0;
       const ficaTax =
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
-        wageFica(Math.max(0, wageB - healthPremiumB), year);
+        wageFica(Math.max(0, wageB - healthPremiumB), year) +
+        additionalMedicareTax(Math.max(0, wageA - healthPremiumA), Math.max(0, wageB - healthPremiumB), filing);
       const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
       // `tax` above only covers wages/SS/pension/RMD/conversion income and
       // is what the cash-flow waterfall below uses to size withdrawals.
@@ -5397,7 +5409,8 @@
       const tax =
         taxFor(profile, 0, conversionAmount) +
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
-        wageFica(Math.max(0, wageB - healthPremiumB), year);
+        wageFica(Math.max(0, wageB - healthPremiumB), year) +
+        additionalMedicareTax(Math.max(0, wageA - healthPremiumA), Math.max(0, wageB - healthPremiumB), filing);
       const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
       taxable *= 1 + yearReturn;
@@ -11117,7 +11130,7 @@
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
-  window.__test_tax = { irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
+  window.__test_tax = { additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();
