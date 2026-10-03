@@ -4489,6 +4489,199 @@
     bal.bondTraditional += traditionalMove;
   }
 
+  // ---- Withdrawal building blocks ----
+  // A year's discretionary withdrawal in progress. `need` is the cash still to
+  // be raised; the other fields accumulate what the draws did, for tax, MAGI
+  // and the cash-flow display. traditionalGross starts at the Roth conversion
+  // (ordinary income already this year) and traditionalWithdrawn at the
+  // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
+  // bond-reserve buckets into their parent tax status (same tax treatment,
+  // just parked in the reserve) so the Sankey does not undercount them.
+  function newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd }) {
+    return {
+      bal,
+      rothLedger,
+      profile,
+      need: 0,
+      penalizedFraction: 0,
+      rothPenalizedFraction: 0,
+      taxableGainGross: 0,
+      traditionalGross: conversionAmount,
+      traditionalWithdrawn: rmd,
+      taxableWithdrawn: 0,
+      rothWithdrawn: 0,
+      earlyPenalty: 0,
+      mixCandidate: null,
+    };
+  }
+  // Each take*() draws up to `amount` of net cash from one bucket, updates the
+  // balances and the running totals on `wd`, and returns the NET cash raised
+  // (after the tax and early-withdrawal penalty the draw itself triggers). The
+  // caller subtracts it from wd.need, because the strategies differ in whether
+  // a tiny overshoot is clamped at zero.
+  // `bucket` is 'taxable' | 'bondTaxable' (taxable brokerage and its bond reserve).
+  function takeTaxable(wd, bucket, amount) {
+    const { bal } = wd;
+    const d = drawTaxable(bal[bucket], bal[bucket + 'Basis'], amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+    bal[bucket] -= d.taken;
+    bal[bucket + 'Basis'] -= d.basisTaken;
+    wd.taxableGainGross += d.gain;
+    wd.taxableWithdrawn += d.taken;
+    return d.net;
+  }
+  // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection
+  // bracket (see solveTraditionalForNetFromNeed).
+  function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
+    const { bal } = wd;
+    const { fromTrad, tradNet, penalty } = solver(
+      bal[bucket],
+      amount,
+      wd.taxableGainGross,
+      wd.traditionalGross,
+      wd.profile,
+      wd.penalizedFraction,
+    );
+    bal[bucket] -= fromTrad;
+    wd.traditionalGross += fromTrad;
+    wd.traditionalWithdrawn += fromTrad;
+    wd.earlyPenalty += penalty;
+    return tradNet;
+  }
+  // `bucket` is 'roth' | 'bondRoth'. Roth earnings count as ordinary income
+  // (traditionalGross) when the draw is early.
+  function takeRoth(wd, bucket, amount) {
+    const { bal } = wd;
+    const d = rothDraw(
+      wd.rothLedger,
+      bal[bucket],
+      amount,
+      wd.taxableGainGross,
+      wd.traditionalGross,
+      wd.profile,
+      wd.rothPenalizedFraction,
+    );
+    bal[bucket] -= d.gross;
+    wd.rothWithdrawn += d.gross;
+    wd.traditionalGross += d.earn;
+    wd.earlyPenalty += d.penalty;
+    return d.net;
+  }
+  function takeCash(wd, amount) {
+    const from = Math.min(wd.bal.cash, amount);
+    wd.bal.cash -= from;
+    return from;
+  }
+  // Last resort: home equity (value less mortgage) when the household owns.
+  function takeHomeEquity(wd, amount) {
+    const { bal } = wd;
+    if (state.tenure !== 'own' && state.tenure !== 'rentThenBuy') return 0;
+    const from = Math.min(Math.max(0, bal.home - bal.mortgage), amount);
+    bal.home -= from;
+    return from;
+  }
+  // Same job as solveTraditionalForNet, but bisecting from [need, 6*need + 1]
+  // instead of [0, min(balance, 6*need + 1)]. The brackets converge to slightly
+  // different values (~1e-7 relative), so both are kept until the numerics are
+  // unified deliberately; the bond-reserve draw and the historical engine use
+  // this one.
+  function solveTraditionalForNetFromNeed(traditionalBal, need, taxableGainGross, traditionalGross, profile, penalizedFraction) {
+    if (traditionalBal <= 0 || need <= 0) return { fromTrad: 0, tradNet: 0, penalty: 0 };
+    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    let lo = need,
+      hi = need * 6 + 1;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2,
+        net =
+          mid -
+          (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+          mid * 0.1 * penalizedFraction;
+      if (net < need) lo = mid;
+      else hi = mid;
+    }
+    const fromTrad = Math.min(traditionalBal, hi),
+      penalty = fromTrad * 0.1 * penalizedFraction,
+      tradNet = fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
+    return { fromTrad, tradNet, penalty };
+  }
+  // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
+  // discretionary draw from taxable / traditional (and Roth, for an explicit
+  // mix) in one of four modes, chosen in this order:
+  //  1. an explicit per-year mix candidate (an optimizer override or an applied
+  //     schedule): taxable, traditional AND Roth in that year's split;
+  //  2. the live mix toggle: the cheaper of taxable-first or traditional-first,
+  //     cascading fully into the other for any shortfall, respecting the
+  //     remaining safe-MAGI room;
+  //  3. smooth withdrawals: taxable and traditional in proportion to balances;
+  //  4. the default: taxable first, then traditional.
+  // Any shortfall then falls through Roth, cash, the bond-reserve buckets
+  // (a protected sequence-risk reserve, tapped only after everything else) and
+  // finally home equity. `remainingMagiRoom` is the safe-MAGI headroom left after
+  // this year's Roth conversion.
+  function withdrawStandard(wd, { age, remainingMagiRoom }) {
+    const { bal } = wd;
+    const mixCandidate =
+      withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
+        ? withdrawalMixOverrideByAge.get(age)
+        : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
+          ? state.appliedMixSchedule[age]
+          : 0;
+    const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, bal.traditional, bal.roth);
+    if (mixWeights && wd.need > 0) {
+      wd.mixCandidate = mixCandidate;
+      const [wTaxable, wTraditional, wRoth] = mixWeights;
+      const taxableShare = wd.need * wTaxable,
+        traditionalShare = wd.need * wTraditional,
+        rothShare = wd.need * wRoth;
+      wd.need -= takeTaxable(wd, 'taxable', taxableShare);
+      if (traditionalShare > 0 && bal.traditional > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare));
+      if (rothShare > 0 && bal.roth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
+    } else if (state.withdrawalMixEnabled && wd.need > 0) {
+      // 'live' is a display-only marker, not a WITHDRAWAL_MIX_CANDIDATES id.
+      wd.mixCandidate = 'live';
+      const live = pickLiveWithdrawalOrder(
+        wd.need,
+        bal.taxable,
+        bal.traditional,
+        bal.taxableBasis,
+        wd.profile,
+        wd.taxableGainGross,
+        wd.traditionalGross,
+        wd.penalizedFraction,
+        remainingMagiRoom,
+      );
+      bal.taxable -= live.fromTaxable;
+      bal.taxableBasis -= live.taxableBasisTaken;
+      wd.taxableGainGross += live.taxableGain;
+      wd.taxableWithdrawn += live.fromTaxable;
+      bal.traditional -= live.fromTraditional;
+      wd.traditionalGross += live.fromTraditional;
+      wd.traditionalWithdrawn += live.fromTraditional;
+      wd.earlyPenalty += live.penalty;
+      wd.need = live.remainingNeed;
+    } else if (state.smoothWithdrawals) {
+      const pool = bal.taxable + bal.traditional;
+      if (pool > 0 && wd.need > 0) {
+        const taxableShare = wd.need * (bal.taxable / pool),
+          traditionalShare = wd.need * (bal.traditional / pool);
+        wd.need -= takeTaxable(wd, 'taxable', taxableShare);
+        if (traditionalShare > 0 && bal.traditional > 0)
+          wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare));
+      }
+    } else {
+      wd.need -= takeTaxable(wd, 'taxable', wd.need);
+      if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
+    }
+    wd.need -= takeRoth(wd, 'roth', wd.need);
+    wd.need -= takeCash(wd, wd.need);
+    wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+    if (wd.need > 0 && bal.bondTraditional > 0)
+      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
+    wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+    if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
+  }
+  // ---- end withdrawal building blocks ----
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -4817,18 +5010,6 @@
         rothContrib;
       growBalances(bal, { stockReturn: nominalReturn, bondReturn: bondYield, hysa, homeGrowth, inv });
       withdrawRequiredDistributions(bal, rmd);
-      // Total traditional/taxable dollars actually withdrawn this year, for
-      // the cash-flow Sankey — folds bondTraditional/bondTaxable draws into
-      // their parent tax-status bucket (they're the same tax-status money,
-      // just parked in the bond reserve) rather than leaving them buried in
-      // the generic "from portfolio" catch-all, which made RMD-only sources
-      // look artificially small in years the bond-traditional reserve was
-      // doing a lot of the work.
-      let traditionalWithdrawn = rmd,
-        taxableWithdrawn = 0,
-        rothWithdrawn = 0,
-        earlyPenalty = 0,
-        resolvedMixCandidate = null;
       applyRothConversion(bal, rothLedger, conversionAmount, year);
       bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
@@ -4838,15 +5019,7 @@
       // (retirement itself) regardless of how large bondYears is set.
       rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear });
       const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-      // Declared here (rather than inside the withdrawal branch below) so
-      // both end up correctly set — to just conversionAmount in a surplus
-      // year, or the fuller realized-withdrawal totals in a withdrawal
-      // year — for the realized-MAGI convergence check and prevDiscTraditional
-      // seed after the withdrawal block, which need a value from every year,
-      // not just withdrawal years. taxableGainGross starts at 0; the
-      // withdrawal-branch draws below add to it.
-      let traditionalGross = conversionAmount,
-        taxableGainGross = 0;
+      const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
       if (flow >= 0) {
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash)),
           toTaxable = flow - cashTopUp;
@@ -4857,290 +5030,34 @@
         bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       } else {
-        let need = -flow;
-        if (!working && year === retirementYear) firstWithdrawal = Math.max(0, need - lumpExpense);
+        wd.need = -flow;
+        if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
         if (state.guardrailsEnabled && !working) {
           if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-            guardrailInitialWR = Math.max(0, need - lumpExpense) / guardrailPortfolioNow;
-          guardrailPrevNeed = Math.max(0, need - lumpExpense);
+            guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
+          guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
           guardrailPrevPortfolio = guardrailPortfolioNow;
         }
-        // Discretionary traditional/bondTraditional withdrawals (RMDs and
-        // 72(t) SEPP payments are mandatory, separate distributions handled
-        // above and are never penalized) owe the IRS's 10% early-withdrawal
-        // penalty unless the withdrawing partner is 59.5+ or covered by Rule
-        // of 55. traditional/bondTraditional are a single pooled household
-        // balance rather than split per partner, so when only one partner is
-        // exempt, the non-exempt partner's own share (pctA above, not a
-        // flat 50/50) is treated as penalized and the exempt partner's
-        // share as penalty-free.
-        const penalizedFraction = traditionalPenaltyFraction(
+        // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
+        // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
+        // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
+        // traditionalPenaltyFraction for how the pooled balance is split between partners.
+        wd.penalizedFraction = traditionalPenaltyFraction(
           age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
         );
-        const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
-        const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
-        // Only an explicit optimizer-search override (an "Optimize" run's
-        // applied schedule, or the optimizer report's own display
-        // re-simulation) resolves to a menu candidate here — the live
-        // state.withdrawalMixEnabled toggle below has its own dedicated,
-        // order-based path (see pickLiveWithdrawalOrder's comment for why
-        // it can't safely share this proportional-split menu).
-        const mixCandidate =
-          withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
-            ? withdrawalMixOverrideByAge.get(age)
-            : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
-              ? state.appliedMixSchedule[age]
-              : 0;
-        const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, bal.traditional, bal.roth);
-        if (mixWeights && need > 0) {
-          // Optimized per-year withdrawal mix (explicit override only —
-          // see above): draw taxable, traditional, AND Roth in whatever
-          // split this year's candidate specifies — a strict superset of
-          // what state.smoothWithdrawals (below) can do, since Roth
-          // participates as a real lever here instead of only being
-          // tapped as a last-resort fallback. Any shortfall (a bucket
-          // running low, or empty) falls through to the same Roth/cash/
-          // bond/home order used below, unchanged.
-          resolvedMixCandidate = mixCandidate;
-          const [wTaxable, wTraditional, wRoth] = mixWeights;
-          const taxableShare = need * wTaxable,
-            traditionalShare = need * wTraditional,
-            rothShare = need * wRoth;
-          const taxableDraw = drawTaxable(
-            bal.taxable,
-            bal.taxableBasis,
-            taxableShare,
-            profile,
-            taxableGainGross,
-            traditionalGross,
-          );
-          bal.taxable -= taxableDraw.taken;
-          bal.taxableBasis -= taxableDraw.basisTaken;
-          need -= taxableDraw.net;
-          taxableGainGross += taxableDraw.gain;
-          taxableWithdrawn += taxableDraw.taken;
-          if (traditionalShare > 0 && bal.traditional > 0) {
-            const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
-              bal.traditional,
-              traditionalShare,
-              taxableGainGross,
-              traditionalGross,
-              profile,
-              penalizedFraction,
-            );
-            bal.traditional -= fromTrad;
-            traditionalGross += fromTrad;
-            traditionalWithdrawn += fromTrad;
-            earlyPenalty += penalty;
-            need = Math.max(0, need - tradNet);
-          }
-          if (rothShare > 0 && bal.roth > 0) {
-            // Roth withdrawals aren't bisection-solved like taxable/
-            // traditional above — same simplification the pre-existing
-            // fallback draw below already makes (no tax, no penalty
-            // modeled), just applied deliberately here instead of only as
-            // leftover shortfall funding.
-            const d = rothDraw(
-              rothLedger,
-              bal.roth,
-              rothShare,
-              taxableGainGross,
-              traditionalGross,
-              profile,
-              rothPenalizedFraction,
-            );
-            bal.roth -= d.gross;
-            need -= d.net;
-            rothWithdrawn += d.gross;
-            traditionalGross += d.earn;
-            earlyPenalty += d.penalty;
-          }
-        } else if (state.withdrawalMixEnabled && need > 0) {
-          // Live, always-on picker (see pickLiveWithdrawalOrder above):
-          // chooses whichever of taxable-first or traditional-first is
-          // cheaper this year, cascading fully into the other bucket for
-          // any shortfall — never strands one bucket while draining Roth/
-          // cash/bonds for the other, unlike a fixed proportional split
-          // would. 'live' is a display-only marker (not a
-          // WITHDRAWAL_MIX_CANDIDATES id); Roth itself isn't touched
-          // here, same as the plain default below — it's still reached
-          // through the ordinary shortfall fallback immediately after
-          // this whole if/else chain.
-          resolvedMixCandidate = 'live';
-          const live = pickLiveWithdrawalOrder(
-            need,
-            bal.taxable,
-            bal.traditional,
-            bal.taxableBasis,
-            profile,
-            taxableGainGross,
-            traditionalGross,
-            penalizedFraction,
-            remainingMagiRoom,
-          );
-          bal.taxable -= live.fromTaxable;
-          bal.taxableBasis -= live.taxableBasisTaken;
-          taxableGainGross += live.taxableGain;
-          taxableWithdrawn += live.fromTaxable;
-          bal.traditional -= live.fromTraditional;
-          traditionalGross += live.fromTraditional;
-          traditionalWithdrawn += live.fromTraditional;
-          earlyPenalty += live.penalty;
-          need = live.remainingNeed;
-        } else if (state.smoothWithdrawals) {
-          // Draw taxable and traditional in proportion to their current
-          // balances instead of draining taxable first, so taxable income
-          // stays flatter year to year and doesn't jump sharply once
-          // taxable runs out. Any shortfall (a bucket running low, or the
-          // pool being empty) falls through to the same Roth/cash/bond/home
-          // order used below, unchanged.
-          const pool = bal.taxable + bal.traditional;
-          if (pool > 0 && need > 0) {
-            const taxableShare = need * (bal.taxable / pool),
-              traditionalShare = need * (bal.traditional / pool);
-            const taxableDraw = drawTaxable(
-              bal.taxable,
-              bal.taxableBasis,
-              taxableShare,
-              profile,
-              taxableGainGross,
-              traditionalGross,
-            );
-            bal.taxable -= taxableDraw.taken;
-            bal.taxableBasis -= taxableDraw.basisTaken;
-            need -= taxableDraw.net;
-            taxableGainGross += taxableDraw.gain;
-            taxableWithdrawn += taxableDraw.taken;
-            if (traditionalShare > 0 && bal.traditional > 0) {
-              const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
-                bal.traditional,
-                traditionalShare,
-                taxableGainGross,
-                traditionalGross,
-                profile,
-                penalizedFraction,
-              );
-              bal.traditional -= fromTrad;
-              traditionalGross += fromTrad;
-              traditionalWithdrawn += fromTrad;
-              earlyPenalty += penalty;
-              need = Math.max(0, need - tradNet);
-            }
-          }
-        } else {
-          const taxableDraw = drawTaxable(
-            bal.taxable,
-            bal.taxableBasis,
-            need,
-            profile,
-            taxableGainGross,
-            traditionalGross,
-          );
-          bal.taxable -= taxableDraw.taken;
-          bal.taxableBasis -= taxableDraw.basisTaken;
-          need -= taxableDraw.net;
-          taxableGainGross += taxableDraw.gain;
-          taxableWithdrawn += taxableDraw.taken;
-          if (need > 0) {
-            const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
-              bal.traditional,
-              need,
-              taxableGainGross,
-              traditionalGross,
-              profile,
-              penalizedFraction,
-            );
-            bal.traditional -= fromTrad;
-            traditionalGross += fromTrad;
-            traditionalWithdrawn += fromTrad;
-            earlyPenalty += penalty;
-            need = Math.max(0, need - tradNet);
-          }
-        }
-        const rothFallback = rothDraw(
-          rothLedger,
-          bal.roth,
-          need,
-          taxableGainGross,
-          traditionalGross,
-          profile,
-          rothPenalizedFraction,
-        );
-        bal.roth -= rothFallback.gross;
-        need -= rothFallback.net;
-        rothWithdrawn += rothFallback.gross;
-        traditionalGross += rothFallback.earn;
-        earlyPenalty += rothFallback.penalty;
-        const fromCash = Math.min(bal.cash, need);
-        bal.cash -= fromCash;
-        need -= fromCash;
-        // Bonds are held as a protected sequence-risk reserve and are tapped
-        // only after taxable, traditional, Roth, and cash are exhausted.
-        const bondTaxableDraw = drawTaxable(
-          bal.bondTaxable,
-          bal.bondTaxableBasis,
-          need,
-          profile,
-          taxableGainGross,
-          traditionalGross,
-        );
-        bal.bondTaxable -= bondTaxableDraw.taken;
-        bal.bondTaxableBasis -= bondTaxableDraw.basisTaken;
-        need -= bondTaxableDraw.net;
-        taxableGainGross += bondTaxableDraw.gain;
-        taxableWithdrawn += bondTaxableDraw.taken;
-        if (need > 0 && bal.bondTraditional > 0) {
-          const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
-          let lo = need,
-            hi = need * 6 + 1;
-          for (let i = 0; i < 24; i++) {
-            const mid = (lo + hi) / 2,
-              net =
-                mid -
-                (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-                mid * 0.1 * penalizedFraction;
-            if (net < need) lo = mid;
-            else hi = mid;
-          }
-          const fromBondTrad = Math.min(bal.bondTraditional, hi),
-            bondPenalty = fromBondTrad * 0.1 * penalizedFraction,
-            net =
-              fromBondTrad -
-              (taxFor(profile, taxableGainGross, traditionalGross + fromBondTrad) - baseTax) -
-              bondPenalty;
-          bal.bondTraditional -= fromBondTrad;
-          traditionalGross += fromBondTrad;
-          traditionalWithdrawn += fromBondTrad;
-          earlyPenalty += bondPenalty;
-          need = Math.max(0, need - net);
-        }
-        const bondRothDraw = rothDraw(
-          rothLedger,
-          bal.bondRoth,
-          need,
-          taxableGainGross,
-          traditionalGross,
-          profile,
-          rothPenalizedFraction,
-        );
-        bal.bondRoth -= bondRothDraw.gross;
-        need -= bondRothDraw.net;
-        rothWithdrawn += bondRothDraw.gross;
-        traditionalGross += bondRothDraw.earn;
-        earlyPenalty += bondRothDraw.penalty;
-        if (need > 0 && (state.tenure === 'own' || state.tenure === 'rentThenBuy')) {
-          const fromHome = Math.min(Math.max(0, bal.home - bal.mortgage), need);
-          bal.home -= fromHome;
-          need -= fromHome;
-        }
-        if (need > 1 && !depletedAge) depletedAge = age;
-        totalTax = ficaTax + taxFor(profile, taxableGainGross, traditionalGross) + earlyPenalty;
+        wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
+        withdrawStandard(wd, { age, remainingMagiRoom: Math.max(0, magiSafeRoom - conversionAmount) });
+        if (wd.need > 1 && !depletedAge) depletedAge = age;
+        totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
         totalIncome =
-          otherA + otherB + ss + inv.ordinary + inv.qualified + traditionalGross + taxableGainGross;
+          otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
         bal.traditional += traditionalContrib + employerMatch;
         bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       }
+      // Realized totals for the MAGI convergence check, the next year's seed, and the row.
+      const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
+      const resolvedMixCandidate = wd.mixCandidate;
       const realizedTrad = traditionalGross - conversionAmount;
       if (
         estUsed &&
