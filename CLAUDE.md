@@ -116,16 +116,16 @@ Each planner is one big IIFE. Core shape:
 - **Year source and mode.** A year source supplies each year's market inputs
   (`yearInputs(year)` → stock return, bond return, bond interest yield,
   inflation `factor`; `endOfYear()` advances running inflation). The mode is a
-  small object of explicit capability switches — `bucketStrategy`,
-  `usesBondLadder` — that
-  reproduce each way of running the engine exactly. The bucket mode's switches
-  are off only because the historical engine lacked those features; the
-  historical-parity work (Batch 1 of `docs/next-batches-plan.md`) turns them on
-  one at a time. Rows and result fields are the same in both modes (the old
-  `detailedRows` switch is gone): historical rows additionally carry `cumFactor`
-  and the result carries `startYear`. The ladder plan is always sized (it feeds
-  `currentExpense`/`retirementExpense`/`ladderTarget`); `usesBondLadder` only
-  decides whether `rotateIntoBondLadder` moves money. Do not add a new
+  small object of explicit capability switches. Today it has one,
+  `bucketStrategy` (cash/bonds first in a down year, bond reserve refilled in up
+  years, instead of the standard cascade); the other differences between the two
+  ways of running the engine (detailed rows, Roth-conversion age key, safe-MAGI
+  ceiling, pre-retirement bond ladder) were switches that the historical-parity
+  work (Batch 1 of `docs/next-batches-plan.md`) turned on and then removed, so
+  both modes now run them. Rows and result fields are identical in both modes;
+  historical rows additionally carry `cumFactor` and the result carries
+  `startYear`. The pre-retirement ladder is sized once from the plan's assumed
+  inflation (`source.inflation`) in both engines. Do not add a new
   historical-only fork of the year loop; add a mode switch.
 - **MAGI iteration (both engines).** ACA subsidy, the ACA/IRMAA
   Roth-conversion ceilings and the IRMAA lookback need THIS year's MAGI,

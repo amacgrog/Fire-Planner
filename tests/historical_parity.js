@@ -16,7 +16,11 @@
 // Scenarios are grouped by the Batch 1 step that makes them pass:
 //   F7 rows       detailed rows / return fields exist on historical runs
 //   F1/F2         Roth conversions (US): bracket override keyed by age, MAGI room
-//   F3            pre-retirement bond ladder (bondYears > 0 up to retirement)
+//   F3            pre-retirement bond ladder (bondYears > 0, years before retirement only:
+//                 the bucket strategy also routes surplus cash into the bond reserve and
+//                 refills it after retirement, which is its intended difference, so the
+//                 ladder scenarios use a huge cash reserve to absorb every surplus and
+//                 compare only the years before retirement)
 //   F4-F6         mix modes: applied schedule, live mix, smooth withdrawals
 //
 // Run: node tests/historical_parity.js
@@ -32,7 +36,7 @@ const GROUPS = {
   mix: 'F4-F6',
 };
 // Groups that must pass at the current commit. Each Batch 1 step adds its group.
-const ENABLED = new Set(['rows', 'conversion']);
+const ENABLED = new Set(['rows', 'conversion', 'ladder']);
 
 const US_R = {
   ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50,
@@ -58,8 +62,9 @@ const SCENARIOS = {
     { name: 'default (working, then retires)', group: 'rows', patch: { bondYears: 0 } },
     { name: 'early retiree', group: 'rows', patch: US_R },
     { name: 'early retiree single', group: 'rows', patch: { ...US_R, singlePerson: true } },
-    { name: 'default with a ladder', group: 'ladder', patch: { bondYears: 4 } },
-    { name: 'early retiree with a ladder', group: 'ladder', patch: { ...US_R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3 } },
+    { name: 'default with a ladder', group: 'ladder', preRetirement: true, patch: { bondYears: 4, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
+    { name: 'early retiree with a ladder', group: 'ladder', preRetirement: true, patch: { ...US_R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
+    { name: 'single, fractional bondYears', group: 'ladder', preRetirement: true, patch: { ...US_R, singlePerson: true, ageA: 40, retireAgeA: 50, bondYears: 2.5, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
     { name: 'roth conversion', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 60, rothConvBracket: 22 } },
     { name: 'roth conversion + ACA', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, rothConvBracket: 24, acaEnabled: true } },
     { name: 'roth conversion applied schedule', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, appliedRothSchedule: mixSchedule(range(52, 62), [12, 22, 24, 0]) } },
@@ -72,8 +77,9 @@ const SCENARIOS = {
     { name: 'default (working, then retires)', group: 'rows', patch: { bondYears: 0 } },
     { name: 'early retiree', group: 'rows', patch: CA_R },
     { name: 'early retiree single', group: 'rows', patch: { ...CA_R, singlePerson: true } },
-    { name: 'default with a ladder', group: 'ladder', patch: { bondYears: 4 } },
-    { name: 'early retiree with a ladder', group: 'ladder', patch: { ...CA_R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3 } },
+    { name: 'default with a ladder', group: 'ladder', preRetirement: true, patch: { bondYears: 4, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
+    { name: 'early retiree with a ladder', group: 'ladder', preRetirement: true, patch: { ...CA_R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
+    { name: 'single, fractional bondYears', group: 'ladder', preRetirement: true, patch: { ...CA_R, singlePerson: true, ageA: 40, retireAgeA: 50, bondYears: 2.5, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
     { name: 'smooth withdrawals', group: 'mix', patch: { ...CA_R, smoothWithdrawals: true } },
   ],
 };
@@ -100,8 +106,9 @@ const PAGE = `(() => {
   return true;
 })()`;
 
-function compare(label, std, hist, problems) {
-  const n = Math.min(std.rows.length, hist.rows.length);
+function compare(label, std, hist, problems, preRetirement) {
+  let n = Math.min(std.rows.length, hist.rows.length);
+  if (preRetirement) n = Math.min(n, std.retirementYear);
   if (std.rows.length !== hist.rows.length) problems.push(`${label}: ${std.rows.length} standard rows vs ${hist.rows.length} historical`);
   for (let i = 0; i < n; i++) {
     const s = std.rows[i], h = hist.rows[i];
@@ -147,7 +154,12 @@ function compare(label, std, hist, problems) {
       if (!ENABLED.has(sc.group)) continue;
       const { std, hist } = await page.evaluate((p) => window.__parity(p), sc.patch);
       const problems = [];
-      compare(`${key} ${sc.name}`, std, hist, problems);
+      compare(`${key} ${sc.name}`, std, hist, problems, sc.preRetirement);
+      if (sc.preRetirement) {
+        // The rotation must actually have happened, or the comparison proves nothing.
+        const r = std.rows[std.retirementYear - 1];
+        if (!(r && r.bonds > 0)) problems.push(`${key} ${sc.name}: no ladder was built before retirement (scenario is vacuous)`);
+      }
       if (problems.length) {
         failed++;
         console.error(`FAIL [${GROUPS[sc.group]}] ${key} ${sc.name}`);

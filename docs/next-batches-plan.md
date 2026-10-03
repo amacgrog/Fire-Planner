@@ -986,6 +986,44 @@ $90k spending (US) with the planner's own defaults otherwise.
   the same values to the bit. No snapshot update was needed and success rates are
   unchanged.
 
+**Step 4, F3 (pre-retirement bond ladder, US and Canada).**
+- Both engines now call `rotateIntoBondLadder` every year; `usesBondLadder` is
+  removed (always on), so the only mode switch left is `bucketStrategy`. The plan
+  (`planBondLadder`) is sized once from `source.inflation` (the plan's assumed
+  inflation, decision Q2); realized inflation only changes the executed dollars.
+- What moves: any historical/Monte Carlo scenario with `bondYears > 0`. For a
+  household already retired (`retirementYear` 0) the rotation window is the first
+  `ceil(bondYears)` years, so the reserve is now built by the ladder (half
+  taxable, half traditional/RRSP, ramped) rather than all at once from stocks by
+  the first up-year refill. Of the 834 historical-and-standard scenario files in the
+  grid (794 existing plus 40 new `R bondYears3 working` historical scenarios, 20
+  per planner), 678 differ between the previous commit and this one. All 678 are
+  among the 720 historical scenarios (the unchanged 42 have no bond reserve or
+  no ladder window); all 114 standard scenarios are unchanged.
+  A few differ only in the last bit (a sum in a different order).
+- Before/after (seeded Monte Carlo, 2000 paths, seed 7):
+
+| Planner | Scenario | Historical before -> after | Monte Carlo before -> after |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 81.5% -> 81.4% |
+| US | early retiree (plain, smooth, live mix: still ignored) | 90.6% -> 90.6% | 87.2% -> 88.0% |
+| US | default, bondYears 4 | 82.9% -> 82.9% | 85.2% -> 84.8% |
+| Canada | default | 75.6% -> 70.7% | 74.3% -> 73.4% |
+| Canada | early retiree | 88.7% -> 90.6% | 88.2% -> 88.7% |
+| Canada | default, bondYears 4 | 75.6% -> 78.0% | 77.1% -> 76.4% |
+
+  The Canadian default drops two of 41 historical cycles: the ladder parks about
+  half of the reserve in RRSP bonds years before retirement, where it misses
+  stock returns, and the bond reserve is no longer a single lump taken from
+  taxable in the first up year.
+- Parity test group `ladder`: it compares only the years before retirement, with
+  `cashReserve: 1e8` and high wages so every surplus is absorbed by cash in both
+  engines. Reason: the bucket strategy routes surplus cash into the bond reserve
+  and refills it from stocks in a working-years deficit (intended differences B2
+  and B3), so an unrestricted comparison measures the strategy, not the ladder.
+  A guard fails the scenario if no ladder was built (vacuous), and a mutation
+  check (historical engine skips rotation) fails the test.
+
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
 

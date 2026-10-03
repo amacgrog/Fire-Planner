@@ -165,3 +165,4 @@ If you're using GitHub Desktop: open the app, you'll see the changed file listed
 The backtest and Monte Carlo views run the same engine as the main projection, so they honor the strategy you configured. Added one step at a time:
 
 - US: an applied Roth conversion schedule (the optimizer's "Apply this schedule", keyed by Partner A's age) is now used by the historical backtest and Monte Carlo; before, they always used the flat bracket setting.
+- Both planners: the pre-retirement bond ladder is now built in the historical backtest and Monte Carlo too (half from taxable, half from the traditional account/RRSP, ramped up over the years before retirement and sized once from your plan's inflation assumption), instead of only refilling the bond reserve after the fact. Success rates for plans with a bond reserve move slightly as a result.
