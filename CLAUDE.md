@@ -31,6 +31,8 @@ feature list.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
   `normalizeState()` result is pinned (`tests/snapshots/legacy_state.json`); run it
   when touching `normalizeState`, `normalizeLists`, or an enum guard.
+- `tests/bond_refill.js` — hand-computed unit test of `refillBondReserve` (cap, order,
+  realized gain, never home/cash) plus engine checks of the cap and the surplus path.
 - `tests/historical_parity.js` — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every
   shared row field agrees year by year; its `ENABLED` groups grow with each Batch 1
@@ -124,7 +126,16 @@ Each planner is one big IIFE. Core shape:
   work (Batch 1 of `docs/next-batches-plan.md`) turned on and then removed, so
   both modes now run them. Rows and result fields are identical in both modes;
   historical rows additionally carry `cumFactor` and the result carries
-  `startYear`. The stock-account step of the bucket strategy is one grouped step,
+  `startYear`. The bond reserve is refilled gradually: `routeSurplus` fills it from
+  surplus cash (limited by the surplus and `bondTarget`, no extra cap), and
+  `refillBondReserve(wd, bondTarget, { maxMove })` (up years, after the draw)
+  moves at most one year of that year's non-lump expenses into bonds:
+  traditional, then Roth (no income, no penalty), then taxable last, a real sale
+  through `drawTaxable` whose gain goes into `wd.taxableGainGross` (so tax, MAGI
+  and the MAGI iteration see it) with the tax paid from the proceeds; never cash
+  or home equity. `rotateIntoBondLadder` (the pre-retirement ladder, both
+  engines) still carries basis and realizes no gain: a known inconsistency, left
+  alone because changing it moves standard-engine numbers. The stock-account step of the bucket strategy is one grouped step,
   `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
   override mix, live mix, smooth) or `drawSmoothStockAccounts` (Canada: smooth
   only), the same code `withdrawStandard` uses, with the bucket's own bisection

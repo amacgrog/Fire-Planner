@@ -1083,6 +1083,71 @@ $90k spending (US) with the planner's own defaults otherwise.
   conversion, applied mix schedule, all agreeing with `simulate()` year by year.
   Mutation check (bypass the mix in the bucket step) fails four scenarios.
 
+**Step 6: gradual bond refill (historical engine only).**
+- Owner rules (decided while building; they replace the Appendix A.2 draft, which
+  also capped surplus years):
+  1. *Surplus years:* surplus income refills the bond bucket as far as needed,
+     limited only by the surplus (after the cash top-up) and by the `bondYears`
+     target (`bondYears` x that year's expenses net of lump). No one-year cap.
+     (`routeSurplus`, unchanged.)
+  2. *Up-year refill from stocks* (`refillBondReserve`, after the draw): at most
+     one year of that year's expenses net of lump expenses moves into bonds per
+     year, in total.
+  3. *Source order:* traditional (RRSP/RRIF), then Roth (TFSA), then taxable only
+     when neither has anything left. Moves inside a retirement account are a
+     reallocation: no income, no tax, no 10% early-withdrawal penalty, so age
+     does not restrict them (an earlier draft gated them on the penalty; the
+     owner corrected that). Cash and home equity are never a source.
+  4. *Taxable is a real sale.* `drawTaxable` sells enough stock that, after the
+     tax on the realized gain, the requested amount reaches the bonds; the gain is
+     added to `wd.taxableGainGross`, so it counts in the year's tax, in MAGI (ACA,
+     IRMAA) and in the MAGI iteration; the tax is paid from the proceeds; the new
+     bonds have full basis. The live withdrawal mix does not plan for this gain
+     (it decides before the refill), which is accepted.
+- Known inconsistency, left alone on purpose: `rotateIntoBondLadder` (the
+  pre-retirement ladder, both engines) still moves taxable stock into bonds with
+  its share of basis and realizes no gain. Changing it moves standard-engine
+  numbers, so it belongs in a separate, explicit change. Consequence: a household
+  whose money is almost all in brokerage still builds its ladder tax-free but pays
+  tax on later gradual refills.
+- Consequence of the order: households with traditional or Roth money refill
+  without tax; households with only brokerage pay realized-gain tax each refill.
+- Evidence: 643 of the 720 historical scenarios differ from the previous commit
+  (every one with a bond reserve); all 114 standard scenarios are unchanged.
+- Before/after (seeded Monte Carlo, 2000 paths, seed 7), previous commit -> this one:
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 81.4% -> 85.0% |
+| US | early retiree | 90.6% -> 90.6% | 88.0% -> 87.9% |
+| US | early retiree, smooth | 86.8% -> 90.6% | 86.9% -> 87.4% |
+| US | early retiree, live mix | 90.6% -> 90.6% | 88.0% -> 87.9% |
+| US | default, bondYears 4 | 82.9% -> 87.8% | 84.8% -> 86.4% |
+| Canada | default | 70.7% -> 75.6% | 73.4% -> 76.4% |
+| Canada | early retiree | 90.6% -> 90.6% | 88.7% -> 88.4% |
+| Canada | early retiree, smooth | 86.8% -> 90.6% | 88.2% -> 88.1% |
+| Canada | default, bondYears 4 | 78.0% -> 78.0% | 76.4% -> 78.7% |
+
+  Gradual refill keeps more money in stocks after a bad start (one year of
+  expenses per year rather than the whole target at once), which is why plans
+  with a bond reserve tend to improve.
+- Tests: `tests/bond_refill.js` (in `npm test`): hand-computed unit cases (cap
+  year by year, order, spill, taxable last resort with realized gain and tax
+  equal to `taxFor`'s, never home or cash, no cap on `routeSurplus`) and engine
+  checks (cap per year, a taxable-only household still refills, an under-59.5
+  household refills from traditional/Roth, a high earner's surplus fills the
+  whole 3-year target in year 0, a small surplus cannot, `bondYears` 0 builds
+  nothing). Mutation checks: removing the cap, the taxable fallback, the gain, or
+  the net-of-tax amount each fails the test.
+- Test hook: `window.__test_refillBondReserve(wd, target, opts)`.
+- `tests/historical_bond_yield.js` was rewritten for the gradual refill: it used to
+  assume the whole 300k reserve was carved out in year 0. It now lets the reserve
+  grow 30k a year (life expectancy 80) and measures the extra tax paid in year 10,
+  when the reserve first holds 300k (the drop in taxable that year with the
+  yield minus the drop without it). The US value is still exactly $1,420 on
+  $30,000 of interest; the independence-from-the-bond-return-input and the
+  yield-missing fallbacks are kept.
+
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
 

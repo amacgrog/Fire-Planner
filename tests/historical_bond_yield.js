@@ -6,10 +6,13 @@
 // includes price change and is negative in many years). Rows without a yield
 // (2024-2025) fall back to the year's bond return floored at zero.
 //
-// Scenario: single retiree, $1M taxable (full basis), 10 years of spending in a
-// bond reserve (carved out after the first withdrawal), 0% stocks, no other
-// income. With a 10% yield the $300k reserve pays $30,000 of ordinary interest:
-// US federal tax = 1,240 + 12% x (30,000 - 16,100 - 12,400) = 1,420.
+// Scenario: single retiree, $1M taxable (full basis), a 10-year bond reserve, 0%
+// stocks, no other income. The reserve is refilled gradually (one year of
+// spending, $30,000, per year), so at the start of year 10 it holds $300,000.
+// With a 10% yield that pays $30,000 of ordinary interest in year 10: US federal
+// tax = 1,240 + 12% x (30,000 - 16,100 - 12,400) = 1,420. The test measures the
+// extra tax paid in that one year (the drop in taxable that year, with the
+// yield minus the drop without it), so earlier years' smaller taxes do not count.
 
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -34,8 +37,8 @@ async function run(file, isUS) {
       { id, v },
     );
   const base = [
-    ['singlePerson', true], ['ageA', 65], ['retireAgeA', 65], ['lifeExpectancyA', 68],
-    ['spending', 30000], ['healthcare', 0], ['ltcEnabled', false], ['inflation', 0],
+    ['singlePerson', true], ['ageA', 65], ['retireAgeA', 65],
+    ['lifeExpectancyA', 80], ['spending', 30000], ['healthcare', 0], ['ltcEnabled', false], ['inflation', 0],
     ['returnRate', 0], ['hysaRate', 0], ['dividendYield', 0],
   ];
   if (isUS) base.push(['medicareYearly', 0], ['acaEnabled', false], ['stateTax', 'tx'], ['ssMonthlyA', 0]);
@@ -47,25 +50,35 @@ async function run(file, isUS) {
   if (isUS) for (const [i, v] of [['traditional', 0], ['roth', 0]]) await set(i, v);
   await page.waitForTimeout(300);
 
-  // Taxable balance after the first full year, given the dataset row.
-  const taxableAfter = (assumedBondReturn, bondReturnPct, yieldPct) =>
-    set('bondReturn', assumedBondReturn).then(() =>
-      page.evaluate(
-        ([r, y]) => window.__test_simulateHistorical((k) => [1970 + k, 0, 0, r, y]).rows[1].taxable,
-        [bondReturnPct, yieldPct],
-      ),
+  // Extra tax paid in year 10 (when the reserve first holds the full $300k) because the dataset row
+  // carries `yieldPct` rather than no yield: the year-10 drop in taxable with the yield, minus the
+  // drop without it. Both runs refill the reserve identically, so only the tax differs.
+  const YEAR = 10;
+  const taxableDrop = (r, y) =>
+    page.evaluate(
+      ([r, y, K]) => {
+        const rows = window.__test_simulateHistorical((k) => [1970 + k, 0, 0, r, y]).rows;
+        return rows[K - 1].taxable - rows[K].taxable;
+      },
+      [r, y, YEAR],
     );
+  const extraTax = async (assumedBondReturn, r, y, yBase) => {
+    await set('bondReturn', assumedBondReturn);
+    return (await taxableDrop(r, y)) - (await taxableDrop(r, yBase));
+  };
 
-  const none = await taxableAfter(0, -5, 0);
-  const ten = await taxableAfter(0, -5, 10);
+  // 10% yield (bond return 0%): tax on $30,000 of interest.
+  const ten = await extraTax(0, 0, 10, 0);
+  assert(ten > 100, `${file}: 10% yield should cost tax (extra tax in year ${YEAR}: ${ten})`);
+  if (isUS) assert(Math.abs(ten - 1420) < 0.01, `${file}: expected $1,420 of tax on $30,000 interest, got ${ten}`);
   // Independent of the planner's own Bond return input.
-  assert.strictEqual(await taxableAfter(10, -5, 10), ten, `${file}: bond-return input must not affect historical bond interest tax`);
-  assert(none - ten > 100, `${file}: 10% yield should cost tax (no interest ${none}, 10% ${ten})`);
-  if (isUS) assert(Math.abs(none - ten - 1420) < 0.01, `${file}: expected $1,420 of tax on $30,000 interest, got ${none - ten}`);
+  assert(Math.abs((await extraTax(10, 0, 10, 0)) - ten) < 1e-6, `${file}: bond-return input must not affect historical bond interest tax`);
+  // Taxed at the yield, not at a negative bond total return: -5% price return, 10% yield.
+  assert((await extraTax(0, -5, 10, 0)) > 100, `${file}: a negative bond return must not remove the tax on a 10% yield`);
 
   // No yield in the row: falls back to the bond return floored at zero.
-  assert(Math.abs((await taxableAfter(0, -5, null)) - none) < 1e-6, `${file}: negative bond return with no yield should tax no interest`);
-  assert(Math.abs((await taxableAfter(0, 10, null)) - (await taxableAfter(0, 10, 10))) < 1e-6, `${file}: positive bond return with no yield should tax at that return`);
+  assert(Math.abs(await extraTax(0, -5, null, 0)) < 1e-6, `${file}: negative bond return with no yield should tax no interest`);
+  assert(Math.abs((await extraTax(0, 10, null, 0)) - (await extraTax(0, 10, 10, 0))) < 1e-6, `${file}: positive bond return with no yield should tax at that return`);
 
   assert.deepStrictEqual(errors, [], `${file}: page errors ${errors}`);
   await browser.close();
