@@ -49,14 +49,24 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
    penalty-free retirement money, then penalized draws as a last resort).
 8. A new Batch 7 covers children (built first), US federal credits, and the
    state and provincial tax update.
-9. Batches 4, 5 and 6 are pending the owner's review and may change.
+9. Batches 4, 5 and 6 are pending the owner's review and may change. (The one
+   exception already decided: the Canadian federal age amount and pension
+   income credit moved out of Batch 4 into Batch 7.)
+10. While any account is penalized, cash and the taxable bond reserve are used
+    **before** Roth IRA contribution basis (the basis keeps growing tax-free).
+11. The Roth 401(k) basis slider is per partner (default 100%); the Roth IRA
+    basis is an optional per-partner dollar amount.
+12. Batch 7 covers the 50 states **plus DC** and the 10 provinces. The three
+    territories are out of scope. Canada's income-tested federal benefits
+    (Guaranteed Income Supplement and Allowance, Canada Child Benefit, GST/HST
+    credit) and provincial benefits are in scope alongside the credits.
 
 ## Execution order
 
 1 (historical parity) -> 2 (US tax and Medicare) -> 3A (account model) -> 3B
 (penalty-aware rules, 72(t), Rule of 55) -> 3C (safe-MAGI room) -> 7A (children)
--> 7B (federal credits) -> 7C-7I (states) -> 7J-7K (provinces) -> 4A -> 4B -> 5
--> 6.
+-> 7B (federal credits) -> 7C-7I (states and DC) -> 7J-7M (Canada: federal
+credits, provinces, income-tested benefits) -> 4A -> 4B -> 5 -> 6.
 
 Why: 3A is a no-number-change data-model PR that 3B and 3C depend on. Batch 1's
 mix-mode work in the historical engine is written against the `take*` withdrawal
@@ -118,7 +128,8 @@ tax costs. Batches 4-6 are the owner's to reorder when reviewed.
 - `refillBondReserve` and `rotateIntoBondLadder` only move money between stock
   and bond holdings inside the same account type, so they never trigger the
   early-withdrawal penalty.
-- Neither DC nor any Canadian territory is in the model today.
+- DC is not in the model today (added in Batch 7); the Canadian territories are
+  out of scope.
 
 ---
 
@@ -361,9 +372,8 @@ Both engines (standard and historical bucket mode). Intended number changes.
   The mix modes apply only inside tier 1's penalty-free set; a schedule that asks
   for a penalized traditional draw is redirected down this list. Once the owner is
   59½ or exempt, today's strategies are untouched.
-  Open for the owner's confirmation: tiers 2-3 (cash and bonds) come before tier 4
-  (Roth basis) because the stated order was brokerage, then cash, then bonds, then
-  accounts without a penalty. If Roth basis should come first, swap them.
+  Decided by the owner: tiers 2-3 (cash and bonds) come before tier 4 (Roth
+  basis), because Roth basis has more value left growing tax-free.
 - **72(t) per account.** Replace `sepp72tEnabledA/B` with, for each of the four
   traditional accounts (A IRA, A 401(k), B IRA, B 401(k)): an election checkbox
   and a start-age field (blank/0 means "at retirement age", which reproduces
@@ -406,21 +416,21 @@ whether its schedules still beat the live mix (reference-doc note; no code).
 
 ---
 
-## Batch 4: Canada credits and Canada mixed withdrawals
+## Batch 4: Canada mixed withdrawals (and the optimizer port)
 
 Prerequisite check before starting: how much of the withdrawal module is shared
 today. Phase 2 step 4.5 shared helpers only and left the year loops per-country,
 so this batch may need to extract the mix code from `withdrawStandard` into a
 `shared/` fragment first (Batch 3 step 1 defines the hook shape).
 
-1. **Federal age amount and pension income credits.** Verify current amounts and
-   the age-amount income phase-out. Add to `personTaxCA`; extend
-   `tests/tax_brackets.js` (Canada section). Intended number change for 65+.
-   *Note: overlaps Batch 7 (J-K). Proposed to move there; the owner decides
-   when reviewing this batch.*
+1. **Federal age amount and pension income credits: moved to Batch 7 (7J)**
+   (owner decision; same machinery as the provincial credits). By the time this
+   batch runs, `personTaxCA` already has them.
 2. **Mixed withdrawals** for taxable / RRSP-RRIF / TFSA using the shared module
    and these hooks: `penaltyFraction` always 0, `incomeRoom` = room under the
-   OAS clawback threshold (and the age-credit phase-out if it matters),
+   OAS clawback threshold and, now that Batch 7 models it, the Guaranteed Income
+   Supplement income test and the age-credit phase-out (TFSA withdrawals do not
+   count as income for either, which is the main reason to mix),
    account mapping RRSP/RRIF = traditional, TFSA = roth with no basis ledger,
    FHSA handled as today.
    - Modes: live mix, applied/override schedule, smooth (exists).
@@ -430,7 +440,7 @@ so this batch may need to extract the mix code from `withdrawStandard` into a
 3. Tests: `tests/canada_mix.js` (defaults unchanged; mix reduces OAS clawback in
    a constructed case; TFSA never taxed), survivor symmetry for Canada.
 
-Batch 4 is two PRs: **4A** = steps 1-3 above (credits and mixed withdrawals);
+Batch 4 is two PRs: **4A** = steps 2-3 above (mixed withdrawals);
 **4B** = the optimizer port below (decided: its own sub-batch).
 
 ### 4B: port the multi-lever optimizer to Canada
@@ -497,9 +507,11 @@ timing both depend on them.
 ## Batch 7: dependents, then the federal, state and provincial tax update
 
 Requested by the owner: update state and provincial tax handling for all 50
-states and all Canadian provinces, adding credits, pension/retirement
-exemptions and capital-gains rules (cost basis is already tracked), plus the US
-federal Child Tax Credit and a review of the premium tax credit.
+states, DC and all ten Canadian provinces (no territories), adding credits,
+pension/retirement exemptions and capital-gains rules (cost basis is already
+tracked), the US federal Child Tax Credit and a review of the premium tax
+credit, the Canadian federal age amount and pension income credit, and
+Canada's income-tested benefits.
 
 **Where it runs:** after Batch 3 and before Canada mixed withdrawals (4A). The
 withdrawal logic compares tax costs and Batch 2's SALT deduction consumes the
@@ -558,8 +570,10 @@ Every credit below reads the same list, so it ships as its own small PR.
 - Credits that need household facts use fields that already exist (age, income,
   retirement income, property tax, rent, tenure) plus the 7A children list.
   **No new inputs beyond 7A.**
-- A coverage test fails if any of the 50 states is missing any field (an
-  explicit `none` is required).
+- A coverage test fails if any of the 50 states or DC is missing any field (an
+  explicit `none` is required). DC is a new jurisdiction in the model (state
+  selector, brackets, standard deduction, its own credits); it goes in the group
+  that matches its mechanics.
 - This PR ships the schema and a handful of reference states chosen to cover
   every mechanism (proposal: CA, NY, PA, TX, WA), so the owner can approve the
   pattern before the bulk data lands.
@@ -583,55 +597,68 @@ sped up, the research can be fanned out to subagents (one per group, output as
 a sourced data file for review). That uses far more compute, so it is only done
 if the owner asks for it.
 
-### 7J-7K: provinces and the Canadian federal pieces
+### 7J: Canadian federal age amount and pension income credit
 
-- Same pattern: `PROVINCE_RULES[code]` with coverage test across the 10
-  provinces. Items per the owner: provincial basic personal / spouse /
-  eligible-dependant amounts (dependants are children from 7A), age amount and
-  its income clawback, pension income amount, low-income reductions, child and
-  family benefits/credits, property-tax and rent credits, and dividend tax
-  credits (the federal eligible-dividend credit and gross-up already exist;
-  verify which provincial credits are modeled, the current page says provincial
-  dividend credits are not).
+Moved here from Batch 4 (owner decision). Verify the current amounts and the
+age-amount income clawback, add them to `personTaxCA`, extend the Canada
+section of `tests/tax_brackets.js`, and record the before/after (intended
+number change for anyone 65+; per-person, so it respects the two-return model
+and pension splitting).
+
+### 7K: provinces
+
+- Same data-table pattern: `PROVINCE_RULES[code]` with a coverage test across
+  the 10 provinces (no territories). Items per the owner: provincial basic
+  personal / spouse / eligible-dependant amounts (dependants are children from
+  7A), age amount and its income clawback, pension income amount, low-income
+  reductions, child and family credits, property-tax and rent credits, and
+  dividend tax credits (the federal eligible-dividend credit and gross-up
+  already exist; verify which provincial credits are modeled, the current page
+  says provincial dividend credits are not).
 - Quebec is a separate provincial return with its own abatement and QPP rules
   and gets its own PR.
-- Proposal for the owner when reviewing Batch 4: move the federal age amount and
-  pension income credit (4A step 1) into this batch, since it is the same
-  machinery and the same tests.
 - Reference provinces first (ON, BC, AB, QC), then the rest.
 
-### Open scope questions for the owner (Batch 7)
+### 7L: Canada's income-tested federal benefits
 
-1. Add DC and the three territories? Neither is in the model today; with a data
-   table they are cheap once the pattern is approved.
-2. "Senior/age-based credits and benefits" for Canada: include income-tested
-   federal benefits (Guaranteed Income Supplement, Canada Child Benefit) or only
-   tax credits? The GIS and CCB are benefits, not credits, and need their own
-   income tests.
-3. State and provincial child credits need each jurisdiction's own age cutoff;
-   the plan assumes the cutoff is part of the data row.
+In scope per the owner. These are benefits paid to the household, not credits
+against tax, so each needs its own income test and its own output line.
+- **Guaranteed Income Supplement and the Allowance** (paid with OAS to low-income
+  seniors): tested on net family income. RRSP/RRIF withdrawals and most other
+  income count and are clawed back at a high effective rate; TFSA withdrawals do
+  not count. Needs OAS to be taken and the couple/single rate tables. This is
+  the main Canadian reason to prefer TFSA draws, so it feeds the 4A income-room
+  hook.
+- **Canada Child Benefit**: paid on children from 7A (under 18), reduced by
+  adjusted family net income, amounts that step with child age bands.
+- **GST/HST credit**: income-tested, with a family/child supplement.
+- Provincial benefit programs that are paid rather than credited (e.g. Ontario
+  Trillium Benefit components, BC and Alberta family benefits) come with the
+  province rows in 7K and reuse the same plumbing.
+- Each benefit shows as its own line in the cash-flow outputs so users can see
+  income-tested amounts, and survivor symmetry is re-checked
+  (`tests/survivor_symmetry.js`).
+
+### Remaining scope assumption (Batch 7)
+
+State, provincial and benefit child rules each have their own age cutoff; the
+cutoff is a field in the jurisdiction's data row and the shared children list
+from 7A is read through `dependentsInYear(year)`.
 
 ---
 
 ## Open items
 
-Earlier questions are all answered (see "Decisions already made by the owner").
-Proposals in this revision that the owner can veto when reviewing:
-- Batch 3A: Roth 401(k) basis is a per-partner slider (default 100) and the Roth
-  IRA basis is a per-partner optional dollar amount; legacy pooled balances
-  migrate to the 401(k) and Roth IRA buckets so old projections reproduce.
+All questions from earlier revisions are answered (see "Decisions already made
+by the owner"). Still to be settled when the relevant batch is scoped:
 - Batch 3A: how the first-run wizard collects the four balances (proposal: keep
   its two quick entries and fill the 401(k) and Roth IRA buckets, with a link to
   the detailed group).
-- Batch 3B: cash and bonds are used before Roth IRA contribution basis, per the
-  stated order; swap the tiers if Roth basis should come first.
 - Batch 3B: the Rule-of-55 age convention keeps the existing one (documented).
-- Batch 7: DC and territories, GIS/CCB scope, jurisdiction age cutoffs (see that
-  batch's questions).
-Still to be settled when the relevant batch is scoped:
-- Batch 4B: which candidate set the RRSP-meltdown lever searches.
+- Batch 4B: which candidate set the RRSP-meltdown lever searches (Batches 4-6 are
+  pending the owner's review).
 - Batch 6: the shape of the CPP/OAS claim-age change (affects saved scenarios).
-- All batches: every tax and retirement-account figure is re-confirmed against
-  primary sources (IRS, state revenue departments, CRA) at implementation time
-  and cited in the commit and in `docs/reference.md`; the planning pass used
+- All batches: every tax, benefit and retirement-account figure is re-confirmed
+  against primary sources (IRS, state revenue departments, CRA) at implementation
+  time and cited in the commit and in `docs/reference.md`; the planning pass used
   secondary sources because irs.gov was not reachable.
