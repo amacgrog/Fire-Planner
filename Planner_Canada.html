@@ -2847,6 +2847,103 @@
     bal.bondTraditional += traditionalMove;
   }
 
+  // RRSP, TFSA and FHSA contributions for one year, from each partner's modeled
+  // wage (zero once retired). RRSP room is 18% of wages up to the dollar limit;
+  // the TFSA and FHSA take a percent of wages up to their annual limits (2026
+  // values scaled by limitFactor). The FHSA is only open while saving for a
+  // future purchase (rentThenBuy, before the buy year) and has a $40,000
+  // lifetime cap, so the caller passes what each partner has already put in.
+  // Returns RRSP amounts as traditionalContrib and TFSA amounts as rothContrib.
+  function retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB }) {
+    const rrspRoomA = Math.min(wageA * 0.18, 33810 * limitFactor),
+      rrspRoomB = Math.min(wageB * 0.18, 33810 * limitFactor);
+    const rrspContribA = Math.min(wageA, rrspRoomA) * pct(state.rrspPctA),
+      rrspContribB = Math.min(wageB, rrspRoomB) * pct(state.rrspPctB);
+    const tfsaLimit = 7000 * limitFactor,
+      tfsaContribA = Math.min(wageA * pct(state.tfsaPctA), tfsaLimit),
+      tfsaContribB = Math.min(wageB * pct(state.tfsaPctB), tfsaLimit);
+    const traditionalContrib = rrspContribA + rrspContribB,
+      rothContrib = tfsaContribA + tfsaContribB;
+    const fhsaAnnualCap = 8000 * limitFactor,
+      fhsaLifetimeCap = 40000;
+    const fhsaEligible = state.tenure === 'rentThenBuy' && year < futureBuy.buyYear;
+    const fhsaContribA = fhsaEligible
+      ? Math.max(
+          0,
+          Math.min(wageA * pct(state.fhsaPctA), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedA),
+        )
+      : 0;
+    const fhsaContribB = fhsaEligible
+      ? Math.max(
+          0,
+          Math.min(wageB * pct(state.fhsaPctB), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedB),
+        )
+      : 0;
+    const fhsaContrib = fhsaContribA + fhsaContribB;
+    return { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib };
+  }
+
+  // CPP and OAS (before any OAS clawback) for the year: each partner's own
+  // benefit once they reach their start age, inflated by `factor`. In the
+  // survivor period the household keeps the greater CPP and the greater OAS
+  // (a simplified survivor swap, not the full CPP survivor-benefit rules).
+  function cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+    let cppA = (age >= state.cppStartAgeA ? state.cppMonthlyA * 12 : 0) * factor,
+      cppB = singlePerson
+        ? 0
+        : (ageB >= state.cppStartAgeB ? state.cppMonthlyB * 12 : 0) * factor;
+    let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 : 0) * factor,
+      oasGrossB = singlePerson
+        ? 0
+        : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 : 0) * factor;
+    if (isSurvivorPeriod) {
+      // Simplified survivor-benefit swap: the survivor keeps the greater
+      // of the two benefits (each computed as if both were still alive),
+      // rather than modeling full CPP survivor pension / OAS allowance
+      // rules.
+      const survivorCpp = Math.max(cppA, cppB),
+        survivorOas = Math.max(oasGrossA, oasGrossB);
+      if (deceasedIsA) {
+        cppA = 0;
+        oasGrossA = 0;
+        cppB = survivorCpp;
+        oasGrossB = survivorOas;
+      } else {
+        cppB = 0;
+        oasGrossB = 0;
+        cppA = survivorCpp;
+        oasGrossA = survivorOas;
+      }
+    }
+    return { cppA, cppB, oasGrossA, oasGrossB };
+  }
+
+  // Mandatory RRIF minimum withdrawals for the year, from the pooled RRSP/RRIF
+  // balance. Each partner is assumed to own half (the whole balance once only
+  // one partner remains), and the deceased partner's minimum drops out in the
+  // survivor period. rrifA/rrifB are ordinary income; `rmd` is capped at the balance.
+  function requiredDistributions({
+    traditional,
+    bondTraditional,
+    age,
+    ageB,
+    singlePerson,
+    isSurvivorPeriod,
+    deceasedIsA,
+  }) {
+    const traditionalBeforeRmd = traditional + bondTraditional,
+      traditionalShare =
+        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
+    let rrifA = rrifMinPct(age) * traditionalShare,
+      rrifB = !singlePerson ? rrifMinPct(ageB) * traditionalShare : 0;
+    if (isSurvivorPeriod) {
+      if (deceasedIsA) rrifA = 0;
+      else rrifB = 0;
+    }
+    const rmd = Math.min(traditionalBeforeRmd, rrifA + rrifB);
+    return { traditionalBeforeRmd, rrifA, rrifB, rmd };
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -2990,72 +3087,23 @@
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const limitFactor = Math.pow(1 + infl, year);
-      const rrspRoomA = Math.min(wageA * 0.18, 33810 * limitFactor),
-        rrspRoomB = Math.min(wageB * 0.18, 33810 * limitFactor);
-      const rrspContribA = Math.min(wageA, rrspRoomA) * pct(state.rrspPctA),
-        rrspContribB = Math.min(wageB, rrspRoomB) * pct(state.rrspPctB);
-      const tfsaLimit = 7000 * limitFactor,
-        tfsaContribA = Math.min(wageA * pct(state.tfsaPctA), tfsaLimit),
-        tfsaContribB = Math.min(wageB * pct(state.tfsaPctB), tfsaLimit);
-      const traditionalContrib = rrspContribA + rrspContribB,
-        rothContrib = tfsaContribA + tfsaContribB;
-      const fhsaAnnualCap = 8000 * limitFactor,
-        fhsaLifetimeCap = 40000;
-      const fhsaEligible = state.tenure === 'rentThenBuy' && year < futureBuy.buyYear;
-      const fhsaContribA = fhsaEligible
-        ? Math.max(
-            0,
-            Math.min(wageA * pct(state.fhsaPctA), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedA),
-          )
-        : 0;
-      const fhsaContribB = fhsaEligible
-        ? Math.max(
-            0,
-            Math.min(wageB * pct(state.fhsaPctB), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedB),
-          )
-        : 0;
+      const { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib } =
+        retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB });
       fhsaUsedA += fhsaContribA;
       fhsaUsedB += fhsaContribB;
-      const fhsaContrib = fhsaContribA + fhsaContribB;
-      let cppA = (age >= state.cppStartAgeA ? state.cppMonthlyA * 12 : 0) * factor,
-        cppB = singlePerson
-          ? 0
-          : (ageB >= state.cppStartAgeB ? state.cppMonthlyB * 12 : 0) * factor;
-      let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 : 0) * factor,
-        oasGrossB = singlePerson
-          ? 0
-          : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 : 0) * factor;
-      if (isSurvivorPeriod) {
-        // Simplified survivor-benefit swap: the survivor keeps the greater
-        // of the two benefits (each computed as if both were still alive),
-        // rather than modeling full CPP survivor pension / OAS allowance
-        // rules.
-        const survivorCpp = Math.max(cppA, cppB),
-          survivorOas = Math.max(oasGrossA, oasGrossB);
-        if (deceasedIsA) {
-          cppA = 0;
-          oasGrossA = 0;
-          cppB = survivorCpp;
-          oasGrossB = survivorOas;
-        } else {
-          cppB = 0;
-          oasGrossB = 0;
-          cppA = survivorCpp;
-          oasGrossA = survivorOas;
-        }
-      }
+      const { cppA, cppB, oasGrossA, oasGrossB } =
+        cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
         pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
-      const traditionalBeforeRmd = bal.traditional + bal.bondTraditional,
-        traditionalShare =
-          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-      let rrifA = rrifMinPct(age) * traditionalShare,
-        rrifB = !singlePerson ? rrifMinPct(ageB) * traditionalShare : 0;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) rrifA = 0;
-        else rrifB = 0;
-      }
-      const rmd = Math.min(traditionalBeforeRmd, rrifA + rrifB);
+      const { traditionalBeforeRmd, rrifA, rrifB, rmd } = requiredDistributions({
+        traditional: bal.traditional,
+        bondTraditional: bal.bondTraditional,
+        age,
+        ageB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+      });
       let housing;
       const ownsHome =
         state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
@@ -3566,72 +3614,23 @@
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
-      const rrspRoomA = Math.min(wageA * 0.18, 33810 * limitFactor),
-        rrspRoomB = Math.min(wageB * 0.18, 33810 * limitFactor);
-      const rrspContribA = Math.min(wageA, rrspRoomA) * pct(state.rrspPctA),
-        rrspContribB = Math.min(wageB, rrspRoomB) * pct(state.rrspPctB);
-      const tfsaLimit = 7000 * limitFactor,
-        tfsaContribA = Math.min(wageA * pct(state.tfsaPctA), tfsaLimit),
-        tfsaContribB = Math.min(wageB * pct(state.tfsaPctB), tfsaLimit);
-      const traditionalContrib = rrspContribA + rrspContribB,
-        rothContrib = tfsaContribA + tfsaContribB;
-      const fhsaAnnualCap = 8000 * limitFactor,
-        fhsaLifetimeCap = 40000;
-      const fhsaEligible = state.tenure === 'rentThenBuy' && year < futureBuy.buyYear;
-      const fhsaContribA = fhsaEligible
-        ? Math.max(
-            0,
-            Math.min(wageA * pct(state.fhsaPctA), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedA),
-          )
-        : 0;
-      const fhsaContribB = fhsaEligible
-        ? Math.max(
-            0,
-            Math.min(wageB * pct(state.fhsaPctB), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedB),
-          )
-        : 0;
+      const { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib } =
+        retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB });
       fhsaUsedA += fhsaContribA;
       fhsaUsedB += fhsaContribB;
-      const fhsaContrib = fhsaContribA + fhsaContribB;
-      let cppA = (age >= state.cppStartAgeA ? state.cppMonthlyA * 12 : 0) * factor,
-        cppB = singlePerson
-          ? 0
-          : (ageB >= state.cppStartAgeB ? state.cppMonthlyB * 12 : 0) * factor;
-      let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 : 0) * factor,
-        oasGrossB = singlePerson
-          ? 0
-          : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 : 0) * factor;
-      if (isSurvivorPeriod) {
-        // Simplified survivor-benefit swap: the survivor keeps the greater
-        // of the two benefits (each computed as if both were still alive),
-        // rather than modeling full CPP survivor pension / OAS allowance
-        // rules.
-        const survivorCpp = Math.max(cppA, cppB),
-          survivorOas = Math.max(oasGrossA, oasGrossB);
-        if (deceasedIsA) {
-          cppA = 0;
-          oasGrossA = 0;
-          cppB = survivorCpp;
-          oasGrossB = survivorOas;
-        } else {
-          cppB = 0;
-          oasGrossB = 0;
-          cppA = survivorCpp;
-          oasGrossA = survivorOas;
-        }
-      }
+      const { cppA, cppB, oasGrossA, oasGrossB } =
+        cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
         pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
-      const traditionalBeforeRmd = bal.traditional + bal.bondTraditional,
-        traditionalShare =
-          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-      let rrifA = rrifMinPct(age) * traditionalShare,
-        rrifB = !singlePerson ? rrifMinPct(ageB) * traditionalShare : 0;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) rrifA = 0;
-        else rrifB = 0;
-      }
-      const rmd = Math.min(traditionalBeforeRmd, rrifA + rrifB);
+      const { traditionalBeforeRmd, rrifA, rrifB, rmd } = requiredDistributions({
+        traditional: bal.traditional,
+        bondTraditional: bal.bondTraditional,
+        age,
+        ageB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+      });
       let housing;
       const ownsHome =
         state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
