@@ -986,6 +986,107 @@
     delete s.otherLoansEnabled;
     delete s.otherIncomeEnabled;
   }
+  // ---- Field registry ----
+  // Every sidebar control that maps straight onto a `state` key is declared here ONCE, and the
+  // input listeners, the DOM sync (syncControls / syncContributionControls), `ids`, and the MCP
+  // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
+  // and one entry here (plus a hook only if it has a side effect).
+  //   key       the `state` key and the element id
+  //   type      'number' (input/range; money fields are read with non-digits stripped)
+  //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
+  //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
+  //   inlineOut also refresh the label immediately on input
+  //   resync    call syncControls() on input (the field has clamping side effects or labels)
+  //   syncAfter 'contrib': call syncContributionControls() after the edit is saved
+  //   onInput   clamps / cross-field side effects that run right after state is updated
+  // The order of the numeric entries is the order of the MCP schema's properties.
+  const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
+  const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
+  const clampLifeExpectancyA = () =>
+    (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
+  const clampLifeExpectancyB = () =>
+    (state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1)));
+  const FIELDS = [
+    { key: 'ageA', type: 'number', resync: true, onInput: () => { clampRetireAgeA(); clampLifeExpectancyA(); } },
+    { key: 'ageB', type: 'number', resync: true, onInput: () => { clampRetireAgeB(); clampLifeExpectancyB(); } },
+    { key: 'lifeExpectancyA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyA(); } },
+    { key: 'lifeExpectancyB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyB(); } },
+    { key: 'retireAgeA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
+    { key: 'retireAgeB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
+    { key: 'incomeA', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'incomeB', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'matchA', type: 'number' },
+    { key: 'matchB', type: 'number' },
+    { key: 'k401PctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'k401PctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'catchupPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'catchupPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'iraPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'iraPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'megaPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'megaPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'spending', type: 'number' },
+    { key: 'incomeGrowth', type: 'number' },
+    { key: 'inflation', type: 'number' },
+    { key: 'medicalInflation', type: 'number' },
+    { key: 'taxable', type: 'number' },
+    { key: 'basisRatio', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
+    { key: 'traditionalSharePctA', type: 'number', out: (v) => `${v}% / ${100 - v}%`, outSync: 'controls', inlineOut: true },
+    { key: 'traditional', type: 'number' },
+    { key: 'roth', type: 'number' },
+    { key: 'rothBasisPct', type: 'number' },
+    { key: 'cash', type: 'number' },
+    { key: 'cashReserve', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'bondYears', type: 'number' },
+    { key: 'returnRate', type: 'number' },
+    { key: 'bondReturn', type: 'number' },
+    { key: 'hysaRate', type: 'number' },
+    { key: 'dividendYield', type: 'number' },
+    { key: 'qualifiedDivPct', type: 'number' },
+    { key: 'homeValue', type: 'number' },
+    { key: 'homeGrowth', type: 'number' },
+    { key: 'mortgagePrincipal', type: 'number' },
+    { key: 'mortgage', type: 'number' },
+    { key: 'mortgageRate', type: 'number' },
+    { key: 'mortgageYears', type: 'number' },
+    { key: 'extraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
+    { key: 'maintenance', type: 'number' },
+    { key: 'propertyTax', type: 'number' },
+    { key: 'propertyTaxGrowth', type: 'number' },
+    { key: 'homeInsurance', type: 'number' },
+    { key: 'homeInsuranceGrowth', type: 'number' },
+    { key: 'rent', type: 'number' },
+    { key: 'rentGrowth', type: 'number' },
+    { key: 'ssMonthlyA', type: 'number' },
+    { key: 'ssStartAgeA', type: 'number' },
+    { key: 'ssMonthlyB', type: 'number' },
+    { key: 'ssStartAgeB', type: 'number' },
+    { key: 'pensionYearlyA', type: 'number' },
+    { key: 'pensionStartAgeA', type: 'number' },
+    { key: 'pensionYearlyB', type: 'number' },
+    { key: 'pensionStartAgeB', type: 'number' },
+    { key: 'healthPremiumA', type: 'number' },
+    { key: 'healthPremiumB', type: 'number' },
+    { key: 'healthcare', type: 'number' },
+    { key: 'medicareYearly', type: 'number' },
+    { key: 'irmaaMagiPrior2', type: 'number' },
+    { key: 'irmaaMagiPrior1', type: 'number' },
+    { key: 'ltcYearlyA', type: 'number' },
+    { key: 'ltcAgeA', type: 'number' },
+    { key: 'ltcYearlyB', type: 'number' },
+    { key: 'ltcAgeB', type: 'number' },
+    { key: 'marriageAgeA', type: 'number' },
+    { key: 'survivorDeathAge', type: 'number' },
+    { key: 'survivorSpendingPct', type: 'number' },
+    { key: 'rothConvStartAge', type: 'number' },
+    { key: 'rothConvEndAge', type: 'number' },
+    { key: 'buyAge', type: 'number' },
+    { key: 'buyDownPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
+    { key: 'buyClosingPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
+    { key: 'buyTerm', type: 'number' },
+    { key: 'buyExtraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
+  ];
+  const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
     if (!['own', 'rent', 'rentThenBuy'].includes(s.tenure)) s.tenure = 'own';
@@ -1224,86 +1325,7 @@
   // returning visitor with "real" data, hiding the first-run banner for
   // someone who never actually entered anything.
   let hasPersonalizedData = hadSavedState;
-  const ids = [
-    'ageA',
-    'ageB',
-    'lifeExpectancyA',
-    'lifeExpectancyB',
-    'retireAgeA',
-    'retireAgeB',
-    'incomeA',
-    'incomeB',
-    'matchA',
-    'matchB',
-    'k401PctA',
-    'k401PctB',
-    'catchupPctA',
-    'catchupPctB',
-    'iraPctA',
-    'iraPctB',
-    'megaPctA',
-    'megaPctB',
-    'spending',
-    'incomeGrowth',
-    'inflation',
-    'medicalInflation',
-    'taxable',
-    'basisRatio',
-    'traditionalSharePctA',
-    'traditional',
-    'roth',
-    'rothBasisPct',
-    'cash',
-    'cashReserve',
-    'bondYears',
-    'returnRate',
-    'bondReturn',
-    'hysaRate',
-    'dividendYield',
-    'qualifiedDivPct',
-    'homeValue',
-    'homeGrowth',
-    'mortgagePrincipal',
-    'mortgage',
-    'mortgageRate',
-    'mortgageYears',
-    'extraPrincipal',
-    'maintenance',
-    'propertyTax',
-    'propertyTaxGrowth',
-    'homeInsurance',
-    'homeInsuranceGrowth',
-    'rent',
-    'rentGrowth',
-    'ssMonthlyA',
-    'ssStartAgeA',
-    'ssMonthlyB',
-    'ssStartAgeB',
-    'pensionYearlyA',
-    'pensionStartAgeA',
-    'pensionYearlyB',
-    'pensionStartAgeB',
-    'healthPremiumA',
-    'healthPremiumB',
-    'healthcare',
-    'medicareYearly',
-    'irmaaMagiPrior2',
-    'irmaaMagiPrior1',
-    'ltcYearlyA',
-    'ltcAgeA',
-    'ltcYearlyB',
-    'ltcAgeB',
-    'marriageAgeA',
-    'survivorDeathAge',
-    'survivorSpendingPct',
-    'rothConvStartAge',
-    'rothConvEndAge',
-    'buyAge',
-    'buyDownPct',
-    'buyClosingPct',
-    'buyTerm',
-    'buyExtraPrincipal',
-  ];
+  // `ids` (the plain numeric inputs) is derived from FIELDS above.
   const money = (n) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -8711,9 +8733,15 @@
   function renderSpendingTierFields() {
     renderDynList('spendingTiers');
   }
+  // Writes a slider's `<key>Out` label from the current state.
+  function syncFieldOut(field) {
+    document.getElementById(field.key + 'Out').textContent = field.out(state[field.key]);
+  }
   function syncControls() {
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
+    FIELDS.forEach((field) => {
+      if (field.type !== 'number') return;
+      const id = field.key,
+        el = document.getElementById(id);
       // Skip writing .value to whatever field is currently focused, if the
       // numeric value hasn't actually changed. syncControls() runs on every
       // edit to a field with clamping side effects (retireAgeA, extraPrincipal,
@@ -8728,8 +8756,8 @@
       // (stripping the money field's "$"/commas) keeps this a no-op guard
       // only — a field whose value genuinely needs updating still gets it.
       const currentNumeric = Number(String(el.value).replace(/[^0-9.-]/g, '')) || 0;
-      if (el === document.activeElement && currentNumeric === state[id]) return;
-      el.value = state[id];
+      if (!(el === document.activeElement && currentNumeric === state[id])) el.value = state[id];
+      if (field.out && field.outSync === 'controls') syncFieldOut(field);
     });
     renderLoanFields();
     document.getElementById('singlePerson').checked = !!state.singlePerson;
@@ -8740,21 +8768,6 @@
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
-    document.getElementById('retireAgeAOut').textContent = `Age ${state.retireAgeA}`;
-    document.getElementById('retireAgeBOut').textContent = `Age ${state.retireAgeB}`;
-    document.getElementById('lifeExpectancyAOut').textContent = `Age ${state.lifeExpectancyA}`;
-    document.getElementById('lifeExpectancyBOut').textContent = `Age ${state.lifeExpectancyB}`;
-    document.getElementById('incomeAOut').textContent = money(state.incomeA);
-    document.getElementById('incomeBOut').textContent = money(state.incomeB);
-    document.getElementById('cashReserveOut').textContent = money(state.cashReserve);
-    document.getElementById('basisRatioOut').textContent = `${state.basisRatio}%`;
-    document.getElementById('traditionalSharePctAOut').textContent =
-      `${state.traditionalSharePctA}% / ${100 - state.traditionalSharePctA}%`;
-    document.getElementById('extraPrincipalOut').textContent = `+${money(state.extraPrincipal)}/mo`;
-    document.getElementById('buyDownPctOut').textContent = `${state.buyDownPct}%`;
-    document.getElementById('buyClosingPctOut').textContent = `${state.buyClosingPct}%`;
-    document.getElementById('buyExtraPrincipalOut').textContent =
-      `+${money(state.buyExtraPrincipal)}/mo`;
     [
       ['ownBtn', 'own'],
       ['rentBtn', 'rent'],
@@ -8843,7 +8856,8 @@
     });
     refreshMoneyPreviews();
   }
-  ids.forEach((id) =>
+  FIELDS.filter((field) => field.type === 'number').forEach((field) => {
+    const id = field.key;
     document.getElementById(id).addEventListener('input', (e) => {
       state[id] = Number(
         e.target.classList.contains('money') ? e.target.value.replace(/[^0-9]/g, '') : e.target.value,
@@ -8853,39 +8867,14 @@
       // the default) — see the "estimated field badges" note in CLAUDE.md.
       const dismissedIdx = state.dismissedEstimates.indexOf(id);
       if (dismissedIdx !== -1) state.dismissedEstimates.splice(dismissedIdx, 1);
-      if (id === 'ageA') state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
-      if (id === 'ageB') state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
-      if (id === 'ageA' || id === 'lifeExpectancyA')
-        state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1));
-      if (id === 'ageB' || id === 'lifeExpectancyB')
-        state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1));
-      if (id === 'basisRatio')
-        document.getElementById('basisRatioOut').textContent = `${state.basisRatio}%`;
-      if (id === 'traditionalSharePctA')
-        document.getElementById('traditionalSharePctAOut').textContent =
-          `${state.traditionalSharePctA}% / ${100 - state.traditionalSharePctA}%`;
-      if (
-        [
-          'ageA',
-          'ageB',
-          'lifeExpectancyA',
-          'lifeExpectancyB',
-          'retireAgeA',
-          'retireAgeB',
-          'incomeA',
-          'incomeB',
-          'cashReserve',
-          'extraPrincipal',
-          'buyDownPct',
-          'buyClosingPct',
-          'buyExtraPrincipal',
-        ].includes(id)
-      )
-        syncControls();
+      if (field.onInput) field.onInput();
+      if (field.inlineOut) syncFieldOut(field);
+      if (field.resync) syncControls();
       render();
       saveInputs();
-    }),
-  );
+      if (field.syncAfter === 'contrib') syncContributionControls();
+    });
+  });
   document.getElementById('ownBtn').addEventListener('click', () => setTenure('own'));
   document.getElementById('rentBtn').addEventListener('click', () => setTenure('rent'));
   document.getElementById('buyLaterBtn').addEventListener('click', () => setTenure('rentThenBuy'));
@@ -9245,16 +9234,7 @@
     saveInputs();
   });
   function syncContributionControls() {
-    [
-      ['k401PctA', 'k401PctAOut'],
-      ['k401PctB', 'k401PctBOut'],
-      ['catchupPctA', 'catchupPctAOut'],
-      ['catchupPctB', 'catchupPctBOut'],
-      ['iraPctA', 'iraPctAOut'],
-      ['iraPctB', 'iraPctBOut'],
-      ['megaPctA', 'megaPctAOut'],
-      ['megaPctB', 'megaPctBOut'],
-    ].forEach(([key, out]) => (document.getElementById(out).textContent = `${state[key]}%`));
+    FIELDS.filter((field) => field.outSync === 'contrib').forEach(syncFieldOut);
     document.getElementById('megaBackdoor').checked = !!state.megaBackdoor;
     document.getElementById('megaAField').hidden = !state.megaBackdoor;
     document.getElementById('megaBField').hidden = !state.megaBackdoor || state.singlePerson;
@@ -9278,18 +9258,6 @@
     renderExtraExpenseFields();
     renderLumpExpenseFields();
   }
-  [
-    'k401PctA',
-    'k401PctB',
-    'catchupPctA',
-    'catchupPctB',
-    'iraPctA',
-    'iraPctB',
-    'megaPctA',
-    'megaPctB',
-  ].forEach((id) =>
-    document.getElementById(id).addEventListener('input', () => syncContributionControls()),
-  );
   document.getElementById('acaEnabled').addEventListener('change', (e) => {
     state.acaEnabled = e.target.checked;
     syncContributionControls();
