@@ -3623,9 +3623,8 @@
   //  bucketStrategy: bucket withdrawals (cash/bonds first in a down year, bond reserve
   //                  refilled in up years) instead of the standard cascade
   //  usesBondLadder: build the pre-retirement bond ladder
-  //  detailedRows:   full row columns, tax/income totals and the extra result fields
-  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, detailedRows: true };
-  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, detailedRows: false };
+  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true };
+  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false };
 
   // ---- end per-year helpers ----
 
@@ -3642,6 +3641,8 @@
   function runProjection({ mode, source, retireAgeA, retireAgeB }) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
+    // Only the historical source reports a start year; it also adds cumFactor to each row.
+    const isHistorical = source.startYear !== undefined;
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
@@ -3702,10 +3703,10 @@
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
     const bondYears = getBondYears();
-    const projectedExpense = mode.usesBondLadder
-      ? makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB })
-      : null;
-    const ladder = mode.usesBondLadder ? planBondLadder({ retirementYear, bondYears, projectedExpense }) : null;
+    // The ladder plan also feeds the result's currentExpense/retirementExpense/ladderTarget fields,
+    // so it is always sized; mode.usesBondLadder only decides whether money is rotated into it.
+    const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
+    const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
     const projectionYears = singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
@@ -3852,7 +3853,7 @@
       // Ramp linearly over whatever time is actually available before
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
-      if (ladder) rotateIntoBondLadder(bal, { year, ...ladder });
+      if (mode.usesBondLadder) rotateIntoBondLadder(bal, { year, ...ladder });
       const guardrailPortfolioNow =
         bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash + bal.fhsa;
       const wd = newWithdrawal({ bal, profile, meltdownAmount, rmd });
@@ -3875,10 +3876,8 @@
         if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget });
         else withdrawStandard(wd);
         if (wd.need > 1 && !depletedAge) depletedAge = age;
-        if (mode.detailedRows) {
-          totalTax = cppTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
-          totalIncome = totalA + totalB + wd.traditionalGross + wd.taxableGainGross;
-        }
+        totalTax = cppTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
+        totalIncome = totalA + totalB + wd.traditionalGross + wd.taxableGainGross;
         bal.traditional += traditionalContrib + employerMatch;
         bal.roth += rothContrib;
         bal.fhsa += fhsaContrib;
@@ -3893,79 +3892,53 @@
             ? Math.max(0, bal.home - bal.mortgage)
             : 0,
         total = investable + homeEquity - loanBalance;
-      // Row shape differs by mode until the historical-parity work unifies them.
-      rows.push(
-        mode.detailedRows
-          ? {
-              age,
-              ageB,
-              year,
-              taxable: bal.taxable,
-              bonds,
-              traditional: bal.traditional,
-              roth: bal.roth,
-              cash: bal.cash + bal.fhsa,
-              homeEquity,
-              loanBalance,
-              investable,
-              total,
-              working,
-              workingA,
-              workingB,
-              grossIncome: totalIncome,
-              expenses,
-              tax: totalTax,
-              wages,
-              ss: cppA + cppB + oasNetA + oasNetB,
-              pension,
-              rmd,
-              traditionalWithdrawn,
-              taxableWithdrawn,
-              housing,
-              healthcare,
-              ltc,
-              loanPayment,
-              extraExpense,
-              lumpExpense,
-              baseSpend,
-            }
-          : {
-              age,
-              ageB,
-              year,
-              taxable: bal.taxable,
-              bonds,
-              traditional: bal.traditional,
-              roth: bal.roth,
-              cash: bal.cash + bal.fhsa,
-              homeEquity,
-              loanBalance,
-              investable,
-              total,
-              working,
-              workingA,
-              workingB,
-              cumFactor: factor,
-            },
-      );
+      const row = {
+        age,
+        ageB,
+        year,
+        taxable: bal.taxable,
+        bonds,
+        traditional: bal.traditional,
+        roth: bal.roth,
+        cash: bal.cash + bal.fhsa,
+        homeEquity,
+        loanBalance,
+        investable,
+        total,
+        working,
+        workingA,
+        workingB,
+        grossIncome: totalIncome,
+        expenses,
+        tax: totalTax,
+        wages,
+        ss: cppA + cppB + oasNetA + oasNetB,
+        pension,
+        rmd,
+        traditionalWithdrawn,
+        taxableWithdrawn,
+        housing,
+        healthcare,
+        ltc,
+        loanPayment,
+        extraExpense,
+        lumpExpense,
+        baseSpend,
+      };
+      // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
+      if (isHistorical) row.cumFactor = factor;
+      rows.push(row);
       source.endOfYear();
     }
-    // Return shape differs by mode until the historical-parity work unifies them.
-    if (mode.detailedRows)
-      return {
-        rows,
-        depletedAge,
-        firstWithdrawal,
-        retirementYear,
-        currentExpense: projectedExpense(0),
-        retirementExpense: ladder.ladderTranches[0],
-        ladderTarget: ladder.ladderTarget,
-      ...mortgageResultAges(futureBuy, schedule),
-      };
     return {
       rows,
       depletedAge,
-      startYear: source.startYear,
+      firstWithdrawal,
+      retirementYear,
+      currentExpense: projectedExpense(0),
+      retirementExpense: ladder.ladderTranches[0],
+      ladderTarget: ladder.ladderTarget,
+      ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(futureBuy, schedule),
     };
   }
@@ -8594,6 +8567,8 @@
   // that already exist in this closure).
   window.__test_simulate = simulate;
   window.__test_simulateHistorical = simulateHistorical;
+  window.__test_runHistoricalCycles = runHistoricalCycles;
+  window.__test_runMonteCarlo = runMonteCarlo;
   window.__test_HIST = HIST;
   // @@shared:block end
   window.__test_getState = () => state;

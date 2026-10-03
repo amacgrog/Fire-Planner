@@ -11,4 +11,6 @@
   // that already exist in this closure).
   window.__test_simulate = simulate;
   window.__test_simulateHistorical = simulateHistorical;
+  window.__test_runHistoricalCycles = runHistoricalCycles;
+  window.__test_runMonteCarlo = runMonteCarlo;
   window.__test_HIST = HIST;

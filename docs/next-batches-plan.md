@@ -895,7 +895,60 @@ file, leaving the plan as a record of scope and decisions.
 One subsection per batch is added by that batch's PR. Empty until work starts.
 
 ### Batch 1 notes
-_(to be added by the Batch 1 PR)_
+
+Tools added in this batch: `tests/historical_parity.js` (in `npm test`),
+`tests/historical_rates.js [--root DIR]` (before/after success-rate table, not in
+`npm test`), and two test hooks, `window.__test_runHistoricalCycles` and
+`window.__test_runMonteCarlo`. To see what a historical-engine change moved,
+dump a worktree of the previous commit and the current tree
+(`node tests/snapshot.js --root <worktree> --dump A --update-nothing`, then
+`--dump B`) and compare; when the change only adds row columns, compare
+field-wise (every key of A must equal B's) rather than with `--compare`.
+
+**Success-rate baseline (before Batch 1; seeded Monte Carlo, 2000 paths, seed 7;
+`node tests/historical_rates.js`).** "Early retiree" is ages 52/50 retired now,
+life expectancy 95, $1.1M taxable, $1.4M traditional, $0.3M Roth, $80k cash,
+$90k spending (US) with the planner's own defaults otherwise.
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% (41 cycles) | 81.5% |
+| US | early retiree | 90.6% (53 cycles) | 87.2% |
+| US | early retiree, smooth / live mix | 90.6% | 87.2% (the modes are ignored by the historical engine) |
+| US | default, bondYears 4 | 82.9% | 85.2% |
+| Canada | default | 75.6% (41 cycles) | 74.3% |
+| Canada | early retiree (plain and smooth) | 88.7% (53 cycles) | 88.2% |
+| Canada | default, bondYears 4 | 75.6% | 77.1% |
+
+**Step 1, F7 (detailed rows for historical).**
+- The `detailedRows` mode switch is removed rather than flipped on: both modes
+  now build the same row and return the same fields (the old non-detailed
+  branches were dead code once the bucket mode had it on). Historical rows add
+  `cumFactor` (the real-dollar charts divide by it) and the result adds
+  `startYear`; both are keyed off `source.startYear !== undefined`
+  (`isHistorical`), so standard rows are byte-identical to before.
+- The ladder plan (`makeProjectedExpense` + `planBondLadder`) is now sized on
+  every run, because the result's `currentExpense`/`retirementExpense`/
+  `ladderTarget` come from it. `mode.usesBondLadder` decides only whether
+  `rotateIntoBondLadder` moves money (step 4 turns it on).
+- The end-of-year `totalTax`/`totalIncome` correction runs on every withdrawal
+  year in historical runs now (one extra `taxFor` per withdrawal year).
+- Evidence: 774 scenarios dumped before and after: all 114 standard scenarios are
+  identical, and in all 660 historical scenarios (both planners) every
+  pre-existing row field and result field is unchanged; only the new columns
+  appear. The snapshot baselines were regenerated for that reason alone (the
+  hashes cover whole rows, so every historical hash moves when columns are added).
+  Success rates are identical to the baseline table above.
+- Cost: 150 historical runs of an early-retiree scenario, best of 9, before ->
+  after: US 40-42 ms -> 41-44 ms (+3%); Canada 89-98 ms -> 110-112 ms (about
+  +0.13 ms per run, so about +130 ms for a 1,000-path Monte Carlo). Canada pays
+  more because its `taxFor` is heavier.
+- `tests/historical_parity.js`: a constant-return path equal to the plan's own
+  assumptions, `bondYears: 0`, compared with `simulate()` field by field.
+  Tolerance is 2e-5 relative plus $2 absolute: the two engines sum cash flow in a
+  different order and bisect from different brackets (CLAUDE.md, "Withdrawals"),
+  and a 40-year chain turned a ~1e-7 difference into $0.59 on a $10k Roth balance
+  at age 90. Scenario groups are enabled per step (`ENABLED`).
 
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
