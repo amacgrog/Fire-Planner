@@ -60,13 +60,23 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
     territories are out of scope. Canada's income-tested federal benefits
     (Guaranteed Income Supplement and Allowance, Canada Child Benefit, GST/HST
     credit) and provincial benefits are in scope alongside the credits.
+13. Batch 7 review shape: 7D (all remaining states and DC) is **one PR**, and 7K
+    (all provinces) is **one PR**, each reviewed as a whole table. Each ships a
+    generated, human-readable rules table (see 7C) so the owner reviews data, not
+    code.
+14. The Treasury-yield loose end is closed: keep the recorded 2023-2025 yields
+    as they are (the January 2024 value stays; it is documented, not changed).
+15. Every tax, benefit and retirement-account figure is re-confirmed against
+    primary sources at implementation time and cited (owner: yes, all batches).
+16. Batch 3B: the Rule-of-55 age convention keeps the existing one.
 
 ## Execution order
 
 1 (historical parity) -> 2 (US tax and Medicare) -> 3A (account model) -> 3B
 (penalty-aware rules, 72(t), Rule of 55) -> 3C (safe-MAGI room) -> 7A (children)
--> 7B (federal credits) -> 7C-7I (states and DC) -> 7J-7M (Canada: federal
-credits, provinces, income-tested benefits) -> 4A -> 4B -> 5 -> 6.
+-> 7B (federal credits) -> 7C (state framework + reference states) -> 7D (all
+remaining states and DC, one PR) -> 7J (Canada federal credits) -> 7K (all
+provinces, one PR) -> 7L (income-tested benefits) -> 4A -> 4B -> 5 -> 6.
 
 Why: 3A is a no-number-change data-model PR that 3B and 3C depend on. Batch 1's
 mix-mode work in the historical engine is written against the `take*` withdrawal
@@ -447,11 +457,24 @@ Batch 4 is two PRs: **4A** = steps 2-3 above (mixed withdrawals);
 
 Starts only after 4A is merged, since the mix lever needs the Canada mix modes.
 - Port `optimizeMultiLever` and its candidate/window/budget machinery, with the
-  RRSP meltdown ladder as the Roth-lever analogue (candidates are bracket
-  targets or annual RRSP draw levels, to be chosen when 4B is scoped) and the mix
-  lever on the 4A hooks.
-- Reuse as much of the US optimizer as can live in `shared/`; the objective is
-  tax + healthcare equivalent (Canadian tax + OAS clawback; no ACA/IRMAA).
+  RRSP meltdown ladder as the Roth-lever analogue and the mix lever on the 4A
+  hooks.
+- **Candidate set (proposed, owner reviews with Batch 4):** each year's meltdown
+  target is chosen from (a) the five federal bracket ceilings the ladder offers
+  today (14, 20.5, 26, 29.29, 33%), plus (b) computed "kink" targets for that
+  year: the OAS clawback threshold, the top of the age-amount clawback range,
+  the Guaranteed Income Supplement cutoff, and the Canada Child Benefit
+  reduction bands when children are present, and 0 (no meltdown). The kinks are
+  where the true marginal rate jumps (GIS removes about 50 cents per dollar of
+  RRSP/RRIF income; the OAS clawback is 15%), so bracket rates alone would miss
+  the best stopping points. Deduplicate targets within a dollar, as the US
+  candidate list does.
+- **Objective (depends on Batch 7):** net cost = income tax + OAS clawback
+  minus income-tested benefits received (GIS/Allowance, CCB, GST/HST credit,
+  provincial benefits), summed in real dollars. Without the benefit term the
+  search would happily raise income through a GIS cliff. Rows must expose
+  `benefits` as their own column (Batch 7L requirement).
+- Reuse as much of the US optimizer as can live in `shared/`.
 - Interactions to test: pension splitting (`solvePensionSplit()`), the OAS
   clawback threshold, and the 4A mix. Applied schedules persist in `state` and
   need `normalizeState` guards and legacy-state cases.
@@ -468,6 +491,21 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 Run after the engine and tax model have settled, since objective values and
 timing both depend on them.
+
+**Dependencies on Batch 7 (must be in place first):**
+- `row.tax` must include state tax and be net of the new credits (child tax
+  credit, state credits), and the objective registry reads the same row fields
+  the UI shows; Canada rows expose `benefits` separately (see 4B).
+- New cliffs and phase-outs make the objective more discontinuous: the senior
+  deduction phase-out (6% of MAGI above $75,000 / $150,000 through 2028), the
+  child tax credit phase-out, state retirement-exclusion income tests, and state
+  circuit-breaker credit cutoffs. The US candidate list
+  `ROTH_PER_YEAR_CANDIDATES` is federal brackets only; add computed kink targets
+  per year (senior-deduction phase-out edges while in force, state exclusion
+  thresholds) and keep the multi-start structure.
+- Speed: `taxFor()` is the hot path (up to 8,000 projection calls per search).
+  Batch 7C therefore carries a timing gate (below) so the performance baseline
+  in step 1 here starts from a known budget.
 
 1. **Performance baseline** on the final engine: time `optimizeMultiLever` on
    representative scenarios and measure the evaluation budget
@@ -488,19 +526,91 @@ timing both depend on them.
 
 ## Batch 6: independent items and loose ends
 
-- **Social Security (US).** Earnings-history option so the ssa.gov estimate can
-  be adjusted for years not worked before claiming; a trust-fund benefit-cut
-  scenario (percent cut from a chosen year, default off); review spousal and
-  survivor rules and list what stays simplified.
+- **Social Security (US): guided estimate, claim-age rules, spousal and survivor
+  benefits, trust-fund scenario.** Today `ssMonthlyA/B` is a flat monthly amount
+  used as-is from the start age (default 62), and in the survivor period the
+  household simply keeps the greater of the two benefits.
+  1. *Guided PIA entry (replaces "enter whatever ssa.gov says").* Per partner, a
+     short step-by-step panel linking to the SSA Quick Calculator: enter birth
+     date, retirement (claim) month and current salary; click "See the earnings
+     we used"; then either edit the yearly earnings (put zero for years you will
+     not work before claiming) or paste earnings from your record at
+     ssa.gov/myaccount; read the monthly benefit at full retirement age (your
+     PIA, in today's dollars) and enter it here. This fixes the known problem
+     that the default ssa.gov estimate assumes earnings continue until claiming,
+     which overstates an early retiree's benefit. Exact calculator labels are
+     re-checked when implementing.
+  2. *Benefit basis, per partner:* `ssBenefitBasis` = `atClaim` (today's
+     behavior: the amount is paid as-is from the start age) or `pia` (the amount
+     is the PIA at full retirement age and the planner applies the claim-age
+     rules). Saved scenarios and the default scenario stay on `atClaim`, so
+     nothing moves unless the user switches. Claim-age rules in `pia` mode:
+     reduction of 5/9 of 1% per month for the first 36 months early and 5/12 of
+     1% per month beyond; delayed-retirement credit of 2/3 of 1% per month (8% a
+     year) to age 70; full retirement age by birth year, derived from the age
+     input (67 for anyone born 1960 or later).
+  3. *Spousal benefit:* a spouse receives their own benefit plus an excess
+     spousal amount of `max(0, 50% of the worker's PIA - own PIA)`, reduced when
+     claimed before full retirement age (25/36 of 1% per month for the first 36
+     months, 5/12 of 1% beyond; no delayed credits), payable only once the worker
+     has claimed and the spouse is at least 62.
+  4. *Survivor benefit:* replaces the "greater of the two" swap. The survivor
+     receives the larger of their own retirement benefit or the deceased's
+     benefit (including delayed credits if the deceased claimed late; not less
+     than 82.5% of PIA if the deceased claimed early), reduced if the survivor
+     takes survivor benefits before survivor full retirement age (down to 71.5% at
+     60). Survivor full retirement age by birth year is part of the data.
+     Remarriage and divorced-spouse benefits are not modeled (one-line UI note).
+  5. *Trust-fund benefit-cut scenario.* The Social Security trustees project that
+     the retirement trust fund (OASI) runs out of reserves and then incoming
+     payroll taxes can pay only part of the scheduled benefits unless Congress
+     changes the law. The 2026 Trustees Report puts the OASI depletion in the
+     fourth quarter of 2032 with about 78% of scheduled benefits payable
+     afterward (combined OASDI: 2034 and 83%). This is a what-if switch, not a
+     forecast: two fields, `ssBenefitCutPct` (default 0) and `ssBenefitCutStartYear`
+     (default 2033), and one "Use the Trustees' projection" button that sets 22%
+     from 2033. The cut applies proportionally to all Social Security income
+     (own, spousal, survivor) from the start year onward. Default off, so no
+     existing number moves. The preset values live in named constants with a
+     revisit note for each annual Trustees Report.
+  6. *Not modeled, documented in the UI:* the earnings test for claiming before
+     full retirement age while still working; Windfall Elimination Provision and
+     Government Pension Offset (repealed by the Social Security Fairness Act in
+     2025; verify before documenting); family maximum.
+  Tests: new `tests/social_security.js` (claim-age factors at 62/FRA/70, spousal
+  excess with early claiming, survivor larger-of with delayed credits and the
+  82.5% floor, survivor reduction at 60, cut applied from the start year),
+  `survivor_symmetry.js`, legacy-state cases proving `atClaim` for old saves.
 - **HSA** account type: contributions (pre-tax, FICA-exempt via payroll),
   tax-free qualified medical withdrawals, post-65 non-medical treated as
   traditional. New balance in `bal`, snapshot, registry, MCP, Sankey/table
   columns.
-- **Canada CPP/OAS claim-age adjustments:** design decision first (it changes
-  saved scenarios), with `normalizeState` migration and a legacy-state test.
-- **Loose ends:** proxy for bond coupon in the standard projection vs the
-  `Bond return` input; the January 2024 Treasury yield; record the CPI source
-  and check 2023-2025.
+- **Canada CPP/OAS claim-age adjustments (proposed shape).** Same pattern as
+  the Social Security basis, so no saved scenario changes: a per-partner
+  `benefitBasis` for CPP and OAS, `atClaim` by default (today: the entered
+  amount is used as-is from the start age) or `at65` (the user enters the amount
+  their My Service Canada estimate shows at 65 and the planner adjusts for the
+  start age). Adjustment factors (verify at implementation): CPP minus 0.6% per
+  month before 65 (maximum minus 36% at 60) and plus 0.7% per month after 65
+  (maximum plus 42% at 70); OAS plus 0.6% per month after 65 (maximum plus 36%
+  at 70; OAS cannot start before 65). Defaults and migration keep `atClaim`;
+  `tests/legacy_state.js` proves it. For parity with the Social Security
+  survivor work, the CPP survivor's pension (the survivor's own retirement
+  pension combined with a survivor pension, capped at the maximum retirement
+  pension) is a proposed addition; the owner can drop it when reviewing.
+- **Loose ends.**
+  - Bond coupon proxy: the standard projection taxes bond interest at the `Bond
+    return` input, a total return used as a proxy for the coupon. Unchanged
+    unless the owner wants it addressed.
+  - Treasury yields: closed (owner: use the recorded 2023-2025 values as they
+    are; the January 2024 figure stays and is documented).
+  - CPI source: the column is the BLS CPI-U (all items, U.S. city average, not
+    seasonally adjusted), December to December. The recorded 2023-2025 values
+    (3.35, 2.89, 2.68) are consistent with BLS's published 12-month changes
+    (BLS reports 2.7% for the 12 months ending December 2025; 2023 and 2024 to be
+    confirmed the same way). When implementing, confirm all three to two decimals
+    from the BLS index levels and record the series ID and retrieval date in
+    `docs/reference.md` and `docs/roadmap.md`.
 
 ---
 
@@ -525,7 +635,9 @@ Every credit below reads the same list, so it ships as its own small PR.
 - A new add-as-you-go list `children` (the seventh DYN list: default `[]`,
   `LIST_MAX`, spec-driven UI, `normalizeLists`, MCP, legacy-state case). One
   field per child: `birthYear` (a past or **future** year, so "from birth" works
-  for planned children).
+  for planned children). The list starts empty (0 children) and a "+ Add child"
+  button appends a row (with a remove control), exactly like the other
+  add-as-you-go lists.
 - Assumption (owner): a dependent is always a child. Each credit defines its
   own age cutoff (the federal Child Tax Credit is under 17 at year end); a
   helper `dependentsInYear(year)` returns each child's age so a credit can apply
@@ -579,17 +691,26 @@ Every credit below reads the same list, so it ships as its own small PR.
   pattern before the bulk data lands.
 - Local income taxes stay out of scope and are listed as an explicit documented
   gap (e.g. NYC, parts of PA, OH, MD, IN).
+- **Review artifact:** a script generates `docs/state-tax-rules.md` from the
+  data table, one row per jurisdiction with every rule and its source link, so
+  the owner reviews the table as data. `npm test` fails if the generated file is
+  stale (same mechanism as the shared-region check).
+- **Timing gate:** state rules are looked up once per (jurisdiction, year) and
+  cached; the 400-run `simulate()` and 120-run historical timing from Phase 2
+  must stay within +5% (the optimizer calls this path thousands of times).
 
-### 7D-7I: remaining states, in groups of roughly eight (one PR each)
+### 7D: all remaining states and DC (one PR)
 
-Grouping proposal, finalized in 7C: no-income-tax states and special cases;
-flat-rate states; progressive states with simple structures; states with large
-retirement-income exclusions; states with income-tested property-tax /
-renter circuit-breaker credits; remaining multi-credit states. Each PR contains
-the data rows with sources, two hand-computed test households per state (a
-retiree with pension + Social Security + gains; a working family with children),
-and the rewritten state-tax note for those states. The batch-2 disclosure copy is
-replaced when the last group lands.
+Decided: one PR, reviewed as a whole table. Inside the PR the commits are
+grouped by mechanism so the history stays bisectable and the diff is readable:
+no-income-tax states and special cases (including WA's capital-gains tax and
+TN/NH); flat-rate states; progressive states with simple structures; states with
+large retirement-income exclusions; states with income-tested property-tax /
+renter circuit-breaker credits; remaining multi-credit states and DC. The review
+artifact is the generated `docs/state-tax-rules.md` (jurisdiction x rule, with
+source links), plus per-state tests: two hand-computed households per state (a
+retiree with pension + Social Security + gains; a working family with children).
+The batch-2 disclosure copy and each state's tax note are rewritten in this PR.
 
 Research method: each row is taken from the state revenue department's current
 forms and instructions, recorded with URL and date. If the owner wants this
@@ -605,16 +726,31 @@ section of `tests/tax_brackets.js`, and record the before/after (intended
 number change for anyone 65+; per-person, so it respects the two-return model
 and pension splitting).
 
-### 7K: provinces
+### 7K: provinces (one PR)
 
+Decided: all provinces in one PR, reviewed as a whole table via a generated
+`docs/province-tax-rules.md` (same mechanism as the state table). Quebec is its
+own commit inside the PR because it is the largest special case.
 - Same data-table pattern: `PROVINCE_RULES[code]` with a coverage test across
   the 10 provinces (no territories). Items per the owner: provincial basic
   personal / spouse / eligible-dependant amounts (dependants are children from
   7A), age amount and its income clawback, pension income amount, low-income
   reductions, child and family credits, property-tax and rent credits, and
-  dividend tax credits (the federal eligible-dividend credit and gross-up
-  already exist; verify which provincial credits are modeled, the current page
-  says provincial dividend credits are not).
+  dividend tax credits.
+- **Dividend credits, what is already there and what to check.** The code
+  already models the 38% gross-up, the federal eligible-dividend credit
+  (15.0198%) and a provincial eligible-dividend credit rate for each of the ten
+  provinces (`PROVINCE_ELIGIBLE_DTC`); the "How the model works" callout on the
+  page still says provincial dividend credits are not modeled, which is stale and
+  gets corrected here. To verify and decide: (1) each province's 2026
+  eligible-dividend credit rate; (2) non-eligible Canadian dividends (15%
+  gross-up, smaller credit) are currently taxed like interest, which is right
+  for foreign dividends but not for non-eligible Canadian ones, so decide whether
+  the existing eligible-share input needs a non-eligible counterpart; (3)
+  Ontario's surtax is computed before the dividend credit and not recomputed
+  after it, and Quebec's abatement is applied to the federal credit, both noted
+  simplifications to confirm or fix; (4) the credit is non-refundable and
+  floored at zero tax, as modeled.
 - Quebec is a separate provincial return with its own abatement and QPP rules
   and gets its own PR.
 - Reference provinces first (ON, BC, AB, QC), then the rest.
@@ -635,6 +771,8 @@ against tax, so each needs its own income test and its own output line.
 - Provincial benefit programs that are paid rather than credited (e.g. Ontario
   Trillium Benefit components, BC and Alberta family benefits) come with the
   province rows in 7K and reuse the same plumbing.
+- Rows expose a `benefits` column (income-tested benefits received) so the
+  Canada optimizer objective in 4B can net it against tax.
 - Each benefit shows as its own line in the cash-flow outputs so users can see
   income-tested amounts, and survivor symmetry is re-checked
   (`tests/survivor_symmetry.js`).
@@ -649,16 +787,20 @@ from 7A is read through `dependentsInYear(year)`.
 
 ## Open items
 
-All questions from earlier revisions are answered (see "Decisions already made
-by the owner"). Still to be settled when the relevant batch is scoped:
-- Batch 3A: how the first-run wizard collects the four balances (proposal: keep
-  its two quick entries and fill the 401(k) and Roth IRA buckets, with a link to
-  the detailed group).
-- Batch 3B: the Rule-of-55 age convention keeps the existing one (documented).
-- Batch 4B: which candidate set the RRSP-meltdown lever searches (Batches 4-6 are
-  pending the owner's review).
-- Batch 6: the shape of the CPP/OAS claim-age change (affects saved scenarios).
-- All batches: every tax, benefit and retirement-account figure is re-confirmed
-  against primary sources (IRS, state revenue departments, CRA) at implementation
-  time and cited in the commit and in `docs/reference.md`; the planning pass used
-  secondary sources because irs.gov was not reachable.
+Everything raised so far is answered or recorded as a decision above. What
+remains is detail to settle when the relevant batch is scoped:
+- Batch 3A, first-run wizard (clarified for the owner in chat; awaiting a yes):
+  the wizard keeps asking for one combined traditional balance and one combined
+  Roth balance, then fills the new accounts: all traditional into the two
+  partners' 401(k) buckets split by the old 50/50 default, all Roth into the two
+  Roth IRA buckets. A single added wizard slider, "share of traditional money in
+  IRAs rather than a 401(k)", moves that share into the IRA buckets, because the
+  Rule of 55 helps only 401(k) money. The detailed "Retirement accounts" group
+  stays the place to enter exact per-account balances.
+- Batch 4B: the proposed candidate set and benefit-netted objective (see 4B) are
+  the owner's to confirm when reviewing Batch 4.
+- Batch 6: the proposed Social Security and CPP/OAS shapes (see above) are the
+  owner's to confirm when reviewing Batch 6.
+- All batches: figures are confirmed against primary sources at implementation
+  time (decided). The planning pass used secondary sources because irs.gov was
+  not reachable.
