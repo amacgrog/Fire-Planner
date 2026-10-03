@@ -98,6 +98,34 @@ Each planner is one big IIFE. Core shape:
   overwritten with it after convergence; the in-body assignment is
   provisional and only read by the plan's first-year IRMAA stand-in.
   Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
+- **Per-year helpers** (section "Per-year helpers shared by simulate() and
+  simulateHistoricalCore()", just above `simulate()`). The year loop is a
+  sequence of named stages: `listAmountsForYear`, `retirementContributions`,
+  `socialSecurityIncome`/`cppAndOasIncome`, `pensionIncome`,
+  `requiredDistributions`, `housingForYear`, `loanPaymentForYear`,
+  `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US),
+  `healthcareCost`, `payrollTax`, then balance mutations (`growBalances`,
+  `withdrawRequiredDistributions`, `applyRothConversion`/`applyRrspMeltdown`,
+  `sweepExcessCash`, `rotateIntoBondLadder`) and the withdrawal. Add a new
+  per-year rule to the matching helper, not inline in an engine.
+- **Account balances live in one `bal` object** (`bal.taxable`,
+  `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
+  `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
+  `bal.cash`, `bal.home`, `bal.mortgage`, plus `bal.fhsa` in Canada), not loose
+  `let`s. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
+  rewound automatically; only scalars (depletedAge, guardrail state) still need
+  adding to `scalarSnapshot`.
+- **Withdrawals** build a `wd` object (`newWithdrawal`) and run a strategy:
+  `withdrawStandard` (simulate: explicit/optimizer mix, live mix, smooth, or
+  taxable-then-traditional, then the Roth/cash/bond/home fallback) or
+  `withdrawBucket` (simulateHistorical: cash and bonds first in a down year, then
+  stocks; in an up year stocks first, then refill the bond reserve). Both are
+  built from `takeTaxable`/`takeTraditional`/`takeRoth`/`takeCash`/
+  `takeHomeEquity`, which return net cash and leave `wd.need` to the caller
+  (the strategies differ on clamping a tiny overshoot to zero).
+  `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
+  different brackets and give slightly different (~1e-7) answers; both are
+  kept on purpose until the numerics are unified as a deliberate change.
 - `simulateHistorical(rowFn, retireAgeA, retireAgeB)` — a near-duplicate of
   `simulate()` used by the historical-backtest and Monte Carlo views; takes a
   `rowFn(year)` returning actual-historical `[calendarYear, stockReturn,

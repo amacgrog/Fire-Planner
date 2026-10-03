@@ -6590,3 +6590,18 @@ proves every differing number is within 1e-9 relative, and is recorded here.
 - Shared Canada `payrollTax()` (CPP): historical engine, 6 Canada scenarios in
   working years (`hist default | real1973 / real2000 / crashFirst / sawtooth /
   flat / mc2`) differ by about 1e-16 relative. Standard engine unchanged.
+
+### Phase 2 step 1 result (per-year helpers, `bal`, withdrawal blocks)
+
+All extractions kept the engine and UI snapshots exact except the two
+payroll-tax association changes recorded above. Engine sizes (lines, from
+function start to end): US `simulate()` 1066 -> 464 and `simulateHistoricalCore`
+813 -> 349; Canada `simulate()` 686 -> 352 and historical 574 -> 268.
+Micro-benchmark (400 runs, default early-retiree state, in-page): US standard
+engine 0.69-0.76 -> 0.74-0.83 ms (about +5-8%); US historical 0.34-0.44 ->
+0.33-0.34 ms; Canada standard 1.6 -> 1.05 ms; Canada historical 0.68-0.79 ->
+0.58 ms. Helpers that are byte-identical in both planners (for the later
+shared-region step): listAmountsForYear, pensionIncome, loanPaymentForYear,
+nextGuardrailMultiplier, withdrawRequiredDistributions, sweepExcessCash,
+rotateIntoBondLadder, refillBondReserve, takeCash/takeHomeEquity-shaped blocks.
+
