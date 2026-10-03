@@ -5055,10 +5055,8 @@
   //  bucketStrategy:    bucket withdrawals (cash/bonds first in a down year, bond reserve
   //                     refilled in up years) instead of the standard cascade
   //  usesBondLadder:    build the pre-retirement bond ladder
-  //  usesMagiRoom:      always compute the safe-MAGI ceiling and let it bound the withdrawal
-  //                     order (otherwise only when a Roth conversion is sized)
-  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, usesMagiRoom: true };
-  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, usesMagiRoom: false };
+  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true };
+  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false };
 
   // ---- end per-year helpers ----
 
@@ -5267,33 +5265,30 @@
         let magiSafeRoom = Infinity;
         const convertsThisYear =
           state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge;
-        // The standard mode always computes the ceiling (it also bounds the withdrawal order);
-        // the bucket mode computes it only to size a conversion.
-        if (mode.usesMagiRoom || convertsThisYear) {
-          // Uses this year's estimated discretionary income (estTrad/estGain), same
-          // as magiProxy below — see the iteration note in the year loop.
-          const preConvMagi = magiBase + estTrad + estGain;
-          const magiCeiling = conversionMagiCeiling({
-            acaEligibleA,
-            acaEligibleB,
-            singlePerson,
-            isSurvivorPeriod,
-            deceasedIsA,
-            deceasedIsB,
-            workingA,
-            workingB,
-            age,
-            ageB,
-            preConvMagi,
-            filing,
-            year,
-          });
-          if (magiCeiling < Infinity) estUsed = true;
-          magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
-          if (convertsThisYear) {
-            const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
-            conversionAmount = solveRothConversion(profile, conversionCap, year, age);
-          }
+        // The ceiling is computed every year: it sizes a conversion and bounds the withdrawal order.
+        // Uses this year's estimated discretionary income (estTrad/estGain), same
+        // as magiProxy below — see the iteration note in the year loop.
+        const preConvMagi = magiBase + estTrad + estGain;
+        const magiCeiling = conversionMagiCeiling({
+          acaEligibleA,
+          acaEligibleB,
+          singlePerson,
+          isSurvivorPeriod,
+          deceasedIsA,
+          deceasedIsB,
+          workingA,
+          workingB,
+          age,
+          ageB,
+          preConvMagi,
+          filing,
+          year,
+        });
+        if (magiCeiling < Infinity) estUsed = true;
+        magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
+        if (convertsThisYear) {
+          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
+          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
         }
         const magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at

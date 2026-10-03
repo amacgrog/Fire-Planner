@@ -972,6 +972,20 @@ $90k spending (US) with the planner's own defaults otherwise.
   does not fail the test, since the two still agree; that is what the snapshot
   grid scenario is for.
 
+**Step 3, F2 (`usesMagiRoom`, US).**
+- The safe-MAGI ceiling (`conversionMagiCeiling`, `magiSafeRoom`) is now computed
+  every year in the historical engine, not only in a Roth-conversion year. The
+  `usesMagiRoom` switch is removed (always on); the block is unconditional.
+  Nothing in the historical engine reads `magiSafeRoom` outside a conversion year
+  until step 5 (the live mix reads it as `remainingMagiRoom`).
+- Risk checked: computing the ceiling can set `estUsed` in years where a finite
+  MAGI ceiling exists (ACA 400% FPL, IRMAA tier for a retiree 63+), which adds
+  MAGI-iteration passes. Result: 794 scenarios dumped before and after, 0 differ
+  (the grid includes ACA, ACA enhanced, conversions, IRMAA prior-known and
+  retirees past 63 in the historical engine), so the extra passes converged to
+  the same values to the bit. No snapshot update was needed and success rates are
+  unchanged.
+
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
 

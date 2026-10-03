@@ -117,7 +117,7 @@ Each planner is one big IIFE. Core shape:
   (`yearInputs(year)` → stock return, bond return, bond interest yield,
   inflation `factor`; `endOfYear()` advances running inflation). The mode is a
   small object of explicit capability switches — `bucketStrategy`,
-  `usesBondLadder`, `usesMagiRoom` (US) — that
+  `usesBondLadder` — that
   reproduce each way of running the engine exactly. The bucket mode's switches
   are off only because the historical engine lacked those features; the
   historical-parity work (Batch 1 of `docs/next-batches-plan.md`) turns them on
