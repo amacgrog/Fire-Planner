@@ -786,6 +786,7 @@
       }
     })(),
     SCENARIO_SCHEMA_VERSION = 1;
+  // @@shared:01-LIST_MAX begin
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
   // hand-edited one) into a complete, current-shape state by merging it over
@@ -914,6 +915,7 @@
   // The order of the numeric entries is the order of the MCP schema's properties.
   const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
   const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
+  // @@shared:01-LIST_MAX end
   const clampLifeExpectancyA = () =>
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
   const clampLifeExpectancyB = () =>
@@ -1105,6 +1107,7 @@
     lastProjectionView = '3yr',
     scenarios = [],
     compareIds = new Set();
+  // @@shared:02-CHART_GROUPS begin
   // Which top-level chart "view" a given chartView value belongs to — the
   // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
   // three projection sub-views (3yr/1yr/cagr) under one button, and
@@ -1150,6 +1153,7 @@
       localStorage.setItem('fireCouplePlanner.sidebarCollapsed.v1', next ? '1' : '0');
     } catch {}
   }
+  // @@shared:02-CHART_GROUPS end
   // Category rail: filters .category-fields down to a single category's
   // groups at a time, at every width including mobile. Not persisted to
   // localStorage on purpose: unlike sidebarCollapsed (a standing layout
@@ -1188,6 +1192,7 @@
       if (panel) panel.scrollTop = 0;
     }
   }
+  // @@shared:03-hadSavedState begin
   // Whether a real, previously-saved plan was found in this browser at
   // boot — used below to skip showing the first-run banner (there's
   // nothing "first-run" about a returning visitor whose numbers just
@@ -1314,6 +1319,7 @@
       fieldEl.title = isDefault ? 'Still the generic example value' : '';
     });
   }
+  // @@shared:03-hadSavedState end
   // "Still estimated" badges + dashboard rollup + guided review nav. A field
   // is "counted" when it's personal (not a pure modeling assumption like
   // returnRate/inflation, which keep only the quiet `.is-default` dot
@@ -1339,6 +1345,7 @@
       gate: () => state.tenure === 'rentThenBuy',
     },
   ];
+  // @@shared:04-isEstimateCountable begin
   function isEstimateCountable(id) {
     if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
     const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
@@ -1888,6 +1895,7 @@
       .join('');
     syncUnusualToast(flagged);
   }
+  // @@shared:04-isEstimateCountable end
   // Cheap, string-only sidebar group summaries — no simulate() calls, just
   // formatting already-live `state`. Called from the top of render(),
   // alongside markDefaultFields(). "Always-on" groups always get plain
@@ -2048,6 +2056,7 @@
       setGroupState('withdrawalStrategyGroupState', '', false);
     }
   }
+  // @@shared:05-pct begin
   const pct = (n) => (n || 0) / 100;
   const escapeHtml = (s) =>
     String(s).replace(
@@ -2171,12 +2180,14 @@
   ];
   const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
   const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+  // @@shared:05-pct end
   // Tax-parameter indexing. Brackets, credits, the OAS clawback threshold and
   // CPP contribution limits all index by this factor. In the deterministic
   // projection it is the steady state.inflation compounded by yearIndex;
   // inside simulateHistorical() (backtest and Monte Carlo) it is the path's
   // own cumulative CPI, so a 1970s-style inflation sequence raises the
   // brackets along with spending instead of leaving them on a 2.5% schedule.
+  // @@shared:06-histTaxFactors begin
   let histTaxFactors = null;
   function taxIndexFactor(yearIndex) {
     if (histTaxFactors) {
@@ -2198,6 +2209,7 @@
     const v = Number(state.bondYears);
     return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
   }
+  // @@shared:06-histTaxFactors end
 
   function progressiveTax(income, brackets) {
     let tax = 0,
@@ -2598,6 +2610,7 @@
       cpp2 = Math.max(0, Math.min(wages, yampe) - ympe) * 0.04;
     return cpp1 + cpp2;
   }
+  // @@shared:07-mortgagePayment begin
   function mortgagePayment(principal, annualRate, years) {
     if (!principal || !years) return 0;
     const r = annualRate / 12,
@@ -2799,6 +2812,7 @@
     if (chartXAxisMode === 'year') return CURRENT_YEAR + Math.round(age - state.ageA);
     return Math.round(age);
   }
+  // @@shared:07-mortgagePayment end
 
   // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----
   // This year's amounts from the add-as-you-go lists: recurring extra income
@@ -2821,6 +2835,7 @@
     return { extraIncome, oneTimeAmount, extraExpense, lumpExpense };
   }
 
+  // @@shared:08-pensionIncome begin
   // Pension income for the year (which partner(s) are covered is set by
   // state.pensionCoverage; the single-person case always uses Partner A's
   // pension). The deceased partner's pension drops out in the survivor period.
@@ -2843,6 +2858,7 @@
     const pension = pensionA + pensionB;
     return { pensionA, pensionB, pension };
   }
+  // @@shared:08-pensionIncome end
 
   // Total "other loans" payment for the year. In the survivor period the
   // remaining balance is paid off as a lump sum in the year of death
@@ -2881,6 +2897,7 @@
     bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
   }
 
+  // @@shared:09-sweepExcessCash begin
   // Cash above the reserve target is invested in the taxable account (at full
   // cost basis, since it was already-taxed cash).
   function sweepExcessCash(bal, reserveTarget) {
@@ -2912,6 +2929,7 @@
     bal.traditional -= traditionalMove;
     bal.bondTraditional += traditionalMove;
   }
+  // @@shared:09-sweepExcessCash end
 
   // RRSP, TFSA and FHSA contributions for one year, from each partner's modeled
   // wage (zero once retired). RRSP room is 18% of wages up to the dollar limit;
@@ -3376,6 +3394,7 @@
     if (yearReturn >= 0) refillBondReserve(wd.bal, bondTarget);
   }
 
+  // @@shared:10-refillBondReserve begin
   // Tops the bond reserve up to bondTarget from taxable, then traditional, then
   // Roth (taxable moves carry their share of cost basis).
   function refillBondReserve(bal, bondTarget) {
@@ -3400,8 +3419,10 @@
       bal.bondRoth += fromRoth;
     }
   }
+  // @@shared:10-refillBondReserve end
   // ---- end withdrawal building blocks ----
 
+  // @@shared:11-makeProjectedExpense begin
   // Projected total living expense for a future year in nominal dollars at the plan's
   // assumed inflation: spending + healthcare + LTC + shelter + recurring extra expenses.
   // Sizes the pre-retirement bond ladder.
@@ -3444,6 +3465,7 @@
       rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : Math.max(0, bondYearsCeil - 1);
     return { ladderTranches, ladderTarget, rotationStartYear, rotationEndYear };
   }
+  // @@shared:11-makeProjectedExpense end
   // A year with income above spending, tax and contributions: the surplus first tops cash
   // up to the reserve, then (bucket strategy in an up year, bondTarget not null) rebuilds
   // the bond reserve, and the rest is invested in taxable. This year's contributions then
@@ -3465,6 +3487,7 @@
     bal.roth += rothContrib;
     bal.fhsa += fhsaContrib;
   }
+  // @@shared:12-standardYearSource begin
   // ---- Year sources and modes for runProjection() ----
   // A year source supplies each year's market inputs: yearInputs(year) returns the stock
   // return, bond return, bond interest yield (taxed each year) and the cumulative inflation
@@ -3512,6 +3535,7 @@
       },
     };
   }
+  // @@shared:12-standardYearSource end
   // The explicit differences between the two ways of running the engine. These switches
   // reproduce today's behavior exactly; the historical-parity work turns the bucket mode's
   // switches on one at a time.
@@ -3896,6 +3920,7 @@
     };
   }
 
+  // @@shared:13-simulate begin
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     return runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB });
   }
@@ -3963,6 +3988,7 @@
     const successRate = paths.filter((p) => !p.depletedAge).length / paths.length;
     return { paths, successRate, projectionYears };
   }
+  // @@shared:13-simulate end
 
   function render() {
     document.body.classList.toggle('single-person', !!state.singlePerson);
@@ -4090,6 +4116,7 @@
   // to a specific input (LTC off, healthcare premiums off) by temporarily
   // mutating state and re-running simulate(), then restoring state exactly —
   // same mutate/simulate/restore pattern as simulateAtRealCagr() below. These
+  // @@shared:14-findMinimalSpendingCut begin
   // are reported whenever any of them helps, because they're a specific,
   // non-obvious diagnosis. Only when none of them help does it fall back to
   // the generic levers everyone always has (spending, retirement timing) —
@@ -4160,6 +4187,7 @@
       resolved: false,
     };
   }
+  // @@shared:14-findMinimalSpendingCut end
   function analyzeShortfallDrivers(selected) {
     if (!selected.depletedAge) return null;
     const structuralCandidates = [];
@@ -4218,6 +4246,7 @@
     return { ...best, kind: 'generic' };
   }
 
+  // @@shared:15-renderPlanHeadline begin
   // The positive counterpart to renderShortfallBanner(): when the plan
   // doesn't deplete, says so plainly with the actual numbers (end age,
   // end assets) rather than leaving the top of the dashboard silent.
@@ -4260,6 +4289,7 @@
         : `No single cost or income assumption tested here explains it — this looks like a general balance-of-spending-vs-savings shortfall rather than one specific driver. The smallest change (of the two generic levers everyone has) that ${driver.resolved ? 'fully resolves it' : 'helps most'}: <b>${driver.detail}</b>, which brings the portfolio to ${newLasts}.`;
     banner.innerHTML = intro + body;
   }
+  // @@shared:15-renderPlanHeadline end
 
   // Real-CAGR sweep: temporarily overrides the nominal investment return with
   // the nominal rate equivalent to the given real CAGR compounded on top of
@@ -4429,6 +4459,7 @@
       },
     },
   ];
+  // @@shared:16-decisionEndAssets begin
   // "Explore a question" menu: a handful of pre-wired comparisons over
   // logic that already exists elsewhere (simulate()'s retireAgeA/B override
   // params, and the mutate/simulate/restore idiom SENSITIVITY_LEVERS uses),
@@ -4458,6 +4489,7 @@
     if (fromSim.depletedAge === toSim.depletedAge) return assetsPart;
     return `${assetsPart} and moves your depletion point from ${decisionDepletionLabel(fromSim)} to ${decisionDepletionLabel(toSim)}`;
   }
+  // @@shared:16-decisionEndAssets end
   // A compact one-line preview shown right on each "Explore a question"
   // button, so the likely answer is visible at a glance without clicking
   // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
@@ -4494,6 +4526,7 @@
       stripCurrent = (s) => s.replace(/\s*\(current\)\s*$/, '').trim();
     return `${stripCurrent(left.label)} → ${stripCurrent(right.label)}: ${dollarPart}${lastsPart}`;
   }
+  // @@shared:17-renderDecisionQuestionPreviews begin
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
   // ones (sensitivity, returns) don't compare two scenarios, they just hand
   // off to an existing card, so there's nothing to preview. Gated by
@@ -4519,6 +4552,7 @@
   function switchToDashboardTab() {
     if (document.getElementById('workspace').dataset.mobileView === 'inputs') setMobileView('dashboard');
   }
+  // @@shared:17-renderDecisionQuestionPreviews end
   function renderDecisionCompareTable(rows) {
     // "Investments last through" follows the same "Age {maxLifeExpectancy}+"
     // convention as the main scenario-compare table and the RRSP meltdown
@@ -4667,6 +4701,7 @@
       },
     },
   };
+  // @@shared:18-computeSensitivity begin
   function computeSensitivity(selected) {
     const finalValue = (sim) => {
       const r = sim.rows.at(-1);
@@ -4706,6 +4741,7 @@
     results.sort((a, b) => b.high - b.low - (a.high - a.low));
     return { baseline, results, usePeak };
   }
+  // @@shared:18-computeSensitivity end
 
   function renderTornadoChart(selected) {
     const canvas = document.getElementById('tornadoChart');
@@ -4890,6 +4926,7 @@
       sources.push({ label: 'From portfolio', value: totalOut - totalIn, color: muted, plug: true });
     return { sources, uses, total: Math.max(totalIn, totalOut) };
   }
+  // @@shared:19-layoutSankeyColumn begin
   // Stacks `nodes` top-to-bottom over [y0,y1] proportional to value/total.
   // Returns each node's true (exact) y-range plus a gap-inset draw range
   // (the "surface gap" spacer that visually separates touching bands
@@ -5176,6 +5213,7 @@
       .join('');
     card.hidden = false;
   }
+  // @@shared:19-layoutSankeyColumn end
 
   function simulateAtRealCagr(realCagrPct) {
     const infl = pct(state.inflation),
@@ -5431,6 +5469,7 @@
     }
   }
 
+  // @@shared:20-renderTable begin
   function renderTable(sim) {
     const years = [
       0,
@@ -5766,6 +5805,7 @@
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
   }
   let chartTooltipEl = null;
+  // @@shared:20-renderTable end
   function initChartHover() {
     const wrap = document.querySelector('.chart-wrap'),
       canvas = document.getElementById('chart');
@@ -5892,6 +5932,7 @@
     canvas.addEventListener('touchend', clearChartHover);
   }
 
+  // @@shared:21-writeStorageNow begin
   // Autosaves `state`/`mode` to this browser's localStorage (never sent
   // anywhere — see the README's privacy note) so a reload or a later visit
   // comes back to real numbers instead of the generic example data.
@@ -6222,6 +6263,7 @@
       )
       .join('');
   }
+  // @@shared:21-writeStorageNow end
   function buildPrintReport() {
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
@@ -6319,6 +6361,7 @@
       <p class="pr-disclaimer">"Income" is an estimate of taxable income (wages after retirement contributions, CPP, OAS, pension, RRIF withdrawals, and any RRSP meltdown) and excludes brokerage capital gains, which are taxed separately on withdrawal. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/provincial income tax plus CPP contributions. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal/provincial tax parameters, RRSP/TFSA/FHSA limits, CPP/OAS amounts, and RRIF minimum withdrawal factors are 2026 planning estimates and held constant in real terms.</p>
     `;
   }
+  // @@shared:22-exportCsv begin
   function exportCsv() {
     const sim = simulate(),
       columns = [
@@ -6400,6 +6443,7 @@
       showIf: (it) => !it.flat && !it.followGrowth,
     },
   ];
+  // @@shared:22-exportCsv end
   const DYN = {
     loans: {
       key: 'loans',
@@ -6581,6 +6625,7 @@
       ],
     },
   };
+  // @@shared:23-dynFieldHtml begin
   function dynFieldHtml(spec, f, item, i) {
     const id = `${spec.prefix}${i}${f.key[0].toUpperCase()}${f.key.slice(1)}`,
       small = f.short ? `<small>${escapeHtml(f.short)}</small>` : '',
@@ -6701,6 +6746,7 @@
   function syncFieldOut(field) {
     document.getElementById(field.key + 'Out').textContent = field.out(state[field.key]);
   }
+  // @@shared:23-dynFieldHtml end
   function syncControls() {
     FIELDS.forEach((field) => {
       if (field.type !== 'number') return;
@@ -6796,6 +6842,7 @@
     });
     refreshMoneyPreviews();
   }
+  // @@shared:24-syncContributionControls begin
   FIELDS.filter((field) => field.type === 'number').forEach((field) => {
     const id = field.key;
     document.getElementById(id).addEventListener('input', (e) => {
@@ -7211,6 +7258,7 @@
     render();
     saveInputs();
   }
+  // @@shared:24-syncContributionControls end
   function setPensionCoverage(value) {
     state.pensionCoverage = value;
     syncControls();
@@ -7293,6 +7341,7 @@
   document.getElementById('chartXAxisAgeABtn').addEventListener('click', () => setChartXAxisMode('ageA'));
   document.getElementById('chartXAxisAgeBBtn').addEventListener('click', () => setChartXAxisMode('ageB'));
   document.getElementById('chartXAxisYearBtn').addEventListener('click', () => setChartXAxisMode('year'));
+  // @@shared:25-setMcPathCount begin
   (function setupDollarModeDropdown() {
     const dd = document.getElementById('dollarModeDd'),
       btn = document.getElementById('dollarModeBtn'),
@@ -7417,6 +7466,8 @@
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement && chartExpanded) setChartExpanded(false);
   });
+  // @@shared:25-setMcPathCount end
+  // @@shared:26-setChartView begin
   function setChartView(next) {
     chartView = next;
     if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
@@ -7526,6 +7577,7 @@
     const tb = document.querySelector('.topbar');
     if (tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px');
   }
+  // @@shared:26-setChartView end
   // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
   // both stick to the top of the viewport as the page scrolls, and the
   // sidebar's own sticky panel-title has to clear both of them too once
@@ -7579,6 +7631,7 @@
       document.documentElement.style.setProperty('--field-search-h', searchWrap.offsetHeight + 'px');
     }
   }
+  // @@shared:27-syncKeyboardInset begin
   // `#reviewNav` (the floating "Next →" pill) is `position:fixed;bottom:...`,
   // anchored to the bottom of the *layout* viewport. When the on-screen
   // keyboard opens for a focused text field, mobile browsers typically leave
@@ -8120,6 +8173,7 @@
     window.visualViewport.addEventListener('resize', syncKeyboardInset);
     window.visualViewport.addEventListener('scroll', syncKeyboardInset);
   }
+  // @@shared:27-syncKeyboardInset end
   // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
   // fields needed to get any projection running at all (single/partnered,
   // ages, income, retirement age, starting balances, spending); step 2 is the
@@ -8139,6 +8193,7 @@
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
+  // @@shared:28-wizardOverlay begin
   [
     ['wizardAgeA', 'ageA'],
     ['wizardAgeB', 'ageB'],
@@ -8222,12 +8277,14 @@
   document.getElementById('sensitivityCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
+  // @@shared:28-wizardOverlay end
   document.getElementById('sensLeverToggles').addEventListener('change', () => {
     if (document.getElementById('sensitivityCard').open) renderTornadoChart(simulate());
   });
   document.getElementById('rothOptimizerCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
+  // @@shared:29-dismissFirstRunBanner begin
   document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
     if (e.target.open) render();
   });
@@ -8456,6 +8513,7 @@
       execute: async () => window.fireProjection,
     });
   }
+  // @@shared:29-dismissFirstRunBanner end
   // Test hooks (same convention as Planner_US.html).
   window.__test_simulate = simulate;
   window.__test_simulateHistorical = simulateHistorical;

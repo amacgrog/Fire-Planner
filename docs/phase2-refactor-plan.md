@@ -274,7 +274,7 @@ schema/allow-list from it.
 3.5 Docs: replace the "`ids` / two sync functions" guidance in `CLAUDE.md`
     with the registry rules; keep a short "how to add a field" recipe.
 
-## 7. Step 4: share structure between US and Canada (roadmap item 4)
+## 7. Step 4: share structure between US and Canada (roadmap item 4) — IN PROGRESS (4.2/4.3 done for JS)
 
 Constraint: **no build step** and each file stays self-contained, so the
 options are:
@@ -310,6 +310,16 @@ Plan for A, in order:
     across.)
 4.6 Update `CLAUDE.md` (Architecture + "US vs Canada") and the file-structure
     paragraph; `index.html` unchanged.
+
+**Status.** Option A is built for the inline JS (steps 4.2 and 4.3):
+`scripts/sync-shared.js` + 29 regions in `shared/NN-name.js`
+(~4,280 byte-identical lines; the planners are unchanged apart from the
+`// @@shared:<name> begin/end` marker comments). `npm test` starts with
+`--check`; `npm run sync` rewrites both files from `shared/`;
+`npm run sync -- --pull Planner_US.html` copies an in-place edit back into
+`shared/` first. Regions were picked as contiguous identical runs of >= 20
+lines, trimmed to balanced top-level boundaries. Still open: 4.1 (cosmetic
+drift so more code joins a region), 4.4 (CSS/HTML), 4.5 (engine skeleton), 4.6.
 
 ## 8. Order of work and verification gates
 

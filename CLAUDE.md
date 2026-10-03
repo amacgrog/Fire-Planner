@@ -227,6 +227,20 @@ on an ancestor silently breaks `position:sticky` everywhere on the page — use
 `overflow-x:clip` instead, and verify sticky behavior with a real scroll
 gesture, not `window.scrollTo()` + an overflow-width check).
 
+## Shared code between the planners (marked regions)
+
+Code that is byte-identical in both planners lives between
+`// @@shared:<name> begin` / `end` marker comments, with the canonical copy in
+`shared/<name>.js`. Never edit one planner's region alone: edit the fragment
+and run `npm run sync`, or edit a planner in place, then
+`npm run sync -- --pull Planner_US.html` (copies back to `shared/`) and
+`npm run sync` (updates the other file). `npm test` runs
+`scripts/sync-shared.js --check` first, so drift fails CI. Not a build step:
+the planners stay self-contained and run by opening the file. To make code
+shared that currently differs, first remove the difference (see
+`docs/phase2-refactor-plan.md` section 7), then wrap it in a new region (add
+the markers to both files plus a `shared/` fragment).
+
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
 The two planners share overall structure but diverge in ways that make blind
