@@ -31,6 +31,14 @@ feature list.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
   `normalizeState()` result is pinned (`tests/snapshots/legacy_state.json`); run it
   when touching `normalizeState`, `normalizeLists`, or an enum guard.
+- `tests/bond_refill.js` — hand-computed unit test of `refillBondReserve` (cap, order,
+  realized gain, never home/cash) plus engine checks of the cap and the surplus path.
+- `tests/historical_parity.js` — runs a constant-return historical path (equal to
+  the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every
+  shared row field agrees year by year; its `ENABLED` groups grow with each Batch 1
+  step. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded)
+  Monte Carlo success rates for a few scenarios, for before/after tables; not in
+  `npm test`.
 - `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`
   — exact-match characterization test of `simulate()`/`simulateHistorical()`
   over ~435 US / ~340 Canada scenarios (standard, retirement-age shifts, and
@@ -110,12 +118,33 @@ Each planner is one big IIFE. Core shape:
 - **Year source and mode.** A year source supplies each year's market inputs
   (`yearInputs(year)` → stock return, bond return, bond interest yield,
   inflation `factor`; `endOfYear()` advances running inflation). The mode is a
-  small object of explicit capability switches — `bucketStrategy`,
-  `usesBondLadder`, `usesMagiRoom` (US), `passConversionAge` (US),
-  `detailedRows` — that reproduce each way of running the engine exactly. The
-  bucket mode's switches are off today only because the historical engine lacked
-  those features; the planned historical-parity work turns them on one at a time
-  (see `docs/phase2-refactor-plan.md` Appendix A). Do not add a new
+  small object of explicit capability switches. Today it has one,
+  `bucketStrategy` (cash/bonds first in a down year, bond reserve refilled in up
+  years, instead of the standard cascade); the other differences between the two
+  ways of running the engine (detailed rows, Roth-conversion age key, safe-MAGI
+  ceiling, pre-retirement bond ladder) were switches that the historical-parity
+  work (Batch 1 of `docs/next-batches-plan.md`) turned on and then removed, so
+  both modes now run them. Rows and result fields are identical in both modes;
+  historical rows additionally carry `cumFactor` and the result carries
+  `startYear`. The bond reserve is refilled gradually: `routeSurplus` fills it from
+  surplus cash (limited by the surplus and `bondTarget`, no extra cap), and
+  `refillBondReserve(wd, bondTarget, { maxMove })` (up years, after the draw)
+  moves at most one year of that year's non-lump expenses into bonds:
+  traditional, then Roth (no income, no penalty), then taxable last, a real sale
+  through `drawTaxable` whose gain goes into `wd.taxableGainGross` (so tax, MAGI
+  and the MAGI iteration see it) with the tax paid from the proceeds; never cash
+  or home equity. `rotateIntoBondLadder` (the pre-retirement ladder, both
+  engines) uses the same source order (traditional, Roth, taxable last); a taxable
+  move is a real sale through `drawTaxable` whose gain it returns, and the engine
+  adds that to `wd.taxableGainGross` (and to the row's tax/income in a surplus
+  year). The stock-account step of the bucket strategy is one grouped step,
+  `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
+  override mix, live mix, smooth) or `drawSmoothStockAccounts` (Canada: smooth
+  only), the same code `withdrawStandard` uses, with the bucket's own bisection
+  bracket (`solveTraditionalForNetFromNeed`); with no mix mode on it runs the
+  original taxable -> traditional -> Roth steps. Cash and the bond buckets keep
+  their place in the down/up-year orders. The pre-retirement ladder is sized once from the plan's assumed
+  inflation (`source.inflation`) in both engines. Do not add a new
   historical-only fork of the year loop; add a mode switch.
 - **MAGI iteration (both engines).** ACA subsidy, the ACA/IRMAA
   Roth-conversion ceilings and the IRMAA lookback need THIS year's MAGI,

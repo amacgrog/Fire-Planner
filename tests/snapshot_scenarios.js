@@ -209,11 +209,11 @@ function histGrid(std, names, seriesIds) {
 function scenarios(isUS) {
   const std = isUS ? usStd() : caStd();
   const histNames = isUS
-    ? ['default', 'R', 'R single', 'R smooth', 'R mixLive', 'R mixApplied', 'R rothConv+aca', 'R aca', 'R guardrails',
-       'R survivor A', 'R bondYears0', 'R bondYears8', 'R loans', 'R lumpExpenses', 'R rentThenBuy',
+    ? ['default', 'R', 'R single', 'R smooth', 'R mixLive', 'R mixApplied', 'R rothSchedule', 'R rothConv+aca', 'R aca', 'R guardrails',
+       'R survivor A', 'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R loans', 'R lumpExpenses', 'R rentThenBuy',
        'R ruleOf55', 'R sepp72t both + ruleOf55', 'R all lists', 'R everything']
     : ['default', 'R', 'R single', 'R smooth', 'R meltdown+split', 'R guardrails', 'R survivor A',
-       'R bondYears0', 'R bondYears8', 'R loans', 'R lumpExpenses', 'R rentThenBuy', 'R fhsa', 'R all lists', 'R everything'];
+       'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R loans', 'R lumpExpenses', 'R rentThenBuy', 'R fhsa', 'R all lists', 'R everything'];
   return [...std, ...shifts(std), ...histGrid(std, histNames)];
 }
 

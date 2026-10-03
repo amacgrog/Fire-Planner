@@ -271,7 +271,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V34</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V38</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -487,7 +487,7 @@
         </details>
         <details class="group" data-cat="advanced">
           <summary><span class="group-summary-text"><span class="group-title">Withdrawal & tax strategy</span><span class="group-state" id="withdrawalStrategyGroupState"></span></span></summary>
-          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across <span class="info-nw">accounts<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Instead of draining taxable first, so taxable income stays flatter and doesn&#x27;t jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.">i</button></span><small>Draws taxable and RRSP in proportion to balances</small></label></div>
+          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across <span class="info-nw">accounts<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Instead of draining taxable first, so taxable income stays flatter and doesn&#x27;t jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views use it too, but only for the stock-account part of their withdrawals (in a down year they still draw cash and the bond reserve first).">i</button></span><small>Draws taxable and RRSP in proportion to balances</small></label></div>
           <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger <span class="info-nw">guardrails<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="A simplified dynamic-spending strategy: instead of a fixed inflation-adjusted amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; turn it on to compare outcomes.">i</button></span><small>Cuts spending 10% when withdrawals run high, raises it when low</small></label></div>
           <div class="field"><label for="meltdownEnabled"><input id="meltdownEnabled" type="checkbox"> Enable RRSP meltdown <span class="info-nw">ladder<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Withdraws from RRSP each year in the window below, filling Partner A&#x27;s taxable income up to the top of the selected federal bracket, then moves the net proceeds to TFSA.">i</button></span><small>Withdraws RRSP up to a bracket ceiling, moves it to TFSA</small></label></div>
           <div class="field"><label for="meltdownStartAge">Start at Partner A age</label><input id="meltdownStartAge" type="number" min="18" max="100" step="1"></div>
@@ -619,11 +619,11 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, CPP/OAS/healthcare rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>
           <div class="assumptions">
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
-            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute to RRSP and TFSA while employed, subject to earned income; in single-person mode, only Partner A's limits and income are used. RRSP contribution room is approximated as 18% of current-year wages up to the 2026 dollar maximum ($33,810); unused room is not tracked or carried forward, a simplification versus real CRA room accumulation. TFSA room is a flat $7,000/year per person (2026), also not tracked cumulatively. Employer RRSP matches are calculated as the selected percentage of each working person's salary and added to the RRSP without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and don't add extra RRSP/TFSA room. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded first from any FHSA balance, then by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. In this mode, each partner can also contribute a percentage of wages to an FHSA (First Home Savings Account) up until the purchase year, subject to the real $8,000/year and (non-indexed) $40,000 lifetime per-person caps; contributions are deducted from taxable income like an RRSP contribution, the balance grows tax-free, and at the purchase year it's applied tax-free toward the down payment and closing costs — any leftover rolls tax-free into the TFSA balance (a simplification of the CRA rule that also allows a tax-free RRSP rollover instead). The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The bond reserve is built one projected expense-year at a time and split evenly between taxable and RRSP accounts. An optional RRSP meltdown ladder withdraws from RRSP each year within a chosen age window, solving for the amount that fills Partner A's taxable income up to the top of a selected federal bracket (after any required RRIF minimum), and moves the net proceeds to TFSA (sufficient TFSA room is assumed). CPP, OAS, and pension income offset expenses first; withdrawals then use taxable, RRSP, TFSA, cash, the protected bond reserve, and finally home equity.</div>
+            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute to RRSP and TFSA while employed, subject to earned income; in single-person mode, only Partner A's limits and income are used. RRSP contribution room is approximated as 18% of current-year wages up to the 2026 dollar maximum ($33,810); unused room is not tracked or carried forward, a simplification versus real CRA room accumulation. TFSA room is a flat $7,000/year per person (2026), also not tracked cumulatively. Employer RRSP matches are calculated as the selected percentage of each working person's salary and added to the RRSP without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and don't add extra RRSP/TFSA room. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded first from any FHSA balance, then by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. In this mode, each partner can also contribute a percentage of wages to an FHSA (First Home Savings Account) up until the purchase year, subject to the real $8,000/year and (non-indexed) $40,000 lifetime per-person caps; contributions are deducted from taxable income like an RRSP contribution, the balance grows tax-free, and at the purchase year it's applied tax-free toward the down payment and closing costs — any leftover rolls tax-free into the TFSA balance (a simplification of the CRA rule that also allows a tax-free RRSP rollover instead). The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The bond reserve is built one projected expense-year at a time over the years before retirement, moved from RRSP first, then TFSA, then taxable only as a last resort (moves inside RRSP and TFSA create no income; selling taxable stock realizes a capital gain that counts in that year's tax). An optional RRSP meltdown ladder withdraws from RRSP each year within a chosen age window, solving for the amount that fills Partner A's taxable income up to the top of a selected federal bracket (after any required RRIF minimum), and moves the net proceeds to TFSA (sufficient TFSA room is assumed). CPP, OAS, and pension income offset expenses first; withdrawals then use taxable, RRSP, TFSA, cash, the protected bond reserve, and finally home equity.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Canada requires each spouse to file an individual return, so this model always computes federal + provincial tax per person rather than jointly; pooled taxable and RRSP withdrawals are split 50/50 between partners for tax purposes unless pension splitting reallocates income between them. Capital gains use the standard 50% inclusion rate — half of each modeled brokerage gain is added to ordinary taxable income and taxed at that person's marginal rate, with no separate preferential bracket. CPP and OAS are fully taxable ordinary income for whoever receives them (OAS is also subject to the separate clawback described below). This is still a planning estimate: provincial credits beyond the basic personal amount, dividend tax credits, the high-income federal BPA phase-out, and CPP/QPP-specific rules outside Ontario/BC are not modeled. RRSP funds are assumed split 50/50 between partners, and RRIF minimum withdrawals begin at each partner's own age 71 using the CRA's prescribed factor table. Brokerage withdrawals use the selected cost-basis ratio to estimate the taxable gain portion.</div>
             <div class="callout full"><b>CPP, OAS clawback & healthcare.</b> CPP and OAS each start whenever selected (CPP 60–70, OAS 65–70) and are added in full to that person's taxable income. OAS is separately subject to the federal recovery tax ("clawback"): 15% of net income (including OAS itself) above the 2026 threshold ($95,323), up to the full OAS amount — modeled using the same year's income as a planning-level approximation rather than CRA's actual one-year lookback. Since Canada has universal provincial healthcare (OHIP in Ontario, MSP in BC), the "extra health/dental insurance" figure only represents supplemental private coverage many retirees carry — there's no premium-subsidy or income-tested surcharge system to model the way the US does with ACA/Medicare. Ontario's own health premium (up to $900/year, income-tested) is folded into the Ontario provincial tax estimate instead, since it's collected through the tax return.</div>
-            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → RRSP → TFSA and any bond-reserve shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
+            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (RRSP/RRIF first, then TFSA, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and net income, and the moves inside RRSP and TFSA create no income). The stock accounts follow your withdrawal setting (the default taxable → RRSP → TFSA order, or smooth withdrawals); cash and the bond reserve keep their own place in the order. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
         <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal/provincial tax parameters are held constant in real terms and increase with inflation in nominal projections. EI premiums are not modeled. Sources: TaxTips.ca 2026 federal brackets, TaxTips.ca 2026 Ontario brackets &amp; health premium, TaxTips.ca 2026 BC brackets, CRA 2026 CPP/OAS amounts, CRA OAS recovery tax rules, CRA 2026 RRSP/TFSA limits, CRA FHSA rules &amp; limits, CRA RRIF minimum withdrawal factors, CRA pension income splitting rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
@@ -2983,25 +2983,38 @@
   }
 
   // Pre-retirement bond-ladder build: ramps linearly over the years available
-  // before retirement so the full ladderTarget is reached by rotationEndYear,
-  // moving half of each year's target from taxable and half from traditional
-  // into their bond-reserve buckets (the taxable move carries its share of
-  // cost basis).
-  function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }) {
-    if (year < rotationStartYear || year > rotationEndYear) return;
+  // before retirement so the full ladderTarget is reached by rotationEndYear.
+  // Each year it moves whatever the ramp still needs into the bond reserve:
+  // traditional first, then Roth (reallocations inside a retirement account:
+  // no income, no tax, no early-withdrawal penalty), then taxable brokerage
+  // only as a last resort. The taxable move is a real sale (drawTaxable): the
+  // tax on the realized gain is paid out of the proceeds, the new bonds are
+  // bought at market (full basis), and the realized gain is returned so the
+  // caller can add it to the year's gains (tax, MAGI). `conversionAmount` is
+  // this year's ordinary income already in the profile (Roth conversion, US /
+  // meltdown, Canada), which the gain stacks on.
+  function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
+    if (year < rotationStartYear || year > rotationEndYear) return 0;
     const windowLen = rotationEndYear - rotationStartYear + 1,
       progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
-    const target = ladderTarget * progress,
-      halfTarget = target / 2;
-    const taxableMove = Math.min(bal.taxable, Math.max(0, halfTarget - bal.bondTaxable)),
-      movedBasis = bal.taxable ? bal.taxableBasis * (taxableMove / bal.taxable) : 0;
-    bal.taxable -= taxableMove;
-    bal.taxableBasis -= movedBasis;
-    bal.bondTaxable += taxableMove;
-    bal.bondTaxableBasis += movedBasis;
-    const traditionalMove = Math.min(bal.traditional, Math.max(0, halfTarget - bal.bondTraditional));
+    let remaining = Math.max(0, ladderTarget * progress - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
+    const traditionalMove = Math.min(bal.traditional, remaining);
     bal.traditional -= traditionalMove;
     bal.bondTraditional += traditionalMove;
+    remaining -= traditionalMove;
+    if (remaining > 0) {
+      const rothMove = Math.min(bal.roth, remaining);
+      bal.roth -= rothMove;
+      bal.bondRoth += rothMove;
+      remaining -= rothMove;
+    }
+    if (remaining <= 0) return 0;
+    const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
+    bal.taxable -= d.taken;
+    bal.taxableBasis -= d.basisTaken;
+    bal.bondTaxable += d.net;
+    bal.bondTaxableBasis += d.net;
+    return d.gain;
   }
   // @@shared:09-sweepExcessCash end
 
@@ -3407,6 +3420,26 @@
       tradNet = fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
     return { fromTrad, tradNet };
   }
+  // Smooth withdrawals (the only mix mode Canada has): the year's need is split
+  // between taxable and RRSP/RRIF in proportion to their balances, shared by the
+  // standard cascade and the bucket strategy. Returns false when smooth is off, so
+  // the caller runs its own default order. `solver` is the bisection bracket for
+  // the RRSP draw (the two strategies keep their own, see
+  // solveTraditionalForNetFromNeed). Written against the take*() primitives so the
+  // account model can change underneath.
+  function drawSmoothStockAccounts(wd, solver) {
+    if (!state.smoothWithdrawals) return false;
+    const { bal } = wd;
+    const pool = bal.taxable + bal.traditional;
+    if (pool > 0 && wd.need > 0) {
+      const taxableShare = wd.need * (bal.taxable / pool),
+        traditionalShare = wd.need * (bal.traditional / pool);
+      wd.need -= takeTaxable(wd, 'taxable', taxableShare);
+      if (traditionalShare > 0 && bal.traditional > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
+    }
+    return true;
+  }
   // The standard (non-bucket) withdrawal strategy, used by simulate(). First
   // the discretionary draw from taxable and RRSP/RRIF: with smooth withdrawals,
   // in proportion to balances; otherwise taxable first, then RRSP. Any
@@ -3415,16 +3448,7 @@
   // finally home equity.
   function withdrawStandard(wd) {
     const { bal } = wd;
-    if (state.smoothWithdrawals) {
-      const pool = bal.taxable + bal.traditional;
-      if (pool > 0 && wd.need > 0) {
-        const taxableShare = wd.need * (bal.taxable / pool),
-          traditionalShare = wd.need * (bal.traditional / pool);
-        wd.need -= takeTaxable(wd, 'taxable', taxableShare);
-        if (traditionalShare > 0 && bal.traditional > 0)
-          wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare));
-      }
-    } else {
+    if (!drawSmoothStockAccounts(wd, solveTraditionalForNet)) {
       wd.need -= takeTaxable(wd, 'taxable', wd.need);
       if (wd.need > 0)
         wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solveTraditionalForNetFromNeed));
@@ -3458,46 +3482,72 @@
     bondRoth: (wd) => (wd.need -= takeRoth(wd, 'bondRoth', wd.need)),
     roth: (wd) => (wd.need -= takeRoth(wd, 'roth', wd.need)),
     home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
+    // The stock accounts as one grouped step: smooth withdrawals when enabled (the same
+    // code the standard cascade uses), otherwise taxable -> RRSP/RRIF -> TFSA. Cash and
+    // the bond buckets keep their own place in the order.
+    stocks: (wd) => {
+      if (!drawSmoothStockAccounts(wd, solveTraditionalForNetFromNeed)) {
+        BUCKET_STEP.taxable(wd);
+        if (wd.need > 0) BUCKET_STEP.traditional(wd);
+      }
+      if (wd.need > 0) BUCKET_STEP.roth(wd);
+    },
   };
   // @@shared:BUCKET_DOWN_YEAR_ORDER begin
-  const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'].map((k) => BUCKET_STEP[k]);
-  const BUCKET_UP_YEAR_ORDER = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
+  const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
+  const BUCKET_UP_YEAR_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
   // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
   // comes from cash, then the bond-reserve buckets, and only then from the
   // stock accounts (taxable, tax-deferred, tax-free) and home equity. In an up
   // year it comes from the stock accounts first, then cash, bonds and home, and
   // any shortfall in the bond reserve versus `bondTarget` is topped back up from
-  // the same stock-account order. A draw that leaves a tiny overshoot is clamped
-  // to zero remaining need.
-  function withdrawBucket(wd, { yearReturn, bondTarget }) {
-    for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd);
-    if (yearReturn >= 0) refillBondReserve(wd.bal, bondTarget);
+  // the same stock-account order. The stock accounts are one grouped step whose
+  // split follows the user's mix mode (see BUCKET_STEP.stocks); `opts` carries
+  // what that step needs (age, remainingMagiRoom). A draw that leaves a tiny
+  // overshoot is clamped to zero remaining need.
+  function withdrawBucket(wd, opts) {
+    const { yearReturn, bondTarget } = opts;
+    for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd, opts);
+    if (yearReturn >= 0)
+      refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
   }
   // @@shared:BUCKET_DOWN_YEAR_ORDER end
   // @@shared:10-refillBondReserve begin
-  // Tops the bond reserve up to bondTarget from taxable, then traditional, then
-  // Roth (taxable moves carry their share of cost basis).
-  function refillBondReserve(bal, bondTarget) {
+  // Tops the bond reserve up toward bondTarget by moving stocks into bonds: traditional first,
+  // then Roth, then taxable only as a last resort when neither has anything left to move.
+  //  - Inside a retirement account it is a reallocation, not a sale or a withdrawal: no income, no
+  //    tax, no early-withdrawal penalty (age does not restrict it).
+  //  - From taxable it is a real sale: drawTaxable sells enough stock that, after the tax on the
+  //    realized gain, the amount moved into bonds is what was asked. The gain is added to
+  //    wd.taxableGainGross, so it counts in the year's tax, MAGI (ACA, IRMAA) and the MAGI
+  //    iteration, and the tax is paid out of the proceeds; the new bonds are bought at market
+  //    (full basis). The live withdrawal mix does not plan for it (it decides before the refill).
+  // Gradual: at most `maxMove` moves into bonds per call (the engine passes one year of that
+  // year's expenses, net of lump expenses). Cash and home equity are never used. Surplus cash
+  // refills the reserve separately (routeSurplus), limited only by the surplus and the target.
+  function refillBondReserve(wd, bondTarget, { maxMove = Infinity } = {}) {
+    const { bal } = wd;
     const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-    if (bondDeficit <= 0) return;
-    const fromTaxable = Math.min(bal.taxable, bondDeficit),
-      basisPortion = bal.taxable ? bal.taxableBasis * (fromTaxable / bal.taxable) : 0;
-    bal.taxable -= fromTaxable;
-    bal.taxableBasis -= basisPortion;
-    bal.bondTaxable += fromTaxable;
-    bal.bondTaxableBasis += basisPortion;
-    let remaining = bondDeficit - fromTaxable;
-    if (remaining > 0) {
-      const fromTrad = Math.min(bal.traditional, remaining);
-      bal.traditional -= fromTrad;
-      bal.bondTraditional += fromTrad;
-      remaining -= fromTrad;
-    }
+    let remaining = Math.min(bondDeficit, maxMove);
+    if (remaining <= 0) return;
+    const fromTrad = Math.min(bal.traditional, remaining);
+    bal.traditional -= fromTrad;
+    bal.bondTraditional += fromTrad;
+    remaining -= fromTrad;
     if (remaining > 0) {
       const fromRoth = Math.min(bal.roth, remaining);
       bal.roth -= fromRoth;
       bal.bondRoth += fromRoth;
+      remaining -= fromRoth;
+    }
+    if (remaining > 0) {
+      const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+      bal.taxable -= d.taken;
+      bal.taxableBasis -= d.basisTaken;
+      bal.bondTaxable += d.net;
+      bal.bondTaxableBasis += d.net;
+      wd.taxableGainGross += d.gain;
     }
   }
   // @@shared:10-refillBondReserve end
@@ -3622,10 +3672,8 @@
   // switches on one at a time.
   //  bucketStrategy: bucket withdrawals (cash/bonds first in a down year, bond reserve
   //                  refilled in up years) instead of the standard cascade
-  //  usesBondLadder: build the pre-retirement bond ladder
-  //  detailedRows:   full row columns, tax/income totals and the extra result fields
-  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, detailedRows: true };
-  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, detailedRows: false };
+  const STANDARD_MODE = { bucketStrategy: false };
+  const BUCKET_MODE = { bucketStrategy: true };
 
   // ---- end per-year helpers ----
 
@@ -3642,6 +3690,8 @@
   function runProjection({ mode, source, retireAgeA, retireAgeB }) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
+    // Only the historical source reports a start year; it also adds cumFactor to each row.
+    const isHistorical = source.startYear !== undefined;
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
@@ -3702,10 +3752,10 @@
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
     const bondYears = getBondYears();
-    const projectedExpense = mode.usesBondLadder
-      ? makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB })
-      : null;
-    const ladder = mode.usesBondLadder ? planBondLadder({ retirementYear, bondYears, projectedExpense }) : null;
+    // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
+    // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
+    const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
+    const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
     const projectionYears = singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
@@ -3852,10 +3902,12 @@
       // Ramp linearly over whatever time is actually available before
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
-      if (ladder) rotateIntoBondLadder(bal, { year, ...ladder });
+      const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, meltdownAmount);
       const guardrailPortfolioNow =
         bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash + bal.fhsa;
       const wd = newWithdrawal({ bal, profile, meltdownAmount, rmd });
+      // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
+      wd.taxableGainGross = ladderGain;
       // The bucket strategy only steers new surplus into the bond reserve in an up year.
       const surplusBondTarget = mode.bucketStrategy && stockReturn >= 0 ? bondTarget : null;
       if (flow >= 0) {
@@ -3868,17 +3920,19 @@
           rothContrib,
           fhsaContrib,
         });
+        if (ladderGain > 0) {
+          totalTax = cppTax + taxFor(profile, ladderGain, meltdownAmount);
+          totalIncome += ladderGain;
+        }
       } else {
         wd.need = -flow;
         if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
         recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
-        if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget });
+        if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense });
         else withdrawStandard(wd);
         if (wd.need > 1 && !depletedAge) depletedAge = age;
-        if (mode.detailedRows) {
-          totalTax = cppTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
-          totalIncome = totalA + totalB + wd.traditionalGross + wd.taxableGainGross;
-        }
+        totalTax = cppTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
+        totalIncome = totalA + totalB + wd.traditionalGross + wd.taxableGainGross;
         bal.traditional += traditionalContrib + employerMatch;
         bal.roth += rothContrib;
         bal.fhsa += fhsaContrib;
@@ -3893,79 +3947,53 @@
             ? Math.max(0, bal.home - bal.mortgage)
             : 0,
         total = investable + homeEquity - loanBalance;
-      // Row shape differs by mode until the historical-parity work unifies them.
-      rows.push(
-        mode.detailedRows
-          ? {
-              age,
-              ageB,
-              year,
-              taxable: bal.taxable,
-              bonds,
-              traditional: bal.traditional,
-              roth: bal.roth,
-              cash: bal.cash + bal.fhsa,
-              homeEquity,
-              loanBalance,
-              investable,
-              total,
-              working,
-              workingA,
-              workingB,
-              grossIncome: totalIncome,
-              expenses,
-              tax: totalTax,
-              wages,
-              ss: cppA + cppB + oasNetA + oasNetB,
-              pension,
-              rmd,
-              traditionalWithdrawn,
-              taxableWithdrawn,
-              housing,
-              healthcare,
-              ltc,
-              loanPayment,
-              extraExpense,
-              lumpExpense,
-              baseSpend,
-            }
-          : {
-              age,
-              ageB,
-              year,
-              taxable: bal.taxable,
-              bonds,
-              traditional: bal.traditional,
-              roth: bal.roth,
-              cash: bal.cash + bal.fhsa,
-              homeEquity,
-              loanBalance,
-              investable,
-              total,
-              working,
-              workingA,
-              workingB,
-              cumFactor: factor,
-            },
-      );
+      const row = {
+        age,
+        ageB,
+        year,
+        taxable: bal.taxable,
+        bonds,
+        traditional: bal.traditional,
+        roth: bal.roth,
+        cash: bal.cash + bal.fhsa,
+        homeEquity,
+        loanBalance,
+        investable,
+        total,
+        working,
+        workingA,
+        workingB,
+        grossIncome: totalIncome,
+        expenses,
+        tax: totalTax,
+        wages,
+        ss: cppA + cppB + oasNetA + oasNetB,
+        pension,
+        rmd,
+        traditionalWithdrawn,
+        taxableWithdrawn,
+        housing,
+        healthcare,
+        ltc,
+        loanPayment,
+        extraExpense,
+        lumpExpense,
+        baseSpend,
+      };
+      // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
+      if (isHistorical) row.cumFactor = factor;
+      rows.push(row);
       source.endOfYear();
     }
-    // Return shape differs by mode until the historical-parity work unifies them.
-    if (mode.detailedRows)
-      return {
-        rows,
-        depletedAge,
-        firstWithdrawal,
-        retirementYear,
-        currentExpense: projectedExpense(0),
-        retirementExpense: ladder.ladderTranches[0],
-        ladderTarget: ladder.ladderTarget,
-      ...mortgageResultAges(futureBuy, schedule),
-      };
     return {
       rows,
       depletedAge,
-      startYear: source.startYear,
+      firstWithdrawal,
+      retirementYear,
+      currentExpense: projectedExpense(0),
+      retirementExpense: ladder.ladderTranches[0],
+      ladderTarget: ladder.ladderTarget,
+      ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(futureBuy, schedule),
     };
   }
@@ -8594,6 +8622,10 @@
   // that already exist in this closure).
   window.__test_simulate = simulate;
   window.__test_simulateHistorical = simulateHistorical;
+  window.__test_runHistoricalCycles = runHistoricalCycles;
+  window.__test_runMonteCarlo = runMonteCarlo;
+  window.__test_refillBondReserve = refillBondReserve;
+  window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
   window.__test_HIST = HIST;
   // @@shared:block end
   window.__test_getState = () => state;
