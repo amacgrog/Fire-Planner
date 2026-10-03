@@ -73,6 +73,18 @@ No behavior change; `npm test` must stay identical throughout.
   saved scenarios).
 
 ## After Phase 2 (decided, not yet scheduled)
+Done in a follow-up branch started once the exact refactor (2A) is green, in
+this order, each its own commit with a before/after on the default scenario's
+historical and Monte Carlo success rates:
+- **Historical parity (2B):** the backtest/Monte Carlo engine gains what the
+  standard engine already has: pre-retirement bond ladder (sized from plan
+  inflation), smooth withdrawals, applied/override and live withdrawal mix,
+  MAGI safe room, the `age` argument to `solveRothConversion`, and the extra
+  row columns (US all; Canada ladder, smooth, columns only).
+- **Gradual bond refill (historical only):** in up years move at most one year
+  of that year's expenses from stocks into the bond bucket until it reaches its
+  target (today it refills all at once). The standard projection never refills.
+  Down years: cash, then bond buckets, then stocks via the mix modes.
 - **Penalty-aware mixed withdrawals (US, both engines):** when the 10% early
   penalty applies, draw taxable first, honor Rule of 55 / 72(t), and apply the
   mix (smooth/applied/live) only where no penalty is owed. Changes standard

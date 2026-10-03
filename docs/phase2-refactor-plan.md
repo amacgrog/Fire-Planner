@@ -165,14 +165,18 @@ change after the refactor.
 
 ## 5. Step 2: merge `simulate()` and `simulateHistorical()` (roadmap item 1)
 
-**The merge is split in two, because the owner's decisions are a behavior
-change and the refactor contract is "no behavior change".**
+**Only the exact merge (2A) is in the refactor branch. Every behavior change,
+including the historical-parity work (2B), lives in a separate follow-up branch
+started once 2A is green** (decided by the owner: the refactor branch stays
+pure and reviewable as "numbers identical"). The follow-up branch's commits,
+in order: 2B parity, then the gradual bond refill, then penalty-aware mixing
+(Appendix A.5).
 
 - **2A: pure merge (snapshot-exact).** One engine, with the differences in
   Appendix A expressed as explicit capability switches that reproduce today's
   historical output exactly (e.g. `historical.mixModes = false`). Zero-tolerance
   snapshot.
-- **2B: historical parity (deliberate behavior change).** Flip the switches
+- **2B (follow-up branch): historical parity (deliberate behavior change).** Flip the switches
   one commit at a time. Each commit regenerates *only* the historical
   snapshots, includes a test for the new behavior, and records in
   `docs/reference.md` the before/after change in the default scenario's
@@ -211,13 +215,15 @@ change and the refactor contract is "no behavior change".**
        `bootstrapReturnSeries`) and `simulateAtRealCagr` callers still go
        through the public wrappers only.
 
-2.2b **2B commits** (after 2A is green; order chosen so each is independently
+2.2b **2B commits** (follow-up branch, started after 2A is green; order chosen so each is independently
     reviewable): (1) pass `age` to `solveRothConversion`; (2) `magiSafeRoom`
     lifted out of the conversion block and used by the withdrawal order;
     (3) pre-retirement bond-ladder rotation; (4) smooth withdrawals;
     (5) applied/override mix schedule; (6) live mix
     (`pickLiveWithdrawalOrder`); (7) return the extra row columns/fields.
     Canada gets (3), (4) and (7) only; it has no mix modes or MAGI room.
+    After these, the same branch adds (8) the gradual bond refill (A.2) and
+    then (9) penalty-aware mixing (A.5), each its own commit.
 
 2.3 **Performance gate.** `simulate()` is called thousands of times per render
     (MC paths, tornado, optimizer). Benchmark before/after (render time for the
@@ -314,7 +320,7 @@ Plan for A, in order:
 | 2 | Engine merge (US, then Canada) | Snapshot exact incl. historical/MC; perf within +5% |
 | 3 | Field registry | Wiring + schema + legacy-corpus tests; mobile check; manual smoke of the wizard, undo, scenario import/export |
 | 4 | Shared regions | `check:shared` clean; both files open from disk with no console errors |
-| 5 | Wrap-up | Docs updated; version badge bump ("internal refactor"); full Playwright sweep of the root `test_*.js`; line-count report |
+| 5 | Wrap-up | Docs updated; one version badge bump ("internal refactor"); full Playwright sweep of the root `test_*.js`; line-count report |
 
 After every step: `npm test`, snapshot harness, relevant `test_*.js`, mobile
 width check, and a real-browser look at both planners (page errors, layout,
@@ -348,13 +354,16 @@ Resolved by the owner:
   pre-retirement ladder, smooth withdrawals, applied/override and live
   withdrawal mix, `magiSafeRoom`, and the `age` argument to
   `solveRothConversion`. The up/down-year bucket waterfall and bond refill stay.
-- Version badges are not bumped per commit.
+- Version badges are not bumped per commit; **one bump at the end of each
+  branch** (the refactor branch, and the follow-up behavior branch).
 
 Also resolved (second review round):
 - Q1: bucket order in a down year, then the mix modes (see A.2 for the final rule).
 - Q2: the initial ladder is sized from the plan's inflation.
 - Q3: the standard `simulate()` does **not** refill the bond bucket.
-- Historical refill is gradual: at most one year of expenses per up year.
+- Historical refill is gradual (at most one year of expenses per up year), but
+  it is a **new rule, so it is done after the refactor** in the follow-up
+  branch, not in 2A. Until then historical keeps today's all-at-once refill.
 - Shared-code approach for item 4: **Option A** (marked shared regions plus
   `scripts/sync-shared.js`); `CLAUDE.md`'s "no build step" line is reworded to
   "no build step needed to run or deploy; shared regions are synced by a
@@ -365,9 +374,7 @@ Also resolved (second review round):
   `simulate()` does today, so the two engines stay identical.
 - Canada mixed withdrawals are designed for, not built in Phase 2 (A.6).
 
-Still open:
-1. A single version bump at the very end (assumed from "skip the bump every
-   commit"; tell me if you want none at all).
+Nothing is open; the plan is ready to start at Step 0.
 
 ## 11. Definition of done
 
@@ -432,7 +439,7 @@ a design answer before that 2B commit.
   override schedule, live mix, smooth, or the default order), then home.
 - *Up year:* the draw is `simulate()`'s cascade (mix modes, Roth fallback,
   cash, bonds, home), then the gradual refill below.
-- *Gradual refill (changes B2/B4 from today's all-at-once refill):* in an up
+- *Gradual refill (follow-up branch only; 2A keeps today's all-at-once refill; changes B2/B4):* in an up
   year, move at most one year of that year's expenses (net of lump expenses)
   from stocks into the bond bucket, until the bucket reaches `bondTarget`.
   Today's code tops it up to `bondTarget` in a single year.
