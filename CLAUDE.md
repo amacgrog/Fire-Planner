@@ -134,8 +134,10 @@ Each planner is one big IIFE. Core shape:
   through `drawTaxable` whose gain goes into `wd.taxableGainGross` (so tax, MAGI
   and the MAGI iteration see it) with the tax paid from the proceeds; never cash
   or home equity. `rotateIntoBondLadder` (the pre-retirement ladder, both
-  engines) still carries basis and realizes no gain: a known inconsistency, left
-  alone because changing it moves standard-engine numbers. The stock-account step of the bucket strategy is one grouped step,
+  engines) uses the same source order (traditional, Roth, taxable last); a taxable
+  move is a real sale through `drawTaxable` whose gain it returns, and the engine
+  adds that to `wd.taxableGainGross` (and to the row's tax/income in a surplus
+  year). The stock-account step of the bucket strategy is one grouped step,
   `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
   override mix, live mix, smooth) or `drawSmoothStockAccounts` (Canada: smooth
   only), the same code `withdrawStandard` uses, with the bucket's own bisection

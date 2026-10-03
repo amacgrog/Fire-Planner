@@ -14,4 +14,5 @@
   window.__test_runHistoricalCycles = runHistoricalCycles;
   window.__test_runMonteCarlo = runMonteCarlo;
   window.__test_refillBondReserve = refillBondReserve;
+  window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
   window.__test_HIST = HIST;

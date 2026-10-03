@@ -474,6 +474,14 @@ the default scenario, a cliff-straddling scenario, and the historical success
 rates. Finish by re-running the optimizer once on the new engine and recording
 whether its schedules still beat the live mix (reference-doc note; no code).
 
+**Also resolve here (carried from Batch 1):** the safe-MAGI room has no behavioral
+test. No scenario was found where `remainingMagiRoom` changes the live mix's choice
+(the room is computed from a MAGI that already includes the same year's own
+estimated draw), so Batch 1 only checks the wiring in the source. Build a scenario
+where the room binds, or fix the computation, then add a behavioral parity test
+with a mutation check, and record the outcome in this batch's notes (see "Batch 1
+notes", step 5 and the open item after step 7).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
@@ -885,7 +893,10 @@ After Batch 8 is merged, one docs-only PR moves every "Batch notes" entry into
 `docs/reference.md` in the existing chronological style, merges overlapping
 topics (for example the account model touched by 3A, 3B and 3C), updates the
 architecture sections that changed, and checks `CLAUDE.md` and `README.md` for
-anything still stale. The per-batch note sections are then removed from this
+anything still stale. **Must carry over (owner request):** the Batch 1 open item
+that the safe-MAGI room had no behavioral test, how Batch 3C resolved it, and
+the reason (the room is computed from a MAGI that already contains the same
+year's estimated draw). The per-batch note sections are then removed from this
 file, leaving the plan as a record of scope and decisions.
 
 ---
@@ -1104,12 +1115,9 @@ $90k spending (US) with the planner's own defaults otherwise.
      IRMAA) and in the MAGI iteration; the tax is paid from the proceeds; the new
      bonds have full basis. The live withdrawal mix does not plan for this gain
      (it decides before the refill), which is accepted.
-- Known inconsistency, left alone on purpose: `rotateIntoBondLadder` (the
-  pre-retirement ladder, both engines) still moves taxable stock into bonds with
-  its share of basis and realizes no gain. Changing it moves standard-engine
-  numbers, so it belongs in a separate, explicit change. Consequence: a household
-  whose money is almost all in brokerage still builds its ladder tax-free but pays
-  tax on later gradual refills.
+- The pre-retirement ladder had the opposite behavior when this step landed
+  (half taxable with basis carried, no gain realized); step 7 below brings it in
+  line with these rules.
 - Consequence of the order: households with traditional or Roth money refill
   without tax; households with only brokerage pay realized-gain tax each refill.
 - Evidence: 643 of the 720 historical scenarios differ from the previous commit
@@ -1148,6 +1156,72 @@ $90k spending (US) with the planner's own defaults otherwise.
   $30,000 of interest; the independence-from-the-bond-return-input and the
   yield-missing fallbacks are kept.
 
+**Step 7: the pre-retirement bond ladder uses the same source order (both
+engines; changes standard-engine numbers).**
+- Owner decision after step 6: the ladder funds from traditional/RRSP first, then
+  Roth/TFSA, and from taxable only as a last resort. It used to move half of each
+  year's ramp from taxable (basis carried, no gain realized) and half from
+  traditional. `rotateIntoBondLadder(bal, params, profile, conversionAmount)` now
+  moves what the ramp still needs (`ladderTarget x progress - current bonds`):
+  traditional, then Roth, then a real taxable sale through `drawTaxable` (gain
+  returned, tax paid from the proceeds, new bonds at full basis). The engine adds
+  the returned gain to `wd.taxableGainGross` (so MAGI, ACA/IRMAA and the MAGI
+  iteration see it) and, in a surplus year, to that row's `tax` and `income`.
+- This is the one place in Batch 1 where **standard-engine numbers move**, by owner
+  request. 112 of the 114 standard scenarios and 680 of the 720 historical
+  scenarios changed (all with a bond reserve); snapshots regenerated. Why the
+  numbers move: a reserve held in a retirement account no longer pays tax on its
+  interest every year (a taxable reserve does), and the ladder no longer parks
+  half of itself in taxable.
+- Standard projection, previous commit -> this one (investable at retirement /
+  at the end of the plan / depletion age):
+
+| Planner | Scenario | Retirement | End of plan | Depletes at |
+|---|---|---|---|---|
+| US | default | 1,742,805 -> 1,815,962 | 1,469,425 -> 2,508,379 | none -> none |
+| US | early retiree | 1,853,960 -> 1,853,960 | 0 -> 0 | 85 -> 87 |
+| US | bondYears 3, working | 4,545,931 -> 4,547,696 | 28.3M -> 29.1M | none -> none |
+| Canada | default | 1,682,113 -> 1,684,562 | 0 -> 0 | none -> none |
+| Canada | early retiree | 1,875,279 -> 1,875,279 | 0 -> 0 | 96 -> none |
+| Canada | bondYears 3, working | 4,487,429 -> 4,490,091 | 24.5M -> 25.8M | none -> none |
+
+- Historical and Monte Carlo (seeded, 2000 paths, seed 7), previous commit -> this one:
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 85.0% -> 84.5% |
+| US | early retiree | 90.6% -> 86.8% | 87.9% -> 86.8% |
+| US | early retiree, smooth | 90.6% -> 83.0% | 87.4% -> 86.2% |
+| US | early retiree, live mix | 90.6% -> 86.8% | 87.9% -> 86.8% |
+| US | default, bondYears 4 | 87.8% -> 85.4% | 86.4% -> 86.2% |
+| Canada | default | 75.6% -> 78.0% | 76.4% -> 77.0% |
+| Canada | early retiree (plain, smooth) | 90.6% -> 90.6% | 88.4% -> 88.3% (88.1 -> 87.9 smooth) |
+| Canada | default, bondYears 4 | 78.0% -> 78.0% | 78.7% -> 79.1% |
+
+- **Caveat to remember:** a US early retiree (before 59.5) now holds the whole
+  reserve in `bondTraditional`. Drawing it in a down year owes the 10% penalty
+  (unless Rule of 55 or a 72(t) plan covers it), which is why the US early-retiree
+  historical rates fall by about four points. Standard projections never draw the
+  reserve until everything else is gone, so they gain from the tax deferral and
+  show no matching cost. Batch 3B (penalty-aware withdrawals) should revisit
+  whether the ladder and the refill should prefer Roth or taxable for a household
+  that expects to draw the reserve before 59.5.
+- Tests: `tests/bond_refill.js` gained hand-computed ladder cases (ramp 100k/200k/
+  300k from traditional, nothing outside the window, spill to Roth, taxable last
+  resort with the realized gain and the tax paid from the proceeds, Roth before
+  taxable); test hook `window.__test_rotateIntoBondLadder`.
+
+**Open item carried to a later batch: the safe-MAGI room has no behavioral test.**
+Both engines pass `remainingMagiRoom` into the live mix, but no scenario was found
+where the room changes the live mix's choice (828 standard-engine scenarios, see
+step 5), so `tests/historical_parity.js` can only check the wiring by reading the
+source. Resolve in Batch 3C: either build a scenario where the room binds (and
+add it to the parity test with a mutation check), or fix the way the room is
+computed (it is `ceiling - preConvMagi`, and `preConvMagi` already includes the
+MAGI iteration's estimate of the same year's discretionary draw), then add the
+behavioral test. This note must be carried into `docs/reference.md` in the
+consolidation step, with how it was resolved.
+
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
 
@@ -1178,6 +1252,8 @@ remains is detail to settle when the relevant batch is scoped:
 - All batches: figures are confirmed against primary sources at implementation
   time (decided). The planning pass used secondary sources because irs.gov and
   bls.gov were not reachable.
+- Batch 3C: the safe-MAGI room has no behavioral test (carried from Batch 1, see
+  its notes); resolve it there and carry the note into `docs/reference.md`.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.

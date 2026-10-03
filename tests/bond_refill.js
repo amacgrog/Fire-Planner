@@ -14,6 +14,10 @@
 // Part 1 is a unit test of refillBondReserve with hand-computed numbers. Part 2 runs the
 // engine on a constant path and checks the cap and the penalty rule year by year.
 //
+// Part 3 (ladderUnit) covers the pre-retirement ladder, rotateIntoBondLadder: same source order
+// (traditional, Roth, taxable last, taxable a real sale with the realized gain returned and the tax
+// paid from the proceeds), ramped linearly over the window.
+//
 // Run: node tests/bond_refill.js
 
 const { chromium } = require('playwright');
@@ -125,6 +129,52 @@ async function unit(page, name, isUS) {
   near(b.bondTraditional, 300000, `${name} no options: whole deficit`);
 }
 
+async function ladderUnit(page, name, isUS) {
+  const rot = (over, year, otherA = 0) =>
+    page.evaluate(
+      ({ over, year, otherA, isUS }) => {
+        const bal = {
+          taxable: 500000, taxableBasis: 250000, bondTaxable: 0, bondTaxableBasis: 0,
+          bondTraditional: 0, bondRoth: 0, traditional: 300000, roth: 100000, ...over,
+        };
+        const profile = isUS
+          ? { wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 55, ageB: 55, singlePerson: true, filing: 'single' }
+          : { year: 0, dtcA: 0, dtcB: 0, singlePerson: true, otherA };
+        // A 300k ladder over years 0-2 (so 100k, 200k, 300k).
+        const gain = window.__test_rotateIntoBondLadder(bal, { year, ladderTarget: 300000, rotationStartYear: 0, rotationEndYear: 2 }, profile, 0);
+        const taxFor = window.__test_tax.taxFor;
+        return { ...bal, gain, taxOnGain: taxFor(profile, gain, 0) - taxFor(profile, 0, 0) };
+      },
+      { over, year, otherA, isUS },
+    );
+  const close = (a, b, msg, tol = 1e-6) => assert(Math.abs(a - b) <= tol, `${name} ladder ${msg}: expected ${b}, got ${a}`);
+  // Ramp, from traditional only: 100k, 200k, 300k at the end of years 0, 1, 2; nothing outside the window.
+  let b = await rot({}, 0);
+  close(b.bondTraditional, 100000, 'year 0 ramp'); close(b.traditional, 200000, 'year 0 traditional'); close(b.taxable, 500000, 'year 0 taxable untouched'); close(b.gain, 0, 'year 0 no gain');
+  b = await rot({ traditional: 200000, bondTraditional: 100000 }, 1);
+  close(b.bondTraditional, 200000, 'year 1 ramp'); close(b.traditional, 100000, 'year 1 traditional');
+  b = await rot({ traditional: 100000, bondTraditional: 200000 }, 2);
+  close(b.bondTraditional, 300000, 'year 2 reaches the target'); close(b.traditional, 0, 'year 2 traditional');
+  b = await rot({}, 3); close(b.bondTraditional, 0, 'after the window nothing moves');
+  b = await rot({}, -1); close(b.bondTraditional, 0, 'before the window nothing moves');
+  // Spill: traditional 30k, then Roth 70k (a retirement-account move: no gain, no tax).
+  b = await rot({ traditional: 30000 }, 0); // year 0 target is 100k
+  close(b.bondTraditional, 30000, 'spill: traditional first'); close(b.bondRoth, 70000, 'spill: then Roth'); close(b.gain, 0, 'spill: no gain'); close(b.taxable, 500000, 'spill: taxable untouched');
+  // Last resort: taxable, a real sale. 100k net into bonds, half of what is sold is gain, full basis on the bonds.
+  b = await rot({ traditional: 0, roth: 0 }, 0);
+  close(b.bondTaxable, 100000, 'taxable fallback nets the ramp', 0.1);
+  close(b.bondTaxableBasis, b.bondTaxable, 'new bonds are bought at market (full basis)', 1e-9);
+  const sold = 500000 - b.taxable;
+  close(b.gain, sold * 0.5, 'half of what is sold is gain');
+  close(sold - b.bondTaxable, b.taxOnGain, 'tax paid from the proceeds equals the tax on the gain', 0.02);
+  close(250000 - b.taxableBasis, sold * 0.5, 'basis sold is the other half');
+  b = await rot({ traditional: 0, roth: 0 }, 0, isUS ? 150000 : 120000);
+  assert(b.taxOnGain > 100, `${name} ladder: with other income the realized gain is taxed`);
+  // Roth then taxable: 20k Roth, rest from taxable.
+  b = await rot({ traditional: 0, roth: 20000 }, 0);
+  close(b.bondRoth, 20000, 'Roth before taxable'); close(b.bondTaxable, 80000, 'taxable for the rest', 0.1);
+}
+
 // A constant path: stocks +8%, inflation 3%, bonds 0%. The bond bucket never grows by itself while
 // the target (years of expenses) inflates, so every year has a deficit to refill.
 const PATH = '(y) => [2000 + y, 8, 3, 0, 0]';
@@ -207,6 +257,7 @@ async function engine(page, name, isUS) {
     await page.waitForTimeout(300);
     await unit(page, name, isUS);
     await engine(page, name, isUS);
+    await ladderUnit(page, name, isUS);
     assert.deepStrictEqual(errors, [], `${name} page errors`);
     console.log(`[${name}] gradual bond refill tests passed`);
     await ctx.close();
