@@ -32,7 +32,7 @@ const GROUPS = {
   mix: 'F4-F6',
 };
 // Groups that must pass at the current commit. Each Batch 1 step adds its group.
-const ENABLED = new Set(['rows']);
+const ENABLED = new Set(['rows', 'conversion']);
 
 const US_R = {
   ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50,

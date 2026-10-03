@@ -950,6 +950,28 @@ $90k spending (US) with the planner's own defaults otherwise.
   and a 40-year chain turned a ~1e-7 difference into $0.59 on a $10k Roth balance
   at age 90. Scenario groups are enabled per step (`ENABLED`).
 
+**Step 2, F1 (`passConversionAge`, US).**
+- Both engines now pass Partner A's age to `solveRothConversion`, so an applied
+  Roth schedule (`state.appliedRothSchedule`, keyed by age) is honored by the
+  historical and Monte Carlo runs. The `passConversionAge` switch is removed
+  (always on), like `detailedRows`. The optimizer's transient
+  `rothBracketOverrideByAge` is only set around `simulate()` calls, so it
+  cannot leak into a historical run.
+- Before, a historical run always filled the flat `rothConvBracket`, whatever
+  the user had applied. Nothing in the snapshot grid used an applied Roth
+  schedule in the historical engine, so the grid gained `R rothSchedule` (US
+  hist, 10 series x plain/rich = 20 new scenarios). Every pre-existing scenario
+  is byte-identical (774 files compared before and after); only those 20 are new.
+  Example (sawtooth path): year-0 conversion 243,600 (flat 22% bracket) ->
+  132,999 (the applied 12% target); year-0 tax 59,050 -> 27,554.
+- Success rates for the baseline table scenarios are unchanged (none of them
+  applies a Roth schedule).
+- Parity test: group `conversion` is enabled. Mutation check: making only the
+  historical engine drop the age makes `roth conversion applied schedule` fail
+  (year-0 traditional 830,000 vs 719,400). Removing the age from both engines
+  does not fail the test, since the two still agree; that is what the snapshot
+  grid scenario is for.
+
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
 

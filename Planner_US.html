@@ -271,7 +271,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V75</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V76</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -3445,10 +3445,8 @@
     // duration of one simulate() call, see above); next, a schedule
     // previously written by the optimizer's "Apply this schedule" button
     // (state.appliedRothSchedule, see defaults/normalizeState) — both are
-    // keyed by Partner A's age and only ever reached when ageKey is defined,
-    // i.e. from simulate(), not simulateHistorical() (which calls this
-    // without an ageKey), so this stays scoped the same way the live
-    // withdrawalMixEnabled toggle is. Falls through to the flat bracket.
+    // keyed by Partner A's age, so both engines (simulate() and
+    // simulateHistorical()) pass the age. Falls through to the flat bracket.
     const bracketPct =
       rothBracketOverrideByAge && rothBracketOverrideByAge.has(ageKey)
         ? rothBracketOverrideByAge.get(ageKey)
@@ -5059,9 +5057,8 @@
   //  usesBondLadder:    build the pre-retirement bond ladder
   //  usesMagiRoom:      always compute the safe-MAGI ceiling and let it bound the withdrawal
   //                     order (otherwise only when a Roth conversion is sized)
-  //  passConversionAge: key the Roth-conversion bracket override by age
-  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, usesMagiRoom: true, passConversionAge: true };
-  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, usesMagiRoom: false, passConversionAge: false };
+  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, usesMagiRoom: true };
+  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, usesMagiRoom: false };
 
   // ---- end per-year helpers ----
 
@@ -5295,7 +5292,7 @@
           magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
           if (convertsThisYear) {
             const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
-            conversionAmount = solveRothConversion(profile, conversionCap, year, mode.passConversionAge ? age : undefined);
+            conversionAmount = solveRothConversion(profile, conversionCap, year, age);
           }
         }
         const magiProxy = magiBase + conversionAmount + estTrad + estGain;

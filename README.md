@@ -160,3 +160,8 @@ If you're using GitHub Desktop: open the app, you'll see the changed file listed
 - RMD start age now follows birth year (estimated from today's age): 75 for people born in 1960 or later, 73 for 1951-1959, with the Uniform Lifetime divisors for 73 and 74 added
 - The historical success rate now says how many starting windows overlap and roughly how many are independent, and the investment return input is labeled as net of fund expense ratios and advisory fees
 
+## Historical backtest and Monte Carlo now follow your plan (Batch 1)
+
+The backtest and Monte Carlo views run the same engine as the main projection, so they honor the strategy you configured. Added one step at a time:
+
+- US: an applied Roth conversion schedule (the optimizer's "Apply this schedule", keyed by Partner A's age) is now used by the historical backtest and Monte Carlo; before, they always used the flat bracket setting.
