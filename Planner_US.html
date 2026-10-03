@@ -3925,6 +3925,77 @@
     return Math.round(age);
   }
 
+  // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----
+  // 401(k) / IRA / mega-backdoor contributions for one year. Wages are already
+  // zero for a partner who has retired, which zeroes their contributions. The
+  // IRS limits are 2026 values scaled by limitFactor (inflation indexing).
+  // Returns the dollars that go to traditional vs Roth accounts.
+  function retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor }) {
+    const catchupBaseA =
+        age >= 60 && age <= 63 ? 11250 * limitFactor : age >= 50 ? 8000 * limitFactor : 0,
+      catchupBaseB = singlePerson
+        ? 0
+        : ageB >= 60 && ageB <= 63
+          ? 11250 * limitFactor
+          : ageB >= 50
+            ? 8000 * limitFactor
+            : 0;
+    const baseLimitA = 24500 * limitFactor,
+      baseLimitB = 24500 * limitFactor;
+    const kBaseA = Math.min(wageA, baseLimitA) * pct(state.k401PctA),
+      kBaseB = Math.min(wageB, baseLimitB) * pct(state.k401PctB);
+    const catchupRoomA = Math.max(0, Math.min(wageA - kBaseA, catchupBaseA)),
+      catchupRoomB = Math.max(0, Math.min(wageB - kBaseB, catchupBaseB));
+    const kCatchupA = catchupRoomA * pct(state.catchupPctA),
+      kCatchupB = catchupRoomB * pct(state.catchupPctB);
+    const kA = kBaseA + kCatchupA,
+      kB = kBaseB + kCatchupB;
+    // SECURE 2.0: catch-up contributions must be Roth once prior-year FICA
+    // wages exceed ~$150k (2026-indexed); approximated here using the
+    // current-year modeled wage.
+    const rothCatchupThreshold = 150000 * limitFactor,
+      catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : state.k401Type,
+      catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : state.k401Type;
+    const iraLimitA = (7500 + (age >= 50 ? 1100 : 0)) * limitFactor,
+      iraLimitB = singlePerson ? 0 : (7500 + (ageB >= 50 ? 1100 : 0)) * limitFactor;
+    const iraA = Math.min(wageA, iraLimitA) * pct(state.iraPctA),
+      iraB = Math.min(wageB, iraLimitB) * pct(state.iraPctB);
+    const traditionalContribA =
+      (state.k401Type === 'traditional' ? kBaseA : 0) +
+      (catchupTypeA === 'traditional' ? kCatchupA : 0) +
+      (state.iraType === 'traditional' ? iraA : 0);
+    const traditionalContribB =
+      (state.k401Type === 'traditional' ? kBaseB : 0) +
+      (catchupTypeB === 'traditional' ? kCatchupB : 0) +
+      (state.iraType === 'traditional' ? iraB : 0);
+    const traditionalContrib = traditionalContribA + traditionalContribB;
+    const annualAdditionLimit = 72000 * limitFactor,
+      megaRoomA = Math.max(
+        0,
+        Math.min(wageA, annualAdditionLimit) - Math.min(kA, baseLimitA + catchupBaseA) - matchA,
+      ),
+      megaRoomB = Math.max(
+        0,
+        Math.min(wageB, annualAdditionLimit) - Math.min(kB, baseLimitB + catchupBaseB) - matchB,
+      ),
+      megaA = state.megaBackdoor ? megaRoomA * pct(state.megaPctA) : 0,
+      megaB = state.megaBackdoor ? megaRoomB * pct(state.megaPctB) : 0;
+    const rothContribA =
+      (state.k401Type === 'roth' ? kBaseA : 0) +
+      (catchupTypeA === 'roth' ? kCatchupA : 0) +
+      (state.iraType === 'roth' ? iraA : 0) +
+      megaA;
+    const rothContribB =
+      (state.k401Type === 'roth' ? kBaseB : 0) +
+      (catchupTypeB === 'roth' ? kCatchupB : 0) +
+      (state.iraType === 'roth' ? iraB : 0) +
+      megaB;
+    const rothContrib = rothContribA + rothContribB;
+    return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib };
+  }
+
+  // ---- end per-year helpers ----
+
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
@@ -4084,66 +4155,8 @@
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const limitFactor = Math.pow(1 + infl, year);
-      const catchupBaseA =
-          age >= 60 && age <= 63 ? 11250 * limitFactor : age >= 50 ? 8000 * limitFactor : 0,
-        catchupBaseB = singlePerson
-          ? 0
-          : ageB >= 60 && ageB <= 63
-            ? 11250 * limitFactor
-            : ageB >= 50
-              ? 8000 * limitFactor
-              : 0;
-      const baseLimitA = 24500 * limitFactor,
-        baseLimitB = 24500 * limitFactor;
-      const kBaseA = Math.min(wageA, baseLimitA) * pct(state.k401PctA),
-        kBaseB = Math.min(wageB, baseLimitB) * pct(state.k401PctB);
-      const catchupRoomA = Math.max(0, Math.min(wageA - kBaseA, catchupBaseA)),
-        catchupRoomB = Math.max(0, Math.min(wageB - kBaseB, catchupBaseB));
-      const kCatchupA = catchupRoomA * pct(state.catchupPctA),
-        kCatchupB = catchupRoomB * pct(state.catchupPctB);
-      const kA = kBaseA + kCatchupA,
-        kB = kBaseB + kCatchupB;
-      // SECURE 2.0: catch-up contributions must be Roth once prior-year FICA
-      // wages exceed ~$150k (2026-indexed); approximated here using the
-      // current-year modeled wage.
-      const rothCatchupThreshold = 150000 * limitFactor,
-        catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : state.k401Type,
-        catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : state.k401Type;
-      const iraLimitA = (7500 + (age >= 50 ? 1100 : 0)) * limitFactor,
-        iraLimitB = singlePerson ? 0 : (7500 + (ageB >= 50 ? 1100 : 0)) * limitFactor;
-      const iraA = Math.min(wageA, iraLimitA) * pct(state.iraPctA),
-        iraB = Math.min(wageB, iraLimitB) * pct(state.iraPctB);
-      const traditionalContribA =
-        (state.k401Type === 'traditional' ? kBaseA : 0) +
-        (catchupTypeA === 'traditional' ? kCatchupA : 0) +
-        (state.iraType === 'traditional' ? iraA : 0);
-      const traditionalContribB =
-        (state.k401Type === 'traditional' ? kBaseB : 0) +
-        (catchupTypeB === 'traditional' ? kCatchupB : 0) +
-        (state.iraType === 'traditional' ? iraB : 0);
-      const traditionalContrib = traditionalContribA + traditionalContribB;
-      const annualAdditionLimit = 72000 * limitFactor,
-        megaRoomA = Math.max(
-          0,
-          Math.min(wageA, annualAdditionLimit) - Math.min(kA, baseLimitA + catchupBaseA) - matchA,
-        ),
-        megaRoomB = Math.max(
-          0,
-          Math.min(wageB, annualAdditionLimit) - Math.min(kB, baseLimitB + catchupBaseB) - matchB,
-        ),
-        megaA = state.megaBackdoor ? megaRoomA * pct(state.megaPctA) : 0,
-        megaB = state.megaBackdoor ? megaRoomB * pct(state.megaPctB) : 0;
-      const rothContribA =
-        (state.k401Type === 'roth' ? kBaseA : 0) +
-        (catchupTypeA === 'roth' ? kCatchupA : 0) +
-        (state.iraType === 'roth' ? iraA : 0) +
-        megaA;
-      const rothContribB =
-        (state.k401Type === 'roth' ? kBaseB : 0) +
-        (catchupTypeB === 'roth' ? kCatchupB : 0) +
-        (state.iraType === 'roth' ? iraB : 0) +
-        megaB;
-      const rothContrib = rothContribA + rothContribB;
+      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib } =
+        retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
       let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
         ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
       if (isSurvivorPeriod) {
@@ -5089,63 +5102,8 @@
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
-      const catchupBaseA =
-          age >= 60 && age <= 63 ? 11250 * limitFactor : age >= 50 ? 8000 * limitFactor : 0,
-        catchupBaseB = singlePerson
-          ? 0
-          : ageB >= 60 && ageB <= 63
-            ? 11250 * limitFactor
-            : ageB >= 50
-              ? 8000 * limitFactor
-              : 0;
-      const baseLimitA = 24500 * limitFactor,
-        baseLimitB = 24500 * limitFactor;
-      const kBaseA = Math.min(wageA, baseLimitA) * pct(state.k401PctA),
-        kBaseB = Math.min(wageB, baseLimitB) * pct(state.k401PctB);
-      const catchupRoomA = Math.max(0, Math.min(wageA - kBaseA, catchupBaseA)),
-        catchupRoomB = Math.max(0, Math.min(wageB - kBaseB, catchupBaseB));
-      const kCatchupA = catchupRoomA * pct(state.catchupPctA),
-        kCatchupB = catchupRoomB * pct(state.catchupPctB);
-      const kA = kBaseA + kCatchupA,
-        kB = kBaseB + kCatchupB;
-      const rothCatchupThreshold = 150000 * limitFactor,
-        catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : state.k401Type,
-        catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : state.k401Type;
-      const iraLimitA = (7500 + (age >= 50 ? 1100 : 0)) * limitFactor,
-        iraLimitB = singlePerson ? 0 : (7500 + (ageB >= 50 ? 1100 : 0)) * limitFactor;
-      const iraA = Math.min(wageA, iraLimitA) * pct(state.iraPctA),
-        iraB = Math.min(wageB, iraLimitB) * pct(state.iraPctB);
-      const traditionalContribA =
-        (state.k401Type === 'traditional' ? kBaseA : 0) +
-        (catchupTypeA === 'traditional' ? kCatchupA : 0) +
-        (state.iraType === 'traditional' ? iraA : 0);
-      const traditionalContribB =
-        (state.k401Type === 'traditional' ? kBaseB : 0) +
-        (catchupTypeB === 'traditional' ? kCatchupB : 0) +
-        (state.iraType === 'traditional' ? iraB : 0);
-      const traditionalContrib = traditionalContribA + traditionalContribB;
-      const annualAdditionLimit = 72000 * limitFactor,
-        megaRoomA = Math.max(
-          0,
-          Math.min(wageA, annualAdditionLimit) - Math.min(kA, baseLimitA + catchupBaseA) - matchA,
-        ),
-        megaRoomB = Math.max(
-          0,
-          Math.min(wageB, annualAdditionLimit) - Math.min(kB, baseLimitB + catchupBaseB) - matchB,
-        ),
-        megaA = state.megaBackdoor ? megaRoomA * pct(state.megaPctA) : 0,
-        megaB = state.megaBackdoor ? megaRoomB * pct(state.megaPctB) : 0;
-      const rothContribA =
-        (state.k401Type === 'roth' ? kBaseA : 0) +
-        (catchupTypeA === 'roth' ? kCatchupA : 0) +
-        (state.iraType === 'roth' ? iraA : 0) +
-        megaA;
-      const rothContribB =
-        (state.k401Type === 'roth' ? kBaseB : 0) +
-        (catchupTypeB === 'roth' ? kCatchupB : 0) +
-        (state.iraType === 'roth' ? iraB : 0) +
-        megaB;
-      const rothContrib = rothContribA + rothContribB;
+      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib } =
+        retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
       let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
         ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
       if (isSurvivorPeriod) {
