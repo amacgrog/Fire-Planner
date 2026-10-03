@@ -9,6 +9,39 @@ payroll-tax handling.
 Phases 2 and 3 are **not** merged back from the same branch: each is started
 in its own session/branch.
 
+## Current plan (supersedes the Phase 3 and "After Phase 2" lists where they differ)
+
+The detailed, decision-annotated plan is `docs/next-batches-plan.md`. Each batch
+(or sub-batch) is one PR into `claude/tender-meitner-a3bo59`, reviewed by the
+owner before the next starts. Order:
+
+1. **Historical parity (2B)** and gradual bond refill.
+2. **US tax and Medicare:** Medicare always delayed while working; age-based
+   deductions; senior deduction through 2028; simplified itemizing (state income
+   tax + property tax under the SALT cap + mortgage interest); no new fields.
+3. **Retirement accounts and early-withdrawal rules:** 3A per-partner account
+   model (traditional IRA, traditional 401(k), Roth IRA, Roth 401(k); Roth IRA
+   and Roth 401(k) basis), 3B penalty-aware withdrawal order, 72(t) per account,
+   Rule of 55 on 401(k)s only, 3C safe-MAGI room on every withdrawal path.
+7. **Dependents and the tax update** (runs after Batch 3): children list; US
+   federal child tax credit and premium-tax-credit review; state rules table for
+   all 50 states and DC (one PR for the bulk); Canadian federal age amount and
+   pension credit; provincial rules table for all ten provinces (one PR); Canada
+   income-tested benefits (GIS and Allowance, CCB, GST/HST credit).
+4. **Canada:** 4A mixed withdrawals, 4B optimizer port.
+5. **Optimizer:** selectable objective, remove the 30-year cap if affordable,
+   wording.
+6. **Social Security and others:** guided PIA estimate, claim-age rules, spousal
+   and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age
+   basis; loose ends.
+8. **Social Security survivor-claim optimizer** (after everything above):
+   searches when a surviving spouse should start the survivor benefit and their
+   own benefit, and when to switch, in both orders.
+
+Not modeled by decision: charitable and medical itemized deductions, Medicare
+late-enrollment penalties, the Social Security earnings test, WEP/GPO
+(repealed), territories (Canada), local income taxes.
+
 ## Phase 0: baseline
 - `npm test` green (golden, historical_tax_indexing, dividend_income,
   medical_inflation, irmaa_gating, roth_early_access, tax_brackets,
@@ -113,7 +146,7 @@ historical and Monte Carlo success rates:
 - The standard projection (not the historical one) taxes bond interest at the
   `Bond return` input, a total return used as a proxy for the coupon.
 - The 2024 Treasury yield uses January 2024 (4.06%) because no December 2023
-  value was supplied.
+  value was supplied. Decided: keep the recorded 2023-2025 yields as they are.
 - The CPI column's source is not recorded (matches Dec-to-Dec CPI-U through
   2022; 2023-2025 unchecked).
 
