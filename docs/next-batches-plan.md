@@ -1024,6 +1024,65 @@ $90k spending (US) with the planner's own defaults otherwise.
   A guard fails the scenario if no ladder was built (vacuous), and a mutation
   check (historical engine skips rotation) fails the test.
 
+**Steps 5 (F4/F5/F6): mix modes inside the bucket strategy.**
+- The stock-account step of the bucket cascade is now one grouped step,
+  `BUCKET_STEP.stocks`; the shared order arrays (`BUCKET_DOWN_YEAR_ORDER`,
+  `BUCKET_UP_YEAR_ORDER`) list `stocks` where they used to list taxable,
+  traditional, Roth. Down year: cash, bond taxable/traditional/Roth, `stocks`,
+  home. Up year: `stocks`, cash, bonds, home. Cash and the bond buckets keep their
+  position (owner decision 1).
+- US: `drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver })` holds the
+  three mix modes (explicit/applied mix, live mix, smooth), extracted from
+  `withdrawStandard`, which now calls it; it returns false when no mode is on and
+  the caller runs its own default. Canada: `drawSmoothStockAccounts(wd, solver)`
+  (smooth only). Both are written against `takeTaxable`/`takeTraditional`/
+  `takeRoth`, so the Batch 3A account model can change underneath them.
+- With no mix mode on, `BUCKET_STEP.stocks` runs the original taxable ->
+  traditional -> Roth steps, bit for bit, so every default-mix historical
+  scenario is unchanged. Traditional draws in the bucket keep their own bisection
+  bracket (`solveTraditionalForNetFromNeed`), also for the mix modes; the standard
+  engine keeps `solveTraditionalForNet` (the two are ~1e-7 apart, kept on purpose).
+- Evidence (dump of the previous commit vs this one, 834 scenarios): all 114
+  standard scenarios and every historical scenario without a mix mode are
+  unchanged; 114 historical scenarios moved: `R smooth` (US and Canada),
+  `R mixLive`, `R mixApplied` (US) and `R everything` (which turns the mix modes
+  on). Rendered-text snapshots changed only by the edited methodology text.
+- Before/after (seeded Monte Carlo, 2000 paths, seed 7):
+
+| Planner | Scenario | Historical before -> after | Monte Carlo before -> after |
+|---|---|---|---|
+| US | default, early retiree, bondYears 4 | unchanged | unchanged |
+| US | early retiree, smooth withdrawals | 90.6% -> 86.8% | 88.0% -> 86.9% |
+| US | early retiree, live mix | 90.6% -> 90.6% | 88.0% -> 88.0% |
+| Canada | default, early retiree, bondYears 4 | unchanged | unchanged |
+| Canada | early retiree, smooth withdrawals | 90.6% -> 86.8% | 88.7% -> 88.2% |
+
+  Smooth now draws traditional/RRSP money earlier instead of draining taxable
+  first, in an early-retirement plan where the stock accounts carry the first
+  years. Live mix does not move this scenario because taxable-first is already
+  the cheaper order there.
+- User-facing text: the smooth-withdrawal and optimized-order info bubbles and the
+  README no longer say the historical views "keep their own bucket-strategy
+  withdrawal order"; the methodology callouts describe the grouped step.
+- **Known gap: the safe-MAGI room into the live mix.** `remainingMagiRoom` is
+  passed to the live mix by both engines, but no scenario was found where it
+  changes the live mix's choice: 828 standard-engine scenarios (ages 52-62, ACA on
+  and off, taxable 30k-600k, basis 0-70%, extra income 0-50k, single and married)
+  gave identical results with the room forced to infinity. Reason: the room is
+  `ceiling - preConvMagi` where `preConvMagi` already contains the MAGI iteration's
+  estimate of this year's own discretionary draw, so it is small or zero at
+  convergence, and the 1e6-per-dollar overage penalty then compares two orders
+  that realize nearly the same income. Because behavior cannot prove the wiring,
+  `tests/historical_parity.js` checks the source: the standard call, the
+  historical call and `BUCKET_STEP.stocks` must all carry the same remaining-room
+  expression (mutation check: dropping it in `BUCKET_STEP.stocks` fails the test).
+  The oddity that the room already contains the draw's own estimate is
+  pre-existing and untouched; Batch 3C (safe-MAGI room on every withdrawal path)
+  should look at it.
+- Parity test group `mix`: smooth (US, Canada), live mix, live mix + ACA +
+  conversion, applied mix schedule, all agreeing with `simulate()` year by year.
+  Mutation check (bypass the mix in the bucket step) fails four scenarios.
+
 ### Batch 2 notes
 _(to be added by the Batch 2 PR)_
 

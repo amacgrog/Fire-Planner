@@ -271,7 +271,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V77</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V78</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -506,8 +506,8 @@
         </details>
         <details class="group" data-cat="advanced">
           <summary><span class="group-summary-text"><span class="group-title">Withdrawal & tax strategy</span><span class="group-state" id="withdrawalStrategyGroupState"></span></span></summary>
-          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across <span class="info-nw">accounts<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Instead of draining taxable first, so taxable income stays flatter and doesn&#x27;t jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order. Has no effect while “Optimized withdrawal order” is on.">i</button></span><small>Draws taxable and traditional in proportion to balances</small></label></div>
-          <div class="field"><label for="withdrawalMixEnabled"><input id="withdrawalMixEnabled" type="checkbox"> Optimized withdrawal order <span class="info-nw">(live)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Each year, draws from whichever of taxable or traditional is cheaper this year first (fully covering the need from the other if the first runs short), instead of always draining taxable first — and leans toward whichever realizes less income when the year&#x27;s ACA-subsidy/IRMAA safe room is tight, the same ceiling the Roth conversion ladder respects. A fast, always-current, one-year-lookahead heuristic — it can&#x27;t see multi-year tradeoffs the way the Withdrawal &amp; conversion optimizer in the results can (apply its recommendation by hand for that), and it never touches Roth, which is still only reached once taxable and traditional together run short. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views keep their own bucket-strategy withdrawal order.">i</button></span><small>Each year, draws the cheaper-taxed account first</small></label></div>
+          <div class="field"><label for="smoothWithdrawals"><input id="smoothWithdrawals" type="checkbox"> Smooth retirement withdrawals across <span class="info-nw">accounts<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Instead of draining taxable first, so taxable income stays flatter and doesn&#x27;t jump sharply once taxable runs out. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views use it too, but only for the stock-account part of their withdrawals (in a down year they still draw cash and the bond reserve first). Has no effect while “Optimized withdrawal order” is on.">i</button></span><small>Draws taxable and traditional in proportion to balances</small></label></div>
+          <div class="field"><label for="withdrawalMixEnabled"><input id="withdrawalMixEnabled" type="checkbox"> Optimized withdrawal order <span class="info-nw">(live)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Each year, draws from whichever of taxable or traditional is cheaper this year first (fully covering the need from the other if the first runs short), instead of always draining taxable first — and leans toward whichever realizes less income when the year&#x27;s ACA-subsidy/IRMAA safe room is tight, the same ceiling the Roth conversion ladder respects. A fast, always-current, one-year-lookahead heuristic — it can&#x27;t see multi-year tradeoffs the way the Withdrawal &amp; conversion optimizer in the results can (apply its recommendation by hand for that), and it never touches Roth, which is still only reached once taxable and traditional together run short. Applies to the ±1yr/±3yr/CAGR views and the summary metrics; the historical backtest and Monte Carlo views use it too, but only for the stock-account part of their withdrawals (in a down year they still draw cash and the bond reserve first).">i</button></span><small>Each year, draws the cheaper-taxed account first</small></label></div>
           <div class="field"><label for="guardrailsEnabled"><input id="guardrailsEnabled" type="checkbox"> Guyton-Klinger <span class="info-nw">guardrails<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="A simplified dynamic-spending strategy: instead of a fixed inflation-adjusted amount, household discretionary spending is cut 10% when the withdrawal rate runs materially above your rate at retirement (capital-preservation rule) and raised 10% when it runs materially below it (prosperity rule). Off by default; turn it on to compare outcomes.">i</button></span><small>Cuts spending 10% when withdrawals run high, raises it when low</small></label></div>
           <div class="field"><label for="rothConvEnabled"><input id="rothConvEnabled" type="checkbox"> Enable Roth conversion <span class="info-nw">ladder<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Converts traditional balances to Roth each year in the window below, filling ordinary income up to the top of the selected federal bracket — automatically capped short of the ACA subsidy cliff (400% FPL, non-enhanced mode) and the next Medicare IRMAA tier, whichever binds first, so the bracket target is a ceiling rather than a guarantee.">i</button></span><small>Converts traditional to Roth each year, up to a bracket ceiling</small></label></div>
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
@@ -675,7 +675,7 @@
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled.</div>
             <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually the year they turn 65 — unlike the pre-65 premium, this is age-gated only: it applies whether or not that partner (or their spouse) is still working or retired, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner against household MAGI from two years prior (each year's full realized MAGI, withdrawals included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
-            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from taxable → traditional → Roth and any bond-reserve shortfall is refilled the same way. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
+            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts and any bond-reserve shortfall is refilled the same way. The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
         <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal tax parameters are held constant in real terms and increase with inflation in nominal projections. Sources: IRS 2026 federal brackets, Tax Foundation 2026 state brackets, IRS 2026 retirement contribution limits, IRS 2026 capital-gains thresholds, IRS RMD tables, CMS 2026 Medicare IRMAA tiers, IRS ACA premium tax credit rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
@@ -4768,21 +4768,20 @@
       tradNet = fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
     return { fromTrad, tradNet, penalty };
   }
-  // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
-  // discretionary draw from taxable / traditional (and Roth, for an explicit
-  // mix) in one of four modes, chosen in this order:
+  // The mix modes that decide how a year's need is split across the stock accounts
+  // (taxable / traditional / Roth), shared by the standard cascade and the bucket
+  // strategy. Chosen in this order:
   //  1. an explicit per-year mix candidate (an optimizer override or an applied
   //     schedule): taxable, traditional AND Roth in that year's split;
   //  2. the live mix toggle: the cheaper of taxable-first or traditional-first,
   //     cascading fully into the other for any shortfall, respecting the
   //     remaining safe-MAGI room;
-  //  3. smooth withdrawals: taxable and traditional in proportion to balances;
-  //  4. the default: taxable first, then traditional.
-  // Any shortfall then falls through Roth, cash, the bond-reserve buckets
-  // (a protected sequence-risk reserve, tapped only after everything else) and
-  // finally home equity. `remainingMagiRoom` is the safe-MAGI headroom left after
-  // this year's Roth conversion.
-  function withdrawStandard(wd, { age, remainingMagiRoom }) {
+  //  3. smooth withdrawals: taxable and traditional in proportion to balances.
+  // Returns false when no mix mode is active, so the caller runs its own default
+  // order. `solver` is the bisection bracket for traditional draws (the two
+  // strategies keep their own, see solveTraditionalForNetFromNeed). Written
+  // against the take*() primitives so the account model can change underneath.
+  function drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver }) {
     const { bal } = wd;
     const mixCandidate =
       withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
@@ -4799,7 +4798,7 @@
         rothShare = wd.need * wRoth;
       wd.need -= takeTaxable(wd, 'taxable', taxableShare);
       if (traditionalShare > 0 && bal.traditional > 0)
-        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare));
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       if (rothShare > 0 && bal.roth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
     } else if (state.withdrawalMixEnabled && wd.need > 0) {
       // 'live' is a display-only marker, not a WITHDRAWAL_MIX_CANDIDATES id.
@@ -4831,9 +4830,21 @@
           traditionalShare = wd.need * (bal.traditional / pool);
         wd.need -= takeTaxable(wd, 'taxable', taxableShare);
         if (traditionalShare > 0 && bal.traditional > 0)
-          wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare));
+          wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       }
-    } else {
+    } else return false;
+    return true;
+  }
+  // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
+  // discretionary draw from taxable / traditional (and Roth, for an explicit
+  // mix): a mix mode (drawMixedStockAccounts) or, by default, taxable first then
+  // traditional. Any shortfall then falls through Roth, cash, the bond-reserve
+  // buckets (a protected sequence-risk reserve, tapped only after everything
+  // else) and finally home equity. `remainingMagiRoom` is the safe-MAGI headroom
+  // left after this year's Roth conversion.
+  function withdrawStandard(wd, { age, remainingMagiRoom }) {
+    const { bal } = wd;
+    if (!drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver: solveTraditionalForNet })) {
       wd.need -= takeTaxable(wd, 'taxable', wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
     }
@@ -4870,20 +4881,33 @@
       wd.need = Math.max(0, wd.need - takeRoth(wd, 'roth', wd.need));
     },
     home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
+    // The stock accounts as one grouped step: a mix mode when one is active (the
+    // same code the standard cascade uses), otherwise taxable -> traditional -> Roth.
+    // Cash and the bond buckets keep their own place in the order.
+    stocks: (wd, opts) => {
+      if (!drawMixedStockAccounts(wd, { age: opts.age, remainingMagiRoom: opts.remainingMagiRoom, solver: solveTraditionalForNetFromNeed })) {
+        BUCKET_STEP.taxable(wd);
+        if (wd.need > 0) BUCKET_STEP.traditional(wd);
+      }
+      if (wd.need > 0) BUCKET_STEP.roth(wd);
+    },
   };
   // @@shared:BUCKET_DOWN_YEAR_ORDER begin
-  const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'].map((k) => BUCKET_STEP[k]);
-  const BUCKET_UP_YEAR_ORDER = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
+  const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
+  const BUCKET_UP_YEAR_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
   // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
   // comes from cash, then the bond-reserve buckets, and only then from the
   // stock accounts (taxable, tax-deferred, tax-free) and home equity. In an up
   // year it comes from the stock accounts first, then cash, bonds and home, and
   // any shortfall in the bond reserve versus `bondTarget` is topped back up from
-  // the same stock-account order. A draw that leaves a tiny overshoot is clamped
-  // to zero remaining need.
-  function withdrawBucket(wd, { yearReturn, bondTarget }) {
-    for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd);
+  // the same stock-account order. The stock accounts are one grouped step whose
+  // split follows the user's mix mode (see BUCKET_STEP.stocks); `opts` carries
+  // what that step needs (age, remainingMagiRoom). A draw that leaves a tiny
+  // overshoot is clamped to zero remaining need.
+  function withdrawBucket(wd, opts) {
+    const { yearReturn, bondTarget } = opts;
+    for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd, opts);
     if (yearReturn >= 0) refillBondReserve(wd.bal, bondTarget);
   }
   // @@shared:BUCKET_DOWN_YEAR_ORDER end
@@ -5388,7 +5412,8 @@
             age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
           );
           wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
-          if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget });
+          if (mode.bucketStrategy)
+            withdrawBucket(wd, { yearReturn: stockReturn, bondTarget, age, remainingMagiRoom: Math.max(0, magiSafeRoom - conversionAmount) });
           else withdrawStandard(wd, { age, remainingMagiRoom: Math.max(0, magiSafeRoom - conversionAmount) });
           if (wd.need > 1 && !depletedAge) depletedAge = age;
           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;

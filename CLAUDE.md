@@ -124,7 +124,13 @@ Each planner is one big IIFE. Core shape:
   work (Batch 1 of `docs/next-batches-plan.md`) turned on and then removed, so
   both modes now run them. Rows and result fields are identical in both modes;
   historical rows additionally carry `cumFactor` and the result carries
-  `startYear`. The pre-retirement ladder is sized once from the plan's assumed
+  `startYear`. The stock-account step of the bucket strategy is one grouped step,
+  `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
+  override mix, live mix, smooth) or `drawSmoothStockAccounts` (Canada: smooth
+  only), the same code `withdrawStandard` uses, with the bucket's own bisection
+  bracket (`solveTraditionalForNetFromNeed`); with no mix mode on it runs the
+  original taxable -> traditional -> Roth steps. Cash and the bond buckets keep
+  their place in the down/up-year orders. The pre-retirement ladder is sized once from the plan's assumed
   inflation (`source.inflation`) in both engines. Do not add a new
   historical-only fork of the year loop; add a mode switch.
 - **MAGI iteration (both engines).** ACA subsidy, the ACA/IRMAA

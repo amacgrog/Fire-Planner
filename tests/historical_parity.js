@@ -36,7 +36,7 @@ const GROUPS = {
   mix: 'F4-F6',
 };
 // Groups that must pass at the current commit. Each Batch 1 step adds its group.
-const ENABLED = new Set(['rows', 'conversion', 'ladder']);
+const ENABLED = new Set(['rows', 'conversion', 'ladder', 'mix']);
 
 const US_R = {
   ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50,
@@ -138,7 +138,22 @@ function compare(label, std, hist, problems, preRetirement) {
   }
 }
 
+// Wiring check for the safe-MAGI room (US). No scenario was found where the room changes the live
+// mix's choice (828 searched, see docs/next-batches-plan.md "Batch 1 notes"), so behavior alone
+// cannot prove the historical engine passes it on. Check the source instead: both strategies must
+// hand the live mix the same remaining room, `max(0, magiSafeRoom - conversionAmount)`, and the
+// bucket's grouped stock step must forward it.
+function checkRoomWiring() {
+  const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'Planner_US.html'), 'utf8');
+  const room = 'Math.max(0, magiSafeRoom - conversionAmount)';
+  assert(src.includes(`withdrawStandard(wd, { age, remainingMagiRoom: ${room} })`), 'standard engine must pass the remaining MAGI room');
+  assert(/withdrawBucket\(wd, \{[^}]*remainingMagiRoom: Math\.max\(0, magiSafeRoom - conversionAmount\)[^}]*\}\)/.test(src), 'historical engine must pass the remaining MAGI room');
+  assert(src.includes('remainingMagiRoom: opts.remainingMagiRoom'), 'BUCKET_STEP.stocks must forward the remaining MAGI room');
+  console.log('ok   [F5] US safe-MAGI room is passed to the live mix by both engines (source check)');
+}
+
 (async () => {
+  checkRoomWiring();
   const browser = await chromium.launch();
   let failed = 0;
   for (const [key, file] of [['US', 'Planner_US.html'], ['Canada', 'Planner_Canada.html']]) {
