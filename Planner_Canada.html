@@ -2944,6 +2944,51 @@
     return { traditionalBeforeRmd, rrifA, rrifB, rmd };
   }
 
+  // Shelter cost for one year: rent, or (once a home is owned) mortgage payment
+  // + maintenance + property tax and insurance, plus the one-off cash cost in
+  // the year a future purchase happens. In the purchase year the FHSA balance
+  // pays part of that cost first, and whatever is left rolls tax-free into the
+  // TFSA (simplified; CRA also allows a tax-free RRSP rollover).
+  // Also reports the balance-sheet change that comes with it: `mortgage` is the
+  // loan balance when it changes this year, `homeValue` the home's value in the
+  // purchase year, `fhsaToRoth` the FHSA amount moving to the TFSA (the caller
+  // then empties the FHSA); each is null when nothing changes. projectedExpense()
+  // reads only `.housing` and passes no FHSA balance.
+  function housingForYear(year, factor, schedule, futureBuy, fhsa = 0) {
+    const ownsHome =
+      state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
+    const propCosts = ownsHome
+      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
+        state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
+      : 0;
+    const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
+    if (state.tenure === 'own') {
+      const annualPI = schedule.payments[year] || 0;
+      return {
+        housing: annualPI + state.maintenance * factor + propCosts,
+        mortgage: schedule.balances[year] || 0,
+        homeValue: null,
+        fhsaToRoth: null,
+      };
+    }
+    if (state.tenure === 'rent' || year < futureBuy.buyYear)
+      return { housing: rent, mortgage: null, homeValue: null, fhsaToRoth: null };
+    const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
+    let purchaseCashNet = year === futureBuy.buyYear ? futureBuy.purchaseCash : 0;
+    let fhsaToRoth = null;
+    if (year === futureBuy.buyYear) {
+      const fromFhsa = Math.min(fhsa, purchaseCashNet);
+      purchaseCashNet -= fromFhsa;
+      fhsaToRoth = fhsa - fromFhsa;
+    }
+    return {
+      housing: buyAnnualPI + state.maintenance * factor + propCosts + purchaseCashNet,
+      mortgage: futureBuy.buySchedule.balances[year] || 0,
+      homeValue: year === futureBuy.buyYear ? futureBuy.homeValueAtPurchase : null,
+      fhsaToRoth,
+    };
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -3013,25 +3058,7 @@
           : Infinity;
     const projectedExpense = (year) => {
       const factor = Math.pow(1 + infl, year);
-      const ownsHome =
-        state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-      const propCosts = ownsHome
-        ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-          state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-        : 0;
-      let shelter;
-      if (state.tenure === 'rent')
-        shelter = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      else if (state.tenure === 'own')
-        shelter = (schedule.payments[year] || 0) + state.maintenance * factor + propCosts;
-      else if (year < futureBuy.buyYear)
-        shelter = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      else
-        shelter =
-          (futureBuy.buySchedule.payments[year] || 0) +
-          state.maintenance * factor +
-          propCosts +
-          (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
+      const shelter = housingForYear(year, factor, schedule, futureBuy).housing;
       const ageA = state.ageA + year,
         ageB = state.ageB + year;
       const healthcare = singlePerson
@@ -3104,33 +3131,13 @@
         isSurvivorPeriod,
         deceasedIsA,
       });
-      let housing;
-      const ownsHome =
-        state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-      const propCosts = ownsHome
-        ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-          state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-        : 0;
-      if (state.tenure === 'own') {
-        const annualPI = schedule.payments[year] || 0;
-        bal.mortgage = schedule.balances[year] || 0;
-        housing = annualPI + state.maintenance * factor + propCosts;
-      } else if (state.tenure === 'rent') {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else if (year < futureBuy.buyYear) {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else {
-        const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
-        bal.mortgage = futureBuy.buySchedule.balances[year] || 0;
-        let purchaseCashNet = year === futureBuy.buyYear ? futureBuy.purchaseCash : 0;
-        if (year === futureBuy.buyYear) {
-          const fromFhsa = Math.min(bal.fhsa, purchaseCashNet);
-          purchaseCashNet -= fromFhsa;
-          bal.roth += bal.fhsa - fromFhsa; // leftover FHSA rolls tax-free into TFSA (simplified; CRA also allows a tax-free RRSP rollover)
-          bal.fhsa = 0;
-        }
-        housing = buyAnnualPI + state.maintenance * factor + propCosts + purchaseCashNet;
-        if (year === futureBuy.buyYear) bal.home = futureBuy.homeValueAtPurchase;
+      const housingYear = housingForYear(year, factor, schedule, futureBuy, bal.fhsa);
+      const housing = housingYear.housing;
+      if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
+      if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
+      if (housingYear.fhsaToRoth !== null) {
+        bal.roth += housingYear.fhsaToRoth;
+        bal.fhsa = 0;
       }
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
       const otherA =
@@ -3631,33 +3638,13 @@
         isSurvivorPeriod,
         deceasedIsA,
       });
-      let housing;
-      const ownsHome =
-        state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-      const propCosts = ownsHome
-        ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-          state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-        : 0;
-      if (state.tenure === 'own') {
-        const annualPI = schedule.payments[year] || 0;
-        bal.mortgage = schedule.balances[year] || 0;
-        housing = annualPI + state.maintenance * factor + propCosts;
-      } else if (state.tenure === 'rent') {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else if (year < futureBuy.buyYear) {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else {
-        const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
-        bal.mortgage = futureBuy.buySchedule.balances[year] || 0;
-        let purchaseCashNet = year === futureBuy.buyYear ? futureBuy.purchaseCash : 0;
-        if (year === futureBuy.buyYear) {
-          const fromFhsa = Math.min(bal.fhsa, purchaseCashNet);
-          purchaseCashNet -= fromFhsa;
-          bal.roth += bal.fhsa - fromFhsa; // leftover FHSA rolls tax-free into TFSA (simplified; CRA also allows a tax-free RRSP rollover)
-          bal.fhsa = 0;
-        }
-        housing = buyAnnualPI + state.maintenance * factor + propCosts + purchaseCashNet;
-        if (year === futureBuy.buyYear) bal.home = futureBuy.homeValueAtPurchase;
+      const housingYear = housingForYear(year, factor, schedule, futureBuy, bal.fhsa);
+      const housing = housingYear.housing;
+      if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
+      if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
+      if (housingYear.fhsaToRoth !== null) {
+        bal.roth += housingYear.fhsaToRoth;
+        bal.fhsa = 0;
       }
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
       const otherA =
