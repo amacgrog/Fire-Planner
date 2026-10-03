@@ -6544,3 +6544,32 @@ Design (identical in `simulate()` and `simulateHistoricalCore()`):
 - Invariant test: `tests/survivor_symmetry.js` runs two identical partners and requires A-dies and B-dies to give identical tax, income and balances from the death year on (US and Canada); it failed on both planners before the fixes.
 - Still true and unchanged: a death modeled during a working year doesn't zero that year's payroll (the deceased partner's `wageA/wageB` still flows through `wages`), as the survivor tooltip already warns.
 
+
+
+## Phase 2 refactor safety net (2026-10)
+
+Baseline recorded before any refactor commit (branch `claude/tender-meitner-a3bo59`,
+based on the Phase 1 merge, US V74 / Canada V33):
+
+- `npm test` (the pre-existing tests) green, about 78 s. Root `test_*.js`
+  Playwright scripts: all 8 exit 0 (not in CI).
+- Exact-match engine snapshot (`tests/snapshot.js`): 435 US / 339 Canada
+  scenarios. Mutation-checked: nudging one constant by 1e-7 (relative) in
+  `simulate()` or `simulateHistoricalCore()` in either planner fails it.
+  The clock is pinned (Playwright `page.clock`) because the engines key tax
+  indexing off the current year; Monte Carlo paths use a seeded block
+  bootstrap built in the test, never `Math.random`.
+- Known today and therefore *encoded in the baseline*: the historical engine
+  ignores `smoothWithdrawals`, `withdrawalMixEnabled` and the applied mix
+  schedule (several scenario outputs are identical across those flags), has no
+  pre-retirement ladder, and does not pass `age` to `solveRothConversion`. The
+  follow-up behavior branch regenerates only the historical entries.
+- Real crash-era paths exhaust the plain "R" portfolio before the 70s, so each
+  non-default historical scenario also runs with a richer portfolio (`rich`)
+  to reach survivor / RMD / late-life logic.
+- UI snapshot (`tests/snapshot_ui.js`) records existing quirks as-is, e.g. a
+  retirement age set below current age is clamped on reload, and money fields
+  re-format after a reload.
+- Dead-code tripwire: no top-level function in either planner is referenced
+  only at its own definition (191 US / 157 Canada), so any later deletion is
+  deliberate.

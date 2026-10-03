@@ -24,6 +24,18 @@ feature list.
   `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
   schedule (federal, each state/province, NIIT, OAS clawback) via
   `window.__test_tax`; run it whenever a bracket or tax function changes.
+- `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`
+  — exact-match characterization test of `simulate()`/`simulateHistorical()`
+  over ~435 US / ~340 Canada scenarios (standard, retirement-age shifts, and
+  historical/Monte-Carlo-style paths); the committed baseline stores hashes.
+  `tests/snapshot_ui.js` + `tests/snapshots/ui_*.json` pins field wiring (each
+  sidebar control: state change, visibility, reload round trip), the MCP tool
+  schema, a clean load at desktop/mobile width, and rendered-results text. Both
+  run in `npm test`. **Only run `npm run snapshot:update` for an intended
+  behavior change**, and say so in the commit; a pure refactor must leave the
+  baseline untouched. To see *what* changed after a failure:
+  `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing`,
+  `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
 - `test_*.js` (repo root, committed) — ad-hoc Playwright scripts covering
   UI/feature behavior; not run by CI. Run individually with `node test_foo.js`.
 - `docs/reference.md` — a much longer, chronological architecture/gotcha log
