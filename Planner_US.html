@@ -4419,6 +4419,76 @@
     );
   }
 
+  // One year of growth on every account. Stocks (taxable/traditional/Roth),
+  // bonds (the three bond-reserve buckets) and cash each grow at their own
+  // rate; the home appreciates only when owned. Dividends and interest were
+  // already taxed this year (`inv`), so reinvesting them raises cost basis
+  // rather than leaving untaxed embedded gain.
+  function growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv }) {
+    bal.taxable *= 1 + stockReturn;
+    bal.traditional *= 1 + stockReturn;
+    bal.roth *= 1 + stockReturn;
+    bal.bondTaxable *= 1 + bondReturn;
+    bal.bondTraditional *= 1 + bondReturn;
+    bal.bondRoth *= 1 + bondReturn;
+    bal.cash *= 1 + hysa;
+    bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
+    bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
+    if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
+  }
+
+  // Takes the year's mandatory distribution (RMD + 72(t) SEPP) out of the
+  // traditional balance first, then out of the traditional bond bucket.
+  function withdrawRequiredDistributions(bal, rmd) {
+    const rmdFromTraditional = Math.min(bal.traditional, rmd);
+    bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
+    bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
+  }
+
+  // Moves a Roth conversion from the traditional balance (then the traditional
+  // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
+  // seasoning clock for penalty-free access.
+  function applyRothConversion(bal, rothLedger, conversionAmount, year) {
+    if (conversionAmount <= 0) return;
+    const fromTradConv = Math.min(bal.traditional, conversionAmount);
+    bal.traditional -= fromTradConv;
+    bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
+    bal.roth += conversionAmount;
+    rothLedger.conv.push({ year, amount: conversionAmount });
+  }
+
+  // Cash above the reserve target is invested in the taxable account (at full
+  // cost basis, since it was already-taxed cash).
+  function sweepExcessCash(bal, reserveTarget) {
+    if (bal.cash <= reserveTarget) return;
+    const moved = bal.cash - reserveTarget;
+    bal.taxable += moved;
+    bal.taxableBasis += moved;
+    bal.cash = reserveTarget;
+  }
+
+  // Pre-retirement bond-ladder build: ramps linearly over the years available
+  // before retirement so the full ladderTarget is reached by rotationEndYear,
+  // moving half of each year's target from taxable and half from traditional
+  // into their bond-reserve buckets (the taxable move carries its share of
+  // cost basis).
+  function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }) {
+    if (year < rotationStartYear || year > rotationEndYear) return;
+    const windowLen = rotationEndYear - rotationStartYear + 1,
+      progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
+    const target = ladderTarget * progress,
+      halfTarget = target / 2;
+    const taxableMove = Math.min(bal.taxable, Math.max(0, halfTarget - bal.bondTaxable)),
+      movedBasis = bal.taxable ? bal.taxableBasis * (taxableMove / bal.taxable) : 0;
+    bal.taxable -= taxableMove;
+    bal.taxableBasis -= movedBasis;
+    bal.bondTaxable += taxableMove;
+    bal.bondTaxableBasis += movedBasis;
+    const traditionalMove = Math.min(bal.traditional, Math.max(0, halfTarget - bal.bondTraditional));
+    bal.traditional -= traditionalMove;
+    bal.bondTraditional += traditionalMove;
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -4745,21 +4815,8 @@
         tax -
         traditionalContrib -
         rothContrib;
-      bal.taxable *= 1 + nominalReturn;
-      bal.bondTaxable *= 1 + bondYield;
-      bal.bondTraditional *= 1 + bondYield;
-      bal.bondRoth *= 1 + bondYield;
-      bal.traditional *= 1 + nominalReturn;
-      bal.roth *= 1 + nominalReturn;
-      bal.cash *= 1 + hysa;
-      // Reinvested dividends and interest were taxed above, so they raise
-      // cost basis rather than sitting as untaxed embedded gain.
-      bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
-      bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
-      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
-      const rmdFromTraditional = Math.min(bal.traditional, rmd);
-      bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
-      bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
+      growBalances(bal, { stockReturn: nominalReturn, bondReturn: bondYield, hysa, homeGrowth, inv });
+      withdrawRequiredDistributions(bal, rmd);
       // Total traditional/taxable dollars actually withdrawn this year, for
       // the cash-flow Sankey — folds bondTraditional/bondTaxable draws into
       // their parent tax-status bucket (they're the same tax-status money,
@@ -4772,39 +4829,14 @@
         rothWithdrawn = 0,
         earlyPenalty = 0,
         resolvedMixCandidate = null;
-      if (conversionAmount > 0) {
-        const fromTradConv = Math.min(bal.traditional, conversionAmount);
-        bal.traditional -= fromTradConv;
-        bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
-        bal.roth += conversionAmount;
-        rothLedger.conv.push({ year, amount: conversionAmount });
-      }
+      applyRothConversion(bal, rothLedger, conversionAmount, year);
       bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
-      if (bal.cash > reserveTarget) {
-        const moved = bal.cash - reserveTarget;
-        bal.taxable += moved;
-        bal.taxableBasis += moved;
-        bal.cash = reserveTarget;
-      }
+      sweepExcessCash(bal, reserveTarget);
       // Ramp linearly over whatever time is actually available before
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
-      if (year >= rotationStartYear && year <= rotationEndYear) {
-        const windowLen = rotationEndYear - rotationStartYear + 1,
-          progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
-        const target = ladderTarget * progress,
-          halfTarget = target / 2;
-        const taxableMove = Math.min(bal.taxable, Math.max(0, halfTarget - bal.bondTaxable)),
-          movedBasis = bal.taxable ? bal.taxableBasis * (taxableMove / bal.taxable) : 0;
-        bal.taxable -= taxableMove;
-        bal.taxableBasis -= movedBasis;
-        bal.bondTaxable += taxableMove;
-        bal.bondTaxableBasis += movedBasis;
-        const traditionalMove = Math.min(bal.traditional, Math.max(0, halfTarget - bal.bondTraditional));
-        bal.traditional -= traditionalMove;
-        bal.bondTraditional += traditionalMove;
-      }
+      rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear });
       const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
       // Declared here (rather than inside the withdrawal branch below) so
       // both end up correctly set — to just conversionAmount in a surplus
@@ -5454,36 +5486,12 @@
       const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
       const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
-      bal.taxable *= 1 + yearReturn;
-      bal.traditional *= 1 + yearReturn;
-      bal.roth *= 1 + yearReturn;
-      bal.bondTaxable *= 1 + yearBondReturn;
-      bal.bondTraditional *= 1 + yearBondReturn;
-      bal.bondRoth *= 1 + yearBondReturn;
-      bal.cash *= 1 + hysa;
-      // Reinvested dividends and interest were taxed above, so they raise
-      // cost basis rather than sitting as untaxed embedded gain.
-      bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
-      bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
-      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
-      const rmdFromTraditional = Math.min(bal.traditional, rmd);
-      bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
-      bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
-      if (conversionAmount > 0) {
-        const fromTradConv = Math.min(bal.traditional, conversionAmount);
-        bal.traditional -= fromTradConv;
-        bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
-        bal.roth += conversionAmount;
-        rothLedger.conv.push({ year, amount: conversionAmount });
-      }
+      growBalances(bal, { stockReturn: yearReturn, bondReturn: yearBondReturn, hysa, homeGrowth, inv });
+      withdrawRequiredDistributions(bal, rmd);
+      applyRothConversion(bal, rothLedger, conversionAmount, year);
       bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
-      if (bal.cash > reserveTarget) {
-        const moved = bal.cash - reserveTarget;
-        bal.taxable += moved;
-        bal.taxableBasis += moved;
-        bal.cash = reserveTarget;
-      }
+      sweepExcessCash(bal, reserveTarget);
       // A one-time expense is paid from the portfolio like any other, but it would
       // distort the reserve target if sized into "years of expenses".
       const bondTarget = (totalExpense - lumpExpense) * bondYears;
