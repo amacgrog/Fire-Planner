@@ -38,6 +38,9 @@ owner before the next starts. Order:
    searches when a surviving spouse should start the survivor benefit and their
    own benefit, and when to switch, in both orders.
 
+Documentation: `docs/reference.md` is updated once, after the last batch, from
+the per-batch "Batch notes" kept in `docs/next-batches-plan.md`.
+
 Not modeled by decision: charitable and medical itemized deductions, Medicare
 late-enrollment penalties, the Social Security earnings test, WEP/GPO
 (repealed), territories (Canada), local income taxes.

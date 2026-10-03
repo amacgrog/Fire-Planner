@@ -96,9 +96,13 @@ tax costs. Batches 4-6 are the owner's to reorder when reviewed.
 
 ## Ground rules (every item)
 
-- One commit per item. Docs (`README.md` feature list, `docs/reference.md`,
-  `CLAUDE.md` when architecture changes) and the version badge move in the same
-  commit. US and Canada badges bump independently.
+- One commit per item. The `README.md` feature list, `CLAUDE.md` (when
+  architecture changes) and the version badge move in the same commit. US and
+  Canada badges bump independently. **`docs/reference.md` is deliberately not
+  updated per batch** (owner decision): each batch instead appends its findings
+  to its "Batch notes" section in this file (see "Batch notes" below), and a
+  single consolidation pass writes them into `docs/reference.md` after the last
+  batch.
 - `npm test` must pass at the end of every commit. Because the snapshot harness
   is exact, an **intended** number change means: show the before/after, then
   `npm run snapshot:update` in that same commit, and say which scenarios moved
@@ -115,9 +119,30 @@ tax costs. Batches 4-6 are the owner's to reorder when reviewed.
   (`npm test` runs `--check`). Edit the canonical fragment, then sync.
 - Before/after report for every batch that changes projection numbers: default
   scenario plus the historical and Monte Carlo success rates (fixed seed), kept
-  in the commit message and in `docs/reference.md`.
+  in the commit message and in the batch's notes (consolidated into
+  `docs/reference.md` at the end).
 - UI changes: root `test_*.js` Playwright scripts, a 390x844 overflow check, and
   a real wheel-scroll check for anything sticky.
+
+## Batch notes (replaces per-batch `docs/reference.md` edits)
+
+Every batch PR adds to its own "Batch notes" section at the bottom of this file,
+in the same PR, so the evidence for each change is reviewed with the change.
+Each entry records, as applicable:
+- decisions made while building that were not in the plan, and why;
+- every verified rule or figure with its **primary-source citation and retrieval
+  date** (IRS, state revenue department, CRA, SSA, BLS);
+- gotchas, traps and failed approaches (the kind of thing `docs/reference.md`
+  normally holds), including anything a future session would need to avoid
+  repeating;
+- the before/after table for any intended number change (default scenario,
+  success rates), and which snapshot scenarios moved and why;
+- new or changed field names, state keys and migrations.
+
+Wording rule: write notes as finished reference text (what is true now and
+why), not as a diary, so the final consolidation is a copy and organize step.
+The README and `CLAUDE.md` still follow the "same PR" rule because the README is
+user-facing and `CLAUDE.md` is what future sessions read first.
 
 ## What the engine looks like now (relevant facts)
 
@@ -851,6 +876,47 @@ Batch 6's survivor rules with independent claim ages.
   own-benefit start ages.
 - **Tests.** Hand-computed two-year cases where each order wins, a case where
   the reduced early survivor benefit loses to waiting, and survivor symmetry.
+
+---
+
+## Final step: consolidate into `docs/reference.md`
+
+After Batch 8 is merged, one docs-only PR moves every "Batch notes" entry into
+`docs/reference.md` in the existing chronological style, merges overlapping
+topics (for example the account model touched by 3A, 3B and 3C), updates the
+architecture sections that changed, and checks `CLAUDE.md` and `README.md` for
+anything still stale. The per-batch note sections are then removed from this
+file, leaving the plan as a record of scope and decisions.
+
+---
+
+## Batch notes
+
+One subsection per batch is added by that batch's PR. Empty until work starts.
+
+### Batch 1 notes
+_(to be added by the Batch 1 PR)_
+
+### Batch 2 notes
+_(to be added by the Batch 2 PR)_
+
+### Batch 3A / 3B / 3C notes
+_(to be added by the Batch 3 PRs)_
+
+### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
+_(to be added by the Batch 7 PRs)_
+
+### Batch 4A / 4B notes
+_(to be added by the Batch 4 PRs)_
+
+### Batch 5 notes
+_(to be added by the Batch 5 PR)_
+
+### Batch 6 notes
+_(to be added by the Batch 6 PR)_
+
+### Batch 8 notes
+_(to be added by the Batch 8 PR)_
 
 ---
 

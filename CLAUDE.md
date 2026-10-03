@@ -419,12 +419,19 @@ and it only stays trustworthy if every batch bumps it, not just some.
 5. If the feature touches anything `position:sticky`, verify with an actual
    scroll gesture (`page.mouse.wheel(...)`), not `window.scrollTo()`.
 
-## Docs are updated in the same commit as the code change
+## Docs are updated with the code change (reference.md excepted during the batch plan)
 
-- User-facing change → update `README.md`'s feature list.
+- User-facing change → update `README.md`'s feature list in the same commit.
 - Architectural change (new shared helper, new US/Canada divergence, new
-  gotcha) → update this file and/or `docs/reference.md` in the same batch of
-  work, not as a later pass. The repo may exist as multiple independent local
-  clones with no shared remote, so these docs — kept current in the repo
-  itself — are what let a future session with no memory of this conversation
-  pick up accurately from the repo contents alone.
+  gotcha) → update this file in the same batch of work, not as a later pass.
+- `docs/reference.md`: while the batches in `docs/next-batches-plan.md` are in
+  progress, do **not** edit it per batch. Append findings (decisions, verified
+  figures with primary-source citations and dates, gotchas, before/after
+  tables) to that batch's "Batch notes" section in `docs/next-batches-plan.md`
+  in the same PR; one consolidation PR moves them into `docs/reference.md`
+  after the last batch. Outside that plan, update `docs/reference.md` in the
+  same batch of work as before.
+- The repo may exist as multiple independent local clones with no shared
+  remote, so these docs — kept current in the repo itself — are what let a
+  future session with no memory of this conversation pick up accurately from
+  the repo contents alone.
