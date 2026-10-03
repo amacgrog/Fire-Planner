@@ -4741,6 +4741,26 @@
   }
   // ---- end withdrawal building blocks ----
 
+  // This year's amounts from the add-as-you-go lists: recurring extra income
+  // and extra expenses (active between their start and end age, growing with
+  // inflation or their own rate), one-time income at an exact age, and lump
+  // expenses (which may repeat). Ages are Partner A's.
+  function listAmountsForYear({ age, year, factor, incomeFactor }) {
+    const extraIncome = state.incomeSources
+      .filter((s) => age >= s.startAge && age <= s.endAge)
+      .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
+    const oneTimeAmount = state.oneTimeIncome
+      .filter((o) => Math.round(o.age) === age)
+      .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
+    const extraExpense = state.extraExpenses
+      .filter((e) => age >= e.startAge && age <= e.endAge)
+      .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
+    const lumpExpense = state.lumpExpenses
+      .filter((e) => lumpExpenseHits(e, age))
+      .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
+    return { extraIncome, oneTimeAmount, extraExpense, lumpExpense };
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -4868,18 +4888,8 @@
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      const extraIncome = state.incomeSources
-        .filter((s) => age >= s.startAge && age <= s.endAge)
-        .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
-      const oneTimeAmount = state.oneTimeIncome
-        .filter((o) => Math.round(o.age) === age)
-        .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
-      const extraExpense = state.extraExpenses
-        .filter((e) => age >= e.startAge && age <= e.endAge)
-        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-      const lumpExpense = state.lumpExpenses
-        .filter((e) => lumpExpenseHits(e, age))
-        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
+      const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } =
+        listAmountsForYear({ age, year, factor, incomeFactor });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
@@ -4957,234 +4967,234 @@
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
         estUsed = false;
-      // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
-      const balSnapshot = { ...bal };
-      const scalarSnapshot = { depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
-      const ledgerSnapshot = rothLedgerClone(rothLedger);
-      for (let iter = 0; ; iter++) {
-        if (iter > 0) {
-          Object.assign(bal, balSnapshot);
-          ({ depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
-          rothLedgerRestore(rothLedger, ledgerSnapshot);
+        // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
+        const balSnapshot = { ...bal };
+        const scalarSnapshot = { depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
+        const ledgerSnapshot = rothLedgerClone(rothLedger);
+        for (let iter = 0; ; iter++) {
+          if (iter > 0) {
+            Object.assign(bal, balSnapshot);
+            ({ depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
+            rothLedgerRestore(rothLedger, ledgerSnapshot);
+          }
+          estUsed = false;
+        rothLedgerSeason(rothLedger, year);
+        let conversionAmount = 0;
+        // Lifted out of the block below (rather than left as the block's own
+        // const) so the withdrawal waterfall further down can also respect
+        // the same safe-MAGI ceiling once conversionAmount has already
+        // claimed its own share of it — see pickLiveWithdrawalOrder's use of
+        // remainingMagiRoom.
+        let magiSafeRoom = Infinity;
+        {
+          // Uses this year's estimated discretionary income (estTrad/estGain), same
+          // as magiProxy below — see the iteration note in the year loop.
+          const preConvMagi = magiBase + estTrad + estGain;
+          const magiCeiling = conversionMagiCeiling({
+            acaEligibleA,
+            acaEligibleB,
+            singlePerson,
+            isSurvivorPeriod,
+            deceasedIsA,
+            deceasedIsB,
+            workingA,
+            workingB,
+            age,
+            ageB,
+            preConvMagi,
+            filing,
+            year,
+          });
+          if (magiCeiling < Infinity) estUsed = true;
+          magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
+          if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
+            const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
+            conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+          }
         }
-        estUsed = false;
-      rothLedgerSeason(rothLedger, year);
-      let conversionAmount = 0;
-      // Lifted out of the block below (rather than left as the block's own
-      // const) so the withdrawal waterfall further down can also respect
-      // the same safe-MAGI ceiling once conversionAmount has already
-      // claimed its own share of it — see pickLiveWithdrawalOrder's use of
-      // remainingMagiRoom.
-      let magiSafeRoom = Infinity;
-      {
-        // Uses this year's estimated discretionary income (estTrad/estGain), same
-        // as magiProxy below — see the iteration note in the year loop.
-        const preConvMagi = magiBase + estTrad + estGain;
-        const magiCeiling = conversionMagiCeiling({
+        const magiProxy = magiBase + conversionAmount + estTrad + estGain;
+        // Provisional (this pass's estimate); overwritten with the realized MAGI at
+        // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
+        magiHistory[year] = magiProxy;
+        // Display-only running total: like totalTax below, this starts as the
+        // pre-withdrawal MAGI proxy and is corrected after the withdrawal
+        // waterfall runs to also include realized traditional withdrawals and
+        // taxable-brokerage gains, so it does not understate income in years
+        // funded mostly by withdrawals.
+        let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
+        if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
+          guardrailMultiplier = nextGuardrailMultiplier({
+            multiplier: guardrailMultiplier,
+            initialWR: guardrailInitialWR,
+            prevNeed: guardrailPrevNeed,
+            prevPortfolio: guardrailPrevPortfolio,
+          });
+        const baseSpend =
+          baseSpendingNominal(age, year, factor, incomeFactor) *
+          (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
+          (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+        // acaEligibleA/B (computed above, before the Roth-conversion guard) say
+        // which partners are on the individual market this year.
+        const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
           acaEligibleA,
           acaEligibleB,
           singlePerson,
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
-          workingA,
-          workingB,
+          factor,
+          year,
           age,
           ageB,
-          preConvMagi,
+          magiProxy,
+          magiHistory,
           filing,
+        });
+        if (usesMagiEstimate) estUsed = true;
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
+        const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+        // `tax` above only covers wages/SS/pension/RMD/conversion income and
+        // is what the cash-flow waterfall below uses to size withdrawals.
+        // Once traditional withdrawals and further taxable-brokerage gains
+        // are known (after the withdrawal waterfall runs), `totalTax` is
+        // corrected to include the tax those withdrawals themselves
+        // generate; it's `tax` unchanged in a no-withdrawal (contributing)
+        // year.
+        let totalTax = tax;
+        const expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
+        let flow =
+          wages +
+          ss +
+          pension +
+          rmd -
+          baseSpend -
+          healthcare -
+          ltc -
+          housing -
+          loanPayment -
+          extraExpense -
+          lumpExpense -
+          tax -
+          traditionalContrib -
+          rothContrib;
+        growBalances(bal, { stockReturn: nominalReturn, bondReturn: bondYield, hysa, homeGrowth, inv });
+        withdrawRequiredDistributions(bal, rmd);
+        applyRothConversion(bal, rothLedger, conversionAmount, year);
+        bal.cash += oneTimeAmount;
+        const reserveTarget = state.cashReserve * factor;
+        sweepExcessCash(bal, reserveTarget);
+        // Ramp linearly over whatever time is actually available before
+        // retirement, so the full target is always reached by rotationEndYear
+        // (retirement itself) regardless of how large bondYears is set.
+        rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear });
+        const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
+        const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
+        if (flow >= 0) {
+          const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash)),
+            toTaxable = flow - cashTopUp;
+          bal.cash += cashTopUp;
+          bal.taxable += toTaxable;
+          bal.taxableBasis += toTaxable;
+          bal.traditional += traditionalContrib + employerMatch;
+          bal.roth += rothContrib;
+          rothLedger.basis += rothContrib;
+        } else {
+          wd.need = -flow;
+          if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
+          if (state.guardrailsEnabled && !working) {
+            if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
+              guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
+            guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
+            guardrailPrevPortfolio = guardrailPortfolioNow;
+          }
+          // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
+          // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
+          // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
+          // traditionalPenaltyFraction for how the pooled balance is split between partners.
+          wd.penalizedFraction = traditionalPenaltyFraction(
+            age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+          );
+          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
+          withdrawStandard(wd, { age, remainingMagiRoom: Math.max(0, magiSafeRoom - conversionAmount) });
+          if (wd.need > 1 && !depletedAge) depletedAge = age;
+          totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+          totalIncome =
+            otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
+          bal.traditional += traditionalContrib + employerMatch;
+          bal.roth += rothContrib;
+          rothLedger.basis += rothContrib;
+        }
+        // Realized totals for the MAGI convergence check, the next year's seed, and the row.
+        const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
+        const resolvedMixCandidate = wd.mixCandidate;
+        const realizedTrad = traditionalGross - conversionAmount;
+        if (
+          estUsed &&
+          iter < MAGI_ITER_MAX - 1 &&
+          Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL
+        ) {
+          // Damp after a few passes so a step in the subsidy schedule near the
+          // 400%-FPL cliff can't make the estimate flip-flop between two values.
+          const w = iter >= 3 ? 0.5 : 1;
+          estTrad += w * (realizedTrad - estTrad);
+          estGain += w * (taxableGainGross - estGain);
+          continue;
+        }
+        prevDiscTraditional = realizedTrad;
+        prevTaxableGainGross = taxableGainGross;
+        // The year's actual MAGI (all realized income, conversion and
+        // withdrawals included): what the IRMAA lookback reads two years on.
+        const realizedMagi = magiBase + traditionalGross + taxableGainGross;
+        magiHistory[year] = realizedMagi;
+        bal.mortgage = Math.max(0, bal.mortgage);
+        const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
+          bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
+          investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
+          homeEquity =
+            state.tenure === 'own' || state.tenure === 'rentThenBuy'
+              ? Math.max(0, bal.home - bal.mortgage)
+              : 0,
+          total = investable + homeEquity - loanBalance;
+        rows.push({
+          age,
+          ageB,
           year,
+          taxable: bal.taxable,
+          bonds,
+          traditional: bal.traditional,
+          roth: bal.roth,
+          cash: bal.cash,
+          homeEquity,
+          loanBalance,
+          investable,
+          total,
+          working,
+          workingA,
+          workingB,
+          conversionAmount,
+          mixCandidate: resolvedMixCandidate,
+          magiProxy: realizedMagi,
+          expenses,
+          tax: totalTax,
+          income: totalIncome,
+          wages,
+          ss,
+          pension,
+          rmd,
+          sepp72: sepp72A + sepp72B,
+          earlyPenalty,
+          traditionalWithdrawn,
+          taxableWithdrawn,
+          rothWithdrawn,
+          housing,
+          healthcare,
+          ltc,
+          loanPayment,
+          extraExpense,
+          lumpExpense,
+          baseSpend,
         });
-        if (magiCeiling < Infinity) estUsed = true;
-        magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
-        if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
-          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
-          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
-        }
-      }
-      const magiProxy = magiBase + conversionAmount + estTrad + estGain;
-      // Provisional (this pass's estimate); overwritten with the realized MAGI at
-      // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
-      magiHistory[year] = magiProxy;
-      // Display-only running total: like totalTax below, this starts as the
-      // pre-withdrawal MAGI proxy and is corrected after the withdrawal
-      // waterfall runs to also include realized traditional withdrawals and
-      // taxable-brokerage gains, so it does not understate income in years
-      // funded mostly by withdrawals.
-      let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
-      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
-        guardrailMultiplier = nextGuardrailMultiplier({
-          multiplier: guardrailMultiplier,
-          initialWR: guardrailInitialWR,
-          prevNeed: guardrailPrevNeed,
-          prevPortfolio: guardrailPrevPortfolio,
-        });
-      const baseSpend =
-        baseSpendingNominal(age, year, factor, incomeFactor) *
-        (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
-        (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      // acaEligibleA/B (computed above, before the Roth-conversion guard) say
-      // which partners are on the individual market this year.
-      const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
-        acaEligibleA,
-        acaEligibleB,
-        singlePerson,
-        isSurvivorPeriod,
-        deceasedIsA,
-        deceasedIsB,
-        factor,
-        year,
-        age,
-        ageB,
-        magiProxy,
-        magiHistory,
-        filing,
-      });
-      if (usesMagiEstimate) estUsed = true;
-      const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
-      const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
-      // `tax` above only covers wages/SS/pension/RMD/conversion income and
-      // is what the cash-flow waterfall below uses to size withdrawals.
-      // Once traditional withdrawals and further taxable-brokerage gains
-      // are known (after the withdrawal waterfall runs), `totalTax` is
-      // corrected to include the tax those withdrawals themselves
-      // generate; it's `tax` unchanged in a no-withdrawal (contributing)
-      // year.
-      let totalTax = tax;
-      const expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
-      let flow =
-        wages +
-        ss +
-        pension +
-        rmd -
-        baseSpend -
-        healthcare -
-        ltc -
-        housing -
-        loanPayment -
-        extraExpense -
-        lumpExpense -
-        tax -
-        traditionalContrib -
-        rothContrib;
-      growBalances(bal, { stockReturn: nominalReturn, bondReturn: bondYield, hysa, homeGrowth, inv });
-      withdrawRequiredDistributions(bal, rmd);
-      applyRothConversion(bal, rothLedger, conversionAmount, year);
-      bal.cash += oneTimeAmount;
-      const reserveTarget = state.cashReserve * factor;
-      sweepExcessCash(bal, reserveTarget);
-      // Ramp linearly over whatever time is actually available before
-      // retirement, so the full target is always reached by rotationEndYear
-      // (retirement itself) regardless of how large bondYears is set.
-      rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear });
-      const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-      const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
-      if (flow >= 0) {
-        const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash)),
-          toTaxable = flow - cashTopUp;
-        bal.cash += cashTopUp;
-        bal.taxable += toTaxable;
-        bal.taxableBasis += toTaxable;
-        bal.traditional += traditionalContrib + employerMatch;
-        bal.roth += rothContrib;
-        rothLedger.basis += rothContrib;
-      } else {
-        wd.need = -flow;
-        if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
-        if (state.guardrailsEnabled && !working) {
-          if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-            guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
-          guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
-          guardrailPrevPortfolio = guardrailPortfolioNow;
-        }
-        // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
-        // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
-        // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
-        // traditionalPenaltyFraction for how the pooled balance is split between partners.
-        wd.penalizedFraction = traditionalPenaltyFraction(
-          age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
-        );
-        wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
-        withdrawStandard(wd, { age, remainingMagiRoom: Math.max(0, magiSafeRoom - conversionAmount) });
-        if (wd.need > 1 && !depletedAge) depletedAge = age;
-        totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
-        totalIncome =
-          otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
-        bal.traditional += traditionalContrib + employerMatch;
-        bal.roth += rothContrib;
-        rothLedger.basis += rothContrib;
-      }
-      // Realized totals for the MAGI convergence check, the next year's seed, and the row.
-      const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
-      const resolvedMixCandidate = wd.mixCandidate;
-      const realizedTrad = traditionalGross - conversionAmount;
-      if (
-        estUsed &&
-        iter < MAGI_ITER_MAX - 1 &&
-        Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL
-      ) {
-        // Damp after a few passes so a step in the subsidy schedule near the
-        // 400%-FPL cliff can't make the estimate flip-flop between two values.
-        const w = iter >= 3 ? 0.5 : 1;
-        estTrad += w * (realizedTrad - estTrad);
-        estGain += w * (taxableGainGross - estGain);
-        continue;
-      }
-      prevDiscTraditional = realizedTrad;
-      prevTaxableGainGross = taxableGainGross;
-      // The year's actual MAGI (all realized income, conversion and
-      // withdrawals included): what the IRMAA lookback reads two years on.
-      const realizedMagi = magiBase + traditionalGross + taxableGainGross;
-      magiHistory[year] = realizedMagi;
-      bal.mortgage = Math.max(0, bal.mortgage);
-      const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
-        bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
-        investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
-        homeEquity =
-          state.tenure === 'own' || state.tenure === 'rentThenBuy'
-            ? Math.max(0, bal.home - bal.mortgage)
-            : 0,
-        total = investable + homeEquity - loanBalance;
-      rows.push({
-        age,
-        ageB,
-        year,
-        taxable: bal.taxable,
-        bonds,
-        traditional: bal.traditional,
-        roth: bal.roth,
-        cash: bal.cash,
-        homeEquity,
-        loanBalance,
-        investable,
-        total,
-        working,
-        workingA,
-        workingB,
-        conversionAmount,
-        mixCandidate: resolvedMixCandidate,
-        magiProxy: realizedMagi,
-        expenses,
-        tax: totalTax,
-        income: totalIncome,
-        wages,
-        ss,
-        pension,
-        rmd,
-        sepp72: sepp72A + sepp72B,
-        earlyPenalty,
-        traditionalWithdrawn,
-        taxableWithdrawn,
-        rothWithdrawn,
-        housing,
-        healthcare,
-        ltc,
-        loanPayment,
-        extraExpense,
-        lumpExpense,
-        baseSpend,
-      });
-      break;
+        break;
       }
     }
     return {
@@ -5302,18 +5312,8 @@
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      const extraIncome = state.incomeSources
-        .filter((s) => age >= s.startAge && age <= s.endAge)
-        .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
-      const oneTimeAmount = state.oneTimeIncome
-        .filter((o) => Math.round(o.age) === age)
-        .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
-      const extraExpense = state.extraExpenses
-        .filter((e) => age >= e.startAge && age <= e.endAge)
-        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-      const lumpExpense = state.lumpExpenses
-        .filter((e) => lumpExpenseHits(e, age))
-        .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
+      const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } =
+        listAmountsForYear({ age, year, factor, incomeFactor });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
@@ -5390,179 +5390,179 @@
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
         estUsed = false;
-      // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
-      const balSnapshot = { ...bal };
-      const scalarSnapshot = { depletedAge, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
-      const ledgerSnapshot = rothLedgerClone(rothLedger);
-      for (let iter = 0; ; iter++) {
-        if (iter > 0) {
-          Object.assign(bal, balSnapshot);
-          ({ depletedAge, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
-          rothLedgerRestore(rothLedger, ledgerSnapshot);
+        // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
+        const balSnapshot = { ...bal };
+        const scalarSnapshot = { depletedAge, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
+        const ledgerSnapshot = rothLedgerClone(rothLedger);
+        for (let iter = 0; ; iter++) {
+          if (iter > 0) {
+            Object.assign(bal, balSnapshot);
+            ({ depletedAge, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
+            rothLedgerRestore(rothLedger, ledgerSnapshot);
+          }
+          estUsed = false;
+        rothLedgerSeason(rothLedger, year);
+        let conversionAmount = 0;
+        if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
+          // Uses this year's estimated discretionary income (estTrad/estGain), same
+          // as magiProxy below — see the iteration note in the year loop.
+          const preConvMagi = magiBase + estTrad + estGain;
+          const magiCeiling = conversionMagiCeiling({
+            acaEligibleA,
+            acaEligibleB,
+            singlePerson,
+            isSurvivorPeriod,
+            deceasedIsA,
+            deceasedIsB,
+            workingA,
+            workingB,
+            age,
+            ageB,
+            preConvMagi,
+            filing,
+            year,
+          });
+          if (magiCeiling < Infinity) estUsed = true;
+          const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
+          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
+          conversionAmount = solveRothConversion(profile, conversionCap, year);
         }
-        estUsed = false;
-      rothLedgerSeason(rothLedger, year);
-      let conversionAmount = 0;
-      if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
-        // Uses this year's estimated discretionary income (estTrad/estGain), same
-        // as magiProxy below — see the iteration note in the year loop.
-        const preConvMagi = magiBase + estTrad + estGain;
-        const magiCeiling = conversionMagiCeiling({
+        const magiProxy = magiBase + conversionAmount + estTrad + estGain;
+        magiHistory[year] = magiProxy;
+        if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
+          guardrailMultiplier = nextGuardrailMultiplier({
+            multiplier: guardrailMultiplier,
+            initialWR: guardrailInitialWR,
+            prevNeed: guardrailPrevNeed,
+            prevPortfolio: guardrailPrevPortfolio,
+          });
+        const baseSpend =
+          baseSpendingNominal(age, year, factor, incomeFactor) *
+          (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
+          (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+        // acaEligibleA/B (computed above, before the Roth-conversion guard) say
+        // which partners are on the individual market this year.
+        const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
           acaEligibleA,
           acaEligibleB,
           singlePerson,
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
-          workingA,
-          workingB,
+          factor,
+          year,
           age,
           ageB,
-          preConvMagi,
+          magiProxy,
+          magiHistory,
           filing,
+        });
+        if (usesMagiEstimate) estUsed = true;
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
+        const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+        const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
+        let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
+        growBalances(bal, { stockReturn: yearReturn, bondReturn: yearBondReturn, hysa, homeGrowth, inv });
+        withdrawRequiredDistributions(bal, rmd);
+        applyRothConversion(bal, rothLedger, conversionAmount, year);
+        bal.cash += oneTimeAmount;
+        const reserveTarget = state.cashReserve * factor;
+        sweepExcessCash(bal, reserveTarget);
+        // A one-time expense is paid from the portfolio like any other, but it would
+        // distort the reserve target if sized into "years of expenses".
+        const bondTarget = (totalExpense - lumpExpense) * bondYears;
+        const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
+        const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
+        if (flow >= 0) {
+          const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
+          bal.cash += cashTopUp;
+          let remainder = flow - cashTopUp;
+          // Only steer new surplus into the bond reserve in an up year, so a down
+          // year's savings buy (cheaper) stocks instead — consistent with the
+          // same up/down rule used for withdrawals below.
+          if (yearReturn >= 0) {
+            const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
+              toBonds = Math.min(remainder, bondDeficit);
+            bal.bondTaxable += toBonds;
+            bal.bondTaxableBasis += toBonds;
+            remainder -= toBonds;
+          }
+          bal.taxable += remainder;
+          bal.taxableBasis += remainder;
+          bal.traditional += traditionalContrib + employerMatch;
+          bal.roth += rothContrib;
+          rothLedger.basis += rothContrib;
+        } else {
+          wd.need = -flow;
+          if (state.guardrailsEnabled && !working) {
+            if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
+              guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
+            guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
+            guardrailPrevPortfolio = guardrailPortfolioNow;
+          }
+          // Same 10% early-withdrawal penalty logic as simulate(): RMDs / 72(t) SEPP payments are
+          // mandatory and already folded into rmd above, so only discretionary draws are penalized.
+          wd.penalizedFraction = traditionalPenaltyFraction(
+            age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+          );
+          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
+          withdrawBucket(wd, { yearReturn, bondTarget });
+          if (wd.need > 1 && !depletedAge) depletedAge = age;
+          bal.traditional += traditionalContrib + employerMatch;
+          bal.roth += rothContrib;
+          rothLedger.basis += rothContrib;
+        }
+        const { traditionalGross, taxableGainGross } = wd;
+        const realizedTrad = traditionalGross - conversionAmount;
+        if (
+          estUsed &&
+          iter < MAGI_ITER_MAX - 1 &&
+          Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL
+        ) {
+          // Damp after a few passes so a step in the subsidy schedule near the
+          // 400%-FPL cliff can't make the estimate flip-flop between two values.
+          const w = iter >= 3 ? 0.5 : 1;
+          estTrad += w * (realizedTrad - estTrad);
+          estGain += w * (taxableGainGross - estGain);
+          continue;
+        }
+        prevDiscTraditional = realizedTrad;
+        prevTaxableGainGross = taxableGainGross;
+        // The year's actual MAGI (all realized income, conversion and
+        // withdrawals included): what the IRMAA lookback reads two years on.
+        const realizedMagi = magiBase + traditionalGross + taxableGainGross;
+        magiHistory[year] = realizedMagi;
+        bal.mortgage = Math.max(0, bal.mortgage);
+        const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
+          bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
+          investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
+          homeEquity =
+            state.tenure === 'own' || state.tenure === 'rentThenBuy'
+              ? Math.max(0, bal.home - bal.mortgage)
+              : 0,
+          total = investable + homeEquity - loanBalance;
+        rows.push({
+          age,
+          ageB,
           year,
+          taxable: bal.taxable,
+          bonds,
+          traditional: bal.traditional,
+          roth: bal.roth,
+          cash: bal.cash,
+          homeEquity,
+          loanBalance,
+          investable,
+          total,
+          working,
+          workingA,
+          workingB,
+          cumFactor,
+          conversionAmount,
+          magiProxy: realizedMagi,
+          healthcare,
         });
-        if (magiCeiling < Infinity) estUsed = true;
-        const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
-        const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
-        conversionAmount = solveRothConversion(profile, conversionCap, year);
-      }
-      const magiProxy = magiBase + conversionAmount + estTrad + estGain;
-      magiHistory[year] = magiProxy;
-      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
-        guardrailMultiplier = nextGuardrailMultiplier({
-          multiplier: guardrailMultiplier,
-          initialWR: guardrailInitialWR,
-          prevNeed: guardrailPrevNeed,
-          prevPortfolio: guardrailPrevPortfolio,
-        });
-      const baseSpend =
-        baseSpendingNominal(age, year, factor, incomeFactor) *
-        (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
-        (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      // acaEligibleA/B (computed above, before the Roth-conversion guard) say
-      // which partners are on the individual market this year.
-      const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
-        acaEligibleA,
-        acaEligibleB,
-        singlePerson,
-        isSurvivorPeriod,
-        deceasedIsA,
-        deceasedIsB,
-        factor,
-        year,
-        age,
-        ageB,
-        magiProxy,
-        magiHistory,
-        filing,
-      });
-      if (usesMagiEstimate) estUsed = true;
-      const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
-      const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
-      const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
-      let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
-      growBalances(bal, { stockReturn: yearReturn, bondReturn: yearBondReturn, hysa, homeGrowth, inv });
-      withdrawRequiredDistributions(bal, rmd);
-      applyRothConversion(bal, rothLedger, conversionAmount, year);
-      bal.cash += oneTimeAmount;
-      const reserveTarget = state.cashReserve * factor;
-      sweepExcessCash(bal, reserveTarget);
-      // A one-time expense is paid from the portfolio like any other, but it would
-      // distort the reserve target if sized into "years of expenses".
-      const bondTarget = (totalExpense - lumpExpense) * bondYears;
-      const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
-      const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-      if (flow >= 0) {
-        const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
-        bal.cash += cashTopUp;
-        let remainder = flow - cashTopUp;
-        // Only steer new surplus into the bond reserve in an up year, so a down
-        // year's savings buy (cheaper) stocks instead — consistent with the
-        // same up/down rule used for withdrawals below.
-        if (yearReturn >= 0) {
-          const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
-            toBonds = Math.min(remainder, bondDeficit);
-          bal.bondTaxable += toBonds;
-          bal.bondTaxableBasis += toBonds;
-          remainder -= toBonds;
-        }
-        bal.taxable += remainder;
-        bal.taxableBasis += remainder;
-        bal.traditional += traditionalContrib + employerMatch;
-        bal.roth += rothContrib;
-        rothLedger.basis += rothContrib;
-      } else {
-        wd.need = -flow;
-        if (state.guardrailsEnabled && !working) {
-          if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-            guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
-          guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
-          guardrailPrevPortfolio = guardrailPortfolioNow;
-        }
-        // Same 10% early-withdrawal penalty logic as simulate(): RMDs / 72(t) SEPP payments are
-        // mandatory and already folded into rmd above, so only discretionary draws are penalized.
-        wd.penalizedFraction = traditionalPenaltyFraction(
-          age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
-        );
-        wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
-        withdrawBucket(wd, { yearReturn, bondTarget });
-        if (wd.need > 1 && !depletedAge) depletedAge = age;
-        bal.traditional += traditionalContrib + employerMatch;
-        bal.roth += rothContrib;
-        rothLedger.basis += rothContrib;
-      }
-      const { traditionalGross, taxableGainGross } = wd;
-      const realizedTrad = traditionalGross - conversionAmount;
-      if (
-        estUsed &&
-        iter < MAGI_ITER_MAX - 1 &&
-        Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL
-      ) {
-        // Damp after a few passes so a step in the subsidy schedule near the
-        // 400%-FPL cliff can't make the estimate flip-flop between two values.
-        const w = iter >= 3 ? 0.5 : 1;
-        estTrad += w * (realizedTrad - estTrad);
-        estGain += w * (taxableGainGross - estGain);
-        continue;
-      }
-      prevDiscTraditional = realizedTrad;
-      prevTaxableGainGross = taxableGainGross;
-      // The year's actual MAGI (all realized income, conversion and
-      // withdrawals included): what the IRMAA lookback reads two years on.
-      const realizedMagi = magiBase + traditionalGross + taxableGainGross;
-      magiHistory[year] = realizedMagi;
-      bal.mortgage = Math.max(0, bal.mortgage);
-      const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
-        bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
-        investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
-        homeEquity =
-          state.tenure === 'own' || state.tenure === 'rentThenBuy'
-            ? Math.max(0, bal.home - bal.mortgage)
-            : 0,
-        total = investable + homeEquity - loanBalance;
-      rows.push({
-        age,
-        ageB,
-        year,
-        taxable: bal.taxable,
-        bonds,
-        traditional: bal.traditional,
-        roth: bal.roth,
-        cash: bal.cash,
-        homeEquity,
-        loanBalance,
-        investable,
-        total,
-        working,
-        workingA,
-        workingB,
-        cumFactor,
-        conversionAmount,
-        magiProxy: realizedMagi,
-        healthcare,
-      });
-      break;
+        break;
       }
       cumFactor *= 1 + yearInflation;
     }
