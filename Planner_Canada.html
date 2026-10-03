@@ -3079,6 +3079,36 @@
     return { aliveA, aliveB, totalA, totalB, splitA, splitB, profile };
   }
 
+  // One year of growth on every account. Stocks (taxable/RRSP/TFSA and the FHSA),
+  // bonds (the three bond-reserve buckets) and cash each grow at their own rate;
+  // the home appreciates only when owned. Dividends and interest were already
+  // taxed this year (`inv`), so reinvesting them raises cost basis rather than
+  // leaving untaxed embedded gain.
+  function growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv }) {
+    bal.taxable *= 1 + stockReturn;
+    bal.traditional *= 1 + stockReturn;
+    bal.roth *= 1 + stockReturn;
+    bal.bondTaxable *= 1 + bondReturn;
+    bal.bondTraditional *= 1 + bondReturn;
+    bal.bondRoth *= 1 + bondReturn;
+    bal.cash *= 1 + hysa;
+    bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
+    bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
+    bal.fhsa *= 1 + stockReturn;
+    if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
+  }
+
+  // The RRSP meltdown ladder: moves the year's meltdown amount from the pooled
+  // RRSP balance (then the RRSP bond bucket) into the TFSA, after it has been
+  // withdrawn and taxed as income.
+  function applyRrspMeltdown(bal, meltdownAmount) {
+    if (meltdownAmount <= 0) return;
+    const fromTradMelt = Math.min(bal.traditional, meltdownAmount);
+    bal.traditional -= fromTradMelt;
+    bal.bondTraditional = Math.max(0, bal.bondTraditional - (meltdownAmount - fromTradMelt));
+    bal.roth += meltdownAmount;
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -3342,19 +3372,7 @@
         traditionalContrib -
         rothContrib -
         fhsaContrib;
-      bal.taxable *= 1 + nominalReturn;
-      bal.bondTaxable *= 1 + bondYield;
-      bal.bondTraditional *= 1 + bondYield;
-      bal.bondRoth *= 1 + bondYield;
-      bal.traditional *= 1 + nominalReturn;
-      bal.roth *= 1 + nominalReturn;
-      bal.cash *= 1 + hysa;
-      // Reinvested dividends and interest were taxed above, so they raise
-      // adjusted cost base rather than sitting as untaxed embedded gain.
-      bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
-      bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
-      bal.fhsa *= 1 + nominalReturn;
-      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
+      growBalances(bal, { stockReturn: nominalReturn, bondReturn: bondYield, hysa, homeGrowth, inv });
       withdrawRequiredDistributions(bal, rmd);
       // Total traditional/taxable dollars actually withdrawn this year, for
       // the cash-flow Sankey — folds bondTraditional/bondTaxable draws into
@@ -3365,12 +3383,7 @@
       // doing a lot of the work.
       let traditionalWithdrawn = rmd,
         taxableWithdrawn = 0;
-      if (meltdownAmount > 0) {
-        const fromTradMelt = Math.min(bal.traditional, meltdownAmount);
-        bal.traditional -= fromTradMelt;
-        bal.bondTraditional = Math.max(0, bal.bondTraditional - (meltdownAmount - fromTradMelt));
-        bal.roth += meltdownAmount;
-      }
+      applyRrspMeltdown(bal, meltdownAmount);
       bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
       sweepExcessCash(bal, reserveTarget);
@@ -3806,26 +3819,9 @@
         traditionalContrib -
         rothContrib -
         fhsaContrib;
-      bal.taxable *= 1 + yearReturn;
-      bal.traditional *= 1 + yearReturn;
-      bal.roth *= 1 + yearReturn;
-      bal.bondTaxable *= 1 + yearBondReturn;
-      bal.bondTraditional *= 1 + yearBondReturn;
-      bal.bondRoth *= 1 + yearBondReturn;
-      bal.cash *= 1 + hysa;
-      // Reinvested dividends and interest were taxed above, so they raise
-      // adjusted cost base rather than sitting as untaxed embedded gain.
-      bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
-      bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
-      bal.fhsa *= 1 + yearReturn;
-      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
+      growBalances(bal, { stockReturn: yearReturn, bondReturn: yearBondReturn, hysa, homeGrowth, inv });
       withdrawRequiredDistributions(bal, rmd);
-      if (meltdownAmount > 0) {
-        const fromTradMelt = Math.min(bal.traditional, meltdownAmount);
-        bal.traditional -= fromTradMelt;
-        bal.bondTraditional = Math.max(0, bal.bondTraditional - (meltdownAmount - fromTradMelt));
-        bal.roth += meltdownAmount;
-      }
+      applyRrspMeltdown(bal, meltdownAmount);
       bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
       sweepExcessCash(bal, reserveTarget);
