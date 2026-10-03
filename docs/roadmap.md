@@ -72,6 +72,15 @@ No behavior change; `npm test` must stay identical throughout.
   amounts); CPP/OAS claim-age adjustments (a design decision, since it changes
   saved scenarios).
 
+## After Phase 2 (decided, not yet scheduled)
+- **Penalty-aware mixed withdrawals (US, both engines):** when the 10% early
+  penalty applies, draw taxable first, honor Rule of 55 / 72(t), and apply the
+  mix (smooth/applied/live) only where no penalty is owed. Changes standard
+  and historical numbers together; see `docs/phase2-refactor-plan.md` A.5.
+- **Canada mixed withdrawals:** taxable / RRSP / TFSA mix, with the OAS
+  clawback threshold as the income-room limit and no penalty gating; needs the
+  shared withdrawal module from Phase 2 first (A.6).
+
 ## Loose ends
 - ~~Canada survivor period: partner B's income zeroed when partner A dies
   first.~~ Confirmed and fixed in Phase 1 (V33 Canada, V74 US for the

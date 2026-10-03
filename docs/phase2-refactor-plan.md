@@ -350,14 +350,23 @@ Resolved by the owner:
   `solveRothConversion`. The up/down-year bucket waterfall and bond refill stay.
 - Version badges are not bumped per commit.
 
-Still open (details in Appendix A, items marked **Q**):
-1. How the withdrawal-mix modes combine with the bucket order in a down year (A.2).
-2. Which inflation the ladder target is sized with on a historical path (A.3).
-3. Whether the standard `simulate()` also gets the up-year bond refill (A.4;
-   recommended no).
-4. Shared-code approach for item 4 (section 7, Option A recommended) and the
-   related rewording of "no build step".
-5. A single version bump at the very end (assumed from "skip the bump every
+Also resolved (second review round):
+- Q1: bucket order in a down year, then the mix modes (see A.2 for the final rule).
+- Q2: the initial ladder is sized from the plan's inflation.
+- Q3: the standard `simulate()` does **not** refill the bond bucket.
+- Historical refill is gradual: at most one year of expenses per up year.
+- Shared-code approach for item 4: **Option A** (marked shared regions plus
+  `scripts/sync-shared.js`); `CLAUDE.md`'s "no build step" line is reworded to
+  "no build step needed to run or deploy; shared regions are synced by a
+  dev-time script whose output is committed".
+- Penalty-aware mixing (apply the mix only when the 10% penalty is not a
+  factor) is **deferred until after the refactor**, as one change to both
+  engines (see A.5 and `docs/roadmap.md`). 2B gives historical exactly what
+  `simulate()` does today, so the two engines stay identical.
+- Canada mixed withdrawals are designed for, not built in Phase 2 (A.6).
+
+Still open:
+1. A single version bump at the very end (assumed from "skip the bump every
    commit"; tell me if you want none at all).
 
 ## 11. Definition of done
@@ -417,14 +426,19 @@ a design answer before that 2B commit.
 | B3 | Surplus (`flow >= 0`) | cash top-up, then taxable | cash top-up, then (up years only) bond bucket to `bondTarget`, then taxable |
 | B4 | `bondTarget` | n/a | `(expenses - lump) * bondYears` using that year's realized expense |
 
-**Q1 (proposed rule for how mixes combine with buckets).** In a *down* year the
-bucket order wins for the cash/bond steps; whatever need remains is then drawn
-from the stock accounts with the active mix mode (applied/override, live,
-smooth, or default), then Roth fallback, then home. In an *up* year the draw is
-exactly `simulate()`'s cascade (mix modes -> Roth fallback -> cash -> bonds ->
-home) followed by the B2 refill. Note that with a constant positive return
-`simulate()` never has a down year, so the down-year branch is dormant there
-and the two engines agree by construction.
+**Decided rule (Q1).**
+- *Down year:* cash first, then the bond buckets (taxable, traditional, Roth),
+  then the remaining need from stocks using the active mix mode (applied/
+  override schedule, live mix, smooth, or the default order), then home.
+- *Up year:* the draw is `simulate()`'s cascade (mix modes, Roth fallback,
+  cash, bonds, home), then the gradual refill below.
+- *Gradual refill (changes B2/B4 from today's all-at-once refill):* in an up
+  year, move at most one year of that year's expenses (net of lump expenses)
+  from stocks into the bond bucket, until the bucket reaches `bondTarget`.
+  Today's code tops it up to `bondTarget` in a single year.
+- *Surplus years (B3)* use the same one-year-per-up-year cap.
+- Standard `simulate()` never refills (Q3), and with constant positive returns
+  it never has a down year, so its output is untouched by any of this.
 
 ### A.3 Features missing from Hist (accidental; to be added in 2B)
 
@@ -442,19 +456,14 @@ Canada specifics: Canada's `simulate()` has no applied/override/live mix and no
 MAGI room (those are US-only), so F1, F2, F4, F5 do not apply there. Canada
 gains F3, F6, F7 only. Do not add mix strategies to Canada.
 
-**Q2 (ladder sizing on a historical path).** `projectedExpense` uses the plan's
-constant inflation to size each ladder tranche, because the future is unknown
-at the time a real person would build a ladder. Proposal: size the ladder
-target and rotation window from the plan's assumptions (`state.inflation`) once
-at the start of the path, and let realized inflation affect only the executed
-dollars afterwards. After retirement the B4 refill target (realized
-expense) takes over.
+**Decided (Q2).** The initial ladder target and rotation window are sized once,
+from the plan's `state.inflation`, as `simulate()` does. Realized inflation
+affects only the executed dollars afterwards; after retirement the gradual
+refill (using that year's expenses) takes over.
 
-**Q3 (should standard `simulate()` also refill the bond bucket in up years?).**
-Recommend no. With constant growth, expenses inflate each year, so a refill
-would move stock into bonds every year and change the standard projection,
-which the contract forbids in 2A and the owner did not ask for. Keep it a
-historical-only rule (`bucketStrategy` flag).
+**Decided (Q3).** The standard `simulate()` does not refill the bond bucket.
+If the bucket is being drawn, funds are dwindling and a refill adds nothing to
+that projection. The refill is historical-only (`bucketStrategy` flag).
 
 ### A.4 Things checked and found identical (no action)
 Survivor modeling, Guyton-Klinger guardrails, RMD/SEPP/penalty fractions,
@@ -463,3 +472,32 @@ tax calls (`taxFor`, FICA, Additional Medicare Tax), the Roth ledger, cash
 reserve, and early-withdrawal penalty handling are textually the same between
 the two bodies apart from the S-items above (the only diffs are comments and
 local variable names, e.g. `totalExpense` vs `expenses`).
+
+### A.5 Deferred: penalty-aware mixing (after the refactor, both engines)
+
+Today the mix modes (smooth, applied/override, live) compute
+`penalizedFraction` / `rothPenalizedFraction` and *charge* the 10% penalty on
+the traditional/Roth share, but they do not stop the mix from drawing that
+share before 59.5 when taxable money is available. (`pickLiveWithdrawalOrder`
+does choose the cheaper of two orders, penalty included; smooth and applied
+schedules use fixed weights.) The intended rule is: when a penalty applies,
+draw from taxable first, use Rule of 55 / 72(t) where elected, and apply the mix
+only on the portion where no penalty is owed. That changes numbers in
+`simulate()` as well, so it is done once, after the merge and 2B, as a single
+reviewed behavior change with its own tests and a before/after on the default
+scenario. It lives in the shared withdrawal module, so both engines get it
+together. Tracked in `docs/roadmap.md`.
+
+### A.6 Canada mixed withdrawals (designed for now, built later)
+
+Canada has no early-withdrawal penalty, so the penalty gating in A.5 does not
+exist there. The injected hooks the shared withdrawal module takes are:
+`penaltyFraction(age...)` (US: today's fractions; Canada: always 0),
+`incomeRoom(...)` (US: `magiSafeRoom`; Canada: room under the OAS clawback
+threshold, and possibly the age-credit phase-out), and an account mapping
+(`traditional` = RRSP/RRIF, `roth` = TFSA with no basis ledger, plus FHSA).
+With those hooks, Canada can reuse `withdrawalMixWeights`, the live order, and
+the mix schedule without a rewrite. Extra Canada work then is: the UI for the
+mix controls, porting the multi-lever optimizer (US-only today), and checking
+the interaction with `solvePensionSplit()` and the RRSP meltdown ladder.
+Scheduled as a post-refactor item in `docs/roadmap.md`.
