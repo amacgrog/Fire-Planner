@@ -4406,6 +4406,19 @@
     return magiCeiling;
   }
 
+  // Employee-side payroll tax on this year's wages (Social Security + Medicare
+  // per partner, wages net of pre-tax health premiums) plus the 0.9% Additional
+  // Medicare Tax. Separate from taxFor(), which covers income tax.
+  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year }) {
+    const taxableWagesA = Math.max(0, wageA - healthPremiumA),
+      taxableWagesB = Math.max(0, wageB - healthPremiumB);
+    return (
+      wageFica(taxableWagesA, year) +
+      wageFica(taxableWagesB, year) +
+      additionalMedicareTax(taxableWagesA, taxableWagesB, filing)
+    );
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -4709,10 +4722,7 @@
         filing,
       });
       if (usesMagiEstimate) estUsed = true;
-      const ficaTax =
-        wageFica(Math.max(0, wageA - healthPremiumA), year) +
-        wageFica(Math.max(0, wageB - healthPremiumB), year) +
-        additionalMedicareTax(Math.max(0, wageA - healthPremiumA), Math.max(0, wageB - healthPremiumB), filing);
+      const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
       const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
       // `tax` above only covers wages/SS/pension/RMD/conversion income and
       // is what the cash-flow waterfall below uses to size withdrawals.
@@ -5446,11 +5456,8 @@
         filing,
       });
       if (usesMagiEstimate) estUsed = true;
-      const tax =
-        taxFor(profile, 0, conversionAmount) +
-        wageFica(Math.max(0, wageA - healthPremiumA), year) +
-        wageFica(Math.max(0, wageB - healthPremiumB), year) +
-        additionalMedicareTax(Math.max(0, wageA - healthPremiumA), Math.max(0, wageB - healthPremiumB), filing);
+      const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
+      const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
       const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
       taxable *= 1 + yearReturn;

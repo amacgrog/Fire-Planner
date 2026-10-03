@@ -21,8 +21,13 @@
 //                                               (e.g. a `git worktree` of another ref)
 //   node tests/snapshot.js --dump DIR           also write the full canonical JSON
 //                                               of every scenario to DIR/<planner>/
-//   node tests/snapshot.js --compare A B        no browser: diff two dump dirs and
-//                                               print the first differing fields
+//   node tests/snapshot.js --compare A B [--tol 1e-9]
+//                                               no browser: diff two dump dirs and
+//                                               print the first differing fields;
+//                                               with --tol, numbers within that
+//                                               relative tolerance count as equal
+//                                               (use only to PROVE a diff is
+//                                               floating-point rounding noise)
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
@@ -179,9 +184,11 @@ async function runPlanner(browser, planner, list, dumpDir) {
 }
 
 // ---- dump comparison (no browser) -----------------------------------------
+let TOL = 0;
 function diffValues(a, b, p, out, limit) {
   if (out.length >= limit) return;
   if (typeof a !== typeof b || a === null || b === null || typeof a !== 'object') {
+    if (typeof a === 'number' && typeof b === 'number' && TOL > 0 && Math.abs(a - b) <= TOL * Math.max(1, Math.abs(a), Math.abs(b))) return;
     if (a !== b) out.push(`${p}: ${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
     return;
   }
@@ -209,6 +216,7 @@ function compareDumps(A, B) {
 (async () => {
   if (flag('--compare')) {
     const i = args.indexOf('--compare');
+    if (opt('--tol')) TOL = Number(opt('--tol'));
     return compareDumps(args[i + 1], args[i + 2]);
   }
   const update = flag('--update');

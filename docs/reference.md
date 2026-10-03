@@ -6573,3 +6573,17 @@ based on the Phase 1 merge, US V74 / Canada V33):
 - Dead-code tripwire: no top-level function in either planner is referenced
   only at its own definition (191 US / 157 Canada), so any later deletion is
   deliberate.
+
+### Phase 2 rounding-only baseline changes
+
+The engine snapshot is exact. Where sharing code between `simulate()` and
+`simulateHistoricalCore()` forces one floating-point association order on both
+(they previously summed the same terms in different orders), the engine whose
+order changed moves by units in the 16th digit. Such a change is accepted only
+after `node tests/snapshot.js --compare <old dump> <new dump> --tol 1e-9`
+proves every differing number is within 1e-9 relative, and is recorded here.
+
+- Shared `payrollTax()`: historical engine, 4 scenarios in working years
+  (`hist default | real1929 / real2000 / crashFirst / mc1`, US): taxable,
+  investable, total, bonds differ by about 1e-16 relative. Standard engine
+  unchanged.
