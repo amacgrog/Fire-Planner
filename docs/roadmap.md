@@ -89,6 +89,18 @@ historical and Monte Carlo success rates:
   penalty applies, draw taxable first, honor Rule of 55 / 72(t), and apply the
   mix (smooth/applied/live) only where no penalty is owed. Changes standard
   and historical numbers together; see `docs/phase2-refactor-plan.md` A.5.
+- **Use the safe-MAGI room wherever withdrawals are chosen (US):** today
+  `magiSafeRoom` (the headroom under the ACA 400%-FPL cliff and the next IRMAA
+  tier) caps only the Roth conversion and the live withdrawal mix. The default
+  draw, smooth withdrawals, and the applied/optimizer mix schedules ignore it, so
+  they can push MAGI over a cliff that the engine then merely charges for.
+  Make every withdrawal path respect the remaining room (prefer drawing taxable
+  gains or Roth when traditional would cross a cliff, within the same
+  penalty-aware rules), in both engines, with the ceiling computed every year
+  (`usesMagiRoom` on for the bucket mode). Lands with or right after the
+  penalty-aware mixing change; it changes standard and historical numbers, so a
+  before/after on the default scenario is required. See
+  `docs/phase2-refactor-plan.md` A.7.
 - **Canada mixed withdrawals:** taxable / RRSP / TFSA mix, with the OAS
   clawback threshold as the income-room limit and no penalty gating; needs the
   shared withdrawal module from Phase 2 first (A.6).

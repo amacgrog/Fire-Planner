@@ -508,3 +508,21 @@ the mix schedule without a rewrite. Extra Canada work then is: the UI for the
 mix controls, porting the multi-lever optimizer (US-only today), and checking
 the interaction with `solvePensionSplit()` and the RRSP meltdown ladder.
 Scheduled as a post-refactor item in `docs/roadmap.md`.
+
+
+### A.7 Deferred: safe-MAGI room as a guard on every withdrawal path (US)
+
+`magiSafeRoom` = max(0, ceiling - MAGI so far), where the ceiling is the lower of
+the ACA 400%-FPL cliff (non-enhanced ACA, partners on the individual market) and
+the next IRMAA tier (a retired partner 63+). Today it is consumed in exactly two
+places: sizing the Roth conversion, and `remainingMagiRoom` for the live withdrawal
+mix (`pickLiveWithdrawalOrder` adds a 1e6-per-dollar penalty to any order that
+exceeds it). The default draw, smooth withdrawals, and the applied/optimizer mix
+schedules do not read it. The cost side is already modeled everywhere (ACA net
+cost via the MAGI iteration, IRMAA via the two-year lookback, in both engines);
+what is missing is steering withdrawals away from a cliff outside the live mix.
+The historical engine additionally evaluates the ceiling only in a conversion
+window (`usesMagiRoom` off) and has no live mix yet, so parity needs the ceiling
+lifted first (A.3 F2, F5), and this item then applies the room to all paths.
+Tracked in `docs/roadmap.md`.
+
