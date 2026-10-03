@@ -2989,6 +2989,96 @@
     };
   }
 
+  // The tax profile handed to taxFor() for the year, and each partner's income
+  // for OAS-clawback purposes. Canada taxes spouses as two individuals, so
+  // `totalA`/`totalB` are each partner's own income (zero if deceased), and with
+  // pension income splitting enabled up to half of eligible pension/RRIF income
+  // moves between them to minimize combined tax (`splitA`/`splitB` after the
+  // transfer). A deceased Partner A remaps the survivor into the A slot, because
+  // taxFor()'s single-person branch reads only the A fields.
+  function buildTaxProfile({
+    wageA,
+    wageB,
+    rrspContribA,
+    rrspContribB,
+    fhsaContribA,
+    fhsaContribB,
+    healthPremiumA,
+    healthPremiumB,
+    pensionA,
+    pensionB,
+    rrifA,
+    rrifB,
+    extraIncome,
+    cppA,
+    cppB,
+    oasGrossA,
+    oasGrossB,
+    age,
+    ageB,
+    year,
+    singlePerson,
+    isSurvivorPeriod,
+    deceasedIsA,
+    deceasedIsB,
+    inv,
+  }) {
+    const otherA =
+        Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA) +
+        pensionA +
+        rrifA +
+        extraIncome,
+      otherB =
+        Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB) +
+        pensionB +
+        rrifB;
+    // Pension income splitting: up to 50% of eligible pension/RRIF income
+    // may be reallocated between spouses to minimize combined federal +
+    // provincial tax. CPP, OAS, and wages are not eligible.
+    // It naturally disables once the household is effectively single
+    // (either state.singlePerson, or one partner has died).
+    const effectiveSingle = singlePerson || isSurvivorPeriod;
+    const invToB = isSurvivorPeriod && deceasedIsA,
+      shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
+      shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
+    // Income belongs to whoever is alive: a deceased partner's slot is zero,
+    // and when Partner A is the one who died the survivor's own income
+    // (wages/pension/RRIF, CPP, OAS) is Partner B's, plus the household's
+    // extra-income streams, which live in Partner A's `otherA`. (Before this
+    // was fixed, B's income was zeroed whenever effectiveSingle was true, so
+    // a surviving Partner B owed almost no tax.)
+    const aliveA = !(isSurvivorPeriod && deceasedIsA),
+      aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB);
+    const totalA = aliveA ? otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA : 0,
+      totalB = aliveB
+        ? otherB + (invToB ? extraIncome : 0) + cppB + oasGrossB + (inv.ordinary + inv.eligGrossed) * shareB
+        : 0;
+    const dtcA = inv.eligGrossed * shareA,
+      dtcB = inv.eligGrossed * shareB;
+    const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
+      eligibleB = effectiveSingle ? 0 : pensionB + (ageB >= 65 ? rrifB : 0);
+    const splitTransfer =
+      state.pensionSplitEnabled && !effectiveSingle
+        ? solvePensionSplit(totalA, totalB, eligibleA, eligibleB, year)
+        : 0;
+    const splitA = totalA - splitTransfer,
+      splitB = totalB + splitTransfer;
+    const profile =
+      isSurvivorPeriod && deceasedIsA
+        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
+        : {
+            otherA: splitA,
+            otherB: splitB,
+            dtcA,
+            dtcB,
+            ageA: age,
+            ageB,
+            singlePerson: effectiveSingle,
+            year,
+          };
+    return { aliveA, aliveB, totalA, totalB, splitA, splitB, profile };
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -3140,65 +3230,39 @@
         bal.fhsa = 0;
       }
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
-      const otherA =
-          Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA) +
-          pensionA +
-          rrifA +
-          extraIncome,
-        otherB =
-          Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB) +
-          pensionB +
-          rrifB;
-      // Pension income splitting: up to 50% of eligible pension/RRIF income
-      // may be reallocated between spouses to minimize combined federal +
-      // provincial tax. CPP, OAS, and wages are not eligible.
-      // It naturally disables once the household is effectively single
-      // (either state.singlePerson, or one partner has died).
-      const effectiveSingle = singlePerson || isSurvivorPeriod;
       // Dividends/interest earned this year on start-of-year balances, taxed
       // now. A couple is assumed to hold the taxable account jointly, so the
       // income splits evenly; a household that is effectively single puts it
       // all on the surviving partner's return (the B slot when Partner A is
       // the deceased, matching how the profile below is remapped).
       const inv = investmentIncomeCA(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
-      const invToB = isSurvivorPeriod && deceasedIsA,
-        shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
-        shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
-      // Income belongs to whoever is alive: a deceased partner's slot is zero,
-      // and when Partner A is the one who died the survivor's own income
-      // (wages/pension/RRIF, CPP, OAS) is Partner B's, plus the household's
-      // extra-income streams, which live in Partner A's `otherA`. (Before this
-      // was fixed, B's income was zeroed whenever effectiveSingle was true, so
-      // a surviving Partner B owed almost no tax.)
-      const aliveA = !(isSurvivorPeriod && deceasedIsA),
-        aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB);
-      const totalA = aliveA ? otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA : 0,
-        totalB = aliveB
-          ? otherB + (invToB ? extraIncome : 0) + cppB + oasGrossB + (inv.ordinary + inv.eligGrossed) * shareB
-          : 0;
-      const dtcA = inv.eligGrossed * shareA,
-        dtcB = inv.eligGrossed * shareB;
-      const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
-        eligibleB = effectiveSingle ? 0 : pensionB + (ageB >= 65 ? rrifB : 0);
-      const splitTransfer =
-        state.pensionSplitEnabled && !effectiveSingle
-          ? solvePensionSplit(totalA, totalB, eligibleA, eligibleB, year)
-          : 0;
-      const splitA = totalA - splitTransfer,
-        splitB = totalB + splitTransfer;
-      const profile =
-        isSurvivorPeriod && deceasedIsA
-          ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
-          : {
-              otherA: splitA,
-              otherB: splitB,
-              dtcA,
-              dtcB,
-              ageA: age,
-              ageB,
-              singlePerson: effectiveSingle,
-              year,
-            };
+      const { aliveA, aliveB, totalA, totalB, splitA, splitB, profile } = buildTaxProfile({
+        wageA,
+        wageB,
+        rrspContribA,
+        rrspContribB,
+        fhsaContribA,
+        fhsaContribB,
+        healthPremiumA,
+        healthPremiumB,
+        pensionA,
+        pensionB,
+        rrifA,
+        rrifB,
+        extraIncome,
+        cppA,
+        cppB,
+        oasGrossA,
+        oasGrossB,
+        age,
+        ageB,
+        year,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        deceasedIsB,
+        inv,
+      });
       let meltdownAmount = 0;
       if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
         meltdownAmount = solveMeltdown(
@@ -3647,60 +3711,39 @@
         bal.fhsa = 0;
       }
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
-      const otherA =
-          Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA) +
-          pensionA +
-          rrifA +
-          extraIncome,
-        otherB =
-          Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB) +
-          pensionB +
-          rrifB;
-      const effectiveSingle = singlePerson || isSurvivorPeriod;
       // Dividends/interest earned this year on start-of-year balances, taxed
       // now. A couple is assumed to hold the taxable account jointly, so the
       // income splits evenly; a household that is effectively single puts it
       // all on the surviving partner's return (the B slot when Partner A is
       // the deceased, matching how the profile below is remapped).
       const inv = investmentIncomeCA(bal.taxable, bal.bondTaxable, bal.cash, yearBondYield, hysa);
-      const invToB = isSurvivorPeriod && deceasedIsA,
-        shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
-        shareB = effectiveSingle ? (invToB ? 1 : 0) : 0.5;
-      // Income belongs to whoever is alive: a deceased partner's slot is zero,
-      // and when Partner A is the one who died the survivor's own income
-      // (wages/pension/RRIF, CPP, OAS) is Partner B's, plus the household's
-      // extra-income streams, which live in Partner A's `otherA`. (Before this
-      // was fixed, B's income was zeroed whenever effectiveSingle was true, so
-      // a surviving Partner B owed almost no tax.)
-      const aliveA = !(isSurvivorPeriod && deceasedIsA),
-        aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB);
-      const totalA = aliveA ? otherA + cppA + oasGrossA + (inv.ordinary + inv.eligGrossed) * shareA : 0,
-        totalB = aliveB
-          ? otherB + (invToB ? extraIncome : 0) + cppB + oasGrossB + (inv.ordinary + inv.eligGrossed) * shareB
-          : 0;
-      const dtcA = inv.eligGrossed * shareA,
-        dtcB = inv.eligGrossed * shareB;
-      const eligibleA = pensionA + (age >= 65 ? rrifA : 0),
-        eligibleB = effectiveSingle ? 0 : pensionB + (ageB >= 65 ? rrifB : 0);
-      const splitTransfer =
-        state.pensionSplitEnabled && !effectiveSingle
-          ? solvePensionSplit(totalA, totalB, eligibleA, eligibleB, year)
-          : 0;
-      const splitA = totalA - splitTransfer,
-        splitB = totalB + splitTransfer;
-      const profile =
-        isSurvivorPeriod && deceasedIsA
-          ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
-          : {
-              otherA: splitA,
-              otherB: splitB,
-              dtcA,
-              dtcB,
-              ageA: age,
-              ageB,
-              singlePerson: effectiveSingle,
-              year,
-            };
+      const { aliveA, aliveB, totalA, totalB, splitA, splitB, profile } = buildTaxProfile({
+        wageA,
+        wageB,
+        rrspContribA,
+        rrspContribB,
+        fhsaContribA,
+        fhsaContribB,
+        healthPremiumA,
+        healthPremiumB,
+        pensionA,
+        pensionB,
+        rrifA,
+        rrifB,
+        extraIncome,
+        cppA,
+        cppB,
+        oasGrossA,
+        oasGrossB,
+        age,
+        ageB,
+        year,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        deceasedIsB,
+        inv,
+      });
       let meltdownAmount = 0;
       if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
         meltdownAmount = solveMeltdown(
