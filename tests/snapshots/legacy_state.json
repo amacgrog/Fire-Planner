@@ -1,0 +1,37 @@
+{
+ "US": {
+  "empty": "27c4e2763803cff1",
+  "invalid enums": "27c4e2763803cff1",
+  "valid non-default enums": "adf643fc05572333",
+  "age clamps": "5ac3fd15f8a13bbe",
+  "old retireAge field": "a9d9b2278ceca7a9",
+  "unknown and retired keys": "c7decfbe4dbf5f45",
+  "legacy bridge plan": "3e4472c27ac1c5df",
+  "legacy loans and income": "6456354a24ac2460",
+  "string numbers and junk": "ed18d290c8d372a7",
+  "garbage schedules": "a7cb94c3e5cf2673",
+  "dismissed arrays wrong type": "27c4e2763803cff1",
+  "us invalid enums": "1a2f4a3714ca72cd",
+  "employer flags": "cc01aa446147bd4c",
+  "employer flags absent": "422c0a023f6f0a09",
+  "legacy sepp72t both": "2d80fe85b3c7efe1",
+  "sepp72t already split": "a762c9aee7240d10",
+  "traditional share out of range": "f1ece69213bd5334",
+  "traditional share junk": "27c4e2763803cff1"
+ },
+ "Canada": {
+  "empty": "834d135704d55db9",
+  "invalid enums": "834d135704d55db9",
+  "valid non-default enums": "68ae32c0eeb5ede5",
+  "age clamps": "5a3d42b73bd06901",
+  "old retireAge field": "46bbb68cd1e1b0ba",
+  "unknown and retired keys": "3436d6560b6d3267",
+  "legacy bridge plan": "d9dce445ecc51fe9",
+  "legacy loans and income": "d214e679acf12e0c",
+  "string numbers and junk": "63f6352a03528b50",
+  "garbage schedules": "040222e6eecd94d5",
+  "dismissed arrays wrong type": "834d135704d55db9",
+  "ca invalid province": "834d135704d55db9",
+  "ca valid province": "55834ca6c9da8249"
+ }
+}

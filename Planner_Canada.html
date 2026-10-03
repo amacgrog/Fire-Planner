@@ -897,14 +897,156 @@
     delete s.otherLoansEnabled;
     delete s.otherIncomeEnabled;
   }
+  // ---- Field registry ----
+  // Every sidebar control that maps straight onto a `state` key is declared here ONCE, and the
+  // input listeners, the DOM sync (syncControls / syncContributionControls), `ids`, and the MCP
+  // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
+  // and one entry here (plus a hook only if it has a side effect).
+  //   key       the `state` key and the element id
+  //   type      'number' (input/range; money fields are read with non-digits stripped),
+  //             'bool' (checkbox), or 'choice' (select / button group with a value list)
+  //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
+  //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
+  //   inlineOut also refresh the label immediately on input
+  //   resync    call syncControls() on input (the field has clamping side effects or labels)
+  //   syncAfter 'contrib': call syncContributionControls() after the edit is saved
+  //   onInput   clamps / cross-field side effects that run right after state is updated
+  // The order of the numeric entries is the order of the MCP schema's properties.
+  const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
+  const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
+  const clampLifeExpectancyA = () =>
+    (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
+  const clampLifeExpectancyB = () =>
+    (state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1)));
+  const FIELDS = [
+    { key: 'ageA', type: 'number', resync: true, onInput: () => { clampRetireAgeA(); clampLifeExpectancyA(); } },
+    { key: 'ageB', type: 'number', resync: true, onInput: () => { clampRetireAgeB(); clampLifeExpectancyB(); } },
+    { key: 'lifeExpectancyA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyA(); } },
+    { key: 'lifeExpectancyB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyB(); } },
+    { key: 'retireAgeA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
+    { key: 'retireAgeB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
+    { key: 'incomeA', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'incomeB', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'matchA', type: 'number' },
+    { key: 'matchB', type: 'number' },
+    { key: 'rrspPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'rrspPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'tfsaPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'tfsaPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'spending', type: 'number' },
+    { key: 'incomeGrowth', type: 'number' },
+    { key: 'inflation', type: 'number' },
+    { key: 'medicalInflation', type: 'number' },
+    { key: 'taxable', type: 'number' },
+    { key: 'basisRatio', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
+    { key: 'traditional', type: 'number' },
+    { key: 'roth', type: 'number' },
+    { key: 'cash', type: 'number' },
+    { key: 'cashReserve', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'bondYears', type: 'number' },
+    { key: 'returnRate', type: 'number' },
+    { key: 'bondReturn', type: 'number' },
+    { key: 'hysaRate', type: 'number' },
+    { key: 'dividendYield', type: 'number' },
+    { key: 'qualifiedDivPct', type: 'number' },
+    { key: 'homeValue', type: 'number' },
+    { key: 'homeGrowth', type: 'number' },
+    { key: 'mortgagePrincipal', type: 'number' },
+    { key: 'mortgage', type: 'number' },
+    { key: 'mortgageRate', type: 'number' },
+    { key: 'mortgageYears', type: 'number' },
+    { key: 'extraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
+    { key: 'maintenance', type: 'number' },
+    { key: 'propertyTax', type: 'number' },
+    { key: 'propertyTaxGrowth', type: 'number' },
+    { key: 'homeInsurance', type: 'number' },
+    { key: 'homeInsuranceGrowth', type: 'number' },
+    { key: 'rent', type: 'number' },
+    { key: 'rentGrowth', type: 'number' },
+    { key: 'cppMonthlyA', type: 'number' },
+    { key: 'cppStartAgeA', type: 'number' },
+    { key: 'cppMonthlyB', type: 'number' },
+    { key: 'cppStartAgeB', type: 'number' },
+    { key: 'oasMonthlyA', type: 'number' },
+    { key: 'oasStartAgeA', type: 'number' },
+    { key: 'oasMonthlyB', type: 'number' },
+    { key: 'oasStartAgeB', type: 'number' },
+    { key: 'pensionYearlyA', type: 'number' },
+    { key: 'pensionStartAgeA', type: 'number' },
+    { key: 'pensionYearlyB', type: 'number' },
+    { key: 'pensionStartAgeB', type: 'number' },
+    { key: 'healthPremiumA', type: 'number' },
+    { key: 'healthPremiumB', type: 'number' },
+    { key: 'healthcare', type: 'number' },
+    { key: 'ltcYearlyA', type: 'number' },
+    { key: 'ltcAgeA', type: 'number' },
+    { key: 'ltcYearlyB', type: 'number' },
+    { key: 'ltcAgeB', type: 'number' },
+    { key: 'survivorDeathAge', type: 'number' },
+    { key: 'survivorSpendingPct', type: 'number' },
+    { key: 'meltdownStartAge', type: 'number' },
+    { key: 'meltdownEndAge', type: 'number' },
+    { key: 'buyAge', type: 'number' },
+    { key: 'buyDownPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
+    { key: 'buyClosingPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
+    { key: 'buyTerm', type: 'number' },
+    { key: 'buyExtraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
+    { key: 'fhsa', type: 'number' },
+    { key: 'fhsaPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    { key: 'fhsaPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
+    // Checkboxes, selects and choices. `sync` says which sync function owns the control's DOM
+    // ('controls' | 'contrib'); `resync` lists the sync functions its listener runs; `reveals` are
+    // the elements it shows/hides; `mirrors` are the wizard checkboxes that follow it; `manual`
+    // marks button groups that are wired by hand (still registered for MCP and normalizeState);
+    // `mcp` exposes it through the update_fire_assumptions tool. MCP order = order below.
+    { key: 'singlePerson', type: 'bool', sync: 'controls', resync: ['controls', 'contrib'], mirrors: ['wizardSinglePerson'], mcp: true },
+    { key: 'tenure', type: 'choice', manual: true, values: ['own', 'rent', 'rentThenBuy'], fallback: 'own', mcp: true },
+    { key: 'buyCash', type: 'bool', manual: true, mcp: true },
+    { key: 'province', type: 'choice', sync: 'controls', resync: [], values: ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'], fallback: 'on', mcp: true },
+    { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
+    { key: 'pensionSplitEnabled', type: 'bool', sync: 'contrib', resync: [], mcp: true },
+    { key: 'meltdownEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mirrors: ['wizardMeltdownEnabled'], mcp: true },
+    { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
+    { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
+    // Not exposed through MCP.
+    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'] },
+    { key: 'smoothWithdrawals', type: 'bool', sync: 'controls', resync: [] },
+    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'], mirrors: ['wizardGuardrailsEnabled'] },
+    { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
+    { key: 'meltdownBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
+  ];
+  const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
+  // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
+  function syncFieldDom(field) {
+    const el = document.getElementById(field.key);
+    if (field.type === 'bool') el.checked = !!state[field.key];
+    else el.value = state[field.key];
+    (field.reveals || []).forEach((r) => (document.getElementById(r.id).hidden = r.hidden(state)));
+    (field.mirrors || []).forEach((id) => (document.getElementById(id).checked = !!state[field.key]));
+  }
+  const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
+  const isDomWired = (field) => field.type !== 'number' && !field.manual;
+  // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
+  // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
+  const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
+  const mcpSchemaFor = (field) =>
+    field.type === 'number'
+      ? { type: 'number' }
+      : field.type === 'bool'
+        ? { type: 'boolean' }
+        : { type: 'string', enum: field.values };
+  const mcpAccepts = (field, v) =>
+    field.type === 'number'
+      ? Number.isFinite(v)
+      : field.type === 'bool'
+        ? typeof v === 'boolean'
+        : field.values.includes(v);
   function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
-    if (!['own', 'rent', 'rentThenBuy'].includes(s.tenure)) s.tenure = 'own';
-    if (!['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'].includes(s.province))
-      s.province = 'on';
-    if (!['weekly', 'biweekly', 'semimonthly', 'monthly'].includes(s.payFrequency))
-      s.payFrequency = 'biweekly';
-    if (!['A', 'B'].includes(s.survivorPartner)) s.survivorPartner = 'A';
+    FIELDS.forEach((field) => {
+      if (field.fallback !== undefined && !field.values.includes(s[field.key])) s[field.key] = field.fallback;
+      if (field.trueUnlessFalse) s[field.key] = s[field.key] !== false;
+    });
     s.retireAgeA = Math.max(s.ageA, Number(s.retireAgeA ?? s.retireAge ?? s.ageA));
     s.retireAgeB = Math.max(s.ageB, Number(s.retireAgeB ?? s.retireAge ?? s.ageB));
     s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
@@ -1072,83 +1214,7 @@
   // returning visitor with "real" data, hiding the first-run banner for
   // someone who never actually entered anything.
   let hasPersonalizedData = hadSavedState;
-  const ids = [
-    'ageA',
-    'ageB',
-    'lifeExpectancyA',
-    'lifeExpectancyB',
-    'retireAgeA',
-    'retireAgeB',
-    'incomeA',
-    'incomeB',
-    'matchA',
-    'matchB',
-    'rrspPctA',
-    'rrspPctB',
-    'tfsaPctA',
-    'tfsaPctB',
-    'spending',
-    'incomeGrowth',
-    'inflation',
-    'medicalInflation',
-    'taxable',
-    'basisRatio',
-    'traditional',
-    'roth',
-    'cash',
-    'cashReserve',
-    'bondYears',
-    'returnRate',
-    'bondReturn',
-    'hysaRate',
-    'dividendYield',
-    'qualifiedDivPct',
-    'homeValue',
-    'homeGrowth',
-    'mortgagePrincipal',
-    'mortgage',
-    'mortgageRate',
-    'mortgageYears',
-    'extraPrincipal',
-    'maintenance',
-    'propertyTax',
-    'propertyTaxGrowth',
-    'homeInsurance',
-    'homeInsuranceGrowth',
-    'rent',
-    'rentGrowth',
-    'cppMonthlyA',
-    'cppStartAgeA',
-    'cppMonthlyB',
-    'cppStartAgeB',
-    'oasMonthlyA',
-    'oasStartAgeA',
-    'oasMonthlyB',
-    'oasStartAgeB',
-    'pensionYearlyA',
-    'pensionStartAgeA',
-    'pensionYearlyB',
-    'pensionStartAgeB',
-    'healthPremiumA',
-    'healthPremiumB',
-    'healthcare',
-    'ltcYearlyA',
-    'ltcAgeA',
-    'ltcYearlyB',
-    'ltcAgeB',
-    'survivorDeathAge',
-    'survivorSpendingPct',
-    'meltdownStartAge',
-    'meltdownEndAge',
-    'buyAge',
-    'buyDownPct',
-    'buyClosingPct',
-    'buyTerm',
-    'buyExtraPrincipal',
-    'fhsa',
-    'fhsaPctA',
-    'fhsaPctB',
-  ];
+  // `ids` (the plain numeric inputs) is derived from FIELDS above.
   const money = (n) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -6631,9 +6697,15 @@
   function renderSpendingTierFields() {
     renderDynList('spendingTiers');
   }
+  // Writes a slider's `<key>Out` label from the current state.
+  function syncFieldOut(field) {
+    document.getElementById(field.key + 'Out').textContent = field.out(state[field.key]);
+  }
   function syncControls() {
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
+    FIELDS.forEach((field) => {
+      if (field.type !== 'number') return;
+      const id = field.key,
+        el = document.getElementById(id);
       // Skip writing .value to whatever field is currently focused, if the
       // numeric value hasn't actually changed. syncControls() runs on every
       // edit to a field with clamping side effects (retireAgeA, extraPrincipal,
@@ -6648,30 +6720,17 @@
       // (stripping the money field's "$"/commas) keeps this a no-op guard
       // only — a field whose value genuinely needs updating still gets it.
       const currentNumeric = Number(String(el.value).replace(/[^0-9.-]/g, '')) || 0;
-      if (el === document.activeElement && currentNumeric === state[id]) return;
-      el.value = state[id];
+      if (!(el === document.activeElement && currentNumeric === state[id])) el.value = state[id];
+      if (field.out && field.outSync === 'controls') syncFieldOut(field);
     });
+    FIELDS.filter((field) => isDomWired(field) && field.sync === 'controls').forEach(syncFieldDom);
     renderLoanFields();
-    document.getElementById('singlePerson').checked = !!state.singlePerson;
     document
       .querySelectorAll('[data-partner-b]')
       .forEach((el) => (el.hidden = !!state.singlePerson));
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
-    document.getElementById('retireAgeAOut').textContent = `Age ${state.retireAgeA}`;
-    document.getElementById('retireAgeBOut').textContent = `Age ${state.retireAgeB}`;
-    document.getElementById('lifeExpectancyAOut').textContent = `Age ${state.lifeExpectancyA}`;
-    document.getElementById('lifeExpectancyBOut').textContent = `Age ${state.lifeExpectancyB}`;
-    document.getElementById('incomeAOut').textContent = money(state.incomeA);
-    document.getElementById('incomeBOut').textContent = money(state.incomeB);
-    document.getElementById('cashReserveOut').textContent = money(state.cashReserve);
-    document.getElementById('basisRatioOut').textContent = `${state.basisRatio}%`;
-    document.getElementById('extraPrincipalOut').textContent = `+${money(state.extraPrincipal)}/mo`;
-    document.getElementById('buyDownPctOut').textContent = `${state.buyDownPct}%`;
-    document.getElementById('buyClosingPctOut').textContent = `${state.buyClosingPct}%`;
-    document.getElementById('buyExtraPrincipalOut').textContent =
-      `+${money(state.buyExtraPrincipal)}/mo`;
     [
       ['ownBtn', 'own'],
       ['rentBtn', 'rent'],
@@ -6701,16 +6760,9 @@
       state.tenure === 'rentThenBuy'
         ? 'Applies once you buy; keeps applying after the mortgage is paid off'
         : 'Applies once you own; keeps applying after the mortgage is paid off';
-    document.getElementById('payFrequency').value = state.payFrequency;
-    document.getElementById('province').value = state.province;
     document.querySelectorAll('.swr-input').forEach((el) => {
       if (document.activeElement !== el) el.value = String(state.fiWithdrawalRate);
     });
-    document.getElementById('ltcEnabled').checked = !!state.ltcEnabled;
-    document.getElementById('ltcFields').hidden = !state.ltcEnabled;
-    document.getElementById('wizardLtcEnabled').checked = !!state.ltcEnabled;
-    document.getElementById('wizardGuardrailsEnabled').checked = !!state.guardrailsEnabled;
-    document.getElementById('wizardSinglePerson').checked = !!state.singlePerson;
     document.getElementById('wizardAgeA').value = state.ageA;
     document.getElementById('wizardAgeB').value = state.ageB;
     document.getElementById('wizardIncomeA').value = state.incomeA;
@@ -6722,8 +6774,6 @@
     document.getElementById('wizardRoth').value = state.roth;
     document.getElementById('wizardCash').value = state.cash;
     document.getElementById('wizardSpending').value = state.spending;
-    document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
-    document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
     [
       ['buyMortgageBtn', false],
       ['buyCashBtn', true],
@@ -6746,7 +6796,8 @@
     });
     refreshMoneyPreviews();
   }
-  ids.forEach((id) =>
+  FIELDS.filter((field) => field.type === 'number').forEach((field) => {
+    const id = field.key;
     document.getElementById(id).addEventListener('input', (e) => {
       state[id] = Number(
         e.target.classList.contains('money') ? e.target.value.replace(/[^0-9]/g, '') : e.target.value,
@@ -6756,36 +6807,23 @@
       // the default) — see the "estimated field badges" note in CLAUDE.md.
       const dismissedIdx = state.dismissedEstimates.indexOf(id);
       if (dismissedIdx !== -1) state.dismissedEstimates.splice(dismissedIdx, 1);
-      if (id === 'ageA') state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
-      if (id === 'ageB') state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
-      if (id === 'ageA' || id === 'lifeExpectancyA')
-        state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1));
-      if (id === 'ageB' || id === 'lifeExpectancyB')
-        state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1));
-      if (id === 'basisRatio')
-        document.getElementById('basisRatioOut').textContent = `${state.basisRatio}%`;
-      if (
-        [
-          'ageA',
-          'ageB',
-          'lifeExpectancyA',
-          'lifeExpectancyB',
-          'retireAgeA',
-          'retireAgeB',
-          'incomeA',
-          'incomeB',
-          'cashReserve',
-          'extraPrincipal',
-          'buyDownPct',
-          'buyClosingPct',
-          'buyExtraPrincipal',
-        ].includes(id)
-      )
-        syncControls();
+      if (field.onInput) field.onInput();
+      if (field.inlineOut) syncFieldOut(field);
+      if (field.resync) syncControls();
       render();
       saveInputs();
-    }),
-  );
+      if (field.syncAfter === 'contrib') syncContributionControls();
+    });
+  });
+  FIELDS.filter(isDomWired).forEach((field) => {
+    document.getElementById(field.key).addEventListener('change', (e) => {
+      state[field.key] =
+        field.type === 'bool' ? e.target.checked : field.valueAs === 'number' ? Number(e.target.value) : e.target.value;
+      field.resync.forEach((name) => syncFns[name]());
+      render();
+      saveInputs();
+    });
+  });
   document.getElementById('ownBtn').addEventListener('click', () => setTenure('own'));
   document.getElementById('rentBtn').addEventListener('click', () => setTenure('rent'));
   document.getElementById('buyLaterBtn').addEventListener('click', () => setTenure('rentThenBuy'));
@@ -7132,71 +7170,16 @@
       hideResults();
     });
   })();
-  document.getElementById('singlePerson').addEventListener('change', (e) => {
-    state.singlePerson = e.target.checked;
-    syncControls();
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('province').addEventListener('change', (e) => {
-    state.province = e.target.value;
-    render();
-    saveInputs();
-  });
   function syncContributionControls() {
-    [
-      ['rrspPctA', 'rrspPctAOut'],
-      ['rrspPctB', 'rrspPctBOut'],
-      ['tfsaPctA', 'tfsaPctAOut'],
-      ['tfsaPctB', 'tfsaPctBOut'],
-      ['fhsaPctA', 'fhsaPctAOut'],
-      ['fhsaPctB', 'fhsaPctBOut'],
-    ].forEach(([key, out]) => (document.getElementById(out).textContent = `${state[key]}%`));
-    document.getElementById('meltdownEnabled').checked = !!state.meltdownEnabled;
-    document.getElementById('meltdownBracket').value = state.meltdownBracket;
-    document.getElementById('pensionSplitEnabled').checked = !!state.pensionSplitEnabled;
+    FIELDS.filter((field) => field.outSync === 'contrib').forEach(syncFieldOut);
+    FIELDS.filter((field) => isDomWired(field) && field.sync === 'contrib').forEach(syncFieldDom);
     document.getElementById('survivorGroup').hidden = !!state.singlePerson;
-    document.getElementById('survivorEnabled').checked = !!state.survivorEnabled;
-    document.getElementById('survivorFields').hidden = !state.survivorEnabled;
-    document.getElementById('survivorPartner').value = state.survivorPartner;
-    document.getElementById('wizardMeltdownEnabled').checked = !!state.meltdownEnabled;
     renderSpendingTierFields();
     renderIncomeSourceFields();
     renderOneTimeIncomeFields();
     renderExtraExpenseFields();
     renderLumpExpenseFields();
   }
-  ['rrspPctA', 'rrspPctB', 'tfsaPctA', 'tfsaPctB', 'fhsaPctA', 'fhsaPctB'].forEach((id) =>
-    document.getElementById(id).addEventListener('input', () => syncContributionControls()),
-  );
-  document.getElementById('meltdownEnabled').addEventListener('change', (e) => {
-    state.meltdownEnabled = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('meltdownBracket').addEventListener('change', (e) => {
-    state.meltdownBracket = Number(e.target.value);
-    render();
-    saveInputs();
-  });
-  document.getElementById('pensionSplitEnabled').addEventListener('change', (e) => {
-    state.pensionSplitEnabled = e.target.checked;
-    render();
-    saveInputs();
-  });
-  document.getElementById('survivorEnabled').addEventListener('change', (e) => {
-    state.survivorEnabled = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('survivorPartner').addEventListener('change', (e) => {
-    state.survivorPartner = e.target.value;
-    render();
-    saveInputs();
-  });
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the
   // sidebar eats a variable share of the viewport).
@@ -7221,28 +7204,6 @@
     input.addEventListener('blur', () => {
       input.value = String(state.fiWithdrawalRate);
     });
-  });
-  document.getElementById('ltcEnabled').addEventListener('change', (e) => {
-    state.ltcEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('smoothWithdrawals').addEventListener('change', (e) => {
-    state.smoothWithdrawals = e.target.checked;
-    render();
-    saveInputs();
-  });
-  document.getElementById('guardrailsEnabled').addEventListener('change', (e) => {
-    state.guardrailsEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('payFrequency').addEventListener('change', (e) => {
-    state.payFrequency = e.target.value;
-    render();
-    saveInputs();
   });
   function setTenure(tenure) {
     state.tenure = tenure;
@@ -8468,41 +8429,14 @@
         'Update one or more FIRE projection assumptions and refresh the visible forecast.',
       inputSchema: {
         type: 'object',
-        properties: {
-          ...Object.fromEntries(ids.map((id) => [id, { type: 'number' }])),
-          singlePerson: { type: 'boolean' },
-          tenure: { type: 'string', enum: ['own', 'rent', 'rentThenBuy'] },
-          buyCash: { type: 'boolean' },
-          province: {
-            type: 'string',
-            enum: ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'],
-          },
-          pensionCoverage: { type: 'string', enum: ['none', 'a', 'b', 'both'] },
-          pensionSplitEnabled: { type: 'boolean' },
-          meltdownEnabled: { type: 'boolean' },
-          survivorEnabled: { type: 'boolean' },
-          survivorPartner: { type: 'string', enum: ['A', 'B'] },
-        },
+        properties: Object.fromEntries(MCP_FIELDS.map((field) => [field.key, mcpSchemaFor(field)])),
         additionalProperties: false,
       },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async (input) => {
         for (const [k, v] of Object.entries(input || {})) {
-          if (ids.includes(k) && Number.isFinite(v)) state[k] = v;
-          if (k === 'singlePerson' && typeof v === 'boolean') state.singlePerson = v;
-          if (k === 'tenure' && ['own', 'rent', 'rentThenBuy'].includes(v)) state.tenure = v;
-          if (k === 'buyCash' && typeof v === 'boolean') state.buyCash = v;
-          if (
-            k === 'province' &&
-            ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'].includes(v)
-          )
-            state.province = v;
-          if (k === 'pensionCoverage' && ['none', 'a', 'b', 'both'].includes(v))
-            state.pensionCoverage = v;
-          if (k === 'pensionSplitEnabled' && typeof v === 'boolean') state.pensionSplitEnabled = v;
-          if (k === 'meltdownEnabled' && typeof v === 'boolean') state.meltdownEnabled = v;
-          if (k === 'survivorEnabled' && typeof v === 'boolean') state.survivorEnabled = v;
-          if (k === 'survivorPartner' && ['A', 'B'].includes(v)) state.survivorPartner = v;
+          const field = MCP_FIELDS.find((f) => f.key === k);
+          if (field && mcpAccepts(field, v)) state[k] = v;
         }
         state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
         state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
@@ -8527,6 +8461,7 @@
   window.__test_simulateHistorical = simulateHistorical;
   window.__test_HIST = HIST;
   window.__test_getState = () => state;
+  window.__test_FIELDS = FIELDS;
   window.__test_tax = { taxFor, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_TAX, PROVINCE_ELIGIBLE_DTC, taxIndexFactor };
 })();
 </script>

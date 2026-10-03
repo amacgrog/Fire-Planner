@@ -6636,3 +6636,33 @@ rotateIntoBondLadder, refillBondReserve, takeCash/takeHomeEquity-shaped blocks.
   closure table rebuilt in every bucket withdrawal (now module-level) and string
   concatenation for balance keys (now a constant map).
 
+### Phase 2 step 3: field registry (`FIELDS`)
+
+Replaces the `ids` array, ~35 hand-written listener blocks, the field lines of
+both sync functions, the MCP schema/allow-list and four enum guards in
+`normalizeState`, in both planners (US: 78 numeric + 27 other entries; Canada:
+75 + 14). The generic machinery (header comment, `syncFieldDom`, `syncFns`,
+`MCP_FIELDS` helpers, the two listener loops) is byte-identical in both files.
+Decisions worth keeping:
+
+- **The two sync functions stay separate.** A registry entry names its owner
+  (`sync`) and its listener's `resync` list, preserving the exact call pattern
+  (e.g. singlePerson runs both; the contribution sliders run the contribution
+  sync *after* `saveInputs`). Merging them would let a slider drag reformat a
+  money field the user is typing in (see the focus guard in `syncControls`).
+- **`defaults` is not owned by the registry.** Moving defaults would change the
+  key order of `state` (and of exported/autosaved JSON). `tests/field_registry.js`
+  asserts every registry key exists in state instead.
+- **Registry order is behavior.** Numeric entries keep the old `ids` order and the
+  non-numeric ones the old MCP order, so the MCP schema hash is unchanged
+  (checked by the UI snapshot).
+- **Enum guards only where they existed.** `fallback`/`values` were added only for
+  `tenure`, `filingStatus`, `survivorPartner`, `payFrequency` (+ `province` in
+  Canada); `k401Type`, `iraType`, `pensionCoverage`, `stateTax` still have no
+  `normalizeState` guard. Adding one is a behavior change, not a refactor.
+- Not in the registry on purpose: the wizard's numeric mirrors and `wizard*`
+  numeric listeners, `fiWithdrawalRate` (two `.swr-input` boxes), the add-as-you-go
+  DYN lists, chart/optimizer display toggles, the search box, the scenario name.
+- Mutation-checked: an unregistered control, a removed entry and a bad `sync`
+  value each fail `tests/field_registry.js`.
+

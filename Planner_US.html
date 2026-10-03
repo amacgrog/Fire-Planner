@@ -992,7 +992,8 @@
   // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
   // and one entry here (plus a hook only if it has a side effect).
   //   key       the `state` key and the element id
-  //   type      'number' (input/range; money fields are read with non-digits stripped)
+  //   type      'number' (input/range; money fields are read with non-digits stripped),
+  //             'bool' (checkbox), or 'choice' (select / button group with a value list)
   //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
   //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
   //   inlineOut also refresh the label immediately on input
@@ -1085,17 +1086,72 @@
     { key: 'buyClosingPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
     { key: 'buyTerm', type: 'number' },
     { key: 'buyExtraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
+    // Checkboxes, selects and choices. `sync` says which sync function owns the control's DOM
+    // ('controls' | 'contrib'); `resync` lists the sync functions its listener runs; `reveals` are
+    // the elements it shows/hides; `mirrors` are the wizard checkboxes that follow it; `manual`
+    // marks button groups that are wired by hand (still registered for MCP and normalizeState);
+    // `mcp` exposes it through the update_fire_assumptions tool. MCP order = order below.
+    { key: 'singlePerson', type: 'bool', sync: 'controls', resync: ['controls', 'contrib'], mirrors: ['wizardSinglePerson'], mcp: true },
+    { key: 'megaBackdoor', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'megaAField', hidden: (s) => !s.megaBackdoor }, { id: 'megaBField', hidden: (s) => !s.megaBackdoor || s.singlePerson }], mirrors: ['wizardMegaBackdoor'], mcp: true },
+    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'], mcp: true },
+    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }], mirrors: ['wizardAcaEnabled'], mcp: true },
+    { key: 'irmaaPriorKnown', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'irmaaPriorFields', hidden: (s) => !s.irmaaPriorKnown }], mcp: true },
+    { key: 'employerCoversSpouseA', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
+    { key: 'employerCoversSpouseB', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
+    { key: 'rothConvEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mirrors: ['wizardRothConvEnabled'], mcp: true },
+    { key: 'withdrawalMixEnabled', type: 'bool', sync: 'controls', resync: [], mcp: true },
+    { key: 'ruleOf55Enabled', type: 'bool', sync: 'controls', resync: ['controls'], mcp: true },
+    { key: 'sepp72tEnabledA', type: 'bool', sync: 'controls', resync: ['controls'], mcp: true },
+    { key: 'sepp72tEnabledB', type: 'bool', sync: 'controls', resync: ['controls'], mcp: true },
+    { key: 'tenure', type: 'choice', manual: true, values: ['own', 'rent', 'rentThenBuy'], fallback: 'own', mcp: true },
+    { key: 'buyCash', type: 'bool', manual: true, mcp: true },
+    { key: 'k401Type', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
+    { key: 'iraType', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
+    { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
+    { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
+    { key: 'marryLater', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'marriageAgeField', hidden: (s) => !s.marryLater }], mcp: true },
+    { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
+    { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
+    // Not exposed through MCP.
+    { key: 'acaEnhanced', type: 'bool', sync: 'contrib', resync: [] },
+    { key: 'smoothWithdrawals', type: 'bool', sync: 'controls', resync: [] },
+    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'], mirrors: ['wizardGuardrailsEnabled'] },
+    { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
+    { key: 'stateTax', type: 'choice', sync: 'controls', resync: [] },
+    { key: 'rothConvBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
   ];
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
+  // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
+  function syncFieldDom(field) {
+    const el = document.getElementById(field.key);
+    if (field.type === 'bool') el.checked = !!state[field.key];
+    else el.value = state[field.key];
+    (field.reveals || []).forEach((r) => (document.getElementById(r.id).hidden = r.hidden(state)));
+    (field.mirrors || []).forEach((id) => (document.getElementById(id).checked = !!state[field.key]));
+  }
+  const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
+  const isDomWired = (field) => field.type !== 'number' && !field.manual;
+  // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
+  // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
+  const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
+  const mcpSchemaFor = (field) =>
+    field.type === 'number'
+      ? { type: 'number' }
+      : field.type === 'bool'
+        ? { type: 'boolean' }
+        : { type: 'string', enum: field.values };
+  const mcpAccepts = (field, v) =>
+    field.type === 'number'
+      ? Number.isFinite(v)
+      : field.type === 'bool'
+        ? typeof v === 'boolean'
+        : field.values.includes(v);
   function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
-    if (!['own', 'rent', 'rentThenBuy'].includes(s.tenure)) s.tenure = 'own';
-    if (!['mfj', 'single'].includes(s.filingStatus)) s.filingStatus = 'mfj';
-    if (!['A', 'B'].includes(s.survivorPartner)) s.survivorPartner = 'A';
-    s.employerCoversSpouseA = s.employerCoversSpouseA !== false;
-    s.employerCoversSpouseB = s.employerCoversSpouseB !== false;
-    if (!['weekly', 'biweekly', 'semimonthly', 'monthly'].includes(s.payFrequency))
-      s.payFrequency = 'biweekly';
+    FIELDS.forEach((field) => {
+      if (field.fallback !== undefined && !field.values.includes(s[field.key])) s[field.key] = field.fallback;
+      if (field.trueUnlessFalse) s[field.key] = s[field.key] !== false;
+    });
     s.retireAgeA = Math.max(s.ageA, Number(s.retireAgeA ?? s.retireAge ?? s.ageA));
     s.retireAgeB = Math.max(s.ageB, Number(s.retireAgeB ?? s.retireAge ?? s.ageB));
     s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
@@ -8759,8 +8815,8 @@
       if (!(el === document.activeElement && currentNumeric === state[id])) el.value = state[id];
       if (field.out && field.outSync === 'controls') syncFieldOut(field);
     });
+    FIELDS.filter((field) => isDomWired(field) && field.sync === 'controls').forEach(syncFieldDom);
     renderLoanFields();
-    document.getElementById('singlePerson').checked = !!state.singlePerson;
     document
       .querySelectorAll('[data-partner-b]')
       .forEach((el) => (el.hidden = !!state.singlePerson));
@@ -8797,16 +8853,9 @@
       state.tenure === 'rentThenBuy'
         ? 'Applies once you buy; keeps applying after the mortgage is paid off'
         : 'Applies once you own; keeps applying after the mortgage is paid off';
-    document.getElementById('payFrequency').value = state.payFrequency;
-    document.getElementById('stateTax').value = state.stateTax;
     document.querySelectorAll('.swr-input').forEach((el) => {
       if (document.activeElement !== el) el.value = String(state.fiWithdrawalRate);
     });
-    document.getElementById('ltcEnabled').checked = !!state.ltcEnabled;
-    document.getElementById('ltcFields').hidden = !state.ltcEnabled;
-    document.getElementById('wizardLtcEnabled').checked = !!state.ltcEnabled;
-    document.getElementById('wizardGuardrailsEnabled').checked = !!state.guardrailsEnabled;
-    document.getElementById('wizardSinglePerson').checked = !!state.singlePerson;
     document.getElementById('wizardAgeA').value = state.ageA;
     document.getElementById('wizardAgeB').value = state.ageB;
     document.getElementById('wizardIncomeA').value = state.incomeA;
@@ -8818,14 +8867,6 @@
     document.getElementById('wizardRoth').value = state.roth;
     document.getElementById('wizardCash').value = state.cash;
     document.getElementById('wizardSpending').value = state.spending;
-    document.getElementById('smoothWithdrawals').checked = !!state.smoothWithdrawals;
-    document.getElementById('withdrawalMixEnabled').checked = !!state.withdrawalMixEnabled;
-    document.getElementById('guardrailsEnabled').checked = !!state.guardrailsEnabled;
-    document.getElementById('ruleOf55Enabled').checked = !!state.ruleOf55Enabled;
-    document.getElementById('employerCoversSpouseA').checked = !!state.employerCoversSpouseA;
-    document.getElementById('employerCoversSpouseB').checked = !!state.employerCoversSpouseB;
-    document.getElementById('sepp72tEnabledA').checked = !!state.sepp72tEnabledA;
-    document.getElementById('sepp72tEnabledB').checked = !!state.sepp72tEnabledB;
     [
       ['buyMortgageBtn', false],
       ['buyCashBtn', true],
@@ -8835,8 +8876,6 @@
       document.getElementById(id).setAttribute('aria-checked', active);
     });
     document.getElementById('buyMortgageFields').hidden = !!state.buyCash;
-    document.getElementById('marryLater').checked = !!state.marryLater;
-    document.getElementById('marriageAgeField').hidden = !state.marryLater;
     [
       ['k401TraditionalBtn', 'traditional', 'k401Type'],
       ['k401RothBtn', 'roth', 'k401Type'],
@@ -8873,6 +8912,15 @@
       render();
       saveInputs();
       if (field.syncAfter === 'contrib') syncContributionControls();
+    });
+  });
+  FIELDS.filter(isDomWired).forEach((field) => {
+    document.getElementById(field.key).addEventListener('change', (e) => {
+      state[field.key] =
+        field.type === 'bool' ? e.target.checked : field.valueAs === 'number' ? Number(e.target.value) : e.target.value;
+      field.resync.forEach((name) => syncFns[name]());
+      render();
+      saveInputs();
     });
   });
   document.getElementById('ownBtn').addEventListener('click', () => setTenure('own'));
@@ -9221,88 +9269,16 @@
       hideResults();
     });
   })();
-  document.getElementById('singlePerson').addEventListener('change', (e) => {
-    state.singlePerson = e.target.checked;
-    syncControls();
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('stateTax').addEventListener('change', (e) => {
-    state.stateTax = e.target.value;
-    render();
-    saveInputs();
-  });
   function syncContributionControls() {
     FIELDS.filter((field) => field.outSync === 'contrib').forEach(syncFieldOut);
-    document.getElementById('megaBackdoor').checked = !!state.megaBackdoor;
-    document.getElementById('megaAField').hidden = !state.megaBackdoor;
-    document.getElementById('megaBField').hidden = !state.megaBackdoor || state.singlePerson;
-    document.getElementById('acaEnabled').checked = !!state.acaEnabled;
-    document.getElementById('acaEnhancedField').hidden = !state.acaEnabled;
-    document.getElementById('acaEnhanced').checked = !!state.acaEnhanced;
-    document.getElementById('irmaaPriorKnown').checked = !!state.irmaaPriorKnown;
-    document.getElementById('irmaaPriorFields').hidden = !state.irmaaPriorKnown;
-    document.getElementById('rothConvEnabled').checked = !!state.rothConvEnabled;
-    document.getElementById('rothConvBracket').value = state.rothConvBracket;
+    FIELDS.filter((field) => isDomWired(field) && field.sync === 'contrib').forEach(syncFieldDom);
     document.getElementById('survivorGroup').hidden = !!state.singlePerson;
-    document.getElementById('survivorEnabled').checked = !!state.survivorEnabled;
-    document.getElementById('survivorFields').hidden = !state.survivorEnabled;
-    document.getElementById('survivorPartner').value = state.survivorPartner;
-    document.getElementById('wizardAcaEnabled').checked = !!state.acaEnabled;
-    document.getElementById('wizardRothConvEnabled').checked = !!state.rothConvEnabled;
-    document.getElementById('wizardMegaBackdoor').checked = !!state.megaBackdoor;
     renderSpendingTierFields();
     renderIncomeSourceFields();
     renderOneTimeIncomeFields();
     renderExtraExpenseFields();
     renderLumpExpenseFields();
   }
-  document.getElementById('acaEnabled').addEventListener('change', (e) => {
-    state.acaEnabled = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('irmaaPriorKnown').addEventListener('change', (e) => {
-    state.irmaaPriorKnown = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('acaEnhanced').addEventListener('change', (e) => {
-    state.acaEnhanced = e.target.checked;
-    render();
-    saveInputs();
-  });
-  document.getElementById('rothConvEnabled').addEventListener('change', (e) => {
-    state.rothConvEnabled = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('rothConvBracket').addEventListener('change', (e) => {
-    state.rothConvBracket = Number(e.target.value);
-    render();
-    saveInputs();
-  });
-  document.getElementById('survivorEnabled').addEventListener('change', (e) => {
-    state.survivorEnabled = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('survivorPartner').addEventListener('change', (e) => {
-    state.survivorPartner = e.target.value;
-    render();
-    saveInputs();
-  });
-  document.getElementById('megaBackdoor').addEventListener('change', (e) => {
-    state.megaBackdoor = e.target.checked;
-    syncContributionControls();
-    render();
-    saveInputs();
-  });
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the
   // sidebar eats a variable share of the viewport).
@@ -9327,58 +9303,6 @@
     input.addEventListener('blur', () => {
       input.value = String(state.fiWithdrawalRate);
     });
-  });
-  document.getElementById('ltcEnabled').addEventListener('change', (e) => {
-    state.ltcEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('smoothWithdrawals').addEventListener('change', (e) => {
-    state.smoothWithdrawals = e.target.checked;
-    render();
-    saveInputs();
-  });
-  document.getElementById('withdrawalMixEnabled').addEventListener('change', (e) => {
-    state.withdrawalMixEnabled = e.target.checked;
-    render();
-    saveInputs();
-  });
-  document.getElementById('guardrailsEnabled').addEventListener('change', (e) => {
-    state.guardrailsEnabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  ['employerCoversSpouseA', 'employerCoversSpouseB'].forEach((id) =>
-    document.getElementById(id).addEventListener('change', (e) => {
-      state[id] = e.target.checked;
-      render();
-      saveInputs();
-    }),
-  );
-  document.getElementById('ruleOf55Enabled').addEventListener('change', (e) => {
-    state.ruleOf55Enabled = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('sepp72tEnabledA').addEventListener('change', (e) => {
-    state.sepp72tEnabledA = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('sepp72tEnabledB').addEventListener('change', (e) => {
-    state.sepp72tEnabledB = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
-  document.getElementById('payFrequency').addEventListener('change', (e) => {
-    state.payFrequency = e.target.value;
-    render();
-    saveInputs();
   });
   function setTenure(tenure) {
     state.tenure = tenure;
@@ -9426,12 +9350,6 @@
   }
   document.getElementById('mfjBtn').addEventListener('click', () => setFilingStatus('mfj'));
   document.getElementById('singleBtn').addEventListener('click', () => setFilingStatus('single'));
-  document.getElementById('marryLater').addEventListener('change', (e) => {
-    state.marryLater = e.target.checked;
-    syncControls();
-    render();
-    saveInputs();
-  });
   document.getElementById('realBtn').addEventListener('click', () => setMode('real'));
   document.getElementById('nominalBtn').addEventListener('click', () => setMode('nominal'));
   document.getElementById('chartView3Btn').addEventListener('click', () => setChartView('3yr'));
@@ -10698,58 +10616,14 @@
         'Update one or more FIRE projection assumptions and refresh the visible forecast.',
       inputSchema: {
         type: 'object',
-        properties: {
-          ...Object.fromEntries(ids.map((id) => [id, { type: 'number' }])),
-          singlePerson: { type: 'boolean' },
-          megaBackdoor: { type: 'boolean' },
-          ltcEnabled: { type: 'boolean' },
-          acaEnabled: { type: 'boolean' },
-          irmaaPriorKnown: { type: 'boolean' },
-          employerCoversSpouseA: { type: 'boolean' },
-          employerCoversSpouseB: { type: 'boolean' },
-          rothConvEnabled: { type: 'boolean' },
-          withdrawalMixEnabled: { type: 'boolean' },
-          ruleOf55Enabled: { type: 'boolean' },
-          sepp72tEnabledA: { type: 'boolean' },
-          sepp72tEnabledB: { type: 'boolean' },
-          tenure: { type: 'string', enum: ['own', 'rent', 'rentThenBuy'] },
-          buyCash: { type: 'boolean' },
-          k401Type: { type: 'string', enum: ['traditional', 'roth'] },
-          iraType: { type: 'string', enum: ['traditional', 'roth'] },
-          pensionCoverage: { type: 'string', enum: ['none', 'a', 'b', 'both'] },
-          filingStatus: { type: 'string', enum: ['mfj', 'single'] },
-          marryLater: { type: 'boolean' },
-          survivorEnabled: { type: 'boolean' },
-          survivorPartner: { type: 'string', enum: ['A', 'B'] },
-        },
+        properties: Object.fromEntries(MCP_FIELDS.map((field) => [field.key, mcpSchemaFor(field)])),
         additionalProperties: false,
       },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async (input) => {
         for (const [k, v] of Object.entries(input || {})) {
-          if (ids.includes(k) && Number.isFinite(v)) state[k] = v;
-          if (k === 'singlePerson' && typeof v === 'boolean') state.singlePerson = v;
-          if (k === 'megaBackdoor' && typeof v === 'boolean') state.megaBackdoor = v;
-          if (k === 'ltcEnabled' && typeof v === 'boolean') state.ltcEnabled = v;
-          if (k === 'acaEnabled' && typeof v === 'boolean') state.acaEnabled = v;
-          if (k === 'irmaaPriorKnown' && typeof v === 'boolean') state.irmaaPriorKnown = v;
-          if (k === 'employerCoversSpouseA' && typeof v === 'boolean') state.employerCoversSpouseA = v;
-          if (k === 'employerCoversSpouseB' && typeof v === 'boolean') state.employerCoversSpouseB = v;
-          if (k === 'rothConvEnabled' && typeof v === 'boolean') state.rothConvEnabled = v;
-          if (k === 'withdrawalMixEnabled' && typeof v === 'boolean') state.withdrawalMixEnabled = v;
-          if (k === 'ruleOf55Enabled' && typeof v === 'boolean') state.ruleOf55Enabled = v;
-          if (k === 'sepp72tEnabledA' && typeof v === 'boolean') state.sepp72tEnabledA = v;
-          if (k === 'sepp72tEnabledB' && typeof v === 'boolean') state.sepp72tEnabledB = v;
-          if (k === 'tenure' && ['own', 'rent', 'rentThenBuy'].includes(v)) state.tenure = v;
-          if (k === 'buyCash' && typeof v === 'boolean') state.buyCash = v;
-          if (k === 'k401Type' && ['traditional', 'roth'].includes(v)) state.k401Type = v;
-          if (k === 'iraType' && ['traditional', 'roth'].includes(v)) state.iraType = v;
-          if (k === 'pensionCoverage' && ['none', 'a', 'b', 'both'].includes(v))
-            state.pensionCoverage = v;
-          if (k === 'filingStatus' && ['mfj', 'single'].includes(v)) state.filingStatus = v;
-          if (k === 'marryLater' && typeof v === 'boolean') state.marryLater = v;
-          if (k === 'survivorEnabled' && typeof v === 'boolean') state.survivorEnabled = v;
-          if (k === 'survivorPartner' && ['A', 'B'].includes(v)) state.survivorPartner = v;
+          const field = MCP_FIELDS.find((f) => f.key === k);
+          if (field && mcpAccepts(field, v)) state[k] = v;
         }
         state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
         state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
@@ -10798,6 +10672,7 @@
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
+  window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
   window.__test_tax = { acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {

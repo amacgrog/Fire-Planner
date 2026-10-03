@@ -24,6 +24,11 @@ feature list.
   `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
   schedule (federal, each state/province, NIIT, OAS clawback) via
   `window.__test_tax`; run it whenever a bracket or tax function changes.
+- `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
+  sidebar control registered, every entry resolvable, MCP schema == registry.
+- `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
+  `normalizeState()` result is pinned (`tests/snapshots/legacy_state.json`); run it
+  when touching `normalizeState`, `normalizeLists`, or an enum guard.
 - `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`
   — exact-match characterization test of `simulate()`/`simulateHistorical()`
   over ~435 US / ~340 Canada scenarios (standard, retirement-age shifts, and
@@ -70,10 +75,22 @@ Each planner is one big IIFE. Core shape:
   dropped. Any new enum-like field needs a guard here (see the
   `filingStatus`/`tenure`/`province` pattern) or a bad value can silently
   corrupt the simulation.
-- `ids` — an array of plain-numeric input element IDs auto-wired to
-  `state[id] = Number(...)` on `input`; this array also feeds the MCP tool
-  schema (`update_fire_assumptions`). Booleans, enums, and anything with side
-  effects are wired by hand instead.
+- **`FIELDS` — the field registry** (just above `normalizeState`). Every sidebar
+  control that maps straight onto a `state` key is declared once; the input
+  listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
+  `update_fire_assumptions` schema/allow-list are all derived from it. Entry
+  types: `number` (plain numeric input/slider; `ids` is the list of these, in
+  registry order, which is also the MCP property order), `bool` (checkbox) and
+  `choice` (select, or a button group marked `manual`). Per-entry options:
+  `out` + `outSync` (the `<key>Out` slider label and which sync function writes
+  it), `inlineOut`, `resync`, `syncAfter`, `onInput` (clamps/side effects),
+  `sync` + `resync` (below), `reveals` (elements shown/hidden by the value),
+  `mirrors` (wizard checkboxes that follow it), `values`/`fallback` (enum list and
+  the `normalizeState` fallback), `trueUnlessFalse`, `valueAs: 'number'`, and
+  `mcp: true` (expose through the MCP tool). **To add a field: the markup, the
+  `defaults` value, and one `FIELDS` entry** (plus an `onInput` hook only if it
+  has a side effect). `tests/field_registry.js` fails if a sidebar control is not
+  registered or a registry entry points at a missing element/key.
 - `runProjection({ mode, source, retireAgeA, retireAgeB })` — the one
   year-by-year drawdown/compounding engine behind everything: almost every
   chart/table/metric is built from its `{ rows, depletedAge, ... }` return. Two
@@ -146,11 +163,18 @@ Each planner is one big IIFE. Core shape:
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
 - `syncControls()` and `syncContributionControls()` — **two separate**
-  functions that both push `state` back into the DOM. Which one handles a
-  given control isn't obvious from the name — check where sibling/related
-  controls already live before adding a new one. The most common bug in this
-  codebase is wiring a new field's DOM-sync line into the wrong one of these
-  two, so `state` updates correctly but visibility/checked-state doesn't.
+  functions that both push `state` back into the DOM, and the split is
+  deliberate (the contribution sync must not reformat money fields while the
+  user types in another field). The registry removes the "wired into the wrong
+  one" bug: each `bool`/`choice` entry says which function owns it (`sync:
+  'controls' | 'contrib'`), and each function loops over its entries
+  (`syncFieldDom`), so the owner is explicit data, not a place you have to
+  remember. Hand-written lines remain only for effects that are not a single
+  control (singlePerson's partner-B hiding and headings, the tenure/choice
+  button groups, the wizard's numeric mirrors, the safe-withdrawal-rate boxes).
+  Button groups (`tenure`, `buyCash`, `k401Type`, `iraType`, `pensionCoverage`,
+  `filingStatus`) are still wired by hand (`manual: true`) but registered so
+  MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input
   change. Expensive collapsible results (tornado chart, Roth/RRSP bracket
   optimizer, cash-flow Sankey) are only computed when their card is open,
@@ -186,8 +210,9 @@ Each planner is one big IIFE. Core shape:
   Sankey; routes every source through a single neutral hub node rather than
   drawing direct source→expense ribbons (no per-dollar tracking exists).
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) near the
-  bottom of the script, registered if `window.mcp` exists. Keep the `execute`
-  handler's allow-list in sync with any new `ids`/boolean/enum state field.
+  bottom of the script, registered if `document.modelContext` exists. The input
+  schema and the `execute` allow-list are derived from `FIELDS` (every numeric
+  field plus each `mcp: true` entry), so a new field needs no MCP edit.
 - Mobile layout is a pure CSS toggle (`#workspace[data-mobile-view]`), not app
   routing state — it isn't part of `state`/scenario export. Canvas-based
   charts measure their container via `getBoundingClientRect()`, which is

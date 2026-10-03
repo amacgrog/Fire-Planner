@@ -235,7 +235,7 @@ in order: 2B parity, then the gradual bond refill, then penalty-aware mixing
 Canada: same procedure, simpler (no ACA/IRMAA/72t/MFJ branches); do it after
 the US version is stable and port the *same* helper signatures.
 
-## 6. Step 3: single field registry (roadmap item 3)
+## 6. Step 3: single field registry (roadmap item 3) — DONE (see docs/reference.md "Phase 2 step 3")
 
 Goal: declare each field once; derive `ids`, defaults wiring, `state -> DOM`
 sync, `DOM -> state` listeners, `normalizeState` guards, and the MCP
