@@ -4274,6 +4274,138 @@
     return { otherA, otherB, profile };
   }
 
+  // Healthcare and long-term-care cost for the year.
+  //  - Pre-65 premium (state.healthcare): only for partners on the individual
+  //    market (acaEligibleA/B, see acaEligibility). With ACA modeling on it is
+  //    run through acaNetCost(), which depends on this year's MAGI estimate
+  //    (usesMagiEstimate tells the caller the MAGI iteration must converge);
+  //    otherwise it is the flat premium.
+  //  - Medicare Part B/D + supplement (state.medicareYearly): purely age-based
+  //    (65+), per partner, independent of retirement status or the spouse.
+  //  - IRMAA surcharge per Medicare-eligible partner, from the two-year MAGI
+  //    lookback.
+  //  - Long-term care once each partner reaches their LTC age.
+  // A deceased partner's share drops out in the survivor period.
+  function healthcareCost({
+    acaEligibleA,
+    acaEligibleB,
+    singlePerson,
+    isSurvivorPeriod,
+    deceasedIsA,
+    deceasedIsB,
+    factor,
+    year,
+    age,
+    ageB,
+    magiProxy,
+    magiHistory,
+    filing,
+  }) {
+    const inflate = (amount) => amount * factor * medicalGrowth(year);
+    // An annual `total` shared equally between the two partners (or all Partner
+    // A's when single), counting only the partners flagged eligible.
+    const sharedCost = (total, eligibleA, eligibleB) =>
+      singlePerson
+        ? inflate(eligibleA ? total : 0)
+        : isSurvivorPeriod
+          ? inflate((deceasedIsA ? eligibleB : eligibleA) ? total / 2 : 0)
+          : inflate(eligibleA ? total / 2 : 0) + inflate(eligibleB ? total / 2 : 0);
+    let usesMagiEstimate = false;
+    let healthcare;
+    if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
+      const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
+      const grossPremium = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
+      usesMagiEstimate = true;
+      healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
+    } else {
+      // acaEligibleA/B already require age < 65, so this flat premium (ACA
+      // modeling off, or both partners past 65) stops for a partner at 65;
+      // Medicare below is what covers them from then on.
+      healthcare = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
+    }
+    const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
+      medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
+    healthcare += sharedCost(state.medicareYearly, medicareEligibleA, medicareEligibleB);
+    // IRMAA follows age (65+), not retirement status: someone still working
+    // past 65 and enrolled in Part B pays it too, and their wages are in the MAGI.
+    const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
+    if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+    if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+    const ltc = state.ltcEnabled
+      ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
+          factor * medicalGrowth(year) +
+        (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
+          ? state.ltcYearlyB
+          : 0) *
+          factor * medicalGrowth(year)
+      : 0;
+    return { healthcare, ltc, usesMagiEstimate };
+  }
+
+  // Guyton-Klinger guardrails (simplified): compares last withdrawal year's
+  // draw rate to the rate at the first withdrawal. A rate more than 20% above
+  // it cuts discretionary spending 10%; more than 20% below raises it 10%; the
+  // multiplier is held to a 0.5x-1.5x band and persists until the next trigger.
+  function nextGuardrailMultiplier({ multiplier, initialWR, prevNeed, prevPortfolio }) {
+    const priorWR = prevNeed / prevPortfolio;
+    if (initialWR > 0) {
+      if (priorWR > initialWR * 1.2) return Math.max(0.5, multiplier * 0.9);
+      if (priorWR < initialWR * 0.8) return Math.min(1.5, multiplier * 1.1);
+    }
+    return multiplier;
+  }
+
+  // Highest MAGI a Roth conversion (and, in simulate(), the withdrawal order)
+  // may reach this year without a cost cliff, or Infinity if nothing binds:
+  //  - the 400%-FPL ACA subsidy cliff (non-enhanced ACA, for partners on the
+  //    individual market), and
+  //  - the next Medicare IRMAA tier. IRMAA is assessed two years later off
+  //    this year's MAGI, so it only binds once a retired partner is within two
+  //    years of 65 (or on Medicare); it keeps MAGI inside its current tier.
+  // preConvMagi is MAGI before any conversion, including the iteration's
+  // estimate of this year's discretionary withdrawals.
+  function conversionMagiCeiling({
+    acaEligibleA,
+    acaEligibleB,
+    singlePerson,
+    isSurvivorPeriod,
+    deceasedIsA,
+    deceasedIsB,
+    workingA,
+    workingB,
+    age,
+    ageB,
+    preConvMagi,
+    filing,
+    year,
+  }) {
+      let magiCeiling = Infinity;
+      // Avoid the ACA subsidy cliff: once non-enhanced-mode MAGI crosses
+      // 400% of the federal poverty line, the full premium is owed with
+      // no phase-out, which can cost far more than a lower future tax
+      // bracket is worth.
+      // Only partners actually on the individual market (see
+      // acaEligibility) are exposed to the subsidy cliff.
+      if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
+        magiCeiling = Math.min(
+          magiCeiling,
+          fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
+        );
+      }
+      // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
+      // assessed two years later off this year's MAGI, so this only
+      // matters once a currently-retired partner is within two years of
+      // 65 (or already on Medicare); it keeps this year's MAGI within
+      // whichever tier it already sits in.
+      if (
+        (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
+        (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
+      ) {
+        magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
+      }
+    return magiCeiling;
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -4516,30 +4648,21 @@
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
         const preConvMagi = magiBase + estTrad + estGain;
-        let magiCeiling = Infinity;
-        // Avoid the ACA subsidy cliff: once non-enhanced-mode MAGI crosses
-        // 400% of the federal poverty line, the full premium is owed with
-        // no phase-out, which can cost far more than a lower future tax
-        // bracket is worth.
-        // Only partners actually on the individual market (see
-        // acaEligibility) are exposed to the subsidy cliff.
-        if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
-          magiCeiling = Math.min(
-            magiCeiling,
-            fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
-          );
-        }
-        // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
-        // assessed two years later off this year's MAGI, so this only
-        // matters once a currently-retired partner is within two years of
-        // 65 (or already on Medicare); it keeps this year's MAGI within
-        // whichever tier it already sits in.
-        if (
-          (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
-          (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
-        ) {
-          magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
-        }
+        const magiCeiling = conversionMagiCeiling({
+          acaEligibleA,
+          acaEligibleB,
+          singlePerson,
+          isSurvivorPeriod,
+          deceasedIsA,
+          deceasedIsB,
+          workingA,
+          workingB,
+          age,
+          ageB,
+          preConvMagi,
+          filing,
+          year,
+        });
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
@@ -4557,79 +4680,35 @@
       // taxable-brokerage gains, so it does not understate income in years
       // funded mostly by withdrawals.
       let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
-      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
-        const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
-        if (guardrailInitialWR > 0) {
-          if (priorWR > guardrailInitialWR * 1.2)
-            guardrailMultiplier = Math.max(0.5, guardrailMultiplier * 0.9);
-          else if (priorWR < guardrailInitialWR * 0.8)
-            guardrailMultiplier = Math.min(1.5, guardrailMultiplier * 1.1);
-        }
-      }
+      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
+        guardrailMultiplier = nextGuardrailMultiplier({
+          multiplier: guardrailMultiplier,
+          initialWR: guardrailInitialWR,
+          prevNeed: guardrailPrevNeed,
+          prevPortfolio: guardrailPrevPortfolio,
+        });
       const baseSpend =
         baseSpendingNominal(age, year, factor, incomeFactor) *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
       // acaEligibleA/B (computed above, before the Roth-conversion guard) say
       // which partners are on the individual market this year.
-      let healthcare;
-      if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
-        const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
-        const grossPremium = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
-          : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
-        estUsed = true;
-        healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
-      } else {
-        // acaEligibleA/B already require age < 65, so this non-ACA flat
-        // premium (used when ACA modeling is off, or once both partners
-        // have aged past 65) now correctly stops for a partner at 65
-        // rather than continuing at full price for life — see the
-        // Medicare block right below, which is what actually covers a
-        // partner from 65 onward.
-        healthcare = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
-          : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
-      }
-      // Medicare Part B/D + supplement: unlike the pre-65 ACA/retiree-health
-      // premium above (which needs the partner retired and not covered by a
-      // working spouse's plan; see acaEligibility), Medicare
-      // eligibility is purely age-based — it begins for each partner
-      // individually the year they turn 65, whether or not they're still
-      // working and whether or not their spouse has retired or is 65 yet.
-      // Not run through acaNetCost(): Medicare premiums aren't subsidized
-      // by the ACA's income-based schedule, only means-tested via the
-      // separate IRMAA surcharge immediately below.
-      const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
-        medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
-      healthcare += singlePerson
-        ? (medicareEligibleA ? state.medicareYearly : 0) * factor * medicalGrowth(year)
-        : isSurvivorPeriod
-          ? ((deceasedIsA ? medicareEligibleB : medicareEligibleA)
-              ? state.medicareYearly / 2
-              : 0) * factor * medicalGrowth(year)
-          : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year) +
-            (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year);
-      const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
-      // IRMAA is a Medicare surcharge, so like Medicare itself it follows
-      // age (65+), not retirement status: someone still working past 65 and
-      // enrolled in Part B pays it too, and their wages are in the MAGI.
-      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      const ltc = state.ltcEnabled
-        ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-            factor * medicalGrowth(year) +
-          (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
-            ? state.ltcYearlyB
-            : 0) *
-            factor * medicalGrowth(year)
-        : 0;
+      const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
+        acaEligibleA,
+        acaEligibleB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        deceasedIsB,
+        factor,
+        year,
+        age,
+        ageB,
+        magiProxy,
+        magiHistory,
+        filing,
+      });
+      if (usesMagiEstimate) estUsed = true;
       const ficaTax =
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
         wageFica(Math.max(0, wageB - healthPremiumB), year) +
@@ -5316,30 +5395,21 @@
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
         const preConvMagi = magiBase + estTrad + estGain;
-        let magiCeiling = Infinity;
-        // Avoid the ACA subsidy cliff: once non-enhanced-mode MAGI crosses
-        // 400% of the federal poverty line, the full premium is owed with
-        // no phase-out, which can cost far more than a lower future tax
-        // bracket is worth.
-        // Only partners actually on the individual market (see
-        // acaEligibility) are exposed to the subsidy cliff.
-        if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
-          magiCeiling = Math.min(
-            magiCeiling,
-            fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
-          );
-        }
-        // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
-        // assessed two years later off this year's MAGI, so this only
-        // matters once a currently-retired partner is within two years of
-        // 65 (or already on Medicare); it keeps this year's MAGI within
-        // whichever tier it already sits in.
-        if (
-          (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
-          (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
-        ) {
-          magiCeiling = Math.min(magiCeiling, irmaaTierCeiling(preConvMagi, filing, year));
-        }
+        const magiCeiling = conversionMagiCeiling({
+          acaEligibleA,
+          acaEligibleB,
+          singlePerson,
+          isSurvivorPeriod,
+          deceasedIsA,
+          deceasedIsB,
+          workingA,
+          workingB,
+          age,
+          ageB,
+          preConvMagi,
+          filing,
+          year,
+        });
         if (magiCeiling < Infinity) estUsed = true;
         const magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
@@ -5347,79 +5417,35 @@
       }
       const magiProxy = magiBase + conversionAmount + estTrad + estGain;
       magiHistory[year] = magiProxy;
-      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0) {
-        const priorWR = guardrailPrevNeed / guardrailPrevPortfolio;
-        if (guardrailInitialWR > 0) {
-          if (priorWR > guardrailInitialWR * 1.2)
-            guardrailMultiplier = Math.max(0.5, guardrailMultiplier * 0.9);
-          else if (priorWR < guardrailInitialWR * 0.8)
-            guardrailMultiplier = Math.min(1.5, guardrailMultiplier * 1.1);
-        }
-      }
+      if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
+        guardrailMultiplier = nextGuardrailMultiplier({
+          multiplier: guardrailMultiplier,
+          initialWR: guardrailInitialWR,
+          prevNeed: guardrailPrevNeed,
+          prevPortfolio: guardrailPrevPortfolio,
+        });
       const baseSpend =
         baseSpendingNominal(age, year, factor, incomeFactor) *
         (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
       // acaEligibleA/B (computed above, before the Roth-conversion guard) say
       // which partners are on the individual market this year.
-      let healthcare;
-      if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
-        const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
-        const grossPremium = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
-          : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
-        estUsed = true;
-        healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
-      } else {
-        // acaEligibleA/B already require age < 65, so this non-ACA flat
-        // premium (used when ACA modeling is off, or once both partners
-        // have aged past 65) now correctly stops for a partner at 65
-        // rather than continuing at full price for life — see the
-        // Medicare block right below, which is what actually covers a
-        // partner from 65 onward.
-        healthcare = singlePerson
-          ? (acaEligibleA ? state.healthcare : 0) * factor * medicalGrowth(year)
-          : isSurvivorPeriod
-            ? ((deceasedIsA ? acaEligibleB : acaEligibleA) ? state.healthcare / 2 : 0) * factor * medicalGrowth(year)
-            : (acaEligibleA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
-              (acaEligibleB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
-      }
-      // Medicare Part B/D + supplement: unlike the pre-65 ACA/retiree-health
-      // premium above (which needs the partner retired and not covered by a
-      // working spouse's plan; see acaEligibility), Medicare
-      // eligibility is purely age-based — it begins for each partner
-      // individually the year they turn 65, whether or not they're still
-      // working and whether or not their spouse has retired or is 65 yet.
-      // Not run through acaNetCost(): Medicare premiums aren't subsidized
-      // by the ACA's income-based schedule, only means-tested via the
-      // separate IRMAA surcharge immediately below.
-      const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
-        medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
-      healthcare += singlePerson
-        ? (medicareEligibleA ? state.medicareYearly : 0) * factor * medicalGrowth(year)
-        : isSurvivorPeriod
-          ? ((deceasedIsA ? medicareEligibleB : medicareEligibleA)
-              ? state.medicareYearly / 2
-              : 0) * factor * medicalGrowth(year)
-          : (medicareEligibleA ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year) +
-            (medicareEligibleB ? state.medicareYearly / 2 : 0) * factor * medicalGrowth(year);
-      const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
-      // IRMAA is a Medicare surcharge, so like Medicare itself it follows
-      // age (65+), not retirement status: someone still working past 65 and
-      // enrolled in Part B pays it too, and their wages are in the MAGI.
-      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      const ltc = state.ltcEnabled
-        ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-            factor * medicalGrowth(year) +
-          (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
-            ? state.ltcYearlyB
-            : 0) *
-            factor * medicalGrowth(year)
-        : 0;
+      const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
+        acaEligibleA,
+        acaEligibleB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        deceasedIsB,
+        factor,
+        year,
+        age,
+        ageB,
+        magiProxy,
+        magiHistory,
+        filing,
+      });
+      if (usesMagiEstimate) estUsed = true;
       const tax =
         taxFor(profile, 0, conversionAmount) +
         wageFica(Math.max(0, wageA - healthPremiumA), year) +
