@@ -3470,23 +3470,35 @@
       if (entry.amount <= 1e-9) L.conv.shift();
     }
   }
+  // Share of the pooled traditional / Roth balance whose withdrawals owe the
+  // 10% early-withdrawal penalty, given whether each partner is exempt. The
+  // balance is one household pool, so when only one partner is exempt the
+  // other partner's own share (pctA: Partner A's assumed ownership share, not
+  // a flat 50/50) is the penalized part.
+  function penalizedShare(exemptA, exemptB, singlePerson, pctA) {
+    if (singlePerson) return exemptA ? 0 : 1;
+    if (exemptA && exemptB) return 0;
+    if (!exemptA && !exemptB) return 1;
+    return exemptA ? 1 - pctA : pctA;
+  }
   // Fraction of a Roth withdrawal that is before the owner's 59.5th
   // birthday. Rule of 55 and SEPP don't apply to Roth IRAs, so unlike the
   // traditional penalty this depends on age alone.
   function rothPenaltyFraction(age, ageB, singlePerson, pctA) {
-    const exemptA = age >= 59.5,
-      exemptB = singlePerson || ageB >= 59.5;
-    return singlePerson
-      ? exemptA
-        ? 0
-        : 1
-      : exemptA && exemptB
-        ? 0
-        : !exemptA && !exemptB
-          ? 1
-          : exemptA
-            ? 1 - pctA
-            : pctA;
+    return penalizedShare(age >= 59.5, singlePerson || ageB >= 59.5, singlePerson, pctA);
+  }
+  // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t)
+  // SEPP payments are mandatory distributions and never penalized): exempt at
+  // 59.5+ or, with Rule of 55 enabled, once that partner has stopped working
+  // in or after the year they turn 55.
+  function traditionalPenaltyFraction(age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB) {
+    const ruleOf55 = (working, retireAge) => state.ruleOf55Enabled && !working && retireAge >= 55;
+    return penalizedShare(
+      age >= 59.5 || ruleOf55(workingA, retireAgeA),
+      singlePerson || ageB >= 59.5 || ruleOf55(workingB, retireAgeB),
+      singlePerson,
+      pctA,
+    );
   }
   // Draw `targetNet` (after the tax and penalty the draw itself triggers)
   // from a Roth bucket holding `bucketBal`, updating the ledger. The
@@ -4610,22 +4622,9 @@
         // exempt, the non-exempt partner's own share (pctA above, not a
         // flat 50/50) is treated as penalized and the exempt partner's
         // share as penalty-free.
-        const earlyExemptA = age >= 59.5 || (state.ruleOf55Enabled && !workingA && retireAgeA >= 55),
-          earlyExemptB =
-            singlePerson ||
-            ageB >= 59.5 ||
-            (state.ruleOf55Enabled && !workingB && retireAgeB >= 55),
-          penalizedFraction = singlePerson
-            ? earlyExemptA
-              ? 0
-              : 1
-            : earlyExemptA && earlyExemptB
-              ? 0
-              : !earlyExemptA && !earlyExemptB
-                ? 1
-                : earlyExemptA
-                  ? 1 - pctA
-                  : pctA;
+        const penalizedFraction = traditionalPenaltyFraction(
+          age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+        );
         const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
         const remainingMagiRoom = Math.max(0, magiSafeRoom - conversionAmount);
         // Only an explicit optimizer-search override (an "Optimize" run's
@@ -5529,20 +5528,9 @@
       // comment there) — RMDs/72(t) SEPP payments are mandatory and already
       // folded into rmd above, so only these discretionary bucket draws are
       // penalized.
-      const earlyExemptA = age >= 59.5 || (state.ruleOf55Enabled && !workingA && retireAgeA >= 55),
-        earlyExemptB =
-          singlePerson || ageB >= 59.5 || (state.ruleOf55Enabled && !workingB && retireAgeB >= 55),
-        penalizedFraction = singlePerson
-          ? earlyExemptA
-            ? 0
-            : 1
-          : earlyExemptA && earlyExemptB
-            ? 0
-            : !earlyExemptA && !earlyExemptB
-              ? 1
-              : earlyExemptA
-                ? 1 - pctA
-                : pctA;
+      const penalizedFraction = traditionalPenaltyFraction(
+        age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+      );
       const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
       const stepCash = (need) => {
         const from = Math.min(cash, need);
