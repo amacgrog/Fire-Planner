@@ -69,6 +69,15 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 15. Every tax, benefit and retirement-account figure is re-confirmed against
     primary sources at implementation time and cited (owner: yes, all batches).
 16. Batch 3B: the Rule-of-55 age convention keeps the existing one.
+17. The proposals for Batch 4B (candidate set and benefit-netted objective) and
+    Batch 6 (Social Security basis switch, trust-fund what-if, CPP/OAS basis
+    switch) are accepted. Social Security earnings test and WEP/GPO are not
+    modeled (WEP/GPO is repealed).
+18. A survivor-benefit claim optimizer is added as Batch 8, after everything else.
+19. The first-run wizard collects balances by account type, not by assumed
+    shares: Traditional 401(k), Roth IRA and Roth 401(k) totals (each split
+    between the partners 50/50, single person all to Partner A). No traditional
+    IRA is assumed; it is entered only in the Retirement accounts group.
 
 ## Execution order
 
@@ -76,7 +85,8 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 (penalty-aware rules, 72(t), Rule of 55) -> 3C (safe-MAGI room) -> 7A (children)
 -> 7B (federal credits) -> 7C (state framework + reference states) -> 7D (all
 remaining states and DC, one PR) -> 7J (Canada federal credits) -> 7K (all
-provinces, one PR) -> 7L (income-tested benefits) -> 4A -> 4B -> 5 -> 6.
+provinces, one PR) -> 7L (income-tested benefits) -> 4A -> 4B -> 5 -> 6 -> 8
+(survivor-benefit claim optimizer).
 
 Why: 3A is a no-number-change data-model PR that 3B and 3C depend on. Batch 1's
 mix-mode work in the historical engine is written against the `take*` withdrawal
@@ -278,6 +288,12 @@ everything below is derived from inputs the planner already has.
    bubble stating what the state model omits. Batch 7 replaces the omissions
    with real rules and rewrites this copy then.
 
+Already done, therefore not in this plan: the 0.9% Additional Medicare Tax on
+wages (above $250,000 MFJ / $200,000 single, statutory and not indexed) shipped
+in Phase 1 (US V71, `tests/additional_medicare_tax.js`). It applies to wages
+only, as the law does, so retirees living on withdrawals do not pay it; the
+related 3.8% Net Investment Income Tax is also already modeled.
+
 Canada: nothing in this batch.
 
 ---
@@ -343,6 +359,15 @@ scenario produces byte-identical output.
 - **MAGI-iteration rule from CLAUDE.md applies:** every new mutable ledger is
   cloned and restored with the existing snapshot (`rothLedgerClone/Restore`
   pattern); add them in the same commit or convergence silently breaks.
+- **First-run wizard (decided).** It asks for household totals by account type
+  and splits each between the partners 50/50 (single person: all to Partner A),
+  which reproduces today's default ownership: Traditional 401(k); Roth IRA;
+  Roth 401(k). It never assumes a traditional IRA balance (many people, such as
+  backdoor-Roth users, keep that at zero), so Traditional IRA is entered only in
+  the Retirement accounts group, and the wizard says so. The group is where
+  exact per-account, per-partner balances, Roth IRA basis, Roth 401(k) basis and
+  72(t) elections live. Saved scenarios still migrate by the old ownership
+  slider (traditional into the 401(k) buckets, Roth into the Roth IRA buckets).
 - Surfaces to update: field registry (one entry per field), MCP schema (derived),
   first-run wizard and field search, "investable at retirement" and other sums,
   CSV/table exports, scenario compare, `tests/field_registry.js`,
@@ -558,9 +583,21 @@ timing both depend on them.
      receives the larger of their own retirement benefit or the deceased's
      benefit (including delayed credits if the deceased claimed late; not less
      than 82.5% of PIA if the deceased claimed early), reduced if the survivor
-     takes survivor benefits before survivor full retirement age (down to 71.5% at
-     60). Survivor full retirement age by birth year is part of the data.
-     Remarriage and divorced-spouse benefits are not modeled (one-line UI note).
+     takes survivor benefits before survivor full retirement age. The benefit
+     starts at 71.5% of the deceased's benefit at age 60 and rises to 100% at the
+     survivor's full retirement age (67 for anyone born 1962 or later; earlier
+     birth years use the SSA table). Remarriage and divorced-spouse benefits are
+     not modeled (one-line UI note).
+     *Independent claim ages (needed by Batch 8):* a survivor may start the
+     survivor benefit and their own retirement benefit at different ages and
+     switch from one to the other, in either order. Add per-partner
+     `ssSurvivorStartAgeA/B` (age at which the survivor benefit starts if
+     widowed; default the survivor full retirement age, i.e. 100%), and the
+     existing own-benefit start age (`ssStartAgeA/B`) also governs when the
+     survivor's own retirement benefit starts. While only one of the two has
+     started the survivor receives that one; once both have started they receive
+     the higher of the two (SSA pays the own benefit plus the excess of the
+     survivor benefit over it). Defaults reproduce the planned behavior.
   5. *Trust-fund benefit-cut scenario.* The Social Security trustees project that
      the retirement trust fund (OASI) runs out of reserves and then incoming
      payroll taxes can pay only part of the scheduled benefits unless Congress
@@ -605,12 +642,16 @@ timing both depend on them.
   - Treasury yields: closed (owner: use the recorded 2023-2025 values as they
     are; the January 2024 figure stays and is documented).
   - CPI source: the column is the BLS CPI-U (all items, U.S. city average, not
-    seasonally adjusted), December to December. The recorded 2023-2025 values
-    (3.35, 2.89, 2.68) are consistent with BLS's published 12-month changes
-    (BLS reports 2.7% for the 12 months ending December 2025; 2023 and 2024 to be
-    confirmed the same way). When implementing, confirm all three to two decimals
-    from the BLS index levels and record the series ID and retrieval date in
-    `docs/reference.md` and `docs/roadmap.md`.
+    seasonally adjusted), December to December. Checked from the index levels
+    (December 2022 296.797, December 2023 306.746, December 2024 315.605;
+    reported from BLS data by a secondary source because bls.gov was not
+    reachable): 2023 = 3.35% and 2024 = 2.89%, both matching the recorded values
+    to two decimals. 2025: BLS reports 2.7% for the 12 months ending December
+    2025, consistent with the recorded 2.68, but the December 2025 index level
+    was not available here, so two-decimal confirmation of 2025 remains. When
+    implementing, confirm 2025 from the BLS index level and record the series ID
+    (CUUR0000SA0) and retrieval date in `docs/reference.md` and
+    `docs/roadmap.md`.
 
 ---
 
@@ -785,22 +826,41 @@ from 7A is read through `dependentsInYear(year)`.
 
 ---
 
+## Batch 8: Social Security survivor-claim optimizer (after everything above)
+
+Added at the owner's request, to be done after all earlier batches. Prerequisite:
+Batch 6's survivor rules with independent claim ages.
+
+- **What it searches.** For a surviving spouse: the age to start the survivor
+  benefit and the age to start (or switch to) their own retirement benefit, in
+  both orders. Order one: take the reduced survivor benefit early (as early as
+  60), then switch to the own benefit at a later age (up to 70) when it is larger.
+  Order two: take the own benefit early and switch to the survivor benefit at the
+  survivor's full retirement age, when it is larger (or at any age in between).
+  It runs for each death scenario (Partner A dies first, Partner B dies first),
+  using the planner's existing survivor-period assumptions.
+- **Method.** A small grid (survivor start age 60-70 by own start age 62-70, a
+  few hundred cheap evaluations per scenario) evaluated by the projection engine,
+  so exhaustive search is affordable and no coordinate ascent is needed. Objective
+  from the Batch 5 objective registry (default: total after-tax household income
+  over the survivor period, also reporting end-of-plan portfolio).
+- **Output.** A "Survivor claiming strategy" results card: recommended survivor
+  start age and switch age per scenario, with the dollar difference against the
+  planned ages and a plain statement of what it assumes (no remarriage, benefit
+  rules as modeled). An "apply" action writes `ssSurvivorStartAgeA/B` and the
+  own-benefit start ages.
+- **Tests.** Hand-computed two-year cases where each order wins, a case where
+  the reduced early survivor benefit loses to waiting, and survivor symmetry.
+
+---
+
 ## Open items
 
 Everything raised so far is answered or recorded as a decision above. What
 remains is detail to settle when the relevant batch is scoped:
-- Batch 3A, first-run wizard (clarified for the owner in chat; awaiting a yes):
-  the wizard keeps asking for one combined traditional balance and one combined
-  Roth balance, then fills the new accounts: all traditional into the two
-  partners' 401(k) buckets split by the old 50/50 default, all Roth into the two
-  Roth IRA buckets. A single added wizard slider, "share of traditional money in
-  IRAs rather than a 401(k)", moves that share into the IRA buckets, because the
-  Rule of 55 helps only 401(k) money. The detailed "Retirement accounts" group
-  stays the place to enter exact per-account balances.
-- Batch 4B: the proposed candidate set and benefit-netted objective (see 4B) are
-  the owner's to confirm when reviewing Batch 4.
-- Batch 6: the proposed Social Security and CPP/OAS shapes (see above) are the
-  owner's to confirm when reviewing Batch 6.
 - All batches: figures are confirmed against primary sources at implementation
-  time (decided). The planning pass used secondary sources because irs.gov was
-  not reachable.
+  time (decided). The planning pass used secondary sources because irs.gov and
+  bls.gov were not reachable.
+- CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
+- Batch 8: grid ranges and the default objective are confirmed when it is
+  scoped.
