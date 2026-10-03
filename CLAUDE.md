@@ -74,11 +74,30 @@ Each planner is one big IIFE. Core shape:
   `state[id] = Number(...)` on `input`; this array also feeds the MCP tool
   schema (`update_fire_assumptions`). Booleans, enums, and anything with side
   effects are wired by hand instead.
-- `simulate(retireAgeA, retireAgeB)` — the main year-by-year drawdown/
-  compounding engine; almost every chart/table/metric is built from its
-  `{ rows, depletedAge, ... }` return. Called many times per render (current
-  settings, ±1yr/±3yr lines, each Monte Carlo path, each sensitivity sweep),
-  so it needs to stay cheap.
+- `runProjection({ mode, source, retireAgeA, retireAgeB })` — the one
+  year-by-year drawdown/compounding engine behind everything: almost every
+  chart/table/metric is built from its `{ rows, depletedAge, ... }` return. Two
+  thin wrappers call it. `simulate(retireAgeA, retireAgeB)` is the standard
+  projection (`STANDARD_MODE` + `standardYearSource()`: constant plan return,
+  inflation and bond assumptions). `simulateHistorical(rowFn, retireAgeA,
+  retireAgeB)` is the historical-backtest / Monte Carlo run (`BUCKET_MODE` +
+  `historicalYearSource(rowFn)`, where `rowFn(year)` returns actual
+  `[calendarYear, stockReturn, inflation, bondReturn, optional Treasury yield]`
+  from the embedded 1928–2025 dataset or a block-bootstrapped path). Called
+  many times per render (current settings, ±1yr/±3yr lines, each Monte Carlo
+  path, each sensitivity sweep), so it needs to stay cheap — avoid
+  per-year allocations that a hot path doesn't need (the bucket-step table is
+  built once at module level for that reason).
+- **Year source and mode.** A year source supplies each year's market inputs
+  (`yearInputs(year)` → stock return, bond return, bond interest yield,
+  inflation `factor`; `endOfYear()` advances running inflation). The mode is a
+  small object of explicit capability switches — `bucketStrategy`,
+  `usesBondLadder`, `usesMagiRoom` (US), `passConversionAge` (US),
+  `detailedRows` — that reproduce each way of running the engine exactly. The
+  bucket mode's switches are off today only because the historical engine lacked
+  those features; the planned historical-parity work turns them on one at a time
+  (see `docs/phase2-refactor-plan.md` Appendix A). Do not add a new
+  historical-only fork of the year loop; add a mode switch.
 - **MAGI iteration (both engines).** ACA subsidy, the ACA/IRMAA
   Roth-conversion ceilings and the IRMAA lookback need THIS year's MAGI,
   which includes this year's discretionary withdrawals, which depend on
@@ -91,8 +110,8 @@ Each planner is one big IIFE. Core shape:
   `MAGI_ITER_TOL`, it restores the snapshot, updates the estimate, and
   `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3). Rules for
   editing a year body: anything that mutates closure state before the
-  convergence check must be in `yearSnapshot` (add new `let` balances
-  there), and never add a `continue`/`break` that is meant for the year
+  convergence check must be in the snapshot (`bal` fields are rewound
+  automatically; add new scalar `let`s to `scalarSnapshot`), and never add a `continue`/`break` that is meant for the year
   loop. `prevDiscTraditional`/`prevTaxableGainGross` only seed pass 0.
   `row.magiProxy` is the realized MAGI and `magiHistory[year]` is
   overwritten with it after convergence; the in-body assignment is
@@ -126,11 +145,6 @@ Each planner is one big IIFE. Core shape:
   `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
-- `simulateHistorical(rowFn, retireAgeA, retireAgeB)` — a near-duplicate of
-  `simulate()` used by the historical-backtest and Monte Carlo views; takes a
-  `rowFn(year)` returning actual-historical `[calendarYear, stockReturn,
-  inflation, bondReturn]` from an embedded 1928–2025 dataset (or a randomly
-  block-bootstrapped path for Monte Carlo).
 - `syncControls()` and `syncContributionControls()` — **two separate**
   functions that both push `state` back into the DOM. Which one handles a
   given control isn't obvious from the name — check where sibling/related

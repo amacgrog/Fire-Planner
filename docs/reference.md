@@ -6605,3 +6605,34 @@ shared-region step): listAmountsForYear, pensionIncome, loanPaymentForYear,
 nextGuardrailMultiplier, withdrawRequiredDistributions, sweepExcessCash,
 rotateIntoBondLadder, refillBondReserve, takeCash/takeHomeEquity-shaped blocks.
 
+### Phase 2 step 2A: one engine (`runProjection`)
+
+`simulate()` and `simulateHistorical()` are now wrappers over `runProjection()`
+(US and Canada). Findings worth keeping:
+
+- **Summation order is part of the numbers.** The two engines summed the same
+  cash-flow terms in different orders (`... - baseSpend - healthcare - ...`
+  vs `... - totalExpense - ...`). The results differ by rounding, but the
+  withdrawal bisection (24 fixed iterations, discrete comparisons) amplifies it:
+  moving the bucket engine to the standard order changed 308 of 435 US
+  historical scenarios and, at the worst, by more than 1e-3 relative. So the
+  bucket mode keeps its own order, written out in one place in the engine
+  (`const flow = mode.bucketStrategy ? ... : ...`). Unify it only as a
+  deliberate numerics change with a regenerated baseline. (The payroll-tax
+  association change recorded above stayed under 1e-9 and was accepted.)
+- **The historical engine only evaluated the safe-MAGI ceiling inside the
+  Roth-conversion window.** Computing it every year (as the standard engine does)
+  marks the year as depending on the MAGI estimate and triggers extra
+  rewind-and-rerun passes (years 63-69 in the benchmark path), with identical
+  results but +30% `taxFor` calls. `usesMagiRoom` keeps the old behavior until
+  the parity work lifts the ceiling in the bucket mode on purpose.
+- Row and result key order is preserved per mode (the UI snapshot hashes
+  `window.fireProjectionRows` without sorting keys).
+- Performance (best of 7 trials of 400 runs, default early-retiree state, vs the
+  pre-refactor code): US standard +3% to +11% (avg about +5%); US historical
+  +4% to +12% (avg about +9%); Canada standard about -35%; Canada historical
+  about -12%. Most time is tax calculation (about 55% in `ordinaryTax` and
+  `taxIndexFactor`), not the engine. Per-year allocations that mattered: a
+  closure table rebuilt in every bucket withdrawal (now module-level) and string
+  concatenation for balance keys (now a constant map).
+

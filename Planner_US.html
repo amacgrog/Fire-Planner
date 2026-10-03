@@ -4490,6 +4490,7 @@
   }
 
   // ---- Withdrawal building blocks ----
+  const TAXABLE_BASIS_KEY = { taxable: 'taxableBasis', bondTaxable: 'bondTaxableBasis' };
   // A year's discretionary withdrawal in progress. `need` is the cash still to
   // be raised; the other fields accumulate what the draws did, for tax, MAGI
   // and the cash-flow display. traditionalGross starts at the Roth conversion
@@ -4522,9 +4523,10 @@
   // `bucket` is 'taxable' | 'bondTaxable' (taxable brokerage and its bond reserve).
   function takeTaxable(wd, bucket, amount) {
     const { bal } = wd;
-    const d = drawTaxable(bal[bucket], bal[bucket + 'Basis'], amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+    const basisKey = TAXABLE_BASIS_KEY[bucket];
+    const d = drawTaxable(bal[bucket], bal[basisKey], amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
     bal[bucket] -= d.taken;
-    bal[bucket + 'Basis'] -= d.basisTaken;
+    bal[basisKey] -= d.basisTaken;
     wd.taxableGainGross += d.gain;
     wd.taxableWithdrawn += d.taken;
     return d.net;
@@ -4680,6 +4682,34 @@
     wd.need -= takeRoth(wd, 'bondRoth', wd.need);
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
+  // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
+  // A draw that leaves a tiny overshoot is clamped to zero remaining need.
+  const BUCKET_STEP = {
+    cash: (wd) => (wd.need -= takeCash(wd, wd.need)),
+    bondTaxable: (wd) => {
+      if (wd.bal.bondTaxable > 0) wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+    },
+    taxable: (wd) => {
+      if (wd.bal.taxable > 0) wd.need -= takeTaxable(wd, 'taxable', wd.need);
+    },
+    bondTraditional: (wd) => {
+      if (wd.bal.bondTraditional > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
+    },
+    traditional: (wd) => {
+      if (wd.bal.traditional > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solveTraditionalForNetFromNeed));
+    },
+    bondRoth: (wd) => {
+      wd.need = Math.max(0, wd.need - takeRoth(wd, 'bondRoth', wd.need));
+    },
+    roth: (wd) => {
+      wd.need = Math.max(0, wd.need - takeRoth(wd, 'roth', wd.need));
+    },
+    home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
+  };
+  const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'].map((k) => BUCKET_STEP[k]);
+  const BUCKET_UP_YEAR_ORDER = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
   // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
   // comes from cash, then the bond-reserve buckets, and only then from the
@@ -4689,31 +4719,8 @@
   // same stock-account order. A draw that leaves a tiny overshoot is clamped to
   // zero remaining need.
   function withdrawBucket(wd, { yearReturn, bondTarget }) {
-    const { bal } = wd;
-    const stepTaxable = (bucket) => {
-      if (bal[bucket] > 0) wd.need -= takeTaxable(wd, bucket, wd.need);
-    };
-    const stepTraditional = (bucket) => {
-      if (bal[bucket] > 0)
-        wd.need = Math.max(0, wd.need - takeTraditional(wd, bucket, wd.need, solveTraditionalForNetFromNeed));
-    };
-    const stepRoth = (bucket) => {
-      wd.need = Math.max(0, wd.need - takeRoth(wd, bucket, wd.need));
-    };
-    const steps = {
-      cash: () => (wd.need -= takeCash(wd, wd.need)),
-      bondTaxable: () => stepTaxable('bondTaxable'),
-      bondTraditional: () => stepTraditional('bondTraditional'),
-      bondRoth: () => stepRoth('bondRoth'),
-      taxable: () => stepTaxable('taxable'),
-      traditional: () => stepTraditional('traditional'),
-      roth: () => stepRoth('roth'),
-      home: () => (wd.need -= takeHomeEquity(wd, wd.need)),
-    };
-    const downYearOrder = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'];
-    const upYearOrder = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'];
-    for (const name of yearReturn < 0 ? downYearOrder : upYearOrder) if (wd.need > 0) steps[name]();
-    if (yearReturn >= 0) refillBondReserve(bal, bondTarget);
+    for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd);
+    if (yearReturn >= 0) refillBondReserve(wd.bal, bondTarget);
   }
   // Tops the bond reserve up to bondTarget from taxable, then traditional, then
   // Roth (taxable moves carry their share of cost basis).
@@ -4877,10 +4884,12 @@
   //  bucketStrategy:    bucket withdrawals (cash/bonds first in a down year, bond reserve
   //                     refilled in up years) instead of the standard cascade
   //  usesBondLadder:    build the pre-retirement bond ladder
+  //  usesMagiRoom:      always compute the safe-MAGI ceiling and let it bound the withdrawal
+  //                     order (otherwise only when a Roth conversion is sized)
   //  passConversionAge: key the Roth-conversion bracket override by age
   //  detailedRows:      full row columns, tax/income totals and the extra result fields
-  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, passConversionAge: true, detailedRows: true };
-  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, passConversionAge: false, detailedRows: false };
+  const STANDARD_MODE = { bucketStrategy: false, usesBondLadder: true, usesMagiRoom: true, passConversionAge: true, detailedRows: true };
+  const BUCKET_MODE = { bucketStrategy: true, usesBondLadder: false, usesMagiRoom: false, passConversionAge: false, detailedRows: false };
 
   // ---- end per-year helpers ----
 
@@ -5086,7 +5095,11 @@
         // claimed its own share of it — see pickLiveWithdrawalOrder's use of
         // remainingMagiRoom.
         let magiSafeRoom = Infinity;
-        {
+        const convertsThisYear =
+          state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge;
+        // The standard mode always computes the ceiling (it also bounds the withdrawal order);
+        // the bucket mode computes it only to size a conversion.
+        if (mode.usesMagiRoom || convertsThisYear) {
           // Uses this year's estimated discretionary income (estTrad/estGain), same
           // as magiProxy below — see the iteration note in the year loop.
           const preConvMagi = magiBase + estTrad + estGain;
@@ -5107,7 +5120,7 @@
           });
           if (magiCeiling < Infinity) estUsed = true;
           magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
-          if (state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge) {
+          if (convertsThisYear) {
             const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
             conversionAmount = solveRothConversion(profile, conversionCap, year, mode.passConversionAge ? age : undefined);
           }

@@ -172,7 +172,7 @@ pure and reviewable as "numbers identical"). The follow-up branch's commits,
 in order: 2B parity, then the gradual bond refill, then penalty-aware mixing
 (Appendix A.5).
 
-- **2A: pure merge (snapshot-exact).** One engine, with the differences in
+- **2A: pure merge (snapshot-exact) — DONE for US and Canada (see docs/reference.md "Phase 2 step 2A").** One engine, with the differences in
   Appendix A expressed as explicit capability switches that reproduce today's
   historical output exactly (e.g. `historical.mixModes = false`). Zero-tolerance
   snapshot.
