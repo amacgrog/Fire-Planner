@@ -6666,3 +6666,22 @@ Decisions worth keeping:
 - Mutation-checked: an unregistered control, a removed entry and a bad `sync`
   value each fail `tests/field_registry.js`.
 
+### Phase 2 step 4: shared regions between the planners
+- `scripts/sync-shared.js` keeps byte-identical code in a single canonical copy
+  (`shared/<name>.js|.css|.html`); each planner holds a copy between
+  `@@shared:<name> begin/end` markers (comment style picks the type: `//`, `/* */`,
+  `<!-- -->`). `--check` (first in `npm test`) fails on drift; `--pull <file>`
+  adopts an in-place edit. 54 regions: 43 JS, the whole stylesheet, 10 markup.
+- Cosmetic drift was removed first: comment-only differences were unified
+  (country-specific wording kept per planner), which let adjacent runs merge.
+  Gotcha: a shared comment must not name a country-specific thing (it would be
+  wrong in the other file) or say "above"/"below" (the order differs per file).
+- Canada's stylesheet had drifted from the US one (missing the mobile
+  `.review-nav` safe-area/keyboard offset, two rules reordered); it now uses the
+  shared sheet. Canada V34.
+- Engine decision: only the stage helpers are shared (`newGuardrails`,
+  `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`,
+  `mortgageResultAges`, plus the earlier per-year helpers). The `runProjection`
+  loops stay per-country: most lines differ, a hook object would rename ~100
+  country-specific variables, add per-year allocation to a hot path and risk
+  reordering pinned float operations. Revisit only with a timing benchmark.

@@ -38,7 +38,8 @@ Canada has no ACA, IRMAA, or Additional Medicare Tax equivalent. The Canada
 survivor-income loose end was checked in this phase and was a real bug (fixed,
 with the US extra-income variant; see `docs/reference.md`).
 
-## Phase 2: refactor (separate branch, not merged back)
+## Phase 2: refactor (separate branch, not merged back) — done
+All four items are complete (see `docs/phase2-refactor-plan.md`; item 4 is shared regions kept in sync by `scripts/sync-shared.js`, with the two `runProjection` year loops deliberately left per-country). Deferred follow-ups are listed under "After Phase 2".
 No behavior change; `npm test` must stay identical throughout.
 1. Merge `simulate()` and `simulateHistorical()` into one engine; only the
    per-year return/inflation source differs.

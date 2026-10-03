@@ -9,6 +9,7 @@ MIT licensed — see [LICENSE](LICENSE).
 - `index.html` — landing page linking to both tools
 - `Planner_US.html` — US version
 - `Planner_Canada.html` — Canada version (Ontario / BC)
+- `shared/` + `scripts/sync-shared.js` — canonical copies of the code (JS, CSS, markup) that is identical in both planners; `npm run sync` writes them into both files and `npm test` fails if they drift. Not needed to run a planner, which stays a single self-contained file
 - `CLAUDE.md` — architecture notes and gotchas for Claude Code (or any AI assistant) working in this repo
 
 ## Shared capabilities
@@ -108,6 +109,8 @@ Both tools run on the same underlying engine and share these features:
 
 ## Canada-specific (`Planner_Canada.html`)
 
+- **Mobile review pill clears the keyboard and home indicator**: the floating "Next →" pill used by the guided review now sits above the on-screen keyboard and the phone's safe area, as it already did in the US planner.
+
 - Federal tax brackets + provincial tax for all 10 provinces (Ontario, BC, Alberta, Saskatchewan, Manitoba, Quebec, New Brunswick, Nova Scotia, PEI, Newfoundland and Labrador), including Ontario's Health Premium and two-tier surtax, and Quebec's 16.5% federal tax abatement. Territories are not modeled
 - RRSP and TFSA accounts, with CRA contribution-room rules
 - FHSA (First Home Savings Account): $8,000/year and $40,000 lifetime cap per partner, usable toward a future home purchase (see "Rent, then buy" above), with automatic tax-free rollover of any leftover balance into the TFSA
@@ -128,9 +131,14 @@ These files use **stable filenames** — always `Planner_US.html` / `Planner_Can
 
 ## Testing
 
+`npm test` also checks that the shared regions are identical in both planners, the snapshot of every projection scenario, field wiring and legacy saved-state loading.
+
 `npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. There is no automated coverage of the UI itself beyond this; changes to interactive behavior are currently verified ad hoc (e.g. with Playwright) rather than via a committed test file.
 
 ## Making an update
+
+Code shared by both planners lives between `@@shared:<name> begin/end` marker comments; edit the fragment in `shared/` (or edit one planner and run `npm run sync -- --pull <file>`), then `npm run sync`. See `CLAUDE.md`.
+
 
 1. Edit the file (or have Claude edit it).
 2. Save it back over the same filename (`Planner_US.html` / `Planner_Canada.html`) — don't create a new versioned copy.

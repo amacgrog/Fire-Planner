@@ -551,3 +551,22 @@ window (`usesMagiRoom` off) and has no live mix yet, so parity needs the ceiling
 lifted first (A.3 F2, F5), and this item then applies the room to all paths.
 Tracked in `docs/roadmap.md`.
 
+## Wrap-up results (step 5)
+
+- `npm test` green (golden, snapshot 435 US / 339 Canada scenarios exact, field
+  registry, legacy corpus, UI snapshot, shared-region check).
+- Root `test_*.js` (8 scripts): all exit 0 on both the refactored tree and the
+  pre-Phase-2 commit 15d5d00, with identical output apart from timings.
+- Speed (400 `simulate()` + 120 historical runs, median of 3, vs 15d5d00):
+  US standard -3%, historical -12%; Canada standard -22%, historical +2%.
+  All within the +5% gate or faster.
+- Real browser (file://, Chromium): no page errors at 1280x900 or 390x844, no
+  horizontal overflow, and after a real wheel scroll the mobile tabs stay flush
+  under the status bar. Canada's `.review-nav` bottom offset is now 14px on
+  mobile, matching the US planner.
+- Line counts (15d5d00 -> now): Planner_US.html 11,253 -> 10,798; Planner_Canada.html
+  8,682 -> 8,605 (19,935 -> 19,403 total). The files do not shrink much because
+  shared code is still copied into each self-contained file; the gain is that
+  ~5,100 lines (54 regions) now have one canonical copy in `shared/`.
+- Version badges: US V74 -> V75 and Canada V33 -> V34 (internal refactor; Canada
+  also has the mobile review-pill fix).
