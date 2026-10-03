@@ -462,6 +462,12 @@ Both engines (standard and historical bucket mode). Intended number changes.
   historical and Monte Carlo success rates; docs rewritten where CLAUDE.md
   describes the pooled penalty fraction and `traditionalSharePctA`.
 
+**Also look at here (raised after Batch 1; see "Open items"):** the pre-retirement
+bond-bucket strategy for early retirees. The ladder and refill put the reserve in
+traditional first, so for a household retiring before 59.5 any draw from it owes
+the 10% penalty. Decide whether the source order should depend on the age the
+reserve will first be drawn.
+
 ### 3C: safe-MAGI room on every withdrawal path (old B2)
 
 Default draw, smooth withdrawals and the applied/optimizer schedules respect
@@ -896,7 +902,9 @@ architecture sections that changed, and checks `CLAUDE.md` and `README.md` for
 anything still stale. **Must carry over (owner request):** the Batch 1 open item
 that the safe-MAGI room had no behavioral test, how Batch 3C resolved it, and
 the reason (the room is computed from a MAGI that already contains the same
-year's estimated draw). The per-batch note sections are then removed from this
+year's estimated draw), and the Batch 1 open item on the early-retiree
+pre-retirement bond-bucket strategy (the 10% penalty on reserve draws) with how
+it was resolved. The per-batch note sections are then removed from this
 file, leaving the plan as a record of scope and decisions.
 
 ---
@@ -1252,6 +1260,26 @@ remains is detail to settle when the relevant batch is scoped:
 - All batches: figures are confirmed against primary sources at implementation
   time (decided). The planning pass used secondary sources because irs.gov and
   bls.gov were not reachable.
+- Pre-retirement bond-bucket strategy for early retirees (raised after Batch 1;
+  look at it with Batch 3B): the ladder and the gradual refill now park the whole
+  reserve in `bondTraditional` first. For a household retiring before 59.5 that
+  forces the 10% early-withdrawal penalty whenever the reserve is drawn (a down
+  year, or after taxable, cash and Roth are exhausted), unless Rule of 55 or a
+  72(t) plan covers it. Batch 1 measured it: the US early-retiree historical
+  success rate fell from 90.6% to 86.8% when the ladder moved to traditional
+  first. Options to evaluate: choose the source by the household's expected age at
+  first draw (taxable or Roth first when the reserve will be drawn before 59.5,
+  traditional first otherwise), size the reserve differently before 59.5, or fund
+  it from penalty-free money only. Needs a before/after on early-retiree scenarios
+  (standard, historical and Monte Carlo) and the 3B penalty-aware rules in place
+  first. Carry the outcome into `docs/reference.md`.
+- Checked, no action (Batch 1 follow-up question): bonds held in retirement
+  accounts are not taxed on interest each year. `investmentIncome()` /
+  `investmentIncomeCA()` are called with `bal.bondTaxable` only, so only the
+  taxable bond bucket's interest is taxed (US: ordinary income counted in MAGI;
+  Canada: ordinary income); `bondTraditional`, `bondRoth` (and the Canadian RRSP
+  and TFSA equivalents) grow at the bond return with no yearly tax. The tax shows
+  up only when money leaves the account.
 - Batch 3C: the safe-MAGI room has no behavioral test (carried from Batch 1, see
   its notes); resolve it there and carry the note into `docs/reference.md`.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
