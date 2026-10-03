@@ -4434,17 +4434,19 @@
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
     const futureBuy = state.tenure === 'rentThenBuy' ? futureHomePurchase(homeGrowth) : null;
-    let taxable = state.taxable,
-      taxableBasis = state.taxable * pct(state.basisRatio),
-      bondTaxable = 0,
-      bondTaxableBasis = 0,
-      bondTraditional = 0,
-      bondRoth = 0,
-      traditional = state.traditional,
-      roth = state.roth,
-      cash = state.cash,
-      home = state.tenure === 'own' ? state.homeValue : 0,
-      mortgage = state.tenure === 'own' ? state.mortgage : 0;
+    const bal = {
+      taxable: state.taxable,
+      taxableBasis: state.taxable * pct(state.basisRatio),
+      bondTaxable: 0,
+      bondTaxableBasis: 0,
+      bondTraditional: 0,
+      bondRoth: 0,
+      traditional: state.traditional,
+      roth: state.roth,
+      cash: state.cash,
+      home: state.tenure === 'own' ? state.homeValue : 0,
+      mortgage: state.tenure === 'own' ? state.mortgage : 0,
+    };
     const schedule = mortgageSchedule(),
       loans = loanSchedules(),
       rows = [],
@@ -4569,8 +4571,8 @@
       const { pensionA, pensionB, pension } =
         pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B } = requiredDistributions({
-        traditional,
-        bondTraditional,
+        traditional: bal.traditional,
+        bondTraditional: bal.bondTraditional,
         age,
         ageB,
         singlePerson,
@@ -4584,13 +4586,13 @@
       });
       const housingYear = housingForYear(year, factor, schedule, futureBuy);
       const housing = housingYear.housing;
-      if (housingYear.mortgage !== null) mortgage = housingYear.mortgage;
-      if (housingYear.homeValue !== null) home = housingYear.homeValue;
+      if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
+      if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
       const { filing } = filingStatusFor({ age, singlePerson, isSurvivorPeriod });
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
-      const inv = investmentIncome(taxable, bondTaxable, cash, bondYield, hysa);
+      const inv = investmentIncome(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
       const { otherA, otherB, profile } = buildTaxProfile({
         wageA,
         wageB,
@@ -4633,19 +4635,14 @@
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
         estUsed = false;
-      const yearSnapshot = [
-        taxable, taxableBasis, bondTaxable, bondTaxableBasis, bondTraditional, bondRoth,
-        traditional, roth, cash, home, mortgage, depletedAge, firstWithdrawal,
-        guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio,
-      ];
+      // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
+      const balSnapshot = { ...bal };
+      const scalarSnapshot = { depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
       const ledgerSnapshot = rothLedgerClone(rothLedger);
       for (let iter = 0; ; iter++) {
         if (iter > 0) {
-          [
-            taxable, taxableBasis, bondTaxable, bondTaxableBasis, bondTraditional, bondRoth,
-            traditional, roth, cash, home, mortgage, depletedAge, firstWithdrawal,
-            guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio,
-          ] = yearSnapshot;
+          Object.assign(bal, balSnapshot);
+          ({ depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
           rothLedgerRestore(rothLedger, ledgerSnapshot);
         }
         estUsed = false;
@@ -4748,21 +4745,21 @@
         tax -
         traditionalContrib -
         rothContrib;
-      taxable *= 1 + nominalReturn;
-      bondTaxable *= 1 + bondYield;
-      bondTraditional *= 1 + bondYield;
-      bondRoth *= 1 + bondYield;
-      traditional *= 1 + nominalReturn;
-      roth *= 1 + nominalReturn;
-      cash *= 1 + hysa;
+      bal.taxable *= 1 + nominalReturn;
+      bal.bondTaxable *= 1 + bondYield;
+      bal.bondTraditional *= 1 + bondYield;
+      bal.bondRoth *= 1 + bondYield;
+      bal.traditional *= 1 + nominalReturn;
+      bal.roth *= 1 + nominalReturn;
+      bal.cash *= 1 + hysa;
       // Reinvested dividends and interest were taxed above, so they raise
       // cost basis rather than sitting as untaxed embedded gain.
-      taxableBasis = Math.min(taxable, taxableBasis + inv.divTotal);
-      bondTaxableBasis = Math.min(bondTaxable, bondTaxableBasis + inv.bondInterest);
-      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') home *= 1 + homeGrowth;
-      const rmdFromTraditional = Math.min(traditional, rmd);
-      traditional = Math.max(0, traditional - rmdFromTraditional);
-      bondTraditional = Math.max(0, bondTraditional - (rmd - rmdFromTraditional));
+      bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
+      bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
+      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
+      const rmdFromTraditional = Math.min(bal.traditional, rmd);
+      bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
+      bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
       // Total traditional/taxable dollars actually withdrawn this year, for
       // the cash-flow Sankey — folds bondTraditional/bondTaxable draws into
       // their parent tax-status bucket (they're the same tax-status money,
@@ -4776,19 +4773,19 @@
         earlyPenalty = 0,
         resolvedMixCandidate = null;
       if (conversionAmount > 0) {
-        const fromTradConv = Math.min(traditional, conversionAmount);
-        traditional -= fromTradConv;
-        bondTraditional = Math.max(0, bondTraditional - (conversionAmount - fromTradConv));
-        roth += conversionAmount;
+        const fromTradConv = Math.min(bal.traditional, conversionAmount);
+        bal.traditional -= fromTradConv;
+        bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
+        bal.roth += conversionAmount;
         rothLedger.conv.push({ year, amount: conversionAmount });
       }
-      cash += oneTimeAmount;
+      bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
-      if (cash > reserveTarget) {
-        const moved = cash - reserveTarget;
-        taxable += moved;
-        taxableBasis += moved;
-        cash = reserveTarget;
+      if (bal.cash > reserveTarget) {
+        const moved = bal.cash - reserveTarget;
+        bal.taxable += moved;
+        bal.taxableBasis += moved;
+        bal.cash = reserveTarget;
       }
       // Ramp linearly over whatever time is actually available before
       // retirement, so the full target is always reached by rotationEndYear
@@ -4798,17 +4795,17 @@
           progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
         const target = ladderTarget * progress,
           halfTarget = target / 2;
-        const taxableMove = Math.min(taxable, Math.max(0, halfTarget - bondTaxable)),
-          movedBasis = taxable ? taxableBasis * (taxableMove / taxable) : 0;
-        taxable -= taxableMove;
-        taxableBasis -= movedBasis;
-        bondTaxable += taxableMove;
-        bondTaxableBasis += movedBasis;
-        const traditionalMove = Math.min(traditional, Math.max(0, halfTarget - bondTraditional));
-        traditional -= traditionalMove;
-        bondTraditional += traditionalMove;
+        const taxableMove = Math.min(bal.taxable, Math.max(0, halfTarget - bal.bondTaxable)),
+          movedBasis = bal.taxable ? bal.taxableBasis * (taxableMove / bal.taxable) : 0;
+        bal.taxable -= taxableMove;
+        bal.taxableBasis -= movedBasis;
+        bal.bondTaxable += taxableMove;
+        bal.bondTaxableBasis += movedBasis;
+        const traditionalMove = Math.min(bal.traditional, Math.max(0, halfTarget - bal.bondTraditional));
+        bal.traditional -= traditionalMove;
+        bal.bondTraditional += traditionalMove;
       }
-      const guardrailPortfolioNow = taxable + bondTaxable + traditional + bondTraditional + roth + bondRoth + cash;
+      const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
       // Declared here (rather than inside the withdrawal branch below) so
       // both end up correctly set — to just conversionAmount in a surplus
       // year, or the fuller realized-withdrawal totals in a withdrawal
@@ -4819,13 +4816,13 @@
       let traditionalGross = conversionAmount,
         taxableGainGross = 0;
       if (flow >= 0) {
-        const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash)),
+        const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash)),
           toTaxable = flow - cashTopUp;
-        cash += cashTopUp;
-        taxable += toTaxable;
-        taxableBasis += toTaxable;
-        traditional += traditionalContrib + employerMatch;
-        roth += rothContrib;
+        bal.cash += cashTopUp;
+        bal.taxable += toTaxable;
+        bal.taxableBasis += toTaxable;
+        bal.traditional += traditionalContrib + employerMatch;
+        bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       } else {
         let need = -flow;
@@ -4862,7 +4859,7 @@
             : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
               ? state.appliedMixSchedule[age]
               : 0;
-        const mixWeights = withdrawalMixWeights(mixCandidate, taxable, traditional, roth);
+        const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, bal.traditional, bal.roth);
         if (mixWeights && need > 0) {
           // Optimized per-year withdrawal mix (explicit override only —
           // see above): draw taxable, traditional, AND Roth in whatever
@@ -4878,34 +4875,34 @@
             traditionalShare = need * wTraditional,
             rothShare = need * wRoth;
           const taxableDraw = drawTaxable(
-            taxable,
-            taxableBasis,
+            bal.taxable,
+            bal.taxableBasis,
             taxableShare,
             profile,
             taxableGainGross,
             traditionalGross,
           );
-          taxable -= taxableDraw.taken;
-          taxableBasis -= taxableDraw.basisTaken;
+          bal.taxable -= taxableDraw.taken;
+          bal.taxableBasis -= taxableDraw.basisTaken;
           need -= taxableDraw.net;
           taxableGainGross += taxableDraw.gain;
           taxableWithdrawn += taxableDraw.taken;
-          if (traditionalShare > 0 && traditional > 0) {
+          if (traditionalShare > 0 && bal.traditional > 0) {
             const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
-              traditional,
+              bal.traditional,
               traditionalShare,
               taxableGainGross,
               traditionalGross,
               profile,
               penalizedFraction,
             );
-            traditional -= fromTrad;
+            bal.traditional -= fromTrad;
             traditionalGross += fromTrad;
             traditionalWithdrawn += fromTrad;
             earlyPenalty += penalty;
             need = Math.max(0, need - tradNet);
           }
-          if (rothShare > 0 && roth > 0) {
+          if (rothShare > 0 && bal.roth > 0) {
             // Roth withdrawals aren't bisection-solved like taxable/
             // traditional above — same simplification the pre-existing
             // fallback draw below already makes (no tax, no penalty
@@ -4913,14 +4910,14 @@
             // leftover shortfall funding.
             const d = rothDraw(
               rothLedger,
-              roth,
+              bal.roth,
               rothShare,
               taxableGainGross,
               traditionalGross,
               profile,
               rothPenalizedFraction,
             );
-            roth -= d.gross;
+            bal.roth -= d.gross;
             need -= d.net;
             rothWithdrawn += d.gross;
             traditionalGross += d.earn;
@@ -4940,20 +4937,20 @@
           resolvedMixCandidate = 'live';
           const live = pickLiveWithdrawalOrder(
             need,
-            taxable,
-            traditional,
-            taxableBasis,
+            bal.taxable,
+            bal.traditional,
+            bal.taxableBasis,
             profile,
             taxableGainGross,
             traditionalGross,
             penalizedFraction,
             remainingMagiRoom,
           );
-          taxable -= live.fromTaxable;
-          taxableBasis -= live.taxableBasisTaken;
+          bal.taxable -= live.fromTaxable;
+          bal.taxableBasis -= live.taxableBasisTaken;
           taxableGainGross += live.taxableGain;
           taxableWithdrawn += live.fromTaxable;
-          traditional -= live.fromTraditional;
+          bal.traditional -= live.fromTraditional;
           traditionalGross += live.fromTraditional;
           traditionalWithdrawn += live.fromTraditional;
           earlyPenalty += live.penalty;
@@ -4965,33 +4962,33 @@
           // taxable runs out. Any shortfall (a bucket running low, or the
           // pool being empty) falls through to the same Roth/cash/bond/home
           // order used below, unchanged.
-          const pool = taxable + traditional;
+          const pool = bal.taxable + bal.traditional;
           if (pool > 0 && need > 0) {
-            const taxableShare = need * (taxable / pool),
-              traditionalShare = need * (traditional / pool);
+            const taxableShare = need * (bal.taxable / pool),
+              traditionalShare = need * (bal.traditional / pool);
             const taxableDraw = drawTaxable(
-              taxable,
-              taxableBasis,
+              bal.taxable,
+              bal.taxableBasis,
               taxableShare,
               profile,
               taxableGainGross,
               traditionalGross,
             );
-            taxable -= taxableDraw.taken;
-            taxableBasis -= taxableDraw.basisTaken;
+            bal.taxable -= taxableDraw.taken;
+            bal.taxableBasis -= taxableDraw.basisTaken;
             need -= taxableDraw.net;
             taxableGainGross += taxableDraw.gain;
             taxableWithdrawn += taxableDraw.taken;
-            if (traditionalShare > 0 && traditional > 0) {
+            if (traditionalShare > 0 && bal.traditional > 0) {
               const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
-                traditional,
+                bal.traditional,
                 traditionalShare,
                 taxableGainGross,
                 traditionalGross,
                 profile,
                 penalizedFraction,
               );
-              traditional -= fromTrad;
+              bal.traditional -= fromTrad;
               traditionalGross += fromTrad;
               traditionalWithdrawn += fromTrad;
               earlyPenalty += penalty;
@@ -5000,28 +4997,28 @@
           }
         } else {
           const taxableDraw = drawTaxable(
-            taxable,
-            taxableBasis,
+            bal.taxable,
+            bal.taxableBasis,
             need,
             profile,
             taxableGainGross,
             traditionalGross,
           );
-          taxable -= taxableDraw.taken;
-          taxableBasis -= taxableDraw.basisTaken;
+          bal.taxable -= taxableDraw.taken;
+          bal.taxableBasis -= taxableDraw.basisTaken;
           need -= taxableDraw.net;
           taxableGainGross += taxableDraw.gain;
           taxableWithdrawn += taxableDraw.taken;
           if (need > 0) {
             const { fromTrad, tradNet, penalty } = solveTraditionalForNet(
-              traditional,
+              bal.traditional,
               need,
               taxableGainGross,
               traditionalGross,
               profile,
               penalizedFraction,
             );
-            traditional -= fromTrad;
+            bal.traditional -= fromTrad;
             traditionalGross += fromTrad;
             traditionalWithdrawn += fromTrad;
             earlyPenalty += penalty;
@@ -5030,37 +5027,37 @@
         }
         const rothFallback = rothDraw(
           rothLedger,
-          roth,
+          bal.roth,
           need,
           taxableGainGross,
           traditionalGross,
           profile,
           rothPenalizedFraction,
         );
-        roth -= rothFallback.gross;
+        bal.roth -= rothFallback.gross;
         need -= rothFallback.net;
         rothWithdrawn += rothFallback.gross;
         traditionalGross += rothFallback.earn;
         earlyPenalty += rothFallback.penalty;
-        const fromCash = Math.min(cash, need);
-        cash -= fromCash;
+        const fromCash = Math.min(bal.cash, need);
+        bal.cash -= fromCash;
         need -= fromCash;
         // Bonds are held as a protected sequence-risk reserve and are tapped
         // only after taxable, traditional, Roth, and cash are exhausted.
         const bondTaxableDraw = drawTaxable(
-          bondTaxable,
-          bondTaxableBasis,
+          bal.bondTaxable,
+          bal.bondTaxableBasis,
           need,
           profile,
           taxableGainGross,
           traditionalGross,
         );
-        bondTaxable -= bondTaxableDraw.taken;
-        bondTaxableBasis -= bondTaxableDraw.basisTaken;
+        bal.bondTaxable -= bondTaxableDraw.taken;
+        bal.bondTaxableBasis -= bondTaxableDraw.basisTaken;
         need -= bondTaxableDraw.net;
         taxableGainGross += bondTaxableDraw.gain;
         taxableWithdrawn += bondTaxableDraw.taken;
-        if (need > 0 && bondTraditional > 0) {
+        if (need > 0 && bal.bondTraditional > 0) {
           const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
           let lo = need,
             hi = need * 6 + 1;
@@ -5073,13 +5070,13 @@
             if (net < need) lo = mid;
             else hi = mid;
           }
-          const fromBondTrad = Math.min(bondTraditional, hi),
+          const fromBondTrad = Math.min(bal.bondTraditional, hi),
             bondPenalty = fromBondTrad * 0.1 * penalizedFraction,
             net =
               fromBondTrad -
               (taxFor(profile, taxableGainGross, traditionalGross + fromBondTrad) - baseTax) -
               bondPenalty;
-          bondTraditional -= fromBondTrad;
+          bal.bondTraditional -= fromBondTrad;
           traditionalGross += fromBondTrad;
           traditionalWithdrawn += fromBondTrad;
           earlyPenalty += bondPenalty;
@@ -5087,29 +5084,29 @@
         }
         const bondRothDraw = rothDraw(
           rothLedger,
-          bondRoth,
+          bal.bondRoth,
           need,
           taxableGainGross,
           traditionalGross,
           profile,
           rothPenalizedFraction,
         );
-        bondRoth -= bondRothDraw.gross;
+        bal.bondRoth -= bondRothDraw.gross;
         need -= bondRothDraw.net;
         rothWithdrawn += bondRothDraw.gross;
         traditionalGross += bondRothDraw.earn;
         earlyPenalty += bondRothDraw.penalty;
         if (need > 0 && (state.tenure === 'own' || state.tenure === 'rentThenBuy')) {
-          const fromHome = Math.min(Math.max(0, home - mortgage), need);
-          home -= fromHome;
+          const fromHome = Math.min(Math.max(0, bal.home - bal.mortgage), need);
+          bal.home -= fromHome;
           need -= fromHome;
         }
         if (need > 1 && !depletedAge) depletedAge = age;
         totalTax = ficaTax + taxFor(profile, taxableGainGross, traditionalGross) + earlyPenalty;
         totalIncome =
           otherA + otherB + ss + inv.ordinary + inv.qualified + traditionalGross + taxableGainGross;
-        traditional += traditionalContrib + employerMatch;
-        roth += rothContrib;
+        bal.traditional += traditionalContrib + employerMatch;
+        bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       }
       const realizedTrad = traditionalGross - conversionAmount;
@@ -5131,24 +5128,24 @@
       // withdrawals included): what the IRMAA lookback reads two years on.
       const realizedMagi = magiBase + traditionalGross + taxableGainGross;
       magiHistory[year] = realizedMagi;
-      mortgage = Math.max(0, mortgage);
+      bal.mortgage = Math.max(0, bal.mortgage);
       const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
-        bonds = bondTaxable + bondTraditional + bondRoth,
-        investable = taxable + bonds + traditional + roth + cash,
+        bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
+        investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
         homeEquity =
           state.tenure === 'own' || state.tenure === 'rentThenBuy'
-            ? Math.max(0, home - mortgage)
+            ? Math.max(0, bal.home - bal.mortgage)
             : 0,
         total = investable + homeEquity - loanBalance;
       rows.push({
         age,
         ageB,
         year,
-        taxable,
+        taxable: bal.taxable,
         bonds,
-        traditional,
-        roth,
-        cash,
+        traditional: bal.traditional,
+        roth: bal.roth,
+        cash: bal.cash,
         homeEquity,
         loanBalance,
         investable,
@@ -5231,17 +5228,19 @@
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
     const futureBuy = state.tenure === 'rentThenBuy' ? futureHomePurchase(homeGrowth) : null;
-    let taxable = state.taxable,
-      taxableBasis = state.taxable * pct(state.basisRatio),
-      bondTaxable = 0,
-      bondTaxableBasis = 0,
-      bondTraditional = 0,
-      bondRoth = 0,
-      traditional = state.traditional,
-      roth = state.roth,
-      cash = state.cash,
-      home = state.tenure === 'own' ? state.homeValue : 0,
-      mortgage = state.tenure === 'own' ? state.mortgage : 0;
+    const bal = {
+      taxable: state.taxable,
+      taxableBasis: state.taxable * pct(state.basisRatio),
+      bondTaxable: 0,
+      bondTaxableBasis: 0,
+      bondTraditional: 0,
+      bondRoth: 0,
+      traditional: state.traditional,
+      roth: state.roth,
+      cash: state.cash,
+      home: state.tenure === 'own' ? state.homeValue : 0,
+      mortgage: state.tenure === 'own' ? state.mortgage : 0,
+    };
     const schedule = mortgageSchedule(),
       loans = loanSchedules(),
       rows = [],
@@ -5319,8 +5318,8 @@
       const { pensionA, pensionB, pension } =
         pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B } = requiredDistributions({
-        traditional,
-        bondTraditional,
+        traditional: bal.traditional,
+        bondTraditional: bal.bondTraditional,
         age,
         ageB,
         singlePerson,
@@ -5334,13 +5333,13 @@
       });
       const housingYear = housingForYear(year, factor, schedule, futureBuy);
       const housing = housingYear.housing;
-      if (housingYear.mortgage !== null) mortgage = housingYear.mortgage;
-      if (housingYear.homeValue !== null) home = housingYear.homeValue;
+      if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
+      if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
       const { filing } = filingStatusFor({ age, singlePerson, isSurvivorPeriod });
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
-      const inv = investmentIncome(taxable, bondTaxable, cash, yearBondYield, hysa);
+      const inv = investmentIncome(bal.taxable, bal.bondTaxable, bal.cash, yearBondYield, hysa);
       const { otherA, otherB, profile } = buildTaxProfile({
         wageA,
         wageB,
@@ -5383,19 +5382,14 @@
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
         estUsed = false;
-      const yearSnapshot = [
-        taxable, taxableBasis, bondTaxable, bondTaxableBasis, bondTraditional, bondRoth,
-        traditional, roth, cash, home, mortgage, depletedAge, 
-        guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio,
-      ];
+      // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
+      const balSnapshot = { ...bal };
+      const scalarSnapshot = { depletedAge, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
       const ledgerSnapshot = rothLedgerClone(rothLedger);
       for (let iter = 0; ; iter++) {
         if (iter > 0) {
-          [
-            taxable, taxableBasis, bondTaxable, bondTaxableBasis, bondTraditional, bondRoth,
-            traditional, roth, cash, home, mortgage, depletedAge, 
-            guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio,
-          ] = yearSnapshot;
+          Object.assign(bal, balSnapshot);
+          ({ depletedAge, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
           rothLedgerRestore(rothLedger, ledgerSnapshot);
         }
         estUsed = false;
@@ -5460,35 +5454,35 @@
       const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
       const totalExpense = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       let flow = wages + ss + pension + rmd - totalExpense - tax - traditionalContrib - rothContrib;
-      taxable *= 1 + yearReturn;
-      traditional *= 1 + yearReturn;
-      roth *= 1 + yearReturn;
-      bondTaxable *= 1 + yearBondReturn;
-      bondTraditional *= 1 + yearBondReturn;
-      bondRoth *= 1 + yearBondReturn;
-      cash *= 1 + hysa;
+      bal.taxable *= 1 + yearReturn;
+      bal.traditional *= 1 + yearReturn;
+      bal.roth *= 1 + yearReturn;
+      bal.bondTaxable *= 1 + yearBondReturn;
+      bal.bondTraditional *= 1 + yearBondReturn;
+      bal.bondRoth *= 1 + yearBondReturn;
+      bal.cash *= 1 + hysa;
       // Reinvested dividends and interest were taxed above, so they raise
       // cost basis rather than sitting as untaxed embedded gain.
-      taxableBasis = Math.min(taxable, taxableBasis + inv.divTotal);
-      bondTaxableBasis = Math.min(bondTaxable, bondTaxableBasis + inv.bondInterest);
-      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') home *= 1 + homeGrowth;
-      const rmdFromTraditional = Math.min(traditional, rmd);
-      traditional = Math.max(0, traditional - rmdFromTraditional);
-      bondTraditional = Math.max(0, bondTraditional - (rmd - rmdFromTraditional));
+      bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
+      bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
+      if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
+      const rmdFromTraditional = Math.min(bal.traditional, rmd);
+      bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
+      bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
       if (conversionAmount > 0) {
-        const fromTradConv = Math.min(traditional, conversionAmount);
-        traditional -= fromTradConv;
-        bondTraditional = Math.max(0, bondTraditional - (conversionAmount - fromTradConv));
-        roth += conversionAmount;
+        const fromTradConv = Math.min(bal.traditional, conversionAmount);
+        bal.traditional -= fromTradConv;
+        bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
+        bal.roth += conversionAmount;
         rothLedger.conv.push({ year, amount: conversionAmount });
       }
-      cash += oneTimeAmount;
+      bal.cash += oneTimeAmount;
       const reserveTarget = state.cashReserve * factor;
-      if (cash > reserveTarget) {
-        const moved = cash - reserveTarget;
-        taxable += moved;
-        taxableBasis += moved;
-        cash = reserveTarget;
+      if (bal.cash > reserveTarget) {
+        const moved = bal.cash - reserveTarget;
+        bal.taxable += moved;
+        bal.taxableBasis += moved;
+        bal.cash = reserveTarget;
       }
       // A one-time expense is paid from the portfolio like any other, but it would
       // distort the reserve target if sized into "years of expenses".
@@ -5504,27 +5498,27 @@
       );
       const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
       const stepCash = (need) => {
-        const from = Math.min(cash, need);
-        cash -= from;
+        const from = Math.min(bal.cash, need);
+        bal.cash -= from;
         return need - from;
       };
       const stepTaxable = (need) => {
-        if (taxable <= 0) return need;
+        if (bal.taxable <= 0) return need;
         const d = drawTaxable(
-          taxable,
-          taxableBasis,
+          bal.taxable,
+          bal.taxableBasis,
           need,
           profile,
           taxableGainGross,
           traditionalGross,
         );
-        taxable -= d.taken;
-        taxableBasis -= d.basisTaken;
+        bal.taxable -= d.taken;
+        bal.taxableBasis -= d.basisTaken;
         taxableGainGross += d.gain;
         return need - d.net;
       };
       const stepTraditional = (need) => {
-        if (traditional <= 0) return need;
+        if (bal.traditional <= 0) return need;
         const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
         let lo = need,
           hi = need * 6 + 1;
@@ -5537,46 +5531,46 @@
           if (net < need) lo = mid;
           else hi = mid;
         }
-        const from = Math.min(traditional, hi),
+        const from = Math.min(bal.traditional, hi),
           net =
             from -
             (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax) -
             from * 0.1 * penalizedFraction;
-        traditional -= from;
+        bal.traditional -= from;
         traditionalGross += from;
         return Math.max(0, need - net);
       };
       const stepRoth = (need) => {
         const d = rothDraw(
           rothLedger,
-          roth,
+          bal.roth,
           need,
           taxableGainGross,
           traditionalGross,
           profile,
           rothPenalizedFraction,
         );
-        roth -= d.gross;
+        bal.roth -= d.gross;
         traditionalGross += d.earn;
         return Math.max(0, need - d.net);
       };
       const stepBondTaxable = (need) => {
-        if (bondTaxable <= 0) return need;
+        if (bal.bondTaxable <= 0) return need;
         const d = drawTaxable(
-          bondTaxable,
-          bondTaxableBasis,
+          bal.bondTaxable,
+          bal.bondTaxableBasis,
           need,
           profile,
           taxableGainGross,
           traditionalGross,
         );
-        bondTaxable -= d.taken;
-        bondTaxableBasis -= d.basisTaken;
+        bal.bondTaxable -= d.taken;
+        bal.bondTaxableBasis -= d.basisTaken;
         taxableGainGross += d.gain;
         return need - d.net;
       };
       const stepBondTraditional = (need) => {
-        if (bondTraditional <= 0) return need;
+        if (bal.bondTraditional <= 0) return need;
         const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
         let lo = need,
           hi = need * 6 + 1;
@@ -5589,54 +5583,54 @@
           if (net < need) lo = mid;
           else hi = mid;
         }
-        const from = Math.min(bondTraditional, hi),
+        const from = Math.min(bal.bondTraditional, hi),
           net =
             from -
             (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax) -
             from * 0.1 * penalizedFraction;
-        bondTraditional -= from;
+        bal.bondTraditional -= from;
         traditionalGross += from;
         return Math.max(0, need - net);
       };
       const stepBondRoth = (need) => {
         const d = rothDraw(
           rothLedger,
-          bondRoth,
+          bal.bondRoth,
           need,
           taxableGainGross,
           traditionalGross,
           profile,
           rothPenalizedFraction,
         );
-        bondRoth -= d.gross;
+        bal.bondRoth -= d.gross;
         traditionalGross += d.earn;
         return Math.max(0, need - d.net);
       };
       const stepHome = (need) => {
         if (state.tenure !== 'own' && state.tenure !== 'rentThenBuy') return need;
-        const from = Math.min(Math.max(0, home - mortgage), need);
-        home -= from;
+        const from = Math.min(Math.max(0, bal.home - bal.mortgage), need);
+        bal.home -= from;
         return need - from;
       };
-      const guardrailPortfolioNow = taxable + bondTaxable + traditional + bondTraditional + roth + bondRoth + cash;
+      const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
       if (flow >= 0) {
-        const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - cash));
-        cash += cashTopUp;
+        const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
+        bal.cash += cashTopUp;
         let remainder = flow - cashTopUp;
         // Only steer new surplus into the bond reserve in an up year, so a down
         // year's savings buy (cheaper) stocks instead — consistent with the
         // same up/down rule used for withdrawals below.
         if (yearReturn >= 0) {
-          const bondDeficit = Math.max(0, bondTarget - (bondTaxable + bondTraditional + bondRoth)),
+          const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
             toBonds = Math.min(remainder, bondDeficit);
-          bondTaxable += toBonds;
-          bondTaxableBasis += toBonds;
+          bal.bondTaxable += toBonds;
+          bal.bondTaxableBasis += toBonds;
           remainder -= toBonds;
         }
-        taxable += remainder;
-        taxableBasis += remainder;
-        traditional += traditionalContrib + employerMatch;
-        roth += rothContrib;
+        bal.taxable += remainder;
+        bal.taxableBasis += remainder;
+        bal.traditional += traditionalContrib + employerMatch;
+        bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       } else {
         let need = -flow;
@@ -5676,31 +5670,31 @@
           ].forEach((step) => {
             if (need > 0) need = step(need);
           });
-          const bondDeficit = Math.max(0, bondTarget - (bondTaxable + bondTraditional + bondRoth));
+          const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
           if (bondDeficit > 0) {
-            const fromTaxable = Math.min(taxable, bondDeficit),
-              basisPortion = taxable ? taxableBasis * (fromTaxable / taxable) : 0;
-            taxable -= fromTaxable;
-            taxableBasis -= basisPortion;
-            bondTaxable += fromTaxable;
-            bondTaxableBasis += basisPortion;
+            const fromTaxable = Math.min(bal.taxable, bondDeficit),
+              basisPortion = bal.taxable ? bal.taxableBasis * (fromTaxable / bal.taxable) : 0;
+            bal.taxable -= fromTaxable;
+            bal.taxableBasis -= basisPortion;
+            bal.bondTaxable += fromTaxable;
+            bal.bondTaxableBasis += basisPortion;
             let remaining = bondDeficit - fromTaxable;
             if (remaining > 0) {
-              const fromTrad = Math.min(traditional, remaining);
-              traditional -= fromTrad;
-              bondTraditional += fromTrad;
+              const fromTrad = Math.min(bal.traditional, remaining);
+              bal.traditional -= fromTrad;
+              bal.bondTraditional += fromTrad;
               remaining -= fromTrad;
             }
             if (remaining > 0) {
-              const fromRoth = Math.min(roth, remaining);
-              roth -= fromRoth;
-              bondRoth += fromRoth;
+              const fromRoth = Math.min(bal.roth, remaining);
+              bal.roth -= fromRoth;
+              bal.bondRoth += fromRoth;
             }
           }
         }
         if (need > 1 && !depletedAge) depletedAge = age;
-        traditional += traditionalContrib + employerMatch;
-        roth += rothContrib;
+        bal.traditional += traditionalContrib + employerMatch;
+        bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       }
       const realizedTrad = traditionalGross - conversionAmount;
@@ -5722,24 +5716,24 @@
       // withdrawals included): what the IRMAA lookback reads two years on.
       const realizedMagi = magiBase + traditionalGross + taxableGainGross;
       magiHistory[year] = realizedMagi;
-      mortgage = Math.max(0, mortgage);
+      bal.mortgage = Math.max(0, bal.mortgage);
       const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
-        bonds = bondTaxable + bondTraditional + bondRoth,
-        investable = taxable + bonds + traditional + roth + cash,
+        bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
+        investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
         homeEquity =
           state.tenure === 'own' || state.tenure === 'rentThenBuy'
-            ? Math.max(0, home - mortgage)
+            ? Math.max(0, bal.home - bal.mortgage)
             : 0,
         total = investable + homeEquity - loanBalance;
       rows.push({
         age,
         ageB,
         year,
-        taxable,
+        taxable: bal.taxable,
         bonds,
-        traditional,
-        roth,
-        cash,
+        traditional: bal.traditional,
+        roth: bal.roth,
+        cash: bal.cash,
         homeEquity,
         loanBalance,
         investable,
