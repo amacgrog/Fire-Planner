@@ -1,0 +1,22 @@
+          <div class="metric"><div class="kicker">Investable at retirement</div><strong id="retireAssets">—</strong><small id="retireAssetsSub"></small></div>
+          <div class="metric"><div class="kicker">Nest egg for today's lifestyle</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small><small id="fiNumberBasis" class="metric-basis"></small><div class="swr-row"><span class="swr-label">Withdrawal rate<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The share of your nest egg you plan to spend in the first year of retirement (then raised with inflation) — the nest egg shown is yearly spending divided by this rate, so 4% means 25× your spending.">i</button></span><span class="swr-field"><input class="swr-input" type="number" min="0.5" max="15" step="0.1" inputmode="decimal" aria-label="Safe withdrawal rate, percent per year">%</span></div></div>
+          <div class="metric"><div class="kicker">Nest egg for your retirement</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small><small id="fireNumberBasis" class="metric-basis"></small><div class="swr-row"><span class="swr-label">Withdrawal rate<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The share of your nest egg you plan to spend in the first year of retirement (then raised with inflation) — the nest egg shown is yearly spending divided by this rate, so 4% means 25× your spending.">i</button></span><span class="swr-field"><input class="swr-input" type="number" min="0.5" max="15" step="0.1" inputmode="decimal" aria-label="Safe withdrawal rate, percent per year">%</span></div></div>
+          <div class="metric"><div class="kicker">Investments last through</div><strong id="lastsTo">—</strong><small id="lastsSub"></small></div>
+        </div>
+        <details class="result-card" id="moreResultsCard">
+          <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem;color:var(--ink2)">More results<span class="caret" aria-hidden="true">▾</span></summary>
+          <div class="metrics" style="margin-top:14px">
+            <div class="metric"><div class="kicker">Net worth at retirement</div><strong id="retireNW">—</strong><small>Includes home equity</small></div>
+            <div class="metric"><div class="kicker">Bond reserve at retirement</div><strong id="bondLadder">—</strong><small id="bondLadderSub"></small></div>
+            <div class="metric"><div class="kicker">Estimated early retirement age</div><strong id="fiRetireAge">—</strong><small id="fiRetireAgeSub"></small></div>
+            <div class="metric"><div class="kicker">Historical success</div><strong id="dashHistSuccess">—</strong><small id="dashHistSuccessSub">Every 1928–2025 starting year</small></div>
+          </div>
+        </details>
+
+        <div class="result-card" id="scenarioCompareCard" hidden>
+          <div class="result-head"><div><h2>Scenario comparison</h2><p>Key outcomes for "Current" (your live inputs above) and any scenarios checked for comparison in the sidebar.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Retirement age(s)</th><th>Investable at retirement</th><th>Net worth at retirement</th><th>Investments last through</th><th>End assets</th></tr></thead><tbody id="scenarioCompareRows"></tbody></table></div>
+        </div>
+
+        <div class="result-card" id="mainChartCard">
+          <button id="chartCollapseBtn" type="button" aria-label="Exit expanded chart view" title="Exit expanded view">×</button>

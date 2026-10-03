@@ -1,0 +1,17 @@
+        </details>
+
+        <details class="result-card" id="sankeyCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Cash flow diagram</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Where a single year's money comes from and where it goes: income sources on the left, taxes and spending categories on the right, with any gap drawn from savings or surplus added to it. Only computed while expanded.</p>
+          <div class="field" style="max-width:420px"><label for="sankeyAge">Year to show<output id="sankeyAgeOut" style="margin-left:8px;font-weight:700"></output></label><input id="sankeyAge" type="range" min="0" max="0" step="1"></div>
+          <div class="chart-wrap"><svg id="sankeySvg" role="img" aria-label="Cash flow diagram for the selected year" style="width:100%;height:360px"></svg></div>
+          <div class="chart-note"><span>Amounts shown in the mode currently selected above (real or nominal dollars).</span></div>
+        </details>
+
+        <div class="result-card">
+          <div class="result-head"><div><h2>Selected retirement timeline</h2><p>Account balances and housing position at milestone ages.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th id="ageAHead">Partner A age</th><th id="ageBHead">Partner B age</th><th>Status</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Loan balances</th><th>Net assets</th></tr></thead><tbody id="projectionRows"></tbody></table></div>
+        </div>
+
+        <details class="result-card" id="methodologyCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Methodology &amp; assumptions</summary>

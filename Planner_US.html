@@ -7,6 +7,7 @@
   <title>FIRE Planner — US</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1320'/%3E%3Cpath d='M32 10c7 10 15 17 15 29 0 10-7 17-15 17S17 49 17 39c0-8 4-14 10-20 0 8 3 12 7 15-1-8 0-15-2-24z' fill='%23f59e0b'/%3E%3Cpath d='M32 35c5 5 7 9 7 13 0 5-3 8-7 8s-7-3-7-8c0-4 2-8 7-13z' fill='%23fde68a'/%3E%3C/svg%3E">
   <style>
+    /* @@shared:styles begin */
     :root{--ink:#0b1320;--ink2:#17324d;--muted:#627083;--hint:#5c6779;--paper:#f5f7fa;--card:#fff;--line:#dce3eb;--blue:#2563eb;--cyan:#0e9f9a;--amber:#d97706;--red:#dc4c64;--green:#16a34a;--shadow:0 12px 36px rgba(15,23,42,.08);--field-bg:#fbfcfd;--field-border:#cfd8e3;--surface:#edf2f7;--surface-border:#d8e0e9;--surface-hover:#f8fbff;--th-bg:#f7f9fb;--row-line:#e7ecf1;--callout-bg:#f5f8fb;--group-line:#edf1f5;--chip-bg:#eef3ff;--chip-color:#1d4ed8;--topbar-fg:#0b1320;--amber-text:#9a5209}
     :root[data-theme="dark"]{--ink:#e6ecf3;--ink2:#dbe6f2;--muted:#9aa8bb;--hint:#8a97a8;--paper:#0d141d;--card:#16202c;--line:#2b3a4d;--blue:#5b8def;--cyan:#2dd4c8;--amber:#f0a949;--red:#f2778c;--green:#4ade80;--shadow:0 12px 36px rgba(0,0,0,.4);--field-bg:#1c2734;--field-border:#3a4b60;--surface:#1c2734;--surface-border:#334357;--surface-hover:#1e2a38;--th-bg:#1a2531;--row-line:#26374a;--callout-bg:#182432;--group-line:#22303f;--chip-bg:#1c2f4d;--chip-color:#8fb4ff;--amber-text:#f0a949}
     *{box-sizing:border-box}html{font-size:16px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
@@ -48,7 +49,7 @@
     @media(prefers-reduced-motion:reduce){.workspace{transition:none}}
     /* Category rail: a row of filter pills above the assumption groups
        that narrows .category-fields down to a single category at a time,
-       so a long sidebar of 17 groups doesn't have to be scrolled
+       so a long sidebar of groups doesn't have to be scrolled
        top-to-bottom to reach e.g. "Advanced" — available at every width,
        including mobile's single-column inputs list (originally desktop
        only; mobile hid the rail outright and always showed every group,
@@ -263,6 +264,7 @@
     #wizardStep2[hidden]{display:none}
     #wizardStep2 .field{grid-template-columns:1fr;margin:8px 0}
     @media(max-width:600px){#wizardStep2{grid-template-columns:1fr}}
+    /* @@shared:styles end */
   </style>
 </head>
 <body>
@@ -288,6 +290,7 @@
         <div class="panel-title"><div><h2>Your assumptions</h2><span>2026 starting dollars</span></div><button type="button" id="sidebarCollapseBtn" aria-label="Collapse inputs panel" aria-expanded="true" title="Collapse inputs panel">«</button></div>
         <div class="field-search-wrap">
           <div class="field-search-input-wrap">
+    <!-- @@shared:html-fieldSearch begin -->
             <input type="search" id="fieldSearch" placeholder="Search fields — e.g. &quot;income&quot;, &quot;mortgage&quot;…" title="Find and jump to any assumption field by name" aria-label="Search assumptions by field name" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="fieldSearchResults" aria-autocomplete="list">
             <div class="field-search-results" id="fieldSearchResults" role="listbox" aria-label="Matching fields" hidden></div>
           </div>
@@ -322,6 +325,7 @@
             <input id="importScenarioInput" type="file" accept="application/json,.json" hidden>
           </div>
         </details>
+    <!-- @@shared:html-fieldSearch end -->
         <details class="group" id="taxFilingGroup" data-cat="profile" open>
           <summary>Tax filing status</summary>
           <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person <span class="info-nw">plan<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Uses one person&#x27;s contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.">i</button></span><small>One person, single-filer taxes</small></label></div>
@@ -334,6 +338,7 @@
         <details class="group" data-cat="profile" open>
           <summary>State income tax</summary>
           <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate. Includes all 42 states with an individual-income or Washington capital-gains tax; local taxes and state-specific credits are excluded.">i</button></span><small>2026 estimate; state income tax only</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
+    <!-- @@shared:html-timelineGroupState begin -->
         </details>
         <details class="group" data-cat="timeline" open>
           <summary><span class="group-summary-text"><span class="group-title">Timeline</span><span class="group-state" id="timelineGroupState"></span></span></summary>
@@ -346,6 +351,7 @@
         </details>
         <details class="group" data-cat="income" open>
           <summary><span class="group-summary-text"><span class="group-title">Income</span><span class="group-state" id="incomeGroupState"></span></span></summary>
+    <!-- @@shared:html-timelineGroupState end -->
           <div class="range-field"><div class="range-head"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income <span class="info-nw">growth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Yearly raise on your pay, in nominal terms — it already includes inflation, so a raise equal to inflation means no real growth.">i</button></span></label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
@@ -374,6 +380,7 @@
         <details class="group" data-cat="spending" open>
           <summary><span class="group-summary-text"><span class="group-title">Household spending</span><span class="group-state" id="spendingGroupState"></span></span></summary>
           <div class="field"><label for="spending">Annual household <span class="info-nw">spending<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The catch-all for everyday costs: groceries, dining, utilities, transportation, subscriptions, entertainment, travel, and similar. Excludes housing (including rent or mortgage), health and LTC premiums, and retirement saving — those are tracked separately elsewhere.">i</button></span><small>Everyday costs; excludes housing, health premiums, saving</small></label><input id="spending" type="number" class="money" min="0" step="1000"></div>
+    <!-- @@shared:html-spendingTiersGroup begin -->
           <details class="group" id="spendingTiersGroup" style="padding:12px 0 0;border:0">
             <summary>Spending changes</summary>
             <div id="spendingTierFields"></div>
@@ -393,6 +400,7 @@
         </details>
         <details class="group" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
+    <!-- @@shared:html-spendingTiersGroup end -->
           <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per <span class="info-nw">paycheck<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Reduces taxable wages, just like a 401(k) (e.g. an employer medical plan). If your spouse is (or will be) retired while you&#x27;re still working, this is assumed to cover both of you (unless you uncheck the &quot;employer plan covers spouse&quot; box below) — so use the employee+spouse rate here if that&#x27;s the real cost. Fold medications, copays, and other after-tax healthcare costs into household spending instead.">i</button></span><small id="healthPremiumHint">Pre-tax payroll deduction while you work</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="healthPremiumB">Partner B health insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
           <div data-partner-b class="field"><label for="employerCoversSpouseA"><input id="employerCoversSpouseA" type="checkbox"> Partner A&#x27;s employer plan covers <span class="info-nw">Partner B<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies only while Partner A is working and Partner B has retired and is under 65. Checked (default): B rides on A&#x27;s employer plan, so B owes no separate pre-65 premium until A also stops working — include B in A&#x27;s per-paycheck premium above. Unchecked: B buys their own individual (ACA) coverage starting the year B retires, even while A still works; the subsidy, when modeled, uses your household size of 2 and household income including A&#x27;s wages.">i</button></span><small>If unchecked, B buys ACA coverage once B retires</small></label></div>
@@ -419,6 +427,7 @@
           <div class="field"><label for="dividendYield">Taxable dividend <span class="info-nw">yield<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The part of your taxable brokerage return that is paid out as dividends each year (it is already inside the investment return above, not added on top). Dividends are taxed every year whether or not you spend them, count toward income-tested items like ACA subsidies, IRMAA and Social Security taxation, and reinvesting them raises your cost basis. Interest on cash and taxable bonds is taxed the same way automatically.">i</button></span><small>Share of the taxable account paid as dividends</small></label><input id="dividendYield" type="number" min="0" max="8" step="0.1"></div>
           <div class="field"><label for="qualifiedDivPct">Qualified share of <span class="info-nw">dividends<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Qualified dividends are taxed at long-term capital-gain rates; the rest is taxed as ordinary income like interest. Broad US stock index funds are typically 90-100% qualified; international and REIT-heavy funds are lower.">i</button></span></label><input id="qualifiedDivPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="inflation"><span class="info-nw">Inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The yearly rate used to grow everything you enter in 2026 dollars — spending, healthcare, benefits, pensions, LTC, and contribution limits. Investment returns are nominal, so higher inflation lowers your real return.">i</button></span></label><input id="inflation" type="number" min="0" max="10" step="0.1"></div>
+    <!-- @@shared:html-medicalInflation begin -->
           <div class="field"><label for="medicalInflation">Healthcare cost growth above <span class="info-nw">inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Extra yearly growth, in percentage points above the inflation rate, for healthcare premiums, Medicare and long-term care. Medical costs have historically outrun general inflation; 1 means they grow 1 point faster than CPI each year (3.5% when inflation is 2.5%).">i</button></span><small>Points above CPI for health and LTC costs</small></label><input id="medicalInflation" type="number" min="0" max="5" step="0.1"></div>
         </details>
         <details class="group" data-cat="housing" open>
@@ -434,6 +443,7 @@
             <div class="field"><label for="homeInsurance">Annual home insurance<small id="homeInsuranceHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="homeInsurance" type="number" class="money" min="0" step="250"></div>
             <div class="field"><label for="homeInsuranceGrowth">Home insurance annual growth<small>Yearly increase, separate from general inflation</small></label><input id="homeInsuranceGrowth" type="number" min="0" max="20" step="0.1"></div>
           </div>
+    <!-- @@shared:html-medicalInflation end -->
           <div class="tenure-fields" id="ownerFields">
             <div class="field"><label for="mortgagePrincipal">Original loan <span class="info-nw">amount<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The amount originally borrowed, before any payments. Used with the loan term below to work out your actual fixed payment — it&#x27;s not recalculated from the remaining balance, so extra principal you&#x27;ve already paid doesn&#x27;t inflate the payment.">i</button></span><small>Amount originally borrowed</small></label><input id="mortgagePrincipal" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="mortgage">Remaining principal</label><input id="mortgage" type="number" class="money" min="0" step="1000"></div>
@@ -475,6 +485,7 @@
             <div class="field"><label for="irmaaMagiPrior2">MAGI two tax years ago<small>Sets this year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior2" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="irmaaMagiPrior1">MAGI last tax year<small>Sets next year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior1" type="number" class="money" min="0" step="1000"></div>
           </div>
+    <!-- @@shared:html-ltcEnabled begin -->
           <div class="field"><label for="ltcEnabled"><input id="ltcEnabled" type="checkbox"> Model long-term care costs<small>Turn off to exclude LTC entirely from the projection.</small></label></div>
           <div id="ltcFields">
             <div class="field"><label for="ltcYearlyA">Partner A annual LTC <span class="info-nw">cost<span id="ltcLabelSuffix" hidden></span><button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Charged every year from the start age below, adjusted for inflation.">i</button></span></label><input id="ltcYearlyA" type="number" class="money" min="0" step="1000"></div>
@@ -485,6 +496,7 @@
         </details>
         <details class="group" id="survivorGroup" data-cat="extra">
           <summary><span class="group-summary-text"><span class="group-title">Survivor planning</span><span class="group-state" id="survivorGroupState"></span></span></summary>
+    <!-- @@shared:html-ltcEnabled end -->
           <div class="field"><label for="survivorEnabled"><input id="survivorEnabled" type="checkbox"> Model one partner's <span class="info-nw">death<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="From the chosen age onward: switches to single filing status, keeps the greater of the two Social Security benefits (a simplified survivor-benefit swap), drops the deceased partner&#x27;s pension/LTC/healthcare share, consolidates the traditional balance under the survivor&#x27;s own RMD schedule, cuts household spending to the percentage below, and settles any “other loans” balance as a lump sum that year — approximating debts being paid from the estate during probate before assets pass to the survivor. The mortgage is untouched, since it&#x27;s secured by jointly-titled real estate. Intended for a death during retirement; one modeled during a working year may not fully zero out that year&#x27;s payroll activity.">i</button></span><small>From that age: single filing, one benefit, lower spending</small></label></div>
           <div id="survivorFields">
             <div class="field"><label for="survivorPartner">Partner who dies first</label><select id="survivorPartner"><option value="A">Partner A</option><option value="B">Partner B</option></select></div>
@@ -530,6 +542,7 @@
           <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
         </details>
         <div class="metrics metrics-primary">
+    <!-- @@shared:html-retireAssets begin -->
           <div class="metric"><div class="kicker">Investable at retirement</div><strong id="retireAssets">—</strong><small id="retireAssetsSub"></small></div>
           <div class="metric"><div class="kicker">Nest egg for today's lifestyle</div><strong id="fiNumber">—</strong><small id="fiNumberSub"></small><small id="fiNumberBasis" class="metric-basis"></small><div class="swr-row"><span class="swr-label">Withdrawal rate<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The share of your nest egg you plan to spend in the first year of retirement (then raised with inflation) — the nest egg shown is yearly spending divided by this rate, so 4% means 25× your spending.">i</button></span><span class="swr-field"><input class="swr-input" type="number" min="0.5" max="15" step="0.1" inputmode="decimal" aria-label="Safe withdrawal rate, percent per year">%</span></div></div>
           <div class="metric"><div class="kicker">Nest egg for your retirement</div><strong id="fireNumber">—</strong><small id="fireNumberSub"></small><small id="fireNumberBasis" class="metric-basis"></small><div class="swr-row"><span class="swr-label">Withdrawal rate<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The share of your nest egg you plan to spend in the first year of retirement (then raised with inflation) — the nest egg shown is yearly spending divided by this rate, so 4% means 25× your spending.">i</button></span><span class="swr-field"><input class="swr-input" type="number" min="0.5" max="15" step="0.1" inputmode="decimal" aria-label="Safe withdrawal rate, percent per year">%</span></div></div>
@@ -552,7 +565,9 @@
 
         <div class="result-card" id="mainChartCard">
           <button id="chartCollapseBtn" type="button" aria-label="Exit expanded chart view" title="Exit expanded view">×</button>
+    <!-- @@shared:html-retireAssets end -->
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal and state income tax.</p></div><div style="display:flex;align-items:center;gap:12px"><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div><button id="chartToolbarToggleBtn" type="button" aria-label="Hide chart options" title="Hide chart options">⌃</button><button id="chartExpandBtn" type="button" aria-label="Expand chart" title="Expand chart">⤢</button></div></div>
+    <!-- @@shared:html-chartRotateHint begin -->
           <div id="chartRotateHint">↻ Rotate your phone for a better view</div>
           <div id="chartToolbar">
           <div id="chartGroupRow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -570,6 +585,7 @@
             <div class="metric" id="histSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Historical success rate — every 1928–2025 starting year</div><strong id="histSuccessRate">—</strong><small id="histSuccessSub"></small></div>
             <div class="metric" id="mcSuccessCard" hidden style="grid-column:1/-1"><div class="kicker">Monte Carlo success rate — block-bootstrapped from 1928–2025 history</div><strong id="mcSuccessRate">—</strong><small id="mcSuccessSub"></small></div>
           </div>
+    <!-- @@shared:html-chartRotateHint end -->
         </div>
 
         <details class="result-card" id="sensitivityCard">
@@ -588,6 +604,7 @@
             <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ltc"> Long-term care cost</label>
             <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ss"> Social Security</label>
           </div>
+    <!-- @@shared:html-tornadoChart begin -->
           <div class="chart-wrap"><canvas id="tornadoChart" role="img" aria-label="Sensitivity of projected end assets to key assumptions, sorted by impact"></canvas></div>
           <div class="chart-note"><span id="tornadoNote">Dashed line marks the current projection's end assets (labeled on the chart). Bars show the range across a fixed ± swing in each assumption (not a probability distribution); "pp" = percentage points.</span></div>
         </details>
@@ -598,6 +615,7 @@
         </div>
 
         <details class="result-card" id="rothOptimizerCard" hidden>
+    <!-- @@shared:html-tornadoChart end -->
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Roth conversion ladder optimizer</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target to estimate which minimizes lifetime tax paid (income + payroll tax, summed across the projection in today's dollars), while checking it doesn't shorten how long the portfolio lasts. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
@@ -631,6 +649,7 @@
             <div id="multiLeverSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
             <div class="table-wrap"><table><thead id="multiLeverHead"></thead><tbody id="multiLeverRows"></tbody></table></div>
           </div>
+    <!-- @@shared:html-sankeyCard begin -->
         </details>
 
         <details class="result-card" id="sankeyCard">
@@ -648,6 +667,7 @@
 
         <details class="result-card" id="methodologyCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Methodology &amp; assumptions</summary>
+    <!-- @@shared:html-sankeyCard end -->
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, healthcare/ACA/IRMAA rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>
           <div class="assumptions">
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
@@ -702,6 +722,7 @@
       </div>
     </div>
   </div>
+    <!-- @@shared:html-undoToast begin -->
 </div>
 <div id="undoToast" class="undo-toast" role="status" hidden>
   <span id="undoToastText"></span>
@@ -716,6 +737,7 @@
   <span id="unusualToastText"></span>
   <button type="button" id="unusualToastBtn">Review →</button>
   <button type="button" id="unusualToastClose" aria-label="Dismiss">✕</button>
+    <!-- @@shared:html-undoToast end -->
 </div>
 <script>(() => {
   const defaults = {

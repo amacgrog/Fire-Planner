@@ -1,0 +1,15 @@
+          <div class="field"><label for="medicalInflation">Healthcare cost growth above <span class="info-nw">inflation<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Extra yearly growth, in percentage points above the inflation rate, for healthcare premiums, Medicare and long-term care. Medical costs have historically outrun general inflation; 1 means they grow 1 point faster than CPI each year (3.5% when inflation is 2.5%).">i</button></span><small>Points above CPI for health and LTC costs</small></label><input id="medicalInflation" type="number" min="0" max="5" step="0.1"></div>
+        </details>
+        <details class="group" data-cat="housing" open>
+          <summary><span class="group-summary-text"><span class="group-title">Housing</span><span class="group-state" id="housingGroupState"></span></span></summary>
+          <div class="choice" style="grid-template-columns:1fr 1fr 1fr" role="radiogroup" aria-label="Housing status"><button type="button" id="ownBtn" role="radio" aria-checked="true" class="active">Own</button><button type="button" id="rentBtn" role="radio" aria-checked="false">Rent</button><button type="button" id="buyLaterBtn" role="radio" aria-checked="false">Rent → Buy</button></div>
+          <div class="tenure-fields" id="homeValueFields">
+            <div class="field"><label for="homeValue" id="homeValueLabel">Real estate value</label><input id="homeValue" type="number" class="money" min="0" step="5000"></div>
+            <div class="field"><label for="homeGrowth">Home appreciation</label><input id="homeGrowth" type="number" min="-5" max="15" step="0.1"></div>
+            <div class="field"><label for="mortgageRate" id="mortgageRateLabel">Mortgage interest rate</label><input id="mortgageRate" type="number" min="0" max="20" step="0.001"></div>
+            <div class="field"><label for="maintenance">Annual home maintenance<small id="maintenanceHint">Applies once you own</small></label><input id="maintenance" type="number" class="money" min="0" step="500"></div>
+            <div class="field"><label for="propertyTax">Annual property tax<small id="propertyTaxHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="propertyTax" type="number" class="money" min="0" step="500"></div>
+            <div class="field"><label for="propertyTaxGrowth">Property tax annual growth<small>Yearly increase, separate from general inflation</small></label><input id="propertyTaxGrowth" type="number" min="0" max="20" step="0.1"></div>
+            <div class="field"><label for="homeInsurance">Annual home insurance<small id="homeInsuranceHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="homeInsurance" type="number" class="money" min="0" step="250"></div>
+            <div class="field"><label for="homeInsuranceGrowth">Home insurance annual growth<small>Yearly increase, separate from general inflation</small></label><input id="homeInsuranceGrowth" type="number" min="0" max="20" step="0.1"></div>
+          </div>
