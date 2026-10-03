@@ -6587,3 +6587,6 @@ proves every differing number is within 1e-9 relative, and is recorded here.
   (`hist default | real1929 / real2000 / crashFirst / mc1`, US): taxable,
   investable, total, bonds differ by about 1e-16 relative. Standard engine
   unchanged.
+- Shared Canada `payrollTax()` (CPP): historical engine, 6 Canada scenarios in
+  working years (`hist default | real1973 / real2000 / crashFirst / sawtooth /
+  flat / mc2`) differ by about 1e-16 relative. Standard engine unchanged.
