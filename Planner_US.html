@@ -3994,6 +3994,170 @@
     return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib };
   }
 
+  // Social Security for the year, each partner's own benefit once they reach
+  // their claiming age, inflated by `factor`. In the survivor period the
+  // household keeps the greater of the two benefits (a simplified
+  // survivor-benefit swap, not the full PIA/FRA rules).
+  function socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+    let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
+      ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
+    if (isSurvivorPeriod) {
+      // Simplified survivor-benefit swap: the survivor keeps the greater
+      // of the two benefits (each computed as if both were still alive),
+      // rather than modeling full PIA/FRA-based survivor benefit rules.
+      const survivorSS = Math.max(ssA, ssB);
+      if (deceasedIsA) {
+        ssA = 0;
+        ssB = survivorSS;
+      } else {
+        ssB = 0;
+        ssA = survivorSS;
+      }
+    }
+    const ss = ssA + ssB;
+    return { ssA, ssB, ss };
+  }
+
+  // Pension income for the year (which partner(s) are covered is set by
+  // state.pensionCoverage; the single-person case always uses Partner A's
+  // pension). The deceased partner's pension drops out in the survivor period.
+  function pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+    let pensionA =
+        ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
+        age >= state.pensionStartAgeA
+          ? state.pensionYearlyA
+          : 0) * factor,
+      pensionB =
+        (!singlePerson &&
+        (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
+        ageB >= state.pensionStartAgeB
+          ? state.pensionYearlyB
+          : 0) * factor;
+    if (isSurvivorPeriod) {
+      if (deceasedIsA) pensionA = 0;
+      else pensionB = 0;
+    }
+    const pension = pensionA + pensionB;
+    return { pensionA, pensionB, pension };
+  }
+
+  // Mandatory traditional distributions for the year: each partner's RMD plus
+  // any elected 72(t) SEPP payment, both taxed as ordinary income and
+  // force-withdrawn from the pooled traditional balance. rmdA/rmdB include the
+  // SEPP amount; sepp72A/B are returned separately only for display.
+  function requiredDistributions({
+    traditional,
+    bondTraditional,
+    age,
+    ageB,
+    singlePerson,
+    isSurvivorPeriod,
+    deceasedIsA,
+    pctA,
+    workingA,
+    workingB,
+    retireAgeA,
+    retireAgeB,
+  }) {
+    const traditionalBeforeRmd = traditional + bondTraditional,
+      // Each partner's own share of the pooled traditional balance, per
+      // the household's ownership split (pctA above, defaulting to
+      // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
+      // early-withdrawal-penalty fraction below. During survivor period
+      // or single-person mode, whichever partner remains is treated as
+      // owning the whole pooled balance (the split only matters while
+      // both partners are alive and the balance is genuinely shared).
+      traditionalShareA =
+        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
+      traditionalShareB =
+        singlePerson || isSurvivorPeriod
+          ? traditionalBeforeRmd
+          : traditionalBeforeRmd * (1 - pctA);
+    let rmdA = age >= rmdStartAge(state.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
+      rmdB =
+        !singlePerson && ageB >= rmdStartAge(state.ageB)
+          ? traditionalShareB / rmdDivisor(ageB)
+          : 0;
+    // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
+    // retiring before 59.5, running from their retirement age through the
+    // later of 5 years or age 59.5 (IRS "RMD method"), sized off that
+    // partner's own share of the pooled traditional balance. Folded
+    // directly into rmdA/rmdB so it's taxed and force-withdrawn from
+    // traditional exactly like an RMD (SEPP income is ordinary income,
+    // same as an RMD); sepp72A/B are kept separately only so they can be
+    // exposed on the row for display, below. Each partner's SEPP is
+    // independently toggleable (sepp72tEnabledA/B) — electing 72(t) for
+    // one partner's account doesn't require or affect the other's.
+    const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
+      sepp72EndB = Math.max(retireAgeB + 5, 59.5);
+    let sepp72A =
+        state.sepp72tEnabledA &&
+        !workingA &&
+        retireAgeA < 59.5 &&
+        age >= retireAgeA &&
+        age < sepp72EndA
+          ? traditionalShareA / singleLifeDivisor(age)
+          : 0,
+      sepp72B =
+        !singlePerson &&
+        state.sepp72tEnabledB &&
+        !workingB &&
+        retireAgeB < 59.5 &&
+        ageB >= retireAgeB &&
+        ageB < sepp72EndB
+          ? traditionalShareB / singleLifeDivisor(ageB)
+          : 0;
+    if (isSurvivorPeriod) {
+      if (deceasedIsA) {
+        rmdA = 0;
+        sepp72A = 0;
+      } else {
+        rmdB = 0;
+        sepp72B = 0;
+      }
+    }
+    rmdA += sepp72A;
+    rmdB += sepp72B;
+    const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
+    return { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B };
+  }
+
+  // Shelter cost for one year: rent, or (once a home is owned) mortgage payment
+  // + maintenance + property tax and insurance, plus the one-off cash cost in
+  // the year a future purchase happens. Also reports the balance-sheet change
+  // that comes with it: `mortgage` is the loan balance when it changes this
+  // year and `homeValue` the home's value in the purchase year (both null when
+  // nothing changes). projectedExpense() reads only `.housing`.
+  function housingForYear(year, factor, schedule, futureBuy) {
+    const ownsHome =
+      state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
+    const propCosts = ownsHome
+      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
+        state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
+      : 0;
+    const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
+    if (state.tenure === 'own') {
+      const annualPI = schedule.payments[year] || 0;
+      return {
+        housing: annualPI + state.maintenance * factor + propCosts,
+        mortgage: schedule.balances[year] || 0,
+        homeValue: null,
+      };
+    }
+    if (state.tenure === 'rent' || year < futureBuy.buyYear)
+      return { housing: rent, mortgage: null, homeValue: null };
+    const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
+    return {
+      housing:
+        buyAnnualPI +
+        state.maintenance * factor +
+        propCosts +
+        (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0),
+      mortgage: futureBuy.buySchedule.balances[year] || 0,
+      homeValue: year === futureBuy.buyYear ? futureBuy.homeValueAtPurchase : null,
+    };
+  }
+
   // ---- end per-year helpers ----
 
   function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
@@ -4070,25 +4234,7 @@
           : Infinity;
     const projectedExpense = (year) => {
       const factor = Math.pow(1 + infl, year);
-      const ownsHome =
-        state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-      const propCosts = ownsHome
-        ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-          state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-        : 0;
-      let shelter;
-      if (state.tenure === 'rent')
-        shelter = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      else if (state.tenure === 'own')
-        shelter = (schedule.payments[year] || 0) + state.maintenance * factor + propCosts;
-      else if (year < futureBuy.buyYear)
-        shelter = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      else
-        shelter =
-          (futureBuy.buySchedule.payments[year] || 0) +
-          state.maintenance * factor +
-          propCosts +
-          (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
+      const shelter = housingForYear(year, factor, schedule, futureBuy).housing;
       const ageA = state.ageA + year,
         ageB = state.ageB + year;
       const healthcare = singlePerson
@@ -4157,123 +4303,28 @@
       const limitFactor = Math.pow(1 + infl, year);
       const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib } =
         retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
-      let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
-        ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
-      if (isSurvivorPeriod) {
-        // Simplified survivor-benefit swap: the survivor keeps the greater
-        // of the two benefits (each computed as if both were still alive),
-        // rather than modeling full PIA/FRA-based survivor benefit rules.
-        const survivorSS = Math.max(ssA, ssB);
-        if (deceasedIsA) {
-          ssA = 0;
-          ssB = survivorSS;
-        } else {
-          ssB = 0;
-          ssA = survivorSS;
-        }
-      }
-      const ss = ssA + ssB;
-      let pensionA =
-          ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
-          age >= state.pensionStartAgeA
-            ? state.pensionYearlyA
-            : 0) * factor,
-        pensionB =
-          (!singlePerson &&
-          (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
-          ageB >= state.pensionStartAgeB
-            ? state.pensionYearlyB
-            : 0) * factor;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) pensionA = 0;
-        else pensionB = 0;
-      }
-      const pension = pensionA + pensionB;
-      const traditionalBeforeRmd = traditional + bondTraditional,
-        // Each partner's own share of the pooled traditional balance, per
-        // the household's ownership split (pctA above, defaulting to
-        // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
-        // early-withdrawal-penalty fraction below. During survivor period
-        // or single-person mode, whichever partner remains is treated as
-        // owning the whole pooled balance (the split only matters while
-        // both partners are alive and the balance is genuinely shared).
-        traditionalShareA =
-          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
-        traditionalShareB =
-          singlePerson || isSurvivorPeriod
-            ? traditionalBeforeRmd
-            : traditionalBeforeRmd * (1 - pctA);
-      let rmdA = age >= rmdStartAge(state.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
-        rmdB =
-          !singlePerson && ageB >= rmdStartAge(state.ageB)
-            ? traditionalShareB / rmdDivisor(ageB)
-            : 0;
-      // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
-      // retiring before 59.5, running from their retirement age through the
-      // later of 5 years or age 59.5 (IRS "RMD method"), sized off that
-      // partner's own share of the pooled traditional balance. Folded
-      // directly into rmdA/rmdB so it's taxed and force-withdrawn from
-      // traditional exactly like an RMD (SEPP income is ordinary income,
-      // same as an RMD); sepp72A/B are kept separately only so they can be
-      // exposed on the row for display, below. Each partner's SEPP is
-      // independently toggleable (sepp72tEnabledA/B) — electing 72(t) for
-      // one partner's account doesn't require or affect the other's.
-      const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
-        sepp72EndB = Math.max(retireAgeB + 5, 59.5);
-      let sepp72A =
-          state.sepp72tEnabledA &&
-          !workingA &&
-          retireAgeA < 59.5 &&
-          age >= retireAgeA &&
-          age < sepp72EndA
-            ? traditionalShareA / singleLifeDivisor(age)
-            : 0,
-        sepp72B =
-          !singlePerson &&
-          state.sepp72tEnabledB &&
-          !workingB &&
-          retireAgeB < 59.5 &&
-          ageB >= retireAgeB &&
-          ageB < sepp72EndB
-            ? traditionalShareB / singleLifeDivisor(ageB)
-            : 0;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) {
-          rmdA = 0;
-          sepp72A = 0;
-        } else {
-          rmdB = 0;
-          sepp72B = 0;
-        }
-      }
-      rmdA += sepp72A;
-      rmdB += sepp72B;
-      const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
-      let housing;
-      const ownsHome =
-        state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-      const propCosts = ownsHome
-        ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-          state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-        : 0;
-      if (state.tenure === 'own') {
-        const annualPI = schedule.payments[year] || 0;
-        mortgage = schedule.balances[year] || 0;
-        housing = annualPI + state.maintenance * factor + propCosts;
-      } else if (state.tenure === 'rent') {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else if (year < futureBuy.buyYear) {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else {
-        const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
-        mortgage = futureBuy.buySchedule.balances[year] || 0;
-        housing =
-          buyAnnualPI +
-          state.maintenance * factor +
-          propCosts +
-          (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
-        if (year === futureBuy.buyYear) home = futureBuy.homeValueAtPurchase;
-      }
+      const { ssA, ssB, ss } =
+        socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+      const { pensionA, pensionB, pension } =
+        pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+      const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B } = requiredDistributions({
+        traditional,
+        bondTraditional,
+        age,
+        ageB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        pctA,
+        workingA,
+        workingB,
+        retireAgeA,
+        retireAgeB,
+      });
+      const housingYear = housingForYear(year, factor, schedule, futureBuy);
+      const housing = housingYear.housing;
+      if (housingYear.mortgage !== null) mortgage = housingYear.mortgage;
+      if (housingYear.homeValue !== null) home = housingYear.homeValue;
       const loanPayment = isSurvivorPeriod && year > deathYear
         ? 0
         : year === deathYear
@@ -5104,123 +5155,28 @@
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib } =
         retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
-      let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
-        ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
-      if (isSurvivorPeriod) {
-        // Simplified survivor-benefit swap: the survivor keeps the greater
-        // of the two benefits (each computed as if both were still alive),
-        // rather than modeling full PIA/FRA-based survivor benefit rules.
-        const survivorSS = Math.max(ssA, ssB);
-        if (deceasedIsA) {
-          ssA = 0;
-          ssB = survivorSS;
-        } else {
-          ssB = 0;
-          ssA = survivorSS;
-        }
-      }
-      const ss = ssA + ssB;
-      let pensionA =
-          ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
-          age >= state.pensionStartAgeA
-            ? state.pensionYearlyA
-            : 0) * factor,
-        pensionB =
-          (!singlePerson &&
-          (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
-          ageB >= state.pensionStartAgeB
-            ? state.pensionYearlyB
-            : 0) * factor;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) pensionA = 0;
-        else pensionB = 0;
-      }
-      const pension = pensionA + pensionB;
-      const traditionalBeforeRmd = traditional + bondTraditional,
-        // Each partner's own share of the pooled traditional balance, per
-        // the household's ownership split (pctA above, defaulting to
-        // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
-        // early-withdrawal-penalty fraction below. During survivor period
-        // or single-person mode, whichever partner remains is treated as
-        // owning the whole pooled balance (the split only matters while
-        // both partners are alive and the balance is genuinely shared).
-        traditionalShareA =
-          singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
-        traditionalShareB =
-          singlePerson || isSurvivorPeriod
-            ? traditionalBeforeRmd
-            : traditionalBeforeRmd * (1 - pctA);
-      let rmdA = age >= rmdStartAge(state.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
-        rmdB =
-          !singlePerson && ageB >= rmdStartAge(state.ageB)
-            ? traditionalShareB / rmdDivisor(ageB)
-            : 0;
-      // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
-      // retiring before 59.5, running from their retirement age through the
-      // later of 5 years or age 59.5 (IRS "RMD method"), sized off that
-      // partner's own share of the pooled traditional balance. Folded
-      // directly into rmdA/rmdB so it's taxed and force-withdrawn from
-      // traditional exactly like an RMD (SEPP income is ordinary income,
-      // same as an RMD); sepp72A/B are kept separately only so they can be
-      // exposed on the row for display, below. Each partner's SEPP is
-      // independently toggleable (sepp72tEnabledA/B) — electing 72(t) for
-      // one partner's account doesn't require or affect the other's.
-      const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
-        sepp72EndB = Math.max(retireAgeB + 5, 59.5);
-      let sepp72A =
-          state.sepp72tEnabledA &&
-          !workingA &&
-          retireAgeA < 59.5 &&
-          age >= retireAgeA &&
-          age < sepp72EndA
-            ? traditionalShareA / singleLifeDivisor(age)
-            : 0,
-        sepp72B =
-          !singlePerson &&
-          state.sepp72tEnabledB &&
-          !workingB &&
-          retireAgeB < 59.5 &&
-          ageB >= retireAgeB &&
-          ageB < sepp72EndB
-            ? traditionalShareB / singleLifeDivisor(ageB)
-            : 0;
-      if (isSurvivorPeriod) {
-        if (deceasedIsA) {
-          rmdA = 0;
-          sepp72A = 0;
-        } else {
-          rmdB = 0;
-          sepp72B = 0;
-        }
-      }
-      rmdA += sepp72A;
-      rmdB += sepp72B;
-      const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
-      let housing;
-      const ownsHome =
-        state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-      const propCosts = ownsHome
-        ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-          state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-        : 0;
-      if (state.tenure === 'own') {
-        const annualPI = schedule.payments[year] || 0;
-        mortgage = schedule.balances[year] || 0;
-        housing = annualPI + state.maintenance * factor + propCosts;
-      } else if (state.tenure === 'rent') {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else if (year < futureBuy.buyYear) {
-        housing = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-      } else {
-        const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
-        mortgage = futureBuy.buySchedule.balances[year] || 0;
-        housing =
-          buyAnnualPI +
-          state.maintenance * factor +
-          propCosts +
-          (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
-        if (year === futureBuy.buyYear) home = futureBuy.homeValueAtPurchase;
-      }
+      const { ssA, ssB, ss } =
+        socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+      const { pensionA, pensionB, pension } =
+        pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+      const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B } = requiredDistributions({
+        traditional,
+        bondTraditional,
+        age,
+        ageB,
+        singlePerson,
+        isSurvivorPeriod,
+        deceasedIsA,
+        pctA,
+        workingA,
+        workingB,
+        retireAgeA,
+        retireAgeB,
+      });
+      const housingYear = housingForYear(year, factor, schedule, futureBuy);
+      const housing = housingYear.housing;
+      if (housingYear.mortgage !== null) mortgage = housingYear.mortgage;
+      if (housingYear.homeValue !== null) home = housingYear.homeValue;
       const loanPayment = isSurvivorPeriod && year > deathYear
         ? 0
         : year === deathYear
