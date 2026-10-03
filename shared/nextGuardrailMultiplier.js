@@ -10,3 +10,37 @@
     }
     return multiplier;
   }
+  // Per-run guardrail bookkeeping, a plain object so the US MAGI-iteration
+  // snapshot can copy it with `{ ...g }` and restore it with Object.assign.
+  function newGuardrails() {
+    return { multiplier: 1, initialWR: null, prevNeed: null, prevPortfolio: null };
+  }
+  // The factor applied to this year's household spending. Also advances the
+  // lagged rule from last year's recorded withdrawal.
+  function guardrailSpendingMultiplier(g, working) {
+    if (!state.guardrailsEnabled || working) return 1;
+    if (g.prevPortfolio > 0)
+      g.multiplier = nextGuardrailMultiplier({
+        multiplier: g.multiplier,
+        initialWR: g.initialWR,
+        prevNeed: g.prevNeed,
+        prevPortfolio: g.prevPortfolio,
+      });
+    return g.multiplier;
+  }
+  // Records a retired year's withdrawal need (lump expenses excluded) against
+  // the portfolio before the draw; the first one fixes the baseline rate.
+  function recordGuardrailWithdrawal(g, need, portfolioNow, working) {
+    if (!state.guardrailsEnabled || working) return;
+    if (g.initialWR === null && portfolioNow > 0) g.initialWR = need / portfolioNow;
+    g.prevNeed = need;
+    g.prevPortfolio = portfolioNow;
+  }
+  // Mortgage payoff and rent-then-buy fields that both engines return.
+  function mortgageResultAges(futureBuy, schedule) {
+    const payoffYear = state.tenure === 'rentThenBuy' ? futureBuy.payoffYear : schedule.payoffYear;
+    return {
+      payoffAge: payoffYear === null ? null : state.ageA + payoffYear,
+      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
+    };
+  }

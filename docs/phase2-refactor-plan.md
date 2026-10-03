@@ -274,7 +274,7 @@ schema/allow-list from it.
 3.5 Docs: replace the "`ids` / two sync functions" guidance in `CLAUDE.md`
     with the registry rules; keep a short "how to add a field" recipe.
 
-## 7. Step 4: share structure between US and Canada (roadmap item 4) — IN PROGRESS (4.2/4.3 done for JS)
+## 7. Step 4: share structure between US and Canada (roadmap item 4) — DONE (4.1-4.4, helper-only 4.5, 4.6)
 
 Constraint: **no build step** and each file stays self-contained, so the
 options are:
@@ -311,15 +311,30 @@ Plan for A, in order:
 4.6 Update `CLAUDE.md` (Architecture + "US vs Canada") and the file-structure
     paragraph; `index.html` unchanged.
 
-**Status.** Option A is built for the inline JS (steps 4.2 and 4.3):
-`scripts/sync-shared.js` + 29 regions in `shared/NN-name.js`
-(~4,280 byte-identical lines; the planners are unchanged apart from the
-`// @@shared:<name> begin/end` marker comments). `npm test` starts with
-`--check`; `npm run sync` rewrites both files from `shared/`;
-`npm run sync -- --pull Planner_US.html` copies an in-place edit back into
-`shared/` first. Regions were picked as contiguous identical runs of >= 20
-lines, trimmed to balanced top-level boundaries. Still open: 4.1 (cosmetic
-drift so more code joins a region), 4.4 (CSS/HTML), 4.5 (engine skeleton), 4.6.
+**Status: done.** Option A is built (`scripts/sync-shared.js`, fragments in
+`shared/`, `--check` first in `npm test`):
+
+- 4.1: comment-only and cosmetic drift was unified (country-specific wording
+  stays per planner); 14 more JS regions, 43 in all.
+- 4.2/4.3: `scripts/sync-shared.js` with `npm run sync` / `check:shared` /
+  `--pull`. The marker style picks the fragment type: `// @@shared:x begin`
+  (JS, `shared/x.js`), `/* ... */` (CSS, `shared/x.css`), `<!-- ... -->`
+  (markup, `shared/x.html`).
+- 4.4: the whole `<style>` block is one shared region (Canada gained the
+  mobile `.review-nav` offset it was missing); 10 markup regions share the
+  identical sections. Most sidebar markup stays per planner because
+  country-specific fields are interleaved with shared ones. 54 regions total.
+- 4.5 (decision: helper-only). Shared stage helpers were extended instead of a
+  hook-based engine skeleton: `newGuardrails`/`guardrailSpendingMultiplier`/
+  `recordGuardrailWithdrawal` (guardrail state is one plain object, snapshotted
+  by the US MAGI iteration with `{ ...guardrails }`) and `mortgageResultAges`.
+  The two `runProjection` year loops stay per-country: most of their lines
+  differ textually (the stage order is shared, the code is not), a hook
+  object would mostly rename ~100 country-specific variables, add per-year
+  allocation to a hot path, and risk reordering float operations that the
+  exact-to-the-cent tests pin. Revisit only with a before/after timing
+  benchmark and a few-percent slowdown budget.
+- 4.6: this file and `CLAUDE.md` describe the above.
 
 ## 8. Order of work and verification gates
 

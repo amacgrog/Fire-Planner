@@ -7,8 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators
 for a couple or single person — one for the US, one for Canada. Everything
 (markup, CSS, and JS) lives in one `<script>` block per file; there is no build
-step, no bundler, no framework, and no server. Opening the `.html` file in a
-browser is the entire deployment. See `README.md` for the full user-facing
+step needed to run, no bundler, no framework, and no server. Opening the
+`.html` file in a browser is the entire deployment. (Code identical in both
+planners is kept in sync by the dev-time `scripts/sync-shared.js`; see
+"Shared code between the planners".) See `README.md` for the full user-facing
 feature list.
 
 ## Files
@@ -128,7 +130,7 @@ Each planner is one big IIFE. Core shape:
   `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3). Rules for
   editing a year body: anything that mutates closure state before the
   convergence check must be in the snapshot (`bal` fields are rewound
-  automatically; add new scalar `let`s to `scalarSnapshot`), and never add a `continue`/`break` that is meant for the year
+  automatically; add new scalar `let`s to `scalarSnapshot`; the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
   loop. `prevDiscTraditional`/`prevTaxableGainGross` only seed pass 0.
   `row.magiProxy` is the realized MAGI and `magiHistory[year]` is
   overwritten with it after convergence; the in-body assignment is
@@ -149,8 +151,9 @@ Each planner is one big IIFE. Core shape:
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
   `bal.cash`, `bal.home`, `bal.mortgage`, plus `bal.fhsa` in Canada), not loose
   `let`s. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
-  rewound automatically; only scalars (depletedAge, guardrail state) still need
-  adding to `scalarSnapshot`.
+  rewound automatically; only scalars (depletedAge, firstWithdrawal) still need
+  adding to `scalarSnapshot`; guardrail state lives in a `guardrails` object
+  (`newGuardrails`, `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`).
 - **Withdrawals** build a `wd` object (`newWithdrawal`) and run a strategy:
   `withdrawStandard` (simulate: explicit/optimizer mix, live mix, smooth, or
   taxable-then-traditional, then the Roth/cash/bond/home fallback) or
@@ -239,7 +242,13 @@ and run `npm run sync`, or edit a planner in place, then
 the planners stay self-contained and run by opening the file. To make code
 shared that currently differs, first remove the difference (see
 `docs/phase2-refactor-plan.md` section 7), then wrap it in a new region (add
-the markers to both files plus a `shared/` fragment).
+the markers to both files plus a `shared/` fragment). Marker style picks the
+fragment type: `// @@shared:x begin` (JS, `shared/x.js`), `/* @@shared:x begin */`
+(CSS) and `<!-- @@shared:x begin -->` (markup). The whole stylesheet is one
+shared region, so a CSS change is made once. The two `runProjection` year
+loops are deliberately not shared (see plan section 7, step 4.5): put a new
+per-year rule in a shared stage helper when it is identical in both
+countries, otherwise edit each loop.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 

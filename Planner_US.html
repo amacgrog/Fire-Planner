@@ -4479,6 +4479,40 @@
     }
     return multiplier;
   }
+  // Per-run guardrail bookkeeping, a plain object so the US MAGI-iteration
+  // snapshot can copy it with `{ ...g }` and restore it with Object.assign.
+  function newGuardrails() {
+    return { multiplier: 1, initialWR: null, prevNeed: null, prevPortfolio: null };
+  }
+  // The factor applied to this year's household spending. Also advances the
+  // lagged rule from last year's recorded withdrawal.
+  function guardrailSpendingMultiplier(g, working) {
+    if (!state.guardrailsEnabled || working) return 1;
+    if (g.prevPortfolio > 0)
+      g.multiplier = nextGuardrailMultiplier({
+        multiplier: g.multiplier,
+        initialWR: g.initialWR,
+        prevNeed: g.prevNeed,
+        prevPortfolio: g.prevPortfolio,
+      });
+    return g.multiplier;
+  }
+  // Records a retired year's withdrawal need (lump expenses excluded) against
+  // the portfolio before the draw; the first one fixes the baseline rate.
+  function recordGuardrailWithdrawal(g, need, portfolioNow, working) {
+    if (!state.guardrailsEnabled || working) return;
+    if (g.initialWR === null && portfolioNow > 0) g.initialWR = need / portfolioNow;
+    g.prevNeed = need;
+    g.prevPortfolio = portfolioNow;
+  }
+  // Mortgage payoff and rent-then-buy fields that both engines return.
+  function mortgageResultAges(futureBuy, schedule) {
+    const payoffYear = state.tenure === 'rentThenBuy' ? futureBuy.payoffYear : schedule.payoffYear;
+    return {
+      payoffAge: payoffYear === null ? null : state.ageA + payoffYear,
+      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
+    };
+  }
   // @@shared:nextGuardrailMultiplier end
 
   // Highest MAGI a Roth conversion (and, in simulate(), the withdrawal order)
@@ -5090,10 +5124,7 @@
     // is nudged down or up by 10% (persisting until the next trigger, capped
     // to a 0.5x-1.5x band) — a lagged proxy, since this year's own
     // withdrawal need can't be known before this year's spending is set.
-    let guardrailMultiplier = 1,
-      guardrailInitialWR = null,
-      guardrailPrevNeed = null,
-      guardrailPrevPortfolio = null;
+    const guardrails = newGuardrails();
     // Survivor modeling (simplified, opt-in): from the chosen partner's
     // death age onward, the household switches to single filing, the
     // survivor keeps the greater of the two Social Security benefits (a
@@ -5217,12 +5248,14 @@
         estUsed = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
-        const scalarSnapshot = { depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio };
+        const scalarSnapshot = { depletedAge, firstWithdrawal };
+        const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothLedgerClone(rothLedger);
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
-            ({ depletedAge, firstWithdrawal, guardrailMultiplier, guardrailInitialWR, guardrailPrevNeed, guardrailPrevPortfolio } = scalarSnapshot);
+            ({ depletedAge, firstWithdrawal } = scalarSnapshot);
+            Object.assign(guardrails, guardrailSnapshot);
             rothLedgerRestore(rothLedger, ledgerSnapshot);
           }
           estUsed = false;
@@ -5274,16 +5307,9 @@
         // taxable-brokerage gains, so it does not understate income in years
         // funded mostly by withdrawals.
         let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
-        if (state.guardrailsEnabled && !working && guardrailPrevPortfolio > 0)
-          guardrailMultiplier = nextGuardrailMultiplier({
-            multiplier: guardrailMultiplier,
-            initialWR: guardrailInitialWR,
-            prevNeed: guardrailPrevNeed,
-            prevPortfolio: guardrailPrevPortfolio,
-          });
         const baseSpend =
           baseSpendingNominal(age, year, factor, incomeFactor) *
-          (state.guardrailsEnabled && !working ? guardrailMultiplier : 1) *
+          guardrailSpendingMultiplier(guardrails, working) *
           (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
         // acaEligibleA/B (computed above, before the Roth-conversion guard) say
         // which partners are on the individual market this year.
@@ -5361,12 +5387,7 @@
         } else {
           wd.need = -flow;
           if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
-          if (state.guardrailsEnabled && !working) {
-            if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-              guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
-            guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
-            guardrailPrevPortfolio = guardrailPortfolioNow;
-          }
+          recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
           // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
@@ -5495,29 +5516,13 @@
         currentExpense: projectedExpense(0),
         retirementExpense: ladder.ladderTranches[0],
         ladderTarget: ladder.ladderTarget,
-      payoffAge:
-        state.tenure === 'rentThenBuy'
-          ? futureBuy.payoffYear === null
-            ? null
-            : state.ageA + futureBuy.payoffYear
-          : schedule.payoffYear === null
-            ? null
-            : state.ageA + schedule.payoffYear,
-      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
+      ...mortgageResultAges(futureBuy, schedule),
       };
     return {
       rows,
       depletedAge,
       startYear: source.startYear,
-      payoffAge:
-        state.tenure === 'rentThenBuy'
-          ? futureBuy.payoffYear === null
-            ? null
-            : state.ageA + futureBuy.payoffYear
-          : schedule.payoffYear === null
-            ? null
-            : state.ageA + schedule.payoffYear,
-      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
+      ...mortgageResultAges(futureBuy, schedule),
     };
   }
 
