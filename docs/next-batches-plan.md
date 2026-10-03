@@ -7,7 +7,37 @@ Source of scope: `docs/roadmap.md` ("After Phase 2" and "Phase 3") and
 
 This plan is sequential on purpose: every numeric batch touches `runProjection()`
 and regenerates the exact-match snapshots, so parallel branches would conflict.
-Each batch gets a sign-off before it starts.
+
+## Review gate (decided)
+
+- Each batch (and each sub-batch) is **one pull request into
+  `claude/tender-meitner-a3bo59`**, never into `main`. The owner reviews and
+  merges it before the next batch starts.
+- Work for the next batch begins only after the previous PR is merged: the
+  working branch is then reset to the updated `tender-meitner` tip and the
+  next batch's commits go on top (the working branch is
+  `claude/dazzling-thompson-rp3l5j`; its merged history is never reused).
+- A PR is opened only when the owner asks for it (or this plan's batch is
+  declared ready); the PR description lists the commits, the before/after
+  tables for any intended number changes, and the `npm test` result.
+- Each batch's exit criteria below are what the PR must demonstrate.
+
+## Decisions already made by the owner
+
+1. Mix modes in the bucket (historical) engine replace only the stock-account
+   step: the taxable -> traditional (Canada: RRSP/RRIF) -> Roth (Canada: TFSA)
+   order. Cash and bond buckets keep their position in the cascade.
+2. The temporary senior deduction ends after tax year 2028 and is modeled that
+   way. A visible note (UI info bubble, `docs/reference.md`, and a code comment
+   at the tax-parameter table) says it must be revisited if Congress extends
+   it, when tax details are next updated for 2027.
+3. No Medicare late-enrollment penalties. A retiree who is not working at 65 is
+   assumed to enroll in Medicare Part B and D at 65. A partner still working
+   at 65 is assumed to be able to wait without penalty and enrolls when they
+   stop working.
+4. The Canada optimizer port is its own sub-batch (4B), separate from Canada
+   mixed withdrawals (4A).
+5. PR-per-batch into `tender-meitner`, reviewed before moving on (above).
 
 ## Ground rules (every item)
 
@@ -77,11 +107,13 @@ Order (each its own commit, lowest risk first):
    once from the plan inflation (decided Q2), as the standard engine does.
 5. **F4/F5/F6: mix modes inside the bucket strategy** (US: applied/override,
    live, smooth; Canada: smooth only).
-   Design question to settle with the owner before coding: how a mix interacts
-   with the bucket cascade. Proposal: the cascade order is unchanged (down year:
-   cash, bond buckets, then stock accounts; up year: stock accounts first). The
-   mix modes replace only the "stock accounts" step's taxable/traditional(/Roth)
-   split, so the sequence-risk reserve semantics are preserved.
+   Decided: the cascade order is unchanged (down year: cash, bond buckets, then
+   stock accounts; up year: stock accounts first). The mix modes replace only
+   the "stock accounts" step, i.e. the taxable -> traditional -> Roth order
+   (Canada: taxable -> RRSP/RRIF -> TFSA), so the sequence-risk reserve
+   semantics are preserved. `BUCKET_STEP.taxable/traditional/roth` are
+   consulted as one grouped step that delegates to the same mix code
+   `withdrawStandard` uses.
 6. **Gradual bond refill** (historical only). In up years, move at most one
    year of that year's expenses from stocks into the bond bucket until it
    reaches target, instead of refilling all at once (`refillBondReserve` gains a
@@ -110,18 +142,31 @@ steering withdrawals by MAGI room. New inputs default to today's behavior.
 1. **Centralize the standard deduction.** Replace the three hard-coded
    `32200`/`16100` sites with one `standardDeduction(filing, year, ages)`
    helper returning the base amount. Pure refactor: all snapshots identical.
-2. **Medicare enrollment** (new per-partner inputs, defaults = today).
-   - Fields: `medicareStartAgeA/B` (default 65, i.e. today) and, for people who
-     keep working past 65 on an employer plan, a flag that defers Part B while
-     the employer plan is primary. Part B/D late-enrollment penalties are out of
-     scope unless the owner asks (note in the UI).
-   - `healthcareCost()`'s `medicareEligibleA/B` becomes "age >= start age and
-     not deferred". `acaEligibility()` must treat a partner who has not yet
-     started Medicare, is retired, and is 65+ as ACA-eligible (today `age < 65`
-     hard-stops ACA). The IRMAA gate (`irmaa_gating`) follows the same flag.
-   - Tests: `tests/medicare_enrollment.js` (defaults reproduce snapshots;
-     delayed start moves Medicare cost and ACA eligibility; survivor symmetry
-     still holds, run `survivor_symmetry.js`).
+2. **Medicare enrollment** (decided rule: no penalties).
+   - Rule: a partner who is not working at 65 enrolls in Part B and D at 65. A
+     partner still working at 65 defers without penalty and starts Medicare the
+     year they stop working (their own retirement age, at least 65). While
+     deferred, they pay no Medicare cost and no IRMAA, and their employer plan
+     (the existing `healthPremiumA/B` payroll deduction) is the coverage.
+   - Input: one per-partner checkbox, `delayMedicareWhileWorkingA/B`, default
+     **on** (the owner's stated assumption). Turn it off for someone who is
+     working past 65 with no employer coverage (e.g. self-employed), who must
+     enroll at 65. One info bubble explains the assumption; the UI says plainly
+     that late-enrollment penalties are not modeled.
+   - Engine: `healthcareCost()`'s `medicareEligibleA/B` (today purely
+     `age >= 65`) becomes `age >= 65 && !(delayWhileWorking && stillWorking)`.
+     The IRMAA surcharge is computed only for partners actually on Medicare.
+     `acaEligibility()` is **not** changed: it already requires age < 65, and a
+     retired 65+ partner is on Medicare, not ACA.
+   - This is an intended default change for any scenario where a partner works
+     past 65, so it needs a before/after and a snapshot update; scenarios where
+     everyone retires by 65 must not move.
+   - Existing test to revisit: `tests/irmaa_gating.js` asserts the surcharge
+     applies while still working; update it with the new rule and say why.
+   - Tests: `tests/medicare_enrollment.js` (retire before 65: unchanged; work to
+     68 with the box on: no Medicare/IRMAA until 68, cost from 68; box off:
+     enrolls at 65; one partner working and one retired; survivor case, run
+     `survivor_symmetry.js`).
 3. **Age-based and itemized deductions, built together.**
    - First, verify current rules and write them down in the commit and in
      `docs/reference.md` with sources: the 65+/blind additional standard
@@ -132,6 +177,16 @@ steering withdrawals by MAGI room. New inputs default to today's behavior.
      the senior deduction as its own phase-out function of MAGI. This changes
      default numbers for anyone 65+ in the projection, so it is an intended
      snapshot update with a before/after.
+   - **Senior deduction sunset (decided):** applies for tax years through 2028
+     only, then is zero. Because the engine indexes brackets from today and
+     tax years are explicit (`yearIndex`), the cutoff is a named constant
+     (`SENIOR_DEDUCTION_LAST_YEAR = 2028`) next to the other tax parameters, with
+     a comment, an info bubble on the deduction, and a `docs/reference.md` note:
+     *revisit if Congress extends it, when tax details are next updated for
+     2027.* A test pins the cutoff (2028 gets it, 2029 does not).
+   - SALT cap: apply current law as written, including its scheduled step-down,
+     by explicit tax year; any scheduled sunset gets the same named constant and
+     the same "revisit when extended" note.
    - Itemized: new lists or fields for charity/QCD, medical (above the AGI
      floor), SALT (capped), and mortgage interest read from `mortgageSchedule()`
      (no new input for that). Deduction = max(standard, itemized) each year.
@@ -201,14 +256,30 @@ so this batch may need to extract the mix code from `withdrawStandard` into a
    - UI: controls matching the US ones, plus the info bubbles.
    - Check: `solvePensionSplit()` runs before the draw is evaluated; the RRSP
      meltdown ladder and the mix do not double count RRSP income.
-3. **Port the multi-lever optimizer** (US-only today) to Canada, with the
-   RRSP meltdown ladder as the Roth-lever analogue and the mix lever on the new
-   hooks. Largest piece; may split into its own sub-batch.
-4. Tests: `tests/canada_mix.js` (defaults unchanged; mix reduces OAS clawback in
+3. Tests: `tests/canada_mix.js` (defaults unchanged; mix reduces OAS clawback in
    a constructed case; TFSA never taxed), survivor symmetry for Canada.
 
-Design decision to confirm with the owner: CPP/OAS claim-age adjustments change
-saved scenarios, so they are a separate item (Batch 6), not part of this one.
+Batch 4 is two PRs: **4A** = steps 1-3 above (credits and mixed withdrawals);
+**4B** = the optimizer port below (decided: its own sub-batch).
+
+### 4B: port the multi-lever optimizer to Canada
+
+Starts only after 4A is merged, since the mix lever needs the Canada mix modes.
+- Port `optimizeMultiLever` and its candidate/window/budget machinery, with the
+  RRSP meltdown ladder as the Roth-lever analogue (candidates are bracket
+  targets or annual RRSP draw levels, to be chosen when 4B is scoped) and the mix
+  lever on the 4A hooks.
+- Reuse as much of the US optimizer as can live in `shared/`; the objective is
+  tax + healthcare equivalent (Canadian tax + OAS clawback; no ACA/IRMAA).
+- Interactions to test: pension splitting (`solvePensionSplit()`), the OAS
+  clawback threshold, and the 4A mix. Applied schedules persist in `state` and
+  need `normalizeState` guards and legacy-state cases.
+- UI: the same results card and "apply" flow as the US planner; mobile check.
+- If scoping 4B shows it is still too large for one reviewable PR, split it
+  (search engine first, UI second) and say so before starting.
+
+Design decision (deferred, owner): CPP/OAS claim-age adjustments change saved
+scenarios, so they are a separate item (Batch 6), not part of this one.
 
 ---
 
@@ -252,15 +323,11 @@ timing both depend on them.
 
 ---
 
-## Open decisions for the owner
+## Open items
 
-1. Batch 1 step 5: confirm that mix modes replace only the stock-account step
-   of the bucket cascade (proposal above).
-2. Batch 2: senior-deduction and SALT rules apply as law stands for the years
-   they are in force, then hold constant in real terms afterward? Or hold the
-   last-known values flat? (Affects far-future years only.)
-3. Batch 2: Part B/D late-enrollment penalties modeled or only disclosed?
-4. Batch 4: one batch for Canada mix + optimizer port, or split the optimizer
-   port into its own sub-batch?
-5. Gate between batches: PR per batch into `tender-meitner`, or commits on this
-   branch with a summary at each exit?
+None of the earlier questions remain open (see "Decisions already made by the
+owner"). Still to be settled when the relevant batch is scoped:
+- Batch 4B: which candidate set the RRSP-meltdown lever searches.
+- Batch 6: the shape of the CPP/OAS claim-age change (affects saved scenarios).
+- Batch 2: current SALT and age-deduction figures, to be verified from
+  primary sources at the start of that batch and recorded in the commit.
