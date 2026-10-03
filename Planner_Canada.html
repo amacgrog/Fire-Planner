@@ -1017,6 +1017,7 @@
     { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
     { key: 'meltdownBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
   ];
+  // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
   function syncFieldDom(field) {
@@ -1031,6 +1032,7 @@
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
   // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
+  // @@shared:ids end
   const mcpSchemaFor = (field) =>
     field.type === 'number'
       ? { type: 'number' }
@@ -1064,7 +1066,7 @@
   let state = normalizeState(null),
     mode = 'real',
     chartView = '3yr',
-    // Display-only, like chartView/mode/logScale below: which partner(s)
+    // Display-only, like chartView/mode/logScale: which partner(s)
     // move for the ±1yr/±3yr comparison chart. 'together' shifts both
     // partners' dates by the same amount (today's original behavior);
     // 'gap' shifts only one partner's date, narrowing or widening the gap
@@ -1079,14 +1081,14 @@
     // sticks regardless of which partner is actually earlier — full
     // manual control, not just auto-detection.
     chartGapPartner = null,
-    // Display-only: which value the chart's x-axis is labeled/scrubbed in.
-    // All three are just an affine transform of the same underlying `age`
-    // (Partner A's age) every row already carries — 'ageB' = age - ageA +
-    // state.ageB, 'year' = CURRENT_YEAR + (age - ageA) — so this never
-    // changes how rows are generated or how the chart's internal x(age)
-    // pixel-mapping works, only how tick labels and the hover-tooltip
-    // header are formatted. Not part of state/scenario export, resets to
-    // 'ageA' on reload.
+    // Display-only, like chartShiftMode above: which value the chart's
+    // x-axis is labeled/scrubbed in. All three are just an affine
+    // transform of the same underlying `age` (Partner A's age) every row
+    // already carries — 'ageB' = age - ageA + state.ageB, 'year' =
+    // CURRENT_YEAR + (age - ageA) — so this never changes how rows are
+    // generated or how the chart's internal x(age) pixel-mapping works,
+    // only how tick labels and the hover-tooltip header are formatted.
+    // Not part of state/scenario export, resets to 'ageA' on reload.
     chartXAxisMode = 'ageA',
     logScale = false,
     // Display-only, like the above: whether the chart card is in its
@@ -1155,23 +1157,25 @@
   }
   // @@shared:02-CHART_GROUPS end
   // Category rail: filters .category-fields down to a single category's
-  // groups at a time, at every width including mobile. Not persisted to
-  // localStorage on purpose: unlike sidebarCollapsed (a standing layout
-  // choice), a category filter is a transient "where am I looking right
-  // now" and should reset to a known-good "All" on every fresh load
-  // rather than possibly strand a returning visitor on a narrow filter
-  // they've forgotten about.
-  //
-  // scrollToRail: opt-in only. The rail's own click handler passes true,
-  // since on mobile .panel has no independent scroll container (see the
-  // max-width:820px rule) so tapping a pill partway down a filtered list
-  // would otherwise leave the rail itself scrolled off-screen. The other
-  // three callers (jumpToEstimateField, jumpToSearchField's result
-  // selection, and the resize-reapply listener) must NOT pass this —
-  // each already scrolls to its own more specific target right after
-  // calling setActiveCategory(), and jumping to the rail first would
-  // fight that second scroll.
+  // @@shared:activeCategory begin
+  // groups at a time — available at every width (originally desktop-only;
+  // the rail was hidden outright on mobile via CSS and filtering itself
+  // was gated behind an `isDesktop` check below, both removed since a
+  // category filter is at least as useful on a long, single-column mobile
+  // inputs list as it is on desktop). Not persisted to localStorage on
+  // purpose: unlike sidebarCollapsed (a standing layout choice), a
+  // category filter is a transient "where am I looking right now" and
+  // should reset to a known-good "All" on every fresh load rather than
+  // possibly strand a returning visitor on a narrow filter they've
+  // forgotten about.
   let activeCategory = 'all';
+  // `scrollToRail`: only the rail's own click handler (below) passes this —
+  // jumpToEstimateField()/the search-result jump/the resize-reapply
+  // listener all call setActiveCategory() too (resetting to 'all' so a
+  // field outside the current filter isn't left sitting in a display:none
+  // group), and each of those already has its own scroll target right
+  // after, so scrolling to the rail first would just add a visible
+  // double-scroll in front of the scroll they actually wanted.
   function setActiveCategory(cat, { scrollToRail = false } = {}) {
     activeCategory = cat;
     const rail = document.getElementById('categoryRail');
@@ -1186,12 +1190,21 @@
     });
     const isMobile = window.innerWidth <= 820;
     if (isMobile) {
+      // .panel is part of normal page flow on mobile (no independent
+      // scrollTop to reset — see the max-width:820px media query), and
+      // the rail itself isn't sticky, so a tap after scrolling partway
+      // down a long filtered list would otherwise leave the rail
+      // off-screen with no way back to it except scrolling up by hand.
+      // scroll-margin-top on .category-rail (set from --mobile-sticky-h +
+      // --field-search-h, see syncPlanStatusOffsets()) lands it just below
+      // the sticky status bar/tabs/search stack rather than underneath it.
       if (scrollToRail) rail?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       const panel = document.querySelector('.panel');
       if (panel) panel.scrollTop = 0;
     }
   }
+  // @@shared:activeCategory end
   // @@shared:03-hadSavedState begin
   // Whether a real, previously-saved plan was found in this browser at
   // boot — used below to skip showing the first-run banner (there's
@@ -2530,6 +2543,7 @@
       personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB)
     );
   }
+  // @@shared:drawTaxable begin
   function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
     if (pool <= 0 || need <= 0) return { taken: 0, net: 0, gain: 0, basisTaken: 0 };
     const gainRatio = clamp(1 - basis / pool, 0, 1),
@@ -2549,6 +2563,7 @@
       net = taken - incrementalTax(taken);
     return { taken, net, gain: taken * gainRatio, basisTaken: taken * basisRatio };
   }
+  // @@shared:drawTaxable end
   // RRSP meltdown ladder — withdraws from RRSP each year in the chosen
   // window, solving for the gross withdrawal that fills that person's
   // taxable income up to the top of the selected federal bracket. Net
@@ -2860,6 +2875,7 @@
   }
   // @@shared:08-pensionIncome end
 
+  // @@shared:loanPaymentForYear begin
   // Total "other loans" payment for the year. In the survivor period the
   // remaining balance is paid off as a lump sum in the year of death
   // (approximating debts settled through probate) and nothing is owed after.
@@ -2875,7 +2891,9 @@
         : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
     return { loanPayment };
   }
+  // @@shared:loanPaymentForYear end
 
+  // @@shared:nextGuardrailMultiplier begin
   // Guyton-Klinger guardrails (simplified): compares last withdrawal year's
   // draw rate to the rate at the first withdrawal. A rate more than 20% above
   // it cuts discretionary spending 10%; more than 20% below raises it 10%; the
@@ -2888,6 +2906,7 @@
     }
     return multiplier;
   }
+  // @@shared:nextGuardrailMultiplier end
 
   // Takes the year's mandatory distribution (RMD + 72(t) SEPP) out of the
   // traditional balance first, then out of the traditional bond bucket.
@@ -3249,11 +3268,12 @@
       taxableWithdrawn: 0,
     };
   }
+  // @@shared:takeTaxable begin
   // Each take*() draws up to `amount` of net cash from one bucket, updates the
   // balances and the running totals on `wd`, and returns the NET cash raised
-  // (after the tax the draw itself triggers). The caller subtracts it from
-  // wd.need, because the strategies differ in whether a tiny overshoot is
-  // clamped at zero. `bucket` is 'taxable' | 'bondTaxable'.
+  // (after any tax or penalty the draw itself triggers). The caller subtracts
+  // it from wd.need, because the strategies differ in whether a tiny overshoot
+  // is clamped at zero. `bucket` is 'taxable' | 'bondTaxable'.
   function takeTaxable(wd, bucket, amount) {
     const { bal } = wd;
     const basisKey = TAXABLE_BASIS_KEY[bucket];
@@ -3264,6 +3284,7 @@
     wd.taxableWithdrawn += d.taken;
     return d.net;
   }
+  // @@shared:takeTaxable end
   // RRSP/RRIF withdrawals are fully taxable income. `bucket` is 'traditional' |
   // 'bondTraditional'; `solver` picks the bisection bracket.
   function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
@@ -3281,6 +3302,7 @@
     wd.bal[bucket] -= from;
     return from;
   }
+  // @@shared:takeCash begin
   function takeCash(wd, amount) {
     const from = Math.min(wd.bal.cash, amount);
     wd.bal.cash -= from;
@@ -3294,6 +3316,7 @@
     bal.home -= from;
     return from;
   }
+  // @@shared:takeCash end
   // How much RRSP to withdraw to net `targetNet` after tax, by bisection over
   // [0, min(balance, 3*target + 1)]. Used for the smooth-withdrawal RRSP share.
   function solveTraditionalForNet(traditionalBal, targetNet, taxableGainGross, traditionalGross, profile) {
@@ -3360,6 +3383,7 @@
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
   // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
+  // A draw that leaves a tiny overshoot is clamped to zero remaining need.
   const BUCKET_STEP = {
     cash: (wd) => (wd.need -= takeCash(wd, wd.need)),
     bondTaxable: (wd) => {
@@ -3380,20 +3404,22 @@
     roth: (wd) => (wd.need -= takeRoth(wd, 'roth', wd.need)),
     home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
   };
+  // @@shared:BUCKET_DOWN_YEAR_ORDER begin
   const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'].map((k) => BUCKET_STEP[k]);
   const BUCKET_UP_YEAR_ORDER = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
   // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
   // comes from cash, then the bond-reserve buckets, and only then from the
-  // stock accounts (taxable, RRSP, TFSA) and home equity. In an up year it comes
-  // from the stock accounts first, then cash, bonds and home, and any shortfall
-  // in the bond reserve versus `bondTarget` is topped back up from the same
-  // stock-account order.
+  // stock accounts (taxable, tax-deferred, tax-free) and home equity. In an up
+  // year it comes from the stock accounts first, then cash, bonds and home, and
+  // any shortfall in the bond reserve versus `bondTarget` is topped back up from
+  // the same stock-account order. A draw that leaves a tiny overshoot is clamped
+  // to zero remaining need.
   function withdrawBucket(wd, { yearReturn, bondTarget }) {
     for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd);
     if (yearReturn >= 0) refillBondReserve(wd.bal, bondTarget);
   }
-
+  // @@shared:BUCKET_DOWN_YEAR_ORDER end
   // @@shared:10-refillBondReserve begin
   // Tops the bond reserve up to bondTarget from taxable, then traditional, then
   // Roth (taxable moves carry their share of cost basis).
@@ -4115,7 +4141,7 @@
   // shows a depletion age, first tests "structural" single-lever changes tied
   // to a specific input (LTC off, healthcare premiums off) by temporarily
   // mutating state and re-running simulate(), then restoring state exactly —
-  // same mutate/simulate/restore pattern as simulateAtRealCagr() below. These
+  // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
   // @@shared:14-findMinimalSpendingCut begin
   // are reported whenever any of them helps, because they're a specific,
   // non-obvious diagnosis. Only when none of them help does it fall back to
@@ -4302,12 +4328,11 @@
   // resulting end-assets value, holding every other input fixed. This is a
   // one-at-a-time sensitivity sweep, not a joint/probabilistic analysis like
   // Monte Carlo — it answers "which single assumption matters most," not
-  // "what's the range of likely outcomes."
-  // Which levers actually run is controlled by the checkboxes in
-  // #sensLeverToggles (data-lever id ↔ this array's `id`), so a lever with
-  // no visible impact on your plan (e.g. long-term care cost, if you
-  // haven't enabled LTC) can be left unchecked rather than cluttering the
-  // chart with a zero-width bar.
+  // "what's the range of likely outcomes." Which levers actually run is
+  // controlled by the checkboxes in #sensLeverToggles (data-lever id ↔
+  // this array's `id`), so a lever with no visible impact on your plan (e.g.
+  // long-term care cost, if you haven't enabled LTC) can be left unchecked
+  // rather than cluttering the chart with a zero-width bar.
   const SENSITIVITY_LEVERS = [
     {
       id: 'return',
@@ -4491,6 +4516,7 @@
   }
   // @@shared:16-decisionEndAssets end
   // A compact one-line preview shown right on each "Explore a question"
+  // @@shared:compactDecisionDelta begin
   // button, so the likely answer is visible at a glance without clicking
   // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
   // Deliberately reuses the two most extreme rows a compare-question's
@@ -4521,11 +4547,12 @@
           ? ''
           : ` · lasts to ${decisionDepletionLabel(right.sim)}`,
       // Strip only the "(current)" annotation some labels carry — unlike a
-      // substantive parenthetical (e.g. rothLadder's/meltdown's window
-      // annotation), that tag is just noise once shown as A → B on a button.
+      // substantive parenthetical (e.g. a conversion ladder's age window), that
+      // tag is just noise once shown as A → B on a button.
       stripCurrent = (s) => s.replace(/\s*\(current\)\s*$/, '').trim();
     return `${stripCurrent(left.label)} → ${stripCurrent(right.label)}: ${dollarPart}${lastsPart}`;
   }
+  // @@shared:compactDecisionDelta end
   // @@shared:17-renderDecisionQuestionPreviews begin
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
   // ones (sensitivity, returns) don't compare two scenarios, they just hand
@@ -4555,9 +4582,9 @@
   // @@shared:17-renderDecisionQuestionPreviews end
   function renderDecisionCompareTable(rows) {
     // "Investments last through" follows the same "Age {maxLifeExpectancy}+"
-    // convention as the main scenario-compare table and the RRSP meltdown
-    // optimizer table (computeScenarioMetrics()/renderRothOptimizer() above)
-    // — a plan that never depletes is described by the age it was actually
+    // convention as the main scenario-compare table and the conversion-ladder
+    // optimizer table (computeScenarioMetrics()/renderRothOptimizer() above) —
+    // a plan that never depletes is described by the age it was actually
     // modeled to, not the word "Never", which read as an error/edge-case
     // rather than a healthy outcome.
     const maxLifeExpectancy = Math.max(
@@ -4743,6 +4770,7 @@
   }
   // @@shared:18-computeSensitivity end
 
+  // @@shared:renderTornadoChart begin
   function renderTornadoChart(selected) {
     const canvas = document.getElementById('tornadoChart');
     if (!canvas) return;
@@ -4766,6 +4794,11 @@
       dpr = Math.min(2, window.devicePixelRatio || 1),
       w = Math.max(340, rect.width),
       h = Math.max(1, results.length) * rowH + p.t + p.b;
+    // .chart-wrap has a fixed CSS height everywhere else in this file (a
+    // fixed-size line/bar chart), but this chart's height depends on how
+    // many levers are checked — up to 10 now, not the original hardcoded 5
+    // — so its own wrap needs to grow with it or the canvas overflows the
+    // fixed-height box and overlaps the chart-note below.
     const wrap = canvas.closest('.chart-wrap');
     if (wrap) wrap.style.height = h + 'px';
     canvas.style.height = h + 'px';
@@ -4832,6 +4865,7 @@
     ctx.fillStyle = chartAxisColor();
     ctx.fillText(label, labelX, p.t - 10);
   }
+  // @@shared:renderTornadoChart end
 
   function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('meltdownBracket').options].map((o) =>
@@ -4863,6 +4897,7 @@
     const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
     return { results, best, currentBracket: savedBracket };
   }
+  // @@shared:SANKEY_HUES begin
   // Validated categorical palette (see the `dataviz` skill's palette.md) —
   // fixed hue order, never cycled/reassigned by rank. Reused across the two
   // columns (sources / uses) since they're spatially separated by the hub,
@@ -4879,6 +4914,7 @@
   function sankeyHue(name, dark) {
     return SANKEY_HUES[name][dark ? 'dark' : 'light'];
   }
+  // @@shared:SANKEY_HUES end
   // Builds the source/use category breakdown for a single projection year,
   // for the cash-flow (Sankey-style) diagram. Any gap between what income
   // covers and what taxes+spending require is shown as either a draw from
@@ -5215,6 +5251,7 @@
   }
   // @@shared:19-layoutSankeyColumn end
 
+  // @@shared:simulateAtRealCagr begin
   function simulateAtRealCagr(realCagrPct) {
     const infl = pct(state.inflation),
       nominal = ((1 + realCagrPct / 100) * (1 + infl) - 1) * 100,
@@ -5234,6 +5271,7 @@
     '#0d9488',
     '#0e7490',
   ];
+  // @@shared:simulateAtRealCagr end
   function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
       subEl = document.getElementById('chartSub'),
@@ -5908,8 +5946,10 @@
           );
         });
         // Header always shows year + both partners' ages regardless of
-        // which one is currently on the x-axis (chartXAxisMode) — so
-        // there's nothing left to mentally convert by hand.
+        // which one is currently on the x-axis (chartXAxisMode) — a real
+        // user specifically wanted the ages/year they *aren't* scrubbing by
+        // visible too, rather than having to mentally convert from
+        // whichever one is on the axis.
         const calYear = CURRENT_YEAR + (age - state.ageA),
           ageBVal = Math.round(age - state.ageA + state.ageB),
           header = state.singlePerson
@@ -7579,6 +7619,7 @@
   }
   // @@shared:26-setChartView end
   // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
+  // @@shared:syncPlanStatusOffsets begin
   // both stick to the top of the viewport as the page scrolls, and the
   // sidebar's own sticky panel-title has to clear both of them too once
   // they're stuck. `--plan-status-h` is just the status bar's own height
@@ -7597,22 +7638,15 @@
     const barH = bar.offsetHeight;
     document.documentElement.style.setProperty('--plan-status-h', barH + 'px');
     const tabsH = tabs && window.innerWidth <= 820 ? tabs.offsetHeight : 0;
-    // Earlier versions of this formula added a "+14" term here (meant to
-    // fold in .mobile-tabs' own CSS margin-bottom into the offset
-    // .field-search-wrap sticks at) plus a "+10" term (for a since-removed
-    // gap between the status bar and .mobile-tabs — see .plan-status-bar's
-    // own padding, which now absorbs that space inside its own opaque box).
-    // Measured with a real scroll gesture, both additions were wrong: with
-    // neither, .field-search-wrap already sticks flush against
-    // .mobile-tabs' true stuck bottom edge (confirmed to the sub-pixel,
-    // matching Planner_US.html's already-correct behavior). With the old
-    // "+14", .field-search-wrap stuck 14px too *low* instead — a real,
-    // uncovered band between .mobile-tabs and the search box where sidebar
-    // content behind them showed through, the same class of bug as the
-    // status-bar/tabs gap this round fixed. A sticky element's own
-    // margin-bottom does not need to be added to a sibling's stuck offset;
-    // trust a measured `getBoundingClientRect()` comparison over a
-    // theoretical box-model argument for this kind of stacking math.
+    // No "+10" gap term here: .mobile-tabs sticks flush against the status
+    // bar's own bottom edge (top:var(--plan-status-h,0px)) rather than 10px
+    // below it. An earlier version left a real 10px offset between the two
+    // sticky bars, which is uncovered viewport space, not padding — once
+    // scrolled, whatever sidebar content happened to be at that exact
+    // vertical band (a group heading, a field) rendered visibly through the
+    // gap. The equivalent breathing room now lives inside the status bar's
+    // own opaque box (extra bottom padding, see .plan-status-bar), so it's
+    // baked into `barH` already and needs no separate addition here.
     document.documentElement.style.setProperty(
       '--mobile-sticky-h',
       barH + (tabsH ? tabsH : 0) + 'px',
@@ -7624,13 +7658,16 @@
     if (panelTitle) {
       document.documentElement.style.setProperty('--panel-title-h', panelTitle.offsetHeight + 'px');
     }
-    // Category rail's scroll-margin-top (mobile only) needs the search
-    // box's own height on top of --mobile-sticky-h, since the search box
-    // sticks below the status bar/tabs and the rail sits below that.
+    // .category-rail (unlike .field-search-wrap, it isn't itself sticky —
+    // see setActiveCategory() below) needs the search bar's own height on
+    // top of --mobile-sticky-h for its scroll-margin-top, so a tapped
+    // category pill scrolls it to land just below the sticky status
+    // bar/tabs/search stack instead of partly underneath it.
     if (searchWrap && window.innerWidth <= 820) {
       document.documentElement.style.setProperty('--field-search-h', searchWrap.offsetHeight + 'px');
     }
   }
+  // @@shared:syncPlanStatusOffsets end
   // @@shared:27-syncKeyboardInset begin
   // `#reviewNav` (the floating "Next →" pill) is `position:fixed;bottom:...`,
   // anchored to the bottom of the *layout* viewport. When the on-screen
@@ -8278,6 +8315,10 @@
     if (e.target.open) render();
   });
   // @@shared:28-wizardOverlay end
+  // Which levers are checked isn't part of `state` (it's a display choice
+  // for this chart, not a plan input, so it doesn't persist across reloads
+  // or get saved into exported scenarios) — just re-render the tornado chart
+  // directly rather than a full render().
   document.getElementById('sensLeverToggles').addEventListener('change', () => {
     if (document.getElementById('sensitivityCard').open) renderTornadoChart(simulate());
   });
@@ -8514,10 +8555,23 @@
     });
   }
   // @@shared:29-dismissFirstRunBanner end
-  // Test hooks (same convention as Planner_US.html).
+  // Test-only exports for test_roth_optimizer_per_year.js — specifically
+  // @@shared:block begin
+  // the brute-force-cross-check test, which needs to independently drive
+  // the per-year override and re-score arbitrary candidate schedules to
+  // verify optimizeRothLadderPerYear() actually finds the true global
+  // optimum, not just "some" answer. There's no way to construct that
+  // check through the DOM alone (the UI only ever sets one flat bracket
+  // across a whole window), so these mirror the same
+  // window.fireProjectionRows-style precedent already used above for the
+  // MCP tool hooks: a deliberate, narrow exposure of internal state for
+  // tooling, not an accident to clean up. Harmless in production (no
+  // user data, nothing network-reachable, purely references to functions
+  // that already exist in this closure).
   window.__test_simulate = simulate;
   window.__test_simulateHistorical = simulateHistorical;
   window.__test_HIST = HIST;
+  // @@shared:block end
   window.__test_getState = () => state;
   window.__test_FIELDS = FIELDS;
   window.__test_tax = { taxFor, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_TAX, PROVINCE_ELIGIBLE_DTC, taxIndexFactor };

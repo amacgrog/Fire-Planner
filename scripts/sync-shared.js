@@ -2,10 +2,14 @@
 // Keeps the code shared by Planner_US.html and Planner_Canada.html identical.
 //
 // Each shared region sits between marker lines in both files:
-//     // @@shared:<name> begin
+//     // @@shared:<name> begin          (inside the <script>)
+//     /* @@shared:<name> begin */       (inside the <style>)
+//     <!-- @@shared:<name> begin -->    (in the markup)
 //     ...
-//     // @@shared:<name> end
-// and shared/<name>.js is the canonical copy of what lies between them.
+//     ... @@shared:<name> end ...
+// and shared/<name>.js | .css | .html is the canonical copy of what lies
+// between them (the extension follows the marker style). Names are unique
+// across all three styles.
 //
 //   node scripts/sync-shared.js          rewrite the regions in both planners
 //                                        from shared/*.js
@@ -23,7 +27,8 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const PLANNERS = ['Planner_US.html', 'Planner_Canada.html'];
 const SHARED_DIR = path.join(root, 'shared');
-const MARK = /^\s*\/\/ @@shared:(\S+) (begin|end)\s*$/;
+const MARK = /^\s*(?:\/\/|\/\*|<!--) @@shared:(\S+) (begin|end)(?: \*\/| -->)?\s*$/;
+const EXT = { '//': 'js', '/*': 'css', '<!--': 'html' };
 
 // Returns [{ name, start, end }] with start/end = line indexes of the content
 // (between the markers, exclusive of them).
@@ -36,10 +41,10 @@ function findRegions(lines, file) {
     const [, name, kind] = m;
     if (kind === 'begin') {
       if (open) throw new Error(`${file}:${i + 1}: "${name}" begins inside "${open.name}"`);
-      open = { name, start: i + 1 };
+      open = { name, start: i + 1, ext: EXT[line.trim().split(' ')[0]] };
     } else {
       if (!open || open.name !== name) throw new Error(`${file}:${i + 1}: unmatched end for "${name}"`);
-      regions.push({ name, start: open.start, end: i });
+      regions.push({ name, start: open.start, end: i, ext: open.ext });
       open = null;
     }
   });
@@ -47,8 +52,8 @@ function findRegions(lines, file) {
   return regions;
 }
 
-const fragmentPath = (name) => path.join(SHARED_DIR, `${name}.js`);
-const readFragment = (name) => fs.readFileSync(fragmentPath(name), 'utf8').replace(/\n$/, '').split('\n');
+const fragmentPath = (r) => path.join(SHARED_DIR, `${r.name}.${r.ext}`);
+const readFragment = (r) => fs.readFileSync(fragmentPath(r), 'utf8').replace(/\n$/, '').split('\n');
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
@@ -74,19 +79,19 @@ for (const p of loaded) {
 if (pullFile) {
   const src = loaded.find((p) => p.file === pullFile);
   fs.mkdirSync(SHARED_DIR, { recursive: true });
-  for (const r of src.regions) fs.writeFileSync(fragmentPath(r.name), src.lines.slice(r.start, r.end).join('\n') + '\n');
+  for (const r of src.regions) fs.writeFileSync(fragmentPath(r), src.lines.slice(r.start, r.end).join('\n') + '\n');
 }
 
 let drifted = 0;
 for (const p of loaded) {
   // Rewrite from the bottom up so earlier line indexes stay valid.
   for (const r of [...p.regions].reverse()) {
-    if (!fs.existsSync(fragmentPath(r.name))) { problems.push(`shared/${r.name}.js is missing`); continue; }
-    const want = readFragment(r.name);
+    if (!fs.existsSync(fragmentPath(r))) { problems.push(`${path.relative(root, fragmentPath(r))} is missing`); continue; }
+    const want = readFragment(r);
     const have = p.lines.slice(r.start, r.end);
     if (want.join('\n') === have.join('\n')) continue;
     drifted++;
-    if (check) console.error(`${p.file}: region "${r.name}" differs from shared/${r.name}.js`);
+    if (check) console.error(`${p.file}: region "${r.name}" differs from shared/${r.name}.${r.ext}`);
     else p.lines.splice(r.start, r.end - r.start, ...want);
   }
   if (!check) fs.writeFileSync(path.join(root, p.file), p.lines.join('\n'));
@@ -95,7 +100,7 @@ for (const p of loaded) {
 problems.forEach((m) => console.error(m));
 if (check) {
   if (drifted || problems.length) {
-    console.error('Shared code has drifted. Edit shared/*.js (or edit one planner and run `npm run sync -- --pull <file>`), then run `npm run sync`.');
+    console.error('Shared code has drifted. Edit shared/* (or edit one planner and run `npm run sync -- --pull <file>`), then run `npm run sync`.');
     process.exit(1);
   }
   console.log(`shared regions OK (${names.size} regions x ${PLANNERS.length} planners)`);

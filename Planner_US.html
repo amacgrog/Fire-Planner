@@ -1122,6 +1122,7 @@
     { key: 'stateTax', type: 'choice', sync: 'controls', resync: [] },
     { key: 'rothConvBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
   ];
+  // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
   function syncFieldDom(field) {
@@ -1136,6 +1137,7 @@
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
   // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
+  // @@shared:ids end
   const mcpSchemaFor = (field) =>
     field.type === 'number'
       ? { type: 'number' }
@@ -1222,7 +1224,7 @@
   let state = normalizeState(null),
     mode = 'real',
     chartView = '3yr',
-    // Display-only, like chartView/mode/logScale above: which partner(s)
+    // Display-only, like chartView/mode/logScale: which partner(s)
     // move for the ±1yr/±3yr comparison chart. 'together' shifts both
     // partners' dates by the same amount (today's original behavior);
     // 'gap' shifts only one partner's date, narrowing or widening the gap
@@ -1313,6 +1315,7 @@
   }
   // @@shared:02-CHART_GROUPS end
   // Category rail: filters .category-fields down to a single category's
+  // @@shared:activeCategory begin
   // groups at a time — available at every width (originally desktop-only;
   // the rail was hidden outright on mobile via CSS and filtering itself
   // was gated behind an `isDesktop` check below, both removed since a
@@ -1359,6 +1362,7 @@
       if (panel) panel.scrollTop = 0;
     }
   }
+  // @@shared:activeCategory end
   // @@shared:03-hadSavedState begin
   // Whether a real, previously-saved plan was found in this browser at
   // boot — used below to skip showing the first-run banner (there's
@@ -3226,6 +3230,7 @@
       niitTax(ordinaryB + gainB, gainB + invB, 'single')
     );
   }
+  // @@shared:drawTaxable begin
   function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
     if (pool <= 0 || need <= 0) return { taken: 0, net: 0, gain: 0, basisTaken: 0 };
     const gainRatio = clamp(1 - basis / pool, 0, 1),
@@ -3245,6 +3250,7 @@
       net = taken - incrementalTax(taken);
     return { taken, net, gain: taken * gainRatio, basisTaken: taken * basisRatio };
   }
+  // @@shared:drawTaxable end
   // ACA premium tax credit — 2026 plan year reverts to the pre-2021 structure:
   // a sliding applicable-percentage schedule from 100%-400% of the federal
   // poverty line (IRS Rev. Proc. 2025-25), then a hard cliff above 400%.
@@ -4252,6 +4258,7 @@
     };
   }
 
+  // @@shared:loanPaymentForYear begin
   // Total "other loans" payment for the year. In the survivor period the
   // remaining balance is paid off as a lump sum in the year of death
   // (approximating debts settled through probate) and nothing is owed after.
@@ -4267,6 +4274,7 @@
         : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
     return { loanPayment };
   }
+  // @@shared:loanPaymentForYear end
 
   // Tax filing status for the year: always single in the survivor period and
   // for a single person; with "start single, then file MFJ" (marryLater) the
@@ -4436,6 +4444,7 @@
     return { healthcare, ltc, usesMagiEstimate };
   }
 
+  // @@shared:nextGuardrailMultiplier begin
   // Guyton-Klinger guardrails (simplified): compares last withdrawal year's
   // draw rate to the rate at the first withdrawal. A rate more than 20% above
   // it cuts discretionary spending 10%; more than 20% below raises it 10%; the
@@ -4448,6 +4457,7 @@
     }
     return multiplier;
   }
+  // @@shared:nextGuardrailMultiplier end
 
   // Highest MAGI a Roth conversion (and, in simulate(), the withdrawal order)
   // may reach this year without a cost cliff, or Infinity if nothing binds:
@@ -4611,12 +4621,12 @@
       mixCandidate: null,
     };
   }
+  // @@shared:takeTaxable begin
   // Each take*() draws up to `amount` of net cash from one bucket, updates the
   // balances and the running totals on `wd`, and returns the NET cash raised
-  // (after the tax and early-withdrawal penalty the draw itself triggers). The
-  // caller subtracts it from wd.need, because the strategies differ in whether
-  // a tiny overshoot is clamped at zero.
-  // `bucket` is 'taxable' | 'bondTaxable' (taxable brokerage and its bond reserve).
+  // (after any tax or penalty the draw itself triggers). The caller subtracts
+  // it from wd.need, because the strategies differ in whether a tiny overshoot
+  // is clamped at zero. `bucket` is 'taxable' | 'bondTaxable'.
   function takeTaxable(wd, bucket, amount) {
     const { bal } = wd;
     const basisKey = TAXABLE_BASIS_KEY[bucket];
@@ -4627,6 +4637,7 @@
     wd.taxableWithdrawn += d.taken;
     return d.net;
   }
+  // @@shared:takeTaxable end
   // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection
   // bracket (see solveTraditionalForNetFromNeed).
   function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
@@ -4664,6 +4675,7 @@
     wd.earlyPenalty += d.penalty;
     return d.net;
   }
+  // @@shared:takeCash begin
   function takeCash(wd, amount) {
     const from = Math.min(wd.bal.cash, amount);
     wd.bal.cash -= from;
@@ -4677,6 +4689,7 @@
     bal.home -= from;
     return from;
   }
+  // @@shared:takeCash end
   // Same job as solveTraditionalForNet, but bisecting from [need, 6*need + 1]
   // instead of [0, min(balance, 6*need + 1)]. The brackets converge to slightly
   // different values (~1e-7 relative), so both are kept until the numerics are
@@ -4804,20 +4817,22 @@
     },
     home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
   };
+  // @@shared:BUCKET_DOWN_YEAR_ORDER begin
   const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'].map((k) => BUCKET_STEP[k]);
   const BUCKET_UP_YEAR_ORDER = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
   // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
   // comes from cash, then the bond-reserve buckets, and only then from the
-  // stock accounts (taxable, traditional, Roth) and home equity. In an up year it
-  // comes from the stock accounts first, then cash, bonds and home, and any
-  // shortfall in the bond reserve versus `bondTarget` is topped back up from the
-  // same stock-account order. A draw that leaves a tiny overshoot is clamped to
-  // zero remaining need.
+  // stock accounts (taxable, tax-deferred, tax-free) and home equity. In an up
+  // year it comes from the stock accounts first, then cash, bonds and home, and
+  // any shortfall in the bond reserve versus `bondTarget` is topped back up from
+  // the same stock-account order. A draw that leaves a tiny overshoot is clamped
+  // to zero remaining need.
   function withdrawBucket(wd, { yearReturn, bondTarget }) {
     for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd);
     if (yearReturn >= 0) refillBondReserve(wd.bal, bondTarget);
   }
+  // @@shared:BUCKET_DOWN_YEAR_ORDER end
   // @@shared:10-refillBondReserve begin
   // Tops the bond reserve up to bondTarget from taxable, then traditional, then
   // Roth (taxable moves carry their share of cost basis).
@@ -5684,7 +5699,7 @@
   // shows a depletion age, first tests "structural" single-lever changes tied
   // to a specific input (LTC off, healthcare premiums off) by temporarily
   // mutating state and re-running simulate(), then restoring state exactly —
-  // same mutate/simulate/restore pattern as simulateAtRealCagr() above. These
+  // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
   // @@shared:14-findMinimalSpendingCut begin
   // are reported whenever any of them helps, because they're a specific,
   // non-obvious diagnosis. Only when none of them help does it fall back to
@@ -6059,6 +6074,7 @@
   }
   // @@shared:16-decisionEndAssets end
   // A compact one-line preview shown right on each "Explore a question"
+  // @@shared:compactDecisionDelta begin
   // button, so the likely answer is visible at a glance without clicking
   // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
   // Deliberately reuses the two most extreme rows a compare-question's
@@ -6089,11 +6105,12 @@
           ? ''
           : ` · lasts to ${decisionDepletionLabel(right.sim)}`,
       // Strip only the "(current)" annotation some labels carry — unlike a
-      // substantive parenthetical (e.g. rothLadder's "(age 60-70, to 22%
-      // bracket)"), that tag is just noise once shown as A → B on a button.
+      // substantive parenthetical (e.g. a conversion ladder's age window), that
+      // tag is just noise once shown as A → B on a button.
       stripCurrent = (s) => s.replace(/\s*\(current\)\s*$/, '').trim();
     return `${stripCurrent(left.label)} → ${stripCurrent(right.label)}: ${dollarPart}${lastsPart}`;
   }
+  // @@shared:compactDecisionDelta end
   // @@shared:17-renderDecisionQuestionPreviews begin
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
   // ones (sensitivity, returns) don't compare two scenarios, they just hand
@@ -6123,11 +6140,11 @@
   // @@shared:17-renderDecisionQuestionPreviews end
   function renderDecisionCompareTable(rows) {
     // "Investments last through" follows the same "Age {maxLifeExpectancy}+"
-    // convention as the main scenario-compare table and the Roth optimizer
-    // table (computeScenarioMetrics()/renderRothOptimizer() above) — a plan
-    // that never depletes is described by the age it was actually modeled
-    // to, not the word "Never", which read as an error/edge-case rather than
-    // a healthy outcome.
+    // convention as the main scenario-compare table and the conversion-ladder
+    // optimizer table (computeScenarioMetrics()/renderRothOptimizer() above) —
+    // a plan that never depletes is described by the age it was actually
+    // modeled to, not the word "Never", which read as an error/edge-case
+    // rather than a healthy outcome.
     const maxLifeExpectancy = Math.max(
       state.lifeExpectancyA,
       state.singlePerson ? 0 : state.lifeExpectancyB,
@@ -6311,6 +6328,7 @@
   }
   // @@shared:18-computeSensitivity end
 
+  // @@shared:renderTornadoChart begin
   function renderTornadoChart(selected) {
     const canvas = document.getElementById('tornadoChart');
     if (!canvas) return;
@@ -6405,6 +6423,7 @@
     ctx.fillStyle = chartAxisColor();
     ctx.fillText(label, labelX, p.t - 10);
   }
+  // @@shared:renderTornadoChart end
 
   function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
@@ -6657,6 +6676,7 @@
       evalCount: r.evalCount,
     };
   }
+  // @@shared:SANKEY_HUES begin
   // Validated categorical palette (see the `dataviz` skill's palette.md) —
   // fixed hue order, never cycled/reassigned by rank. Reused across the two
   // columns (sources / uses) since they're spatially separated by the hub,
@@ -6673,6 +6693,7 @@
   function sankeyHue(name, dark) {
     return SANKEY_HUES[name][dark ? 'dark' : 'light'];
   }
+  // @@shared:SANKEY_HUES end
   // Builds the source/use category breakdown for a single projection year,
   // for the cash-flow (Sankey-style) diagram. Any gap between what income
   // covers and what taxes+spending require is shown as either a draw from
@@ -7286,6 +7307,7 @@
     el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the optimizer below: ${parts.join(' and ')}.</div>`;
   }
 
+  // @@shared:simulateAtRealCagr begin
   function simulateAtRealCagr(realCagrPct) {
     const infl = pct(state.inflation),
       nominal = ((1 + realCagrPct / 100) * (1 + infl) - 1) * 100,
@@ -7305,6 +7327,7 @@
     '#0d9488',
     '#0e7490',
   ];
+  // @@shared:simulateAtRealCagr end
   function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
       subEl = document.getElementById('chartSub'),
@@ -9705,6 +9728,7 @@
   }
   // @@shared:26-setChartView end
   // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
+  // @@shared:syncPlanStatusOffsets begin
   // both stick to the top of the viewport as the page scrolls, and the
   // sidebar's own sticky panel-title has to clear both of them too once
   // they're stuck. `--plan-status-h` is just the status bar's own height
@@ -9752,6 +9776,7 @@
       document.documentElement.style.setProperty('--field-search-h', searchWrap.offsetHeight + 'px');
     }
   }
+  // @@shared:syncPlanStatusOffsets end
   // @@shared:27-syncKeyboardInset begin
   // `#reviewNav` (the floating "Next →" pill) is `position:fixed;bottom:...`,
   // anchored to the bottom of the *layout* viewport. When the on-screen
@@ -10702,6 +10727,7 @@
   }
   // @@shared:29-dismissFirstRunBanner end
   // Test-only exports for test_roth_optimizer_per_year.js — specifically
+  // @@shared:block begin
   // the brute-force-cross-check test, which needs to independently drive
   // the per-year override and re-score arbitrary candidate schedules to
   // verify optimizeRothLadderPerYear() actually finds the true global
@@ -10716,6 +10742,7 @@
   window.__test_simulate = simulate;
   window.__test_simulateHistorical = simulateHistorical;
   window.__test_HIST = HIST;
+  // @@shared:block end
   window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
   window.__test_optimizeMultiLever = optimizeMultiLever;
   window.__test_rothScheduleCost = rothScheduleCost;
