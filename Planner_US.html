@@ -4680,6 +4680,65 @@
     wd.need -= takeRoth(wd, 'bondRoth', wd.need);
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
+  // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
+  // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
+  // comes from cash, then the bond-reserve buckets, and only then from the
+  // stock accounts (taxable, traditional, Roth) and home equity. In an up year it
+  // comes from the stock accounts first, then cash, bonds and home, and any
+  // shortfall in the bond reserve versus `bondTarget` is topped back up from the
+  // same stock-account order. A draw that leaves a tiny overshoot is clamped to
+  // zero remaining need.
+  function withdrawBucket(wd, { yearReturn, bondTarget }) {
+    const { bal } = wd;
+    const stepTaxable = (bucket) => {
+      if (bal[bucket] > 0) wd.need -= takeTaxable(wd, bucket, wd.need);
+    };
+    const stepTraditional = (bucket) => {
+      if (bal[bucket] > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, bucket, wd.need, solveTraditionalForNetFromNeed));
+    };
+    const stepRoth = (bucket) => {
+      wd.need = Math.max(0, wd.need - takeRoth(wd, bucket, wd.need));
+    };
+    const steps = {
+      cash: () => (wd.need -= takeCash(wd, wd.need)),
+      bondTaxable: () => stepTaxable('bondTaxable'),
+      bondTraditional: () => stepTraditional('bondTraditional'),
+      bondRoth: () => stepRoth('bondRoth'),
+      taxable: () => stepTaxable('taxable'),
+      traditional: () => stepTraditional('traditional'),
+      roth: () => stepRoth('roth'),
+      home: () => (wd.need -= takeHomeEquity(wd, wd.need)),
+    };
+    const downYearOrder = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'taxable', 'traditional', 'roth', 'home'];
+    const upYearOrder = ['taxable', 'traditional', 'roth', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'];
+    for (const name of yearReturn < 0 ? downYearOrder : upYearOrder) if (wd.need > 0) steps[name]();
+    if (yearReturn >= 0) refillBondReserve(bal, bondTarget);
+  }
+  // Tops the bond reserve up to bondTarget from taxable, then traditional, then
+  // Roth (taxable moves carry their share of cost basis).
+  function refillBondReserve(bal, bondTarget) {
+    const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
+    if (bondDeficit <= 0) return;
+    const fromTaxable = Math.min(bal.taxable, bondDeficit),
+      basisPortion = bal.taxable ? bal.taxableBasis * (fromTaxable / bal.taxable) : 0;
+    bal.taxable -= fromTaxable;
+    bal.taxableBasis -= basisPortion;
+    bal.bondTaxable += fromTaxable;
+    bal.bondTaxableBasis += basisPortion;
+    let remaining = bondDeficit - fromTaxable;
+    if (remaining > 0) {
+      const fromTrad = Math.min(bal.traditional, remaining);
+      bal.traditional -= fromTrad;
+      bal.bondTraditional += fromTrad;
+      remaining -= fromTrad;
+    }
+    if (remaining > 0) {
+      const fromRoth = Math.min(bal.roth, remaining);
+      bal.roth -= fromRoth;
+      bal.bondRoth += fromRoth;
+    }
+  }
   // ---- end withdrawal building blocks ----
 
   // ---- end per-year helpers ----
@@ -5412,131 +5471,7 @@
       // A one-time expense is paid from the portfolio like any other, but it would
       // distort the reserve target if sized into "years of expenses".
       const bondTarget = (totalExpense - lumpExpense) * bondYears;
-      let taxableGainGross = 0,
-        traditionalGross = conversionAmount;
-      // Same 10% early-withdrawal penalty logic as simulate() (see the
-      // comment there) — RMDs/72(t) SEPP payments are mandatory and already
-      // folded into rmd above, so only these discretionary bucket draws are
-      // penalized.
-      const penalizedFraction = traditionalPenaltyFraction(
-        age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
-      );
-      const rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
-      const stepCash = (need) => {
-        const from = Math.min(bal.cash, need);
-        bal.cash -= from;
-        return need - from;
-      };
-      const stepTaxable = (need) => {
-        if (bal.taxable <= 0) return need;
-        const d = drawTaxable(
-          bal.taxable,
-          bal.taxableBasis,
-          need,
-          profile,
-          taxableGainGross,
-          traditionalGross,
-        );
-        bal.taxable -= d.taken;
-        bal.taxableBasis -= d.basisTaken;
-        taxableGainGross += d.gain;
-        return need - d.net;
-      };
-      const stepTraditional = (need) => {
-        if (bal.traditional <= 0) return need;
-        const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
-        let lo = need,
-          hi = need * 6 + 1;
-        for (let i = 0; i < 24; i++) {
-          const mid = (lo + hi) / 2,
-            net =
-              mid -
-              (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-              mid * 0.1 * penalizedFraction;
-          if (net < need) lo = mid;
-          else hi = mid;
-        }
-        const from = Math.min(bal.traditional, hi),
-          net =
-            from -
-            (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax) -
-            from * 0.1 * penalizedFraction;
-        bal.traditional -= from;
-        traditionalGross += from;
-        return Math.max(0, need - net);
-      };
-      const stepRoth = (need) => {
-        const d = rothDraw(
-          rothLedger,
-          bal.roth,
-          need,
-          taxableGainGross,
-          traditionalGross,
-          profile,
-          rothPenalizedFraction,
-        );
-        bal.roth -= d.gross;
-        traditionalGross += d.earn;
-        return Math.max(0, need - d.net);
-      };
-      const stepBondTaxable = (need) => {
-        if (bal.bondTaxable <= 0) return need;
-        const d = drawTaxable(
-          bal.bondTaxable,
-          bal.bondTaxableBasis,
-          need,
-          profile,
-          taxableGainGross,
-          traditionalGross,
-        );
-        bal.bondTaxable -= d.taken;
-        bal.bondTaxableBasis -= d.basisTaken;
-        taxableGainGross += d.gain;
-        return need - d.net;
-      };
-      const stepBondTraditional = (need) => {
-        if (bal.bondTraditional <= 0) return need;
-        const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
-        let lo = need,
-          hi = need * 6 + 1;
-        for (let i = 0; i < 24; i++) {
-          const mid = (lo + hi) / 2,
-            net =
-              mid -
-              (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-              mid * 0.1 * penalizedFraction;
-          if (net < need) lo = mid;
-          else hi = mid;
-        }
-        const from = Math.min(bal.bondTraditional, hi),
-          net =
-            from -
-            (taxFor(profile, taxableGainGross, traditionalGross + from) - baseTax) -
-            from * 0.1 * penalizedFraction;
-        bal.bondTraditional -= from;
-        traditionalGross += from;
-        return Math.max(0, need - net);
-      };
-      const stepBondRoth = (need) => {
-        const d = rothDraw(
-          rothLedger,
-          bal.bondRoth,
-          need,
-          taxableGainGross,
-          traditionalGross,
-          profile,
-          rothPenalizedFraction,
-        );
-        bal.bondRoth -= d.gross;
-        traditionalGross += d.earn;
-        return Math.max(0, need - d.net);
-      };
-      const stepHome = (need) => {
-        if (state.tenure !== 'own' && state.tenure !== 'rentThenBuy') return need;
-        const from = Math.min(Math.max(0, bal.home - bal.mortgage), need);
-        bal.home -= from;
-        return need - from;
-      };
+      const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
       const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
       if (flow >= 0) {
         const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
@@ -5558,70 +5493,26 @@
         bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       } else {
-        let need = -flow;
+        wd.need = -flow;
         if (state.guardrailsEnabled && !working) {
           if (guardrailInitialWR === null && guardrailPortfolioNow > 0)
-            guardrailInitialWR = Math.max(0, need - lumpExpense) / guardrailPortfolioNow;
-          guardrailPrevNeed = Math.max(0, need - lumpExpense);
+            guardrailInitialWR = Math.max(0, wd.need - lumpExpense) / guardrailPortfolioNow;
+          guardrailPrevNeed = Math.max(0, wd.need - lumpExpense);
           guardrailPrevPortfolio = guardrailPortfolioNow;
         }
-        if (yearReturn < 0) {
-          // Down year: protect equities. Pay from cash, then the bond reserve;
-          // only fall back to selling taxable/traditional/Roth if both run out.
-          [
-            stepCash,
-            stepBondTaxable,
-            stepBondTraditional,
-            stepBondRoth,
-            stepTaxable,
-            stepTraditional,
-            stepRoth,
-            stepHome,
-          ].forEach((step) => {
-            if (need > 0) need = step(need);
-          });
-        } else {
-          // Up year: fund spending from the growth portfolio, then use any
-          // leftover from that same order to top the bond reserve back up.
-          [
-            stepTaxable,
-            stepTraditional,
-            stepRoth,
-            stepCash,
-            stepBondTaxable,
-            stepBondTraditional,
-            stepBondRoth,
-            stepHome,
-          ].forEach((step) => {
-            if (need > 0) need = step(need);
-          });
-          const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-          if (bondDeficit > 0) {
-            const fromTaxable = Math.min(bal.taxable, bondDeficit),
-              basisPortion = bal.taxable ? bal.taxableBasis * (fromTaxable / bal.taxable) : 0;
-            bal.taxable -= fromTaxable;
-            bal.taxableBasis -= basisPortion;
-            bal.bondTaxable += fromTaxable;
-            bal.bondTaxableBasis += basisPortion;
-            let remaining = bondDeficit - fromTaxable;
-            if (remaining > 0) {
-              const fromTrad = Math.min(bal.traditional, remaining);
-              bal.traditional -= fromTrad;
-              bal.bondTraditional += fromTrad;
-              remaining -= fromTrad;
-            }
-            if (remaining > 0) {
-              const fromRoth = Math.min(bal.roth, remaining);
-              bal.roth -= fromRoth;
-              bal.bondRoth += fromRoth;
-            }
-          }
-        }
-        if (need > 1 && !depletedAge) depletedAge = age;
+        // Same 10% early-withdrawal penalty logic as simulate(): RMDs / 72(t) SEPP payments are
+        // mandatory and already folded into rmd above, so only discretionary draws are penalized.
+        wd.penalizedFraction = traditionalPenaltyFraction(
+          age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+        );
+        wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
+        withdrawBucket(wd, { yearReturn, bondTarget });
+        if (wd.need > 1 && !depletedAge) depletedAge = age;
         bal.traditional += traditionalContrib + employerMatch;
         bal.roth += rothContrib;
         rothLedger.basis += rothContrib;
       }
+      const { traditionalGross, taxableGainGross } = wd;
       const realizedTrad = traditionalGross - conversionAmount;
       if (
         estUsed &&
