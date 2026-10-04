@@ -1,0 +1,44 @@
+diff --git a/Planner_US.html b/Planner_US.html
+index 8d72120..d7001ac 100644
+--- a/Planner_US.html
++++ b/Planner_US.html
+@@ -5227,8 +5227,13 @@
+   // bucket is its share of the pool times the bucket.
+   function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet, penalized = false) {
+     const { bal } = wd;
+-    const { slots, share } = tradGroup(wd, penalized),
+-      cap = bal[bucket] * share;
++    const { slots, share } = tradGroup(wd, penalized);
++    let cap = bal[bucket] * share;
++    if (window.__CAP && wd.magiCap && !wd.magiCap.off && !penalized) {
++      const mc = wd.magiCap;
++      const left = Math.max(0, mc.room - (wd.traditionalGross - mc.trad0) - (wd.taxableGainGross - mc.gain0));
++      cap = Math.min(cap, left);
++    }
+     if (!(cap > 0)) return 0;
+     const { fromTrad, tradNet, penalty } = solver(
+       cap,
+@@ -5465,6 +5470,11 @@
+       bondTrad();
+       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+     }
++    if (window.__CAP && wd.magiCap && wd.need > 0) {
++      wd.magiCap.off = true;
++      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
++      bondTrad();
++    }
+     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
+   }
+   // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
+@@ -6077,9 +6087,9 @@
+               bondTarget,
+               refillCap: expenses - lumpExpense,
+               age,
+-              remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount),
++              remainingMagiRoom: (window.__ROOMFIX ? Math.max(0, magiCeiling - magiBase - conversionAmount) : incomeRoom(magiSafeRoom, conversionAmount)),
+             });
+-          else withdrawStandard(wd, { age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) });
++          else { wd.magiCap = (window.__CAP && magiCeiling < Infinity) ? { room: Math.max(0, magiCeiling - magiBase - conversionAmount), trad0: wd.traditionalGross, gain0: 0, off: false } : null; withdrawStandard(wd, { age, remainingMagiRoom: (window.__ROOMFIX ? Math.max(0, magiCeiling - magiBase - conversionAmount) : incomeRoom(magiSafeRoom, conversionAmount)) }); }
+           if (wd.need > 1 && !depletedAge) depletedAge = age;
+           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+           totalIncome =

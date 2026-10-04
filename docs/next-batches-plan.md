@@ -1344,7 +1344,11 @@ mainly by shrinking the reserve (default: ceiling 92.9, (c) 100), and the non-ea
 decision (no code change) is unchanged. Caveat for every historical rate in this repo: with a long lifespan
 the historical run is thin and early-weighted; read it next to Monte Carlo.
 
-#### Batch 3C: exploration so far (no code committed; V92)
+#### Batch 3C: exploration so far (no app code committed; V92)
+
+**Handoff (session moved to a local clone).** Next step: the owner answers the three open design points below,
+then build the real change as one isolated number-change commit. Branch `claude/batch-3b-penalty-rules` holds
+steps 1-6 of 3B plus these notes; 3B's PR and the 3C code can be split from it.
 
 Branch: still `claude/batch-3b-penalty-rules` (the session's designated branch); the 3C commits can be split
 off later. Everything below was measured with throwaway edits in a scratch worktree (US, `simulate()`, 2026
@@ -1388,7 +1392,8 @@ tax-free growth).
 2. Fallback order after the cap: Roth first (the prototype), or cash and bond-reserve first?
 3. Live mix: replace its `overage * 1e6` term with the same cap (it never changes the choice today).
 
-The prototype diff is not committed. This is an intended number change: when built it needs its own commit with
+The prototype diff and scan script are committed under `docs/batch-3c-prototype/` (throwaway, see its README).
+This is an intended number change: when built it needs its own commit with
 before/after, `npm run snapshot:update`, a behavioral test with a mutation check, the bucket engine (down and up
 year orders, the penalty-aware paths), a MAGI-iteration convergence check on a cliff-straddling case, the
 optimizer re-run note, the US badge bump and the README.
