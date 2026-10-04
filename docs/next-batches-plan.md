@@ -84,11 +84,22 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 ## Execution order
 
 1 (historical parity) -> 2 (US tax and Medicare) -> 3A (account model) -> 3B
-(penalty-aware rules, 72(t), Rule of 55) -> 3C (safe-MAGI room) -> 7A (children)
+(penalty-aware rules, 72(t), Rule of 55) -> 7A (children)
 -> 7B (federal credits) -> 7C (state framework + reference states) -> 7D (all
 remaining states and DC, one PR) -> 7J (Canada federal credits) -> 7K (all
-provinces, one PR) -> 7L (income-tested benefits) -> 4A -> 4B -> 5 -> 6 -> 8
-(survivor-benefit claim optimizer).
+provinces, one PR) -> 7L (income-tested benefits) -> 3C (safe-MAGI room; moved
+here, owner decision) -> 4A -> 4B -> 5 -> 6 -> 8 (survivor-benefit claim
+optimizer).
+
+Why 3C moved after Batch 7 and before 4A and 5 (owner decision): Batch 7 adds the
+cliffs and phase-outs (senior deduction, child tax credit, state circuit-breaker
+cutoffs, 7L income-tested benefits) that the safe-MAGI policy has to price, and the
+measurement of the ACA-cliff policy (Auto / Always / Never, see the 3C notes) is
+only worth running once the tax model has settled. 3C still goes before 4A, which
+reuses its shared `stayUnder` policy for the Canadian income-room hook, and before
+5, which consumes a settled engine and may sweep the policy's parameter as a lever.
+Nothing in 4A-8 or 7 consumes 3C's output; what stays open meanwhile is listed
+under "Open items".
 
 Why: 3A is a no-number-change data-model PR that 3B and 3C depend on. Batch 1's
 mix-mode work in the historical engine is written against the `take*` withdrawal
@@ -463,6 +474,11 @@ reserve will first be drawn.
 
 ### 3C: safe-MAGI room on every withdrawal path (old B2)
 
+**Scheduling (owner decision): runs after Batch 7 (after 7L) and before 4A and 5.** See "Execution order".
+Exploration, the prototype and the design direction are recorded in "Batch 3C: exploration so far" in the
+notes. When it is picked up, re-derive the prototype diff against the then-current `Planner_US.html` (it
+targets today's line positions), and re-run the cap-policy measurement on the post-Batch-7 tax model.
+
 Default draw, smooth withdrawals and the applied/optimizer schedules respect
 `remainingMagiRoom`: prefer taxable gains or Roth when traditional would cross
 the 400%-FPL cliff or the next IRMAA tier, inside the 3B rules (penalty-free
@@ -493,6 +509,8 @@ so this batch may need to extract the mix code from `withdrawStandard` into a
 1. **Federal age amount and pension income credits: moved to Batch 7 (7J)**
    (owner decision; same machinery as the provincial credits). By the time this
    batch runs, `personTaxCA` already has them.
+   **Depends on 3C (now scheduled before this batch):** if 3C puts its stay-under-the-ceiling policy in a
+   shared fragment, the Canadian `incomeRoom` hook below reuses it for the OAS clawback and GIS limits.
 2. **Mixed withdrawals** for taxable / RRSP-RRIF / TFSA using the shared module
    and these hooks: `penaltyFraction` always 0, `incomeRoom` = room under the
    OAS clawback threshold and, now that Batch 7 models it, the Guaranteed Income
@@ -548,6 +566,10 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 Run after the engine and tax model have settled, since objective values and
 timing both depend on them.
+
+**After 3C (now scheduled before this batch):** the ACA-cliff policy's parameter may become an optimizer lever.
+Solve any "Auto" choice once outside the optimizer and hold it fixed inside the search; running extra
+projections per evaluation would multiply the cost of the up-to-8,000-call search.
 
 **Dependencies on Batch 7 (must be in place first):**
 - `row.tax` must include state tax and be net of the new credits (child tax
@@ -1346,9 +1368,11 @@ the historical run is thin and early-weighted; read it next to Monte Carlo.
 
 #### Batch 3C: exploration so far (no app code committed; V92)
 
-**Handoff (session moved to a local clone).** Next step: the owner answers the three open design points below,
-then build the real change as one isolated number-change commit. Branch `claude/batch-3b-penalty-rules` holds
-steps 1-6 of 3B plus these notes; 3B's PR and the 3C code can be split from it.
+**Handoff (session moved to a local clone).** Status: **deferred** (owner decision) to run after Batch 7 and
+before 4A and 5; nothing is built. When picked up, the owner answers the open design points below, then the
+real change is built as one isolated number-change commit. Branch `claude/batch-3b-penalty-rules` holds
+steps 1-6 of 3B plus these notes; 3B's PR should be split from the 3C notes and prototype so 3B can merge
+without them.
 
 Branch: still `claude/batch-3b-penalty-rules` (the session's designated branch); the 3C commits can be split
 off later. Everything below was measured with throwaway edits in a scratch worktree (US, `simulate()`, 2026
@@ -1391,6 +1415,67 @@ tax-free growth).
    later, so capping at it spends Roth earlier for a smaller, delayed saving.
 2. Fallback order after the cap: Roth first (the prototype), or cash and bond-reserve first?
 3. Live mix: replace its `overage * 1e6` term with the same cap (it never changes the choice today).
+
+**Reframing (brainstorm with the owner; design direction, nothing built or measured yet).** The hard cap in the
+prototype assumes staying under the ACA cliff is always worth it. It is not. Crossing the cliff costs a fixed
+lump (the whole premium credit, whether $1 or $100k over). Staying under costs an amount that grows with the
+overshoot, because every MAGI-bearing dollar steered to Roth is spent earlier. A high-expense household can
+therefore do better by crossing. The 3 worse smooth cases above are the early sign of this.
+
+Why per-year pricing was dropped. A per-year comparison needs a growth rate and a "later tax rate on traditional
+money". The growth rate cancels (traditional left behind compounds at the same rate as Roth), so what remains is
+the later tax on traditional. A fixed constant cannot capture it: leftover traditional money is forced out by
+RMDs (73 or 75), stacks on Social Security, and can push MAGI into higher brackets and IRMAA, whereas Roth has no
+RMDs and stays a zero-MAGI source for later cliff years. `simulate()` already models all of that year by year, so
+the later cost does not need estimating; two whole-plan runs can be compared instead.
+
+Direction chosen (a first version; the owner expects to refine it later, see "Refinement later"):
+- A first plain version was a single plan-level on/off switch, decided once and applied to every run. The owner
+  rejected that as too coarse: in the historical and Monte Carlo runs the right answer changes with an up or a
+  down year (a down year raises spending and the overshoot, which favors crossing).
+- Instead the decision is made **per year inside the engine**, and the plan level only chooses a parameter.
+  One function, `stayUnder(yearState, policy)`, decides whether this year's draw is capped. It is the only
+  place the decision lives: in the prototype it replaces the line that builds `wd.magiCap`
+  (`wd.magiCap = stayUnder(...) ? {room, ...} : null`), so later refinements replace only that function. Put it
+  in a `shared/` fragment so Canada (4A) can reuse it.
+- Rule: each year compute the overshoot (the MAGI-bearing draw that does not fit under the room, i.e. the amount
+  that would have to come from Roth, cash or bonds to stay under) and the subsidy at stake (price crossing with
+  `acaNetCost` at that year's MAGI). Stay under only if `subsidyLost >= k * overshoot`, where `k` is the value of
+  keeping one dollar out of Roth. `k = Infinity` is Always, `k = 0` is Never, values between are the middle.
+- Auto searches for the best `k` on the standard projection, by comparing runs (depletion age first, then ending
+  wealth; leftover traditional balance valued with a flat terminal tax haircut, which the owner agreed is fine as
+  a tie-breaker because it only separates plans that do not deplete). The chosen `k` is then applied to the
+  historical and Monte Carlo runs, where the per-year rule adapts to each path's own sequence.
+- Setting: "Stay under ACA cliff: Auto / Always / Never", Auto as the default.
+- Cost: a handful of standard projections (one per candidate `k`) per render, solved once and held fixed inside
+  the optimizer (see Batch 5).
+
+Refinement later (owner: handling can be modified once this is in place and measured):
+- Replace or enrich `stayUnder` without touching the engine: a per-year `k`, `k` varying with age or years left,
+  a threshold lever the multi-lever optimizer sweeps, or pricing IRMAA and the Batch 7 cliffs directly in the same
+  rule instead of treating the ceiling as a single number.
+- Use the plan-derived later tax rate on traditional money, or a "value of a zero-MAGI reserve" term, if the flat
+  terminal haircut turns out to matter.
+- Open risk: the year's MAGI estimate moves with the decision, so the decision and the MAGI iteration
+  (`MAGI_ITER_MAX`/`TOL`) can interact near the cliff; the convergence check on a cliff-straddling case is
+  required, and `k` needs a sensible search grid.
+
+Effect on the open points above:
+- Point 1 (both ceilings or ACA only) mostly goes away. IRMAA tiers sit well above the ACA cliff (checked in
+  `conversionMagiCeiling`: the ceiling is the `min` of the two, and IRMAA only enters from age 63), so before 65
+  the ACA term is the binding one and IRMAA binds only at 65+ where ACA no longer applies. Exceptions: a couple
+  with one partner 65+, and ages 63-64. Note `irmaaTierCeiling(preConvMagi)` is the top of the tier the
+  pre-conversion MAGI currently sits in, so the ceiling can move when the cap changes MAGI; check for that
+  circularity when building.
+- Point 2 (Roth first, or cash and bonds first) is still open. Roth is the most valuable pocket to keep (no
+  RMDs); cash and bonds are the sequence-risk reserve.
+- Point 3 (live mix) is still open; the live mix would call the same `stayUnder` instead of its `overage * 1e6`
+  term.
+
+Measurement before building: Auto against Always and Never over the same 972 scenarios, plus high-spending cases
+where crossing should win, and historical paths with bad early sequences, to see how often crossing actually
+wins and whether Auto beats Always by enough to justify the extra explanation. Run it on the post-Batch-7 tax
+model. Extend `docs/batch-3c-prototype/scan.js` for this (throwaway).
 
 The prototype diff and scan script are committed under `docs/batch-3c-prototype/` (throwaway, see its README).
 This is an intended number change: when built it needs its own commit with
