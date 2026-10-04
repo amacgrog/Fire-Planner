@@ -1162,6 +1162,18 @@ remains is detail to settle when the relevant batch is scoped:
   unaffected. Making it exact needs iterating on the conversion inside
   `solveRothConversion`. Revisit with Batch 3C (safe-MAGI room and conversion
   sizing), with a before/after on a 65+ conversion scenario.
+- Grandfathered mortgage debt (raised in Batch 2, decided to leave): the model limits
+  deductible mortgage interest to $750,000 of original debt (IRC 163(h)(3)(F), permanent
+  for debt after 12/15/2017) by prorating interest by 750,000 / original principal. Debt
+  taken on or before 12/15/2017 keeps a $1,000,000 limit (Pub. 936), so a grandfathered
+  loan between $750,000 and $1,000,000 is under-deducted (conservative). Fixing it needs
+  a loan-origination-date (or "pre-2018 loan") input, which Batch 2 could not add; the
+  limits also apply to combined primary and second-residence debt, and the model has one
+  home. Decide when the next batch that adds housing fields is scoped.
+- Senior deduction placement (raised in Batch 2): the model treats the $6,000 senior
+  deduction as a deduction from taxable income, not AGI. Confirm against Form 1040 /
+  Schedule 1-A when primary sources are reachable; if it is above the line, taxable
+  Social Security, IRMAA MAGI and the SALT phase-down would read income after it.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.
