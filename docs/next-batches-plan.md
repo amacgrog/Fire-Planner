@@ -1344,6 +1344,55 @@ mainly by shrinking the reserve (default: ceiling 92.9, (c) 100), and the non-ea
 decision (no code change) is unchanged. Caveat for every historical rate in this repo: with a long lifespan
 the historical run is thin and early-weighted; read it next to Monte Carlo.
 
+#### Batch 3C: exploration so far (no code committed; V92)
+
+Branch: still `claude/batch-3b-penalty-rules` (the session's designated branch); the 3C commits can be split
+off later. Everything below was measured with throwaway edits in a scratch worktree (US, `simulate()`, 2026
+tax year, ACA on and not enhanced, Texas, no conversions, no bond reserve).
+
+**Why the safe-MAGI room never had a behavioral test (answered).** Two separate reasons.
+1. *Double counting.* The engines pass `remainingMagiRoom = ceiling - preConvMagi - conversion`, and
+   `preConvMagi` already contains the MAGI iteration's estimate of this year's own draw (`estTrad + estGain`).
+   `pickLiveWithdrawalOrder` then compares the whole draw (`taxableGain + fromTraditional`) against that
+   already-reduced room. The right room for a draw is `ceiling - magiBase - conversion` (the draw's own
+   estimate excluded). With that fix alone, 972 scenarios (single and married, ages 52/58/62, taxable
+   $0.3-2M, traditional $0.5-1.5M, basis 20/60/90%, spending $60-130k, live/smooth/default) still gave
+   identical results.
+2. *The live mix cannot lower MAGI.* Its two orders are taxable-first and traditional-first. A traditional dollar
+   counts one for one in MAGI; a taxable dollar counts only its gain share. So taxable-first never has more MAGI
+   than traditional-first, and the overage term can never favor traditional-first. The only zero-MAGI source is
+   Roth (and cash/bonds principal), which the live mix deliberately leaves alone. A behavioral test for the room
+   needs a rule that actually steers MAGI-bearing draws toward Roth, which is what the 3C text asks for.
+
+**Prototype: cap the MAGI-bearing draw at the room.** In `takeTraditional`, limit a (non-penalized) traditional
+draw to `room - discretionary traditional so far - taxable gains so far`, with the corrected room; the shortfall
+falls to Roth, cash and the bonds through the existing fallbacks, and a last uncapped traditional pass runs just
+before home equity so the cap can never strand money or cause depletion. Smooth and the applied/override schedules
+go through the same `takeTraditional`, so they are covered; the live mix was not yet changed. Result across the
+same 972 scenarios (standard engine), counting scenarios whose results moved:
+
+| Mode | Scenarios that moved | Ending investable assets higher / lower (> $1,000) | Depletes later / earlier |
+|---|---|---|---|
+| Smooth | 274 | 194 / 3 | 42 / 0 |
+| Default (taxable then traditional) | 112 | 41 / 0 | 24 / 0 |
+| Live mix | 0 (not wired) | | |
+
+The mechanism is the ACA 400%-FPL cliff (the IRMAA tier ceiling is also in the room): without the cap a year that
+lands a little over the line loses the whole premium credit. The 3 worse smooth cases are married, age 52 or 58,
+$2M taxable and $0.5M traditional, ending about $0.1M lower of about $16-20M (an earlier Roth draw forgoes
+tax-free growth).
+
+**Open design points (owner)**, to settle before building the real change:
+1. Hard cap for both ceilings, or only for the ACA cliff? The IRMAA ceiling is a soft cost assessed two years
+   later, so capping at it spends Roth earlier for a smaller, delayed saving.
+2. Fallback order after the cap: Roth first (the prototype), or cash and bond-reserve first?
+3. Live mix: replace its `overage * 1e6` term with the same cap (it never changes the choice today).
+
+The prototype diff is not committed. This is an intended number change: when built it needs its own commit with
+before/after, `npm run snapshot:update`, a behavioral test with a mutation check, the bucket engine (down and up
+year orders, the penalty-aware paths), a MAGI-iteration convergence check on a cliff-straddling case, the
+optimizer re-run note, the US badge bump and the README.
+
 ### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
 _(to be added by the Batch 7 PRs)_
 
