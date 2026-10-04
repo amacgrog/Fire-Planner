@@ -164,13 +164,12 @@ user-facing and `CLAUDE.md` is what future sessions read first.
   `age >= 65`), `magiSafeRoom` / `remainingMagiRoom`, and the optimizer
   (`optimizeMultiLever`, `ROTH_PER_YEAR_*`, `rothScheduleCost`) are the other
   touch points.
-- Retirement accounts today: one pooled `traditional` and one pooled `roth`
-  balance (plus `bondTraditional` / `bondRoth`), Partner A's share set by
-  `traditionalSharePctA`. Roth early access is a pooled `rothLedger`
-  (contribution basis from `rothBasisPct`, a conversion queue with 5-year
-  seasoning, earnings). The early-withdrawal penalty is a blended
-  `penalizedShare`; Rule of 55 and the 72(t) SEPP (`sepp72tEnabledA/B`,
-  `singleLifeDivisor`) act on the pooled traditional balance. Property tax
+- Retirement accounts (after 3A): four accounts per partner as inputs; the engine keeps pooled
+  `bal.traditional/roth` (plus `bondTraditional/bondRoth`) with a per-account share ledger underneath
+  (`accts`), which sizes RMDs, 72(t) and the blended penalty fraction. Roth early access is still a pooled
+  `rothLedger` (contribution basis, a conversion queue with 5-year seasoning, earnings). The early-
+  withdrawal penalty is still a blended `penalizedShare`; Rule of 55 and the 72(t) SEPP
+  (`sepp72tEnabledA/B`, `singleLifeDivisor`) still act on the pooled traditional balance. Property tax
   (`propertyTax`, `propertyTaxGrowth`) and tenure are already inputs.
 - `refillBondReserve` and `rotateIntoBondLadder` only move money between stock
   and bond holdings inside the same account type, so they never trigger the
@@ -1323,6 +1322,13 @@ remains is detail to settle when the relevant batch is scoped:
   is not above the line, its own phase-out MAGI is pre-deduction, and it stacks with the
   65+ additional standard deduction. This is what the model does. Not independently
   opened by us (primary sites blocked); confirm the line numbers when reachable.
+- Survivor and the account ledger (raised in 3A): after a death the survivor owns everything, so RMD and
+  penalty math treat the whole pool as theirs and draws are pro rata, but the ledger still labels the
+  deceased's accounts to them; nothing reads that label today. 3B's per-account Rule of 55 and 72(t) should
+  say what happens to a deceased partner's 401(k) (spousal rollover into the survivor's IRA is the
+  realistic answer).
+- Roth IRA basis uses 0 as "not entered" (3A): a true zero basis is entered as $1. If a real blank is
+  wanted, the shared `24-syncContributionControls` number listener needs a blank-aware option.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.
