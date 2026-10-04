@@ -1783,6 +1783,12 @@ version (400 `simulate()` + 120 `simulateHistorical()`, median of 3, per state).
 have helped: the index factor differs per historical or Monte Carlo path, so the row is resolved once per state code and the
 factor is applied inside the loop.)
 
+**Commit 2: generated review artifact.** `scripts/gen-state-rules.js` evaluates the `STATE_RULES:begin/end` block of
+`Planner_US.html` in a `vm` (no browser) and writes `docs/state-tax-rules.md`: a rules table (status and source, tax, indexing,
+HoH/QSS columns, base, deductions, retirement exclusion, surtax, credits), a notes list and the full bracket list, plus the
+local-tax gap. `npm test` runs it with `--check` (stale or missing file fails; CRLF is ignored). It is outside `sync-shared`
+because the table is US-only.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 

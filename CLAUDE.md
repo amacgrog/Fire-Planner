@@ -232,7 +232,9 @@ Each planner is one big IIFE. Core shape:
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
   deducts federal tax gets one lagged pass, 7D). The block between the `STATE_RULES:begin` / `end` comments is pure
-  literals so a script can evaluate it. Not shared with Canada (US only).
+  literals so `scripts/gen-state-rules.js` can evaluate it: that script writes `docs/state-tax-rules.md` (the owner's review
+  artifact: one row per jurisdiction with every rule and its source; `npm run gen:states`), and `npm test` fails if the file is
+  stale. After changing a row, regenerate and commit the file. Not shared with Canada (US only).
 - **Child credits (US, `childCredits`, just above `taxFor`).** `childCredits(dependents, filing, yearIndex, magi,
   federalTax, earnedIncome)` returns `{ nonrefundable, refundable }`: the Credit for Other Dependents ($500, a qualifying
   child with `age >= 17`, nonrefundable, not indexed, shares the phase-out; the reduction comes off the CTC part first and
