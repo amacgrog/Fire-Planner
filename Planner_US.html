@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V86</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V87</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -3785,9 +3785,10 @@
   // so shares only change when money enters or leaves one account on its own: a
   // contribution (the owner's account) or a Roth conversion (IRAs first, to keep
   // 401(k) access longest; the money lands in the same partner's Roth IRA). An
-  // account's dollars are its share times the pool at that moment. The 3A engine
-  // reads the shares for nothing yet (RMD/penalty/SEPP keep the fixed opening
-  // ownership ratio, accountOwnershipPctA); 3B switches those reads to the ledger.
+  // account's dollars are its share times the pool at that moment. The engine reads
+  // each partner's current share (accountsOwnerShareA) for RMD and 72(t) sizing and
+  // for the early-withdrawal-penalty blend, and a partner's RMD/72(t) distribution
+  // comes out of that partner's own accounts (accountsDraw).
   const ACCOUNT_SLOTS = ['iraA', 'k401A', 'iraB', 'k401B'];
   // Share of a Roth IRA balance assumed to be contributions when no basis is entered.
   const ROTH_BASIS_ASSUMED_PCT = 100;
@@ -3815,13 +3816,6 @@
         return total > 0 ? a.map((x) => x / total) : [0.25, 0.25, 0.25, 0.25];
       };
     return { trad: shares(o.trad), roth: shares(o.roth) };
-  }
-  // Partner A's opening share of a pool, rounded to 12 decimals (so a split typed as
-  // 70/30 gives exactly 0.7). Until the ledger drives the engine this fixed ratio sizes
-  // RMDs, 72(t) and the penalty blend, exactly as the old ownership slider did.
-  function openingOwnershipPctA(slots) {
-    const total = sumSlots(slots);
-    return total > 0 ? Math.round(((slots[0] + slots[1]) / total) * 1e12) / 1e12 : 0.5;
   }
   // Opening Roth basis (contributions): per partner, the entered Roth IRA basis (or the
   // assumed share of the balance when none is entered, never more than the balance) plus
@@ -3864,6 +3858,26 @@
     for (let i = 0; i < 4; i++) d[i] += amounts[i];
     accountsSetFromDollars(shares, d);
   }
+  // Partner A's current share of a pool (their IRA plus their 401(k)).
+  function accountsOwnerShareA(shares) {
+    return shares[0] + shares[1];
+  }
+  // Takes `amounts` ([from A's accounts, from B's accounts]) out of the pool `pool` as it stands
+  // before the draw, each pro rata among that partner's own accounts. A partner whose accounts
+  // cannot cover their amount (a market drop since the balance the RMD was sized on) is emptied;
+  // the pool itself was reduced by the full amount, and the shares are recomputed from the
+  // remaining dollars, so the ledger still sums to the pool whatever the shortfall was.
+  function accountsDraw(shares, pool, amounts) {
+    const d = accountBalances(shares, pool);
+    for (const p of [0, 1]) {
+      const own = d[2 * p] + d[2 * p + 1];
+      if (own <= 0) continue;
+      const f = 1 - Math.min(amounts[p], own) / own;
+      d[2 * p] *= f;
+      d[2 * p + 1] *= f;
+    }
+    accountsSetFromDollars(shares, d);
+  }
   // A Roth conversion of `amount` out of the traditional pool `tradPool` into the
   // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
   // (pro rata). Each partner's converted money goes to that partner's Roth IRA.
@@ -3888,8 +3902,8 @@
   // Share of the pooled traditional / Roth balance whose withdrawals owe the
   // 10% early-withdrawal penalty, given whether each partner is exempt. The
   // balance is one household pool, so when only one partner is exempt the
-  // other partner's own share (pctA: Partner A's assumed ownership share, not
-  // a flat 50/50) is the penalized part.
+  // other partner's own share (pctA: Partner A's current share of that pool from
+  // the account ledger, not a flat 50/50) is the penalized part.
   function penalizedShare(exemptA, exemptB, singlePerson, pctA) {
     if (singlePerson) return exemptA ? 0 : 1;
     if (exemptA && exemptB) return 0;
@@ -4507,7 +4521,7 @@
     singlePerson,
     isSurvivorPeriod,
     deceasedIsA,
-    pctA,
+    ownerShareA,
     workingA,
     workingB,
     retireAgeA,
@@ -4515,18 +4529,19 @@
   }) {
     const traditionalBeforeRmd = traditional + bondTraditional,
       // Each partner's own share of the pooled traditional balance, per
-      // the household's ownership split (pctA above, defaulting to
-      // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
+      // the account ledger (ownerShareA above: Partner A's current share of
+      // the pool, which moves with contributions, conversions and each
+      // partner's own RMDs) — used for RMDs, 72(t) SEPP sizing, and the
       // early-withdrawal-penalty fraction below. During survivor period
       // or single-person mode, whichever partner remains is treated as
       // owning the whole pooled balance (the split only matters while
       // both partners are alive and the balance is genuinely shared).
       traditionalShareA =
-        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
+        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * ownerShareA,
       traditionalShareB =
         singlePerson || isSurvivorPeriod
           ? traditionalBeforeRmd
-          : traditionalBeforeRmd * (1 - pctA);
+          : traditionalBeforeRmd * (1 - ownerShareA);
     let rmdA = age >= rmdStartAge(state.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
       rmdB =
         !singlePerson && ageB >= rmdStartAge(state.ageB)
@@ -5485,9 +5500,7 @@
     const isHistorical = source.startYear !== undefined;
     // Partner A's share of the pooled traditional balance (normalizeState
     // already clamps this to 0-100) — see traditionalShareA/B below.
-    const opening = openingAccounts(),
-      pctA = openingOwnershipPctA(opening.trad),
-      rothPctA = openingOwnershipPctA(opening.roth);
+    const opening = openingAccounts();
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
@@ -5597,7 +5610,7 @@
         singlePerson,
         isSurvivorPeriod,
         deceasedIsA,
-        pctA,
+        ownerShareA: accountsOwnerShareA(accts.trad),
         workingA,
         workingB,
         retireAgeA,
@@ -5773,6 +5786,10 @@
             traditionalContrib -
             rothContrib;
         growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
+        // Each partner's RMD / 72(t) amount comes out of their own accounts (a single person or the
+        // survivor owns everything, so the draw is pro rata and no share moves).
+        if (rmd > 0 && !singlePerson && !isSurvivorPeriod)
+          accountsDraw(accts.trad, bal.traditional + bal.bondTraditional, [rmdA, rmdB]);
         withdrawRequiredDistributions(bal, rmd);
         applyRothConversion(bal, rothLedger, accts, conversionAmount, year);
         bal.cash += oneTimeAmount;
@@ -5812,9 +5829,9 @@
           // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
           // traditionalPenaltyFraction for how the pooled balance is split between partners.
           wd.penalizedFraction = traditionalPenaltyFraction(
-            age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+            age, ageB, singlePerson, accountsOwnerShareA(accts.trad), workingA, workingB, retireAgeA, retireAgeB,
           );
-          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, rothPctA);
+          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, accountsOwnerShareA(accts.roth));
           if (mode.bucketStrategy)
             withdrawBucket(wd, {
               yearReturn: stockReturn,
@@ -11197,7 +11214,7 @@
     } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
     return trace;
   };
-  window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsClone, accountsRestore, accountBalances };
+  window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
   window.__test_tax = { standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };

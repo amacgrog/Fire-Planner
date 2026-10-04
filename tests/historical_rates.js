@@ -9,6 +9,7 @@
 
 const { chromium } = require('playwright');
 const path = require('path');
+const { legacyToAccounts } = require('./legacy_balances');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const ROOT = path.resolve(opt('--root', path.resolve(__dirname, '..')));
@@ -35,18 +36,20 @@ const SCENARIOS = {
     for (const [name, patch0] of Object.entries(SCENARIOS)) {
       const { onlyUS, ...patch } = patch0;
       if (onlyUS && key !== 'US') continue;
-      const out = await page.evaluate(({ patch, PATHS, SEED }) => {
+      const out = await page.evaluate(({ patch, PATHS, SEED, convert }) => {
         const state = window.__test_getState();
         if (!window.__base) window.__base = JSON.parse(JSON.stringify(state));
         for (const k of Object.keys(state)) delete state[k];
-        Object.assign(state, JSON.parse(JSON.stringify(window.__base)), patch);
+        // The scenarios use the old pooled retirement fields; a planner with per-partner accounts gets the equivalent.
+        const toAccounts = eval('(' + convert + ')');
+        Object.assign(state, JSON.parse(JSON.stringify(window.__base)), window.__base.trad401kA !== undefined ? toAccounts(patch, window.__base) : patch);
         const real = Math.random;
         let a = SEED | 0;
         Math.random = () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
         const h = window.__test_runHistoricalCycles(), m = window.__test_runMonteCarlo(PATHS);
         Math.random = real;
         return { hist: h.successRate, cycles: h.cycles.length, mc: m.successRate };
-      }, { patch, PATHS, SEED });
+      }, { patch, PATHS, SEED, convert: legacyToAccounts.toString() });
       console.log(`${key.padEnd(7)} ${name.padEnd(36)} historical ${(out.hist * 100).toFixed(1).padStart(5)}% (${out.cycles} cycles)   Monte Carlo ${(out.mc * 100).toFixed(1).padStart(5)}% (${PATHS} paths, seed ${SEED})`);
     }
     await ctx.close();

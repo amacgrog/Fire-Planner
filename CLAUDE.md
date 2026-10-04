@@ -225,9 +225,12 @@ Each planner is one big IIFE. Core shape:
   same partner's Roth IRA) changes them. The ledger is cloned/restored with the MAGI-iteration snapshot
   (`accountsClone/Restore`, next to `rothLedgerClone/Restore`): a new mutable ledger must be added
   there in the same commit. `window.__test_accountTrace` returns per-year account balances.
-  Until the ledger drives the engine, RMD/72(t) sizing and the penalty blend read
-  `openingOwnershipPctA(...)`, the partner's opening share of each pool (traditional for the
-  traditional blend, Roth for `rothPenaltyFraction`), exactly as the old slider did.
+  The engine reads the ledger: RMD and 72(t) sizing use `accountsOwnerShareA(accts.trad)` (A's
+  current share of the pool), the penalty blend uses the traditional share for traditional draws and
+  the Roth share (`accountsOwnerShareA(accts.roth)`) for `rothPenaltyFraction`, and a partner's RMD /
+  72(t) amount is drawn from that partner's own accounts (`accountsDraw`; a single person or the
+  survivor owns everything, so the draw is pro rata and no share moves). Roth conversions come from the
+  IRAs first. Batch 3B replaces the fractional blend with a per-account status.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
