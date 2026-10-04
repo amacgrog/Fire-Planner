@@ -1170,10 +1170,13 @@ remains is detail to settle when the relevant batch is scoped:
   a loan-origination-date (or "pre-2018 loan") input, which Batch 2 could not add; the
   limits also apply to combined primary and second-residence debt, and the model has one
   home. Decide when the next batch that adds housing fields is scoped.
-- Senior deduction placement (raised in Batch 2): the model treats the $6,000 senior
-  deduction as a deduction from taxable income, not AGI. Confirm against Form 1040 /
-  Schedule 1-A when primary sources are reachable; if it is above the line, taxable
-  Social Security, IRMAA MAGI and the SALT phase-down would read income after it.
+- Senior deduction placement (raised in Batch 2): resolved per the owner's reading of
+  the IRS form flow (2026-10-04): Form 1040 line 11b is AGI; Schedule 1-A Part I starts
+  from it to compute MAGI (AGI plus the specified additions, none modeled); the
+  Schedule 1-A total goes to line 13b and reduces taxable income only, after AGI. So it
+  is not above the line, its own phase-out MAGI is pre-deduction, and it stacks with the
+  65+ additional standard deduction. This is what the model does. Not independently
+  opened by us (primary sites blocked); confirm the line numbers when reachable.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.
