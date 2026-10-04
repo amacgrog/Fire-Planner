@@ -214,6 +214,14 @@ Each planner is one big IIFE. Core shape:
   senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
   status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
   branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
+- **Child credits (US, `childCredits`, just above `taxFor`).** `childCredits(dependents, filing, yearIndex, magi,
+  federalTax, earnedIncome)` returns `{ nonrefundable, refundable }`: the CTC ($2,200 per child with `age <= 16`,
+  indexed by `taxIndexFactor`; phase-out $50 per $1,000 over the `ctc` family threshold, not indexed), limited to the
+  federal income tax (ordinary + gains tax, not state/NIIT/payroll), plus the ACTC (min of the unused credit, $1,700
+  per child indexed, 15% of earned income over $2,500). `taxFor` subtracts both from the federal tax, so a tax can
+  be negative (only through the ACTC). Earned income is `profile.wageA (+ wageB)`, already net of pre-tax
+  contributions; extra income streams are not earned income. The no-children path returns a shared constant and
+  leaves the float order of the sum untouched (snapshot-exact). The two-filer branch puts the credits on Partner A.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,

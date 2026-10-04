@@ -1593,14 +1593,15 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | NIIT 3.8% over $200k / $250k | `niitTax` | MAGI, filing status | Phase 1 |
 | Additional Medicare Tax 0.9% over $200k / $250k | `additionalMedicareTax` | wages, filing status | Batch 2 |
 | Early-withdrawal penalty status (Rule of 55, 72(t), 59.5) | `penaltyStatus`, `accountStatuses` | age, account | 3B |
-| Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed) | (7B) | MAGI, filing status | 7B |
+| Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed); the credit ends when the youngest child turns 17 | `childCredits`, `CTC_PHASE_START` | MAGI, filing status (`ctc` family), child ages | 7B step 4 |
+| ACTC phase-in (15% of earned income over $2,500) and the tax limit on the nonrefundable part: more income changes the credit, not just the tax | `childCredits` | earned wages, federal income tax | 7B step 4 |
 | Filing status (HoH / QSS) switches: QSS two-year window ends (MFJ brackets and deduction -> single or HoH), HoH starts and ends with the last qualifying child | `filingStatusFor`, `FILING` | year, children, survivor timeline | 7B step 3 |
 | State circuit-breaker and income-tested credits | (7C / 7D) `STATE_RULES` | AGI / income | 7C, 7D |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
-#### 7B: US federal credits (US V93 -> V95 so far; Canada untouched)
+#### 7B: US federal credits (US V93 -> V96 so far; Canada untouched)
 
 Branch `claude/batch-7b-federal-credits`, cut from the 7A tip (`a9d88a1`). US only.
 
@@ -1668,6 +1669,28 @@ Canada and every non-survivor scenario are byte-identical. Baselines updated: `t
   survivor's own dependent child.
 - Default `[]` children: every existing snapshot is byte-identical (checked, no baseline change).
 
+**Step 4: Child Tax Credit and Additional Child Tax Credit (US V96).** `childCredits` (above `taxFor`).
+- 2026 amounts (Rev. Proc. 2025-32 via secondary sources: OBBBA made $2,200 permanent from 2026, refundable part
+  $1,700): $2,200 per child with `age <= 16` (under 17 at year end) and `qualifyingChild`; the credit and the
+  $1,700 cap are indexed with `taxIndexFactor` (the statute indexes both from 2026, rounded to $100; we keep the
+  index smooth and unrounded, like every other indexed amount here).
+- Phase-out: $50 per $1,000 (or part) of MAGI over $200,000 ($400,000 joint), thresholds not indexed. QSS and HoH
+  use the $200,000 (the `ctc` family; the joint threshold is for a joint return only). MAGI is AGI
+  (`ordinary + gains`, the same stand-in the senior deduction uses).
+- Nonrefundable part is limited to the federal income tax (ordinary + long-term-gain tax), not state tax, NIIT or
+  payroll tax. ACTC = min(unused credit, $1,700 per child, 15% of (earned income - $2,500)). Earned income is the
+  profile wages (already net of pre-tax contributions and premiums, which is the W-2 box 1 figure). Extra income
+  streams and one-time income ride in the non-wage slot and are **not** earned income: a part-time job entered as an
+  income stream earns no ACTC. Known understatement, accepted (no new input).
+- The tax can be negative (only through the ACTC). Checked in a smoke run (working couple with two children, Roth
+  conversion, smooth withdrawals, survivor): no NaN, no solver trouble, no negative withdrawals. Credits do not
+  depend on withdrawals except through the tax limit, so the net-from-gross bisections stay monotone.
+- Two-filer branch: credits on Partner A's return (A claims the children), with A's own MAGI for the phase-out.
+- Assumed: every child and parent has a valid SSN. Not modeled: Credit for Other Dependents until step 5.
+- Default `[]` children: snapshots byte-identical (the no-children return is a shared constant and the float order of
+  the sums is unchanged). Tests: `tests/child_credits.js` (in `npm test`; hand-computed unit cases, taxFor and an
+  engine case across the age-16/17 boundary) and the two-filer case in `tests/filing_status.js`.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1713,7 +1736,9 @@ reading (itself secondary).
 | Qualifying child ages: under 19 at year end, under 24 if a full-time student, any age if permanently disabled (not modeled); a child counts for the whole birth year | 7A | O (owner's table citing IRS Pub. 501) | IRC 152(c)(3), Pub. 501 |
 | ACA household = filer + spouse + tax dependents regardless of age | 7A | O (owner's table citing HealthCare.gov) | HealthCare.gov household-size page, 26 CFR 1.36B-1(d) |
 | 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
-| Child Tax Credit under 17; ACTC; ODC for other dependents | 7B | S / O | IRC 24, Schedule 8812 instructions |
+| CTC $2,200 per child under 17 (2026, indexed from 2026 and rounded to $100 by statute; the code does not round), refundable cap $1,700, 15% over $2,500, phase-out $50 per $1,000 over $200,000 / $400,000 (not indexed) | 7B | S (Rev. Proc. 2025-32 summaries, OBBBA) | IRC 24(a)-(h), Schedule 8812 instructions, Rev. Proc. 2025-32 |
+| CTC needs a valid SSN for the child (and a parent): assumed; ACTC earned income = wages (box 1) + net self-employment earnings | 7B | O | IRC 24(h)(7), 24(d) |
+| ODC for other dependents | 7B | S / O | IRC 24(h)(4), Schedule 8812 instructions |
 | QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
 | QSS NIIT threshold $250,000 and QSS Additional Medicare Tax $200,000 | 7B | U (own reading) | IRC 1411(b)(1), 3101(b)(2) |
 | QSS 65+ standard-deduction add-on is the married $1,650, not the unmarried $2,050 | 7B | U (own reading) | IRC 63(c)(3), 63(f) |

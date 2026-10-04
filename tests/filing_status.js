@@ -154,7 +154,7 @@ function filingChecks() {
   // Two separate filers with a child: Partner A (who claims it) files HoH, B files single.
   //   A: 60,000 - 24,150 = 35,850 -> 3,948.  B: 60,000 - 16,100 = 43,900 -> 1,240 + 12% x 31,500 = 5,020.
   const kid = [{ age: 5, student: false, qualifyingChild: true }];
-  near(t.taxFor(prof({ filing: 'single', singlePerson: false, otherA: 60000, otherB: 60000, wageA: 60000, wageB: 60000, dependents: kid }), 0, 0), 3948 + 5020, 'two filers, A claims the child');
+  near(t.taxFor(prof({ filing: 'single', singlePerson: false, otherA: 60000, otherB: 60000, wageA: 60000, wageB: 60000, dependents: kid }), 0, 0), 3948 + 5020 - 2200, 'two filers, A claims the child (HoH, then the 2,200 child credit on A)');
   near(t.taxFor(prof({ filing: 'single', singlePerson: false, otherA: 60000, otherB: 60000, wageA: 60000, wageB: 60000 }), 0, 0), 2 * 5020, 'two filers, no child');
   return fails;
 }
