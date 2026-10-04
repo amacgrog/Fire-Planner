@@ -201,6 +201,12 @@ Each planner is one big IIFE. Core shape:
   between two shared markup regions (`html-medicalInflation` ends before it,
   `html-propertyTaxGrowth` starts after it) so each planner can word its label
   differently; keep it outside the shared regions.
+- **Filing-status table (US, `FILING`, just above `standardDeduction`).** Each status row names, per
+  parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, state), which
+  data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
+  `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
+  `taxFor`/`solveRothConversion`. Read through `filingKey(filing, family)` / `filingRow(filing)`; an unknown
+  status reads as single. Never write `filing === 'mfj'` in new code; add a row or a family instead.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,

@@ -2586,10 +2586,52 @@
   // amount for each filer on the return aged 65+ ($1,650 married / $2,050
   // unmarried in 2026), all indexed by the tax-parameter factor. `ages` lists
   // the filers on this return (one for a single return, two for MFJ).
+  // Filing-status table. Each status names, per parameter family, which data row it
+  // reads, so a status that mixes families (a qualifying surviving spouse uses the
+  // joint brackets but the single thresholds) is data, not a new branch. `joint` is
+  // the structural flag: the return combines both partners' income. A status the
+  // table does not know reads as single. Family keys: brackets, deduction (base),
+  // extraAge (the 65+ add-on), gains (0%/15% bands), ss (Social Security base
+  // amounts), niit, medicare (Additional Medicare Tax), irmaa, senior (senior
+  // deduction phase-out start), state (which state-tax column).
+  const FILING = {
+    mfj: { joint: true, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'mfj', niit: 'mfj', medicare: 'mfj', irmaa: 'mfj', senior: 'mfj', state: 'mfj' },
+    single: { joint: false, brackets: 'single', deduction: 'single', extraAge: 'single', gains: 'single', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', state: 'single' },
+  };
+  const filingRow = (filing) => FILING[filing] || FILING.single;
+  const filingKey = (filing, family) => filingRow(filing)[family];
+  // Base 2026 amounts per data row (Rev. Proc. 2025-32), before the tax-index factor.
+  const STD_DEDUCTION = { mfj: 32200, single: 16100 };
+  const STD_EXTRA_65 = { mfj: 1650, single: 2050 };
+  const SENIOR_PHASE_START = { mfj: 150000, single: 75000 };
+  const NIIT_THRESHOLD = { mfj: 250000, single: 200000 };
+  const GAIN_BANDS = { mfj: [98900, 613700], single: [49450, 545500] };
+  // Social Security taxation: [lower base, upper base, cap on the 50% tier].
+  const SS_BASE = { mfj: [32000, 44000, 6000], single: [25000, 34000, 4500] };
+  const ORDINARY_BRACKETS = {
+    mfj: [
+      [24800, 0.1],
+      [100800, 0.12],
+      [211400, 0.22],
+      [403550, 0.24],
+      [512450, 0.32],
+      [768700, 0.35],
+      [Infinity, 0.37],
+    ],
+    single: [
+      [12400, 0.1],
+      [50400, 0.12],
+      [105700, 0.22],
+      [201775, 0.24],
+      [256225, 0.32],
+      [640600, 0.35],
+      [Infinity, 0.37],
+    ],
+  };
   function standardDeduction(filing, yearIndex, ages = []) {
     const factor = taxIndexFactor(yearIndex);
-    let deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
-    const extra = (filing === 'mfj' ? 1650 : 2050) * factor;
+    let deduction = STD_DEDUCTION[filingKey(filing, 'deduction')] * factor;
+    const extra = STD_EXTRA_65[filingKey(filing, 'extraAge')] * factor;
     for (const a of ages) if (a >= 65) deduction += extra;
     return deduction;
   }
@@ -2603,7 +2645,7 @@
     let seniors = 0;
     for (const a of ages) if (a >= 65) seniors++;
     if (!seniors) return 0;
-    const start = filing === 'mfj' ? 150000 : 75000;
+    const start = SENIOR_PHASE_START[filingKey(filing, 'senior')];
     return (
       seniors *
       Math.max(
@@ -2647,26 +2689,7 @@
 
   function ordinaryTax(income, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
     const factor = taxIndexFactor(yearIndex);
-    const baseBrackets =
-      filing === 'mfj'
-        ? [
-            [24800, 0.1],
-            [100800, 0.12],
-            [211400, 0.22],
-            [403550, 0.24],
-            [512450, 0.32],
-            [768700, 0.35],
-            [Infinity, 0.37],
-          ]
-        : [
-            [12400, 0.1],
-            [50400, 0.12],
-            [105700, 0.22],
-            [201775, 0.24],
-            [256225, 0.32],
-            [640600, 0.35],
-            [Infinity, 0.37],
-          ];
+    const baseBrackets = ORDINARY_BRACKETS[filingKey(filing, 'brackets')];
     let taxable = Math.max(0, income - deduction),
       tax = 0,
       prev = 0;
@@ -3157,7 +3180,8 @@
     return `<b>${stateName} state-tax treatment.</b> ${notes[code] || `${base} ${ssText} The planner then applies the selected state\'s configured 2026 brackets or flat rate and standard deduction.`} ${gainText}`;
   }
   function stateIncomeTax(sources, filing, yearIndex) {
-    const factor = taxIndexFactor(yearIndex),
+    const joint = filingKey(filing, 'state') === 'mfj',
+      factor = taxIndexFactor(yearIndex),
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
       gains = Math.max(0, sources.gains),
       taxableSS = Math.max(0, sources.taxableSS),
@@ -3177,7 +3201,7 @@
         nonSS +
           gains -
           retirementExclusion(sources, yearIndex) -
-          (filing === 'mfj' ? 16700 : 8350) * factor,
+          (joint ? 16700 : 8350) * factor,
       );
       return progressiveTax(
         taxable,
@@ -3196,12 +3220,12 @@
         0,
         nonSS +
           gains * 0.7 -
-          (filing === 'mfj' ? 25840 : 13960) * factor -
-          (filing === 'mfj' ? 1400 : 700) * factor,
+          (joint ? 25840 : 13960) * factor -
+          (joint ? 1400 : 700) * factor,
       );
       return progressiveTax(
         wiIncome,
-        filing === 'mfj'
+        joint
           ? [
               [20150 * factor, 0.035],
               [69260 * factor, 0.044],
@@ -3219,7 +3243,7 @@
     // NJ: no SS tax; bracketed gross-income tax. NJ retirement-income exclusions and after-tax IRA basis require inputs this planner does not collect.
     const njIncome = Math.max(0, nonSS + gains),
       br =
-        filing === 'mfj'
+        joint
           ? [
               [20000, 0.014],
               [50000, 0.0175],
@@ -3259,10 +3283,10 @@
       0,
       (rule.ssTaxed ? base : nonSS + gains) -
         retirementExclusion(sources, yearIndex) -
-        (rule.d?.[filing === 'mfj' ? 1 : 0] || 0) * factor,
+        (rule.d?.[joint ? 1 : 0] || 0) * factor,
     );
     if (rule.flat !== undefined) return income * rule.flat;
-    const starts = rule[filing === 'mfj' ? 'm' : 's'] || rule.same;
+    const starts = rule[joint ? 'm' : 's'] || rule.same;
     return progressiveTax(income, bracketsFromStarts(starts, factor));
   }
   function niitTax(magi, netInvestmentIncome, filing = 'mfj') {
@@ -3270,7 +3294,7 @@
       0.038 *
       Math.min(
         Math.max(0, netInvestmentIncome),
-        Math.max(0, magi - (filing === 'mfj' ? 250000 : 200000)),
+        Math.max(0, magi - NIIT_THRESHOLD[filingKey(filing, 'niit')]),
       )
     );
   }
@@ -3356,8 +3380,9 @@
   function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
     if (gain <= 0) return 0;
     const factor = taxIndexFactor(yearIndex),
-      zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
-      fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor;
+      [zeroBase, fifteenBase] = GAIN_BANDS[filingKey(filing, 'gains')],
+      zeroLimit = zeroBase * factor,
+      fifteenLimit = fifteenBase * factor;
     // Any standard deduction left over after ordinary income also shelters
     // long-term gains/qualified dividends (taxable income is gains plus
     // ordinary income minus the deduction), which matters most for an early
@@ -3376,9 +3401,7 @@
   }
   function taxableSocialSecurity(benefits, otherIncome, filing = 'mfj') {
     const provisional = otherIncome + benefits * 0.5;
-    const lower = filing === 'mfj' ? 32000 : 25000,
-      upper = filing === 'mfj' ? 44000 : 34000,
-      base = filing === 'mfj' ? 6000 : 4500;
+    const [lower, upper, base] = SS_BASE[filingKey(filing, 'ss')];
     if (provisional <= lower) return 0;
     if (provisional <= upper) return Math.min(benefits * 0.5, (provisional - lower) * 0.5);
     return Math.min(benefits * 0.85, (provisional - upper) * 0.85 + Math.min(base, benefits * 0.5));
@@ -3393,7 +3416,7 @@
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
-    if (profile.filing === 'mfj') {
+    if (filingRow(profile.filing).joint) {
       const other = profile.otherA + profile.otherB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
       const ordinary = profile.otherA + profile.otherB + traditionalExtra + invOrd + taxableSS;
@@ -3615,31 +3638,31 @@
   // applied per Medicare-enrolled partner against MAGI from two simulated
   // years prior (the household's own entries for the first two plan years, if
   // given — see irmaaLookbackMagi), as required by the actual two-year lookback rule.
+  const IRMAA_TIERS = {
+    mfj: [
+      [218000, 0, true],
+      [274000, 95.7, true],
+      [342000, 240.4, true],
+      [410000, 385.0, true],
+      [750000, 529.6, false],
+      [Infinity, 578.0, true],
+    ],
+    single: [
+      [109000, 0, true],
+      [137000, 95.7, true],
+      [171000, 240.4, true],
+      [205000, 385.0, true],
+      [500000, 529.6, false],
+      [Infinity, 578.0, true],
+    ],
+  };
   function irmaaTiers(filing, yearIndex) {
     const factor = taxIndexFactor(yearIndex);
     // [upper bound, monthly surcharge per enrolled partner, bound inclusive?].
     // CMS: the lower tiers read "greater than X, up to and including Y", but the
     // top tier starts AT $500,000 / $750,000 ("$500,000 or above"), so the
     // second-highest tier's bound is exclusive.
-    return (
-      filing === 'mfj'
-        ? [
-            [218000, 0, true],
-            [274000, 95.7, true],
-            [342000, 240.4, true],
-            [410000, 385.0, true],
-            [750000, 529.6, false],
-            [Infinity, 578.0, true],
-          ]
-        : [
-            [109000, 0, true],
-            [137000, 95.7, true],
-            [171000, 240.4, true],
-            [205000, 385.0, true],
-            [500000, 529.6, false],
-            [Infinity, 578.0, true],
-          ]
-    ).map(([cap, amt, inclusive]) => [cap === Infinity ? Infinity : cap * factor, amt, inclusive]);
+    return IRMAA_TIERS[filingKey(filing, 'irmaa')].map(([cap, amt, inclusive]) => [cap === Infinity ? Infinity : cap * factor, amt, inclusive]);
   }
   function irmaaSurcharge(magi2yr, filing, yearIndex) {
     const tiers = irmaaTiers(filing, yearIndex);
@@ -3671,24 +3694,10 @@
   // ordinary taxable income up to the top of the selected federal bracket
   // (recomputing taxable Social Security as the conversion is added).
   function bracketCeilingReal(pctTarget, filing) {
-    const brackets =
-      filing === 'mfj'
-        ? [
-            [10, 24800],
-            [12, 100800],
-            [22, 211400],
-            [24, 403550],
-            [32, 512450],
-            [35, 768700],
-          ]
-        : [
-            [10, 12400],
-            [12, 50400],
-            [22, 105700],
-            [24, 201775],
-            [32, 256225],
-            [35, 640600],
-          ];
+    // Every bracket but the open-ended top one, as [percent, ceiling].
+    const brackets = ORDINARY_BRACKETS[filingKey(filing, 'brackets')]
+      .filter(([cap]) => cap !== Infinity)
+      .map(([cap, rate]) => [Math.round(rate * 100), cap]);
     const found = brackets.find(([p]) => p === pctTarget);
     return found ? found[1] : brackets[brackets.length - 1][1];
   }
@@ -3722,24 +3731,25 @@
           : state.rothConvBracket;
     if (bracketPct === 0) return 0;
     const factor = taxIndexFactor(yearIndex),
-      filing = profile.filing === 'mfj' ? 'mfj' : 'single';
+      filing = FILING[profile.filing] ? profile.filing : 'single',
+      joint = filingRow(filing).joint;
     // Conservative lower bound on the deduction: age-adjusted standard, or the
     // property tax (under the SALT cap) plus mortgage interest if larger. State
     // income tax and the senior deduction depend on the conversion itself, so
     // they are left out (a slightly smaller deduction converts a bit less).
     const deduction = Math.max(
-        standardDeduction(filing, yearIndex, filing === 'mfj' ? [profile.ageA, profile.ageB] : [profile.ageA]),
+        standardDeduction(filing, yearIndex, joint ? [profile.ageA, profile.ageB] : [profile.ageA]),
         itemizedDeduction(yearIndex, 0, 0, profile.propertyTax || 0, profile.mortgageInterest || 0),
       ),
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
-      if (filing === 'mfj') {
+      if (joint) {
         const other = profile.otherA + profile.otherB + conv,
-          taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
+          taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
         return other + taxableSS;
       }
       const other = profile.otherA + (profile.otherB || 0) + conv,
-        taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, 'single');
+        taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
       return other + taxableSS;
     };
     if (ordinaryAt(0) >= targetGrossOrdinary) return 0;
@@ -4316,7 +4326,7 @@
   // (marry-later, before the wedding), each measured against their own $200k.
   function additionalMedicareTax(wagesA, wagesB, filing) {
     const rate = 0.009;
-    if (filing === 'mfj') return Math.max(0, wagesA + wagesB - 250000) * rate;
+    if (filingKey(filing, 'medicare') === 'mfj') return Math.max(0, wagesA + wagesB - 250000) * rate;
     return (Math.max(0, wagesA - 200000) + Math.max(0, wagesB - 200000)) * rate;
   }
   // @@shared:07-mortgagePayment begin
