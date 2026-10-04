@@ -184,13 +184,13 @@ function usChecks() {
 
   // Every state with a bracket table or flat rate vs. a reference built from
   // its own table (deduction, then per-slice sum from explicit lower bounds).
-  const tableStates = Object.entries(t.stateRules).filter(([, r]) => r.flat !== undefined || r.s || r.m || r.same);
+  const tableStates = Object.entries(t.STATE_RULES).filter(([, r]) => r.tax.kind !== 'none');
   if (tableStates.length < 25) fails.push(`expected 25+ table-driven states, found ${tableStates.length}`);
   for (const [code, rule] of tableStates) {
     if (['sc', 'co', 'nc', 'ma', 'wi', 'nj', 'wa'].includes(code)) continue; // hand-written above
     for (const filing of ['single', 'mfj']) {
-      const starts = rule[filing === 'mfj' ? 'm' : 's'] || rule.same;
-      const ded = rule.d?.[filing === 'mfj' ? 1 : 0] || 0;
+      const starts = rule.tax.kind === 'graduated' ? rule.tax.columns[filing] : null;
+      const ded = rule.standardDeduction[filing] + rule.exemption[filing];
       if (starts) {
         if (starts[0][0] !== 0) fails.push(`${code} ${filing}: first bracket must start at 0`);
         for (let i = 1; i < starts.length; i++)
@@ -199,7 +199,7 @@ function usChecks() {
       }
       for (const inc of incomes) {
         const taxable = Math.max(0, inc - ded);
-        const expected = rule.flat !== undefined ? taxable * rule.flat : refTax(taxable, starts);
+        const expected = rule.tax.kind === 'flat' ? taxable * rule.tax.rate : refTax(taxable, starts);
         near(stateTax(code, src({ wages: inc }), filing), expected, 0.01, `${code} ${filing} wages ${inc}`);
       }
     }
@@ -209,8 +209,7 @@ function usChecks() {
   // negative, never falls as income rises, no jumps, marginal rate under 15%,
   // married never owes more than single on the same single-earner income,
   // and the whole schedule scales with inflation indexing.
-  const allCodes = Object.keys(t.stateRules).concat(['ma', 'co', 'nc', 'nj', 'wi', 'sc'].filter((c) => !t.stateRules[c]));
-  for (const code of new Set(allCodes)) {
+  for (const code of Object.keys(t.STATE_RULES)) {
     for (const filing of ['single', 'mfj']) {
       let prev = 0;
       for (let inc = 0; inc <= 1500000; inc += 2500) {

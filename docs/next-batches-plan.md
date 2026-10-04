@@ -1727,6 +1727,62 @@ switches (QSS window end, HoH start/end), the child-credit phase-out and the ACT
 Not modeled (owner): child and dependent-care credit and FSA, education credits, adoption credit, coverage on a
 parent's plan to 26. Open items: EITC and Social Security child benefits.
 
+#### 7C: state-tax framework plus reference states (US only; Canada untouched)
+
+Branch `claude/batch-7c-state-framework`, cut from the 3B-line tip `fb03255` (7A and 7B merged). Owner decisions
+(2026-10-04), recorded before work started:
+- **Migrate all 51 jurisdictions now**, at today's simplified figures, in the first commit, so the coverage test
+  ("every state declares every field") can be real. The reference states (CA, NY, PA, TX, WA, plus **CT** as the sixth,
+  added to cover income-tested Social Security and pension rules) follow as researched rows.
+- Migrated rows keep "index everything with inflation" (`indexing: 'cpi'`); the flag exists for 7D to set per state.
+- NY's high-income tax-benefit recapture is a schema mechanism in the NY reference row.
+- **Circular reference (state tax feeds the federal SALT deduction):** the order is state first, federal second. A state
+  never reads a federal deduction or federal tax; conforming states use the federal standard deduction (independent of state
+  tax); `federalTaxSubtraction` is a required field, `'none'` for every row in 7C. States that deduct federal income tax
+  paid (AL, OR, MT, partly MO; 7D) get one lagged pass, not an iteration. A refundable credit never takes the SALT-deductible
+  state tax below zero.
+- **Per-person amounts:** the partner split of discretionary traditional withdrawals uses the year's account-ledger share
+  (`accountsOwnerShareA(accts.trad)`, carried on the tax profile as `ownerShareA`; absent = 50%). It replaces the two-filer
+  branch's 50/50 split of `traditionalExtra`. No new inputs.
+- Local income taxes (NYC, parts of PA, OH, MD, IN) stay out of scope, listed as a documented gap (the `localTax` field is
+  `'notModeled'` on every row).
+- WA's top tier goes to 9.9% (owner OK), and CA figures are refreshed to the latest published (reference-state commit).
+
+**Commit 1: schema and migration of all 51 rows (no behavior change).** `STATE_RULES` replaces `stateRules`, `noTaxStates`,
+`massachusettsTax`, `progressiveTax`, `bracketsFromStarts` and the hand-coded CO / MA / NC / NJ / SC / WI / WA branches. The schema
+is described in `CLAUDE.md`. `FILING.state` is removed: each row's `statusAs` maps a federal status to a column (migrated rows
+keep the 7B interim mapping, HoH as single, QSS as joint). DC was already a jurisdiction (the plan called it new).
+Migration notes:
+- NJ's table keeps its redundant top row (a 5,000,000 start at the same 10.75% rate as the 1,000,000 row) so the float arithmetic
+  is identical to the old code; remove it when 7D refreshes NJ.
+- NC is modeled as Social Security `exempt` (the old code taxed it then subtracted it back out); the result is identical.
+- The migrated retirement-exclusion kinds (`shareByAge`, `perEligibleCap`, `perEligibleCapSeniorTier`, `seniorCap`, `full`)
+  reproduce the old household-level quirks (SC's tier counts `max(eligible, senior)` filers at the senior cap, for example).
+  They are replaced by per-person kinds in the reference rows and 7D, as intended changes.
+- Unknown state codes owe nothing (the legacy `'none'` value is not in the selector).
+
+**Verification of "no behavior change".** (1) `npm test`: US 518 and Canada 359 snapshot scenarios exact, UI snapshots unchanged.
+(2) A one-time differential against a worktree of `fb03255`: 51 states x 2 inflation settings x 6 filing statuses (single, mfj, hoh,
+qss, an unknown string, undefined) x 3 year indexes (0, 7, 13.5) x grids of wages, pension, retirement, gains, taxable Social Security
+and age lists (including null ages), 1,367,820 values, **0 mismatches, exact equality**. (3) `tests/tax_brackets.js` now reads
+`STATE_RULES` (its independent reference calculation is unchanged).
+
+**Timing gate.** The Phase 2 benchmark was a one-off measurement, never committed; `tests/bench_runs.js` is the committed
+version (400 `simulate()` + 120 `simulateHistorical()`, median of 3, per state). Before (`fb03255`) vs commit 1, ms:
+
+| State | simulate before -> after | historical before -> after |
+|---|---|---|
+| tx | 319 -> 309 | 67 -> 77 |
+| ca | 564 -> 361 | 111 -> 72 |
+| ny | 617 -> 374 | 116 -> 76 |
+| pa | 444 -> 346 | 84 -> 68 |
+| ct | 601 -> 344 | 113 -> 68 |
+| wa | 337 -> 301 | 70 -> 61 |
+
+(Run-to-run noise is about 5-10%; the old code rebuilt the bracket arrays on every call. A per-(state, year) cache would not
+have helped: the index factor differs per historical or Monte Carlo path, so the row is resolved once per state code and the
+factor is applied inside the loop.)
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
