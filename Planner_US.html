@@ -2419,6 +2419,12 @@
   }
   // @@shared:06-histTaxFactors end
 
+  // Base federal standard deduction (2026 amounts, Rev. Proc. 2025-32), indexed
+  // by the tax-parameter factor. The single place the amount lives; ordinaryTax,
+  // longTermGainTax and the Roth-conversion bracket sizing all read it.
+  function standardDeduction(filing, yearIndex) {
+    return (filing === 'mfj' ? 32200 : 16100) * taxIndexFactor(yearIndex);
+  }
   function ordinaryTax(income, yearIndex, filing = 'mfj') {
     const factor = taxIndexFactor(yearIndex);
     const baseBrackets =
@@ -2441,7 +2447,7 @@
             [640600, 0.35],
             [Infinity, 0.37],
           ];
-    const deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
+    const deduction = standardDeduction(filing, yearIndex);
     let taxable = Math.max(0, income - deduction),
       tax = 0,
       prev = 0;
@@ -3130,7 +3136,7 @@
     const factor = taxIndexFactor(yearIndex),
       zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
       fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor,
-      deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
+      deduction = standardDeduction(filing, yearIndex);
     // Any standard deduction left over after ordinary income also shelters
     // long-term gains/qualified dividends (taxable income is gains plus
     // ordinary income minus the deduction), which matters most for an early
@@ -3456,7 +3462,7 @@
     if (bracketPct === 0) return 0;
     const factor = taxIndexFactor(yearIndex),
       filing = profile.filing === 'mfj' ? 'mfj' : 'single';
-    const deduction = (filing === 'mfj' ? 32200 : 16100) * factor,
+    const deduction = standardDeduction(filing, yearIndex),
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
       if (filing === 'mfj') {
