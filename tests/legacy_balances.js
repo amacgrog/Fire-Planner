@@ -8,12 +8,12 @@
 //   - traditional -> the two 401(k)s, split by the old ownership slider (default 50%)
 //   - roth        -> the two Roth IRAs, split the same way (the old engine used the
 //                    traditional slider for the Roth penalty blend too)
-//   - rothBasisPct (default 100) -> Roth IRA basis dollars (0% becomes $1, because 0
-//                    means "not entered, use the assumed share")
+//   - rothBasisPct -> Roth IRA basis dollars (0% becomes $1, because 0 means "not entered, use the
+//                    assumed share"); only when the patch names it or opts.pinBasis is set
 // A single-person plan puts everything on Partner A (Partner B's accounts are ignored), so a
 // single-person patch that names no balances gets the base household's balances moved to A.
 // Pure function with no closure state, so snapshot.js can inject it into the page.
-function legacyToAccounts(patch, base) {
+function legacyToAccounts(patch, base, opts = {}) {
   const out = { ...patch };
   const has = (k) => Object.prototype.hasOwnProperty.call(patch, k);
   const single = has('singlePerson') ? !!patch.singlePerson : !!(base && base.singlePerson);
@@ -27,6 +27,9 @@ function legacyToAccounts(patch, base) {
   const baseTotal = (a, b) => (base ? (base[a] || 0) + (base[b] || 0) : 0);
   const trad = has('traditional') ? patch.traditional : baseTotal('trad401kA', 'trad401kB') + baseTotal('tradIraA', 'tradIraB');
   const roth = has('roth') ? patch.roth : baseTotal('rothIraA', 'rothIraB') + baseTotal('roth401kA', 'roth401kB');
+  // Legacy default was 100% contributions. `pinBasis` keeps that (tests with hand-computed numbers);
+  // without it a patch that names no basis gets the planner's own default (not entered, assumed share).
+  const hasBasis = has('rothBasisPct') || opts.pinBasis;
   const basisPct = pick('rothBasisPct', 100);
   const split = (total) => {
     const a = single ? total : total * pctA;
@@ -34,7 +37,7 @@ function legacyToAccounts(patch, base) {
   };
   const [tA, tB] = split(trad);
   const [rA, rB] = split(roth);
-  const basis = (ira) => (ira > 0 ? (basisPct > 0 ? (ira * basisPct) / 100 : 1) : 0);
+  const basis = (ira) => (!hasBasis ? 0 : ira > 0 ? (basisPct > 0 ? (ira * basisPct) / 100 : 1) : 0);
   for (const k of ['traditional', 'roth', 'traditionalSharePctA', 'rothBasisPct']) delete out[k];
   Object.assign(out, {
     tradIraA: 0, tradIraB: 0, trad401kA: tA, trad401kB: tB,

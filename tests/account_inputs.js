@@ -66,9 +66,13 @@ const BASE = {
     let r = await y0({ rothIraA: 500000, rothIraBasisA: 200000, spending: 40000 });
     near(r.rothWithdrawn, 40000, 0.01, 'basis entered: a draw inside the basis is taken dollar for dollar');
     near(r.earlyPenalty, 0, 0.01, 'basis entered: no penalty inside the basis');
-    // Not entered (0): the planner assumes a share of the balance (100% in 3A), so the draw is free too.
+    // Not entered (0): the planner assumes half of the balance is basis (250,000 of 500,000).
     r = await y0({ rothIraA: 500000, rothIraBasisA: 0, spending: 40000 });
-    near(r.earlyPenalty, 0, 0.01, 'basis not entered: assumed share covers the draw');
+    near(r.earlyPenalty, 0, 0.01, 'basis not entered: the assumed half covers a small draw');
+    r = await y0({ rothIraA: 500000, rothIraBasisA: 0, spending: 250000 });
+    near(r.earlyPenalty, 0, 0.01, 'basis not entered: exactly half of the balance is free');
+    r = await y0({ rothIraA: 500000, rothIraBasisA: 0, spending: 260000 });
+    assert(r.earlyPenalty > 0, 'basis not entered: past half of the balance reaches earnings and owes the penalty');
     // Basis of $1 is as good as none: the whole draw is earnings, grossed up, with the 10% penalty.
     r = await y0({ rothIraA: 500000, rothIraBasisA: 1, spending: 40000 });
     assert(r.earlyPenalty > 3500, `basis of $1: the draw is almost all earnings and pays the penalty (${r.earlyPenalty})`);
@@ -86,6 +90,20 @@ const BASE = {
     assert(r.earlyPenalty > 0, 'spending past the basis owes the penalty');
     r = await y0({ rothIraA: 500000, rothIraBasisA: 150000, spending: 150000 });
     near(r.earlyPenalty, 0, 0.01, 'spending exactly the basis owes nothing');
+  }
+  // 3b. Shipped defaults: Roth 401(k) basis slider 50%, Roth IRA basis not entered (0).
+  {
+    const d = await page.evaluate(() => {
+      const st = window.__test_getState();
+      return { a: st.roth401kBasisPctA, b: st.roth401kBasisPctB, ia: st.rothIraBasisA, ib: st.rothIraBasisB };
+    });
+    assert.deepStrictEqual(d, { a: 50, b: 50, ia: 0, ib: 0 }, 'default basis settings');
+    // With the slider at its default, a 500,000 Roth 401(k) holds 250,000 of basis.
+    const dflt = { singlePerson: true, roth401kA: 500000, roth401kBasisPctA: 50, spending: 250000 };
+    let r = await y0(dflt);
+    near(r.earlyPenalty, 0, 0.01, 'Roth 401(k) at the default 50%: 250,000 is free');
+    r = await y0({ ...dflt, spending: 260000 });
+    assert(r.earlyPenalty > 0, 'Roth 401(k) at the default 50%: past 250,000 owes the penalty');
   }
   // 4. Roth 401(k) basis slider: contributions = balance x slider, then the same basis-first rule.
   //    500,000 at 30% is 150,000 of basis.

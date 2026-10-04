@@ -211,8 +211,10 @@ Each planner is one big IIFE. Core shape:
   per-year rule to the matching helper, not inline in an engine.
 - **Retirement accounts (US).** Four accounts per partner: `tradIraA/B`, `trad401kA/B`,
   `rothIraA/B`, `roth401kA/B` (all `.money`), plus `rothIraBasisA/B` (dollars; **0 means "not entered"**
-  and the engine assumes `ROTH_BASIS_ASSUMED_PCT` of the balance, enter 1 for none) and
-  `roth401kBasisPctA/B` (slider). `openingAccounts()` reads them (Partner B's are zero in
+  and the engine assumes `ROTH_BASIS_ASSUMED_PCT` = 50% of the balance, enter 1 for none) and
+  `roth401kBasisPctA/B` (slider, default 50). The snapshot grid and `tests/historical_rates.js` use the
+  planner's own basis defaults (so they run at 50%); hand-computed tests pin 100% through
+  `translateFieldList` / `pinBasis`. `openingAccounts()` reads them (Partner B's are zero in
   single-person mode: B's balances are ignored, not summed); `bal.traditional/roth` start as the sums.
   The old pooled `traditional`, `roth`, `traditionalSharePctA` and `rothBasisPct` are retired and **not
   migrated** (owner decision): `normalizeState` deletes them, so an old save opens with default
