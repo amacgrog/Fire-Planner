@@ -94,8 +94,11 @@ function checks() {
   const kids = [kid(2), kid(10), kid(17), kid(4, { qualifyingChild: false })];
   // Under the threshold: 1,000 (age 2) + 500 (age 10); the 17-year-old is over the top tier and the unqualified child is skipped.
   near(run(child, { wages: 40000, dependents: kids }), 4000 - 1500, 'child credit: by age, qualifying children only');
-  // Federal AGI 90,000: over by 15,000 = 15 steps x 16.50 = 247.50 per child -> 752.50 + 252.50 = 1,005
-  near(run(child, { wages: 90000, dependents: kids }), 9000 - 1005, 'child credit: phase-out per child');
+  // Federal AGI 90,000: over by 15,000 = 15 steps x 16.50 = 247.50 off the household total of 1,500 -> 1,252.50
+  near(run(child, { wages: 90000, dependents: kids }), 9000 - 1252.5, 'child credit: the phase-out comes off the total');
+  // One 500 credit and AGI 100,000 (over by 25,000 = 25 steps = 412.50): 87.50 left; two of them (1,000): 587.50
+  near(run(child, { wages: 100000, dependents: [kid(8)] }), 10000 - 87.5, 'child credit: one child');
+  near(run(child, { wages: 100000, dependents: [kid(8), kid(9)] }), 10000 - 587.5, 'child credit: two children share one phase-out');
   // Tax 500 on 5,000 of wages, credit 1,500 (refundable): the state tax goes negative.
   near(run(child, { wages: 5000, dependents: kids }), 500 - 1500, 'child credit: refundable credit can take the tax below zero');
 

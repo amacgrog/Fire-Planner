@@ -69,8 +69,11 @@ function checks() {
   //   668.85 + 283.80 + 221.45 + 44,050 x 5.4% (2,378.70) = 3,552.80; Empire State child credit 1,000 + 500 (refundable) -> 2,052.80
   near(tax('ny', { wages: 90000, ages: [40, 40], dependents: [kid(2), kid(9)] }, 'mfj'), 2052.8, 'NY married with children');
   // The same with wages 130,000: taxable 111,950, table tax 5,712.80, flat 5.4% 6,045.30, difference 332.50 x 0.447 = 148.6275
-  //   -> 5,861.4275; child credit cut 16.50 x 20 = 330 each: 670 + 170 = 840 -> 5,021.4275
-  near(tax('ny', { wages: 130000, ages: [40, 40], dependents: [kid(2), kid(9)] }, 'mfj'), 5021.4275, 'NY children, phase-outs');
+  //   -> 5,861.4275; child credit 1,500 less one cut of 16.50 x 20 = 330 -> 1,170 -> 4,691.4275
+  near(tax('ny', { wages: 130000, ages: [40, 40], dependents: [kid(2), kid(9)] }, 'mfj'), 4691.4275, 'NY children, phase-outs');
+  // Two children aged 5, MFJ, AGI 120,000: 1,000 less 10 x 16.50 = 835 (the owner's worked example); tax 120,000 - 16,050 - 2,000 = 101,950
+  //   668.85 + 283.80 + 221.45 + 74,050 x 5.4% (3,998.70) = 5,172.80; recapture 332.50 x (120,000 - 107,650) / 50,000 (0.247) = 82.1275 -> 5,254.9275 - 835
+  near(tax('ny', { wages: 120000, ages: [40, 40], dependents: [kid(5), kid(5)] }, 'mfj'), 5254.9275 - 835, 'NY child credit, two children aged 5');
   // Head of household with a 5-year-old, wages 60,000: taxable 60,000 - 11,200 - 1,000 = 47,800 on the HoH schedule
   //   12,800 x 3.9% 499.20 + 4,850 x 4.4% 213.40 + 3,250 x 5.15% 167.375 + 26,900 x 5.4% 1,452.60 = 2,332.575; credit 500 -> 1,832.575
   near(tax('ny', { wages: 60000, dependents: [kid(5)] }, 'hoh'), 1832.575, 'NY head of household');

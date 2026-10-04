@@ -3679,7 +3679,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint); the reduction is applied per child (an assumption). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
+      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
     },
     nc: {
       name: 'North Carolina',
@@ -4292,7 +4292,7 @@
   //                        + `dependent` per qualifying child, each credit reduced by
   //                        `phaseOut.reduction` per `phaseOut.width` of federal AGI over `phaseOut.start`
   //   'renterCredit'       a flat amount by column for a renter whose state AGI is at or under a limit
-  //   'childCredit'        per qualifying child by age (`tiers`: [maxAge, amount], first match), each
+  //   'childCredit'        per qualifying child by age (`tiers`: [maxAge, amount], first match), the total
   //                        reduced by `phaseOut.per` per `phaseOut.width` of federal AGI over `phaseOut.start`
   //   'propertyTaxCredit'  min(property tax paid, max), cut by `stepPct` per `stepWidth` of state AGI
   //                        over a limit by column
@@ -4316,6 +4316,7 @@
       case 'renterCredit':
         return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * f ? cr.amount[colKey] * f : 0;
       case 'childCredit': {
+        // The phase-out comes off the household's total, not off each child's amount.
         const over = c.fedAgi - cr.phaseOut.start[colKey] * f,
           cut = over > 0 ? Math.ceil(over / (cr.phaseOut.width * f)) * cr.phaseOut.per * f : 0;
         let total = 0;
@@ -4323,11 +4324,11 @@
           if (!deps[i].qualifyingChild) continue;
           for (let t = 0; t < cr.tiers.length; t++)
             if (deps[i].age <= cr.tiers[t][0]) {
-              total += Math.max(0, cr.tiers[t][1] * f - cut);
+              total += cr.tiers[t][1] * f;
               break;
             }
         }
-        return total;
+        return Math.max(0, total - cut);
       }
       case 'propertyTaxCredit': {
         const over = c.agi - cr.limit[colKey] * f,
