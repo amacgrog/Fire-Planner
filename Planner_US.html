@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V96</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V97</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -3426,17 +3426,23 @@
     return Math.min(benefits * 0.85, (provisional - upper) * 0.85 + Math.min(base, benefits * 0.5));
   }
   // Federal child credits for one return (IRC 24). 2026 amounts (Rev. Proc. 2025-32, via
-  // secondary sources): $2,200 per child aged 16 or under at year end, of which at most $1,700
-  // is refundable (the ACTC, 15% of earned income over $2,500); both indexed with the tax
-  // parameters from 2026. The credit is reduced by $50 per $1,000 (or part) of MAGI over
-  // $200,000 ($400,000 joint), thresholds that are NOT indexed. The nonrefundable part is
-  // limited to the federal income tax (ordinary + long-term gains tax; not state tax, NIIT or
-  // payroll tax). `dependents` is the `dependentsInYear` list (a missing list means none).
-  // Every child and parent is assumed to have a valid Social Security number. Returns the
-  // credit pieces; taxFor subtracts `nonrefundable + refundable` from the federal tax.
+  // secondary sources): the Child Tax Credit is $2,200 per child aged 16 or under at year end,
+  // of which at most $1,700 is refundable (the ACTC, 15% of earned income over $2,500), both
+  // indexed with the tax parameters from 2026. The Credit for Other Dependents is $500 (not
+  // indexed, nonrefundable) for a qualifying child who is not CTC-eligible (17 and over: 17-18,
+  // and students to 23). The two share one phase-out: $50 per $1,000 (or part) of MAGI over
+  // $200,000 ($400,000 joint), thresholds that are NOT indexed. Both are limited to the federal
+  // income tax (ordinary + long-term gains tax; not state tax, NIIT or payroll tax).
+  // `dependents` is the `dependentsInYear` list (a missing list means none). Every child and
+  // parent is assumed to have a valid Social Security number. Returns the credit pieces; taxFor
+  // subtracts `nonrefundable + refundable` from the federal tax.
+  // Ordering inside the combined credit (it only matters below the phase-out, where the tax limit
+  // binds): the phase-out reduction comes off the CTC part first, the tax absorbs the nonrefundable
+  // ODC first, and only the unused CTC can be refunded.
   const CTC_PER_CHILD = 2200,
     CTC_REFUNDABLE_CAP = 1700,
     CTC_MAX_AGE = 16,
+    ODC_PER_DEPENDENT = 500,
     CTC_PHASE_START = { mfj: 400000, single: 200000 },
     CTC_PHASE_STEP = 1000,
     CTC_PHASE_PER_STEP = 50,
@@ -3445,16 +3451,23 @@
   const NO_CHILD_CREDIT = { nonrefundable: 0, refundable: 0 };
   function childCredits(dependents, filing, yearIndex, magi, federalTax, earnedIncome) {
     if (!dependents || !dependents.length) return NO_CHILD_CREDIT;
-    let ctcChildren = 0;
-    for (const d of dependents) if (d.qualifyingChild && d.age <= CTC_MAX_AGE) ctcChildren++;
-    if (!ctcChildren) return NO_CHILD_CREDIT;
+    let ctcChildren = 0,
+      otherDependents = 0;
+    for (const d of dependents) {
+      if (!d.qualifyingChild) continue;
+      if (d.age <= CTC_MAX_AGE) ctcChildren++;
+      else otherDependents++;
+    }
+    if (!ctcChildren && !otherDependents) return NO_CHILD_CREDIT;
     const factor = taxIndexFactor(yearIndex),
       excess = Math.max(0, magi - CTC_PHASE_START[filingKey(filing, 'ctc')]),
       reduction = Math.ceil(excess / CTC_PHASE_STEP - 1e-9) * CTC_PHASE_PER_STEP,
-      total = Math.max(0, CTC_PER_CHILD * factor * ctcChildren - reduction),
-      nonrefundable = Math.min(total, Math.max(0, federalTax)),
+      ctcFull = CTC_PER_CHILD * factor * ctcChildren,
+      ctcPart = Math.max(0, ctcFull - reduction),
+      odcPart = Math.max(0, ODC_PER_DEPENDENT * otherDependents - Math.max(0, reduction - ctcFull)),
+      nonrefundable = Math.min(ctcPart + odcPart, Math.max(0, federalTax)),
       refundable = Math.min(
-        total - nonrefundable,
+        Math.max(0, ctcPart - Math.max(0, nonrefundable - odcPart)),
         CTC_REFUNDABLE_CAP * factor * ctcChildren,
         ACTC_RATE * Math.max(0, earnedIncome - ACTC_EARNED_FLOOR),
       );

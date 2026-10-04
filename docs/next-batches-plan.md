@@ -1601,7 +1601,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
-#### 7B: US federal credits (US V93 -> V96 so far; Canada untouched)
+#### 7B: US federal credits (US V93 -> V97 so far; Canada untouched)
 
 Branch `claude/batch-7b-federal-credits`, cut from the 7A tip (`a9d88a1`). US only.
 
@@ -1691,6 +1691,15 @@ Canada and every non-survivor scenario are byte-identical. Baselines updated: `t
   the sums is unchanged). Tests: `tests/child_credits.js` (in `npm test`; hand-computed unit cases, taxFor and an
   engine case across the age-16/17 boundary) and the two-filer case in `tests/filing_status.js`.
 
+**Step 5: Credit for Other Dependents (US V97).** Inside `childCredits`: $500 per qualifying child with
+`age >= 17` (17 and 18, and 19-23 full-time students), nonrefundable, **not indexed** (statutory $500, no
+inflation adjustment), same $50 per $1,000 phase-out as the CTC and the same `ctc` threshold family. Qualifying
+relatives are not modeled, so the credit covers only the children list. Ordering inside the combined credit (only
+matters below the phase-out): the reduction comes off the CTC part first, the tax absorbs the ODC first, and only
+the unused CTC can be refunded, so a household with no tax and earned income loses its ODC and refunds up to
+$1,700 per CTC child (tests: mixed 5- and 17-year-old). A 17-year-old alone loses the whole $500 at $10,000 over
+the threshold. Default `[]`: snapshots byte-identical.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1738,7 +1747,7 @@ reading (itself secondary).
 | 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
 | CTC $2,200 per child under 17 (2026, indexed from 2026 and rounded to $100 by statute; the code does not round), refundable cap $1,700, 15% over $2,500, phase-out $50 per $1,000 over $200,000 / $400,000 (not indexed) | 7B | S (Rev. Proc. 2025-32 summaries, OBBBA) | IRC 24(a)-(h), Schedule 8812 instructions, Rev. Proc. 2025-32 |
 | CTC needs a valid SSN for the child (and a parent): assumed; ACTC earned income = wages (box 1) + net self-employment earnings | 7B | O | IRC 24(h)(7), 24(d) |
-| ODC for other dependents | 7B | S / O | IRC 24(h)(4), Schedule 8812 instructions |
+| ODC $500 for a qualifying child 17 or older, nonrefundable, not indexed, shares the CTC phase-out; ordering inside the combined credit (reduction off the CTC first, tax absorbs the ODC first) | 7B | S / O (own reading of Schedule 8812) | IRC 24(h)(4), Schedule 8812 lines 11-14 |
 | QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
 | QSS NIIT threshold $250,000 and QSS Additional Medicare Tax $200,000 | 7B | U (own reading) | IRC 1411(b)(1), 3101(b)(2) |
 | QSS 65+ standard-deduction add-on is the married $1,650, not the unmarried $2,050 | 7B | U (own reading) | IRC 63(c)(3), 63(f) |
