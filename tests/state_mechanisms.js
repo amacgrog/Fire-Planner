@@ -182,6 +182,16 @@ function checks() {
   near(stateOf(profile({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor: A holds 80% of the pool, 80,000 excluded, 20,000 taxed');
   near(stateOf(profile({}), 100000), 5000, 'taxFor: no ledger share means an even split (50,000 excluded)');
   near(stateOf(profile({ ownerShareA: 1, ageB: null, singlePerson: true, filing: 'single' }), 100000), 0, 'taxFor: a one-person return holds all of it (100,000 excluded)');
+  // Two separate returns (a couple filing as single): the same split decides whose return carries the draw. The
+  // synthetic state excludes A's 80,000 on A's return and taxes B's 20,000 on B's: 2,000, not the 5,000 an even split gives.
+  const sep = (o) => profile(Object.assign({ filing: 'single' }, o));
+  near(stateOf(sep({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor, two returns: A\'s share of the draw is on A\'s return');
+  near(stateOf(sep({}), 100000), 5000, 'taxFor, two returns: no share means half on each return');
+  // The federal tax follows too (Texas, no state tax): A's 80,000 and B's 20,000 against 50,000 each, standard deduction each.
+  st.stateTax = 'tx';
+  const sd = t.standardDeduction('single', 0, [62]), sdB = t.standardDeduction('single', 0, [50]);
+  const fed = (a, b) => t.ordinaryTax(a, 0, 'single', sd) + t.ordinaryTax(b, 0, 'single', sdB);
+  near(t.taxFor(sep({ ownerShareA: 0.8 }), 0, 100000) - t.taxFor(sep({}), 0, 100000), fed(80000, 20000) - fed(50000, 50000), 'taxFor, two returns: the federal tax follows the split');
   delete R.zzp;
 
   st.stateTax = 'tx';

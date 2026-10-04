@@ -1807,6 +1807,15 @@ tax, additions, credits. Verified: the same 1,367,820-value differential against
 - Timing, ms, `tests/bench_runs.js --scale 6` (2,400 simulate + 720 historical), `fb03255` -> commit 3: tx 1651/341 -> 1570/344,
   ca 3313/669 -> 2093/455.
 
+**Commit 4: two separate returns split the discretionary draw by account ownership (US V97 -> V98; intended number change).**
+The two-filer branch of `taxFor` (a couple before the `marryLater` marriage age, or `filingStatus: single` with two partners) taxed
+`traditionalExtra` half on each return. It now uses `profile.ownerShareA` (Partner A's share of the traditional pool in the year, from the
+account ledger; 0.5 when a profile carries none, which is bit-identical to the old half). Gains and dividends still split evenly (the taxable
+account has no per-partner ledger). One of 518 US scenarios moved ("std R filing single": first changed year index 9, tax 18,239 -> 18,853,
+depleted age 88 -> 89); Canada and every joint or one-person scenario are unchanged. The default scenario and the historical and Monte Carlo
+success rates in `tests/historical_rates.js` do not use separate returns, so they are unchanged. Test: `tests/state_mechanisms.js` (two
+separate returns, state and federal parts).
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
