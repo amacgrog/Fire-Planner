@@ -419,12 +419,14 @@
             <div class="field"><label for="homeGrowth">Home appreciation</label><input id="homeGrowth" type="number" min="-5" max="15" step="0.1"></div>
             <div class="field"><label for="mortgageRate" id="mortgageRateLabel">Mortgage interest rate</label><input id="mortgageRate" type="number" min="0" max="20" step="0.001"></div>
             <div class="field"><label for="maintenance">Annual home maintenance<small id="maintenanceHint">Applies once you own</small></label><input id="maintenance" type="number" class="money" min="0" step="500"></div>
+    <!-- @@shared:html-medicalInflation end -->
             <div class="field"><label for="propertyTax">Annual property tax<small id="propertyTaxHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="propertyTax" type="number" class="money" min="0" step="500"></div>
+    <!-- @@shared:html-propertyTaxGrowth begin -->
             <div class="field"><label for="propertyTaxGrowth">Property tax annual growth<small>Yearly increase, separate from general inflation</small></label><input id="propertyTaxGrowth" type="number" min="0" max="20" step="0.1"></div>
             <div class="field"><label for="homeInsurance">Annual home insurance<small id="homeInsuranceHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="homeInsurance" type="number" class="money" min="0" step="250"></div>
             <div class="field"><label for="homeInsuranceGrowth">Home insurance annual growth<small>Yearly increase, separate from general inflation</small></label><input id="homeInsuranceGrowth" type="number" min="0" max="20" step="0.1"></div>
           </div>
-    <!-- @@shared:html-medicalInflation end -->
+    <!-- @@shared:html-propertyTaxGrowth end -->
           <div class="tenure-fields" id="ownerFields">
             <div class="field"><label for="mortgagePrincipal">Original loan <span class="info-nw">amount<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The amount originally borrowed, before any payments. Used with the loan term below to work out your actual fixed payment — it&#x27;s not recalculated from the remaining balance, so extra principal you&#x27;ve already paid doesn&#x27;t inflate the payment.">i</button></span><small>Amount originally borrowed</small></label><input id="mortgagePrincipal" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="mortgage">Remaining principal</label><input id="mortgage" type="number" class="money" min="0" step="1000"></div>
@@ -2731,26 +2733,30 @@
     maxYear,
   ) {
     const payments = Array(maxYear + 1).fill(0),
-      balances = Array(maxYear + 1).fill(0);
-    if (principal <= 0 || termYears <= 0) return { payments, balances };
+      balances = Array(maxYear + 1).fill(0),
+      interest = Array(maxYear + 1).fill(0);
+    if (principal <= 0 || termYears <= 0) return { payments, balances, interest, principal };
     let balance = principal;
     const scheduled = mortgagePayment(principal, annualRate, termYears),
       rate = annualRate / 12;
     for (let year = startYear; year <= maxYear; year++) {
-      let paid = 0;
+      let paid = 0,
+        interestPaid = 0;
       if (year - startYear < termYears) {
         for (let month = 0; month < 12 && balance > 0; month++) {
-          const interest = balance * rate,
-            scheduledPrincipal = Math.max(0, scheduled - interest),
+          const monthInterest = balance * rate,
+            scheduledPrincipal = Math.max(0, scheduled - monthInterest),
             princ = Math.min(balance, scheduledPrincipal + extraMonthly);
           balance -= princ;
-          paid += interest + princ;
+          paid += monthInterest + princ;
+          interestPaid += monthInterest;
         }
       }
       payments[year] = paid;
+      interest[year] = interestPaid;
       balances[year] = Math.max(0, balance);
     }
-    return { payments, balances };
+    return { payments, balances, interest, principal };
   }
   // Precomputes the mechanics of a future rent-to-buy purchase: the home's
   // value at the purchase year (today's homeValue input, appreciated
@@ -2786,7 +2792,8 @@
   }
   function mortgageSchedule() {
     const payments = [],
-      balances = [];
+      balances = [],
+      interest = [];
     let balance = state.tenure === 'own' ? state.mortgage : 0;
     // The level payment is fixed at origination by the *original* principal
     // and term, not by whatever balance happens to be left today — extra
@@ -2800,19 +2807,28 @@
       rate = pct(state.mortgageRate) / 12,
       maxYears = Math.max(0, state.mortgageYears);
     for (let year = 0; year <= Math.max(70, maxYears); year++) {
-      let paid = 0;
+      let paid = 0,
+        interestPaid = 0;
       for (let month = 0; month < 12 && balance > 0 && year < maxYears; month++) {
-        const interest = balance * rate,
-          scheduledPrincipal = Math.max(0, scheduled - interest),
+        const monthInterest = balance * rate,
+          scheduledPrincipal = Math.max(0, scheduled - monthInterest),
           principal = Math.min(balance, scheduledPrincipal + state.extraPrincipal);
         balance -= principal;
-        paid += interest + principal;
+        paid += monthInterest + principal;
+        interestPaid += monthInterest;
       }
       payments.push(paid);
+      interest.push(interestPaid);
       balances.push(Math.max(0, balance));
     }
     const payoffYear = balances.findIndex((b) => b < 1);
-    return { payments, balances, payoffYear: payoffYear < 0 ? null : payoffYear };
+    return {
+      payments,
+      balances,
+      interest,
+      originalPrincipal,
+      payoffYear: payoffYear < 0 ? null : payoffYear,
+    };
   }
   function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;

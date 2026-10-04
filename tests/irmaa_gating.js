@@ -1,6 +1,8 @@
-// IRMAA is gated on Medicare age (65+), not on retirement status. A high
-// earner who is still working at 66 pays the Part B/D surcharge on a MAGI
-// that includes their wages (two-year lookback).
+// IRMAA is gated on Medicare enrollment, which starts at max(65, retirement
+// age) (Batch 2; it used to be age 65 alone). A high earner still working at 66
+// is on the employer plan and pays no Part B/D premium or surcharge. Once they
+// retire they enroll, and the surcharge is assessed on the MAGI two years
+// earlier, which still includes their wages.
 
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -27,7 +29,7 @@ const path = require('path');
   for (const [id, v] of [
     ['singlePerson', true],
     ['ageA', 66],
-    ['retireAgeA', 72],
+    ['retireAgeA', 69],
     ['lifeExpectancyA', 72],
     ['incomeA', 350000],
     ['spending', 60000],
@@ -42,17 +44,22 @@ const path = require('path');
     await set(id, v);
   await page.waitForTimeout(250);
   const rows = await page.evaluate(() => window.fireProjectionRows);
-  // MAGI is ~$350k (above the $205k single tier floor, below $500k), so the
-  // surcharge is the $529.60/month tier = $6,355.20/year. Years 0-1 look back
-  // to year 0 MAGI; by year 3 the lookback is two years of wages.
-  assert(rows[3].working, 'precondition: still working at 69');
+  // Working at 66-68: no Medicare, so no premium and no surcharge, however high
+  // the wages. Retired at 69 (index 3): enrolls, and the lookback is year 1's
+  // MAGI (~$350k of wages, above the $205k single tier floor, below $500k), so
+  // the surcharge is the $529.60/month tier = $6,355.20/year.
+  for (const i of [0, 1, 2]) {
+    assert(rows[i].working, `precondition: still working at ${66 + i}`);
+    assert.strictEqual(rows[i].healthcare, 0, `no Medicare or IRMAA while working (age ${66 + i})`);
+  }
+  assert(!rows[3].working, 'precondition: retired at 69');
   const surcharge = rows[3].healthcare - 5000;
   assert(
     Math.abs(surcharge - 529.6 * 12) < 0.01,
-    `IRMAA should apply to a working 69-year-old with $350k wages (surcharge ${surcharge})`,
+    `IRMAA should start with Medicare, on the wages two years back (surcharge ${surcharge})`,
   );
   assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
-  console.log('[US] IRMAA age-gating test passed (surcharge applies while still working)');
+  console.log('[US] IRMAA age-gating test passed (none while working, applies once on Medicare)');
   await browser.close();
 })().catch((e) => {
   console.error(e);

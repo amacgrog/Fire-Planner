@@ -271,7 +271,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V80</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V85</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -330,14 +330,14 @@
           <summary>Tax filing status</summary>
           <div class="field"><label for="singlePerson"><input id="singlePerson" type="checkbox"> Single-person <span class="info-nw">plan<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Uses one person&#x27;s contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.">i</button></span><small>One person, single-filer taxes</small></label></div>
           <div id="filingStatusFields">
-            <div class="field"><label>Current filing <span class="info-nw">status<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="MFJ means married filing jointly. “Two single filers” means each partner files their own single-status return.">i</button></span></label><div class="choice" role="radiogroup" aria-label="Filing status"><button type="button" id="mfjBtn" role="radio">MFJ</button><button type="button" id="singleBtn" role="radio">Two single filers</button></div></div>
+            <div class="field"><label>Current filing <span class="info-nw">status<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="MFJ means married filing jointly. “Two single filers” means each partner files their own single-status return. Federal deductions: the standard deduction ($32,200 joint / $16,100 single in 2026, indexed) plus $1,650 per married filer ($2,050 if single) aged 65+, or your itemized total when that is larger. Itemizing is deliberately simple: state income tax plus property tax (limited by the SALT cap: $40,400 in 2026, rising 1% a year through 2029, then $10,000, and reduced for income above $505,000) plus mortgage interest on up to $750,000 of loan; charitable gifts and medical expenses are not modeled. The temporary senior deduction ($6,000 per person aged 65+, phased out above $75,000 single / $150,000 joint of income) is applied for tax years 2025 through 2028 only, on top of either deduction. If Congress extends it, this planner must be updated.">i</button></span></label><div class="choice" role="radiogroup" aria-label="Filing status"><button type="button" id="mfjBtn" role="radio">MFJ</button><button type="button" id="singleBtn" role="radio">Two single filers</button></div></div>
             <div class="field"><label for="marryLater"><input id="marryLater" type="checkbox"> Start single, then file <span class="info-nw">MFJ<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="For couples who aren&#x27;t married yet: both partners file as single filers until Partner A reaches the age below, then the household switches to married filing jointly.">i</button></span></label></div>
             <div class="field" id="marriageAgeField"><label for="marriageAgeA">MFJ begins at Partner A age</label><input id="marriageAgeA" type="number" min="18" max="100" step="1"></div>
           </div>
         </details>
         <details class="group" data-cat="profile" open>
           <summary>State income tax</summary>
-          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate. Includes all 42 states with an individual-income or Washington capital-gains tax; local taxes and state-specific credits are excluded.">i</button></span><small>2026 estimate; state income tax only</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
+          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Covers every state with an individual-income tax, Washington&#x27;s capital-gains tax and DC. Not modeled: local income taxes, state credits, state itemized deductions, pension and retirement-income exclusions beyond the broad ones the inputs can identify, after-tax IRA basis, some state capital-gain rules, and income phase-outs. Treat it as a rough estimate; a later update will replace these simplifications with each state&#x27;s actual rules.">i</button></span><small>Simplified 2026 estimate; (i) lists what it leaves out</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
     <!-- @@shared:html-timelineGroupState begin -->
         </details>
         <details class="group" data-cat="timeline" open>
@@ -438,12 +438,14 @@
             <div class="field"><label for="homeGrowth">Home appreciation</label><input id="homeGrowth" type="number" min="-5" max="15" step="0.1"></div>
             <div class="field"><label for="mortgageRate" id="mortgageRateLabel">Mortgage interest rate</label><input id="mortgageRate" type="number" min="0" max="20" step="0.001"></div>
             <div class="field"><label for="maintenance">Annual home maintenance<small id="maintenanceHint">Applies once you own</small></label><input id="maintenance" type="number" class="money" min="0" step="500"></div>
-            <div class="field"><label for="propertyTax">Annual property tax<small id="propertyTaxHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="propertyTax" type="number" class="money" min="0" step="500"></div>
+    <!-- @@shared:html-medicalInflation end -->
+            <div class="field"><label for="propertyTax">Annual property <span class="info-nw">tax<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Besides being a housing cost, property tax is a federal itemized deduction together with state income tax, up to the SALT cap ($40,400 in 2026, rising 1% a year through 2029, then $10,000, and reduced for income above $505,000). Mortgage interest on up to $750,000 of loan is added, and the larger of that total and the standard deduction is used each year. Home insurance and maintenance are not deductible.">i</button></span><small id="propertyTaxHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="propertyTax" type="number" class="money" min="0" step="500"></div>
+    <!-- @@shared:html-propertyTaxGrowth begin -->
             <div class="field"><label for="propertyTaxGrowth">Property tax annual growth<small>Yearly increase, separate from general inflation</small></label><input id="propertyTaxGrowth" type="number" min="0" max="20" step="0.1"></div>
             <div class="field"><label for="homeInsurance">Annual home insurance<small id="homeInsuranceHint">Applies once you own; keeps applying after the mortgage is paid off</small></label><input id="homeInsurance" type="number" class="money" min="0" step="250"></div>
             <div class="field"><label for="homeInsuranceGrowth">Home insurance annual growth<small>Yearly increase, separate from general inflation</small></label><input id="homeInsuranceGrowth" type="number" min="0" max="20" step="0.1"></div>
           </div>
-    <!-- @@shared:html-medicalInflation end -->
+    <!-- @@shared:html-propertyTaxGrowth end -->
           <div class="tenure-fields" id="ownerFields">
             <div class="field"><label for="mortgagePrincipal">Original loan <span class="info-nw">amount<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The amount originally borrowed, before any payments. Used with the loan term below to work out your actual fixed payment — it&#x27;s not recalculated from the remaining balance, so extra principal you&#x27;ve already paid doesn&#x27;t inflate the payment.">i</button></span><small>Amount originally borrowed</small></label><input id="mortgagePrincipal" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="mortgage">Remaining principal</label><input id="mortgage" type="number" class="money" min="0" step="1000"></div>
@@ -478,7 +480,7 @@
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
           <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
-          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting the year they individually turn 65 (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
           <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
           <div id="irmaaPriorFields">
@@ -673,8 +675,8 @@
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
-            <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled.</div>
-            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually the year they turn 65 — unlike the pre-65 premium, this is age-gated only: it applies whether or not that partner (or their spouse) is still working or retired, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner against household MAGI from two years prior (each year's full realized MAGI, withdrawals included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
+            <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled. Federal deductions: each year uses the larger of the standard deduction (plus $1,650 per married filer, $2,050 if single, aged 65+) and a simplified itemized total (state income tax plus property tax under the SALT cap, plus mortgage interest on up to $750,000 of loan; charitable gifts, QCDs and medical expenses are not modeled), and the temporary $6,000-per-person senior deduction (phased out above $75,000 single / $150,000 joint of income) is added on top for tax years 2025 through 2028 only. The Roth-conversion bracket target uses a conservative deduction (standard, or property tax plus mortgage interest if larger), so it converts slightly less than an exact calculation would.</div>
+            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at the later of 65 and their own retirement age: a partner still working at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against household MAGI from two years prior (each year's full realized MAGI, withdrawals included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (traditional first, then Roth, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI, and the moves inside traditional and Roth create no income and no early-withdrawal penalty). The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
@@ -2419,7 +2421,100 @@
   }
   // @@shared:06-histTaxFactors end
 
-  function ordinaryTax(income, yearIndex, filing = 'mfj') {
+  // ---- Federal deductions --------------------------------------------------
+  // The tax year of plan year `yearIndex` is `currentYear + yearIndex` (the clock
+  // the engines already use for RMD birth years; tests pin it). Statutory
+  // amounts that are NOT inflation-indexed carry the law's own year limits.
+  //
+  // Temporary senior deduction (IRC 151(d)(5)(C), added by the 2025 budget
+  // reconciliation act, P.L. 119-21 section 70103): $6,000 per filer aged 65+,
+  // tax years 2025 through 2028 ONLY, reduced by 6% of MAGI over $75,000
+  // (single) / $150,000 (joint), allowed whether or not the filer itemizes.
+  // REVISIT if Congress extends it, when tax details are next updated for 2027:
+  // change SENIOR_DEDUCTION_LAST_YEAR (and tests/deductions.js, which pins the
+  // 2028/2029 cutoff).
+  const SENIOR_DEDUCTION_LAST_YEAR = 2028;
+  const SENIOR_DEDUCTION_AMOUNT = 6000;
+  const SENIOR_DEDUCTION_PHASE_RATE = 0.06;
+  // SALT cap (IRC 164(b)(7), same act): the limit on the state and local tax
+  // deduction (income + property tax). Reduced by 30% of MAGI over a threshold
+  // ($500,000 in 2025, +1% a year) but never below $10,000; both rise 1% a year
+  // through 2029 and the cap is a flat $10,000 again from 2030. Explicit year
+  // table, so REVISIT it with the senior deduction above if Congress changes it.
+  const SALT_CAP_BY_YEAR = { 2025: 40000, 2026: 40400, 2027: 40804, 2028: 41212, 2029: 41624 };
+  const SALT_CAP_LAST_YEAR = 2029;
+  const SALT_CAP_FLOOR = 10000; // the permanent cap, and the phase-down floor
+  const SALT_PHASE_RATE = 0.3;
+  const SALT_PHASE_START_2025 = 500000;
+  // Acquisition-debt limit for mortgage interest (permanent after the 2025 act).
+  const MORTGAGE_DEBT_LIMIT = 750000;
+  function taxYearOf(yearIndex) {
+    return currentYear + Math.floor(yearIndex);
+  }
+  // Standard deduction: the 2026 base (Rev. Proc. 2025-32) plus the additional
+  // amount for each filer on the return aged 65+ ($1,650 married / $2,050
+  // unmarried in 2026), all indexed by the tax-parameter factor. `ages` lists
+  // the filers on this return (one for a single return, two for MFJ).
+  function standardDeduction(filing, yearIndex, ages = []) {
+    const factor = taxIndexFactor(yearIndex);
+    let deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
+    const extra = (filing === 'mfj' ? 1650 : 2050) * factor;
+    for (const a of ages) if (a >= 65) deduction += extra;
+    return deduction;
+  }
+  // The senior deduction for the return, given its MAGI (zero after the last
+  // eligible tax year). It is a deduction from taxable income (not from AGI), so
+  // `magi` is the return's income before it. The 6% phase-out reduces EACH eligible
+  // person's $6,000 by the same amount, so two eligible spouses lose it entirely at
+  // $250,000 joint MAGI (one eligible spouse also at $250,000), a single filer at $175,000.
+  function seniorDeduction(filing, yearIndex, ages, magi) {
+    if (taxYearOf(yearIndex) > SENIOR_DEDUCTION_LAST_YEAR) return 0;
+    let seniors = 0;
+    for (const a of ages) if (a >= 65) seniors++;
+    if (!seniors) return 0;
+    const start = filing === 'mfj' ? 150000 : 75000;
+    return (
+      seniors *
+      Math.max(
+        0,
+        SENIOR_DEDUCTION_AMOUNT - SENIOR_DEDUCTION_PHASE_RATE * Math.max(0, magi - start),
+      )
+    );
+  }
+  function saltCap(yearIndex, magi) {
+    const year = taxYearOf(yearIndex);
+    if (year > SALT_CAP_LAST_YEAR) return SALT_CAP_FLOOR;
+    const cap = SALT_CAP_BY_YEAR[Math.max(2025, year)],
+      start = SALT_PHASE_START_2025 * Math.pow(1.01, Math.max(0, year - 2025));
+    return Math.max(SALT_CAP_FLOOR, cap - SALT_PHASE_RATE * Math.max(0, magi - start));
+  }
+  // Deliberately simple itemizing: state income tax + property tax under the SALT
+  // cap, plus mortgage interest (already limited to the $750,000 debt cap by the
+  // caller). Charitable gifts, QCDs and medical expenses are not modeled.
+  function itemizedDeduction(yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest) {
+    return (
+      Math.min(saltCap(yearIndex, magi), Math.max(0, stateTaxPaid) + Math.max(0, propertyTax)) +
+      Math.max(0, mortgageInterest)
+    );
+  }
+  // What one return deducts: the larger of the (age-adjusted) standard deduction
+  // and the itemized total, plus the senior deduction on top of either. `agi` is
+  // the return's income before the deduction (it stands in for MAGI).
+  function federalDeduction(filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest) {
+    let deduction = standardDeduction(filing, yearIndex, ages);
+    if (stateTaxPaid > 0 || propertyTax > 0 || mortgageInterest > 0)
+      deduction = Math.max(
+        deduction,
+        itemizedDeduction(yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest),
+      );
+    return deduction + seniorDeduction(filing, yearIndex, ages, agi);
+  }
+  // Share of mortgage interest that is deductible given the original loan size.
+  function mortgageInterestShare(originalPrincipal) {
+    return originalPrincipal > MORTGAGE_DEBT_LIMIT ? MORTGAGE_DEBT_LIMIT / originalPrincipal : 1;
+  }
+
+  function ordinaryTax(income, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
     const factor = taxIndexFactor(yearIndex);
     const baseBrackets =
       filing === 'mfj'
@@ -2441,7 +2536,6 @@
             [640600, 0.35],
             [Infinity, 0.37],
           ];
-    const deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
     let taxable = Math.max(0, income - deduction),
       tax = 0,
       prev = 0;
@@ -2894,6 +2988,9 @@
     if (state.stateTax === 'ga' && senior) return Math.min(retirement, 65000 * factor * senior);
     return 0;
   }
+  // Shown under every state's note. Interim: the state-tax update replaces these simplifications with real rules and rewrites this copy.
+  const STATE_TAX_SCOPE_NOTE =
+    '<b>Simplified estimate.</b> Local income taxes, state credits, state itemized deductions, most pension-source rules, after-tax IRA basis, some capital-gain rules and income phase-outs are not modeled.';
   function stateTaxTreatmentNote() {
     const stateName = (
         document.querySelector('#stateTax option:checked')?.textContent || 'Selected state'
@@ -3125,12 +3222,11 @@
       bondInterest,
     };
   }
-  function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj') {
+  function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
     if (gain <= 0) return 0;
     const factor = taxIndexFactor(yearIndex),
       zeroLimit = (filing === 'mfj' ? 98900 : 49450) * factor,
-      fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor,
-      deduction = (filing === 'mfj' ? 32200 : 16100) * factor;
+      fifteenLimit = (filing === 'mfj' ? 613700 : 545500) * factor;
     // Any standard deduction left over after ordinary income also shelters
     // long-term gains/qualified dividends (taxable income is gains plus
     // ordinary income minus the deduction), which matters most for an early
@@ -3178,10 +3274,20 @@
         taxableSS,
         ages: [profile.ageA, profile.ageB],
       };
+      const stateTaxPaid = stateIncomeTax(sources, 'mfj', profile.year),
+        deduction = federalDeduction(
+          'mfj',
+          profile.year,
+          [profile.ageA, profile.ageB],
+          ordinary + gains,
+          stateTaxPaid,
+          profile.propertyTax || 0,
+          profile.mortgageInterest || 0,
+        );
       return (
-        ordinaryTax(ordinary, profile.year, 'mfj') +
-        longTermGainTax(gains, ordinary, profile.year, 'mfj') +
-        stateIncomeTax(sources, 'mfj', profile.year) +
+        ordinaryTax(ordinary, profile.year, 'mfj', deduction) +
+        longTermGainTax(gains, ordinary, profile.year, 'mfj', deduction) +
+        stateTaxPaid +
         niitTax(ordinary + gains, gains + invOrd, 'mfj')
       );
     }
@@ -3200,10 +3306,20 @@
         taxableSS,
         ages: [profile.ageA],
       };
+      const stateTaxPaid = stateIncomeTax(sources, 'single', profile.year),
+        deduction = federalDeduction(
+          'single',
+          profile.year,
+          [profile.ageA],
+          ordinary + gains,
+          stateTaxPaid,
+          profile.propertyTax || 0,
+          profile.mortgageInterest || 0,
+        );
       return (
-        ordinaryTax(ordinary, profile.year, 'single') +
-        longTermGainTax(gains, ordinary, profile.year, 'single') +
-        stateIncomeTax(sources, 'single', profile.year) +
+        ordinaryTax(ordinary, profile.year, 'single', deduction) +
+        longTermGainTax(gains, ordinary, profile.year, 'single', deduction) +
+        stateTaxPaid +
         niitTax(ordinary + gains, gains + invOrd, 'single')
       );
     }
@@ -3241,13 +3357,22 @@
         taxableSS: taxableSSB,
         ages: [profile.ageB],
       };
+    // Two separate returns: the household's property tax and deductible mortgage
+    // interest are split 50/50 between them, and each return picks its own
+    // standard-or-itemized deduction.
+    const stateTaxA = stateIncomeTax(sourcesA, 'single', profile.year),
+      stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
+      halfProperty = (profile.propertyTax || 0) / 2,
+      halfInterest = (profile.mortgageInterest || 0) / 2,
+      deductionA = federalDeduction('single', profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest),
+      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest);
     return (
-      ordinaryTax(ordinaryA, profile.year, 'single') +
-      ordinaryTax(ordinaryB, profile.year, 'single') +
-      longTermGainTax(gainA, ordinaryA, profile.year, 'single') +
-      longTermGainTax(gainB, ordinaryB, profile.year, 'single') +
-      stateIncomeTax(sourcesA, 'single', profile.year) +
-      stateIncomeTax(sourcesB, 'single', profile.year) +
+      ordinaryTax(ordinaryA, profile.year, 'single', deductionA) +
+      ordinaryTax(ordinaryB, profile.year, 'single', deductionB) +
+      longTermGainTax(gainA, ordinaryA, profile.year, 'single', deductionA) +
+      longTermGainTax(gainB, ordinaryB, profile.year, 'single', deductionB) +
+      stateTaxA +
+      stateTaxB +
       niitTax(ordinaryA + gainA, gainA + invA, 'single') +
       niitTax(ordinaryB + gainB, gainB + invB, 'single')
     );
@@ -3456,7 +3581,14 @@
     if (bracketPct === 0) return 0;
     const factor = taxIndexFactor(yearIndex),
       filing = profile.filing === 'mfj' ? 'mfj' : 'single';
-    const deduction = (filing === 'mfj' ? 32200 : 16100) * factor,
+    // Conservative lower bound on the deduction: age-adjusted standard, or the
+    // property tax (under the SALT cap) plus mortgage interest if larger. State
+    // income tax and the senior deduction depend on the conversion itself, so
+    // they are left out (a slightly smaller deduction converts a bit less).
+    const deduction = Math.max(
+        standardDeduction(filing, yearIndex, filing === 'mfj' ? [profile.ageA, profile.ageB] : [profile.ageA]),
+        itemizedDeduction(yearIndex, 0, 0, profile.propertyTax || 0, profile.mortgageInterest || 0),
+      ),
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
       if (filing === 'mfj') {
@@ -3924,26 +4056,30 @@
     maxYear,
   ) {
     const payments = Array(maxYear + 1).fill(0),
-      balances = Array(maxYear + 1).fill(0);
-    if (principal <= 0 || termYears <= 0) return { payments, balances };
+      balances = Array(maxYear + 1).fill(0),
+      interest = Array(maxYear + 1).fill(0);
+    if (principal <= 0 || termYears <= 0) return { payments, balances, interest, principal };
     let balance = principal;
     const scheduled = mortgagePayment(principal, annualRate, termYears),
       rate = annualRate / 12;
     for (let year = startYear; year <= maxYear; year++) {
-      let paid = 0;
+      let paid = 0,
+        interestPaid = 0;
       if (year - startYear < termYears) {
         for (let month = 0; month < 12 && balance > 0; month++) {
-          const interest = balance * rate,
-            scheduledPrincipal = Math.max(0, scheduled - interest),
+          const monthInterest = balance * rate,
+            scheduledPrincipal = Math.max(0, scheduled - monthInterest),
             princ = Math.min(balance, scheduledPrincipal + extraMonthly);
           balance -= princ;
-          paid += interest + princ;
+          paid += monthInterest + princ;
+          interestPaid += monthInterest;
         }
       }
       payments[year] = paid;
+      interest[year] = interestPaid;
       balances[year] = Math.max(0, balance);
     }
-    return { payments, balances };
+    return { payments, balances, interest, principal };
   }
   // Precomputes the mechanics of a future rent-to-buy purchase: the home's
   // value at the purchase year (today's homeValue input, appreciated
@@ -3979,7 +4115,8 @@
   }
   function mortgageSchedule() {
     const payments = [],
-      balances = [];
+      balances = [],
+      interest = [];
     let balance = state.tenure === 'own' ? state.mortgage : 0;
     // The level payment is fixed at origination by the *original* principal
     // and term, not by whatever balance happens to be left today — extra
@@ -3993,19 +4130,28 @@
       rate = pct(state.mortgageRate) / 12,
       maxYears = Math.max(0, state.mortgageYears);
     for (let year = 0; year <= Math.max(70, maxYears); year++) {
-      let paid = 0;
+      let paid = 0,
+        interestPaid = 0;
       for (let month = 0; month < 12 && balance > 0 && year < maxYears; month++) {
-        const interest = balance * rate,
-          scheduledPrincipal = Math.max(0, scheduled - interest),
+        const monthInterest = balance * rate,
+          scheduledPrincipal = Math.max(0, scheduled - monthInterest),
           principal = Math.min(balance, scheduledPrincipal + state.extraPrincipal);
         balance -= principal;
-        paid += interest + principal;
+        paid += monthInterest + principal;
+        interestPaid += monthInterest;
       }
       payments.push(paid);
+      interest.push(interestPaid);
       balances.push(Math.max(0, balance));
     }
     const payoffYear = balances.findIndex((b) => b < 1);
-    return { payments, balances, payoffYear: payoffYear < 0 ? null : payoffYear };
+    return {
+      payments,
+      balances,
+      interest,
+      originalPrincipal,
+      payoffYear: payoffYear < 0 ? null : payoffYear,
+    };
   }
   function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
@@ -4256,18 +4402,30 @@
         state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
       : 0;
     const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
+    // Federal itemizing inputs: property tax and the deductible share of this
+    // year's mortgage interest (limited to $750,000 of original debt).
+    const propertyTax = ownsHome
+      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year)
+      : 0;
     if (state.tenure === 'own') {
       const annualPI = schedule.payments[year] || 0;
       return {
         housing: annualPI + state.maintenance * factor + propCosts,
         mortgage: schedule.balances[year] || 0,
         homeValue: null,
+        propertyTax,
+        mortgageInterest:
+          (schedule.interest?.[year] || 0) * mortgageInterestShare(schedule.originalPrincipal || 0),
       };
     }
     if (state.tenure === 'rent' || year < futureBuy.buyYear)
-      return { housing: rent, mortgage: null, homeValue: null };
+      return { housing: rent, mortgage: null, homeValue: null, propertyTax: 0, mortgageInterest: 0 };
     const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
     return {
+      propertyTax,
+      mortgageInterest:
+        (futureBuy.buySchedule.interest?.[year] || 0) *
+        mortgageInterestShare(futureBuy.buySchedule.principal || 0),
       housing:
         buyAnnualPI +
         state.maintenance * factor +
@@ -4339,6 +4497,8 @@
     deceasedIsA,
     filing,
     inv,
+    propertyTax = 0,
+    mortgageInterest = 0,
   }) {
     const otherA =
         Math.max(0, wageA - traditionalContribA - healthPremiumA) +
@@ -4372,6 +4532,8 @@
             singlePerson: true,
             invOrd: inv.ordinary,
             invQual: inv.qualified,
+            propertyTax,
+            mortgageInterest,
             year,
           }
         : {
@@ -4391,6 +4553,8 @@
             singlePerson: singlePerson || isSurvivorPeriod,
             invOrd: inv.ordinary,
             invQual: inv.qualified,
+            propertyTax,
+            mortgageInterest,
             year,
           };
     return { otherA, otherB, profile };
@@ -4402,8 +4566,8 @@
   //    run through acaNetCost(), which depends on this year's MAGI estimate
   //    (usesMagiEstimate tells the caller the MAGI iteration must converge);
   //    otherwise it is the flat premium.
-  //  - Medicare Part B/D + supplement (state.medicareYearly): purely age-based
-  //    (65+), per partner, independent of retirement status or the spouse.
+  //  - Medicare Part B/D + supplement (state.medicareYearly): per partner,
+  //    from max(65, that partner's retirement age); independent of the spouse.
   //  - IRMAA surcharge per Medicare-eligible partner, from the two-year MAGI
   //    lookback.
   //  - Long-term care once each partner reaches their LTC age.
@@ -4415,6 +4579,8 @@
     isSurvivorPeriod,
     deceasedIsA,
     deceasedIsB,
+    workingA,
+    workingB,
     factor,
     year,
     age,
@@ -4445,11 +4611,15 @@
       // Medicare below is what covers them from then on.
       healthcare = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
     }
-    const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
-      medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
+    // Medicare starts at max(65, retirement age): a partner still working at 65
+    // is assumed to stay on the employer plan (no late-enrollment penalty,
+    // which is not modeled) and to enroll the year they stop working.
+    const medicareEligibleA = age >= 65 && !workingA && !(isSurvivorPeriod && deceasedIsA),
+      medicareEligibleB =
+        !singlePerson && ageB >= 65 && !workingB && !(isSurvivorPeriod && deceasedIsB);
     healthcare += sharedCost(state.medicareYearly, medicareEligibleA, medicareEligibleB);
-    // IRMAA follows age (65+), not retirement status: someone still working
-    // past 65 and enrolled in Part B pays it too, and their wages are in the MAGI.
+    // IRMAA applies only to partners actually on Medicare (see above), using
+    // the two-year MAGI lookback.
     const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
     if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
     if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
@@ -5271,6 +5441,8 @@
         deceasedIsA,
         filing,
         inv,
+        propertyTax: housingYear.propertyTax,
+        mortgageInterest: housingYear.mortgageInterest,
       });
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
@@ -5362,6 +5534,8 @@
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
+          workingA,
+          workingB,
           factor,
           year,
           age,
@@ -5709,7 +5883,8 @@
     document.getElementById('fiRetireAgeSub').textContent = crossing
       ? 'first age liquid assets reach your retirement nest egg, at current savings rate'
       : 'Retirement nest egg not reached by your plan’s life expectancy at this savings rate';
-    document.getElementById('stateTaxNote').innerHTML = stateTaxTreatmentNote();
+    document.getElementById('stateTaxNote').innerHTML =
+      stateTaxTreatmentNote() + ' ' + STATE_TAX_SCOPE_NOTE;
     document.getElementById('viewCaption').textContent =
       mode === 'real'
         ? 'Values shown in inflation-adjusted 2026 dollars.'
@@ -10815,7 +10990,7 @@
   window.__test_getState = () => state;
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
-  window.__test_tax = { acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
+  window.__test_tax = { standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();

@@ -9,8 +9,10 @@
 // Scenario: single retiree, $1M taxable (full basis), a 10-year bond reserve, 0%
 // stocks, no other income. The reserve is refilled gradually (one year of
 // spending, $30,000, per year), so at the start of year 10 it holds $300,000.
-// With a 10% yield that pays $30,000 of ordinary interest in year 10: US federal
-// tax = 1,240 + 12% x (30,000 - 16,100 - 12,400) = 1,420. The test measures the
+// With a 10% yield that pays $30,000 of ordinary interest in year 10 (age 75, tax
+// year 2036: the retiree is 65+, so the standard deduction is 16,100 + 2,050 =
+// 18,150, and the senior deduction ended after 2028): US federal tax =
+// 10% x (30,000 - 18,150) = 1,185. The test measures the
 // extra tax paid in that one year (the drop in taxable that year, with the
 // yield minus the drop without it), so earlier years' smaller taxes do not count.
 
@@ -70,7 +72,7 @@ async function run(file, isUS) {
   // 10% yield (bond return 0%): tax on $30,000 of interest.
   const ten = await extraTax(0, 0, 10, 0);
   assert(ten > 100, `${file}: 10% yield should cost tax (extra tax in year ${YEAR}: ${ten})`);
-  if (isUS) assert(Math.abs(ten - 1420) < 0.01, `${file}: expected $1,420 of tax on $30,000 interest, got ${ten}`);
+  if (isUS) assert(Math.abs(ten - 1185) < 0.01, `${file}: expected $1,185 of tax on $30,000 interest, got ${ten}`);
   // Independent of the planner's own Bond return input.
   assert(Math.abs((await extraTax(10, 0, 10, 0)) - ten) < 1e-6, `${file}: bond-return input must not affect historical bond interest tax`);
   // Taxed at the yield, not at a negative bond total return: -5% price return, 10% yield.

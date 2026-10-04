@@ -26,6 +26,11 @@ feature list.
   `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
   schedule (federal, each state/province, NIIT, OAS clawback) via
   `window.__test_tax`; run it whenever a bracket or tax function changes.
+- `tests/deductions.js` — US federal deductions (age-based standard deduction,
+  senior deduction through 2028, SALT cap schedule, simplified itemizing, the
+  $750,000 mortgage-debt limit), hand-computed, plus engine-level cases with the
+  clock pinned. `tests/medicare_enrollment.js` — Medicare/IRMAA start at
+  `max(65, retirement age)`.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
@@ -165,6 +170,26 @@ Each planner is one big IIFE. Core shape:
   overwritten with it after convergence; the in-body assignment is
   provisional and only read by the plan's first-year IRMAA stand-in.
   Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
+- **US federal deductions** (just above `ordinaryTax`): `standardDeduction(filing,
+  yearIndex, ages)` (base + the 65+ additional amount per filer), `seniorDeduction`
+  (the temporary $6,000, zero after `SENIOR_DEDUCTION_LAST_YEAR = 2028`; revisit if
+  Congress extends it), `saltCap` (explicit year table to 2029, `SALT_CAP_LAST_YEAR`),
+  `itemizedDeduction` (min(SALT cap, state tax + property tax) + mortgage interest,
+  nothing else) and `federalDeduction` (max of standard and itemized, plus senior).
+  The tax year is `currentYear + yearIndex` in both engines (historical runs replay
+  returns, not tax law). `taxFor()` computes each return's deduction itself from its
+  own income (AGI stands in for MAGI), the state tax it just computed, and the
+  `profile.propertyTax` / `profile.mortgageInterest` that `housingForYear()` supplies
+  (interest already limited to $750,000 of original debt); `ordinaryTax` and
+  `longTermGainTax` take it as an optional last argument. The two-single-filers
+  branch splits housing deductions 50/50. `solveRothConversion` uses a conservative
+  lower bound (age-adjusted standard, or property tax + interest if larger; no
+  senior deduction, no state tax). `mortgageSchedule()` and `buildDeferredMortgage()`
+  (shared fragment `07-mortgagePayment`) now also return a per-year `interest` array.
+  Canada has no equivalent in this batch. The Annual property tax field line sits
+  between two shared markup regions (`html-medicalInflation` ends before it,
+  `html-propertyTaxGrowth` starts after it) so each planner can word its label
+  differently; keep it outside the shared regions.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
@@ -341,9 +366,11 @@ side before porting a feature:
   true, which is the old "both retired" rule; the same helper feeds the
   400%-FPL conversion guard, so cost and guard can't drift apart) and
   `state.medicareYearly` (Part B/D + supplement, gated per-partner on
-  `age >= 65`/`ageB >= 65` alone, independent of retirement status or the
-  other partner) — because real Medicare eligibility is purely age-based,
-  unlike ACA marketplace eligibility. Canada has no equivalent split to
+  `age >= 65 && !working` (Medicare starts at `max(65, that partner's
+  retirement age)`: a partner still working at 65 stays on the employer plan and
+  enrolls the year they stop, no late-enrollment penalty modeled; independent of
+  the other partner), and IRMAA follows the same gate) — unlike ACA marketplace
+  eligibility, which also depends on the spouse. Canada has no equivalent split to
   build: `state.healthcare` there is a flat "supplemental private
   insurance once retired" figure with no age-65 transition at all, because
   provincial coverage (OHIP/MSP) is universal at every age — if anything,

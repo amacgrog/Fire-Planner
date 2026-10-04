@@ -68,6 +68,24 @@ function usChecks() {
   // Inside the standard deduction: nothing.
   near(t.ordinaryTax(16100, 0, 'single'), 0, 1e-9, 'single at deduction');
   near(t.ordinaryTax(32200, 0, 'mfj'), 0, 1e-9, 'MFJ at deduction');
+  // An explicit deduction replaces the default standard one (Batch 2: age-based, itemized, senior).
+  near(t.ordinaryTax(100000, 0, 'single', 20000), refTax(80000, SINGLE), 0.005, 'explicit single deduction'); // taxable 80,000
+  near(t.ordinaryTax(100000, 0, 'mfj', 50000), refTax(50000, MFJ), 0.005, 'explicit MFJ deduction'); // taxable 50,000
+  near(t.ordinaryTax(100000, 0, 'single'), t.ordinaryTax(100000, 0, 'single', 16100), 1e-9, 'default deduction is the standard one');
+  near(t.ordinaryTax(30000, 0, 'single', 35000), 0, 1e-9, 'deduction above income');
+  // Gains: a larger deduction pushes more of the gain into the 0% band. Single, 60,000 ordinary + 60,000 gain,
+  // deduction 21,450: ordinary taxable 38,550, 0% room 10,900, 49,100 at 15% = 7,365.
+  near(t.longTermGainTax(60000, 60000, 0, 'single', 21450), 7365, 0.005, 'LTCG with an explicit deduction');
+  near(t.longTermGainTax(60000, 60000, 0, 'single'), t.longTermGainTax(60000, 60000, 0, 'single', 16100), 1e-9, 'LTCG default deduction');
+  // standardDeduction: base, then +1,650 (married) / +2,050 (unmarried) per filer aged 65+, indexed.
+  near(t.standardDeduction('mfj', 0), 32200, 1e-9, 'standardDeduction MFJ');
+  near(t.standardDeduction('single', 0), 16100, 1e-9, 'standardDeduction single');
+  near(t.standardDeduction('mfj', 0, [65, 64]), 33850, 1e-9, 'standardDeduction MFJ, one 65');
+  near(t.standardDeduction('single', 0, [65]), 18150, 1e-9, 'standardDeduction single, 65');
+  {
+    const f = t.taxIndexFactor(7);
+    near(t.standardDeduction('single', 7, [80]), 18150 * f, 1e-6, 'standardDeduction indexes');
+  }
   // Every bracket edge (and a point inside each bracket) against the reference.
   for (const [filing, table, ded] of [['single', SINGLE, 16100], ['mfj', MFJ, 32200]]) {
     const points = new Set([0, 1]);
