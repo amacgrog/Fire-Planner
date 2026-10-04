@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V91</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V92</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -532,8 +532,15 @@
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal <span class="info-nw">bracket<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it&#x27;s also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).">i</button></span><small>Conversions fill room up to this bracket</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
           <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of <span class="info-nw">55<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Waives the 10% early-withdrawal penalty on withdrawals from a partner&#x27;s 401(k) (traditional or Roth) from age 55 through 59½, for whichever partner retires at or after age 55. It never covers an IRA, and doesn&#x27;t apply to a partner who retires before 55. The planner assumes the 401(k) balance you entered is the plan of the employer you left, and that it has not been rolled into an IRA. Roth 401(k) earnings stay taxable.">i</button></span><small>No 10% penalty on 401(k) withdrawals from 55 to 59½</small></label></div>
-          <div class="field"><label for="sepp72tEnabledA"><input id="sepp72tEnabledA" type="checkbox"> 72(t) SEPP payments — Partner <span class="info-nw">A<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Penalty-free early withdrawals from Partner A&#x27;s share of the traditional balance, via a fixed annual amount (IRS “RMD method”) for 5 years or until 59½, whichever is later.">i</button></span><small>Penalty-free early withdrawals at a fixed annual amount</small></label></div>
-          <div class="field" data-partner-b><label for="sepp72tEnabledB"><input id="sepp72tEnabledB" type="checkbox"> 72(t) SEPP payments — Partner B<small>Same for Partner B; toggles independently</small></label></div>
+          <div class="group-subhead">72(t) SEPP payments, per account</div>
+          <div class="field"><label for="sepp72tK401A"><input id="sepp72tK401A" type="checkbox"> Partner A 401(k) <span class="info-nw">72(t)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="72(t) lets you take penalty-free withdrawals from one specific traditional account before 59½ by committing to a fixed yearly amount (the IRS &ldquo;RMD method&rdquo;: the account&#x27;s balance at the start of the year divided by the Single Life Table factor for your age that year, recomputed every year). Payments must run until the later of 5 years after the first payment or age 59½. While it runs, that account supplies exactly its payment: the planner never draws more from it, never converts it to Roth, and takes any further need from other accounts (taking more or less than the amount is a &ldquo;modification&rdquo; that makes the IRS recapture the 10% on every earlier payment, which the planner does not model). The first payment is at the age below, or at the owner&#x27;s retirement age if left at 0; if that is 59½ or later there is no penalty to avoid and the election has no effect.">i</button></span><small>Fixed yearly payments, penalty-free before 59½</small></label></div>
+          <div class="field" id="sepp72tK401AAgeField"><label for="sepp72tK401AgeA">Partner A 401(k) first payment at age<small>0 = at the owner&#x27;s retirement age</small></label><input id="sepp72tK401AgeA" type="number" min="0" max="100" step="1"></div>
+          <div class="field"><label for="sepp72tIraA"><input id="sepp72tIraA" type="checkbox"> Partner A IRA <span class="info-nw">72(t)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="72(t) lets you take penalty-free withdrawals from one specific traditional account before 59½ by committing to a fixed yearly amount (the IRS &ldquo;RMD method&rdquo;: the account&#x27;s balance at the start of the year divided by the Single Life Table factor for your age that year, recomputed every year). Payments must run until the later of 5 years after the first payment or age 59½. While it runs, that account supplies exactly its payment: the planner never draws more from it, never converts it to Roth, and takes any further need from other accounts (taking more or less than the amount is a &ldquo;modification&rdquo; that makes the IRS recapture the 10% on every earlier payment, which the planner does not model). The first payment is at the age below, or at the owner&#x27;s retirement age if left at 0; if that is 59½ or later there is no penalty to avoid and the election has no effect.">i</button></span><small>Fixed yearly payments, penalty-free before 59½</small></label></div>
+          <div class="field" id="sepp72tIraAAgeField"><label for="sepp72tIraAgeA">Partner A IRA first payment at age<small>0 = at the owner&#x27;s retirement age</small></label><input id="sepp72tIraAgeA" type="number" min="0" max="100" step="1"></div>
+          <div class="field" data-partner-b><label for="sepp72tK401B"><input id="sepp72tK401B" type="checkbox"> Partner B 401(k) <span class="info-nw">72(t)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="72(t) lets you take penalty-free withdrawals from one specific traditional account before 59½ by committing to a fixed yearly amount (the IRS &ldquo;RMD method&rdquo;: the account&#x27;s balance at the start of the year divided by the Single Life Table factor for your age that year, recomputed every year). Payments must run until the later of 5 years after the first payment or age 59½. While it runs, that account supplies exactly its payment: the planner never draws more from it, never converts it to Roth, and takes any further need from other accounts (taking more or less than the amount is a &ldquo;modification&rdquo; that makes the IRS recapture the 10% on every earlier payment, which the planner does not model). The first payment is at the age below, or at the owner&#x27;s retirement age if left at 0; if that is 59½ or later there is no penalty to avoid and the election has no effect.">i</button></span><small>Fixed yearly payments, penalty-free before 59½</small></label></div>
+          <div class="field" id="sepp72tK401BAgeField" data-partner-b><label for="sepp72tK401AgeB">Partner B 401(k) first payment at age<small>0 = at the owner&#x27;s retirement age</small></label><input id="sepp72tK401AgeB" type="number" min="0" max="100" step="1"></div>
+          <div class="field" data-partner-b><label for="sepp72tIraB"><input id="sepp72tIraB" type="checkbox"> Partner B IRA <span class="info-nw">72(t)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="72(t) lets you take penalty-free withdrawals from one specific traditional account before 59½ by committing to a fixed yearly amount (the IRS &ldquo;RMD method&rdquo;: the account&#x27;s balance at the start of the year divided by the Single Life Table factor for your age that year, recomputed every year). Payments must run until the later of 5 years after the first payment or age 59½. While it runs, that account supplies exactly its payment: the planner never draws more from it, never converts it to Roth, and takes any further need from other accounts (taking more or less than the amount is a &ldquo;modification&rdquo; that makes the IRS recapture the 10% on every earlier payment, which the planner does not model). The first payment is at the age below, or at the owner&#x27;s retirement age if left at 0; if that is 59½ or later there is no penalty to avoid and the election has no effect.">i</button></span><small>Fixed yearly payments, penalty-free before 59½</small></label></div>
+          <div class="field" id="sepp72tIraBAgeField" data-partner-b><label for="sepp72tIraAgeB">Partner B IRA first payment at age<small>0 = at the owner&#x27;s retirement age</small></label><input id="sepp72tIraAgeB" type="number" min="0" max="100" step="1"></div>
         </details>
         </div>
         </div>
@@ -896,8 +903,14 @@
     rothConvEndAge: 63,
     rothConvBracket: 22,
     ruleOf55Enabled: false,
-    sepp72tEnabledA: false,
-    sepp72tEnabledB: false,
+    sepp72tIraA: false,
+    sepp72tK401A: false,
+    sepp72tIraB: false,
+    sepp72tK401B: false,
+    sepp72tIraAgeA: 0,
+    sepp72tK401AgeA: 0,
+    sepp72tIraAgeB: 0,
+    sepp72tK401AgeB: 0,
     buyAge: 50,
     buyCash: false,
     buyDownPct: 20,
@@ -1150,6 +1163,10 @@
     { key: 'survivorSpendingPct', type: 'number' },
     { key: 'rothConvStartAge', type: 'number' },
     { key: 'rothConvEndAge', type: 'number' },
+    { key: 'sepp72tIraAgeA', type: 'number' },
+    { key: 'sepp72tK401AgeA', type: 'number' },
+    { key: 'sepp72tIraAgeB', type: 'number' },
+    { key: 'sepp72tK401AgeB', type: 'number' },
     { key: 'buyAge', type: 'number' },
     { key: 'buyDownPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
     { key: 'buyClosingPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
@@ -1170,8 +1187,10 @@
     { key: 'rothConvEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mirrors: ['wizardRothConvEnabled'], mcp: true },
     { key: 'withdrawalMixEnabled', type: 'bool', sync: 'controls', resync: [], mcp: true },
     { key: 'ruleOf55Enabled', type: 'bool', sync: 'controls', resync: ['controls'], mcp: true },
-    { key: 'sepp72tEnabledA', type: 'bool', sync: 'controls', resync: ['controls'], mcp: true },
-    { key: 'sepp72tEnabledB', type: 'bool', sync: 'controls', resync: ['controls'], mcp: true },
+    { key: 'sepp72tIraA', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tIraAAgeField', hidden: (s) => !s.sepp72tIraA }], mcp: true },
+    { key: 'sepp72tK401A', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tK401AAgeField', hidden: (s) => !s.sepp72tK401A }], mcp: true },
+    { key: 'sepp72tIraB', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tIraBAgeField', hidden: (s) => !s.sepp72tIraB }], mcp: true },
+    { key: 'sepp72tK401B', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tK401BAgeField', hidden: (s) => !s.sepp72tK401B }], mcp: true },
     { key: 'tenure', type: 'choice', manual: true, values: ['own', 'rent', 'rentThenBuy'], fallback: 'own', mcp: true },
     { key: 'buyCash', type: 'bool', manual: true, mcp: true },
     { key: 'k401Type', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
@@ -1283,19 +1302,15 @@
       const pctV = Number(s['roth401kBasisPct' + p]);
       s['roth401kBasisPct' + p] = Number.isFinite(pctV) ? Math.min(100, Math.max(0, pctV)) : defaults['roth401kBasisPct' + p];
     });
-    // Migrate the old single household-wide `sepp72tEnabled` boolean (now
-    // split into sepp72tEnabledA/B) for scenarios saved before the split
-    // existed — only when the raw data predates the split entirely (both
-    // new fields absent), so a scenario that already picked, say, A-only
-    // isn't silently re-merged back into "both."
-    if (
-      typeof raw?.sepp72tEnabled === 'boolean' &&
-      raw?.sepp72tEnabledA === undefined &&
-      raw?.sepp72tEnabledB === undefined
-    ) {
-      s.sepp72tEnabledA = raw.sepp72tEnabled;
-      s.sepp72tEnabledB = raw.sepp72tEnabled;
-    }
+    // 72(t) SEPP is elected per account (sepp72tIra/K401 A/B, with a first-payment age; 0 means at the
+    // owner's retirement age). The household-wide flags of older saves (sepp72tEnabled, and its A/B
+    // split) are retired and not migrated (owner decision, Batch 3B): deleted here because the spread
+    // above carries unknown keys through.
+    ['sepp72tEnabled', 'sepp72tEnabledA', 'sepp72tEnabledB'].forEach((k) => delete s[k]);
+    ['sepp72tIraAgeA', 'sepp72tK401AgeA', 'sepp72tIraAgeB', 'sepp72tK401AgeB'].forEach((k) => {
+      const v = Number(s[k]);
+      s[k] = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : defaults[k];
+    });
     return s;
   }
   let state = normalizeState(null),
@@ -2312,16 +2327,14 @@
       state.guardrailsEnabled ||
       state.rothConvEnabled ||
       state.ruleOf55Enabled ||
-      state.sepp72tEnabledA ||
-      state.sepp72tEnabledB
+      seppElections().length
     ) {
       const parts = [];
       if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
       if (state.rothConvEnabled) parts.push('Roth ladder on');
       if (state.ruleOf55Enabled) parts.push('Rule of 55');
-      if (state.sepp72tEnabledA && state.sepp72tEnabledB) parts.push('72(t) SEPP (both)');
-      else if (state.sepp72tEnabledA) parts.push('72(t) SEPP (A)');
-      else if (state.sepp72tEnabledB) parts.push('72(t) SEPP (B)');
+      const sepp = seppElections();
+      if (sepp.length) parts.push(`72(t) SEPP (${sepp.length} account${sepp.length > 1 ? 's' : ''})`);
       setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
     } else {
       setGroupState('withdrawalStrategyGroupState', '', false);
@@ -3927,6 +3940,14 @@
     }
     accountsSetFromDollars(shares, d);
   }
+  // A draw of `amounts` (one per slot) out of the specific accounts, from the pool `pool` as it stands
+  // before the draw (a 72(t) payment comes out of its own account). An account cannot give more than it
+  // holds.
+  function accountsDrawSlots(shares, pool, amounts) {
+    const d = accountBalances(shares, pool);
+    for (let i = 0; i < 4; i++) d[i] -= Math.min(amounts[i], d[i]);
+    accountsSetFromDollars(shares, d);
+  }
   // A discretionary draw of `amount` out of the accounts in `group` (slot indices), pro rata among
   // them, from the pool `pool` as it stands before the draw. The other accounts keep their dollars,
   // so shares move toward them. An empty group draws nothing.
@@ -3940,17 +3961,19 @@
   }
   // A Roth conversion of `amount` out of the traditional pool `tradPool` into the
   // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
-  // (pro rata). Each partner's converted money goes to that partner's Roth IRA. Returns the
+  // (pro rata), never from an account under a running 72(t) plan (`excluded`). Each partner's converted
+  // money goes to that partner's Roth IRA. Returns the
   // amount that landed in each partner's Roth IRA, [A, B].
-  function accountsConvert(a, tradPool, rothPool, amount) {
+  function accountsConvert(a, tradPool, rothPool, amount, excluded = null) {
     if (!(amount > 0)) return [0, 0];
     const d = accountBalances(a.trad, tradPool),
+      avail = d.map((x, i) => (excluded && excluded[i] ? 0 : x)),
       taken = [0, 0, 0, 0];
-    let rem = Math.min(amount, tradPool);
+    let rem = Math.min(amount, avail[0] + avail[1] + avail[2] + avail[3]);
     for (const group of [[0, 2], [1, 3]]) {
-      const have = d[group[0]] + d[group[1]],
+      const have = avail[group[0]] + avail[group[1]],
         take = Math.min(rem, have);
-      if (take > 0) for (const i of group) taken[i] = take * (d[i] / have);
+      if (take > 0) for (const i of group) taken[i] = take * (avail[i] / have);
       rem -= take;
     }
     const r = accountBalances(a.roth, rothPool);
@@ -4591,6 +4614,18 @@
   // any elected 72(t) SEPP payment, both taxed as ordinary income and
   // force-withdrawn from the pooled traditional balance. rmdA/rmdB include the
   // SEPP amount; sepp72A/B are returned separately only for display.
+  // 72(t) SEPP elections, one per traditional account in ACCOUNT_SLOTS order (IRA A, 401(k) A,
+  // IRA B, 401(k) B): the election flag, its first-payment age field, and the owner.
+  const SEPP_SLOTS = [
+    { on: 'sepp72tIraA', from: 'sepp72tIraAgeA', partner: 0 },
+    { on: 'sepp72tK401A', from: 'sepp72tK401AgeA', partner: 0 },
+    { on: 'sepp72tIraB', from: 'sepp72tIraAgeB', partner: 1 },
+    { on: 'sepp72tK401B', from: 'sepp72tK401AgeB', partner: 1 },
+  ];
+  // The accounts currently elected for 72(t) (Partner B's only for a couple).
+  function seppElections() {
+    return SEPP_SLOTS.filter((sl) => state[sl.on] && !(sl.partner === 1 && state.singlePerson));
+  }
   function requiredDistributions({
     traditional,
     bondTraditional,
@@ -4604,6 +4639,7 @@
     workingB,
     retireAgeA,
     retireAgeB,
+    accountDollars,
   }) {
     const traditionalBeforeRmd = traditional + bondTraditional,
       // Each partner's own share of the pooled traditional balance, per
@@ -4625,35 +4661,33 @@
         !singlePerson && ageB >= rmdStartAge(state.ageB)
           ? traditionalShareB / rmdDivisor(ageB)
           : 0;
-    // 72(t) SEPP: a mandatory, penalty-free distribution for a partner
-    // retiring before 59.5, running from their retirement age through the
-    // later of 5 years or age 59.5 (IRS "RMD method"), sized off that
-    // partner's own share of the pooled traditional balance. Folded
-    // directly into rmdA/rmdB so it's taxed and force-withdrawn from
-    // traditional exactly like an RMD (SEPP income is ordinary income,
-    // same as an RMD); sepp72A/B are kept separately only so they can be
-    // exposed on the row for display, below. Each partner's SEPP is
-    // independently toggleable (sepp72tEnabledA/B) — electing 72(t) for
-    // one partner's account doesn't require or affect the other's.
-    const sepp72EndA = Math.max(retireAgeA + 5, 59.5),
-      sepp72EndB = Math.max(retireAgeB + 5, 59.5);
-    let sepp72A =
-        state.sepp72tEnabledA &&
-        !workingA &&
-        retireAgeA < 59.5 &&
-        age >= retireAgeA &&
-        age < sepp72EndA
-          ? traditionalShareA / singleLifeDivisor(age)
-          : 0,
-      sepp72B =
-        !singlePerson &&
-        state.sepp72tEnabledB &&
-        !workingB &&
-        retireAgeB < 59.5 &&
-        ageB >= retireAgeB &&
-        ageB < sepp72EndB
-          ? traditionalShareB / singleLifeDivisor(ageB)
-          : 0;
+    // 72(t) SEPP (IRC 72(t)(2)(A)(iv), Notice 2022-6 RMD method), elected per account: a mandatory,
+    // penalty-free payment of that account's balance at the start of the year (accountDollars, before
+    // growth) over the Single Life Table factor for the owner's age that year, recomputed every year.
+    // It starts at the first-payment age (the owner's retirement age when blank, and never before it)
+    // and runs through the later of 5 years or age 59.5. A start at 59.5 or later has no penalty to
+    // avoid, so the election does nothing. The amount is folded into rmdA/rmdB so it is taxed and
+    // force-withdrawn like an RMD (ordinary income); sepp72A/B are kept separately for display.
+    // `seppActive` marks the accounts under a running plan: they supply exactly their payment, so
+    // discretionary draws and Roth conversions must leave them alone (`seppLocked` is what is left in them).
+    const seppSlots = [0, 0, 0, 0],
+      seppActive = [false, false, false, false];
+    let seppLocked = 0;
+    const deadPartner = isSurvivorPeriod ? (deceasedIsA ? 0 : 1) : -1;
+    SEPP_SLOTS.forEach((sl, i) => {
+      const p = sl.partner;
+      if (!state[sl.on] || p === deadPartner) return;
+      const [ownerAge, working, retire] = p === 0 ? [age, workingA, retireAgeA] : [ageB, workingB, retireAgeB],
+        entered = Number(state[sl.from]) || 0,
+        start = Math.max(retire, entered > 0 ? entered : retire),
+        end = Math.max(start + 5, 59.5);
+      if (working || start >= 59.5 || ownerAge < start || ownerAge >= end) return;
+      seppSlots[i] = accountDollars[i] / singleLifeDivisor(ownerAge);
+      seppActive[i] = true;
+      seppLocked += accountDollars[i] - seppSlots[i];
+    });
+    let sepp72A = seppSlots[0] + seppSlots[1],
+      sepp72B = seppSlots[2] + seppSlots[3];
     if (isSurvivorPeriod) {
       if (deceasedIsA) {
         rmdA = 0;
@@ -4666,7 +4700,7 @@
     rmdA += sepp72A;
     rmdB += sepp72B;
     const rmd = Math.min(traditionalBeforeRmd, rmdA + rmdB);
-    return { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B };
+    return { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B, seppSlots, seppActive, seppLocked };
   }
 
   // Shelter cost for one year: rent, or (once a home is owned) mortgage payment
@@ -5057,9 +5091,9 @@
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
   // seasoning clock for penalty-free access.
-  function applyRothConversion(bal, rothAccts, accts, conversionAmount, year) {
+  function applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive) {
     if (conversionAmount <= 0) return;
-    const to = accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount);
+    const to = accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount, seppActive);
     const fromTradConv = Math.min(bal.traditional, conversionAmount);
     bal.traditional -= fromTradConv;
     bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
@@ -5123,9 +5157,10 @@
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
   // just parked in the reserve) so the Sankey does not undercount them.
-  function newWithdrawal({ bal, rothAccts, accts, profile, conversionAmount, rmd }) {
+  function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd }) {
     return {
       bal,
+      seppActive,
       rothAccts,
       accts,
       status: ALL_FREE,
@@ -5161,7 +5196,7 @@
   // The accounts of the traditional pool that are penalty-free (or penalized) this year for a
   // discretionary draw, and their share of the pool.
   function tradGroup(wd, penalized) {
-    const slots = [0, 1, 2, 3].filter((i) => wd.status[i].free === !penalized);
+    const slots = [0, 1, 2, 3].filter((i) => !wd.seppActive[i] && wd.status[i].free === !penalized);
     return { slots, share: slots.reduce((sum, i) => sum + wd.accts.trad[i], 0) };
   }
   // True when some account holding money would owe the 10% on a discretionary draw: a penalized
@@ -5802,7 +5837,7 @@
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
         pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
-      const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B } = requiredDistributions({
+      const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B, seppSlots, seppActive, seppLocked } = requiredDistributions({
         traditional: bal.traditional,
         bondTraditional: bal.bondTraditional,
         age,
@@ -5811,6 +5846,7 @@
         isSurvivorPeriod,
         deceasedIsA,
         ownerShareA: accountsOwnerShareA(accts.trad),
+        accountDollars: accountBalances(accts.trad, bal.traditional + bal.bondTraditional),
         workingA,
         workingB,
         retireAgeA,
@@ -5916,7 +5952,7 @@
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         if (convertsThisYear) {
-          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd), magiSafeRoom);
+          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
           conversionAmount = solveRothConversion(profile, conversionCap, year, age);
         }
         const magiProxy = magiBase + conversionAmount + estTrad + estGain;
@@ -5986,12 +6022,15 @@
             traditionalContrib -
             rothContrib;
         growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
-        // Each partner's RMD / 72(t) amount comes out of their own accounts (a single person or the
-        // survivor owns everything, so the draw is pro rata and no share moves).
-        if (rmd > 0 && !singlePerson && !isSurvivorPeriod)
-          accountsDraw(accts.trad, bal.traditional + bal.bondTraditional, [rmdA, rmdB]);
+        // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
+        // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
+        // share moves).
+        const seppPaid = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3];
+        if (seppPaid > 0) accountsDrawSlots(accts.trad, bal.traditional + bal.bondTraditional, seppSlots);
+        if (rmd > seppPaid && !singlePerson && !isSurvivorPeriod)
+          accountsDraw(accts.trad, bal.traditional + bal.bondTraditional - seppPaid, [rmdA - sepp72A, rmdB - sepp72B]);
         withdrawRequiredDistributions(bal, rmd);
-        applyRothConversion(bal, rothAccts, accts, conversionAmount, year);
+        applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive);
         bal.cash += oneTimeAmount;
         const reserveTarget = state.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
@@ -6000,7 +6039,7 @@
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
         const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-        const wd = newWithdrawal({ bal, rothAccts, accts, profile, conversionAmount, rmd });
+        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.

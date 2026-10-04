@@ -39,6 +39,9 @@ const US = {
   'employer flags absent': { acaEnabled: true },
   'legacy sepp72t both': { sepp72tEnabled: true },
   'sepp72t already split': { sepp72tEnabled: true, sepp72tEnabledA: true, sepp72tEnabledB: false },
+  // Batch 3B: 72(t) is elected per account; the household-wide flags above are retired and dropped (no migration).
+  'sepp72t per account valid': { sepp72tK401A: true, sepp72tK401AgeA: 55, sepp72tIraB: true, sepp72tIraAgeB: 52 },
+  'sepp72t per account junk': { sepp72tIraA: 'yes', sepp72tIraAgeA: -4, sepp72tK401AgeB: 500, sepp72tK401AgeA: 'x' },
   // Batch 3A: the pooled retirement fields are retired and NOT migrated (owner decision); an old
   // save opens with empty/default accounts and the retired keys are dropped.
   'retired pooled retirement fields': { traditional: 500000, roth: 100000, traditionalSharePctA: 70, rothBasisPct: 40 },

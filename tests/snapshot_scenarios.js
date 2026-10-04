@@ -71,8 +71,8 @@ function usStd() {
     ['R aca employerCoversSpouse', { ...R, acaEnabled: true, retireAgeB: 58, employerCoversSpouseA: true, employerCoversSpouseB: false }],
     ['R irmaaPriorKnown', { ...R, ageA: 62, ageB: 61, retireAgeA: 62, retireAgeB: 61, irmaaPriorKnown: true, irmaaMagiPrior2: 250000, irmaaMagiPrior1: 300000 }],
     ['R ruleOf55', { ...R, ageA: 56, ageB: 54, retireAgeA: 56, retireAgeB: 54, ruleOf55Enabled: true }],
-    ['R sepp72tA', { ...R, sepp72tEnabledA: true }],
-    ['R sepp72t both + ruleOf55', { ...R, sepp72tEnabledA: true, sepp72tEnabledB: true, ruleOf55Enabled: true, traditionalSharePctA: 70 }],
+    ['R sepp72tA', { ...R, sepp72tK401A: true }],
+    ['R sepp72t both + ruleOf55', { ...R, sepp72tK401A: true, sepp72tK401B: true, ruleOf55Enabled: true, traditionalSharePctA: 70 }],
     ['R bondYears0', { ...R, bondYears: 0 }],
     ['R bondYears8', { ...R, bondYears: 8 }],
     ['R work past 65', { ...R, ageA: 60, ageB: 58, retireAgeA: 68, retireAgeB: 66, lifeExpectancyA: 92, lifeExpectancyB: 92 }],
@@ -110,7 +110,7 @@ function usStd() {
     ['R everything', {
       ...R, ...ALL_LISTS, withdrawalMixEnabled: true, smoothWithdrawals: true, guardrailsEnabled: true,
       rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 60, acaEnabled: true, ltcEnabled: true,
-      ruleOf55Enabled: true, sepp72tEnabledA: true, survivorEnabled: true, survivorDeathAge: 82,
+      ruleOf55Enabled: true, sepp72tK401A: true, survivorEnabled: true, survivorDeathAge: 82,
     }],
   ].map(([name, patch]) => ({ name: 'std ' + name, kind: 'std', patch, shift: 0 }));
 }

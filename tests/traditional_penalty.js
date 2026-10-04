@@ -32,7 +32,7 @@ const BASE = {
   healthcare: 0, medicareYearly: 0, acaEnabled: false, ltcEnabled: false, stateTax: 'tx', ssMonthlyA: 0, ssMonthlyB: 0,
   tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0, taxable: 0, cash: 0, cashReserve: 0, bondYears: 0, spending: 40000,
   tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0,
-  ruleOf55Enabled: true, sepp72tEnabledA: false, sepp72tEnabledB: false, withdrawalMixEnabled: false, smoothWithdrawals: false,
+  ruleOf55Enabled: true, withdrawalMixEnabled: false, smoothWithdrawals: false,
 };
 
 (async () => {
