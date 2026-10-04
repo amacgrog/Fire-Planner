@@ -1583,7 +1583,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 
 | Cliff / phase-out | Where the threshold lives | Keyed on | Added by |
 |---|---|---|---|
-| ACA premium-tax-credit cliff, 400% of FPL (non-enhanced) | `fplForHousehold` x 4 in `conversionMagiCeiling`; `acaNetCost` | MAGI, `acaHouseholdSize` (now incl. children) | Phase 1; household size 7A |
+| ACA premium-tax-credit cliff, 400% of FPL (non-enhanced) | `fplForHousehold` x 4 in `conversionMagiCeiling`; `acaNetCost` | MAGI, `acaHouseholdSize` (now incl. children) | Phase 1; household size 7A; reviewed 7B step 6 |
 | ACA expected-contribution schedule (sliding 2.1%-9.96%) | `acaExpectedPct` | MAGI / FPL ratio | Phase 1 |
 | Medicare IRMAA tiers (two-year lookback) | `irmaaSurcharge`, `irmaaTierCeiling` | MAGI two years earlier, filing status | Phase 1 / 2 |
 | Senior deduction phase-out ($6,000, 6% over $75k / $150k, 2025-2028) | `seniorDeduction`, `SENIOR_DEDUCTION_*` | MAGI, filing status | Batch 2 |
@@ -1601,7 +1601,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
-#### 7B: US federal credits (US V93 -> V97 so far; Canada untouched)
+#### 7B: US federal credits (US V93 -> V97; Canada untouched)
 
 Branch `claude/batch-7b-federal-credits`, cut from the 7A tip (`a9d88a1`). US only.
 
@@ -1700,6 +1700,33 @@ the unused CTC can be refunded, so a household with no tax and earned income los
 $1,700 per CTC child (tests: mixed 5- and 17-year-old). A 17-year-old alone loses the whole $500 at $10,000 over
 the threshold. Default `[]`: snapshots byte-identical.
 
+**Step 6: premium-tax-credit review (no code change).**
+- 2026 applicable-percentage table in `acaExpectedPct` (2.10% under 133% of FPL, 3.14-4.19% to 150%, 4.19-6.60%
+  to 200%, 6.60-8.44% to 250%, 8.44-9.96% to 300%, 9.96% to 400%, nothing above) matches Rev. Proc. 2025-25 as
+  reported by secondary sources (currentfederaltaxdevelopments.com, thefinancebuff.com), including the linear
+  interpolation inside each band. The 400% cliff is back for 2026 (the 2021-2025 enhanced credits expired on
+  2025-12-31): `acaNetCost` returns the full premium above 4.0 x FPL when `acaEnhanced` is off, which is the default.
+- **Enhanced-credit extension: unresolved as found.** The House passed a three-year extension on 2026-01-08 (230-196;
+  Ballotpedia, AHA, Health Affairs); the Senate had not acted in the sources found, and no extension was in the law
+  at this review. `acaEnhanced` stays a user switch, default off. Re-check at the final verification pass; if an
+  extension is enacted, the default and the info bubble need a decision.
+- Repayment: OBBBA removed the cap on repaying excess advance credits for tax years beginning after 2025. The model
+  does not model advance payments: each year's credit is computed from that year's realized MAGI (the engine
+  iterates MAGI to convergence), so there is no mismatch to repay and nothing needs the cap.
+- Household size: `acaHouseholdSize` = adults + qualifying children (7A), used by both the cost and the 400% guard.
+  HealthCare.gov counts tax dependents of any age; the model uses the qualifying-child flag. In a death year the
+  household is the survivor plus children (the death-year joint return does not change the ACA household).
+- Simplifications that remain, none changed here: the entered gross premium stands for the second-lowest silver
+  benchmark premium (the credit is capped at the premium paid); the federal poverty line is the 2025 guideline
+  ($15,650 + $5,500 per person) for the 2026 coverage year, indexed by `taxIndexFactor` after that; the applicable
+  percentages are held constant (the IRS re-indexes them yearly); no PTC floor at 100% of FPL (a household below
+  100% of FPL, ineligible in expansion states, is charged 2.10% of a tiny income); no Medicaid eligibility.
+
+**7B summary.** Only step 2 moved numbers (49 of 518 US survivor scenarios). Cliffs added or moved: the filing-status
+switches (QSS window end, HoH start/end), the child-credit phase-out and the ACTC phase-in, all in the register above.
+Not modeled (owner): child and dependent-care credit and FSA, education credits, adoption credit, coverage on a
+parent's plan to 26. Open items: EITC and Social Security child benefits.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1747,6 +1774,7 @@ reading (itself secondary).
 | 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
 | CTC $2,200 per child under 17 (2026, indexed from 2026 and rounded to $100 by statute; the code does not round), refundable cap $1,700, 15% over $2,500, phase-out $50 per $1,000 over $200,000 / $400,000 (not indexed) | 7B | S (Rev. Proc. 2025-32 summaries, OBBBA) | IRC 24(a)-(h), Schedule 8812 instructions, Rev. Proc. 2025-32 |
 | CTC needs a valid SSN for the child (and a parent): assumed; ACTC earned income = wages (box 1) + net self-employment earnings | 7B | O | IRC 24(h)(7), 24(d) |
+| 2026 applicable-percentage table (2.10 / 3.14-4.19 / 4.19-6.60 / 6.60-8.44 / 8.44-9.96 / 9.96) and the 400% cliff; enhanced credits expired 2025-12-31; repayment cap removed from 2026; enhanced-extension status (House passed 2026-01-08, Senate open) | 7B | S (secondary: currentfederaltaxdevelopments, thefinancebuff, Ballotpedia, AHA) | Rev. Proc. 2025-25, IRC 36B(b)(3)(A), 36B(f)(2)(B) as amended by P.L. 119-21; current status of the extension at the final pass |
 | ODC $500 for a qualifying child 17 or older, nonrefundable, not indexed, shares the CTC phase-out; ordering inside the combined credit (reduction off the CTC first, tax absorbs the ODC first) | 7B | S / O (own reading of Schedule 8812) | IRC 24(h)(4), Schedule 8812 lines 11-14 |
 | QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
 | QSS NIIT threshold $250,000 and QSS Additional Medicare Tax $200,000 | 7B | U (own reading) | IRC 1411(b)(1), 3101(b)(2) |
