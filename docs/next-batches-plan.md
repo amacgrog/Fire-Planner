@@ -1314,6 +1314,36 @@ future "penalty-free reserve" checkbox decided as a product choice (it needs its
 changes the reserve size, not just its source). No new unverified figure was introduced, so the Verification
 backlog is unchanged.
 
+**Lifespan sensitivity (added after the first table).** The first table used the scenarios' own lifespans
+(95 for the early retirees, 100 for the default), so the historical run had only 41-53 cycles, all starting
+1928-1980: `runHistoricalCycles` needs each cycle to fit inside 1928-2025 (`lastStart = 97 - projectionYears`), so
+a long horizon tests few start years and never a retirement that began after about 1980 (not 2000 or 2007). A
+shorter lifespan gives more cycles, not fewer. Monte Carlo is not limited this way (5-year blocks from any
+year). Re-run with both partners living to 85 (56-73 cycles) and to 75 (66-83 cycles); historical % / Monte
+Carlo %, same variants:
+
+| Lifespan 85 | tip | nopen | (a) | (c) | (b1) | (b2) |
+|---|---|---|---|---|---|---|
+| Early 52/50 | 93.7 / 93.3 | 93.7 / 93.3 | 93.7 / 93.3 | 96.8 / 94.7 | 95.2 / 94.2 | 96.8 / 94.3 |
+| Early, thin taxable | 90.5 / 90.0 | 93.7 / 92.2 | 90.5 / 90.0 | 93.7 / 92.0 | 92.1 / 91.1 | 93.7 / 91.5 |
+| Early, trad-heavy, no Roth | 90.5 / 89.8 | 93.7 / 91.8 | 90.5 / 89.5 | 92.1 / 91.6 | 92.1 / 90.8 | 93.7 / 91.0 |
+| Early 45/45 | 87.9 / 90.0 | 94.8 / 91.8 | 91.4 / 90.5 | 96.6 / 92.3 | 93.1 / 90.6 | 96.6 / 91.1 |
+| Early, bondYears 8 | 92.1 / 92.4 | 90.5 / 91.6 | 92.1 / 91.8 | 96.8 / 94.7 | 95.2 / 93.5 | 96.8 / 94.2 |
+| Rule of 55 (all 401(k)) | 98.5 / 99.1 | 97.1 / 98.3 | 98.5 / 98.6 | 100 / 99.1 | 100 / 99.1 | 100 / 98.7 |
+| Rule of 55 (IRA-heavy) | 100 / 99.4 | 98.5 / 99.1 | 98.5 / 99.2 | 100 / 99.4 | 100 / 99.4 | 100 / 99.0 |
+| Default (retire 55) | 91.1 / 93.8 | 92.9 / 94.9 | 89.3 / 94.0 | 100 / 96.0 | 94.6 / 95.0 | 100 / 95.3 |
+| Working, bondYears 4 | 91.1 / 94.4 | 96.4 / 95.4 | 91.1 / 94.6 | 100 / 95.9 | 98.2 / 95.1 | 100 / 95.3 |
+| Retire 62/60, retire 59/57 | 100 / 100 | same | same | same | same | same |
+
+At 85 the standard engine still shows (a) costing tax and ending assets (early 52/50: total tax $0.81M ->
+$1.10M, investable at the end $7.8M -> $6.7M). At 75 nearly every cell is 94-100% and the tip is within 1-3
+points of `nopen` (worst: early 45/45, 92.6 vs 95.6), so there is nothing to separate; one cycle is 1.2-1.6
+points there. Conclusions 1-4 above hold: the penalty cost remains where penalty-free money runs out (3-7
+points at 85), (a) helps only 45/45 (+3.5) and loses in the default plan (91.1 -> 89.3), (b)/(c) still win
+mainly by shrinking the reserve (default: ceiling 92.9, (c) 100), and the non-early plans do not move. The
+decision (no code change) is unchanged. Caveat for every historical rate in this repo: with a long lifespan
+the historical run is thin and early-weighted; read it next to Monte Carlo.
+
 ### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
 _(to be added by the Batch 7 PRs)_
 
