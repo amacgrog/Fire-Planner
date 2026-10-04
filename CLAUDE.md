@@ -453,8 +453,10 @@ and it only stays trustworthy if every batch bumps it, not just some.
 - User-facing change → update `README.md`'s feature list in the same commit.
 - Architectural change (new shared helper, new US/Canada divergence, new
   gotcha) → update this file in the same batch of work, not as a later pass.
-- `docs/reference.md`: while the batches in `docs/next-batches-plan.md` are in
-  progress, do **not** edit it per batch. Append findings (decisions, verified
+- `docs/reference.md`: Batch 1 was consolidated into it early (2026-10-03, at the
+  owner's request; see its "Batch 1" section). For the remaining batches in
+  `docs/next-batches-plan.md`, do **not** edit it per batch unless the owner asks.
+  Append findings (decisions, verified
   figures with primary-source citations and dates, gotchas, before/after
   tables) to that batch's "Batch notes" section in `docs/next-batches-plan.md`
   in the same PR; one consolidation PR moves them into `docs/reference.md`
