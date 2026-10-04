@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V92</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V93</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -399,6 +399,10 @@
         <details class="group" id="otherLoansGroup" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Other loans</span><span class="group-state" id="otherLoansGroupState"></span></span></summary>
           <div id="loanFields"></div>
+        </details>
+        <details class="group" id="childrenGroup" data-cat="profile">
+          <summary><span class="group-summary-text"><span class="group-title">Children</span><span class="group-state" id="childrenGroupState"></span></span></summary>
+          <div id="childFields"></div>
         </details>
         <details class="group" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
@@ -924,6 +928,7 @@
     oneTimeIncome: [],
     extraExpenses: [],
     lumpExpenses: [],
+    children: [],
     dismissedEstimates: [],
     dismissedUnusualAssumptions: [],
   };
@@ -964,6 +969,32 @@
   // inflation, so they migrate as "own growth rate" pinned to the inflation
   // value at load time instead of silently switching to income growth.
   const LIST_MAX = 10;
+  const CHILD_BIRTH_YEAR_MIN = 1950,
+    CHILD_BIRTH_YEAR_MAX = 2100;
+  // Federal "qualifying child" age limits (IRC 152(c)(3)): under 19 at the end of the tax year,
+  // or under 24 for a full-time student. A child counts for the whole year of birth (age 0).
+  // Disabled-at-any-age children and qualifying relatives are not modeled. Each credit applies its
+  // own cutoff to `age` (the Child Tax Credit is age 16 or under; see docs/next-batches-plan.md).
+  const NO_DEPENDENTS = Object.freeze([]);
+  // The children on the plan in calendar year `taxYear`: `{ age, student, qualifyingChild }` for
+  // each child born by then. Returns a shared empty array when there are none (hot path).
+  function dependentsInYear(taxYear) {
+    const kids = state.children;
+    if (!kids || !kids.length) return NO_DEPENDENTS;
+    const out = [];
+    for (const c of kids) {
+      const age = taxYear - c.birthYear;
+      if (age < 0) continue;
+      const student = c.student === true;
+      out.push({ age, student, qualifyingChild: age <= 18 || (student && age <= 23) });
+    }
+    return out;
+  }
+  function qualifyingChildCount(taxYear) {
+    let n = 0;
+    for (const d of dependentsInYear(taxYear)) if (d.qualifyingChild) n++;
+    return n;
+  }
   function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);
@@ -1035,6 +1066,21 @@
         untilAge: num(x.untilAge, 85, 0, 120),
         flat: x.flat === true,
         ...growthOf(x, false, defaults.inflation),
+      }));
+    // Children (dependents): birth year (a past or future year; a planned child counts from the
+    // year of birth) and whether the child is a full-time student after 18. The year bounds are
+    // fixed, not relative to the clock, so a saved birth year never shifts when it is reloaded
+    // years later. A row without a usable year is dropped.
+    s.children = rows(raw?.children)
+      .filter(
+        (x) =>
+          (typeof x.birthYear === 'number' || (typeof x.birthYear === 'string' && x.birthYear.trim() !== '')) &&
+          Number.isFinite(Number(x.birthYear)),
+      )
+      .slice(0, LIST_MAX)
+      .map((x) => ({
+        birthYear: Math.round(num(x.birthYear, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX)),
+        student: x.student === true,
       }));
     // The old Bridge / part-time income section was folded into additional
     // income streams: carry a saved plan's bridge income over as streams
@@ -2310,6 +2356,17 @@
       setGroupState('lumpExpensesGroupState', '', false);
     }
 
+    // Children.
+    if (state.children.length) {
+      setGroupState(
+        'childrenGroupState',
+        `✓ ${state.children.length} child${state.children.length === 1 ? '' : 'ren'}`,
+        true,
+      );
+    } else {
+      setGroupState('childrenGroupState', '', false);
+    }
+
     // Survivor planning.
     if (state.survivorEnabled) {
       setGroupState(
@@ -3526,6 +3583,15 @@
       !workingA && age < 65 && (!workingB || !state.employerCoversSpouseB),
       !workingB && ageB < 65 && (!workingA || !state.employerCoversSpouseA),
     ];
+  }
+  // The ACA tax household: the filer, a spouse while both are alive, and every dependent child the
+  // household claims (HealthCare.gov counts tax dependents regardless of age; the model's
+  // dependents are the qualifying children of `dependentsInYear`: under 19, or under 24 if a
+  // full-time student). The subsidy and the 400%-FPL conversion guard both read this, so they
+  // cannot drift apart. The gross premium (`state.healthcare`) is not scaled for children: the
+  // household enters the premium it actually pays.
+  function acaHouseholdSize(singlePerson, isSurvivorPeriod, yearIndex) {
+    return (singlePerson || isSurvivorPeriod ? 1 : 2) + qualifyingChildCount(taxYearOf(yearIndex));
   }
   // The ACA subsidy is a function of this year's MAGI, which includes this
   // year's own discretionary withdrawals — but those are sized off the year's
@@ -4850,6 +4916,8 @@
             propertyTax,
             mortgageInterest,
             year,
+            // Children stay with the surviving parent.
+            dependents: dependentsInYear(taxYearOf(year)),
           }
         : {
             filing,
@@ -4871,6 +4939,7 @@
             propertyTax,
             mortgageInterest,
             year,
+            dependents: dependentsInYear(taxYearOf(year)),
           };
     return { otherA, otherB, profile };
   }
@@ -4916,7 +4985,7 @@
     let usesMagiEstimate = false;
     let healthcare;
     if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
-      const householdSize = singlePerson || isSurvivorPeriod ? 1 : 2;
+      const householdSize = acaHouseholdSize(singlePerson, isSurvivorPeriod, year);
       const grossPremium = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
       usesMagiEstimate = true;
       healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
@@ -5032,7 +5101,7 @@
       if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
         magiCeiling = Math.min(
           magiCeiling,
-          fplForHousehold(singlePerson || isSurvivorPeriod ? 1 : 2, year) * 4,
+          fplForHousehold(acaHouseholdSize(singlePerson, isSurvivorPeriod, year), year) * 4,
         );
       }
       // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
@@ -9438,6 +9507,36 @@
       ],
     },
   };
+  DYN.children = {
+    key: 'children',
+    container: 'childFields',
+    prefix: 'child',
+    noun: 'child',
+    rowTitle: (i) => `Child ${i + 1}`,
+    addLabel: '+ Add a child',
+    note: 'Children you claim as dependents, including planned ones.',
+    tip: "Used for the ACA household size (a larger household has a higher income limit for premium subsidies) and, in the next update, for the Child Tax Credit and other federal and state credits. A dependent child counts until the end of the year they turn 18, or 23 if they are a full-time student. Spending is NOT adjusted automatically: add what children cost under household spending, additional expenses or spending changes.",
+    fresh: () => ({ birthYear: currentYear, student: false }),
+    fields: [
+      {
+        key: 'birthYear',
+        kind: 'num',
+        label: 'Birth year',
+        short: 'A future year counts from birth',
+        tip: 'The calendar year the child was (or will be) born. A child counts as a dependent for the whole year of birth.',
+        min: CHILD_BIRTH_YEAR_MIN,
+        max: CHILD_BIRTH_YEAR_MAX,
+        step: 1,
+      },
+      {
+        key: 'student',
+        kind: 'check',
+        label: 'Full-time student after 18',
+        short: 'Counts as a dependent through age 23',
+        tip: 'Checked: the child is treated as a qualifying child through the year they turn 23 (a full-time student), instead of through 18. Disabled adult children and other relatives are not modeled.',
+      },
+    ],
+  };
   // @@shared:23-dynFieldHtml begin
   function dynFieldHtml(spec, f, item, i) {
     const id = `${spec.prefix}${i}${f.key[0].toUpperCase()}${f.key.slice(1)}`,
@@ -9554,6 +9653,9 @@
   }
   function renderSpendingTierFields() {
     renderDynList('spendingTiers');
+  }
+  function renderChildFields() {
+    renderDynList('children');
   }
   // Writes a slider's `<key>Out` label from the current state.
   function syncFieldOut(field) {
@@ -10038,6 +10140,7 @@
     renderOneTimeIncomeFields();
     renderExtraExpenseFields();
     renderLumpExpenseFields();
+    renderChildFields();
   }
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the
@@ -10402,6 +10505,7 @@
       oneTimeIncome: defaults.oneTimeIncome.map((t) => ({ ...t })),
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
+      children: defaults.children.map((t) => ({ ...t })),
     };
     mode = 'real';
     logScale = false;
@@ -11442,6 +11546,7 @@
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
+  window.__test_children = { dependentsInYear, qualifyingChildCount, acaHouseholdSize };
   window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
     const trace = [];
     if (hist) {

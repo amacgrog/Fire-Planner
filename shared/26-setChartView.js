@@ -93,6 +93,7 @@
       oneTimeIncome: defaults.oneTimeIncome.map((t) => ({ ...t })),
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
+      children: defaults.children.map((t) => ({ ...t })),
     };
     mode = 'real';
     logScale = false;

@@ -761,6 +761,34 @@ Every credit below reads the same list, so it ships as its own small PR.
 - Credits are applied in `taxFor()`; refundable portions can make tax negative
   only through the ACTC. Tests in `tests/tax_brackets.js` and a new
   `tests/child_credits.js`.
+- **Scope added after 7A (owner, 2026-10-04). None of it may add an input** (the 7A
+  children list is the only input; `student` is on it). Commit order inside 7B:
+  1. **Filing-status lookup table, no behavior change.** Replace the ~25 `filing === 'mfj'`
+     comparisons (brackets, standard deduction, senior-deduction phase-out, long-term-gain
+     bands, Social Security taxation base, NIIT, Additional Medicare Tax, IRMAA table, the
+     state-tax calls, CTC phase-out) with one table keyed by status, so `'hoh'` and `'qss'`
+     are data, not new branches. Snapshots must stay byte-identical.
+  2. **Death-year MFJ fix** (its own commit, an intended number change for every survivor
+     scenario, with a before/after table). Today `isSurvivorPeriod = year >= deathYear` and
+     `filingStatusFor` returns `'single'` for the death year itself; the law is that the
+     survivor files jointly for the year of death (IRC 6013(a)(3)).
+  3. **Head of household and qualifying surviving spouse (QSS).** Survivor timeline: death
+     year MFJ always; the next two tax years QSS (MFJ brackets and standard deduction) while a
+     qualifying child exists that year, otherwise single for the rest; after the window HoH
+     while a qualifying child still exists (a student to 23), otherwise single. A single
+     person (or the pre-marriage Partner A) with a qualifying child files HoH. QSS keeps the
+     single Social Security base amounts, the $200,000 Additional Medicare Tax and CTC
+     thresholds and (to verify) the single IRMAA and senior-deduction thresholds.
+  4. **Child Tax Credit and Additional Child Tax Credit** (`age <= 16`).
+  5. **Credit for Other Dependents** ($500, nonrefundable, same phase-out as the CTC): a
+     qualifying child who is not CTC-eligible (17 and 18, and 19-23 students).
+  The ACA household and the premium-tax-credit review stay as listed above.
+- **Pre-marriage two-filer branch (`marryLater`):** Partner A claims the children (owner,
+  2026-10-04), so Partner A files HoH there when a qualifying child exists.
+- **Deliberately not modeled (owner, 2026-10-04):** Child and Dependent Care Credit and the
+  dependent-care FSA (need a child-care expense input), education credits, the adoption credit,
+  coverage on a parent's plan to 26. EITC and Social Security child benefits are open items
+  (below).
 
 ### 7C: state-tax framework plus reference states
 
@@ -1484,7 +1512,93 @@ year orders, the penalty-aware paths), a MAGI-iteration convergence check on a c
 optimizer re-run note, the US badge bump and the README.
 
 ### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
-_(to be added by the Batch 7 PRs)_
+
+#### 7A: children (US V92 -> V93, Canada V38 -> V39)
+
+Branch `claude/batch-7a-children`, cut from the 3B tip (`c9d4b07`) so it stacks on 3B (owner,
+2026-10-04: the whole stack merges back into `tender-meitner` after 3C; `main` is not touched).
+
+**What is true now**
+- `state.children` is the seventh add-as-you-go list, in BOTH planners (owner: Canada keeps the
+  data model now; its list note says the benefits that read it arrive later). A row is
+  `{ birthYear, student }`. No other input was added.
+- `normalizeLists` (shared fragment `01-LIST_MAX`) clamps `birthYear` to the fixed bounds
+  1950-2100, rounds it, drops rows with no usable year (non-numeric, null, empty, boolean) and
+  keeps `student` only when literally `true`. Bounds are fixed, not relative to today: a
+  clock-relative bound would silently rewrite a saved birth year as the years pass. A new row
+  defaults to the current year (a newborn, so "from birth" for a planned child).
+- Dependent definition (owner, 2026-10-04): **qualifying child** = a child whose age at the end
+  of the tax year (`taxYear - birthYear`) is 18 or under, or 23 or under if `student`; a child
+  counts for the whole birth year and not before it. Dependent here always means qualifying child
+  (qualifying relatives, disabled-at-any-age children are not modeled). `dependentsInYear(taxYear)`
+  (shared) returns `{ age, student, qualifyingChild }` per child, and every credit applies its
+  own cutoff to `age`: CTC `age <= 16`, Credit for Other Dependents a qualifying child with
+  `age >= 17`, child-care credit would be `age <= 12` (not modeled).
+- US only: `buildTaxProfile` carries `profile.dependents` (survivor remap included: children stay
+  with the surviving parent); `acaHouseholdSize` = adults + qualifying children feeds `acaNetCost`
+  (via `healthcareCost`) and the 400%-FPL guard in `conversionMagiCeiling`. HealthCare.gov counts
+  tax dependents regardless of age, so the ACA household uses the same qualifying-child flag
+  with no separate cutoff. The gross premium `state.healthcare` is NOT scaled for children: the
+  household enters the premium it pays (the list tip says so).
+- The list is not in the MCP `update_fire_assumptions` schema (owner agreed): that schema is built
+  from `FIELDS`, and none of the existing lists are in it either.
+- Spending is not adjusted for children; the list tip says to add costs to spending.
+
+**Before / after.** Default `[]`, so by construction nothing moves: the engine snapshots are
+byte-identical (US 518, Canada 359 scenarios), and the standard, historical and Monte Carlo
+numbers are unchanged. Intended baseline changes: `tests/snapshots/ui_{us,canada}.json`
+(`executeStateHash`, because the state now holds `children: []`, and the three rendered-text
+hashes, +98 / +92 characters for the new "Children" sidebar group; the MCP `schemaHash`,
+the control count, and every projection and row hash are unchanged), and
+`tests/snapshots/legacy_state.json` (every hash changed for the new `children` key; four new
+cases: valid, junk, wrong type, over the cap).
+
+**Tests.** `tests/child_dependents.js` (in `npm test`): hand-tabulated `normalizeState` results,
+the qualifying-child ages at tax year 2026 and 2027, ACA household sizes (single, couple,
+survivor), and an engine case: a single retiree with a $90,000 income stream owes the full
+$20,000 premium with no children (400% of the 2026 poverty line for 1 is $62,600) and gets the
+subsidy with two children (household of 3, 400% of $26,650 = $106,600); an adult non-student and
+an unborn child change nothing. `test_children.js` (ad hoc): the Children group in both
+planners, summary text, reload round trip, the cap of ten, and the 390 px overflow check.
+`test_dynamic_lists.js` now expects seven empty-state lists.
+
+**Gotchas**
+- `npm run sync` on Windows rewrites the planner files with LF while `shared/*` stay CRLF
+  (`core.autocrlf=true`), so `--check` fails on every region until the planners are converted
+  back to CRLF. Recorded in `CLAUDE.md`.
+- `tests/snapshot_ui.js` is timing-sensitive on a busy machine: once the US "std R everything"
+  surface read `dashHistSuccess` as `85%` instead of the pinned `—` (the async historical success
+  tile had finished). It passed twice on rerun with no change. If it recurs, re-run before
+  suspecting the code.
+- Profiles built outside `buildTaxProfile` (the Roth solver and optimizer literals) have no
+  `dependents`; a 7B consumer must treat a missing list as none.
+- A birth year typed digit by digit is saved at every keystroke (`20` before `2015`); only a
+  reload at that exact moment would clamp it to 1950. Accepted, same as the other number rows.
+- Browser pane / environment: Node was not installed and the C: drive was nearly full when 7A
+  started; Playwright's Chromium needs about 150 MB to download plus space to unpack.
+
+**Cliffs and phase-outs register (for the 3C safe-MAGI policy).** Every batch that adds or moves a
+cliff appends a row here (where the threshold lives, what it keys on). 7A adds no cliff of its own;
+it moves one: the ACA 400% line now keys on household size including qualifying children.
+
+| Cliff / phase-out | Where the threshold lives | Keyed on | Added by |
+|---|---|---|---|
+| ACA premium-tax-credit cliff, 400% of FPL (non-enhanced) | `fplForHousehold` x 4 in `conversionMagiCeiling`; `acaNetCost` | MAGI, `acaHouseholdSize` (now incl. children) | Phase 1; household size 7A |
+| ACA expected-contribution schedule (sliding 2.1%-9.96%) | `acaExpectedPct` | MAGI / FPL ratio | Phase 1 |
+| Medicare IRMAA tiers (two-year lookback) | `irmaaSurcharge`, `irmaaTierCeiling` | MAGI two years earlier, filing status | Phase 1 / 2 |
+| Senior deduction phase-out ($6,000, 6% over $75k / $150k, 2025-2028) | `seniorDeduction`, `SENIOR_DEDUCTION_*` | MAGI, filing status | Batch 2 |
+| SALT cap phase-down (30% over about $505k to a $10,000 floor) | `saltCap`, `SALT_PHASE_*` | MAGI | Batch 2 |
+| Taxable Social Security (50% / 85% tiers) | `taxableSocialSecurity` | provisional income, filing status | Phase 1 |
+| 0% / 15% long-term-gain bands | `longTermGainTax` | taxable income, filing status | Phase 1 |
+| NIIT 3.8% over $200k / $250k | `niitTax` | MAGI, filing status | Phase 1 |
+| Additional Medicare Tax 0.9% over $200k / $250k | `additionalMedicareTax` | wages, filing status | Batch 2 |
+| Early-withdrawal penalty status (Rule of 55, 72(t), 59.5) | `penaltyStatus`, `accountStatuses` | age, account | 3B |
+| Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed) | (7B) | MAGI, filing status | 7B |
+| Filing-status thresholds for HoH and QSS | (7B) lookup table | status | 7B |
+| State circuit-breaker and income-tested credits | (7C / 7D) `STATE_RULES` | AGI / income | 7C, 7D |
+| Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
+| Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
+| Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
@@ -1528,6 +1642,12 @@ reading (itself secondary).
 | Single Life Table divisors in `singleLifeDivisor` | 3B | U | Treas. Reg. 1.401(a)(9)-9 |
 | Uniform Lifetime Table in `rmdDivisor` (72-100+) and RMD start ages 73 / 75 by birth year (`rmdStartAge`) | 3A (read by tests) | U | Treas. Reg. 1.401(a)(9)-9(c), SECURE 2.0 s.107 |
 | Treasury yields 2023-2025 kept as recorded (decision 14); CPI 2023-2024 confirmed, CPI 2025 to two decimals | 1 / 6 | S | Treasury, BLS index levels |
+| Qualifying child ages: under 19 at year end, under 24 if a full-time student, any age if permanently disabled (not modeled); a child counts for the whole birth year | 7A | O (owner's table citing IRS Pub. 501) | IRC 152(c)(3), Pub. 501 |
+| ACA household = filer + spouse + tax dependents regardless of age | 7A | O (owner's table citing HealthCare.gov) | HealthCare.gov household-size page, 26 CFR 1.36B-1(d) |
+| 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
+| Child Tax Credit under 17; ACTC; ODC for other dependents | 7B | S / O | IRC 24, Schedule 8812 instructions |
+| QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
+| Survivor files jointly for the year of death | 7B | U | IRC 6013(a)(3) |
 
 ## Open items
 
@@ -1590,5 +1710,17 @@ remains is detail to settle when the relevant batch is scoped:
 - Roth IRA basis uses 0 as "not entered" (3A): a true zero basis is entered as $1. If a real blank is
   wanted, the shared `24-syncContributionControls` number listener needs a blank-aware option.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
+- EITC (raised in 7A, deliberately not modeled in 7B): a qualifying child plus earned income and
+  an investment-income cap. It could matter to a coast-FIRE household with children in low-MAGI
+  years, and it interacts with the safe-MAGI policy, so decide it with 3C.
+- Social Security child benefits (raised in 7A, for Batch 6): a retired or disabled parent's
+  child under 18 (19 if still in high school) can add up to about 50% of the parent's benefit per
+  child, up to a family maximum. Real money for an early claimer with young children; it needs
+  the children list (7A) and the Social Security basis work in Batch 6.
+- HoH and QSS in state tax (raised in 7A): until 7C reconsiders them, the state-tax calls get
+  the nearest `mfj` / `single` mapping (QSS as `mfj`, HoH as `single`); each state's own rules
+  go in `STATE_RULES`.
+- 7A birth-year clamp: the bounds are fixed 1950-2100; a typed partial year is saved transiently
+  (see the 7A gotchas).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.

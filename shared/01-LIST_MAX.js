@@ -14,6 +14,32 @@
   // inflation, so they migrate as "own growth rate" pinned to the inflation
   // value at load time instead of silently switching to income growth.
   const LIST_MAX = 10;
+  const CHILD_BIRTH_YEAR_MIN = 1950,
+    CHILD_BIRTH_YEAR_MAX = 2100;
+  // Federal "qualifying child" age limits (IRC 152(c)(3)): under 19 at the end of the tax year,
+  // or under 24 for a full-time student. A child counts for the whole year of birth (age 0).
+  // Disabled-at-any-age children and qualifying relatives are not modeled. Each credit applies its
+  // own cutoff to `age` (the Child Tax Credit is age 16 or under; see docs/next-batches-plan.md).
+  const NO_DEPENDENTS = Object.freeze([]);
+  // The children on the plan in calendar year `taxYear`: `{ age, student, qualifyingChild }` for
+  // each child born by then. Returns a shared empty array when there are none (hot path).
+  function dependentsInYear(taxYear) {
+    const kids = state.children;
+    if (!kids || !kids.length) return NO_DEPENDENTS;
+    const out = [];
+    for (const c of kids) {
+      const age = taxYear - c.birthYear;
+      if (age < 0) continue;
+      const student = c.student === true;
+      out.push({ age, student, qualifyingChild: age <= 18 || (student && age <= 23) });
+    }
+    return out;
+  }
+  function qualifyingChildCount(taxYear) {
+    let n = 0;
+    for (const d of dependentsInYear(taxYear)) if (d.qualifyingChild) n++;
+    return n;
+  }
   function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);
@@ -85,6 +111,21 @@
         untilAge: num(x.untilAge, 85, 0, 120),
         flat: x.flat === true,
         ...growthOf(x, false, defaults.inflation),
+      }));
+    // Children (dependents): birth year (a past or future year; a planned child counts from the
+    // year of birth) and whether the child is a full-time student after 18. The year bounds are
+    // fixed, not relative to the clock, so a saved birth year never shifts when it is reloaded
+    // years later. A row without a usable year is dropped.
+    s.children = rows(raw?.children)
+      .filter(
+        (x) =>
+          (typeof x.birthYear === 'number' || (typeof x.birthYear === 'string' && x.birthYear.trim() !== '')) &&
+          Number.isFinite(Number(x.birthYear)),
+      )
+      .slice(0, LIST_MAX)
+      .map((x) => ({
+        birthYear: Math.round(num(x.birthYear, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX)),
+        student: x.student === true,
       }));
     // The old Bridge / part-time income section was folded into additional
     // income streams: carry a saved plan's bridge income over as streams
