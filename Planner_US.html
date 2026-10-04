@@ -271,7 +271,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V80</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V81</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -478,7 +478,7 @@
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
           <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
-          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting the year they individually turn 65 (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
           <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
           <div id="irmaaPriorFields">
@@ -4408,8 +4408,8 @@
   //    run through acaNetCost(), which depends on this year's MAGI estimate
   //    (usesMagiEstimate tells the caller the MAGI iteration must converge);
   //    otherwise it is the flat premium.
-  //  - Medicare Part B/D + supplement (state.medicareYearly): purely age-based
-  //    (65+), per partner, independent of retirement status or the spouse.
+  //  - Medicare Part B/D + supplement (state.medicareYearly): per partner,
+  //    from max(65, that partner's retirement age); independent of the spouse.
   //  - IRMAA surcharge per Medicare-eligible partner, from the two-year MAGI
   //    lookback.
   //  - Long-term care once each partner reaches their LTC age.
@@ -4421,6 +4421,8 @@
     isSurvivorPeriod,
     deceasedIsA,
     deceasedIsB,
+    workingA,
+    workingB,
     factor,
     year,
     age,
@@ -4451,11 +4453,15 @@
       // Medicare below is what covers them from then on.
       healthcare = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
     }
-    const medicareEligibleA = age >= 65 && !(isSurvivorPeriod && deceasedIsA),
-      medicareEligibleB = !singlePerson && ageB >= 65 && !(isSurvivorPeriod && deceasedIsB);
+    // Medicare starts at max(65, retirement age): a partner still working at 65
+    // is assumed to stay on the employer plan (no late-enrollment penalty,
+    // which is not modeled) and to enroll the year they stop working.
+    const medicareEligibleA = age >= 65 && !workingA && !(isSurvivorPeriod && deceasedIsA),
+      medicareEligibleB =
+        !singlePerson && ageB >= 65 && !workingB && !(isSurvivorPeriod && deceasedIsB);
     healthcare += sharedCost(state.medicareYearly, medicareEligibleA, medicareEligibleB);
-    // IRMAA follows age (65+), not retirement status: someone still working
-    // past 65 and enrolled in Part B pays it too, and their wages are in the MAGI.
+    // IRMAA applies only to partners actually on Medicare (see above), using
+    // the two-year MAGI lookback.
     const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
     if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
     if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
@@ -5368,6 +5374,8 @@
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
+          workingA,
+          workingB,
           factor,
           year,
           age,

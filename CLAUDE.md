@@ -341,9 +341,11 @@ side before porting a feature:
   true, which is the old "both retired" rule; the same helper feeds the
   400%-FPL conversion guard, so cost and guard can't drift apart) and
   `state.medicareYearly` (Part B/D + supplement, gated per-partner on
-  `age >= 65`/`ageB >= 65` alone, independent of retirement status or the
-  other partner) — because real Medicare eligibility is purely age-based,
-  unlike ACA marketplace eligibility. Canada has no equivalent split to
+  `age >= 65 && !working` (Medicare starts at `max(65, that partner's
+  retirement age)`: a partner still working at 65 stays on the employer plan and
+  enrolls the year they stop, no late-enrollment penalty modeled; independent of
+  the other partner), and IRMAA follows the same gate) — unlike ACA marketplace
+  eligibility, which also depends on the spouse. Canada has no equivalent split to
   build: `state.healthcare` there is a flat "supplemental private
   insurance once retired" figure with no age-65 transition at all, because
   provincial coverage (OHIP/MSP) is universal at every age — if anything,

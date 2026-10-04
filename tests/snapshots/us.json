@@ -190,6 +190,27 @@
    "depletedAge": 86,
    "finalInvestable": 0
   },
+  "std R work past 65": {
+   "hash": "f6591427356afc14",
+   "rows": "a806277ff0547d14166257fe6b6e3b2d84460d433906eba5584f76552f8ab193670f0b3fef9c92eba76264a2dc27ee58210beb23ebf3bda26facfc0e5418def19989d36013f7d165b1fc5f8a7c7349a9ccfb555565fc4de0adc744fee28db2499956f43f6f3d2677e27f9eaa67f90f6441aeb93f42fe96ca59c52a78ee054e8bad5e9a43a6316ff81472f891",
+   "rest": "a8294d56",
+   "depletedAge": null,
+   "finalInvestable": 13863435.237061871
+  },
+  "std R work past 65 single": {
+   "hash": "5d0f6c19b0a65a8f",
+   "rows": "96f17b4ff4140e4f88ef00a0abd79bfbd7cb103dfc060f8c89a3a725072137e1d11329682caef67c2460514a6e47006dbd051c566b83c6aadbb14792b6dab2dae56c3a22e1617b0f9c744fe41eb9564cd71c3aa36b364a608b4867a69821ad2f51f051e2c14f1edb291dec13697ca985a525609e1c389e723c5aba34619c79e6a7cf5818",
+   "rest": "fe9acfac",
+   "depletedAge": null,
+   "finalInvestable": 4140547.9933641492
+  },
+  "std R work past 65 survivor": {
+   "hash": "4ef3ff4c08d71532",
+   "rows": "a806277ff0547d14166257fe6b6e3b2d84460d433906eba5584f7655577f9c4856682fb99976a75e36d2140116b9ba6ed464e5c6a0dd8cfdbcac5ccf6ec6a8a09eef6883e0e266c4ad0da954940398b0b828b40c86aee57d8e8eaa00db5d4a9de56d2e7c90b749b987fbb129a817a71627db7e856133cd67e3398f447242575c13a230633167b7114251f9cd",
+   "rest": "f42132dc",
+   "depletedAge": null,
+   "finalInvestable": 13855306.749792831
+  },
   "std R bondYears3 working": {
    "hash": "611e472c580141a9",
    "rows": "acb9fdf4faf73610a729499da3cfb3c791d2d8f28ad3a555aa381f80e90e0ede1fee6c1e0e0f9ff5221d04b1a86509c8ff66ecb09ab8c3d351d0675a5deee23b48216eca9ffc2a99259dc6b2aafdcc3f6128ca5814f34ad7e19f6878f2ad17703323d067ba55756bedb6e41338bed7e68f17302afb4b7a7533acf3b1ae8f7c2789054c97f10b67cc7c5bc9f034ccd043ae627c091bed928ca779855326a4ddb357976489d4e4e340f3ee37d8004f1de91e19c2e43a5640bd892eaebd6aa20996be2e49c4bc0651203449fdebef234682",
@@ -2205,6 +2226,286 @@
    "rest": "36afe1b2",
    "depletedAge": null,
    "finalInvestable": 568874084.9437423
+  },
+  "hist R work past 65 | real1929": {
+   "hash": "4c3a7fc8557dd6e1",
+   "rows": "7588447c259ae66a12c52c0041bd569add395bf8a128febc4e1c209838c64c134737ac73bba8d4e006920f3fb6240a53f8cad9b10858d5ff452692c0551873a5066907ef21f916ab5e3b64acb4cb843504a2d012e285d5fce47cad8e732dff4e31132181a2340808a3a776051fc0b96ca6f78aeb876ffcd83fa293996ea8bd60d852225cefa0dcef93cc3883",
+   "rest": "fe913de5",
+   "depletedAge": null,
+   "finalInvestable": 17903562.689931672
+  },
+  "hist R work past 65 | real1966": {
+   "hash": "12c83164a458a255",
+   "rows": "9e3204a863ae2af8b9d9dd2e3035f1b053ce951a9e5d86eb101dcb27604009e16df2b82e3db106b5805d22ede4b89e9ad6ecf1214e65f60fadf71973755c95c51a1804368e8861c67ee6a49468367abe2a7f8415e7d7e0234735c1a8d0d9ccd6aa7c3fa5a67dee33bf420a7dfefd987178ecd820db739835fbf0eae8f98d14f4fc53497f25bf2a8be9fbde75",
+   "rest": "d9f77951",
+   "depletedAge": null,
+   "finalInvestable": 45004279.10818641
+  },
+  "hist R work past 65 | real1973": {
+   "hash": "b8b5d981a7c6acfd",
+   "rows": "c2c60be3d0d37125adea51083ceba7fcee0fa84c418296ff1136452f0198a11a6abe9521fdfb810b10b38e71e76c0f908e8e8d7762e76617592bd1a3b17de51d6e92439575ef6d23e6302bd691634d9a685fce07d215dab12d1ef941e9dd328d103176697405fcef133d0336758fc56b905a69b5d18cf1ab60623fbd7daaa64f14c0362bf233c1c3ee9a4e0c",
+   "rest": "d6920ddc",
+   "depletedAge": null,
+   "finalInvestable": 46398290.64351507
+  },
+  "hist R work past 65 | real2000": {
+   "hash": "4c098d238c054e10",
+   "rows": "c830eab3411004c3917de917f14049d5ca65d4aca5b8fcefc6552c83d2b1e33cce6d2748580124d93f64d8b1f7febbf0090ad4aa608c7e4d89db1861193bc0c341f389d903f5b6e88874f1989cdcd5ba0fe05e6c74eab2bb9c28cfe2c6c8d4c71e3740f53b7e2287161ee9b166e5c93df11e285550b2cbb9e93341c29e11d94e450ed9c6cebe4b81a199927d",
+   "rest": "7561a0ee",
+   "depletedAge": null,
+   "finalInvestable": 11582949.33576227
+  },
+  "hist R work past 65 | crashFirst": {
+   "hash": "cdc7a382589716df",
+   "rows": "969cf985995b1c5b69f29a66e0007fe02632e8b947cbdc22b85d2d3f79daf0225a09260fdedbd808fbc113f8fe349d56b01fa81818065a249c4729b79501d628386e7decdf4d11b561636ccd3c523fb9e507c596d9e4c5cfce0a73dd5fa6deedfa1bf2d07188279a0dd101207e2cd1ec986ee4f048935d5a1771974c7db4ed4b02db92aeaee6332ffef83971",
+   "rest": "1bb7fc5e",
+   "depletedAge": null,
+   "finalInvestable": 9289833.08556189
+  },
+  "hist R work past 65 | sawtooth": {
+   "hash": "daab7d899ed2c6f1",
+   "rows": "7746d34f104333ac720cfaf7294c7a4a83771c4c59700653a43a07baef8023ad808f5fce96b8c1903399af108e8e4d3c3d32b32152e5668c88ba8f7bddab60ce63d62c3cb0904f82caa3df6147c1e617d5c575126df88453d86e3fad5725461e7dddfc91756318e9e9700557cb43d241abddfcbd5aabede70dba72b225ca4b4629589ce934b2f496aa4743a9",
+   "rest": "d21abbc1",
+   "depletedAge": null,
+   "finalInvestable": 3808968.836230971
+  },
+  "hist R work past 65 | boom": {
+   "hash": "6942287deb591be4",
+   "rows": "5d6c4c32f33838f816c42cc74a66cb66457d84e553b2c622a9a4df3baf506140314a09d757672331186770d80f82f06ad058e727ab9085ae27bb6564e83e02495fe088e48d79fa2d9e5f3b877160fff477d1d15fa59ef190482ad85e3465e2fa35428ab31614ef5475a18c55de189e4895dcdbb2ffb17812c1df1b219fec850a11502da69540da7e2f5cef49",
+   "rest": "6c993b02",
+   "depletedAge": null,
+   "finalInvestable": 189173617.90238532
+  },
+  "hist R work past 65 | flat": {
+   "hash": "6334339b1b0e5c9c",
+   "rows": "14d57f0a9b3796a76b9531f7728e300afebe2fb138c7e9311cf7459b58078b6e7089657d49d68c77a67b1ade08fdcea110d8d8d2344fddce2fe81c8e9705163f29f63468a83f25534f324168f2d3ecd7b877b690298218ea2da31af67b5ac6de3201f3add7ba1a0a37b288ca5edd044269deb109db57b20f08fb72c8ff6d3c4696f424c26e39f6b77d7c707b",
+   "rest": "0102e969",
+   "depletedAge": null,
+   "finalInvestable": 819387.9696510687
+  },
+  "hist R work past 65 | mc1": {
+   "hash": "92a3bf9ff7a160cb",
+   "rows": "b7a89b40edbf583e1f20a2200181c9aaa403d9537f4734954bf68dc3120bdf8bcb03db5944c9ee7d5bb0e2b971132b114edde068c60a2e3841ecc14f753121a7baad2e9eb5287321b199e0d495e5c58635639d2a91cc3b0c214aa729871cbe997a1d0e5d6ad8e8411fd70a554c831c6c753271ab37bf74f68ecdc47cedbca6a06bc3d14c6c9d15711e7510dd",
+   "rest": "9287b33c",
+   "depletedAge": null,
+   "finalInvestable": 33314431.43840041
+  },
+  "hist R work past 65 | mc2": {
+   "hash": "f5af7c6e7cf8eac1",
+   "rows": "c9ac6d2bb67e4f76e3977c196981de7be018e04dbc655138e9670c7948e6fb419fa64593b292ba042c13c4be603c5133b01fdf374b2d89f383fe610b86fb52fa6ae76a82049cca7449cdc9e75daad7c402f83e8acbce4d678b0694c49aed7c1b7ec6e612230f85940302ddf5a90ca3c888e45fe1dba38508b4ff389c4117dee808c319d6c2388fe34936f804",
+   "rest": "59d2df2f",
+   "depletedAge": null,
+   "finalInvestable": 128966066.36047526
+  },
+  "hist R work past 65 rich | real1929": {
+   "hash": "b090eb370bbac050",
+   "rows": "ffd2ff11e59dafae878c271319a500b8bc50c587a04f330bb1b840ad27def3d7dc9b0a5f656190c03f546e951cda3c875bdef4652f1dde74e96b48524ca122b6a0c294c3e326a753ce9c7fe646b12b30a4599a6ebe690803cfb446cf56ef77e632e5d9459420f74468e13fa41c91e26101aa90e5395b537e518b3bdcc33bb182120547922d78d1bf5c863775",
+   "rest": "fe913de5",
+   "depletedAge": null,
+   "finalInvestable": 57222945.81471852
+  },
+  "hist R work past 65 rich | real1966": {
+   "hash": "d80b44497ab17f51",
+   "rows": "d8c8f730d982d1f828e1045a3e9351328d1f96f774680bc1e8a61ef614d97a49d46d668f67d253e17f4ed91febc95b6f0480f6f7a39e6a65b88b6e200a520a075d157329068dec5076b4ae6b2d3b8b6174ac9bc870b41866624429a5d3fac4e6392173184813e37b755d5b288b912e61355b27b30cfb5ee070a9834013282e8da3340ba5969d9d8eb5af96f2",
+   "rest": "d9f77951",
+   "depletedAge": null,
+   "finalInvestable": 163419541.24075514
+  },
+  "hist R work past 65 rich | real1973": {
+   "hash": "49643224e6a1662f",
+   "rows": "7a852d8cec94ce386a326b45807bf10f85e8232bb203a90be3f909c849519bbc61309629475973910fa6c92d64534f987aad3b239f9bb06fe745712d86e4af065db060707b7ac747c07eaf16e284b761c1d1394c88c801c6f6daed1226a3ea12163be6eed61d9461af4b52781a7f5c01fdf218ac1a19dec4a9c5af7c09cb05c93686b2cee5b0ab67a6b67f34",
+   "rest": "d6920ddc",
+   "depletedAge": null,
+   "finalInvestable": 137533552.4275308
+  },
+  "hist R work past 65 rich | real2000": {
+   "hash": "de19978a9861ba17",
+   "rows": "77c8bdb8d0f169c3dd26937ea6a624936c11cd2750ea73eaa9e6f98bf6d4cdbf3d6de4e041558db25f7d12a74278cc8b3712dd07d8dc0bd6610bdd63e6a81656f2befda169ea52400a7d2e6d8ac6bfdf25b7f1065f8f82f0a4840078ef9a38e7e5f38dfef762dfb400521323cb8005c0632f83bac842a2e449933d5f11a24eff38eab46301e6a2735fa9d1a6",
+   "rest": "7561a0ee",
+   "depletedAge": null,
+   "finalInvestable": 38153382.47344288
+  },
+  "hist R work past 65 rich | crashFirst": {
+   "hash": "cb303244b9fe6f6d",
+   "rows": "29fb1f24f7103d9799924015e220c433c4743dc647bc92952d17cadf20282daa4b8ea25ded52c946e1f68152cbde3ed2139d0a7ca7a34647d68e1cef5567718772e04e5c49a18e268be5f272f8ee53bd1903c06c747958d99b60aba8c333a7604966e192a3914a45bfda251a3909bc306ab6879e70c10b1148fd535ad059d272e12ce48a1f30a9aed3aec0f3",
+   "rest": "552ee2d5",
+   "depletedAge": null,
+   "finalInvestable": 30782261.487666942
+  },
+  "hist R work past 65 rich | sawtooth": {
+   "hash": "60c070b764bf733f",
+   "rows": "f5a8aa5595da5cfbacd617264f64b64017544fd2e6a9cef045f8f20f852face7f51d74ddd2059482a4466419cac42846b973f8e1df8d1809791656a2a1baa0822647fa639f03c5f6478656042a336751bc3c403a58ba7ab750d0d06c95803c901d00c0ecec49c9c9b0142a695f5ccd48cc6554c2e14761d3fe84c114230f560e2f0e2e049ac46b438f06d6cc",
+   "rest": "d21abbc1",
+   "depletedAge": null,
+   "finalInvestable": 12533258.236659601
+  },
+  "hist R work past 65 rich | boom": {
+   "hash": "9b66ddb8f18aa35d",
+   "rows": "bb5eba3267dd57f332620d75397dcfdb472dde7ba23d72b3869f6d6b12bfc50aa1ff6442b9a43dc86d642dc51f4263f97361d32e8e38c3bc13dee53dbfc30434935879667ce60b3c4b59e90baa943b4714816f9cd4bda5cccc11e508c4705453367907c4d6efd4d74edca4722b20336b191313fc873865e9ac02557c36d713b457f6edf436b71bf30aab38dd",
+   "rest": "e9be1d5d",
+   "depletedAge": null,
+   "finalInvestable": 503623181.4450227
+  },
+  "hist R work past 65 rich | flat": {
+   "hash": "b501bda8d11c822b",
+   "rows": "6ed9da74d7a8761bfb0c3cf3a39fb4cfa0cc6c64954c8a35d49a076913f155975c58c645441fb46c1a45890220c66ceda71701c90cd920b5d906f60d5eb072e7b50374e75dcf927f68dd706ab4ef3b813e1a0bb3a8e24d21df726ba6d392b42a035315d8ab500fc117ead1d4f55ef0220f284764d7f417abc470d4fb0012bf412025585a2d7bc81ff2b633cf",
+   "rest": "0102e969",
+   "depletedAge": null,
+   "finalInvestable": 3363290.24117621
+  },
+  "hist R work past 65 rich | mc1": {
+   "hash": "408fed035858e12d",
+   "rows": "913a4625c9d3cbe66beb753d1726b4b7573fa49eb73f9a3d959654c70ad45066339c6e6f21664e079d2fcb93229d2ca38056c02be1bfcb9c4244455c5df6c5785190db08e97bb0c71ec4a0e1b8a9f6b5a7cb9624c11c12339b311e2459d20b06041fd20798ddd0c03c6005cfc84923930a328545d7ca624627c620db7493b37dc655e64dfa0a176a7546a151",
+   "rest": "5e86e14d",
+   "depletedAge": null,
+   "finalInvestable": 131289112.07919331
+  },
+  "hist R work past 65 rich | mc2": {
+   "hash": "bd291373e6f50331",
+   "rows": "3c6d7690cc1d6e0e0903bfa840c4c8dba995cfcf0703dbeca911ab39cc6e4020cb754027d53bf2c8af911ec9937e6b7fd74f5fc46b85b7cec8a57a8ce7850d7a94e61f057ee6e330dc94532ca8e36ad947f3012c471f210a3dadfd4af51196fbc46d07133bb2dfda1f87af620a7ba439753ec39a32913c12288832068a0c72a5d4b4c6fb3a765872838e40ad",
+   "rest": "66cedc20",
+   "depletedAge": null,
+   "finalInvestable": 330043263.7969492
+  },
+  "hist R work past 65 survivor | real1929": {
+   "hash": "e6187f35ee8b8b8c",
+   "rows": "7588447c259ae66a12c52c0041bd569add395bf8a128febc4e1c209815107de89b50dac64d5aa8f4fab860e2d1480900beb99aa44b29921cd956a27267765ee8514a001dd2a8f2c3368c7f313b8fdae1e47d3953e4bb73bd862e171e155cb58eebc64fd9eb1746cccbc75f96b1e4a57ee86007b1303d19b67bfa36b88eb65fb77a3e95c584483d8266449989",
+   "rest": "750320bf",
+   "depletedAge": null,
+   "finalInvestable": 18421901.280592587
+  },
+  "hist R work past 65 survivor | real1966": {
+   "hash": "1ef528c166f3fc1d",
+   "rows": "9e3204a863ae2af8b9d9dd2e3035f1b053ce951a9e5d86eb101dcb2775d02e1601caf553d7c39735359825fedc30fbca5e01bfc62432696875fabb85b9adfdea5313e4bb46ccce4ec9e6c9602320ffe768ca7fffa8d6c0fb5de19ba3f65cb4540f3d2858b3bb06076afda73d3f7d1645d609689f4b1e7f982a9f3059c017f82fac86f348f762569b2001ac77",
+   "rest": "073f97b9",
+   "depletedAge": null,
+   "finalInvestable": 53522430.40387188
+  },
+  "hist R work past 65 survivor | real1973": {
+   "hash": "6d867f2dd763b329",
+   "rows": "c2c60be3d0d37125adea51083ceba7fcee0fa84c418296ff1136452f7cb32be521871e4866475f8d68ca563b1f29878e7f092e3b3f7bc1f83a0077aab42d228b46b43ea36951d24473c0fa71232c09e446c50df69db610dca22e1a9a9f8f8ffc7d617bc4f5b2d5035dd5d2f13f9c7e039fe68888b8bb45ba7f65bc7e3754d8e12b7c34ec5d597d9b59326192",
+   "rest": "5fa1b713",
+   "depletedAge": null,
+   "finalInvestable": 48229514.14400441
+  },
+  "hist R work past 65 survivor | real2000": {
+   "hash": "aac465fa473ff5ff",
+   "rows": "c830eab3411004c3917de917f14049d5ca65d4aca5b8fcefc6552c83c4774b382514f0ac6c5903c9919c7a59569c5665b04f43e48fd09ca92b40f50a7f77fdc6f85ad831c73c5ab0ce56ed2a5b44082ceffac21a1a88b9695a1e13b19639c2ada75e2de3860b88bd2c71711b581a5ae96b4cc59455aa98d3946fdc00e7cb29bd436171c50271ef8c616678ae",
+   "rest": "1b000079",
+   "depletedAge": null,
+   "finalInvestable": 11785208.863420777
+  },
+  "hist R work past 65 survivor | crashFirst": {
+   "hash": "b518331ae7184cee",
+   "rows": "969cf985995b1c5b69f29a66e0007fe02632e8b947cbdc22b85d2d3f8aefab86d716bff41914c29569e86ca9a72f352ea53cb4ea961c4de60abb99aa2d88a4442c33b10d667937b23dee006aa26942423cfa82769080eec7023e5cc855b0fed98607b4c0dfb7df1d1177f79edf87cae8c5732e48743084ffdf50ec59118dc14839858bcc4ccd59b0ea4766d4",
+   "rest": "2b9200db",
+   "depletedAge": null,
+   "finalInvestable": 9414259.020598965
+  },
+  "hist R work past 65 survivor | sawtooth": {
+   "hash": "82f86a572a544cf4",
+   "rows": "7746d34f104333ac720cfaf7294c7a4a83771c4c59700653a43a07ba22a772854f444dd5ce191fb5c6ef7ebbd7615f5386fc85ce069bbb6505f2786d5ad0c07d221513fa547ad1520df050907b57ed257865bef839e2ea14e429207e5642f1ce37deeb2dfe08c181400992b54675e36e70e4c78a189c9de89388bcdc2dada0a0d71801b6a63f02aa390671dd",
+   "rest": "caccfc45",
+   "depletedAge": null,
+   "finalInvestable": 3823434.590218858
+  },
+  "hist R work past 65 survivor | boom": {
+   "hash": "25866be2077d1632",
+   "rows": "5d6c4c32f33838f816c42cc74a66cb66457d84e553b2c622a9a4df3b03fdc4aff7518ba8bc6aafb2cf1acad70077d536957484f51f0723358b3cf1dd88697f6ce1a4367fd5f45e5d407ad4014dd8c9636192927ee381d2f3776b751a72e167abc4a103bf643173935ae4d7d91b3728fd497f64f4422f820bbe2309e7b44aafa30dc2f1a2824b599129f284e4",
+   "rest": "e35fc634",
+   "depletedAge": null,
+   "finalInvestable": 186845873.5270775
+  },
+  "hist R work past 65 survivor | flat": {
+   "hash": "58d9505c7a966a57",
+   "rows": "14d57f0a9b3796a76b9531f7728e300afebe2fb138c7e9311cf7459b094eede90f4f7373a003e3d09f192e971c7fd3648007d3576e8623cb29b53c63579367bb50a85736e040ab0c0115951a891142f31a1519cc937fc9ee8d534087c6e8b5f0a4fec5e2c2a7ead698eecbde142afed25aad2b916bd972b42332574a0cc35ab34b7172b0784eca8ff5dde8c3",
+   "rest": "22fb5706",
+   "depletedAge": null,
+   "finalInvestable": 879108.6136993266
+  },
+  "hist R work past 65 survivor | mc1": {
+   "hash": "4590fdd544953a07",
+   "rows": "b7a89b40edbf583e1f20a2200181c9aaa403d9537f4734954bf68dc3381fb797a9e36223884406d2766dacee45b0b06ff94162c8c30e7ff63d4c147eb212c1c94fbd1e7f19138b7a6b348549195820d3b8f046fe96b6037ee057b2d6fb9adcc94c35f37388c823468f95fca14c3b62e590081c67db7bed78d82a55686df790e5eda0063122159b598e4298f0",
+   "rest": "de7c1916",
+   "depletedAge": null,
+   "finalInvestable": 39951844.76223637
+  },
+  "hist R work past 65 survivor | mc2": {
+   "hash": "e8f9d60677259b1c",
+   "rows": "c9ac6d2bb67e4f76e3977c196981de7be018e04dbc655138e9670c7964fea8fcf7a7a0d2c36019a91eb9984cdda2ff2e09327777435b8b945de8d320a45396a9dece387c7d11392c7bc231cb4afbf5c61bb45c0b5bf713ce5c9744991b8148e1986cdc8be7f5d36684ef1adbe54adf05d7fb7a0d6322a70c74c8f9f28373e80662a3da1af4cf419ac36a685b",
+   "rest": "6a1a5ebf",
+   "depletedAge": null,
+   "finalInvestable": 128215415.78021273
+  },
+  "hist R work past 65 survivor rich | real1929": {
+   "hash": "d1f0e182605364a1",
+   "rows": "ffd2ff11e59dafae878c271319a500b8bc50c587a04f330bb1b840ad77660376b5d540006b55563d34b62d587e8534fa376fd42f3d730edc36b30fa3a0fe834e9aec1c4648888776a55885f4ceed94563d2aab5f4d7379ec6cd41ecfa9544fd9c5dc8fe17bd2c4ee91fa3dac3c6874dfb0a4962649e369a11af8e8fe2febca2735e9bc729fa569f7b4f766f2",
+   "rest": "f53c0df9",
+   "depletedAge": null,
+   "finalInvestable": 57086470.03121742
+  },
+  "hist R work past 65 survivor rich | real1966": {
+   "hash": "d711de4b45529a8d",
+   "rows": "d8c8f730d982d1f828e1045a3e9351328d1f96f774680bc1e8a61ef61c910137b1978584d193fdf03036a48cae57083a625a4ebd520313ec2afd58a3397d8c3534179c07da52a57429f57aacdcd9fa060c60322a13cb72e5a9f63be475d941065547f79deb284f8ea8874e4e23143e28c30634cccd74b76470789effa69bf9a0c65757e744f814f063d7c8f8",
+   "rest": "039ea86f",
+   "depletedAge": null,
+   "finalInvestable": 170278926.36521155
+  },
+  "hist R work past 65 survivor rich | real1973": {
+   "hash": "8d8c168c7b50e7e7",
+   "rows": "7a852d8cec94ce386a326b45807bf10f85e8232bb203a90be3f909c8963c9a78d908a4cf0d5e4cc0a9cebb268a879ce153e8dddf3a1078d9d4efb82dd642e6bca3056a0c308b8898d4b7323dc55fa2ff4fbfab1e76dd884ff4026b80973afc31c46bed267847a828a4bba4e7d2e6aed12ff71bc3fb0fbff88f5aa12172cc3c8b77c2bb344b92f8cd0670ee58",
+   "rest": "ee84fe50",
+   "depletedAge": null,
+   "finalInvestable": 137570828.14330372
+  },
+  "hist R work past 65 survivor rich | real2000": {
+   "hash": "41d149df2735ad25",
+   "rows": "77c8bdb8d0f169c3dd26937ea6a624936c11cd2750ea73eaa9e6f98b2af33cf9a841e23e88d231f221ac24d3932ca812e5847223d27f0dd54b5eef4efc49fb150dffa1384f7e0d8302f67e803a5662953ef7dafb656f6ae2021e6b3624629f9accd38144801822b9b75f10d6f426a31e089e17a60f1caaa59bdb404e9a1ade0d0f5a6b6523b88a6c9cd80305",
+   "rest": "aea6fd4e",
+   "depletedAge": null,
+   "finalInvestable": 37837306.43188557
+  },
+  "hist R work past 65 survivor rich | crashFirst": {
+   "hash": "b2e6c0cc90b9905e",
+   "rows": "29fb1f24f7103d9799924015e220c433c4743dc647bc92952d17cadfa12b48a39983b07005591cca74ad704a6f4d6e25c3cfb3961088c560bcf380a698336315eac00cad324ad5f96675b3a0114c9519aecd97e611a1d720472219a425a14a3c2ff8a6c674fc6f6d0ffcba247a84c8e59ada6d13ae973caf2b15f69ac5c95e9352c3f207348f806ccbd47291",
+   "rest": "ea75e924",
+   "depletedAge": null,
+   "finalInvestable": 30590796.801374182
+  },
+  "hist R work past 65 survivor rich | sawtooth": {
+   "hash": "93df8c0e18d50119",
+   "rows": "f5a8aa5595da5cfbacd617264f64b64017544fd2e6a9cef045f8f20f42d3daa78126bee9203b79900611f4eec0644e7b4d8a147c23380048ee49bfab1761aa39c24df83cb845ec89f303c88d875b7d3822919c6f095226a8d8f5f095b770ab08d9dfed20dd5474c7bea967d4bee0436834f08c8d2e2ec043d57d4190c951b235eaf041a30bfddfa07454f63f",
+   "rest": "62e8cb26",
+   "depletedAge": null,
+   "finalInvestable": 12454765.307679025
+  },
+  "hist R work past 65 survivor rich | boom": {
+   "hash": "ca4c839a2e515193",
+   "rows": "bb5eba3267dd57f332620d75397dcfdb472dde7ba23d72b3869f6d6bf58692172f7e0ba29cba4d8e8ebd755fac5dd712a6a95283ab2f9ed0631faebc18b8172fdb2d2ae1d290cc01cfabee109acca4d0df6cdffa6c392a3c34e638e7eb78eb79fc883ca639552365fbb977a017ef1349f0e2392d0a0fe315dadf3aff9d2f99fa51a092f0ec5eb5951a63a81f",
+   "rest": "f85ad75e",
+   "depletedAge": null,
+   "finalInvestable": 502446309.63795483
+  },
+  "hist R work past 65 survivor rich | flat": {
+   "hash": "94217ba078985718",
+   "rows": "6ed9da74d7a8761bfb0c3cf3a39fb4cfa0cc6c64954c8a35d49a0769950fd497d64cfd521a12421617dbf38d35453111466db36e84b5e8e7ef6735c7428731f6a7fc7fbaed721b5399817c998db9ecaf4dc6ac18710fdabfb8b895f76b8d3b5c48d55ddaf870e18ced093b5584a550fe2f0c3e25bcc0252c6ce913ecb940eb3cf2c88e0159deaec1495ce923",
+   "rest": "22fb5706",
+   "depletedAge": null,
+   "finalInvestable": 3336780.539615839
+  },
+  "hist R work past 65 survivor rich | mc1": {
+   "hash": "ddc35189a369b365",
+   "rows": "913a4625c9d3cbe66beb753d1726b4b7573fa49eb73f9a3d959654c74880575b4fe77001807a558921c6011b020cd9519841c9977149157197d8c421eef19908b64462d661a823891e5861eed7273790b8a39f98c31685832028626e855acdf174d54a5cf4cf1f401d7e8b4e35ea6499a1fd8fb98c025e7216ab2d306cf825da28a0a3a3dbcce6e865118c49",
+   "rest": "1ad36bac",
+   "depletedAge": null,
+   "finalInvestable": 135319087.74117315
+  },
+  "hist R work past 65 survivor rich | mc2": {
+   "hash": "619574fb40f1e077",
+   "rows": "3c6d7690cc1d6e0e0903bfa840c4c8dba995cfcf0703dbeca911ab39ef7610f2e7920a353d4b503087c0fd9be7ffd07f33bdd6bfc2087d09069139cfa63eddae039b6345150e342565fa1341b953005403884421e751b954fc7d4329ac5911119ef6c279e330964eddf5743ea1f9d77c72fba6894a84197fccf9340a6d6df77d8c619011d850d07c9554d068",
+   "rest": "c82f01d5",
+   "depletedAge": null,
+   "finalInvestable": 330351711.05448824
   },
   "hist R bondYears3 working | real1929": {
    "hash": "37754aedff6d2962",
