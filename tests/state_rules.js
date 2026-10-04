@@ -26,11 +26,18 @@ function checks() {
   need(JSON.stringify(noTax) === JSON.stringify(['ak', 'fl', 'nh', 'nv', 'sd', 'tn', 'tx', 'wy']), 'unexpected no-tax set: ' + noTax);
 
   // --- Schema: every field present, nothing extra, values in range -----------------------------------
-  const FIELDS = ['name', 'status', 'source', 'asOf', 'indexing', 'statusAs', 'tax', 'surtax', 'base', 'standardDeduction', 'exemption', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'localTax', 'notes'];
+  const FIELDS = ['name', 'status', 'sourceKind', 'source', 'asOf', 'indexing', 'statusAs', 'tax', 'additions', 'base', 'standardDeduction', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'localTax', 'notes'];
   const EXCLUSION_PARAMS = {
     none: [], full: [], shareByAge: ['minAge'], perEligibleCap: ['minAge', 'cap'],
     perEligibleCapSeniorTier: ['minAge', 'cap', 'seniorAge', 'seniorCap'], seniorCap: ['seniorAge', 'cap'],
+    perPerson: ['pensionMinAge', 'traditionalMinAge', 'cap'], agiPhasedShare: ['inclusive', 'tables'],
   };
+  const CREDIT_PARAMS = {
+    exemptionCredits: ['personal', 'personalCount', 'senior', 'dependent', 'phaseOut'], renterCredit: ['amount', 'agiLimit'],
+    childCredit: ['tiers', 'phaseOut'], propertyTaxCredit: ['max', 'limit', 'stepWidth', 'stepPct'],
+    taxForgiveness: ['limit', 'perDependent', 'stepWidth', 'stepPct'], agiStepFraction: ['tables'],
+  };
+  const stepOk = (rows) => Array.isArray(rows) && rows.length > 0 && rows.every((r, i) => r.length === 2 && isNum(r[0]) && isNum(r[1]) && (i === 0 || r[0] > rows[i - 1][0]));
   const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
   for (const code of codes) {
     const r = rules[code], at = code + ': ';
@@ -38,6 +45,8 @@ function checks() {
     need(JSON.stringify(keys) === JSON.stringify(FIELDS.slice().sort()), at + 'fields ' + keys.filter((k) => !FIELDS.includes(k)).concat(FIELDS.filter((k) => !(k in r)).map((k) => 'missing ' + k)));
     need(typeof r.name === 'string' && r.name.length > 0, at + 'name');
     need(r.status === 'migrated' || r.status === 'researched', at + 'status');
+    need(['none', 'secondary', 'primary'].includes(r.sourceKind), at + 'sourceKind');
+    need(r.status === 'researched' ? r.sourceKind !== 'none' : r.sourceKind === 'none', at + 'source kind must match the row status');
     if (r.status === 'researched') need(typeof r.source === 'string' && /^https?:\/\//.test(r.source) && Number.isInteger(r.asOf) && r.asOf >= 2025, at + 'researched rows need a source URL and an asOf year');
     else need(r.source === null || typeof r.source === 'string', at + 'source');
     need(r.indexing === 'cpi' || r.indexing === 'none', at + 'indexing');
@@ -62,15 +71,27 @@ function checks() {
         }
       }
     } else fails.push(at + 'tax.kind ' + r.tax.kind);
-    need(r.surtax.kind === 'none' || (r.surtax.kind === 'threshold' && isNum(r.surtax.threshold) && isNum(r.surtax.rate)), at + 'surtax');
+    need(Array.isArray(r.additions), at + 'additions must be a list ([] for none)');
+    for (const a of r.additions || []) {
+      if (a.kind === 'threshold') need(isNum(a.threshold) && isNum(a.rate), at + 'threshold addition');
+      else if (a.kind === 'agiStep') need(columns.every((c) => stepOk(a.tables[c])), at + 'agiStep tables');
+      else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');
+      else fails.push(at + 'addition kind ' + a.kind);
+    }
+    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && isNum(r.exemptionPhaseOut.step) && isNum(r.exemptionPhaseOut.width)), at + 'exemptionPhaseOut');
+    need(isNum(r.dependentExemption) && r.dependentExemption >= 0, at + 'dependentExemption');
     need(typeof r.base.ordinary === 'boolean' && isNum(r.base.gainsIncluded) && r.base.gainsIncluded >= 0 && r.base.gainsIncluded <= 1, at + 'base');
     const ss = r.base.socialSecurity;
-    need(ss === 'exempt' || ss === 'taxed' || (ss && ss.kind === 'subtraction' && isNum(ss.seniorAge) && isNum(ss.belowSeniorCap)), at + 'base.socialSecurity');
+    need(ss === 'exempt' || ss === 'taxed' || (ss && ss.kind === 'subtraction' && isNum(ss.seniorAge) && isNum(ss.belowSeniorCap)) || (ss && ss.kind === 'agiTested' && isNum(ss.taxedShareOfBenefits) && columns.every((c) => isNum(ss.exemptBelow[c]))), at + 'base.socialSecurity');
     const ex = r.retirementExclusion;
     need(ex && ex.kind in EXCLUSION_PARAMS, at + 'retirementExclusion kind ' + (ex && ex.kind));
     if (ex && ex.kind in EXCLUSION_PARAMS)
-      need(JSON.stringify(Object.keys(ex).sort()) === JSON.stringify(['kind'].concat(EXCLUSION_PARAMS[ex.kind]).sort()) && EXCLUSION_PARAMS[ex.kind].every((k) => isNum(ex[k])), at + 'retirementExclusion parameters');
+      need(JSON.stringify(Object.keys(ex).sort()) === JSON.stringify(['kind'].concat(EXCLUSION_PARAMS[ex.kind]).sort()) && EXCLUSION_PARAMS[ex.kind].every((k) => (k === 'tables' ? columns.every((c) => stepOk(ex.tables[c])) : k === 'inclusive' ? typeof ex[k] === 'boolean' : k === 'cap' && ex.kind === 'perPerson' ? ex.cap === null || isNum(ex.cap) : isNum(ex[k]))), at + 'retirementExclusion parameters');
     need(Array.isArray(r.credits), at + 'credits must be a list ([] for none)');
+    for (const cr of r.credits || []) {
+      need(cr.kind in CREDIT_PARAMS && typeof cr.label === 'string' && typeof cr.refundable === 'boolean', at + 'credit kind/label/refundable ' + cr.kind);
+      if (cr.kind in CREDIT_PARAMS) need(CREDIT_PARAMS[cr.kind].every((k) => k in cr), at + 'credit ' + cr.kind + ' parameters');
+    }
     need(r.federalTaxSubtraction === 'none', at + 'federalTaxSubtraction');
     need(r.localTax === 'notModeled', at + 'localTax');
     need(typeof r.notes === 'string', at + 'notes');

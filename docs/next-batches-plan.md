@@ -1789,6 +1789,24 @@ HoH/QSS columns, base, deductions, retirement exclusion, surtax, credits), a not
 local-tax gap. `npm test` runs it with `--check` (stale or missing file fails; CRLF is ignored). It is outside `sync-shared`
 because the table is US-only.
 
+**Commit 3: mechanisms and plumbing (no behavior change for any migrated row).** Schema v2: `surtax` becomes the
+`additions` list (MA's surtax is the one migrated entry), and rows gain `sourceKind` (`none` | `secondary` | `primary`),
+`exemptionPhaseOut`, `dependentExemption`; Social Security can be `agiTested` and the retirement exclusion `perPerson` or
+`agiPhasedShare`; `credits` is a typed list. The evaluator order is: base (ordinary income, gains share, Social Security),
+state AGI after the state's own subtractions, deduction, exemption (with its step-down), dependent exemption, graduated or flat
+tax, additions, credits. Verified: the same 1,367,820-value differential against `fb03255` (0 mismatches), snapshots exact, and
+`tests/state_mechanisms.js` (hand-computed cases for every mechanism on a synthetic row, plus the `taxFor` plumbing).
+- NY's recapture is modeled from its structure, not its constants: for taxable income in band k above band start s with rate r and
+  the previous band's rate q, tax = T(income) + (q*s - T(s)) + (r - q)*s*ratio. Checked against the 2024 IT-201-I worksheets
+  (single, base 568 and incremental 1,831 at 215,400; MFJ base 333 and incremental 807 at 161,550, 1,140 and 2,747 at 323,200),
+  so the 2026 rates (3.9 / 4.4 / 5.15 / 5.4 / 5.9) produce the right constants without retyping them. The ratio is rounded to four
+  decimals as the worksheets do.
+- A no-tax state skips building the state inputs in `taxFor` (`stateTaxActive`). Without it the larger `sources` object made the
+  no-tax path about 10% slower on the historical runs (measured at `--scale 6`: 720 runs, 403 ms vs 355 ms); with it Texas is at or
+  below the `fb03255` baseline.
+- Timing, ms, `tests/bench_runs.js --scale 6` (2,400 simulate + 720 historical), `fb03255` -> commit 3: tx 1651/341 -> 1570/344,
+  ca 3313/669 -> 2093/455.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 

@@ -2727,43 +2727,57 @@
   //
   // Every row declares every field (an explicit 'none' / [] / 0 where a rule does not
   // exist); tests/state_rules.js fails if any of the 50 states or DC is missing a field.
-  // All amounts are 2026 dollars; `indexing: 'cpi'` scales them with the plan's tax-index
-  // factor (the same factor as the federal schedules), 'none' holds them nominal.
+  // Amounts are 2026 dollars; `indexing: 'cpi'` scales every dollar amount and threshold
+  // with the plan's tax-index factor (the same factor as the federal schedules), 'none'
+  // holds them nominal (the law of states that do not index). The evaluator order is
+  // fixed, state first, federal second: a state's base never reads a federal deduction or
+  // federal tax, because the state tax feeds the federal SALT deduction.
   //
-  //   name, status     'migrated' = carried over from the pre-7C table, figures unverified
-  //                    (source null); 'researched' = checked against `source` as of `asOf`
+  //   name             display name
+  //   status           'migrated' = carried over from the pre-7C table (figures unverified);
+  //                    'researched' = checked against `source` as of `asOf`
+  //   sourceKind       'none' | 'secondary' | 'primary' (what `source` is; see the generated
+  //                    docs/state-tax-rules.md and the plan's Verification backlog)
   //   statusAs         which column a federal filing status reads (hoh / qss fall back to the
   //                    single / joint column unless the state has its own)
   //   tax              { kind: 'none' } | { kind: 'flat', rate } |
   //                    { kind: 'graduated', columns: { single, mfj[, hoh] } } of [start, rate]
-  //   surtax           { kind: 'none' } | { kind: 'threshold', threshold, rate } on the whole base
+  //   additions        extra tax on top of `tax`, in order: { kind: 'threshold', threshold,
+  //                    rate } (rate on the base above a threshold), { kind: 'agiStep', label,
+  //                    tables } (an AGI step table), { kind: 'benefitRecapture', ... } (NY)
   //   base             what the tax is levied on: ordinary income (wages, pensions, traditional
   //                    withdrawals) yes/no; the share of long-term gains included; Social
   //                    Security 'exempt' | 'taxed' (the federally taxable part) | a subtraction
-  //   standardDeduction, exemption   per column, subtracted in that order
+  //                    | { kind: 'agiTested' } (exempt below an AGI, else a share of benefits)
+  //   standardDeduction, exemption   per column, then exemptionPhaseOut (AGI step-down) and
+  //                    dependentExemption (per qualifying child)
   //   retirementExclusion            see stateRetirementExclusion
-  //   credits, federalTaxSubtraction, localTax, notes   (7C commits 3-4; none for migrated rows)
+  //   credits          see stateCreditAmount (nonrefundable credits are capped by the tax;
+  //                    refundable ones can take the state tax below zero)
+  //   federalTaxSubtraction ('none' in every row so far), localTax ('notModeled'), notes
+  // Step tables are [[lowerBound, value], ...] per column; a value applies when the AGI is
+  // more than its lower bound (at or over it when the table says `inclusive`).
   // ---------------------------------------------------------------------------
   // STATE_RULES:begin
   const STATE_RULES = {
     al: {
       name: 'Alabama',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
-        columns: {
-          single: [[0, 0.02], [500, 0.04], [3000, 0.05]],
-          mfj: [[0, 0.02], [1000, 0.04], [6000, 0.05]],
-        },
+        columns: { single: [[0, 0.02], [500, 0.04], [3000, 0.05]], mfj: [[0, 0.02], [1000, 0.04], [6000, 0.05]] },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 3000, mfj: 8500 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2773,15 +2787,18 @@
     ak: {
       name: 'Alaska',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2791,15 +2808,18 @@
     az: {
       name: 'Arizona',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.025 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 8350, mfj: 16700 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2809,21 +2829,18 @@
     ar: {
       name: 'Arkansas',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: {
-        kind: 'graduated',
-        columns: {
-          single: [[0, 0.02], [4600, 0.039]],
-          mfj: [[0, 0.02], [4600, 0.039]],
-        },
-      },
-      surtax: { kind: 'none' },
+      tax: { kind: 'graduated', columns: { single: [[0, 0.02], [4600, 0.039]], mfj: [[0, 0.02], [4600, 0.039]] } },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 2470, mfj: 4940 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'perEligibleCap', minAge: 59.5, cap: 6000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2833,6 +2850,7 @@
     ca: {
       name: 'California',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -2840,14 +2858,22 @@
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.01], [11079, 0.02], [26264, 0.04], [41452, 0.06], [57542, 0.08], [72724, 0.093], [371479, 0.103], [445771, 0.113], [742953, 0.123], [1000000, 0.133]],
-          mfj: [[0, 0.01], [22158, 0.02], [52528, 0.04], [82904, 0.06], [115084, 0.08], [145448, 0.093], [742958, 0.103], [891542, 0.113], [1000000, 0.123], [1485906, 0.133]],
+          single: [
+            [0, 0.01], [11079, 0.02], [26264, 0.04], [41452, 0.06], [57542, 0.08], [72724, 0.093], [371479, 0.103],
+            [445771, 0.113], [742953, 0.123], [1000000, 0.133],
+          ],
+          mfj: [
+            [0, 0.01], [22158, 0.02], [52528, 0.04], [82904, 0.06], [115084, 0.08], [145448, 0.093], [742958, 0.103],
+            [891542, 0.113], [1000000, 0.123], [1485906, 0.133],
+          ],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 5540, mfj: 11080 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2857,15 +2883,18 @@
     co: {
       name: 'Colorado',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.044 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 24000 } },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2875,6 +2904,7 @@
     ct: {
       name: 'Connecticut',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -2886,10 +2916,12 @@
           mfj: [[0, 0.02], [20000, 0.045], [100000, 0.055], [200000, 0.06], [400000, 0.065], [500000, 0.069], [1000000, 0.0699]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2899,6 +2931,7 @@
     de: {
       name: 'Delaware',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -2910,10 +2943,12 @@
           mfj: [[0, 0], [2000, 0.022], [5000, 0.039], [10000, 0.048], [20000, 0.052], [25000, 0.0555], [60000, 0.066]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 3250, mfj: 6500 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2923,15 +2958,18 @@
     fl: {
       name: 'Florida',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2941,15 +2979,18 @@
     ga: {
       name: 'Georgia',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0519 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 12000, mfj: 24000 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'seniorCap', seniorAge: 65, cap: 65000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2959,6 +3000,7 @@
     hi: {
       name: 'Hawaii',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -2966,14 +3008,22 @@
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.014], [9600, 0.032], [14400, 0.055], [19200, 0.064], [24000, 0.068], [36000, 0.072], [48000, 0.076], [125000, 0.079], [175000, 0.0825], [225000, 0.09], [275000, 0.1], [325000, 0.11]],
-          mfj: [[0, 0.014], [19200, 0.032], [28800, 0.055], [38400, 0.064], [48000, 0.068], [72000, 0.072], [96000, 0.076], [250000, 0.079], [350000, 0.0825], [450000, 0.09], [550000, 0.1], [650000, 0.11]],
+          single: [
+            [0, 0.014], [9600, 0.032], [14400, 0.055], [19200, 0.064], [24000, 0.068], [36000, 0.072], [48000, 0.076],
+            [125000, 0.079], [175000, 0.0825], [225000, 0.09], [275000, 0.1], [325000, 0.11],
+          ],
+          mfj: [
+            [0, 0.014], [19200, 0.032], [28800, 0.055], [38400, 0.064], [48000, 0.068], [72000, 0.072], [96000, 0.076],
+            [250000, 0.079], [350000, 0.0825], [450000, 0.09], [550000, 0.1], [650000, 0.11],
+          ],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 4400, mfj: 8800 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2983,15 +3033,18 @@
     id: {
       name: 'Idaho',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.053 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3001,15 +3054,18 @@
     il: {
       name: 'Illinois',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0495 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'full' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3019,15 +3075,18 @@
     in: {
       name: 'Indiana',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0295 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3037,15 +3096,18 @@
     ia: {
       name: 'Iowa',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.038 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'shareByAge', minAge: 59.5 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3055,21 +3117,18 @@
     ks: {
       name: 'Kansas',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: {
-        kind: 'graduated',
-        columns: {
-          single: [[0, 0.052], [23000, 0.0558]],
-          mfj: [[0, 0.052], [46000, 0.0558]],
-        },
-      },
-      surtax: { kind: 'none' },
+      tax: { kind: 'graduated', columns: { single: [[0, 0.052], [23000, 0.0558]], mfj: [[0, 0.052], [46000, 0.0558]] } },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 3605, mfj: 8240 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3079,15 +3138,18 @@
     ky: {
       name: 'Kentucky',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.035 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 3360, mfj: 3360 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3097,15 +3159,18 @@
     la: {
       name: 'Louisiana',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.03 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 12875, mfj: 25750 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3115,21 +3180,21 @@
     me: {
       name: 'Maine',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
-        columns: {
-          single: [[0, 0.058], [27399, 0.0675], [64849, 0.0715]],
-          mfj: [[0, 0.058], [54849, 0.0675], [129749, 0.0715]],
-        },
+        columns: { single: [[0, 0.058], [27399, 0.0675], [64849, 0.0715]], mfj: [[0, 0.058], [54849, 0.0675], [129749, 0.0715]] },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 8350, mfj: 16700 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3139,6 +3204,7 @@
     md: {
       name: 'Maryland',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3146,14 +3212,22 @@
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.02], [1000, 0.03], [2000, 0.04], [3000, 0.0475], [100000, 0.05], [125000, 0.0525], [150000, 0.055], [250000, 0.0575], [500000, 0.0625], [1000000, 0.065]],
-          mfj: [[0, 0.02], [1000, 0.03], [2000, 0.04], [3000, 0.0475], [150000, 0.05], [175000, 0.0525], [225000, 0.055], [300000, 0.0575], [600000, 0.0625], [1200000, 0.065]],
+          single: [
+            [0, 0.02], [1000, 0.03], [2000, 0.04], [3000, 0.0475], [100000, 0.05], [125000, 0.0525], [150000, 0.055],
+            [250000, 0.0575], [500000, 0.0625], [1000000, 0.065],
+          ],
+          mfj: [
+            [0, 0.02], [1000, 0.03], [2000, 0.04], [3000, 0.0475], [150000, 0.05], [175000, 0.0525], [225000, 0.055],
+            [300000, 0.0575], [600000, 0.0625], [1200000, 0.065],
+          ],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 3350, mfj: 6700 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3163,15 +3237,20 @@
     ma: {
       name: 'Massachusetts',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.05 },
-      surtax: { kind: 'threshold', threshold: 1107750, rate: 0.04 },
+      additions: [
+        { kind: 'threshold', threshold: 1107750, rate: 0.04 },
+      ],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3181,15 +3260,18 @@
     mi: {
       name: 'Michigan',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0425 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3199,6 +3281,7 @@
     mn: {
       name: 'Minnesota',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3210,10 +3293,12 @@
           mfj: [[0, 0.0535], [48700, 0.068], [193480, 0.0785], [337930, 0.0985]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 15300, mfj: 30600 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3223,21 +3308,18 @@
     ms: {
       name: 'Mississippi',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: {
-        kind: 'graduated',
-        columns: {
-          single: [[0, 0], [10000, 0.04]],
-          mfj: [[0, 0], [10000, 0.04]],
-        },
-      },
-      surtax: { kind: 'none' },
+      tax: { kind: 'graduated', columns: { single: [[0, 0], [10000, 0.04]], mfj: [[0, 0], [10000, 0.04]] } },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 2300, mfj: 4600 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'shareByAge', minAge: 59.5 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3247,6 +3329,7 @@
     mo: {
       name: 'Missouri',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3258,10 +3341,12 @@
           mfj: [[0, 0], [1348, 0.02], [2696, 0.025], [4044, 0.03], [5392, 0.035], [6740, 0.04], [8088, 0.045], [9436, 0.047]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3271,21 +3356,18 @@
     mt: {
       name: 'Montana',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: {
-        kind: 'graduated',
-        columns: {
-          single: [[0, 0.047], [47500, 0.0565]],
-          mfj: [[0, 0.047], [95000, 0.0565]],
-        },
-      },
-      surtax: { kind: 'none' },
+      tax: { kind: 'graduated', columns: { single: [[0, 0.047], [47500, 0.0565]], mfj: [[0, 0.047], [95000, 0.0565]] } },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3295,21 +3377,21 @@
     ne: {
       name: 'Nebraska',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
-        columns: {
-          single: [[0, 0.0246], [4130, 0.0351], [24760, 0.0455]],
-          mfj: [[0, 0.0246], [8250, 0.0351], [49530, 0.0455]],
-        },
+        columns: { single: [[0, 0.0246], [4130, 0.0351], [24760, 0.0455]], mfj: [[0, 0.0246], [8250, 0.0351], [49530, 0.0455]] },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 8850, mfj: 17700 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3319,15 +3401,18 @@
     nv: {
       name: 'Nevada',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3337,15 +3422,18 @@
     nh: {
       name: 'New Hampshire',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3355,6 +3443,7 @@
     nj: {
       name: 'New Jersey',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3363,13 +3452,18 @@
         kind: 'graduated',
         columns: {
           single: [[0, 0.014], [20000, 0.0175], [35000, 0.035], [40000, 0.05525], [75000, 0.0637], [500000, 0.0897], [1000000, 0.1075], [5000000, 0.1075]],
-          mfj: [[0, 0.014], [20000, 0.0175], [50000, 0.0245], [70000, 0.035], [80000, 0.05525], [150000, 0.0637], [500000, 0.0897], [1000000, 0.1075], [5000000, 0.1075]],
+          mfj: [
+            [0, 0.014], [20000, 0.0175], [50000, 0.0245], [70000, 0.035], [80000, 0.05525], [150000, 0.0637], [500000, 0.0897],
+            [1000000, 0.1075], [5000000, 0.1075],
+          ],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3379,6 +3473,7 @@
     nm: {
       name: 'New Mexico',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3390,10 +3485,12 @@
           mfj: [[0, 0.015], [8000, 0.032], [25000, 0.043], [50000, 0.047], [100000, 0.049], [315000, 0.059]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3403,6 +3500,7 @@
     ny: {
       name: 'New York',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3410,14 +3508,22 @@
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.039], [8500, 0.044], [11700, 0.0515], [13900, 0.054], [80650, 0.059], [215400, 0.0685], [1077550, 0.0965], [5000000, 0.103], [25000000, 0.109]],
-          mfj: [[0, 0.039], [17150, 0.044], [23600, 0.0515], [27900, 0.054], [161550, 0.059], [323200, 0.0685], [2155350, 0.0965], [5000000, 0.103], [25000000, 0.109]],
+          single: [
+            [0, 0.039], [8500, 0.044], [11700, 0.0515], [13900, 0.054], [80650, 0.059], [215400, 0.0685], [1077550, 0.0965],
+            [5000000, 0.103], [25000000, 0.109],
+          ],
+          mfj: [
+            [0, 0.039], [17150, 0.044], [23600, 0.0515], [27900, 0.054], [161550, 0.059], [323200, 0.0685], [2155350, 0.0965],
+            [5000000, 0.103], [25000000, 0.109],
+          ],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 8000, mfj: 16050 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'perEligibleCap', minAge: 59.5, cap: 20000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3427,15 +3533,18 @@
     nc: {
       name: 'North Carolina',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0399 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3445,21 +3554,21 @@
     nd: {
       name: 'North Dakota',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
-        columns: {
-          single: [[0, 0], [48475, 0.0195], [244825, 0.025]],
-          mfj: [[0, 0], [80975, 0.0195], [298075, 0.025]],
-        },
+        columns: { single: [[0, 0], [48475, 0.0195], [244825, 0.025]], mfj: [[0, 0], [80975, 0.0195], [298075, 0.025]] },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3469,21 +3578,18 @@
     oh: {
       name: 'Ohio',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: {
-        kind: 'graduated',
-        columns: {
-          single: [[0, 0], [26050, 0.0275]],
-          mfj: [[0, 0], [26050, 0.0275]],
-        },
-      },
-      surtax: { kind: 'none' },
+      tax: { kind: 'graduated', columns: { single: [[0, 0], [26050, 0.0275]], mfj: [[0, 0], [26050, 0.0275]] } },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3493,6 +3599,7 @@
     ok: {
       name: 'Oklahoma',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3504,10 +3611,12 @@
           mfj: [[0, 0], [7500, 0.025], [9800, 0.035], [14400, 0.045]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 6350, mfj: 12700 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3517,6 +3626,7 @@
     or: {
       name: 'Oregon',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3528,10 +3638,12 @@
           mfj: [[0, 0.0475], [9100, 0.0675], [22800, 0.0875], [250000, 0.099]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 2910, mfj: 5820 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3541,15 +3653,18 @@
     pa: {
       name: 'Pennsylvania',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0307 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'full' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3559,21 +3674,21 @@
     ri: {
       name: 'Rhode Island',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
-        columns: {
-          single: [[0, 0.0375], [82050, 0.0475], [186450, 0.0599]],
-          mfj: [[0, 0.0375], [82050, 0.0475], [186450, 0.0599]],
-        },
+        columns: { single: [[0, 0.0375], [82050, 0.0475], [186450, 0.0599]], mfj: [[0, 0.0375], [82050, 0.0475], [186450, 0.0599]] },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 11200, mfj: 22400 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3583,21 +3698,21 @@
     sc: {
       name: 'South Carolina',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
-        columns: {
-          single: [[0, 0], [3640, 0.03], [18230, 0.06]],
-          mfj: [[0, 0], [3640, 0.03], [18230, 0.06]],
-        },
+        columns: { single: [[0, 0], [3640, 0.03], [18230, 0.06]], mfj: [[0, 0], [3640, 0.03], [18230, 0.06]] },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 8350, mfj: 16700 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'perEligibleCapSeniorTier', minAge: 59.5, cap: 3000, seniorAge: 65, seniorCap: 15000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3607,15 +3722,18 @@
     sd: {
       name: 'South Dakota',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3625,15 +3743,18 @@
     tn: {
       name: 'Tennessee',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3643,15 +3764,18 @@
     tx: {
       name: 'Texas',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3661,15 +3785,18 @@
     ut: {
       name: 'Utah',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.045 },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3679,6 +3806,7 @@
     vt: {
       name: 'Vermont',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3690,10 +3818,12 @@
           mfj: [[0, 0.0335], [82500, 0.066], [199450, 0.076], [304000, 0.0875]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
       standardDeduction: { single: 7650, mfj: 15300 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3703,6 +3833,7 @@
     va: {
       name: 'Virginia',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3714,10 +3845,12 @@
           mfj: [[0, 0.02], [3000, 0.03], [5000, 0.05], [17000, 0.0575]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 8750, mfj: 17500 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3727,21 +3860,18 @@
     wa: {
       name: 'Washington',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: {
-        kind: 'graduated',
-        columns: {
-          single: [[0, 0.07], [1000000, 0.09]],
-          mfj: [[0, 0.07], [1000000, 0.09]],
-        },
-      },
-      surtax: { kind: 'none' },
+      tax: { kind: 'graduated', columns: { single: [[0, 0.07], [1000000, 0.09]], mfj: [[0, 0.07], [1000000, 0.09]] } },
+      additions: [],
       base: { ordinary: false, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 278000, mfj: 278000 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3751,6 +3881,7 @@
     wv: {
       name: 'West Virginia',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3762,10 +3893,12 @@
           mfj: [[0, 0.0222], [10000, 0.0296], [25000, 0.0333], [40000, 0.0444], [60000, 0.0482]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3775,6 +3908,7 @@
     wi: {
       name: 'Wisconsin',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3786,10 +3920,12 @@
           mfj: [[0, 0.035], [20150, 0.044], [69260, 0.053], [443630, 0.0765]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 0.7, socialSecurity: 'exempt' },
       standardDeduction: { single: 13960, mfj: 25840 },
       exemption: { single: 700, mfj: 1400 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3799,15 +3935,18 @@
     wy: {
       name: 'Wyoming',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3817,6 +3956,7 @@
     dc: {
       name: 'Washington, DC',
       status: 'migrated',
+      sourceKind: 'none',
       source: null,
       asOf: null,
       indexing: 'cpi',
@@ -3828,10 +3968,12 @@
           mfj: [[0, 0.04], [10000, 0.06], [40000, 0.065], [60000, 0.085], [250000, 0.0925], [500000, 0.0975], [1000000, 0.1075]],
         },
       },
-      surtax: { kind: 'none' },
+      additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
+      exemptionPhaseOut: { kind: 'none' },
+      dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3844,7 +3986,8 @@
   const stateRuleCache = Object.create(null);
   const SS_EXEMPT = 0,
     SS_TAXED = 1,
-    SS_SUBTRACTION = 2;
+    SS_SUBTRACTION = 2,
+    SS_AGI_TESTED = 3;
   function compileStateRule(code) {
     const row = STATE_RULES[code];
     if (!row) return null;
@@ -3866,12 +4009,15 @@
       statusAs: row.statusAs,
       flatRate: row.tax.kind === 'flat' ? row.tax.rate : 0,
       graduated: row.tax.kind === 'graduated',
-      surtax: row.surtax.kind === 'threshold' ? row.surtax : null,
+      additions: row.additions,
       ordinary: row.base.ordinary,
       gainsIncluded: row.base.gainsIncluded,
-      ss: ss === 'taxed' ? SS_TAXED : typeof ss === 'object' ? SS_SUBTRACTION : SS_EXEMPT,
-      ssSubtraction: typeof ss === 'object' ? ss : null,
+      ss: ss === 'taxed' ? SS_TAXED : typeof ss !== 'object' ? SS_EXEMPT : ss.kind === 'agiTested' ? SS_AGI_TESTED : SS_SUBTRACTION,
+      ssRule: typeof ss === 'object' ? ss : null,
       retirement: row.retirementExclusion,
+      exemptionPhaseOut: row.exemptionPhaseOut.kind === 'stepDown' ? row.exemptionPhaseOut : null,
+      dependentExemption: row.dependentExemption,
+      credits: row.credits,
       cols,
     };
   }
@@ -3894,16 +4040,50 @@
     for (let i = 0; i < ages.length; i++) if (ages[i] >= minAge) n++;
     return n;
   }
-  // Amount of pension and traditional-withdrawal income a state leaves out. Migrated kinds
-  // (household-level, as before 7C): 'full'; 'shareByAge' (all of it, scaled by the share of
+  function countQualifyingChildren(dependents) {
+    let n = 0;
+    for (let i = 0; i < dependents.length; i++) if (dependents[i].qualifyingChild) n++;
+    return n;
+  }
+  // The value of a step table at `x`: the last row whose lower bound (scaled by the index
+  // factor) is below x (at or below it if `inclusive`); the first row's value under all of them.
+  function stateStepValue(rows, x, inclusive, factor) {
+    let value = rows[0][1];
+    for (let i = 1; i < rows.length; i++) {
+      const from = rows[i][0] * factor;
+      if (inclusive ? x >= from : x > from) value = rows[i][1];
+      else break;
+    }
+    return value;
+  }
+  // Amount of pension and traditional-withdrawal income a state leaves out. Household-level
+  // kinds (the migrated pre-7C quirks): 'full'; 'shareByAge' (all of it, scaled by the share of
   // filers at or over minAge); 'perEligibleCap' (cap per filer at or over minAge);
-  // 'perEligibleCapSeniorTier' (a larger cap if anyone is at or over seniorAge, counted over
-  // the larger group); 'seniorCap' (cap per filer at or over seniorAge, nothing below).
-  function stateRetirementExclusion(ex, sources, factor) {
+  // 'perEligibleCapSeniorTier' (a larger cap if anyone is at or over seniorAge, counted over the
+  // larger group); 'seniorCap' (cap per filer at or over seniorAge, nothing below). Per-person
+  // kinds read each filer's own pension and traditional income: 'perPerson' (pension from
+  // pensionMinAge, traditional withdrawals from traditionalMinAge, each filer's total limited
+  // to `cap`, null for no limit) and 'agiPhasedShare' (all of it times a share that falls with
+  // the AGI, from a step table).
+  function stateRetirementExclusion(ex, sources, factor, colKey, agi) {
     if (ex.kind === 'none') return 0;
-    const retirement = Math.max(0, sources.pension + sources.retirement),
-      ages = sources.ages || [];
+    const ages = sources.ages || [];
+    if (ex.kind === 'perPerson') {
+      const cap = ex.cap === null ? Infinity : ex.cap * factor;
+      let total = 0;
+      for (let i = 0; i < 2; i++) {
+        const age = ages[i];
+        if (age === null || age === undefined) continue;
+        const pension = age >= ex.pensionMinAge ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
+          traditional = age >= ex.traditionalMinAge ? Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0) : 0;
+        total += Math.min(pension + traditional, cap);
+      }
+      return total;
+    }
+    const retirement = Math.max(0, sources.pension + sources.retirement);
     if (ex.kind === 'full') return retirement;
+    if (ex.kind === 'agiPhasedShare')
+      return retirement * stateStepValue(ex.tables[colKey], agi, ex.inclusive, factor);
     if (ex.kind === 'shareByAge') {
       const eligible = countAtLeast(ages, ex.minAge);
       return eligible ? retirement * Math.min(1, eligible / Math.max(1, ages.length)) : 0;
@@ -3920,6 +4100,90 @@
       return senior ? Math.min(retirement, ex.cap * factor * senior) : 0;
     }
     return 0;
+  }
+  // New York's tax benefit recapture. Above `agiStart` of NY AGI the benefit of the lower
+  // brackets is taken back, phased in over `phaseWidth` of AGI, until the whole taxable income
+  // is taxed at the rate of its own top band; `tiers` lists [taxable band start, that band's
+  // rate] (the first band covers everything below the second). The state's worksheets state the
+  // same thing with constants: for taxable income in band k over band start s, rate r and the
+  // previous band's rate q, tax = T(income) + (q*s - T(s)) + (r - q)*s * ratio, ratio the AGI
+  // over s as a share of phaseWidth (the first band: T + (r*income - T) * ratio, ratio from
+  // agiStart). Above `flatAbove` of AGI everything is taxed at `flatRate`.
+  function stateBenefitRecapture(a, colKey, col, agi, income, tax, factor) {
+    if (agi <= a.agiStart * factor) return tax;
+    if (agi > a.flatAbove * factor) return income * a.flatRate;
+    const tiers = a.tiers[colKey],
+      width = a.phaseWidth * factor,
+      ratioOf = (excess) => Math.round(Math.min(1, Math.max(0, excess) / width) * 10000) / 10000;
+    let k = 0;
+    for (let i = 1; i < tiers.length; i++) if (income > tiers[i][0] * factor) k = i;
+    const rate = tiers[k][1];
+    if (k === 0) return tax + (rate * income - tax) * ratioOf(agi - a.agiStart * factor);
+    const s = tiers[k][0] * factor,
+      prevRate = tiers[k - 1][1],
+      base = prevRate * s - graduatedTax(s, col.starts, col.rates, factor);
+    return tax + base + (rate - prevRate) * s * ratioOf(agi - s);
+  }
+  // One credit's amount. `c` is the evaluator context: { agi (state AGI after the state's
+  // own subtractions), fedAgi (before them), income (the base after deductions), tax (before
+  // credits), sources, factor }. Kinds:
+  //   'exemptionCredits'   personal (by column) + a senior amount per filer at or over `senior.age`
+  //                        + `dependent` per qualifying child, each credit reduced by
+  //                        `phaseOut.reduction` per `phaseOut.width` of federal AGI over `phaseOut.start`
+  //   'renterCredit'       a flat amount by column for a renter whose state AGI is at or under a limit
+  //   'childCredit'        per qualifying child by age (`tiers`: [maxAge, amount], first match), each
+  //                        reduced by `phaseOut.per` per `phaseOut.width` of federal AGI over `phaseOut.start`
+  //   'propertyTaxCredit'  min(property tax paid, max), cut by `stepPct` per `stepWidth` of state AGI
+  //                        over a limit by column
+  //   'taxForgiveness'     a share of the tax: all of it while the base is at or under a limit (by column
+  //                        plus `perDependent` per qualifying child), then cut by `stepPct` per `stepWidth`
+  //   'agiStepFraction'    a fraction of the tax from a step table of the state AGI
+  function stateCreditAmount(cr, colKey, c) {
+    const f = c.factor,
+      sources = c.sources,
+      deps = sources.dependents || NO_DEPENDENTS;
+    switch (cr.kind) {
+      case 'exemptionCredits': {
+        const seniors = countAtLeast(sources.ages || [], cr.senior.age),
+          kids = countQualifyingChildren(deps),
+          count = cr.personalCount[colKey] + seniors + kids,
+          gross = (cr.personal[colKey] + seniors * cr.senior.amount + kids * cr.dependent) * f,
+          over = c.fedAgi - cr.phaseOut.start[colKey] * f;
+        if (!(over > 0)) return gross;
+        return Math.max(0, gross - count * cr.phaseOut.reduction * f * Math.ceil(over / (cr.phaseOut.width * f)));
+      }
+      case 'renterCredit':
+        return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * f ? cr.amount[colKey] * f : 0;
+      case 'childCredit': {
+        const over = c.fedAgi - cr.phaseOut.start[colKey] * f,
+          cut = over > 0 ? Math.ceil(over / (cr.phaseOut.width * f)) * cr.phaseOut.per * f : 0;
+        let total = 0;
+        for (let i = 0; i < deps.length; i++) {
+          if (!deps[i].qualifyingChild) continue;
+          for (let t = 0; t < cr.tiers.length; t++)
+            if (deps[i].age <= cr.tiers[t][0]) {
+              total += Math.max(0, cr.tiers[t][1] * f - cut);
+              break;
+            }
+        }
+        return total;
+      }
+      case 'propertyTaxCredit': {
+        const over = c.agi - cr.limit[colKey] * f,
+          share = over > 0 ? Math.max(0, 1 - cr.stepPct * Math.ceil(over / (cr.stepWidth * f))) : 1;
+        return Math.min(sources.propertyTax || 0, cr.max * f) * share;
+      }
+      case 'taxForgiveness': {
+        const limit = (cr.limit[colKey] + countQualifyingChildren(deps) * cr.perDependent) * f,
+          over = c.income - limit,
+          share = over > 0 ? Math.max(0, 1 - cr.stepPct * Math.ceil(over / (cr.stepWidth * f))) : 1;
+        return c.tax * share;
+      }
+      case 'agiStepFraction':
+        return c.tax * stateStepValue(cr.tables[colKey], c.agi, false, f);
+      default:
+        return 0;
+    }
   }
   // Shown under every state's note. Interim: the state-tax update replaces these simplifications with real rules and rewrites this copy.
   const STATE_TAX_SCOPE_NOTE =
@@ -3959,35 +4223,71 @@
         : 'Social Security is excluded from the state-tax estimate.';
     return `<b>${stateName} state-tax treatment.</b> ${notes[code] || `${base} ${ssText} The planner then applies the selected state\'s configured 2026 brackets or flat rate and standard deduction.`} ${gainText}`;
   }
-  function stateIncomeTax(sources, filing, yearIndex) {
-    const code = state.stateTax;
+  function stateRuleFor(code) {
     let rule = stateRuleCache[code];
     if (rule === undefined) rule = stateRuleCache[code] = compileStateRule(code);
+    return rule;
+  }
+  // False for a state with no income tax (and for an unknown code): taxFor skips building the inputs.
+  function stateTaxActive() {
+    const rule = stateRuleFor(state.stateTax);
+    return !!rule && !rule.noTax;
+  }
+  function stateIncomeTax(sources, filing, yearIndex) {
+    const rule = stateRuleFor(state.stateTax);
     if (!rule || rule.noTax) return 0;
     const factor = rule.indexed ? taxIndexFactor(yearIndex) : 1,
-      col = rule.cols[rule.statusAs[filing] || 'single'],
+      colKey = rule.statusAs[filing] || 'single',
+      col = rule.cols[colKey],
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
       gains = Math.max(0, sources.gains),
       taxableSS = Math.max(0, sources.taxableSS);
     let start = rule.ordinary ? ordinaryNonSS + gains * rule.gainsIncluded : gains * rule.gainsIncluded,
       ssSubtraction = 0;
-    if (rule.ss === SS_TAXED) start += taxableSS;
-    else if (rule.ss === SS_SUBTRACTION) {
+    if (rule.ss !== SS_EXEMPT) {
       start += taxableSS;
-      const sub = rule.ssSubtraction,
-        senior = countAtLeast(sources.ages || [], sub.seniorAge) > 0;
-      ssSubtraction = senior ? taxableSS : Math.min(taxableSS, sub.belowSeniorCap * factor);
+      if (rule.ss === SS_SUBTRACTION) {
+        const senior = countAtLeast(sources.ages || [], rule.ssRule.seniorAge) > 0;
+        ssSubtraction = senior ? taxableSS : Math.min(taxableSS, rule.ssRule.belowSeniorCap * factor);
+      } else if (rule.ss === SS_AGI_TESTED) {
+        // Exempt below an AGI, otherwise only a share of the benefits received is taxed.
+        ssSubtraction =
+          start < rule.ssRule.exemptBelow[colKey] * factor
+            ? taxableSS
+            : taxableSS - Math.min(taxableSS, rule.ssRule.taxedShareOfBenefits * (sources.ssBenefits || 0));
+      }
     }
-    const income = Math.max(
-      0,
-      start -
-        ssSubtraction -
-        stateRetirementExclusion(rule.retirement, sources, factor) -
-        col.standard * factor -
-        col.exemption * factor,
-    );
+    // `start` stands for the federal AGI; `agi` is the state's AGI after its own subtractions.
+    const agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, factor, colKey, start);
+    let exemption = col.exemption * factor;
+    if (rule.exemptionPhaseOut) {
+      const p = rule.exemptionPhaseOut,
+        over = agi - p.start[colKey] * factor;
+      if (over > 0) exemption = Math.max(0, exemption - p.step * factor * Math.ceil(over / (p.width * factor)));
+    }
+    let taxable = agi - col.standard * factor - exemption;
+    if (rule.dependentExemption)
+      taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * factor;
+    const income = Math.max(0, taxable);
     let tax = rule.graduated ? graduatedTax(income, col.starts, col.rates, factor) : income * rule.flatRate;
-    if (rule.surtax) tax += Math.max(0, income - rule.surtax.threshold * factor) * rule.surtax.rate;
+    for (let i = 0; i < rule.additions.length; i++) {
+      const a = rule.additions[i];
+      if (a.kind === 'threshold') tax += Math.max(0, income - a.threshold * factor) * a.rate;
+      else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, factor);
+      else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, factor);
+    }
+    if (rule.credits.length) {
+      const ctx = { agi, fedAgi: start, income, tax, sources, factor };
+      let remaining = tax,
+        refundable = 0;
+      for (let i = 0; i < rule.credits.length; i++) {
+        const cr = rule.credits[i],
+          amount = stateCreditAmount(cr, colKey, ctx);
+        if (cr.refundable) refundable += amount;
+        else remaining -= Math.min(amount, Math.max(0, remaining));
+      }
+      tax = remaining - refundable;
+    }
     return tax;
   }
   function niitTax(magi, netInvestmentIncome, filing = 'mfj') {
@@ -4162,6 +4462,10 @@
     // ordinary interest, count toward provisional income and NIIT.
     const invOrd = Math.max(0, profile.invOrd || 0);
     gains += Math.max(0, profile.invQual || 0);
+    const dependents = profile.dependents || NO_DEPENDENTS,
+      propertyTax = profile.propertyTax || 0,
+      rent = profile.rent || 0,
+      stateOn = stateTaxActive();
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
@@ -4169,13 +4473,23 @@
       const other = profile.otherA + profile.otherB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
       const ordinary = profile.otherA + profile.otherB + traditionalExtra + invOrd + taxableSS;
-      const sources = {
+      const sources = !stateOn ? null : {
         wages: profile.wageA + profile.wageB + invOrd,
         pension: profile.pensionA + profile.pensionB,
         retirement: profile.rmdA + profile.rmdB + traditionalExtra,
         gains,
         taxableSS,
         ages: [profile.ageA, profile.ageB],
+        // Per-person amounts: the discretionary traditional draw follows each partner's share
+        // of the pool in the year (the account ledger).
+        pensionA: profile.pensionA,
+        pensionB: profile.pensionB,
+        retirementA: profile.rmdA + traditionalExtra * (profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA),
+        retirementB: profile.rmdB + traditionalExtra * (1 - (profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA)),
+        ssBenefits: profile.ssA + profile.ssB,
+        dependents,
+        propertyTax,
+        rent,
       };
       const stateTaxPaid = stateIncomeTax(sources, 'mfj', profile.year),
         deduction = federalDeduction(
@@ -4207,13 +4521,21 @@
         status,
       );
       const ordinary = profile.otherA + traditionalExtra + invOrd + taxableSS;
-      const sources = {
+      const sources = !stateOn ? null : {
         wages: profile.wageA + invOrd,
         pension: profile.pensionA,
         retirement: profile.rmdA + traditionalExtra,
         gains,
         taxableSS,
         ages: [profile.ageA],
+        pensionA: profile.pensionA,
+        pensionB: 0,
+        retirementA: profile.rmdA + traditionalExtra,
+        retirementB: 0,
+        ssBenefits: profile.ssA,
+        dependents,
+        propertyTax,
+        rent,
       };
       const stateTaxPaid = stateIncomeTax(sources, status, profile.year),
         deduction = federalDeduction(
@@ -4238,6 +4560,8 @@
     // Partner A claims the children (owner decision), so A's return is head of household
     // while a qualifying child exists; B's is single.
     const statusA = (profile.dependents || []).some((d) => d.qualifyingChild) ? 'hoh' : 'single';
+    const halfProperty = propertyTax / 2,
+      halfRent = rent / 2;
     const gainA = gains / 2,
       gainB = gains / 2,
       tradA = traditionalExtra / 2,
@@ -4256,28 +4580,44 @@
     );
     const ordinaryA = profile.otherA + tradA + invA + taxableSSA,
       ordinaryB = profile.otherB + tradB + invB + taxableSSB;
-    const sourcesA = {
+    const sourcesA = !stateOn ? null : {
         wages: profile.wageA + invA,
         pension: profile.pensionA,
         retirement: profile.rmdA + tradA,
         gains: gainA,
         taxableSS: taxableSSA,
         ages: [profile.ageA],
+        pensionA: profile.pensionA,
+        pensionB: 0,
+        retirementA: profile.rmdA + tradA,
+        retirementB: 0,
+        ssBenefits: profile.ssA,
+        dependents,
+        propertyTax: halfProperty,
+        rent: halfRent,
       },
-      sourcesB = {
+      sourcesB = !stateOn ? null : {
         wages: profile.wageB + invB,
         pension: profile.pensionB,
         retirement: profile.rmdB + tradB,
         gains: gainB,
         taxableSS: taxableSSB,
         ages: [profile.ageB],
+        // Partner B's own return: the slot a one-person return reads is A.
+        pensionA: profile.pensionB,
+        pensionB: 0,
+        retirementA: profile.rmdB + tradB,
+        retirementB: 0,
+        ssBenefits: profile.ssB,
+        dependents: NO_DEPENDENTS,
+        propertyTax: halfProperty,
+        rent: halfRent,
       };
     // Two separate returns: the household's property tax and deductible mortgage
     // interest are split 50/50 between them, and each return picks its own
     // standard-or-itemized deduction.
     const stateTaxA = stateIncomeTax(sourcesA, statusA, profile.year),
       stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
-      halfProperty = (profile.propertyTax || 0) / 2,
       halfInterest = (profile.mortgageInterest || 0) / 2,
       deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest),
       deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest);
@@ -5577,15 +5917,17 @@
         mortgage: schedule.balances[year] || 0,
         homeValue: null,
         propertyTax,
+        rent: 0,
         mortgageInterest:
           (schedule.interest?.[year] || 0) * mortgageInterestShare(schedule.originalPrincipal || 0),
       };
     }
     if (state.tenure === 'rent' || year < futureBuy.buyYear)
-      return { housing: rent, mortgage: null, homeValue: null, propertyTax: 0, mortgageInterest: 0 };
+      return { housing: rent, mortgage: null, homeValue: null, propertyTax: 0, rent, mortgageInterest: 0 };
     const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
     return {
       propertyTax,
+      rent: 0,
       mortgageInterest:
         (futureBuy.buySchedule.interest?.[year] || 0) *
         mortgageInterestShare(futureBuy.buySchedule.principal || 0),
@@ -5669,6 +6011,8 @@
     filing,
     inv,
     propertyTax = 0,
+    rent = 0,
+    ownerShareA = 0.5,
     mortgageInterest = 0,
   }) {
     const otherA =
@@ -5706,6 +6050,8 @@
             invOrd: inv.ordinary,
             invQual: inv.qualified,
             propertyTax,
+            rent,
+            ownerShareA: 1,
             mortgageInterest,
             year,
             // Children stay with the surviving parent.
@@ -5729,6 +6075,10 @@
             invOrd: inv.ordinary,
             invQual: inv.qualified,
             propertyTax,
+            rent,
+            // Partner A's share of the traditional pool (the account ledger); a one-person
+            // return holds everything in the A slot.
+            ownerShareA: singlePerson || isSurvivorPeriod ? 1 : ownerShareA,
             mortgageInterest,
             year,
             dependents: dependentsInYear(taxYearOf(year)),
@@ -6745,6 +7095,8 @@
         filing,
         inv,
         propertyTax: housingYear.propertyTax,
+        rent: housingYear.rent,
+        ownerShareA: accountsOwnerShareA(accts.trad),
         mortgageInterest: housingYear.mortgageInterest,
       });
       const [acaEligibleA, acaEligibleB] = acaEligibility({

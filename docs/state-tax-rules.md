@@ -10,7 +10,7 @@ carried over unverified (no source); `researched` rows cite the source and as-of
 
 ## Rules
 
-| Code | Jurisdiction | Status / source | Tax | Indexing | HoH / QSS read | Base | Deduction | Retirement exclusion | Surtax | Credits |
+| Code | Jurisdiction | Status / source | Tax | Indexing | HoH / QSS read | Base | Deduction | Retirement exclusion | Additions | Credits |
 |---|---|---|---|---|---|---|---|---|---|---|
 | AL | Alabama | migrated (no source recorded) | graduated 2% to 5% (3 brackets) | cpi | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $3,000, mfj $8,500 | none | none | none |
 | AK | Alaska | migrated (no source recorded) | none | cpi | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | none | none | none |

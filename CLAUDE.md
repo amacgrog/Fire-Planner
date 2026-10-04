@@ -27,6 +27,8 @@ feature list.
   schedule (federal, each state/province, NIIT, OAS clawback) via
   `window.__test_tax`; run it whenever a bracket or tax function changes.
 - `tests/state_rules.js` — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
+  `tests/state_mechanisms.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
+  every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
   state); not in `npm test`; compare a worktree of the previous commit with the working tree (+5% allowed).
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
@@ -227,7 +229,16 @@ Each planner is one big IIFE. Core shape:
   `tax` (`none`, `flat`, or `graduated` with `[start, rate]` columns), `surtax`, `base` (ordinary income yes/no, share
   of gains included, Social Security `exempt`/`taxed`/subtraction), `standardDeduction`, `exemption`, `retirementExclusion`
   (kinds in `stateRetirementExclusion`; the migrated kinds are household-level quirks that per-person kinds replace),
-  `credits`, `federalTaxSubtraction`, `localTax` (local income taxes are an accepted, documented gap) and `notes`. Each
+  `credits`, `federalTaxSubtraction`, `localTax` (local income taxes are an accepted, documented gap) and `notes`. Mechanisms
+  (all data, evaluator in `stateIncomeTax`): `additions` (a threshold surtax, an AGI step table, NY's `benefitRecapture`),
+  `exemptionPhaseOut` and `dependentExemption`, the AGI-tested Social Security kind, per-person retirement kinds
+  (`perPerson`, `agiPhasedShare`), and `credits` of kind `exemptionCredits`, `renterCredit`, `childCredit`,
+  `propertyTaxCredit`, `taxForgiveness`, `agiStepFraction` (a nonrefundable credit is capped by the tax; a `refundable` one
+  can take the state tax negative, as the ACTC can). Step tables are `[[lowerBound, value], ...]` per column. The state
+  inputs come from `taxFor`'s `sources`: besides the household sums it carries per-person pensions and traditional draws
+  (`pensionA/B`, `retirementA/B`; the discretionary draw is split by `profile.ownerShareA`, the account-ledger share, 0.5 if
+  absent), `ssBenefits`, `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
+  `sources` at all for a no-tax state (`stateTaxActive()`): that path stays as fast as before. Each
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that

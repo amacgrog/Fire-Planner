@@ -42,7 +42,7 @@ function baseText(b) {
   parts.push(b.ordinary ? 'wages, pensions, withdrawals' : 'ordinary income not taxed');
   parts.push(b.gainsIncluded === 1 ? 'gains in full' : `gains ${pct(b.gainsIncluded)} included`);
   const ss = b.socialSecurity;
-  parts.push(ss === 'exempt' ? 'Social Security exempt' : ss === 'taxed' ? 'taxable Social Security included' : `Social Security subtracted (all at ${ss.seniorAge}+, else up to ${money(ss.belowSeniorCap)})`);
+  parts.push(ss === 'exempt' ? 'Social Security exempt' : ss === 'taxed' ? 'taxable Social Security included' : ss.kind === 'agiTested' ? `Social Security exempt below an AGI, else ${pct(ss.taxedShareOfBenefits)} of benefits taxed` : `Social Security subtracted (all at ${ss.seniorAge}+, else up to ${money(ss.belowSeniorCap)})`);
   return parts.join('; ');
 }
 function exclusionText(e) {
@@ -53,12 +53,18 @@ function exclusionText(e) {
     case 'perEligibleCap': return `up to ${money(e.cap)} per filer ${e.minAge}+`;
     case 'perEligibleCapSeniorTier': return `up to ${money(e.cap)} per filer ${e.minAge}+, ${money(e.seniorCap)} if anyone is ${e.seniorAge}+`;
     case 'seniorCap': return `up to ${money(e.cap)} per filer ${e.seniorAge}+`;
+    case 'perPerson': return `per filer: pension from ${e.pensionMinAge}, traditional withdrawals from ${e.traditionalMinAge}${e.cap === null ? '' : ', up to ' + money(e.cap)}`;
+    case 'agiPhasedShare': return 'all, phased out by AGI (step table)';
     default: return JSON.stringify(e);
   }
 }
 function creditsText(list) {
   if (!list.length) return 'none';
-  return list.map((c) => c.label || c.kind).join('; ');
+  return list.map((c) => `${c.label}${c.refundable ? ' (refundable)' : ''}`).join('; ');
+}
+function additionsText(list) {
+  if (!list.length) return 'none';
+  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${money(a.threshold)}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
 }
 function deductionText(r) {
   const col = (k) => {
@@ -68,7 +74,7 @@ function deductionText(r) {
   return Object.keys(r.standardDeduction).map((k) => `${k} ${col(k)}`).join(', ');
 }
 function sourceText(r) {
-  return r.source ? `[${r.status}, ${r.asOf}](${r.source})` : r.status + ' (no source recorded)';
+  return r.source ? `[${r.status}, ${r.sourceKind}, ${r.asOf}](${r.source})` : r.status + ' (no source recorded)';
 }
 
 function generate(rules) {
@@ -86,11 +92,11 @@ function generate(rules) {
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Jurisdiction | Status / source | Tax | Indexing | HoH / QSS read | Base | Deduction | Retirement exclusion | Surtax | Credits |');
+  L.push('| Code | Jurisdiction | Status / source | Tax | Indexing | HoH / QSS read | Base | Deduction | Retirement exclusion | Additions | Credits |');
   L.push('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
-    L.push('| ' + [c.toUpperCase(), r.name, sourceText(r), taxText(r.tax), r.indexing, `${r.statusAs.hoh} / ${r.statusAs.qss}`, baseText(r.base), deductionText(r), exclusionText(r.retirementExclusion), r.surtax.kind === 'none' ? 'none' : `${pct(r.surtax.rate)} over ${money(r.surtax.threshold)}`, creditsText(r.credits)].map(cell).join(' | ') + ' |');
+    L.push('| ' + [c.toUpperCase(), r.name, sourceText(r), taxText(r.tax), r.indexing, `${r.statusAs.hoh} / ${r.statusAs.qss}`, baseText(r.base), deductionText(r), exclusionText(r.retirementExclusion), additionsText(r.additions), creditsText(r.credits)].map(cell).join(' | ') + ' |');
   }
   const noted = codes.filter((c) => rules[c].notes);
   if (noted.length) {
