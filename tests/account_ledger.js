@@ -271,28 +271,38 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
     }, crash);
     closeArr(r[0].trad, [0, 0, 0, 90000 - (100000 / 6.4 - 10000)], 'a partner short of their RMD is emptied and the ledger still matches the pool');
   }
-  // 7. The early-withdrawal penalty blend follows the ledger. A (76) is exempt, B (50) is not, so the penalized
-  //    fraction of a discretionary traditional draw is B's current share of the pool. A's RMDs shrink A's share
-  //    year by year, so B's share, and the penalty per dollar drawn, grows. earlyPenalty = fraction x 10% x the
-  //    discretionary traditional draw (traditionalWithdrawn includes the RMD).
+  // 7. Traditional draws are per account. A (76) is penalty-free, B (50) is not: a discretionary draw takes A's
+  //    accounts first, so there is no penalty while A has money, and A's draws move the ledger toward B (B's share
+  //    grows). Once A is empty the rest comes from B and owes 10%: earlyPenalty = 10% x (the traditional draw
+  //    beyond A's remaining dollars). traditionalWithdrawn includes the RMD, which also comes out of A.
   {
-    const blendCase = {
+    const big = {
       ...FLAT, ageA: 76, retireAgeA: 76, lifeExpectancyA: 79, ageB: 50, retireAgeB: 50, lifeExpectancyB: 79, incomeA: 0, incomeB: 0,
       matchA: 0, spending: 400000, tradIraA: 0, tradIraB: 0, trad401kA: 3000000, trad401kB: 1000000, rothIraA: 0, rothIraB: 0, taxable: 0, cash: 0, cashReserve: 0,
     };
     for (const hist of [false, true]) {
-      const { trace, rows } = hist ? await runHist(blendCase) : await run(blendCase);
+      const { trace, rows } = hist ? await runHist(big) : await run(big);
       const tag = hist ? 'hist' : 'std';
       let prevB = 0.25;
       for (let i = 0; i < 3; i++) {
         const bShare = trace[i].tradShares[2] + trace[i].tradShares[3];
-        const discretionary = rows[i].traditionalWithdrawn - rows[i].rmd;
-        assert.ok(discretionary > 1000, `${tag} year ${i}: there is a discretionary traditional draw (${discretionary})`);
-        near2(rows[i].earlyPenalty, bShare * 0.1 * discretionary, 0.01, `${tag} year ${i}: penalty = B's share (${bShare.toFixed(4)}) x 10% x the draw`);
-        assert.ok(bShare > prevB - 1e-12, `${tag} year ${i}: B's share does not shrink`);
+        assert.ok(rows[i].traditionalWithdrawn - rows[i].rmd > 1000, `${tag} year ${i}: there is a discretionary traditional draw`);
+        near2(rows[i].earlyPenalty, 0, 0.01, `${tag} year ${i}: A's penalty-free accounts cover the draw`);
+        assert.ok(bShare > prevB + 0.01, `${tag} year ${i}: B's share grows as A's accounts are drawn (${bShare})`);
         prevB = bShare;
       }
-      assert.ok(prevB > 0.26, `${tag}: B's share has grown past the opening 25% (${prevB})`);
+    }
+    // A runs out in year 1: 600,000 less year 0's draw is left for year 1, the remainder comes from B.
+    const small = { ...big, trad401kA: 600000 };
+    for (const hist of [false, true]) {
+      const { trace, rows } = hist ? await runHist(small) : await run(small);
+      const tag = hist ? 'hist' : 'std';
+      near2(rows[0].earlyPenalty, 0, 0.01, `${tag} year 0: still inside A's accounts`);
+      const aEnd0 = trace[0].trad[0] + trace[0].trad[1];
+      assert.ok(aEnd0 > 1000, `${tag}: A has money left after year 0 (${aEnd0})`);
+      near2(trace[1].trad[0] + trace[1].trad[1], 0, 0.01, `${tag} year 1: A is empty`);
+      near2(rows[1].earlyPenalty, 0.1 * (rows[1].traditionalWithdrawn - aEnd0), 0.01, `${tag} year 1: 10% on the part drawn from B`);
+      assert.ok(rows[1].earlyPenalty > 1000, `${tag} year 1: the penalty is real`);
     }
   }
 

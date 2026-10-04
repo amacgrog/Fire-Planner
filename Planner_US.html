@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V89</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V90</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -531,7 +531,7 @@
           <div class="field"><label for="rothConvStartAge">Start at Partner A age</label><input id="rothConvStartAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvEndAge">End at Partner A age</label><input id="rothConvEndAge" type="number" min="18" max="100" step="1"></div>
           <div class="field"><label for="rothConvBracket">Fill to top of federal <span class="info-nw">bracket<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The conversion each year is sized to use up whatever federal bracket room is left below this rate — not to guarantee converting the full bracket, since it&#x27;s also capped short of the ACA subsidy cliff and the next Medicare IRMAA tier (see the checkbox above).">i</button></span><small>Conversions fill room up to this bracket</small></label><select id="rothConvBracket"><option value="10">10%</option><option value="12">12%</option><option value="22">22%</option><option value="24">24%</option><option value="32">32%</option><option value="35">35%</option></select></div>
-          <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of <span class="info-nw">55<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Waives the 10% early-withdrawal penalty on traditional withdrawals from age 55 through 59½, for whichever partner retires at or after age 55. Doesn&#x27;t apply to a partner who retires before 55.">i</button></span><small>No 10% penalty on traditional withdrawals from 55 to 59½</small></label></div>
+          <div class="field"><label for="ruleOf55Enabled"><input id="ruleOf55Enabled" type="checkbox"> Rule of <span class="info-nw">55<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Waives the 10% early-withdrawal penalty on withdrawals from a partner&#x27;s 401(k) (traditional or Roth) from age 55 through 59½, for whichever partner retires at or after age 55. It never covers an IRA, and doesn&#x27;t apply to a partner who retires before 55. The planner assumes the 401(k) balance you entered is the plan of the employer you left, and that it has not been rolled into an IRA. Roth 401(k) earnings stay taxable.">i</button></span><small>No 10% penalty on 401(k) withdrawals from 55 to 59½</small></label></div>
           <div class="field"><label for="sepp72tEnabledA"><input id="sepp72tEnabledA" type="checkbox"> 72(t) SEPP payments — Partner <span class="info-nw">A<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Penalty-free early withdrawals from Partner A&#x27;s share of the traditional balance, via a fixed annual amount (IRS “RMD method”) for 5 years or until 59½, whichever is later.">i</button></span><small>Penalty-free early withdrawals at a fixed annual amount</small></label></div>
           <div class="field" data-partner-b><label for="sepp72tEnabledB"><input id="sepp72tEnabledB" type="checkbox"> 72(t) SEPP payments — Partner B<small>Same for Partner B; toggles independently</small></label></div>
         </details>
@@ -3808,19 +3808,22 @@
       if (entry.amount <= 1e-9) L.conv.shift();
     }
   }
-  // Each Roth account's status this year. The deceased partner's accounts (survivor period) are
-  // inherited by the spouse as beneficiary: penalty-free and, with the 5-year clock assumed met,
-  // tax-free. Everyone else is judged by their own age (and Rule of 55 for a Roth 401(k)).
-  function rothAccountStatuses({ age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB }) {
+  // Each account's early-withdrawal status this year, one per ACCOUNT_SLOTS slot (IRA A, 401(k) A,
+  // IRA B, 401(k) B). The traditional and Roth accounts in a slot share a status: the same owner,
+  // the same age rule, and Rule of 55 on the 401(k) only. The deceased partner's accounts (survivor
+  // period) are inherited by the spouse as beneficiary: penalty-free and, with the 5-year clock
+  // assumed met, tax-free. Everyone else is judged by their own age.
+  const SLOT_KINDS = ['ira', 'k401', 'ira', 'k401'];
+  function accountStatuses({ age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB }) {
     const dead = isSurvivorPeriod ? (deceasedIsA ? 0 : 1) : -1;
-    const one = (partner, kind) => {
+    return SLOT_KINDS.map((kind, i) => {
+      const partner = i < 2 ? 0 : 1;
       if (partner === dead) return { free: true, qualified: true };
       const own = partner === 0 ? [age, workingA, retireAgeA] : [ageB, workingB, retireAgeB];
       return penaltyStatus(kind, own[0], { rule55: rule55Applies(own[1], own[2]) });
-    };
-    return [one(0, 'rothIra'), one(0, 'roth401k'), one(1, 'rothIra'), one(1, 'roth401k')];
+    });
   }
-  const ROTH_ALL_QUALIFIED = [0, 1, 2, 3].map(() => ({ free: true, qualified: true }));
+  const ALL_FREE = [0, 1, 2, 3].map(() => ({ free: true, qualified: true }));
   // Account ledger. The engine's balances stay pooled (bal.traditional +
   // bal.bondTraditional, bal.roth + bal.bondRoth: tax, RMDs, ACA/IRMAA, the bond
   // ladder and every table read the pools). Underneath, each pool is split among
@@ -3922,6 +3925,17 @@
     }
     accountsSetFromDollars(shares, d);
   }
+  // A discretionary draw of `amount` out of the accounts in `group` (slot indices), pro rata among
+  // them, from the pool `pool` as it stands before the draw. The other accounts keep their dollars,
+  // so shares move toward them. An empty group draws nothing.
+  function accountsDrawGroup(shares, pool, group, amount) {
+    const d = accountBalances(shares, pool),
+      total = group.reduce((sum, i) => sum + d[i], 0);
+    if (!(total > 0) || !(amount > 0)) return;
+    const f = 1 - Math.min(amount, total) / total;
+    for (const i of group) d[i] *= f;
+    accountsSetFromDollars(shares, d);
+  }
   // A Roth conversion of `amount` out of the traditional pool `tradPool` into the
   // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
   // (pro rata). Each partner's converted money goes to that partner's Roth IRA. Returns the
@@ -3945,17 +3959,6 @@
     accountsSetFromDollars(a.roth, r);
     return [taken[0] + taken[1], taken[2] + taken[3]];
   }
-  // Share of the pooled traditional / Roth balance whose withdrawals owe the
-  // 10% early-withdrawal penalty, given whether each partner is exempt. The
-  // balance is one household pool, so when only one partner is exempt the
-  // other partner's own share (pctA: Partner A's current share of that pool from
-  // the account ledger, not a flat 50/50) is the penalized part.
-  function penalizedShare(exemptA, exemptB, singlePerson, pctA) {
-    if (singlePerson) return exemptA ? 0 : 1;
-    if (exemptA && exemptB) return 0;
-    if (!exemptA && !exemptB) return 1;
-    return exemptA ? 1 - pctA : pctA;
-  }
   // Rule of 55 (IRC 72(t)(2)(A)(v)): a partner who has stopped working in or after the year they
   // turn 55 (the retirement-age convention, owner decision 16) can take penalty-free
   // distributions from the plan of the employer they left. Needs the household toggle.
@@ -3963,7 +3966,7 @@
     return !!state.ruleOf55Enabled && !working && retireAge >= 55;
   }
   // Early-withdrawal (10% additional tax) status of one account for one year, from the
-  // account kind ('ira' | 'k401' | 'rothIra' | 'roth401k') and its owner's age. `free` is true
+  // account kind ('ira' | 'k401', traditional or Roth) and its owner's age. `free` is true
   // when a discretionary draw from the account owes no 10% tax: the owner is 59.5 or older, or
   // the account is a 401(k) (traditional or Roth) and Rule of 55 applies to the owner. IRAs never
   // get Rule of 55. `qualified` (59.5 or older) is stricter: it also means a Roth draw owes no
@@ -3971,7 +3974,7 @@
   // draw is penalty-free but its earnings are still taxed. Forced amounts (RMD, SEPP) are never
   // penalized and do not go through here.
   function penaltyStatus(kind, ownerAge, { rule55 = false } = {}) {
-    const isPlan = kind === 'k401' || kind === 'roth401k';
+    const isPlan = kind === 'k401';
     const qualified = ownerAge >= 59.5;
     return { free: qualified || (isPlan && rule55), qualified };
   }
@@ -3979,20 +3982,6 @@
   // part of the ceiling.
   function incomeRoom(magiSafeRoom, conversionAmount) {
     return Math.max(0, magiSafeRoom - conversionAmount);
-  }
-  // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t)
-  // SEPP payments are mandatory distributions and never penalized): exempt at
-  // 59.5+ or, with Rule of 55 enabled, once that partner has stopped working
-  // in or after the year they turn 55. (Still one pooled balance here, so the
-  // pool is treated as a 401(k); the per-account split comes with the account
-  // statuses.)
-  function traditionalPenaltyFraction(age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB) {
-    return penalizedShare(
-      penaltyStatus('k401', age, { rule55: rule55Applies(workingA, retireAgeA) }).free,
-      singlePerson || penaltyStatus('k401', ageB, { rule55: rule55Applies(workingB, retireAgeB) }).free,
-      singlePerson,
-      pctA,
-    );
   }
   // Draw `targetNet` (after the tax and penalty the draw itself triggers) from a Roth bucket
   // holding `bucketBal`, updating the per-account ledgers. The pool `pool` (roth + bondRoth) is
@@ -5118,15 +5107,14 @@
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
   // just parked in the reserve) so the Sankey does not undercount them.
-  function newWithdrawal({ bal, rothAccts, rothShares, profile, conversionAmount, rmd }) {
+  function newWithdrawal({ bal, rothAccts, accts, profile, conversionAmount, rmd }) {
     return {
       bal,
       rothAccts,
-      rothShares,
-      rothStatus: ROTH_ALL_QUALIFIED,
+      accts,
+      status: ALL_FREE,
       profile,
       need: 0,
-      penalizedFraction: 0,
       taxableGainGross: 0,
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
@@ -5153,23 +5141,39 @@
     return d.net;
   }
   // @@shared:takeTaxable end
-  // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection
-  // bracket (see solveTraditionalForNetFromNeed).
+  // The accounts of the traditional pool that are penalty-free (or penalized) this year for a
+  // discretionary draw, and their share of the pool.
+  function tradGroup(wd, penalized) {
+    const slots = [0, 1, 2, 3].filter((i) => wd.status[i].free === !penalized);
+    return { slots, share: slots.reduce((sum, i) => sum + wd.accts.trad[i], 0) };
+  }
+  // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection bracket (see
+  // solveTraditionalForNetFromNeed). Penalty-free accounts are drawn first (no 10%), then the
+  // penalized ones. Every account holds the same stock/bond mix, so a group's room in a bucket is
+  // its share of the pool times the bucket.
   function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
     const { bal } = wd;
-    const { fromTrad, tradNet, penalty } = solver(
-      bal[bucket],
-      amount,
-      wd.taxableGainGross,
-      wd.traditionalGross,
-      wd.profile,
-      wd.penalizedFraction,
-    );
-    bal[bucket] -= fromTrad;
-    wd.traditionalGross += fromTrad;
-    wd.traditionalWithdrawn += fromTrad;
-    wd.earlyPenalty += penalty;
-    return tradNet;
+    let net = 0;
+    for (const penalized of [false, true]) {
+      const { slots, share } = tradGroup(wd, penalized),
+        cap = bal[bucket] * share;
+      if (!(cap > 0)) continue;
+      const { fromTrad, tradNet, penalty } = solver(
+        cap,
+        amount - net,
+        wd.taxableGainGross,
+        wd.traditionalGross,
+        wd.profile,
+        penalized ? 1 : 0,
+      );
+      accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, fromTrad);
+      bal[bucket] -= fromTrad;
+      wd.traditionalGross += fromTrad;
+      wd.traditionalWithdrawn += fromTrad;
+      wd.earlyPenalty += penalty;
+      net += tradNet;
+    }
+    return net;
   }
   // `bucket` is 'roth' | 'bondRoth'. Roth earnings count as ordinary income
   // (traditionalGross) when the draw is early.
@@ -5177,14 +5181,14 @@
     const { bal } = wd;
     const d = rothDraw(
       wd.rothAccts,
-      wd.rothShares,
+      wd.accts.roth,
       bal.roth + bal.bondRoth,
       bal[bucket],
       amount,
       wd.taxableGainGross,
       wd.traditionalGross,
       wd.profile,
-      wd.rothStatus,
+      wd.status,
     );
     bal[bucket] -= d.gross;
     wd.rothWithdrawn += d.gross;
@@ -5266,26 +5270,31 @@
     } else if (state.withdrawalMixEnabled && wd.need > 0) {
       // 'live' is a display-only marker, not a WITHDRAWAL_MIX_CANDIDATES id.
       wd.mixCandidate = 'live';
-      const live = pickLiveWithdrawalOrder(
-        wd.need,
-        bal.taxable,
-        bal.traditional,
-        bal.taxableBasis,
-        wd.profile,
-        wd.taxableGainGross,
-        wd.traditionalGross,
-        wd.penalizedFraction,
-        remainingMagiRoom,
-      );
+      const free = tradGroup(wd, false),
+        live = pickLiveWithdrawalOrder(
+          wd.need,
+          bal.taxable,
+          bal.traditional * free.share,
+          bal.taxableBasis,
+          wd.profile,
+          wd.taxableGainGross,
+          wd.traditionalGross,
+          0,
+          remainingMagiRoom,
+        );
       bal.taxable -= live.fromTaxable;
       bal.taxableBasis -= live.taxableBasisTaken;
       wd.taxableGainGross += live.taxableGain;
       wd.taxableWithdrawn += live.fromTaxable;
+      accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, free.slots, live.fromTraditional);
       bal.traditional -= live.fromTraditional;
       wd.traditionalGross += live.fromTraditional;
       wd.traditionalWithdrawn += live.fromTraditional;
       wd.earlyPenalty += live.penalty;
       wd.need = live.remainingNeed;
+      // Whatever the penalty-free accounts could not cover comes from the penalized ones.
+      if (wd.need > 0 && bal.traditional > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
     } else if (state.smoothWithdrawals) {
       const pool = bal.taxable + bal.traditional;
       if (pool > 0 && wd.need > 0) {
@@ -5875,7 +5884,7 @@
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
         const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-        const wd = newWithdrawal({ bal, rothAccts, rothShares: accts.roth, profile, conversionAmount, rmd });
+        const wd = newWithdrawal({ bal, rothAccts, accts, profile, conversionAmount, rmd });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -5902,12 +5911,10 @@
           recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
-          // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
-          // traditionalPenaltyFraction for how the pooled balance is split between partners.
-          wd.penalizedFraction = traditionalPenaltyFraction(
-            age, ageB, singlePerson, accountsOwnerShareA(accts.trad), workingA, workingB, retireAgeA, retireAgeB,
-          );
-          wd.rothStatus = rothAccountStatuses({ age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB });
+          // penalty from an account unless its owner is 59.5+ or the account is a 401(k) covered
+          // by Rule of 55; see accountStatuses.
+          const statusCtx = { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB };
+          wd.status = accountStatuses(statusCtx);
           if (mode.bucketStrategy)
             withdrawBucket(wd, {
               yearReturn: stockReturn,
@@ -11292,7 +11299,7 @@
     } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
     return trace;
   };
-  window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, rothAccountStatuses };
+  window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, accountStatuses };
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
