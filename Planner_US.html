@@ -3718,6 +3718,72 @@
       if (entry.amount <= 1e-9) L.conv.shift();
     }
   }
+  // Account ledger. The engine's balances stay pooled (bal.traditional +
+  // bal.bondTraditional, bal.roth + bal.bondRoth: tax, RMDs, ACA/IRMAA, the bond
+  // ladder and every table read the pools). Underneath, each pool is split among
+  // four accounts, in ACCOUNT_SLOTS order: [IRA A, 401(k) A, IRA B, 401(k) B]
+  // (for the Roth pool: Roth IRA A, Roth 401(k) A, Roth IRA B, Roth 401(k) B).
+  // The ledger stores each account's SHARE of its pool: growth, ladder/refill
+  // moves and draws hit every account in proportion (same-allocation assumption),
+  // so shares only change when money enters or leaves one account on its own: a
+  // contribution (the owner's account) or a Roth conversion (IRAs first, to keep
+  // 401(k) access longest; the money lands in the same partner's Roth IRA). An
+  // account's dollars are its share times the pool at that moment. The 3A engine
+  // reads the shares for nothing yet (RMD/penalty/SEPP keep the fixed opening
+  // ownership ratio, accountOwnershipPctA); 3B switches those reads to the ledger.
+  const ACCOUNT_SLOTS = ['iraA', 'k401A', 'iraB', 'k401B'];
+  function accountsNew() {
+    const single = !!state.singlePerson,
+      pctA = single ? 1 : state.traditionalSharePctA / 100;
+    // Legacy inputs: all traditional money is 401(k), all Roth money is Roth IRA.
+    return { trad: [0, pctA, 0, 1 - pctA], roth: [pctA, 0, 1 - pctA, 0] };
+  }
+  function accountsClone(a) {
+    return { trad: a.trad.slice(), roth: a.roth.slice() };
+  }
+  function accountsRestore(a, snap) {
+    for (let i = 0; i < 4; i++) {
+      a.trad[i] = snap.trad[i];
+      a.roth[i] = snap.roth[i];
+    }
+  }
+  // Dollars per account for a pool worth `pool`.
+  function accountBalances(shares, pool) {
+    return shares.map((sh) => sh * pool);
+  }
+  // `shares` are updated in place to the new dollar mix; they keep their old
+  // values when the pool is empty (nothing to divide).
+  function accountsSetFromDollars(shares, dollars) {
+    const total = dollars[0] + dollars[1] + dollars[2] + dollars[3];
+    if (total > 1e-9) for (let i = 0; i < 4; i++) shares[i] = dollars[i] / total;
+  }
+  // `amounts` (one per slot) is added to the pool `pool` as it stands before the add.
+  function accountsContribute(shares, pool, amounts) {
+    const d = accountBalances(shares, pool);
+    for (let i = 0; i < 4; i++) d[i] += amounts[i];
+    accountsSetFromDollars(shares, d);
+  }
+  // A Roth conversion of `amount` out of the traditional pool `tradPool` into the
+  // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
+  // (pro rata). Each partner's converted money goes to that partner's Roth IRA.
+  function accountsConvert(a, tradPool, rothPool, amount) {
+    if (!(amount > 0)) return;
+    const d = accountBalances(a.trad, tradPool),
+      taken = [0, 0, 0, 0];
+    let rem = Math.min(amount, tradPool);
+    for (const group of [[0, 2], [1, 3]]) {
+      const have = d[group[0]] + d[group[1]],
+        take = Math.min(rem, have);
+      if (take > 0) for (const i of group) taken[i] = take * (d[i] / have);
+      rem -= take;
+    }
+    const r = accountBalances(a.roth, rothPool);
+    for (let i = 0; i < 4; i++) d[i] -= taken[i];
+    r[0] += taken[0] + taken[1];
+    r[2] += taken[2] + taken[3];
+    accountsSetFromDollars(a.trad, d);
+    accountsSetFromDollars(a.roth, r);
+  }
   // Share of the pooled traditional / Roth balance whose withdrawals owe the
   // 10% early-withdrawal penalty, given whether each partner is exempt. The
   // balance is one household pool, so when only one partner is exempt the
@@ -4255,7 +4321,28 @@
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
     const rothContrib = rothContribA + rothContribB;
-    return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib };
+    // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
+    // IRA B, 401(k) B). The employer match always goes to the traditional 401(k);
+    // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
+    const acct = {
+      trad: [
+        state.iraType === 'traditional' ? iraA : 0,
+        (state.k401Type === 'traditional' ? kBaseA : 0) +
+          (catchupTypeA === 'traditional' ? kCatchupA : 0) +
+          matchA,
+        state.iraType === 'traditional' ? iraB : 0,
+        (state.k401Type === 'traditional' ? kBaseB : 0) +
+          (catchupTypeB === 'traditional' ? kCatchupB : 0) +
+          matchB,
+      ],
+      roth: [
+        state.iraType === 'roth' ? iraA : 0,
+        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA,
+        state.iraType === 'roth' ? iraB : 0,
+        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB,
+      ],
+    };
+    return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct };
   }
 
   // Social Security for the year, each partner's own benefit once they reach
@@ -4776,8 +4863,9 @@
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
   // seasoning clock for penalty-free access.
-  function applyRothConversion(bal, rothLedger, conversionAmount, year) {
+  function applyRothConversion(bal, rothLedger, accts, conversionAmount, year) {
     if (conversionAmount <= 0) return;
+    accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount);
     const fromTradConv = Math.min(bal.traditional, conversionAmount);
     bal.traditional -= fromTradConv;
     bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
@@ -5289,7 +5377,7 @@
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  function runProjection({ mode, source, retireAgeA, retireAgeB }) {
+  function runProjection({ mode, source, retireAgeA, retireAgeB, trace = null }) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     // Only the historical source reports a start year; it also adds cumFactor to each row.
@@ -5320,6 +5408,8 @@
       magiHistory = [];
     // Roth contribution/conversion/earnings ledger (see rothLedgerNew).
     const rothLedger = rothLedgerNew(state.roth);
+    // Per-account shares of the traditional and Roth pools (see accountsNew).
+    const accts = accountsNew();
     let depletedAge = null,
       firstWithdrawal = 0;
     // Last year's realized discretionary income, used only to SEED each year's
@@ -5390,7 +5480,7 @@
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
-      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib } =
+      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib } =
         retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
@@ -5468,12 +5558,14 @@
         const scalarSnapshot = { depletedAge, firstWithdrawal };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothLedgerClone(rothLedger);
+        const acctSnapshot = accountsClone(accts);
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
             ({ depletedAge, firstWithdrawal } = scalarSnapshot);
             Object.assign(guardrails, guardrailSnapshot);
             rothLedgerRestore(rothLedger, ledgerSnapshot);
+            accountsRestore(accts, acctSnapshot);
           }
           estUsed = false;
         rothLedgerSeason(rothLedger, year);
@@ -5579,7 +5671,7 @@
             rothContrib;
         growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
         withdrawRequiredDistributions(bal, rmd);
-        applyRothConversion(bal, rothLedger, conversionAmount, year);
+        applyRothConversion(bal, rothLedger, accts, conversionAmount, year);
         bal.cash += oneTimeAmount;
         const reserveTarget = state.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
@@ -5594,6 +5686,8 @@
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
         const surplusBondTarget = mode.bucketStrategy && stockReturn >= 0 ? bondTarget : null;
         if (flow >= 0) {
+          accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
+          accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           routeSurplus(bal, rothLedger, {
             flow,
             reserveTarget,
@@ -5631,6 +5725,8 @@
           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
+          accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
+          accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
           bal.roth += rothContrib;
           rothLedger.basis += rothContrib;
@@ -5708,6 +5804,20 @@
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
         rows.push(row);
+        if (trace) {
+          const tradPool = bal.traditional + bal.bondTraditional,
+            rothPool = bal.roth + bal.bondRoth;
+          trace.push({
+            year,
+            tradPool,
+            rothPool,
+            trad: accountBalances(accts.trad, tradPool),
+            roth: accountBalances(accts.roth, rothPool),
+            tradShares: accts.trad.slice(),
+            rothShares: accts.roth.slice(),
+            conversionAmount,
+          });
+        }
         break;
       }
       source.endOfYear();
@@ -10988,6 +11098,20 @@
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
+  window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
+    const trace = [];
+    if (hist) {
+      const prevTaxFactors = histTaxFactors;
+      histTaxFactors = [];
+      try {
+        runProjection({ mode: BUCKET_MODE, source: historicalYearSource(hist), retireAgeA, retireAgeB, trace });
+      } finally {
+        histTaxFactors = prevTaxFactors;
+      }
+    } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
+    return trace;
+  };
+  window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
   window.__test_tax = { standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
