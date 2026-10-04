@@ -1269,6 +1269,35 @@ _(to be added by the Batch 8 PR)_
 
 ---
 
+## Verification backlog (primary sources, to do at the end)
+
+Owner decision (2026-10-04): carry on without primary sources and verify everything in one pass at the
+end. Primary sites (irs.gov, law.cornell.edu, federalregister.gov, ssa.gov, medicare.gov, cms.gov,
+congress.gov, bls.gov) were blocked from this environment through Batch 3A. Every figure or rule below
+is in the code or the plan today on secondary sources or on our own reading; none was opened at its
+primary source. Each batch adds its items here as it lands; the final pass opens each primary document,
+cites it with the retrieval date in the consolidated `docs/reference.md`, and fixes the code where
+reality differs. Status key: S = secondary source only, U = no source checked, O = owner's own table or
+reading (itself secondary).
+
+| Item (where it lives) | Batch | Status | What to confirm |
+|---|---|---|---|
+| 2026 standard deduction $32,200 / $16,100 / $24,150 HoH; age 65+ additional $1,650 / $2,050 | 2 | S (Rev. Proc. 2025-32 summaries: KPMG, JofA) | Rev. Proc. 2025-32 text |
+| Senior deduction $6,000, 2025-2028, phase-out 6% over $75k / $150k, per eligible person, below AGI | 2 | S + O | IRC 151(d)(5)(C), P.L. 119-21 s.70103, Schedule 1-A and Form 1040 line numbers |
+| SALT cap table $40,000 / $40,400 / $40,804 / $41,212 / $41,624 / $10,000 from 2030; $500k/$505k threshold, 30% rate, +1% a year, $10,000 floor | 2 | S + O | IRC 164(b)(7) |
+| Mortgage interest limit $750,000 (permanent); grandfathered $1,000,000 not modeled | 2 | U / O | IRC 163(h)(3), Pub. 936 |
+| 2026 IRMAA tiers and per-partner Part B + D surcharges; MFJ bounds | 2 | O | CMS 2026 IRMAA notice |
+| Medicare timing: work past 65 delays enrollment, no late penalty; 8-month special enrollment, COBRA | 2 | O (modeling decision) | Medicare.gov / CMS rules |
+| 2026 401(k) deferral $24,500, catch-up $8,000, age 60-63 $11,250; IRA $7,500 + $1,100; Roth catch-up above $150,000 prior-year FICA wages | 3A | S (Notice 2025-67 summaries) | IRS Notice 2025-67 |
+| Annual additions limit $72,000 (`retirementContributions`, mega-backdoor room) | 3A | U | IRS Notice 2025-67 / Pub. 560 |
+| Roth ordering: contributions, then conversions (oldest first, each with its own 5-year clock for the 10% tax), then earnings | 3A / 3B | S | IRC 408A(d)(4), Treas. Reg. 1.408A-6 |
+| Roth 401(k) non-qualified distributions pro rata between contributions and earnings; no RMDs from 2024 | 3B | S | Treas. Reg. 1.402A-1, SECURE 2.0 s.325 |
+| Rule of 55 applies only to the plan of the employer separated from, lost on rollover to an IRA | 3B | S | IRC 72(t)(2)(A)(v) |
+| 72(t) SEPP: exact payments, recapture on modification, later of 5 years or 59.5, Single Life Table | 3B | S | Notice 2022-6, Rev. Rul. 2002-62 |
+| Single Life Table divisors in `singleLifeDivisor` | 3B | U | Treas. Reg. 1.401(a)(9)-9 |
+| Uniform Lifetime Table in `rmdDivisor` (72-100+) and RMD start ages 73 / 75 by birth year (`rmdStartAge`) | 3A (read by tests) | U | Treas. Reg. 1.401(a)(9)-9(c), SECURE 2.0 s.107 |
+| Treasury yields 2023-2025 kept as recorded (decision 14); CPI 2023-2024 confirmed, CPI 2025 to two decimals | 1 / 6 | S | Treasury, BLS index levels |
+
 ## Open items
 
 Everything raised so far is answered or recorded as a decision above. What
