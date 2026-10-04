@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V94</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V95</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -2597,15 +2597,25 @@
   const FILING = {
     mfj: { joint: true, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'mfj', niit: 'mfj', medicare: 'mfj', irmaa: 'mfj', senior: 'mfj', state: 'mfj' },
     single: { joint: false, brackets: 'single', deduction: 'single', extraAge: 'single', gains: 'single', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', state: 'single' },
+    // Head of household: unmarried with a qualifying child. Own brackets, standard deduction and
+    // gain bands; every threshold set by statute for "any other case" is the single one.
+    hoh: { joint: false, brackets: 'hoh', deduction: 'hoh', extraAge: 'hoh', gains: 'hoh', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', state: 'single' },
+    // Qualifying surviving spouse (two years after the death year, with a qualifying child): the joint
+    // brackets, standard deduction (and its married 65+ add-on) and gain bands, but the single
+    // Social Security bases, Additional Medicare Tax, IRMAA table and senior phase-out start
+    // (IRC 86(c), 3101(b)(2), CMS, 151(d)(5)(C): "joint return" thresholds only). The NIIT is the
+    // joint $250,000: IRC 1411(b)(1) names "a joint return or a surviving spouse". State tax
+    // reads the joint column (a state-by-state rule 7C/7D will own).
+    qss: { joint: false, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'single', niit: 'mfj', medicare: 'single', irmaa: 'single', senior: 'single', state: 'mfj' },
   };
   const filingRow = (filing) => FILING[filing] || FILING.single;
   const filingKey = (filing, family) => filingRow(filing)[family];
   // Base 2026 amounts per data row (Rev. Proc. 2025-32), before the tax-index factor.
-  const STD_DEDUCTION = { mfj: 32200, single: 16100 };
-  const STD_EXTRA_65 = { mfj: 1650, single: 2050 };
+  const STD_DEDUCTION = { mfj: 32200, single: 16100, hoh: 24150 };
+  const STD_EXTRA_65 = { mfj: 1650, single: 2050, hoh: 2050 };
   const SENIOR_PHASE_START = { mfj: 150000, single: 75000 };
   const NIIT_THRESHOLD = { mfj: 250000, single: 200000 };
-  const GAIN_BANDS = { mfj: [98900, 613700], single: [49450, 545500] };
+  const GAIN_BANDS = { mfj: [98900, 613700], single: [49450, 545500], hoh: [66200, 579600] };
   // Social Security taxation: [lower base, upper base, cap on the 50% tier].
   const SS_BASE = { mfj: [32000, 44000, 6000], single: [25000, 34000, 4500] };
   const ORDINARY_BRACKETS = {
@@ -2624,6 +2634,15 @@
       [105700, 0.22],
       [201775, 0.24],
       [256225, 0.32],
+      [640600, 0.35],
+      [Infinity, 0.37],
+    ],
+    hoh: [
+      [17700, 0.1],
+      [67450, 0.12],
+      [105700, 0.22],
+      [201750, 0.24],
+      [256200, 0.32],
       [640600, 0.35],
       [Infinity, 0.37],
     ],
@@ -3445,11 +3464,14 @@
         niitTax(ordinary + gains, gains + invOrd, 'mfj')
       );
     }
+    // Everyone who is not on a joint return is one person (single, head of household or a
+    // qualifying surviving spouse), or, in the last branch, two separate filers.
+    const status = FILING[profile.filing] && profile.filing !== 'mfj' ? profile.filing : 'single';
     if (profile.singlePerson) {
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
         profile.otherA + gains + traditionalExtra + invOrd,
-        'single',
+        status,
       );
       const ordinary = profile.otherA + traditionalExtra + invOrd + taxableSS;
       const sources = {
@@ -3460,9 +3482,9 @@
         taxableSS,
         ages: [profile.ageA],
       };
-      const stateTaxPaid = stateIncomeTax(sources, 'single', profile.year),
+      const stateTaxPaid = stateIncomeTax(sources, status, profile.year),
         deduction = federalDeduction(
-          'single',
+          status,
           profile.year,
           [profile.ageA],
           ordinary + gains,
@@ -3471,12 +3493,15 @@
           profile.mortgageInterest || 0,
         );
       return (
-        ordinaryTax(ordinary, profile.year, 'single', deduction) +
-        longTermGainTax(gains, ordinary, profile.year, 'single', deduction) +
+        ordinaryTax(ordinary, profile.year, status, deduction) +
+        longTermGainTax(gains, ordinary, profile.year, status, deduction) +
         stateTaxPaid +
-        niitTax(ordinary + gains, gains + invOrd, 'single')
+        niitTax(ordinary + gains, gains + invOrd, status)
       );
     }
+    // Partner A claims the children (owner decision), so A's return is head of household
+    // while a qualifying child exists; B's is single.
+    const statusA = (profile.dependents || []).some((d) => d.qualifyingChild) ? 'hoh' : 'single';
     const gainA = gains / 2,
       gainB = gains / 2,
       tradA = traditionalExtra / 2,
@@ -3486,7 +3511,7 @@
     const taxableSSA = taxableSocialSecurity(
       profile.ssA,
       profile.otherA + gainA + tradA + invA,
-      'single',
+      statusA,
     );
     const taxableSSB = taxableSocialSecurity(
       profile.ssB,
@@ -3514,20 +3539,20 @@
     // Two separate returns: the household's property tax and deductible mortgage
     // interest are split 50/50 between them, and each return picks its own
     // standard-or-itemized deduction.
-    const stateTaxA = stateIncomeTax(sourcesA, 'single', profile.year),
+    const stateTaxA = stateIncomeTax(sourcesA, statusA, profile.year),
       stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
       halfProperty = (profile.propertyTax || 0) / 2,
       halfInterest = (profile.mortgageInterest || 0) / 2,
-      deductionA = federalDeduction('single', profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest),
+      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest),
       deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest);
     return (
-      ordinaryTax(ordinaryA, profile.year, 'single', deductionA) +
+      ordinaryTax(ordinaryA, profile.year, statusA, deductionA) +
       ordinaryTax(ordinaryB, profile.year, 'single', deductionB) +
-      longTermGainTax(gainA, ordinaryA, profile.year, 'single', deductionA) +
+      longTermGainTax(gainA, ordinaryA, profile.year, statusA, deductionA) +
       longTermGainTax(gainB, ordinaryB, profile.year, 'single', deductionB) +
       stateTaxA +
       stateTaxB +
-      niitTax(ordinaryA + gainA, gainA + invA, 'single') +
+      niitTax(ordinaryA + gainA, gainA + invA, statusA) +
       niitTax(ordinaryB + gainB, gainB + invB, 'single')
     );
   }
@@ -4845,24 +4870,27 @@
   }
   // @@shared:loanPaymentForYear end
 
-  // Tax filing status for the year. A single person files single; with "start
-  // single, then file MFJ" (marryLater) the household files as two single filers
-  // until Partner A reaches marriageAgeA. The survivor files jointly for the year
-  // of death (IRC 6013(a)(3)) if the couple was married that year, and single
-  // after it.
+  // Tax filing status for the year (a key of FILING).
+  //  - Unmarried with a qualifying child that year: head of household; without: single.
+  //    This covers a single person, a survivor after the window below, and an unmarried
+  //    couple (the household return is then two separate filers, see taxFor, so its
+  //    household status stays 'single' and Partner A, who claims the children, files HoH).
+  //  - "Start single, then file MFJ" (marryLater): two single filers until Partner A reaches
+  //    marriageAgeA.
+  //  - Survivor, if the couple was married that year: MFJ for the year of death
+  //    (IRC 6013(a)(3)); qualifying surviving spouse (MFJ brackets and deduction) for the next
+  //    two tax years while a qualifying child exists that year; then as an unmarried person.
   function filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear }) {
     const married = state.marryLater ? age >= state.marriageAgeA : state.filingStatus === 'mfj';
-    const filing = isSurvivorPeriod
-      ? year === deathYear && married
-        ? 'mfj'
-        : 'single'
-      : singlePerson
-        ? 'single'
-        : state.marryLater
-          ? age >= state.marriageAgeA
-            ? 'mfj'
-            : 'single'
-          : state.filingStatus;
+    const hasChild = dependentsInYear(taxYearOf(year)).some((d) => d.qualifyingChild);
+    const unmarried = hasChild ? 'hoh' : 'single';
+    let filing;
+    if (isSurvivorPeriod) {
+      filing =
+        !married ? unmarried : year === deathYear ? 'mfj' : year - deathYear <= 2 && hasChild ? 'qss' : unmarried;
+    } else if (singlePerson) filing = unmarried;
+    else if (state.marryLater) filing = age >= state.marriageAgeA ? 'mfj' : 'single';
+    else filing = state.filingStatus;
     return { filing };
   }
 
@@ -11581,7 +11609,7 @@
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
-  window.__test_tax = { standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
+  window.__test_tax = { FILING, filingStatusFor, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();

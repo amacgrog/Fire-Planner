@@ -1594,13 +1594,13 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Additional Medicare Tax 0.9% over $200k / $250k | `additionalMedicareTax` | wages, filing status | Batch 2 |
 | Early-withdrawal penalty status (Rule of 55, 72(t), 59.5) | `penaltyStatus`, `accountStatuses` | age, account | 3B |
 | Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed) | (7B) | MAGI, filing status | 7B |
-| Filing-status thresholds for HoH and QSS | (7B) lookup table | status | 7B |
+| Filing status (HoH / QSS) switches: QSS two-year window ends (MFJ brackets and deduction -> single or HoH), HoH starts and ends with the last qualifying child | `filingStatusFor`, `FILING` | year, children, survivor timeline | 7B step 3 |
 | State circuit-breaker and income-tested credits | (7C / 7D) `STATE_RULES` | AGI / income | 7C, 7D |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
-#### 7B: US federal credits (US V93 -> V94 ...; Canada untouched)
+#### 7B: US federal credits (US V93 -> V95 so far; Canada untouched)
 
 Branch `claude/batch-7b-federal-credits`, cut from the 7A tip (`a9d88a1`). US only.
 
@@ -1644,6 +1644,29 @@ Success rates (`tests/historical_rates.js`, seed 7, 2000 paths; two survivor sce
 49 of 518 US scenarios moved, every one a survivor scenario (names containing "survivor" or "everything");
 Canada and every non-survivor scenario are byte-identical. Baselines updated: `tests/snapshots/us.json`,
 `ui_us.json` (the survivor info bubble and README-visible text changed).
+
+**Step 3: head of household and qualifying surviving spouse (US V95).** `FILING` gains `hoh` and `qss`.
+- `hoh`: own brackets (10% to $17,700, 12% to $67,450, 22% to $105,700, 24% to $201,750, 32% to $256,200,
+  35% to $640,600), standard deduction $24,150 (+$2,050 at 65), 0%/15% gain bands $66,200 / $579,600; every
+  statutory "any other case" threshold (Social Security bases, NIIT $200,000, Additional Medicare Tax, IRMAA, senior
+  phase-out) is the single one. Figures are from secondary sources (Rev. Proc. 2025-32 summaries), see the
+  Verification backlog.
+- `qss`: MFJ brackets, standard deduction, 65+ add-on (the married $1,650: the higher "unmarried" add-on is only
+  for filers who are unmarried and not a surviving spouse, IRC 63(f)(3)) and gain bands; single Social Security
+  bases, Additional Medicare Tax, IRMAA table and senior phase-out start; **NIIT at the joint $250,000** (IRC
+  1411(b)(1) names "a joint return or a surviving spouse"; the plan had not listed NIIT). State tax reads the joint
+  column for QSS and the single column for HoH: an interim mapping, many states have their own HoH brackets (7C/7D).
+- `filingStatusFor` timeline: unmarried with a qualifying child that year is `hoh`, otherwise `single`; survivors
+  of a married couple are `mfj` in the death year, `qss` for `year - deathYear <= 2` while a qualifying child exists
+  that year, and unmarried after. The test is per year, so a child born after the death (a planned child) would
+  count; a child aging out of year 1 ends QSS. Survivors of an unmarried couple (`filingStatus: single`, or before
+  the `marryLater` marriage age) get no joint year and no QSS.
+- Two-filer branch (pre-marriage `marryLater` and `filingStatus: single` with two partners, which share the branch):
+  the household status stays `single`; Partner A claims the children (owner decision) and files `hoh` while a
+  qualifying child exists, B files single. Housing deductions still split 50/50.
+- Assumed, not modeled: the household pays more than half the cost of keeping up the home, and a QSS child is the
+  survivor's own dependent child.
+- Default `[]` children: every existing snapshot is byte-identical (checked, no baseline change).
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
@@ -1692,6 +1715,11 @@ reading (itself secondary).
 | 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
 | Child Tax Credit under 17; ACTC; ODC for other dependents | 7B | S / O | IRC 24, Schedule 8812 instructions |
 | QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
+| QSS NIIT threshold $250,000 and QSS Additional Medicare Tax $200,000 | 7B | U (own reading) | IRC 1411(b)(1), 3101(b)(2) |
+| QSS 65+ standard-deduction add-on is the married $1,650, not the unmarried $2,050 | 7B | U (own reading) | IRC 63(c)(3), 63(f) |
+| 2026 HoH brackets (17,700 / 67,450 / 105,700 / 201,750 / 256,200 / 640,600), standard deduction $24,150, 0% / 15% gain bands $66,200 / $579,600 | 7B | S (secondary: q3adv, bradfordtaxinstitute, KPMG for the deduction) | Rev. Proc. 2025-32 section 3 |
+| HoH needs a qualifying child (or other qualifying person), paying over half the home cost; a student 19-23 counts | 7B | O | IRC 2(b), Pub. 501 |
+| State tax: HoH read as single, QSS as joint, until 7C/7D | 7B | n/a (interim) | each state's forms |
 | Survivor files jointly for the year of death (code: step 2, V94); the deceased's own age counts for the 65+ deductions | 7B | U | IRC 6013(a)(3), Pub. 501 |
 
 ## Open items

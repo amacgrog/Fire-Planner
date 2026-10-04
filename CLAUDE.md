@@ -207,6 +207,13 @@ Each planner is one big IIFE. Core shape:
   `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
   `taxFor`/`solveRothConversion`. Read through `filingKey(filing, family)` / `filingRow(filing)`; an unknown
   status reads as single. Never write `filing === 'mfj'` in new code; add a row or a family instead.
+  Statuses: `mfj`, `single`, `hoh` and `qss`. `filingStatusFor` (US) picks the year's status: unmarried with a
+  qualifying child that year is `hoh`, else `single`; a survivor of a married couple is `mfj` in the death year,
+  `qss` for the next two tax years while a qualifying child exists, then as unmarried. `qss` mixes families (joint
+  brackets, deduction and gain bands and the NIIT, single Social Security bases, Additional Medicare Tax, IRMAA and
+  senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
+  status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
+  branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
