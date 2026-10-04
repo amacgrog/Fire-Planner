@@ -83,7 +83,7 @@ const BASE = {
     // 100,000 of basis, so 200,000 of spending (IRA 100,000 + a 0%-basis Roth 401(k)) reaches earnings.
     r = await y0({ rothIraA: 100000, rothIraBasisA: 900000, roth401kA: 500000, roth401kBasisPctA: 0, spending: 200000 });
     assert(r.earlyPenalty > 0, 'basis above the IRA balance does not leak into the rest of the Roth pool');
-    r = await y0({ rothIraA: 100000, rothIraBasisA: 900000, roth401kA: 500000, roth401kBasisPctA: 0, spending: 100000 });
+    r = await y0({ rothIraA: 100000, rothIraBasisA: 900000, spending: 100000 });
     near(r.earlyPenalty, 0, 0.01, 'the IRA balance itself is all basis');
     // Spending beyond the basis reaches earnings: 150,000 of basis, 250,000 spent.
     r = await y0({ rothIraA: 500000, rothIraBasisA: 150000, spending: 250000 });
@@ -98,34 +98,40 @@ const BASE = {
       return { a: st.roth401kBasisPctA, b: st.roth401kBasisPctB, ia: st.rothIraBasisA, ib: st.rothIraBasisB };
     });
     assert.deepStrictEqual(d, { a: 50, b: 50, ia: 0, ib: 0 }, 'default basis settings');
-    // With the slider at its default, a 500,000 Roth 401(k) holds 250,000 of basis.
-    const dflt = { singlePerson: true, roth401kA: 500000, roth401kBasisPctA: 50, spending: 250000 };
-    let r = await y0(dflt);
-    near(r.earlyPenalty, 0, 0.01, 'Roth 401(k) at the default 50%: 250,000 is free');
-    r = await y0({ ...dflt, spending: 260000 });
-    assert(r.earlyPenalty > 0, 'Roth 401(k) at the default 50%: past 250,000 owes the penalty');
+    // Roth 401(k) draws are pro rata: at the default 50% basis, half of each draw is earnings, which owes the
+    // 10% (no tax here, the earnings stay under the standard deduction): net 10,000 = g - 0.1 * 0.5 * g.
+    const dflt = { singlePerson: true, roth401kA: 500000, roth401kBasisPctA: 50, spending: 10000 };
+    const r = await y0(dflt);
+    near(r.rothWithdrawn, 10000 / 0.95, 0.01, 'Roth 401(k) at the default 50%: gross is 10,526.32');
+    near(r.earlyPenalty, 10000 / 0.95 * 0.05, 0.01, 'Roth 401(k) at the default 50%: penalty on the earnings half only');
   }
-  // 4. Roth 401(k) basis slider: contributions = balance x slider, then the same basis-first rule.
-  //    500,000 at 30% is 150,000 of basis.
+  // 4. Roth 401(k) basis slider: contributions = balance x slider, and every draw is pro rata between basis and
+  //    earnings. At 30% basis 70% of each draw is earnings: g = 10,000 / 0.93. At 0% all of it: g = 10,000 / 0.9.
+  //    At 100% nothing is earnings.
   {
-    let r = await y0({ roth401kA: 500000, roth401kBasisPctA: 30, spending: 150000 });
-    near(r.earlyPenalty, 0, 0.01, 'Roth 401(k) at 30%: 150,000 of basis is free');
-    r = await y0({ roth401kA: 500000, roth401kBasisPctA: 30, spending: 160000 });
-    assert(r.earlyPenalty > 0, 'Roth 401(k) at 30%: the draw past 150,000 owes the penalty');
-    r = await y0({ roth401kA: 500000, roth401kBasisPctA: 0, spending: 40000 });
-    assert(r.earlyPenalty > 3500, 'Roth 401(k) at 0%: everything is earnings');
+    let r = await y0({ roth401kA: 500000, roth401kBasisPctA: 30, spending: 10000 });
+    near(r.earlyPenalty, 10000 / 0.93 * 0.07, 0.01, 'Roth 401(k) at 30%: penalty on 70% of the draw');
+    r = await y0({ roth401kA: 500000, roth401kBasisPctA: 0, spending: 10000 });
+    near(r.earlyPenalty, 10000 / 0.9 * 0.1, 0.01, 'Roth 401(k) at 0%: everything is earnings');
+    r = await y0({ roth401kA: 500000, roth401kBasisPctA: 100, spending: 10000 });
+    near(r.earlyPenalty, 0, 0.01, 'Roth 401(k) at 100%: no earnings, no penalty');
+    // Pro rata holds over time (zero growth): the basis share never changes, so year 3 pays the same as year 0.
+    const rows = await run({ ...BASE, roth401kA: 500000, roth401kBasisPctA: 30, spending: 10000 });
+    near(rows[3].earlyPenalty, rows[0].earlyPenalty, 0.01, 'Roth 401(k): the earnings fraction is stable year to year');
   }
-  // 5. Basis adds up across accounts and partners (couple): IRA A 100,000 entered + 401(k) A 1,000,000 x 10% + IRA B 60,000 = 260,000.
+  // 5. Draws come out of every Roth account pro rata and each account keeps its own basis (no pooling):
+  //    IRA A 400,000 (basis 100,000) and IRA B 200,000 (basis 60,000) give A two thirds and B one third of
+  //    each draw, so A's basis covers draws up to 150,000 and B's up to 180,000; the first penalty is at 150,000.
   {
-    const couple = { singlePerson: false, ageB: 40, retireAgeB: 40, rothIraA: 400000, rothIraBasisA: 100000, roth401kA: 1000000, roth401kBasisPctA: 10, rothIraB: 200000, rothIraBasisB: 60000 };
-    let r = await y0({ ...couple, spending: 260000 });
-    near(r.earlyPenalty, 0, 0.01, 'couple: basis of both partners and both account types is pooled');
-    r = await y0({ ...couple, spending: 270000 });
-    assert(r.earlyPenalty > 0, 'couple: past the pooled basis the penalty applies');
-    // Single mode drops B's 60,000 of basis (and B's balance).
-    r = await y0({ ...couple, singlePerson: true, spending: 200000 });
-    assert(r.earlyPenalty === 0, 'single: A alone has 200,000 of basis (100,000 + 100,000), so 200,000 is free');
-    r = await y0({ ...couple, singlePerson: true, spending: 210000 });
+    const couple = { singlePerson: false, ageB: 40, retireAgeB: 40, rothIraA: 400000, rothIraBasisA: 100000, rothIraB: 200000, rothIraBasisB: 60000 };
+    let r = await y0({ ...couple, spending: 150000 });
+    near(r.earlyPenalty, 0, 0.01, 'couple: each partner\'s own basis covers their pro rata share up to 150,000');
+    r = await y0({ ...couple, spending: 160000 });
+    assert(r.earlyPenalty > 0, 'couple: past 150,000 Partner A\'s share reaches earnings, although B still has basis left');
+    // Single mode drops B entirely: A alone holds 400,000 with 100,000 of basis.
+    r = await y0({ ...couple, singlePerson: true, spending: 100000 });
+    near(r.earlyPenalty, 0, 0.01, 'single: A alone has 100,000 of basis');
+    r = await y0({ ...couple, singlePerson: true, spending: 110000 });
     assert(r.earlyPenalty > 0, 'single: Partner B basis is not counted');
   }
   // 6. Opening ownership ratio sizes the RMD: A is 76 and takes an RMD, B is 50 and does not. With the same

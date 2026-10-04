@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V88</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V89</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -425,15 +425,15 @@
           <div class="field"><label for="tradIraA">Partner A traditional <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional IRA, SEP or rollover IRA. Leave at 0 if you have none. Rolled-over 401(k) money belongs here. Taxed like the 401(k) above.">i</button></span><small>Pre-tax IRA balance, including rollovers</small></label><input id="tradIraA" type="number" class="money" min="0" step="1000"></div>
           <div class="field"><label for="roth401kA">Partner A Roth <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth 401(k) or Roth 403(b). Set the share that is contributions with the slider below.">i</button></span><small>Roth workplace plan balance</small></label><input id="roth401kA" type="number" class="money" min="0" step="1000"></div>
           <div class="field"><label for="rothIraA">Partner A Roth <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth IRA balance, including conversions. Enter your contribution basis below.">i</button></span><small>Roth IRA balance</small></label><input id="rothIraA" type="number" class="money" min="0" step="1000"></div>
-          <div class="field"><label for="rothIraBasisA">Partner A Roth IRA <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Dollars you contributed to the Roth IRA, plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty; the rest (earnings) is taxed and penalized before 59.5. Leave at 0 to use the planner&#x27;s default assumption (half of the balance is basis); enter 1 if you have no basis. New contributions and conversions are tracked from here on; investment growth counts as earnings.">i</button></span><small>Contributions + seasoned conversions, in dollars</small></label><input id="rothIraBasisA" type="number" class="money" min="0" step="1000"></div>
-          <div class="range-field"><div class="range-head"><label for="roth401kBasisPctA">Partner A Roth 401(k) <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of the Roth 401(k) balance that is contributions (the rest is earnings). Unlike a Roth IRA, a Roth 401(k) withdrawal before 59.5 and the 5-year rule is split pro rata between contributions and earnings. For now the planner treats this like Roth IRA basis: contributions first.">i</button></span><small>Share that is contributions, not earnings</small></label><span class="range-value" id="roth401kBasisPctAOut"></span></div><input id="roth401kBasisPctA" type="range" min="0" max="100" step="1"></div>
+          <div class="field"><label for="rothIraBasisA">Partner A Roth IRA <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Dollars you contributed to the Roth IRA, plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty; the rest (earnings) is taxed and penalized before 59.5. Leave at 0 to use the planner&#x27;s default assumption (half of the balance is basis); enter 1 if you have no basis. New contributions and conversions are tracked from here on; investment growth counts as earnings. Each Roth account is drawn pro rata with the others and keeps its own basis, so basis in one partner&#x27;s account does not cover the other&#x27;s.">i</button></span><small>Contributions + seasoned conversions, in dollars</small></label><input id="rothIraBasisA" type="number" class="money" min="0" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="roth401kBasisPctA">Partner A Roth 401(k) <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of the Roth 401(k) balance that is contributions (the rest is earnings). Unlike a Roth IRA, a Roth 401(k) withdrawal before 59.5 (and before the 5-year rule is met) is split pro rata between contributions and earnings, so every early draw is partly taxable earnings, and that part also owes the 10% penalty unless Rule of 55 applies. The planner assumes the 5 years are met once you are 59.5.">i</button></span><small>Share that is contributions, not earnings</small></label><span class="range-value" id="roth401kBasisPctAOut"></span></div><input id="roth401kBasisPctA" type="range" min="0" max="100" step="1"></div>
           <div class="group-subhead" data-partner-b>Partner B</div>
           <div class="field" data-partner-b><label for="trad401kB">Partner B traditional <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Pre-tax 401(k), 403(b) or similar. Employer match is added here. Withdrawals are ordinary income; RMDs start at the RMD age; before 59.5 a withdrawal owes the 10% penalty unless Rule of 55 or a 72(t) plan covers it. For now the planner treats this and the traditional IRA the same way.">i</button></span><small>Pre-tax workplace plan balance</small></label><input id="trad401kB" type="number" class="money" min="0" step="1000"></div>
           <div class="field" data-partner-b><label for="tradIraB">Partner B traditional <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional IRA, SEP or rollover IRA. Leave at 0 if you have none. Rolled-over 401(k) money belongs here. Taxed like the 401(k) above.">i</button></span><small>Pre-tax IRA balance, including rollovers</small></label><input id="tradIraB" type="number" class="money" min="0" step="1000"></div>
           <div class="field" data-partner-b><label for="roth401kB">Partner B Roth <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth 401(k) or Roth 403(b). Set the share that is contributions with the slider below.">i</button></span><small>Roth workplace plan balance</small></label><input id="roth401kB" type="number" class="money" min="0" step="1000"></div>
           <div class="field" data-partner-b><label for="rothIraB">Partner B Roth <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth IRA balance, including conversions. Enter your contribution basis below.">i</button></span><small>Roth IRA balance</small></label><input id="rothIraB" type="number" class="money" min="0" step="1000"></div>
-          <div class="field" data-partner-b><label for="rothIraBasisB">Partner B Roth IRA <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Dollars you contributed to the Roth IRA, plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty; the rest (earnings) is taxed and penalized before 59.5. Leave at 0 to use the planner&#x27;s default assumption (half of the balance is basis); enter 1 if you have no basis. New contributions and conversions are tracked from here on; investment growth counts as earnings.">i</button></span><small>Contributions + seasoned conversions, in dollars</small></label><input id="rothIraBasisB" type="number" class="money" min="0" step="1000"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="roth401kBasisPctB">Partner B Roth 401(k) <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of the Roth 401(k) balance that is contributions (the rest is earnings). Unlike a Roth IRA, a Roth 401(k) withdrawal before 59.5 and the 5-year rule is split pro rata between contributions and earnings. For now the planner treats this like Roth IRA basis: contributions first.">i</button></span><small>Share that is contributions, not earnings</small></label><span class="range-value" id="roth401kBasisPctBOut"></span></div><input id="roth401kBasisPctB" type="range" min="0" max="100" step="1"></div>
+          <div class="field" data-partner-b><label for="rothIraBasisB">Partner B Roth IRA <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Dollars you contributed to the Roth IRA, plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty; the rest (earnings) is taxed and penalized before 59.5. Leave at 0 to use the planner&#x27;s default assumption (half of the balance is basis); enter 1 if you have no basis. New contributions and conversions are tracked from here on; investment growth counts as earnings. Each Roth account is drawn pro rata with the others and keeps its own basis, so basis in one partner&#x27;s account does not cover the other&#x27;s.">i</button></span><small>Contributions + seasoned conversions, in dollars</small></label><input id="rothIraBasisB" type="number" class="money" min="0" step="1000"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="roth401kBasisPctB">Partner B Roth 401(k) <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of the Roth 401(k) balance that is contributions (the rest is earnings). Unlike a Roth IRA, a Roth 401(k) withdrawal before 59.5 (and before the 5-year rule is met) is split pro rata between contributions and earnings, so every early draw is partly taxable earnings, and that part also owes the 10% penalty unless Rule of 55 applies. The planner assumes the 5 years are met once you are 59.5.">i</button></span><small>Share that is contributions, not earnings</small></label><span class="range-value" id="roth401kBasisPctBOut"></span></div><input id="roth401kBasisPctB" type="range" min="0" max="100" step="1"></div>
         </details>
         <details class="group" data-cat="assets">
           <summary><span class="group-summary-text"><span class="group-title">Market assumptions</span><span class="group-state" id="marketGroupState"></span></span></summary>
@@ -3734,40 +3734,72 @@
         return null; // 0, or an unrecognized id — "no override this year"
     }
   }
-  // Roth early-access rules. The Roth balance is tracked as: `basis`
-  // (contributions plus conversions already seasoned for 5 years — always
-  // withdrawable with no tax or penalty), `conv` (conversions still inside
-  // their 5-year window, oldest first — no tax but a 10% penalty if taken
-  // before 59.5), and earnings (everything else — ordinary income plus the
-  // 10% penalty before 59.5, free after). Withdrawals come out in that order.
-  // The ledger covers the pooled Roth account (roth + bondRoth together);
-  // the 5-year conversion clock runs from the conversion year, so a
-  // conversion in year y is seasoned from year y + 5.
-  function rothLedgerNew() {
-    return { basis: openingRothBasis(), conv: [] };
+  // Roth early-access rules, one ledger per Roth account, in ACCOUNT_SLOTS order (Roth IRA A,
+  // Roth 401(k) A, Roth IRA B, Roth 401(k) B). Roth IRA (IRC 408A(d)(4), Treas. Reg. 1.408A-6
+  // Q&A-8): `basis` is contributions plus conversions already seasoned for 5 years (always
+  // withdrawable with no tax or penalty), `conv` the conversions still inside their own 5-year
+  // window (oldest first: no tax but the 10% penalty if taken before 59.5), and earnings are
+  // the rest (ordinary income plus the 10% penalty before 59.5). Draws come out in that order.
+  // A conversion in year y is seasoned from year y + 5. Roth 401(k) (Treas. Reg. 1.402A-1
+  // Q&A-3): non-qualified draws are pro rata, so a draw's earnings fraction is
+  // 1 - basis/balance; `basis` is the contributions, never seasoned, `conv` stays empty.
+  // The ledgers hold dollars of basis; account balances are share x pool (see below), so
+  // earnings are whatever the balance has grown beyond the basis.
+  function rothAccountsNew() {
+    return openingRothBasisSlots().map((basis) => ({ basis, conv: [] }));
   }
-  function rothLedgerSeason(L, year) {
-    while (L.conv.length && L.conv[0].year + 5 <= year) L.basis += L.conv.shift().amount;
+  function rothAccountsSeason(R, year) {
+    for (const L of R) while (L.conv.length && L.conv[0].year + 5 <= year) L.basis += L.conv.shift().amount;
   }
   // Snapshot/restore for the per-year MAGI iteration (see MAGI_ITER_MAX).
-  function rothLedgerClone(L) {
-    return { basis: L.basis, conv: L.conv.map((c) => ({ ...c })) };
+  function rothAccountsClone(R) {
+    return R.map((L) => ({ basis: L.basis, conv: L.conv.map((c) => ({ ...c })) }));
   }
-  function rothLedgerRestore(L, snap) {
-    L.basis = snap.basis;
-    L.conv = snap.conv.map((c) => ({ ...c }));
+  function rothAccountsRestore(R, snap) {
+    for (let i = 0; i < R.length; i++) {
+      R[i].basis = snap[i].basis;
+      R[i].conv = snap[i].conv.map((c) => ({ ...c }));
+    }
   }
-  function rothLedgerSplit(L, gross) {
-    const fromBasis = Math.min(gross, Math.max(0, L.basis));
-    let rem = gross - fromBasis;
-    const unseasoned = L.conv.reduce((sum, c) => sum + c.amount, 0),
-      fromConv = Math.min(rem, unseasoned);
-    rem -= fromConv;
-    return { fromBasis, fromConv, fromEarn: rem };
+  // `amounts` (one per slot) are new contributions: they add to that account's basis.
+  function rothAccountsContribute(R, amounts) {
+    for (let i = 0; i < R.length; i++) R[i].basis += amounts[i];
   }
-  function rothLedgerApply(L, split) {
-    L.basis -= split.fromBasis;
-    let c = split.fromConv;
+  // A conversion lands in the converting partner's Roth IRA ([toA, toB] from accountsConvert).
+  function rothAccountsConvert(R, to, year) {
+    if (to[0] > 0) R[0].conv.push({ year, amount: to[0] });
+    if (to[1] > 0) R[2].conv.push({ year, amount: to[1] });
+  }
+  // How a gross draw `x` from Roth account `i` (balance `dollars`) splits across its ledger,
+  // and what that costs given the owner's status ({free, qualified}, see penaltyStatus):
+  // `earn` is the part that is ordinary income, `penaltyBase` the part the 10% applies to.
+  function rothSlotSplit(L, i, dollars, x, st) {
+    let fromBasis,
+      fromConv = 0,
+      fromEarn;
+    if (i % 2 === 1) {
+      const eps = dollars > 0 ? Math.max(0, 1 - Math.min(Math.max(0, L.basis), dollars) / dollars) : 0;
+      fromEarn = x * eps;
+      fromBasis = x - fromEarn;
+    } else {
+      const effBasis = Math.min(Math.max(0, L.basis), dollars);
+      fromBasis = Math.min(x, effBasis);
+      let rem = x - fromBasis;
+      const unseasoned = L.conv.reduce((sum, c) => sum + c.amount, 0);
+      fromConv = Math.min(rem, unseasoned, Math.max(0, dollars - effBasis));
+      rem -= fromConv;
+      fromEarn = rem;
+    }
+    return {
+      fromBasis,
+      fromConv,
+      earn: st.qualified ? 0 : fromEarn,
+      penaltyBase: st.free ? 0 : fromConv + fromEarn,
+    };
+  }
+  function rothSlotApply(L, sp) {
+    L.basis = Math.max(0, L.basis - sp.fromBasis);
+    let c = sp.fromConv;
     while (c > 1e-9 && L.conv.length) {
       const entry = L.conv[0],
         take = Math.min(entry.amount, c);
@@ -3776,6 +3808,19 @@
       if (entry.amount <= 1e-9) L.conv.shift();
     }
   }
+  // Each Roth account's status this year. The deceased partner's accounts (survivor period) are
+  // inherited by the spouse as beneficiary: penalty-free and, with the 5-year clock assumed met,
+  // tax-free. Everyone else is judged by their own age (and Rule of 55 for a Roth 401(k)).
+  function rothAccountStatuses({ age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB }) {
+    const dead = isSurvivorPeriod ? (deceasedIsA ? 0 : 1) : -1;
+    const one = (partner, kind) => {
+      if (partner === dead) return { free: true, qualified: true };
+      const own = partner === 0 ? [age, workingA, retireAgeA] : [ageB, workingB, retireAgeB];
+      return penaltyStatus(kind, own[0], { rule55: rule55Applies(own[1], own[2]) });
+    };
+    return [one(0, 'rothIra'), one(0, 'roth401k'), one(1, 'rothIra'), one(1, 'roth401k')];
+  }
+  const ROTH_ALL_QUALIFIED = [0, 1, 2, 3].map(() => ({ free: true, qualified: true }));
   // Account ledger. The engine's balances stay pooled (bal.traditional +
   // bal.bondTraditional, bal.roth + bal.bondRoth: tax, RMDs, ACA/IRMAA, the bond
   // ladder and every table read the pools). Underneath, each pool is split among
@@ -3818,21 +3863,19 @@
       };
     return { trad: shares(o.trad), roth: shares(o.roth) };
   }
-  // Opening Roth basis (contributions): per partner, the entered Roth IRA basis (or the
-  // assumed share of the balance when none is entered, never more than the balance) plus
-  // the Roth 401(k) balance times its basis slider.
-  function openingRothBasis() {
-    const single = !!state.singlePerson,
-      o = openingAccounts();
-    let basis = 0;
-    [['A', 0], ['B', 2]].forEach(([p, i]) => {
-      if (p === 'B' && single) return;
-      const ira = o.roth[i],
-        entered = state['rothIraBasis' + p];
-      basis += entered > 0 ? Math.min(ira, entered) : ira * pct(ROTH_BASIS_ASSUMED_PCT);
-      basis += o.roth[i + 1] * pct(state['roth401kBasisPct' + p]);
-    });
-    return basis;
+  // Opening Roth basis (contributions) per Roth account, in ACCOUNT_SLOTS order: the entered Roth
+  // IRA basis (or the assumed share of the balance when none is entered, never more than the
+  // balance) and the Roth 401(k) balance times its basis slider, for each partner.
+  function openingRothBasisSlots() {
+    const o = openingAccounts().roth,
+      partner = (p, i) => {
+        const entered = state['rothIraBasis' + p];
+        return [
+          entered > 0 ? Math.min(o[i], entered) : o[i] * pct(ROTH_BASIS_ASSUMED_PCT),
+          o[i + 1] * pct(state['roth401kBasisPct' + p]),
+        ];
+      };
+    return [...partner('A', 0), ...partner('B', 2)];
   }
   function accountsClone(a) {
     return { trad: a.trad.slice(), roth: a.roth.slice() };
@@ -3881,9 +3924,10 @@
   }
   // A Roth conversion of `amount` out of the traditional pool `tradPool` into the
   // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
-  // (pro rata). Each partner's converted money goes to that partner's Roth IRA.
+  // (pro rata). Each partner's converted money goes to that partner's Roth IRA. Returns the
+  // amount that landed in each partner's Roth IRA, [A, B].
   function accountsConvert(a, tradPool, rothPool, amount) {
-    if (!(amount > 0)) return;
+    if (!(amount > 0)) return [0, 0];
     const d = accountBalances(a.trad, tradPool),
       taken = [0, 0, 0, 0];
     let rem = Math.min(amount, tradPool);
@@ -3899,6 +3943,7 @@
     r[2] += taken[2] + taken[3];
     accountsSetFromDollars(a.trad, d);
     accountsSetFromDollars(a.roth, r);
+    return [taken[0] + taken[1], taken[2] + taken[3]];
   }
   // Share of the pooled traditional / Roth balance whose withdrawals owe the
   // 10% early-withdrawal penalty, given whether each partner is exempt. The
@@ -3921,26 +3966,19 @@
   // account kind ('ira' | 'k401' | 'rothIra' | 'roth401k') and its owner's age. `free` is true
   // when a discretionary draw from the account owes no 10% tax: the owner is 59.5 or older, or
   // the account is a 401(k) (traditional or Roth) and Rule of 55 applies to the owner. IRAs never
-  // get Rule of 55. Forced amounts (RMD, SEPP) are never penalized and do not go through here.
+  // get Rule of 55. `qualified` (59.5 or older) is stricter: it also means a Roth draw owes no
+  // income tax on its earnings (the 5-year clock is assumed met), whereas a Rule-of-55 Roth 401(k)
+  // draw is penalty-free but its earnings are still taxed. Forced amounts (RMD, SEPP) are never
+  // penalized and do not go through here.
   function penaltyStatus(kind, ownerAge, { rule55 = false } = {}) {
     const isPlan = kind === 'k401' || kind === 'roth401k';
-    return { free: ownerAge >= 59.5 || (isPlan && rule55) };
+    const qualified = ownerAge >= 59.5;
+    return { free: qualified || (isPlan && rule55), qualified };
   }
   // Safe-MAGI headroom left for discretionary draws this year: the conversion has already used
   // part of the ceiling.
   function incomeRoom(magiSafeRoom, conversionAmount) {
     return Math.max(0, magiSafeRoom - conversionAmount);
-  }
-  // Fraction of a Roth withdrawal that is before the owner's 59.5th
-  // birthday. Rule of 55 and SEPP don't apply to Roth IRAs, so unlike the
-  // traditional penalty this depends on age alone.
-  function rothPenaltyFraction(age, ageB, singlePerson, pctA) {
-    return penalizedShare(
-      penaltyStatus('rothIra', age).free,
-      singlePerson || penaltyStatus('rothIra', ageB).free,
-      singlePerson,
-      pctA,
-    );
   }
   // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t)
   // SEPP payments are mandatory distributions and never penalized): exempt at
@@ -3956,36 +3994,45 @@
       pctA,
     );
   }
-  // Draw `targetNet` (after the tax and penalty the draw itself triggers)
-  // from a Roth bucket holding `bucketBal`, updating the ledger. The
-  // taxable-earnings part is returned as `earn` so the caller can add it to
-  // traditionalGross (ordinary income, and the MAGI lag); `penalty` is the
-  // 10% early-withdrawal penalty, which the caller adds to earlyPenalty.
-  function rothDraw(L, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, f) {
+  // Draw `targetNet` (after the tax and penalty the draw itself triggers) from a Roth bucket
+  // holding `bucketBal`, updating the per-account ledgers. The pool `pool` (roth + bondRoth) is
+  // split among the four accounts by `shares`; a draw comes out of every account pro rata, each
+  // account applying its own ledger rule and status (rothSlotSplit). The taxable-earnings part is
+  // returned as `earn` so the caller can add it to traditionalGross (ordinary income, and the MAGI
+  // lag); `penalty` is the 10% early-withdrawal penalty, which the caller adds to earlyPenalty.
+  function rothDraw(R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status) {
     const none = { gross: 0, net: 0, penalty: 0, earn: 0 };
     if (targetNet > 0 && bucketBal <= 0) return none;
-    // A slightly negative target (the withdrawal bisections above overshoot
-    // by a fraction of a cent) is handed back to the bucket, exactly as the
-    // pre-ledger code did with Math.min(bucket, need).
-    const apply = (gross, penalty, earn) => {
-      rothLedgerApply(L, rothLedgerSplit(L, gross));
-      return { gross, net: 0, penalty, earn };
-    };
-    // Everything comes out of penalty-free basis (or nobody is under 59.5):
-    // dollar for dollar, no tax or penalty.
-    if (f <= 0 || targetNet <= L.basis) {
+    // A slightly negative target (the withdrawal bisections above overshoot by a fraction of a
+    // cent) is handed back to the bucket.
+    if (targetNet <= 0) {
       const gross = Math.min(bucketBal, targetNet);
-      const d = apply(gross, 0, 0);
-      d.net = gross;
-      return d;
+      return { gross, net: gross, penalty: 0, earn: 0 };
+    }
+    const dollars = shares.map((sh) => sh * pool);
+    const pieces = (g) => {
+      const sp = shares.map((sh, i) => rothSlotSplit(R[i], i, dollars[i], g * sh, status[i]));
+      let base = 0,
+        earn = 0;
+      for (const x of sp) {
+        base += x.penaltyBase;
+        earn += x.earn;
+      }
+      return { sp, penalty: 0.1 * base, earn };
+    };
+    const apply = (sp) => sp.forEach((x, i) => rothSlotApply(R[i], x));
+    // Everything comes out of penalty-free, tax-free money: dollar for dollar.
+    const flat = Math.min(bucketBal, targetNet),
+      c0 = pieces(flat);
+    if (c0.penalty === 0 && c0.earn === 0) {
+      apply(c0.sp);
+      return { gross: flat, net: flat, penalty: 0, earn: 0 };
     }
     const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
     const cost = (gross) => {
-      const sp = rothLedgerSplit(L, gross),
-        penalty = f * 0.1 * (sp.fromConv + sp.fromEarn),
-        earn = f * sp.fromEarn,
-        tax = earn > 0 ? taxFor(profile, taxableGainGross, traditionalGross + earn) - baseTax : 0;
-      return { penalty, earn, net: gross - tax - penalty };
+      const c = pieces(gross),
+        tax = c.earn > 0 ? taxFor(profile, taxableGainGross, traditionalGross + c.earn) - baseTax : 0;
+      return { ...c, net: gross - tax - c.penalty };
     };
     let lo = 0,
       hi = Math.min(bucketBal, targetNet * 6 + 1);
@@ -3996,9 +4043,8 @@
     }
     const gross = Math.min(bucketBal, hi),
       c = cost(gross);
-    const d = apply(gross, c.penalty, c.earn);
-    d.net = c.net;
-    return d;
+    apply(c.sp);
+    return { gross, net: c.net, penalty: c.penalty, earn: c.earn };
   }
   // Solves for how much must come out of the traditional balance so that,
   // net of the tax (and early-withdrawal penalty, if applicable) that
@@ -5006,14 +5052,14 @@
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
   // seasoning clock for penalty-free access.
-  function applyRothConversion(bal, rothLedger, accts, conversionAmount, year) {
+  function applyRothConversion(bal, rothAccts, accts, conversionAmount, year) {
     if (conversionAmount <= 0) return;
-    accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount);
+    const to = accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount);
     const fromTradConv = Math.min(bal.traditional, conversionAmount);
     bal.traditional -= fromTradConv;
     bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
     bal.roth += conversionAmount;
-    rothLedger.conv.push({ year, amount: conversionAmount });
+    rothAccountsConvert(rothAccts, to, year);
   }
 
   // @@shared:09-sweepExcessCash begin
@@ -5072,14 +5118,15 @@
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
   // just parked in the reserve) so the Sankey does not undercount them.
-  function newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd }) {
+  function newWithdrawal({ bal, rothAccts, rothShares, profile, conversionAmount, rmd }) {
     return {
       bal,
-      rothLedger,
+      rothAccts,
+      rothShares,
+      rothStatus: ROTH_ALL_QUALIFIED,
       profile,
       need: 0,
       penalizedFraction: 0,
-      rothPenalizedFraction: 0,
       taxableGainGross: 0,
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
@@ -5129,13 +5176,15 @@
   function takeRoth(wd, bucket, amount) {
     const { bal } = wd;
     const d = rothDraw(
-      wd.rothLedger,
+      wd.rothAccts,
+      wd.rothShares,
+      bal.roth + bal.bondRoth,
       bal[bucket],
       amount,
       wd.taxableGainGross,
       wd.traditionalGross,
       wd.profile,
-      wd.rothPenalizedFraction,
+      wd.rothStatus,
     );
     bal[bucket] -= d.gross;
     wd.rothWithdrawn += d.gross;
@@ -5434,7 +5483,7 @@
   // up to the reserve, then (bucket strategy in an up year, bondTarget not null) rebuilds
   // the bond reserve, and the rest is invested in taxable. This year's contributions then
   // go into the traditional and Roth accounts.
-  function routeSurplus(bal, rothLedger, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib }) {
+  function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib }) {
     const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
     bal.cash += cashTopUp;
     let remainder = flow - cashTopUp;
@@ -5449,7 +5498,6 @@
     bal.taxableBasis += remainder;
     bal.traditional += traditionalContrib + employerMatch;
     bal.roth += rothContrib;
-    rothLedger.basis += rothContrib;
   }
   // @@shared:12-standardYearSource begin
   // ---- Year sources and modes for runProjection() ----
@@ -5549,8 +5597,8 @@
       loans = loanSchedules(),
       rows = [],
       magiHistory = [];
-    // Roth contribution/conversion/earnings ledger (see rothLedgerNew).
-    const rothLedger = rothLedgerNew();
+    // Per-account Roth contribution/conversion ledgers (see rothAccountsNew).
+    const rothAccts = rothAccountsNew();
     // Per-account shares of the traditional and Roth pools (see accountsNew).
     const accts = accountsNew();
     let depletedAge = null,
@@ -5700,18 +5748,18 @@
         const balSnapshot = { ...bal };
         const scalarSnapshot = { depletedAge, firstWithdrawal };
         const guardrailSnapshot = { ...guardrails };
-        const ledgerSnapshot = rothLedgerClone(rothLedger);
+        const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
             ({ depletedAge, firstWithdrawal } = scalarSnapshot);
             Object.assign(guardrails, guardrailSnapshot);
-            rothLedgerRestore(rothLedger, ledgerSnapshot);
+            rothAccountsRestore(rothAccts, ledgerSnapshot);
             accountsRestore(accts, acctSnapshot);
           }
           estUsed = false;
-        rothLedgerSeason(rothLedger, year);
+        rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
         // Lifted out of the block below (rather than left as the block's own
         // const) so the withdrawal waterfall further down can also respect
@@ -5818,7 +5866,7 @@
         if (rmd > 0 && !singlePerson && !isSurvivorPeriod)
           accountsDraw(accts.trad, bal.traditional + bal.bondTraditional, [rmdA, rmdB]);
         withdrawRequiredDistributions(bal, rmd);
-        applyRothConversion(bal, rothLedger, accts, conversionAmount, year);
+        applyRothConversion(bal, rothAccts, accts, conversionAmount, year);
         bal.cash += oneTimeAmount;
         const reserveTarget = state.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
@@ -5827,7 +5875,7 @@
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
         const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-        const wd = newWithdrawal({ bal, rothLedger, profile, conversionAmount, rmd });
+        const wd = newWithdrawal({ bal, rothAccts, rothShares: accts.roth, profile, conversionAmount, rmd });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -5835,7 +5883,8 @@
         if (flow >= 0) {
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
-          routeSurplus(bal, rothLedger, {
+          rothAccountsContribute(rothAccts, acctContrib.roth);
+          routeSurplus(bal, {
             flow,
             reserveTarget,
             bondTarget: surplusBondTarget,
@@ -5858,7 +5907,7 @@
           wd.penalizedFraction = traditionalPenaltyFraction(
             age, ageB, singlePerson, accountsOwnerShareA(accts.trad), workingA, workingB, retireAgeA, retireAgeB,
           );
-          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, accountsOwnerShareA(accts.roth));
+          wd.rothStatus = rothAccountStatuses({ age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB });
           if (mode.bucketStrategy)
             withdrawBucket(wd, {
               yearReturn: stockReturn,
@@ -5876,7 +5925,7 @@
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
           bal.roth += rothContrib;
-          rothLedger.basis += rothContrib;
+          rothAccountsContribute(rothAccts, acctContrib.roth);
         }
         // Realized totals for the MAGI convergence check, the next year's seed, and the row.
         const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
@@ -5963,6 +6012,8 @@
             tradShares: accts.trad.slice(),
             rothShares: accts.roth.slice(),
             conversionAmount,
+            rothBasis: rothAccts.map((L) => L.basis),
+            rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
           });
         }
         break;
@@ -11241,7 +11292,7 @@
     } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
     return trace;
   };
-  window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies };
+  window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, rothAccountStatuses };
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
