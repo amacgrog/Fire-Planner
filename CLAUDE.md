@@ -31,6 +31,8 @@ feature list.
   $750,000 mortgage-debt limit), hand-computed, plus engine-level cases with the
   clock pinned. `tests/medicare_enrollment.js` — Medicare/IRMAA start at
   `max(65, retirement age)`.
+- `tests/child_dependents.js` — the children list: `normalizeState` cleaning, `dependentsInYear` /
+  qualifying-child ages, and the US ACA household size and its effect on the 400%-FPL cliff.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
@@ -335,7 +337,11 @@ fragment type: `// @@shared:x begin` (JS, `shared/x.js`), `/* @@shared:x begin *
 shared region, so a CSS change is made once. The two `runProjection` year
 loops are deliberately not shared (see plan section 7, step 4.5): put a new
 per-year rule in a shared stage helper when it is identical in both
-countries, otherwise edit each loop.
+countries, otherwise edit each loop. **Windows gotcha:** the working tree is CRLF
+(`core.autocrlf=true`), and `npm run sync` rewrites the planner HTML files with LF while
+the `shared/` fragments stay CRLF, so `--check` then fails on every region. After a sync,
+convert the two planners back to CRLF (e.g. `content.replace(/\r\n/g,'\n').replace(/\n/g,'\r\n')`
+in a one-line node script) and re-run `npm run check:shared`; git normalizes both on commit.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
@@ -415,8 +421,8 @@ side before porting a feature:
 
 ## Add-as-you-go lists (loans, extra income, extra expenses, one-time items)
 
-`state.loans`, `incomeSources`, `oneTimeIncome`, `extraExpenses`, and
-`lumpExpenses` are arrays that **default to `[]`** (cap `LIST_MAX = 10`);
+`state.loans`, `incomeSources`, `oneTimeIncome`, `extraExpenses`,
+`lumpExpenses` (and `children`, below) are arrays that **default to `[]`** (cap `LIST_MAX = 10`);
 the old fixed slots and the `otherLoansEnabled`/`otherIncomeEnabled` master
 flags are gone. All five render from one generic DYN block (specs per list,
 `renderDynList(name)`, delegated input/change/click handlers) — add a field
@@ -448,6 +454,25 @@ migrated in `normalizeLists()` as open-ended (end 120) inflation-following
 changes, which reproduces the old projections exactly. Additional expenses
 (`#extraExpensesGroup`) is `data-cat="spending"`; one-time expenses, other loans and the pre-retirement healthcare group are
 also `spending`; additional income is `income`; `extra` keeps survivor planning.
+`state.children` is a seventh DYN list (ids `child<i>BirthYear` / `child<i>Student`; group `#childrenGroup`,
+`data-cat="profile"`, inside the shared `html-spendingTiersGroup` markup region; its copy lives in each
+planner's `DYN.children` spec, so Canada's note says it is not used yet). A row is `{ birthYear, student }`;
+`normalizeLists` (shared) clamps the year to the **fixed** bounds `CHILD_BIRTH_YEAR_MIN/MAX` (1950-2100, never
+relative to the clock, so a saved year cannot drift on reload), drops rows without a usable year, and keeps
+`student` only when literally `true`. Nothing is adjusted for children automatically (spending stays the
+user's). `dependentsInYear(taxYear)` (shared, in the `01-LIST_MAX` fragment, takes a CALENDAR year; the US
+engines pass `taxYearOf(yearIndex)`) returns `{ age, student, qualifyingChild }` per child born by then, with
+`age = taxYear - birthYear` (a birth year counts as age 0 for the whole year). `qualifyingChild` is the
+federal rule: `age <= 18`, or `age <= 23` for a full-time student; each credit applies its OWN cutoff to `age`
+(the Child Tax Credit is `age <= 16`; the child-care credit would be `age <= 12`). Qualifying relatives and
+disabled-at-any-age children are not modeled. `dependentsInYear` returns a shared frozen empty array when there
+are no children (hot path; do not mutate the result). **US plumbing:** `buildTaxProfile` puts
+`profile.dependents` on every profile (including the survivor remap: children stay with the surviving
+parent), and `acaHouseholdSize(singlePerson, isSurvivorPeriod, yearIndex)` (adults plus qualifying children)
+feeds both `acaNetCost` (via `healthcareCost`) and the 400%-FPL guard in `conversionMagiCeiling`, so cost and
+guard cannot drift apart. Profiles built elsewhere (the Roth solver and optimizer literals) have no
+`dependents`: a consumer must treat a missing list as none. Canada stores and edits the list but reads it
+nowhere yet. Tests: `tests/child_dependents.js` (in `npm test`), `test_children.js`.
 Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
 
 ## First-run wizard

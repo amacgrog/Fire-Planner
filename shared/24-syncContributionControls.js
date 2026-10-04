@@ -381,6 +381,7 @@
     renderOneTimeIncomeFields();
     renderExtraExpenseFields();
     renderLumpExpenseFields();
+    renderChildFields();
   }
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the

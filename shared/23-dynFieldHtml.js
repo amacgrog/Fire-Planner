@@ -114,6 +114,9 @@
   function renderSpendingTierFields() {
     renderDynList('spendingTiers');
   }
+  function renderChildFields() {
+    renderDynList('children');
+  }
   // Writes a slider's `<key>Out` label from the current state.
   function syncFieldOut(field) {
     document.getElementById(field.key + 'Out').textContent = field.out(state[field.key]);

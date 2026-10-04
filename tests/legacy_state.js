@@ -31,6 +31,11 @@ const COMMON = {
   'string numbers and junk': { spending: '70000', taxable: 'abc', fiWithdrawalRate: 99 },
   'garbage schedules': { appliedMixSchedule: { 60: 'nonsense', 61: 'taxable' }, appliedRothSchedule: { 60: 7, 61: 22 } },
   'dismissed arrays wrong type': { dismissedEstimates: 'x', dismissedUnusualAssumptions: 5 },
+  // Batch 7A: the children list (exact values are asserted in tests/child_dependents.js).
+  'children valid': { children: [{ birthYear: 2015, student: false }, { birthYear: 2030, student: true }] },
+  'children junk': { children: [{ birthYear: 'x' }, { birthYear: 1900, student: 'yes' }, { birthYear: 2500 }, { student: true }, null, 7, { birthYear: '2012.6', student: true }, { birthYear: null }, { birthYear: '' }] },
+  'children wrong type': { children: 'two' },
+  'children over the cap': { children: Array.from({ length: 14 }, (_, i) => ({ birthYear: 2000 + i })) },
 };
 const US = {
   ...COMMON,

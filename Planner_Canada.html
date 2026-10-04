@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V38</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V39</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -384,6 +384,10 @@
         <details class="group" id="otherLoansGroup" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Other loans</span><span class="group-state" id="otherLoansGroupState"></span></span></summary>
           <div id="loanFields"></div>
+        </details>
+        <details class="group" id="childrenGroup" data-cat="profile">
+          <summary><span class="group-summary-text"><span class="group-title">Children</span><span class="group-state" id="childrenGroupState"></span></span></summary>
+          <div id="childFields"></div>
         </details>
         <details class="group" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
@@ -788,6 +792,7 @@
     oneTimeIncome: [],
     extraExpenses: [],
     lumpExpenses: [],
+    children: [],
     dismissedEstimates: [],
     dismissedUnusualAssumptions: [],
   };
@@ -828,6 +833,32 @@
   // inflation, so they migrate as "own growth rate" pinned to the inflation
   // value at load time instead of silently switching to income growth.
   const LIST_MAX = 10;
+  const CHILD_BIRTH_YEAR_MIN = 1950,
+    CHILD_BIRTH_YEAR_MAX = 2100;
+  // Federal "qualifying child" age limits (IRC 152(c)(3)): under 19 at the end of the tax year,
+  // or under 24 for a full-time student. A child counts for the whole year of birth (age 0).
+  // Disabled-at-any-age children and qualifying relatives are not modeled. Each credit applies its
+  // own cutoff to `age` (the Child Tax Credit is age 16 or under; see docs/next-batches-plan.md).
+  const NO_DEPENDENTS = Object.freeze([]);
+  // The children on the plan in calendar year `taxYear`: `{ age, student, qualifyingChild }` for
+  // each child born by then. Returns a shared empty array when there are none (hot path).
+  function dependentsInYear(taxYear) {
+    const kids = state.children;
+    if (!kids || !kids.length) return NO_DEPENDENTS;
+    const out = [];
+    for (const c of kids) {
+      const age = taxYear - c.birthYear;
+      if (age < 0) continue;
+      const student = c.student === true;
+      out.push({ age, student, qualifyingChild: age <= 18 || (student && age <= 23) });
+    }
+    return out;
+  }
+  function qualifyingChildCount(taxYear) {
+    let n = 0;
+    for (const d of dependentsInYear(taxYear)) if (d.qualifyingChild) n++;
+    return n;
+  }
   function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);
@@ -899,6 +930,21 @@
         untilAge: num(x.untilAge, 85, 0, 120),
         flat: x.flat === true,
         ...growthOf(x, false, defaults.inflation),
+      }));
+    // Children (dependents): birth year (a past or future year; a planned child counts from the
+    // year of birth) and whether the child is a full-time student after 18. The year bounds are
+    // fixed, not relative to the clock, so a saved birth year never shifts when it is reloaded
+    // years later. A row without a usable year is dropped.
+    s.children = rows(raw?.children)
+      .filter(
+        (x) =>
+          (typeof x.birthYear === 'number' || (typeof x.birthYear === 'string' && x.birthYear.trim() !== '')) &&
+          Number.isFinite(Number(x.birthYear)),
+      )
+      .slice(0, LIST_MAX)
+      .map((x) => ({
+        birthYear: Math.round(num(x.birthYear, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX)),
+        student: x.student === true,
       }));
     // The old Bridge / part-time income section was folded into additional
     // income streams: carry a saved plan's bridge income over as streams
@@ -2032,6 +2078,17 @@
       );
     } else {
       setGroupState('otherLoansGroupState', '', false);
+    }
+
+    // Children.
+    if (state.children.length) {
+      setGroupState(
+        'childrenGroupState',
+        `✓ ${state.children.length} child${state.children.length === 1 ? '' : 'ren'}`,
+        true,
+      );
+    } else {
+      setGroupState('childrenGroupState', '', false);
     }
 
     // Additional income.
@@ -6735,6 +6792,36 @@
       ],
     },
   };
+  DYN.children = {
+    key: 'children',
+    container: 'childFields',
+    prefix: 'child',
+    noun: 'child',
+    rowTitle: (i) => `Child ${i + 1}`,
+    addLabel: '+ Add a child',
+    note: 'Children in your household, including planned ones.',
+    tip: "Not used by this planner's tax or benefit calculations yet: the list feeds the Canada Child Benefit, the GST/HST credit and the provincial child credits when those arrive in a later update. Spending is NOT adjusted automatically: add what children cost under household spending, additional expenses or spending changes.",
+    fresh: () => ({ birthYear: new Date().getFullYear(), student: false }),
+    fields: [
+      {
+        key: 'birthYear',
+        kind: 'num',
+        label: 'Birth year',
+        short: 'A future year counts from birth',
+        tip: 'The calendar year the child was (or will be) born.',
+        min: CHILD_BIRTH_YEAR_MIN,
+        max: CHILD_BIRTH_YEAR_MAX,
+        step: 1,
+      },
+      {
+        key: 'student',
+        kind: 'check',
+        label: 'Full-time student after 18',
+        short: 'For credits that extend past 18',
+        tip: 'Recorded for the credits that arrive in a later update. It has no effect on the projection today.',
+      },
+    ],
+  };
   // @@shared:23-dynFieldHtml begin
   function dynFieldHtml(spec, f, item, i) {
     const id = `${spec.prefix}${i}${f.key[0].toUpperCase()}${f.key.slice(1)}`,
@@ -6851,6 +6938,9 @@
   }
   function renderSpendingTierFields() {
     renderDynList('spendingTiers');
+  }
+  function renderChildFields() {
+    renderDynList('children');
   }
   // Writes a slider's `<key>Out` label from the current state.
   function syncFieldOut(field) {
@@ -7336,6 +7426,7 @@
     renderOneTimeIncomeFields();
     renderExtraExpenseFields();
     renderLumpExpenseFields();
+    renderChildFields();
   }
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the
@@ -7673,6 +7764,7 @@
       oneTimeIncome: defaults.oneTimeIncome.map((t) => ({ ...t })),
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
+      children: defaults.children.map((t) => ({ ...t })),
     };
     mode = 'real';
     logScale = false;
@@ -8638,6 +8730,7 @@
   window.__test_HIST = HIST;
   // @@shared:block end
   window.__test_getState = () => state;
+  window.__test_children = { dependentsInYear, qualifyingChildCount };
   window.__test_FIELDS = FIELDS;
   window.__test_tax = { taxFor, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_TAX, PROVINCE_ELIGIBLE_DTC, taxIndexFactor };
 })();
