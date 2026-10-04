@@ -2727,9 +2727,11 @@
   //
   // Every row declares every field (an explicit 'none' / [] / 0 where a rule does not
   // exist); tests/state_rules.js fails if any of the 50 states or DC is missing a field.
-  // Amounts are 2026 dollars; `indexing: 'cpi'` scales every dollar amount and threshold
-  // with the plan's tax-index factor (the same factor as the federal schedules), 'none'
-  // holds them nominal (the law of states that do not index). The evaluator order is
+  // Amounts are 2026 dollars. Indexing is declared per family of parameters, never as one switch: a flag on
+  // `indexing` scales that family with the plan's tax-index factor (the same factor as the federal
+  // schedules), false holds it nominal, because states index some things and not others (California indexes
+  // its brackets, deduction and credits but not its $1 million surcharge; New York indexes nothing).
+  // The evaluator order is
   // fixed, state first, federal second: a state's base never reads a federal deduction or
   // federal tax, because the state tax feeds the federal SALT deduction.
   //
@@ -2738,6 +2740,10 @@
   //                    'researched' = checked against `source` as of `asOf`
   //   sourceKind       'none' | 'secondary' | 'primary' (what `source` is; see the generated
   //                    docs/state-tax-rules.md and the plan's Verification backlog)
+  //   indexing         { bracketsIndexed, standardDeductionIndexed, personalExemptionIndexed (exemptions, dependent
+  //                    exemption, exemption credits), creditAmountsIndexed, creditThresholdsIndexed (credit income limits,
+  //                    phase-out starts and widths, the exemption step-down), retirementExclusionIndexed (exclusion caps
+  //                    and the Social Security and pension AGI tests) }; each addition carries its own `indexed`
   //   statusAs         which column a federal filing status reads (hoh / qss fall back to the
   //                    single / joint column unless the state has its own)
   //   tax              { kind: 'none' } | { kind: 'flat', rate } |
@@ -2766,7 +2772,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -2790,7 +2803,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -2811,7 +2831,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.025 },
       additions: [],
@@ -2832,7 +2859,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.02], [4600, 0.039]], mfj: [[0, 0.02], [4600, 0.039]] } },
       additions: [],
@@ -2853,26 +2887,35 @@
       sourceKind: 'secondary',
       source: 'https://a-us.storyblok.com/f/1015104/x/b62453f262/1225-fast-tax-facts.pdf',
       asOf: 2025,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [
-            [0, 0.01], [11079, 0.02], [26264, 0.04], [41452, 0.06], [57542, 0.08], [72724, 0.093], [371479, 0.103],
-            [445771, 0.113], [742953, 0.123], [1000000, 0.133],
-          ],
+          single: [[0, 0.01], [11079, 0.02], [26264, 0.04], [41452, 0.06], [57542, 0.08], [72724, 0.093], [371479, 0.103], [445771, 0.113], [742953, 0.123]],
           mfj: [
             [0, 0.01], [22158, 0.02], [52528, 0.04], [82904, 0.06], [115084, 0.08], [145448, 0.093], [742958, 0.103],
-            [891542, 0.113], [1000000, 0.123], [1485906, 0.133],
+            [891542, 0.113], [1485906, 0.123],
           ],
-          hoh: [
-            [0, 0.01], [22173, 0.02], [52530, 0.04], [67716, 0.06], [83805, 0.08], [98990, 0.093], [505208, 0.103],
-            [606251, 0.113], [1000000, 0.123], [1010417, 0.133],
-          ],
+          hoh: [[0, 0.01], [22173, 0.02], [52530, 0.04], [67716, 0.06], [83805, 0.08], [98990, 0.093], [505208, 0.103], [606251, 0.113], [1010417, 0.123]],
         },
       },
-      additions: [],
+      additions: [
+        {
+          kind: 'threshold',
+          label: 'Mental health services surcharge (1% over $1 million)',
+          threshold: 1000000,
+          rate: 0.01,
+          indexed: false,
+        },
+      ],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 5706, mfj: 11412, hoh: 11412 },
       exemption: { single: 0, mfj: 0, hoh: 0 },
@@ -2900,7 +2943,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary): the FTB publishes the 2026 indexed schedules later, so 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is inside the top two brackets. Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit, the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
+      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit, the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
     },
     co: {
       name: 'Colorado',
@@ -2908,7 +2951,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.044 },
       additions: [],
@@ -2929,7 +2979,14 @@
       sourceKind: 'primary',
       source: 'https://portal.ct.gov/-/media/drs/forms/2025/income/ct-1040-tcs_1225.pdf',
       asOf: 2025,
-      indexing: 'none',
+      indexing: {
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -2957,6 +3014,7 @@
               [110500, 360], [114500, 400],
             ],
           },
+          indexed: false,
         },
         {
           kind: 'agiStep',
@@ -2990,6 +3048,7 @@
               [816000, 4840], [824000, 4920], [832000, 5000], [840000, 5080], [848000, 5160], [856000, 5240], [864000, 5320],
             ],
           },
+          indexed: false,
         },
       ],
       base: {
@@ -3059,7 +3118,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3086,7 +3152,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3107,7 +3180,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0519 },
       additions: [],
@@ -3128,7 +3208,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3161,7 +3248,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.053 },
       additions: [],
@@ -3182,7 +3276,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0495 },
       additions: [],
@@ -3203,7 +3304,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0295 },
       additions: [],
@@ -3224,7 +3332,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.038 },
       additions: [],
@@ -3245,7 +3360,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.052], [23000, 0.0558]], mfj: [[0, 0.052], [46000, 0.0558]] } },
       additions: [],
@@ -3266,7 +3388,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.035 },
       additions: [],
@@ -3287,7 +3416,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.03 },
       additions: [],
@@ -3308,7 +3444,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3332,7 +3475,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3365,11 +3515,18 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.05 },
       additions: [
-        { kind: 'threshold', threshold: 1107750, rate: 0.04 },
+        { kind: 'threshold', threshold: 1107750, rate: 0.04, indexed: true },
       ],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
@@ -3388,7 +3545,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0425 },
       additions: [],
@@ -3409,7 +3573,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3436,7 +3607,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0], [10000, 0.04]], mfj: [[0, 0], [10000, 0.04]] } },
       additions: [],
@@ -3457,7 +3635,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3484,7 +3669,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.047], [47500, 0.0565]], mfj: [[0, 0.047], [95000, 0.0565]] } },
       additions: [],
@@ -3505,7 +3697,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3529,7 +3728,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3550,7 +3756,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3571,7 +3784,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3601,7 +3821,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3628,7 +3855,14 @@
       sourceKind: 'secondary',
       source: 'https://www.tax.ny.gov/pdf/2025/inc/it201i_2025.pdf',
       asOf: 2026,
-      indexing: 'none',
+      indexing: {
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3660,6 +3894,7 @@
             mfj: [[0, 0.054], [161550, 0.059], [323200, 0.0685], [2155350, 0.0965], [5000000, 0.103]],
             hoh: [[0, 0.059], [269300, 0.0685], [1616450, 0.0965], [5000000, 0.103]],
           },
+          indexed: false,
         },
       ],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
@@ -3674,7 +3909,7 @@
           label: 'Empire State child credit',
           refundable: true,
           tiers: [[3, 1000], [16, 500]],
-          phaseOut: { start: { single: 75000, mfj: 110000, hoh: 75000 }, width: 1000, per: 16.5 },
+          phaseOut: { start: { single: 75000, mfj: 110000, hoh: 75000, qss: 75000 }, width: 1000, per: 16.5 },
         },
       ],
       federalTaxSubtraction: 'none',
@@ -3687,7 +3922,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0399 },
       additions: [],
@@ -3708,7 +3950,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3732,7 +3981,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0], [26050, 0.0275]], mfj: [[0, 0], [26050, 0.0275]] } },
       additions: [],
@@ -3753,7 +4009,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3780,7 +4043,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3807,7 +4077,14 @@
       sourceKind: 'secondary',
       source: 'https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax/tax-forgiveness',
       asOf: 2026,
-      indexing: 'none',
+      indexing: {
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0307 },
       additions: [],
@@ -3838,7 +4115,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3862,7 +4146,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3886,7 +4177,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3907,7 +4205,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3928,7 +4233,14 @@
       sourceKind: 'secondary',
       source: 'https://comptroller.texas.gov/taxes/',
       asOf: 2026,
-      indexing: 'none',
+      indexing: {
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3949,7 +4261,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.045 },
       additions: [],
@@ -3970,7 +4289,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -3997,7 +4323,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -4024,7 +4357,14 @@
       sourceKind: 'primary',
       source: 'https://dor.wa.gov/taxes-rates/other-taxes/capital-gains-tax',
       asOf: 2025,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: false,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.07], [1000000, 0.099]], mfj: [[0, 0.07], [1000000, 0.099]] } },
       additions: [],
@@ -4037,7 +4377,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'A tax on long-term capital gains only (real estate and retirement accounts excluded; the engine\'s gains are brokerage gains). 7% on the first $1 million above the $278,000 standard deduction (the same for a couple), 9.9% above (ESSB 5813, 2025; DOR). The exemption adjusts for inflation (DOR); the $1 million tier is assumed to index with it (not confirmed). No wage or retirement income tax.',
+      notes: 'A tax on long-term capital gains only (real estate and retirement accounts excluded; the engine\'s gains are brokerage gains). 7% on the first $1 million above the $278,000 standard deduction (the same for a couple), 9.9% above (ESSB 5813, 2025; DOR). The standard deduction is indexed for inflation; the $1 million tier is not. No wage or retirement income tax.',
     },
     wv: {
       name: 'West Virginia',
@@ -4045,7 +4385,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -4072,7 +4419,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -4099,7 +4453,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -4120,7 +4481,14 @@
       sourceKind: 'none',
       source: null,
       asOf: null,
-      indexing: 'cpi',
+      indexing: {
+        bracketsIndexed: true,
+        standardDeductionIndexed: true,
+        personalExemptionIndexed: true,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
+        retirementExclusionIndexed: true,
+      },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
@@ -4166,7 +4534,8 @@
     const ss = row.base.socialSecurity;
     return {
       noTax: row.tax.kind === 'none',
-      indexed: row.indexing === 'cpi',
+      idx: row.indexing,
+      anyIndexed: Object.values(row.indexing).some(Boolean) || row.additions.some((a) => a.indexed),
       statusAs: row.statusAs,
       flatRate: row.tax.kind === 'flat' ? row.tax.rate : 0,
       graduated: row.tax.kind === 'graduated',
@@ -4300,7 +4669,11 @@
   //                        plus `perDependent` per qualifying child), then cut by `stepPct` per `stepWidth`
   //   'agiStepFraction'    a fraction of the tax from a step table of the state AGI
   function stateCreditAmount(cr, colKey, c) {
-    const f = c.factor,
+    // Three index factors: personal-exemption-type amounts (fEx), other credit amounts (fCa) and the
+    // income thresholds, limits and step widths (fCt).
+    const fEx = c.fEx,
+      fCa = c.fCa,
+      fCt = c.fCt,
       sources = c.sources,
       deps = sources.dependents || NO_DEPENDENTS;
     switch (cr.kind) {
@@ -4308,41 +4681,43 @@
         const seniors = countAtLeast(sources.ages || [], cr.senior.age),
           kids = countQualifyingChildren(deps),
           count = cr.personalCount[colKey] + seniors + kids,
-          gross = (cr.personal[colKey] + seniors * cr.senior.amount + kids * cr.dependent) * f,
-          over = c.fedAgi - cr.phaseOut.start[colKey] * f;
+          gross = (cr.personal[colKey] + seniors * cr.senior.amount + kids * cr.dependent) * fEx,
+          over = c.fedAgi - cr.phaseOut.start[colKey] * fCt;
         if (!(over > 0)) return gross;
-        return Math.max(0, gross - count * cr.phaseOut.reduction * f * Math.ceil(over / (cr.phaseOut.width * f)));
+        return Math.max(0, gross - count * cr.phaseOut.reduction * fEx * Math.ceil(over / (cr.phaseOut.width * fCt)));
       }
       case 'renterCredit':
-        return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * f ? cr.amount[colKey] * f : 0;
+        return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * fCt ? cr.amount[colKey] * fCa : 0;
       case 'childCredit': {
-        // The phase-out comes off the household's total, not off each child's amount.
-        const over = c.fedAgi - cr.phaseOut.start[colKey] * f,
-          cut = over > 0 ? Math.ceil(over / (cr.phaseOut.width * f)) * cr.phaseOut.per * f : 0;
+        // The phase-out comes off the household's total, not off each child's amount. A status can have its own
+        // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here).
+        const start = cr.phaseOut.start[c.filing] !== undefined ? cr.phaseOut.start[c.filing] : cr.phaseOut.start[colKey],
+          over = c.fedAgi - start * fCt,
+          cut = over > 0 ? Math.ceil(over / (cr.phaseOut.width * fCt)) * cr.phaseOut.per * fCa : 0;
         let total = 0;
         for (let i = 0; i < deps.length; i++) {
           if (!deps[i].qualifyingChild) continue;
           for (let t = 0; t < cr.tiers.length; t++)
             if (deps[i].age <= cr.tiers[t][0]) {
-              total += cr.tiers[t][1] * f;
+              total += cr.tiers[t][1] * fCa;
               break;
             }
         }
         return Math.max(0, total - cut);
       }
       case 'propertyTaxCredit': {
-        const over = c.agi - cr.limit[colKey] * f,
-          share = over > 0 ? Math.max(0, 1 - cr.stepPct * Math.ceil(over / (cr.stepWidth * f))) : 1;
-        return Math.min(sources.propertyTax || 0, cr.max * f) * share;
+        const over = c.agi - cr.limit[colKey] * fCt,
+          share = over > 0 ? Math.max(0, 1 - cr.stepPct * Math.ceil(over / (cr.stepWidth * fCt))) : 1;
+        return Math.min(sources.propertyTax || 0, cr.max * fCa) * share;
       }
       case 'taxForgiveness': {
-        const limit = (cr.limit[colKey] + countQualifyingChildren(deps) * cr.perDependent) * f,
+        const limit = (cr.limit[colKey] + countQualifyingChildren(deps) * cr.perDependent) * fCt,
           over = c.income - limit,
-          share = over > 0 ? Math.max(0, 1 - cr.stepPct * Math.ceil(over / (cr.stepWidth * f))) : 1;
+          share = over > 0 ? Math.max(0, 1 - cr.stepPct * Math.ceil(over / (cr.stepWidth * fCt))) : 1;
         return c.tax * share;
       }
       case 'agiStepFraction':
-        return c.tax * stateStepValue(cr.tables[colKey], c.agi, false, f);
+        return c.tax * stateStepValue(cr.tables[colKey], c.agi, false, fCt);
       default:
         return 0;
     }
@@ -4401,7 +4776,14 @@
   function stateIncomeTax(sources, filing, yearIndex) {
     const rule = stateRuleFor(state.stateTax);
     if (!rule || rule.noTax) return 0;
-    const factor = rule.indexed ? taxIndexFactor(yearIndex) : 1,
+    // Each family of parameters has its own indexing flag (rule.idx): states index some and not others.
+    const base = rule.anyIndexed ? taxIndexFactor(yearIndex) : 1,
+      fBr = rule.idx.bracketsIndexed ? base : 1,
+      fSd = rule.idx.standardDeductionIndexed ? base : 1,
+      fEx = rule.idx.personalExemptionIndexed ? base : 1,
+      fCa = rule.idx.creditAmountsIndexed ? base : 1,
+      fCt = rule.idx.creditThresholdsIndexed ? base : 1,
+      fRe = rule.idx.retirementExclusionIndexed ? base : 1,
       colKey = rule.statusAs[filing] || 'single',
       col = rule.cols[colKey],
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
@@ -4413,36 +4795,37 @@
       start += taxableSS;
       if (rule.ss === SS_SUBTRACTION) {
         const senior = countAtLeast(sources.ages || [], rule.ssRule.seniorAge) > 0;
-        ssSubtraction = senior ? taxableSS : Math.min(taxableSS, rule.ssRule.belowSeniorCap * factor);
+        ssSubtraction = senior ? taxableSS : Math.min(taxableSS, rule.ssRule.belowSeniorCap * fRe);
       } else if (rule.ss === SS_AGI_TESTED) {
         // Exempt below an AGI, otherwise only a share of the benefits received is taxed.
         ssSubtraction =
-          start < rule.ssRule.exemptBelow[colKey] * factor
+          start < rule.ssRule.exemptBelow[colKey] * fRe
             ? taxableSS
             : taxableSS - Math.min(taxableSS, rule.ssRule.taxedShareOfBenefits * (sources.ssBenefits || 0));
       }
     }
     // `start` stands for the federal AGI; `agi` is the state's AGI after its own subtractions.
-    const agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, factor, colKey, start);
-    let exemption = col.exemption * factor;
+    const agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start);
+    let exemption = col.exemption * fEx;
     if (rule.exemptionPhaseOut) {
       const p = rule.exemptionPhaseOut,
-        over = agi - p.start[colKey] * factor;
-      if (over > 0) exemption = Math.max(0, exemption - p.step * factor * Math.ceil(over / (p.width * factor)));
+        over = agi - p.start[colKey] * fCt;
+      if (over > 0) exemption = Math.max(0, exemption - p.step * fEx * Math.ceil(over / (p.width * fCt)));
     }
-    let taxable = agi - col.standard * factor - exemption;
+    let taxable = agi - col.standard * fSd - exemption;
     if (rule.dependentExemption)
-      taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * factor;
+      taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * fEx;
     const income = Math.max(0, taxable);
-    let tax = rule.graduated ? graduatedTax(income, col.starts, col.rates, factor) : income * rule.flatRate;
+    let tax = rule.graduated ? graduatedTax(income, col.starts, col.rates, fBr) : income * rule.flatRate;
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
-      if (a.kind === 'threshold') tax += Math.max(0, income - a.threshold * factor) * a.rate;
-      else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, factor);
-      else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, factor);
+      const fa = a.indexed ? base : 1; // each addition says whether its thresholds index
+      if (a.kind === 'threshold') tax += Math.max(0, income - a.threshold * fa) * a.rate;
+      else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, fa);
+      else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, fa);
     }
     if (rule.credits.length) {
-      const ctx = { agi, fedAgi: start, income, tax, sources, factor };
+      const ctx = { agi, fedAgi: start, income, tax, sources, fEx, fCa, fCt, filing };
       let remaining = tax,
         refundable = 0;
       for (let i = 0; i < rule.credits.length; i++) {

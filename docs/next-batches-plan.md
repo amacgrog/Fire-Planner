@@ -1889,6 +1889,27 @@ Tests: `tests/state_reference.js` (about 45 hand-computed households across the 
 choice), the updated literals in `tests/tax_brackets.js` (CA single $100k, WA 9.9%), and the invariants test now allows NY's recapture steps and
 checks that a non-indexing state stays put.
 
+**Follow-up to commit 5 (owner, 2026-10-04): indexing per family, NY QSS threshold, confirmations.**
+- **Indexing is declared per family of parameters, not as one switch** (owner): `bracketsIndexed`, `standardDeductionIndexed`,
+  `personalExemptionIndexed` (exemptions, dependent exemption, exemption credits), `creditAmountsIndexed`, `creditThresholdsIndexed` (credit
+  income limits, phase-out starts and widths, the exemption step-down) and `retirementExclusionIndexed` (exclusion caps, the Social Security and
+  pension AGI tests), plus an `indexed` flag on each `additions` entry. Migrated rows are fully indexed (bit-identical to before). CA: everything
+  indexed except the 1% mental-health surcharge, now its own fixed-threshold addition at $1,000,000 instead of merged top brackets (so the surcharge
+  threshold no longer drifts past the indexed 12.3% bracket start). NY, PA, CT: nothing indexed. WA: deduction indexed, the $1,000,000 tier not.
+- **NY Empire State child credit for a qualifying surviving spouse** uses the $75,000 threshold (the credit's own per-status override; the brackets
+  still read the joint column). The phase-out comes off the household total (see the earlier correction).
+- **Owner-confirmed 2026 points** (from the owner's own table; treat as S+O until opened at the primary source): NY rates and thresholds, NY standard
+  deductions, NY pension exclusion is for qualifying pension and annuity income from 59 and a half per person; CT property tax credit 15% per $10,000 over
+  $49,500 / $70,500 / $54,500 with no enacted 2026 change found; WA standard deduction indexed ($278,000 for 2025), WA $1 million tier not indexed; CA
+  has no published 2026 schedule yet (the row stays 2025, never labeled 2026). PA: IRA distributions are generally exempt after retirement age with
+  early distributions taxable; 401(k) distributions are generally exempt after retirement (see the open item: not yet modeled).
+- **The 17 states that index their brackets (owner's table; input for 7D, not yet applied to any migrated row):** AZ (Phoenix CPI), AR (CPI), CA (California CPI), ID (CPI,
+  cumulative), IA (GDP deflator), ME (chained CPI), MN (CPI / statutory federal reference), MO (CPI, cumulative), MT (CPI), NE (CPI), ND (chained
+  CPI), OH (GDP deflator), OR (CPI), RI (CPI), SC (chained CPI), VT (CPI), WI (CPI). The other states' rows have bracket indexing off in 7D unless
+  the row research says otherwise; the per-family flags let 7D set standard deduction, exemption and credit indexing separately for each state. The
+  planner uses one index factor (the plan's tax-index factor) for every state; the measures differ (Phoenix CPI, chained CPI, GDP deflator) and that
+  difference is not modeled.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1951,7 +1972,7 @@ reading (itself secondary).
 | CT: Table A exemption (the PDF text is misaligned; formula $1,000 per $1,000 over $30,000 / $48,000 / $38,000 matches the printed joint column and stated ends), property tax credit steps (15% per $10,000), 2026 table revisions, IRA deduction 100% from 2026 | 7C | P (Form CT-1040 TCS Rev. 12/25; OLR 2025-R-0152) for tables and thresholds; S for the property tax credit | CT-1040 instructions 2025 and 2026, CGS sec. 12-701(a)(20) |
 | WA: $278,000 standard deduction for 2025 (P, DOR), 2026 amount, whether the $1 million tier indexes, 9.9% (P, DOR) | 7C | P / U | RCW 82.87.040 as amended by ESSB 5813 |
 | TX: no individual income tax | 7C | S (Comptroller tax list) | Tex. Const. art. VIII sec. 24-a |
-| State indexing: NY, PA and CT held nominal, CA and WA indexed with the plan's tax-index factor | 7C | O (own reading) | each state's statute |
+| State indexing by family: NY, PA and CT nothing indexed; CA all indexed except the $1 million surcharge; WA deduction indexed, $1 million tier not; the 17-state list of bracket-indexing states and each state's measure (owner's table) | 7C / 7D | O (owner's table, secondary) | each state's statute and revenue department notices |
 
 ## Open items
 
@@ -2024,6 +2045,14 @@ remains is detail to settle when the relevant batch is scoped:
 - HoH and QSS in state tax (raised in 7A): until 7C reconsiders them, the state-tax calls get
   the nearest `mfj` / `single` mapping (QSS as `mfj`, HoH as `single`); each state's own rules
   go in `STATE_RULES`.
+- **Bracket-creep patches for the non-indexing states (owner request):** NY, PA and CT (and any other state whose row has bracket indexing off) hold their thresholds still, so a long
+  projection pushes more income into higher brackets than legislatures have historically allowed. Estimate how often and by how much each state has actually raised its
+  thresholds and deductions relative to inflation (a periodic adjustment, or a rate cut in place of one), and decide whether to add an optional assumed catch-up (for
+  example a periodic reset of the thresholds toward the indexed path) to the unindexed rows. Needs the historical series per state, a before/after on a long-horizon
+  scenario for NY, PA and CT, and a switch or default decision. Not built.
+- PA 401(k) after retirement (owner-confirmed rule: a 401(k) distribution after retirement is generally exempt at any age, while IRA distributions before 59 and a half are taxable):
+  the row taxes every traditional draw before 59 and a half, which overstates PA tax for an early retiree drawing a 401(k). Modeling it needs the 401(k) and IRA split of each
+  partner's traditional draw in the tax profile (the account ledger already tracks it) and a `retired` condition. Not built.
 - State EITCs and other refundable earned-income credits (CalEITC, NY EITC, CT EITC) are not modeled in 7C; decide them with the federal EITC (above).
 - CA 2026 figures: replace the 2025 figures when the FTB publishes the 2026 schedules (the row is `asOf: 2025`).
 - NY real property tax credit and household credit, CA Young Child Tax Credit, and local income taxes are documented gaps.

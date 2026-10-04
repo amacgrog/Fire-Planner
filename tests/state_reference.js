@@ -128,6 +128,12 @@ function checks() {
   near(tax('wa', { gains: 378000 }, 'mfj'), 7000, 'WA the same deduction for a couple');
   near(tax('wa', { gains: 1378000 }), 79900, 'WA 9.9% above 1,000,000 of taxable gains'); // 70,000 + 100,000 x 9.9%
   near(tax('tx', { wages: 500000, gains: 500000 }), 0, 'TX no income tax');
+  // Washington indexes the deduction but not the 1,000,000 tier: at year 10 (3%) the deduction is 278,000 x 1.3439 and a taxable
+  // gain of 1,100,000 still pays 9.9% only on the last 100,000: 70,000 + 9,900
+  st.inflation = 3;
+  const f10 = Math.pow(1.03, 10);
+  near(tax('wa', { gains: 278000 * f10 + 1100000 }, 'single', 10), 79900, 'WA deduction indexed, $1M tier fixed');
+  st.inflation = 0;
 
   // ============================== The engine runs with every reference state ==============================
   // A working couple with children and some of every income source: no NaN, no negative withdrawals.

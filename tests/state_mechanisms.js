@@ -18,9 +18,10 @@ function checks() {
   st.inflation = 0;
   st.stateTax = 'zz';
   const zero3 = { single: 0, mfj: 0, hoh: 0 };
+  const idx = (on, o) => Object.assign({ bracketsIndexed: on, standardDeductionIndexed: on, personalExemptionIndexed: on, creditAmountsIndexed: on, creditThresholdsIndexed: on, retirementExclusionIndexed: on }, o);
   const flat = (rate) => ({ kind: 'flat', rate });
   const mk = (o) => Object.assign({
-    name: 'Synthetic', status: 'migrated', sourceKind: 'none', source: null, asOf: null, indexing: 'none',
+    name: 'Synthetic', status: 'migrated', sourceKind: 'none', source: null, asOf: null, indexing: idx(false),
     statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' }, tax: flat(0.1), additions: [],
     base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
     standardDeduction: { ...zero3 }, exemption: { ...zero3 }, exemptionPhaseOut: { kind: 'none' }, dependentExemption: 0,
@@ -45,7 +46,7 @@ function checks() {
   // 20,000 taxable the flat 5%, above it 6%; everything at 7% once AGI is over 1,000,000.
   const recap = {
     tax: { kind: 'graduated', columns: { single: [[0, 0.04], [10000, 0.05], [20000, 0.06]], mfj: [[0, 0.04], [10000, 0.05], [20000, 0.06]], hoh: [[0, 0.04], [10000, 0.05], [20000, 0.06]] } },
-    additions: [{ kind: 'benefitRecapture', agiStart: 12000, phaseWidth: 4000, flatAbove: 1000000, flatRate: 0.07, tiers: { single: [[0, 0.05], [20000, 0.06]], mfj: [[0, 0.05], [20000, 0.06]], hoh: [[0, 0.05], [20000, 0.06]] } }],
+    additions: [{ kind: 'benefitRecapture', indexed: false, agiStart: 12000, phaseWidth: 4000, flatAbove: 1000000, flatRate: 0.07, tiers: { single: [[0, 0.05], [20000, 0.06]], mfj: [[0, 0.05], [20000, 0.06]], hoh: [[0, 0.05], [20000, 0.06]] } }],
   };
   near(run(recap, { wages: 11000 }), 400 + 5 * 10, 'recapture: AGI under the start owes the plain tax (11,000: 400 + 50)'); // 400 + 1,000 x 5% = 450
   // AGI 15,000: tax 400 + 250 = 650; flat 5% = 750; ratio (15,000 - 12,000) / 4,000 = 0.75 -> 650 + 100 x 0.75 = 725
@@ -63,7 +64,7 @@ function checks() {
   near(run(recap, { wages: 2000000 }), 140000, 'recapture: AGI over the flat threshold is 7% of everything');
 
   // --- AGI step addition (CT-style add-back) -----------------------------------------------------------
-  const step = { tax: flat(0.1), additions: [{ kind: 'agiStep', label: 'add-back', tables: cols([[0, 0], [50000, 25], [60000, 50]]) }] };
+  const step = { tax: flat(0.1), additions: [{ kind: 'agiStep', indexed: false, label: 'add-back', tables: cols([[0, 0], [50000, 25], [60000, 50]]) }] };
   near(run(step, { wages: 50000 }), 5000, 'agi step: at the bound is not over it');
   near(run(step, { wages: 55000 }), 5525, 'agi step: 5,500 + 25');
   near(run(step, { wages: 70000 }), 7050, 'agi step: 7,000 + 50');
@@ -171,8 +172,23 @@ function checks() {
   near(run({ ...own, statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'single' } }, { wages: 10000 }, 'hoh'), 900, 'columns: a state that reads head of household as single');
   st.inflation = 3;
   const f10 = Math.pow(1.03, 10);
-  near(run({ ...own, indexing: 'none' }, { wages: 10000 }, 'single', 10), 900, 'indexing none: the deduction stays nominal');
-  near(run({ ...own, indexing: 'cpi' }, { wages: 10000 * f10 }, 'single', 10), (10000 * f10 - 1000 * f10) * 0.1, 'indexing cpi: the deduction follows inflation');
+  near(run({ ...own, indexing: idx(false) }, { wages: 10000 }, 'single', 10), 900, 'indexing off: the deduction stays nominal');
+  near(run({ ...own, indexing: idx(true) }, { wages: 10000 * f10 }, 'single', 10), (10000 * f10 - 1000 * f10) * 0.1, 'indexing on: the deduction follows inflation');
+  // Families are independent: brackets fixed, standard deduction indexed (Washington's shape). Brackets 10% to 10,000 then 20%;
+  // wages 20,000, deduction 1,000 x 1.3439 = 1,343.92 -> taxable 18,656.08 -> 1,000 + 8,656.08 x 20% = 2,731.22
+  const mixed = { tax: { kind: 'graduated', columns: { single: [[0, 0.1], [10000, 0.2]], mfj: [[0, 0.1], [10000, 0.2]], hoh: [[0, 0.1], [10000, 0.2]] } }, standardDeduction: { single: 1000, mfj: 1000, hoh: 1000 } };
+  near(run({ ...mixed, indexing: idx(true, { bracketsIndexed: false }) }, { wages: 20000 }, 'single', 10), 1000 + (20000 - 1000 * f10 - 10000) * 0.2, 'indexing: brackets fixed, deduction indexed');
+  near(run({ ...mixed, indexing: idx(false, { standardDeductionIndexed: true }) }, { wages: 20000 }, 'single', 10), 1000 + (20000 - 1000 * f10 - 10000) * 0.2, 'indexing: only the deduction flag set');
+  near(run({ ...mixed, indexing: idx(true, { standardDeductionIndexed: false }) }, { wages: 20000 * f10 }, 'single', 10), 0.1 * 10000 * f10 + 0.2 * (20000 * f10 - 1000 - 10000 * f10), 'indexing: brackets indexed, deduction fixed');
+  // A threshold addition has its own flag: 5% over 10,000 on 20,000 of income at year 10 -> fixed: 500; indexed: (20,000 - 13,439.16) x 5%
+  const sur = (indexed) => ({ additions: [{ kind: 'threshold', threshold: 10000, rate: 0.05, indexed }] });
+  near(run({ ...sur(false), indexing: idx(true) }, { wages: 20000 }, 'single', 10), 2000 + 500, 'addition fixed: the threshold does not index');
+  near(run({ ...sur(true), indexing: idx(false) }, { wages: 20000 }, 'single', 10), 2000 + (20000 - 10000 * f10) * 0.05, 'addition indexed: the threshold follows inflation');
+  // A status with its own credit threshold: the child credit reads `qss` (75,000) not the joint 110,000 column
+  const kid1 = [kid(8)];
+  const qssCredit = { standardDeduction: { single: 0, mfj: 0, hoh: 0 }, statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' }, credits: [{ kind: 'childCredit', label: 'child', refundable: true, tiers: [[16, 500]], phaseOut: { start: { single: 75000, mfj: 110000, hoh: 75000, qss: 75000 }, width: 1000, per: 16.5 } }] };
+  near(run(qssCredit, { wages: 90000, dependents: kid1 }, 'qss'), 9000 - (500 - 15 * 16.5), 'child credit: a status with its own threshold (qss 75,000)');
+  near(run(qssCredit, { wages: 90000, dependents: kid1 }, 'mfj'), 9000 - 500, 'child credit: joint 110,000 still applies to joint filers');
   st.inflation = 0;
 
   // --- Plumbing through taxFor: each partner's discretionary traditional draw follows the account-ledger share ---

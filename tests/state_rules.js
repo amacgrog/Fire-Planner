@@ -49,7 +49,8 @@ function checks() {
     need(r.status === 'researched' ? r.sourceKind !== 'none' : r.sourceKind === 'none', at + 'source kind must match the row status');
     if (r.status === 'researched') need(typeof r.source === 'string' && /^https?:\/\//.test(r.source) && Number.isInteger(r.asOf) && r.asOf >= 2025, at + 'researched rows need a source URL and an asOf year');
     else need(r.source === null || typeof r.source === 'string', at + 'source');
-    need(r.indexing === 'cpi' || r.indexing === 'none', at + 'indexing');
+    const IDX = ['bracketsIndexed', 'standardDeductionIndexed', 'personalExemptionIndexed', 'creditAmountsIndexed', 'creditThresholdsIndexed', 'retirementExclusionIndexed'];
+    need(r.indexing && JSON.stringify(Object.keys(r.indexing)) === JSON.stringify(IDX) && IDX.every((k) => typeof r.indexing[k] === 'boolean'), at + 'indexing must declare every family as a boolean');
     const columns = Object.keys(r.standardDeduction);
     need(columns.includes('single') && columns.includes('mfj') && columns.every((c) => ['single', 'mfj', 'hoh'].includes(c)), at + 'columns ' + columns);
     need(JSON.stringify(Object.keys(r.exemption)) === JSON.stringify(columns), at + 'exemption columns');
@@ -73,6 +74,7 @@ function checks() {
     } else fails.push(at + 'tax.kind ' + r.tax.kind);
     need(Array.isArray(r.additions), at + 'additions must be a list ([] for none)');
     for (const a of r.additions || []) {
+      need(typeof a.indexed === 'boolean', at + 'every addition says whether it indexes');
       if (a.kind === 'threshold') need(isNum(a.threshold) && isNum(a.rate), at + 'threshold addition');
       else if (a.kind === 'agiStep') need(columns.every((c) => stepOk(a.tables[c])), at + 'agiStep tables');
       else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');

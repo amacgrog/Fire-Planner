@@ -62,9 +62,16 @@ function creditsText(list) {
   if (!list.length) return 'none';
   return list.map((c) => `${c.label}${c.refundable ? ' (refundable)' : ''}`).join('; ');
 }
+function indexingText(ix, long) {
+  const on = Object.entries(ix).filter(([, v]) => v).map(([k]) => k.replace(/Indexed$/, ''));
+  const off = Object.entries(ix).filter(([, v]) => !v).map(([k]) => k.replace(/Indexed$/, ''));
+  if (!off.length) return 'all indexed';
+  if (!on.length) return 'none indexed';
+  return long ? `indexed: ${on.join(', ')}; not indexed: ${off.join(', ')}` : `indexed: ${on.length} of ${on.length + off.length} (not: ${off.join(', ')})`;
+}
 function additionsText(list) {
   if (!list.length) return 'none';
-  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${money(a.threshold)}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
+  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${money(a.threshold)}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
 }
 function deductionText(r) {
   const col = (k) => {
@@ -96,7 +103,7 @@ function generate(rules) {
   L.push('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
-    L.push('| ' + [c.toUpperCase(), r.name, sourceText(r), taxText(r.tax), r.indexing, `${r.statusAs.hoh} / ${r.statusAs.qss}`, baseText(r.base), deductionText(r), exclusionText(r.retirementExclusion), additionsText(r.additions), creditsText(r.credits)].map(cell).join(' | ') + ' |');
+    L.push('| ' + [c.toUpperCase(), r.name, sourceText(r), taxText(r.tax), indexingText(r.indexing), `${r.statusAs.hoh} / ${r.statusAs.qss}`, baseText(r.base), deductionText(r), exclusionText(r.retirementExclusion), additionsText(r.additions), creditsText(r.credits)].map(cell).join(' | ') + ' |');
   }
   const noted = codes.filter((c) => rules[c].notes);
   if (noted.length) {
@@ -116,7 +123,7 @@ function generate(rules) {
       L.push('');
       L.push(`### ${c.toUpperCase()} ${r.name}`);
       L.push('');
-      L.push(`Indexing: ${r.indexing}. Columns: ${Object.keys(r.standardDeduction).join(', ')}; head of household reads ${r.statusAs.hoh}, surviving spouse ${r.statusAs.qss}.`);
+      L.push(`Indexing: ${indexingText(r.indexing, true)}. Columns: ${Object.keys(r.standardDeduction).join(', ')}; head of household reads ${r.statusAs.hoh}, surviving spouse ${r.statusAs.qss}.`);
       for (const [label, value] of [['Social Security', r.base.socialSecurity], ['Retirement exclusion', r.retirementExclusion], ['Exemption step-down', r.exemptionPhaseOut], ['Dependent exemption', r.dependentExemption]]) {
         if (typeof value === 'object' && value !== null && value.kind === 'none') continue;
         if (value === 'exempt' || value === 0) continue;

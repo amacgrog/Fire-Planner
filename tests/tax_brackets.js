@@ -233,7 +233,11 @@ function usChecks() {
       if (mfj > single + 0.01) fails.push(`${code} wages ${inc}: MFJ tax ${mfj} exceeds single tax ${single}`);
     }
     st.inflation = 3;
-    const indexed = t.STATE_RULES[code].indexing === 'cpi';
+    // Indexing is per family; only a row that indexes everything (or nothing) is held to the plain scaling check below. Mixed rows
+    // (Washington: deduction indexed, its $1 million tier not) are covered in state_mechanisms.js.
+    const flags = Object.values(t.STATE_RULES[code].indexing);
+    if (!flags.every(Boolean) && flags.some(Boolean)) continue;
+    const indexed = flags.every(Boolean);
     for (const filing of ['single', 'mfj']) {
       for (const inc of [30000, 90000, 250000]) {
         const base = stateTax(code, src({ wages: inc, gains: inc / 5 }), filing, 0);
