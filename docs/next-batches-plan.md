@@ -1583,7 +1583,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 
 | Cliff / phase-out | Where the threshold lives | Keyed on | Added by |
 |---|---|---|---|
-| ACA premium-tax-credit cliff, 400% of FPL (non-enhanced) | `fplForHousehold` x 4 in `conversionMagiCeiling`; `acaNetCost` | MAGI, `acaHouseholdSize` (now incl. children) | Phase 1; household size 7A |
+| ACA premium-tax-credit cliff, 400% of FPL (non-enhanced) | `fplForHousehold` x 4 in `conversionMagiCeiling`; `acaNetCost` | MAGI, `acaHouseholdSize` (now incl. children) | Phase 1; household size 7A; reviewed 7B step 6 |
 | ACA expected-contribution schedule (sliding 2.1%-9.96%) | `acaExpectedPct` | MAGI / FPL ratio | Phase 1 |
 | Medicare IRMAA tiers (two-year lookback) | `irmaaSurcharge`, `irmaaTierCeiling` | MAGI two years earlier, filing status | Phase 1 / 2 |
 | Senior deduction phase-out ($6,000, 6% over $75k / $150k, 2025-2028) | `seniorDeduction`, `SENIOR_DEDUCTION_*` | MAGI, filing status | Batch 2 |
@@ -1593,12 +1593,139 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | NIIT 3.8% over $200k / $250k | `niitTax` | MAGI, filing status | Phase 1 |
 | Additional Medicare Tax 0.9% over $200k / $250k | `additionalMedicareTax` | wages, filing status | Batch 2 |
 | Early-withdrawal penalty status (Rule of 55, 72(t), 59.5) | `penaltyStatus`, `accountStatuses` | age, account | 3B |
-| Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed) | (7B) | MAGI, filing status | 7B |
-| Filing-status thresholds for HoH and QSS | (7B) lookup table | status | 7B |
+| Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed); the credit ends when the youngest child turns 17 | `childCredits`, `CTC_PHASE_START` | MAGI, filing status (`ctc` family), child ages | 7B step 4 |
+| ACTC phase-in (15% of earned income over $2,500) and the tax limit on the nonrefundable part: more income changes the credit, not just the tax | `childCredits` | earned wages, federal income tax | 7B step 4 |
+| Filing status (HoH / QSS) switches: QSS two-year window ends (MFJ brackets and deduction -> single or HoH), HoH starts and ends with the last qualifying child | `filingStatusFor`, `FILING` | year, children, survivor timeline | 7B step 3 |
 | State circuit-breaker and income-tested credits | (7C / 7D) `STATE_RULES` | AGI / income | 7C, 7D |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
+
+#### 7B: US federal credits (US V93 -> V97; Canada untouched)
+
+Branch `claude/batch-7b-federal-credits`, cut from the 7A tip (`a9d88a1`). US only.
+
+**Step 1: filing-status table (no behavior change).** `FILING` (just above `standardDeduction`) maps a
+status to, per parameter family, the data row it reads, plus a `joint` flag for the structural branch.
+Families: brackets, deduction, extraAge (the 65+ add-on), gains, ss, niit, medicare, irmaa, senior, state.
+Data rows: `ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
+`NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`. `bracketCeilingReal` is now derived from
+`ORDINARY_BRACKETS`. State tax reads a `state` column (`joint` inside `stateIncomeTax`); the state data
+itself still has only MFJ and single columns (7C/7D own that). All 518 US and 359 Canada snapshot scenarios
+were byte-identical.
+
+**Step 2: death-year MFJ (intended number change).** `filingStatusFor` now returns `'mfj'` for the year of
+death (IRC 6013(a)(3)) when the couple was married that year, and `'single'` in later years. Married means
+`marryLater ? age >= marriageAgeA : filingStatus === 'mfj'`: an unmarried couple (`filingStatus: single`, or
+before the marriage age) has no joint year. The survivor remap in `buildTaxProfile` puts the deceased's age
+in the B slot for a joint year (a one-person return keeps `null`), so the death-year 65+ standard and senior
+deductions do not depend on which partner died (`tests/survivor_symmetry.js` and `tests/filing_status.js`).
+Side effects, all deliberate: the IRMAA table and the Roth-conversion bracket ceiling also read the MFJ row in
+the death year (the IRMAA lookback MAGI is two years old, so it was a joint return); the Additional Medicare
+Tax threshold is the MFJ one; the ACA household size is unchanged (survivor household). Income is still the
+survivor's own: the deceased's income for the part of the year before death is not modeled, as before.
+
+Before / after (standard projection, from the snapshot dumps): first changed year only.
+
+| Scenario | Death year (age of Partner A) | Tax before -> after | Healthcare before -> after |
+|---|---|---|---|
+| std R work past 65 survivor | 67 | 33,877 -> 26,079 | 0 -> 0 |
+| std R survivor+loans | 75 | 22,563 -> 11,366 | 12,240 -> 11,092 (IRMAA on the joint table) |
+| std R survivor A | 80 | 0 -> 0 | 14,338 -> 13,190 |
+| std R survivor B | 80 | no change | no change |
+
+Success rates (`tests/historical_rates.js`, seed 7, 2000 paths; two survivor scenarios added to it):
+
+| Scenario | Historical before -> after | Monte Carlo before -> after |
+|---|---|---|
+| default, early retiree (3 variants), bondYears 4 | unchanged | unchanged |
+| survivor, A dies at 70 (rich) | 100.0% -> 100.0% | 100.0% -> 100.0% |
+| survivor, B dies at 75, early retiree | 90.6% -> 90.6% | 89.2% -> 89.3% |
+
+49 of 518 US scenarios moved, every one a survivor scenario (names containing "survivor" or "everything");
+Canada and every non-survivor scenario are byte-identical. Baselines updated: `tests/snapshots/us.json`,
+`ui_us.json` (the survivor info bubble and README-visible text changed).
+
+**Step 3: head of household and qualifying surviving spouse (US V95).** `FILING` gains `hoh` and `qss`.
+- `hoh`: own brackets (10% to $17,700, 12% to $67,450, 22% to $105,700, 24% to $201,750, 32% to $256,200,
+  35% to $640,600), standard deduction $24,150 (+$2,050 at 65), 0%/15% gain bands $66,200 / $579,600; every
+  statutory "any other case" threshold (Social Security bases, NIIT $200,000, Additional Medicare Tax, IRMAA, senior
+  phase-out) is the single one. Figures are from secondary sources (Rev. Proc. 2025-32 summaries), see the
+  Verification backlog.
+- `qss`: MFJ brackets, standard deduction, 65+ add-on (the married $1,650: the higher "unmarried" add-on is only
+  for filers who are unmarried and not a surviving spouse, IRC 63(f)(3)) and gain bands; single Social Security
+  bases, Additional Medicare Tax, IRMAA table and senior phase-out start; **NIIT at the joint $250,000** (IRC
+  1411(b)(1) names "a joint return or a surviving spouse"; the plan had not listed NIIT). State tax reads the joint
+  column for QSS and the single column for HoH: an interim mapping, many states have their own HoH brackets (7C/7D).
+- `filingStatusFor` timeline: unmarried with a qualifying child that year is `hoh`, otherwise `single`; survivors
+  of a married couple are `mfj` in the death year, `qss` for `year - deathYear <= 2` while a qualifying child exists
+  that year, and unmarried after. The test is per year, so a child born after the death (a planned child) would
+  count; a child aging out of year 1 ends QSS. Survivors of an unmarried couple (`filingStatus: single`, or before
+  the `marryLater` marriage age) get no joint year and no QSS.
+- Two-filer branch (pre-marriage `marryLater` and `filingStatus: single` with two partners, which share the branch):
+  the household status stays `single`; Partner A claims the children (owner decision) and files `hoh` while a
+  qualifying child exists, B files single. Housing deductions still split 50/50.
+- Assumed, not modeled: the household pays more than half the cost of keeping up the home, and a QSS child is the
+  survivor's own dependent child.
+- Default `[]` children: every existing snapshot is byte-identical (checked, no baseline change).
+
+**Step 4: Child Tax Credit and Additional Child Tax Credit (US V96).** `childCredits` (above `taxFor`).
+- 2026 amounts (Rev. Proc. 2025-32 via secondary sources: OBBBA made $2,200 permanent from 2026, refundable part
+  $1,700): $2,200 per child with `age <= 16` (under 17 at year end) and `qualifyingChild`; the credit and the
+  $1,700 cap are indexed with `taxIndexFactor` (the statute indexes both from 2026, rounded to $100; we keep the
+  index smooth and unrounded, like every other indexed amount here).
+- Phase-out: $50 per $1,000 (or part) of MAGI over $200,000 ($400,000 joint), thresholds not indexed. QSS and HoH
+  use the $200,000 (the `ctc` family; the joint threshold is for a joint return only). MAGI is AGI
+  (`ordinary + gains`, the same stand-in the senior deduction uses).
+- Nonrefundable part is limited to the federal income tax (ordinary + long-term-gain tax), not state tax, NIIT or
+  payroll tax. ACTC = min(unused credit, $1,700 per child, 15% of (earned income - $2,500)). Earned income is the
+  profile wages (already net of pre-tax contributions and premiums, which is the W-2 box 1 figure). Extra income
+  streams and one-time income ride in the non-wage slot and are **not** earned income: a part-time job entered as an
+  income stream earns no ACTC. Known understatement, accepted (no new input).
+- The tax can be negative (only through the ACTC). Checked in a smoke run (working couple with two children, Roth
+  conversion, smooth withdrawals, survivor): no NaN, no solver trouble, no negative withdrawals. Credits do not
+  depend on withdrawals except through the tax limit, so the net-from-gross bisections stay monotone.
+- Two-filer branch: credits on Partner A's return (A claims the children), with A's own MAGI for the phase-out.
+- Assumed: every child and parent has a valid SSN. Not modeled: Credit for Other Dependents until step 5.
+- Default `[]` children: snapshots byte-identical (the no-children return is a shared constant and the float order of
+  the sums is unchanged). Tests: `tests/child_credits.js` (in `npm test`; hand-computed unit cases, taxFor and an
+  engine case across the age-16/17 boundary) and the two-filer case in `tests/filing_status.js`.
+
+**Step 5: Credit for Other Dependents (US V97).** Inside `childCredits`: $500 per qualifying child with
+`age >= 17` (17 and 18, and 19-23 full-time students), nonrefundable, **not indexed** (statutory $500, no
+inflation adjustment), same $50 per $1,000 phase-out as the CTC and the same `ctc` threshold family. Qualifying
+relatives are not modeled, so the credit covers only the children list. Ordering inside the combined credit (only
+matters below the phase-out): the reduction comes off the CTC part first, the tax absorbs the ODC first, and only
+the unused CTC can be refunded, so a household with no tax and earned income loses its ODC and refunds up to
+$1,700 per CTC child (tests: mixed 5- and 17-year-old). A 17-year-old alone loses the whole $500 at $10,000 over
+the threshold. Default `[]`: snapshots byte-identical.
+
+**Step 6: premium-tax-credit review (no code change).**
+- 2026 applicable-percentage table in `acaExpectedPct` (2.10% under 133% of FPL, 3.14-4.19% to 150%, 4.19-6.60%
+  to 200%, 6.60-8.44% to 250%, 8.44-9.96% to 300%, 9.96% to 400%, nothing above) matches Rev. Proc. 2025-25 as
+  reported by secondary sources (currentfederaltaxdevelopments.com, thefinancebuff.com), including the linear
+  interpolation inside each band. The 400% cliff is back for 2026 (the 2021-2025 enhanced credits expired on
+  2025-12-31): `acaNetCost` returns the full premium above 4.0 x FPL when `acaEnhanced` is off, which is the default.
+- **Enhanced-credit extension: unresolved as found.** The House passed a three-year extension on 2026-01-08 (230-196;
+  Ballotpedia, AHA, Health Affairs); the Senate had not acted in the sources found, and no extension was in the law
+  at this review. `acaEnhanced` stays a user switch, default off. Re-check at the final verification pass; if an
+  extension is enacted, the default and the info bubble need a decision.
+- Repayment: OBBBA removed the cap on repaying excess advance credits for tax years beginning after 2025. The model
+  does not model advance payments: each year's credit is computed from that year's realized MAGI (the engine
+  iterates MAGI to convergence), so there is no mismatch to repay and nothing needs the cap.
+- Household size: `acaHouseholdSize` = adults + qualifying children (7A), used by both the cost and the 400% guard.
+  HealthCare.gov counts tax dependents of any age; the model uses the qualifying-child flag. In a death year the
+  household is the survivor plus children (the death-year joint return does not change the ACA household).
+- Simplifications that remain, none changed here: the entered gross premium stands for the second-lowest silver
+  benchmark premium (the credit is capped at the premium paid); the federal poverty line is the 2025 guideline
+  ($15,650 + $5,500 per person) for the 2026 coverage year, indexed by `taxIndexFactor` after that; the applicable
+  percentages are held constant (the IRS re-indexes them yearly); no PTC floor at 100% of FPL (a household below
+  100% of FPL, ineligible in expansion states, is charged 2.10% of a tiny income); no Medicaid eligibility.
+
+**7B summary.** Only step 2 moved numbers (49 of 518 US survivor scenarios). Cliffs added or moved: the filing-status
+switches (QSS window end, HoH start/end), the child-credit phase-out and the ACTC phase-in, all in the register above.
+Not modeled (owner): child and dependent-care credit and FSA, education credits, adoption credit, coverage on a
+parent's plan to 26. Open items: EITC and Social Security child benefits.
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
@@ -1645,9 +1772,17 @@ reading (itself secondary).
 | Qualifying child ages: under 19 at year end, under 24 if a full-time student, any age if permanently disabled (not modeled); a child counts for the whole birth year | 7A | O (owner's table citing IRS Pub. 501) | IRC 152(c)(3), Pub. 501 |
 | ACA household = filer + spouse + tax dependents regardless of age | 7A | O (owner's table citing HealthCare.gov) | HealthCare.gov household-size page, 26 CFR 1.36B-1(d) |
 | 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
-| Child Tax Credit under 17; ACTC; ODC for other dependents | 7B | S / O | IRC 24, Schedule 8812 instructions |
+| CTC $2,200 per child under 17 (2026, indexed from 2026 and rounded to $100 by statute; the code does not round), refundable cap $1,700, 15% over $2,500, phase-out $50 per $1,000 over $200,000 / $400,000 (not indexed) | 7B | S (Rev. Proc. 2025-32 summaries, OBBBA) | IRC 24(a)-(h), Schedule 8812 instructions, Rev. Proc. 2025-32 |
+| CTC needs a valid SSN for the child (and a parent): assumed; ACTC earned income = wages (box 1) + net self-employment earnings | 7B | O | IRC 24(h)(7), 24(d) |
+| 2026 applicable-percentage table (2.10 / 3.14-4.19 / 4.19-6.60 / 6.60-8.44 / 8.44-9.96 / 9.96) and the 400% cliff; enhanced credits expired 2025-12-31; repayment cap removed from 2026; enhanced-extension status (House passed 2026-01-08, Senate open) | 7B | S (secondary: currentfederaltaxdevelopments, thefinancebuff, Ballotpedia, AHA) | Rev. Proc. 2025-25, IRC 36B(b)(3)(A), 36B(f)(2)(B) as amended by P.L. 119-21; current status of the extension at the final pass |
+| ODC $500 for a qualifying child 17 or older, nonrefundable, not indexed, shares the CTC phase-out; ordering inside the combined credit (reduction off the CTC first, tax absorbs the ODC first) | 7B | S / O (own reading of Schedule 8812) | IRC 24(h)(4), Schedule 8812 lines 11-14 |
 | QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
-| Survivor files jointly for the year of death | 7B | U | IRC 6013(a)(3) |
+| QSS NIIT threshold $250,000 and QSS Additional Medicare Tax $200,000 | 7B | U (own reading) | IRC 1411(b)(1), 3101(b)(2) |
+| QSS 65+ standard-deduction add-on is the married $1,650, not the unmarried $2,050 | 7B | U (own reading) | IRC 63(c)(3), 63(f) |
+| 2026 HoH brackets (17,700 / 67,450 / 105,700 / 201,750 / 256,200 / 640,600), standard deduction $24,150, 0% / 15% gain bands $66,200 / $579,600 | 7B | S (secondary: q3adv, bradfordtaxinstitute, KPMG for the deduction) | Rev. Proc. 2025-32 section 3 |
+| HoH needs a qualifying child (or other qualifying person), paying over half the home cost; a student 19-23 counts | 7B | O | IRC 2(b), Pub. 501 |
+| State tax: HoH read as single, QSS as joint, until 7C/7D | 7B | n/a (interim) | each state's forms |
+| Survivor files jointly for the year of death (code: step 2, V94); the deceased's own age counts for the 65+ deductions | 7B | U | IRC 6013(a)(3), Pub. 501 |
 
 ## Open items
 

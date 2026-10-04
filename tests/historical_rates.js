@@ -23,6 +23,8 @@ const SCENARIOS = {
   'early retiree, smooth': { ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50, lifeExpectancyA: 95, lifeExpectancyB: 95, taxable: 1100000, traditional: 1400000, roth: 300000, cash: 80000, spending: 90000, smoothWithdrawals: true },
   'early retiree, live mix (US)': { ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50, lifeExpectancyA: 95, lifeExpectancyB: 95, taxable: 1100000, traditional: 1400000, roth: 300000, cash: 80000, spending: 90000, withdrawalMixEnabled: true, onlyUS: true },
   'working, then retires, bondYears 4': { bondYears: 4 },
+  'survivor, A dies at 70': { ...RICH, ageA: 62, ageB: 60, retireAgeA: 62, retireAgeB: 60, lifeExpectancyA: 95, lifeExpectancyB: 95, spending: 110000, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 70, survivorSpendingPct: 70 },
+  'survivor, B dies at 75, early': { ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50, lifeExpectancyA: 95, lifeExpectancyB: 95, taxable: 1100000, traditional: 1400000, roth: 300000, cash: 80000, spending: 90000, survivorEnabled: true, survivorPartner: 'B', survivorDeathAge: 75, survivorSpendingPct: 70 },
 };
 
 (async () => {

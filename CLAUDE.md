@@ -201,6 +201,29 @@ Each planner is one big IIFE. Core shape:
   between two shared markup regions (`html-medicalInflation` ends before it,
   `html-propertyTaxGrowth` starts after it) so each planner can word its label
   differently; keep it outside the shared regions.
+- **Filing-status table (US, `FILING`, just above `standardDeduction`).** Each status row names, per
+  parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, state), which
+  data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
+  `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
+  `taxFor`/`solveRothConversion`. Read through `filingKey(filing, family)` / `filingRow(filing)`; an unknown
+  status reads as single. Never write `filing === 'mfj'` in new code; add a row or a family instead.
+  Statuses: `mfj`, `single`, `hoh` and `qss`. `filingStatusFor` (US) picks the year's status: unmarried with a
+  qualifying child that year is `hoh`, else `single`; a survivor of a married couple is `mfj` in the death year,
+  `qss` for the next two tax years while a qualifying child exists, then as unmarried. `qss` mixes families (joint
+  brackets, deduction and gain bands and the NIIT, single Social Security bases, Additional Medicare Tax, IRMAA and
+  senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
+  status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
+  branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
+- **Child credits (US, `childCredits`, just above `taxFor`).** `childCredits(dependents, filing, yearIndex, magi,
+  federalTax, earnedIncome)` returns `{ nonrefundable, refundable }`: the Credit for Other Dependents ($500, a qualifying
+  child with `age >= 17`, nonrefundable, not indexed, shares the phase-out; the reduction comes off the CTC part first and
+  the tax absorbs the ODC first) and the CTC ($2,200 per child with `age <= 16`,
+  indexed by `taxIndexFactor`; phase-out $50 per $1,000 over the `ctc` family threshold, not indexed), limited to the
+  federal income tax (ordinary + gains tax, not state/NIIT/payroll), plus the ACTC (min of the unused credit, $1,700
+  per child indexed, 15% of earned income over $2,500). `taxFor` subtracts both from the federal tax, so a tax can
+  be negative (only through the ACTC). Earned income is `profile.wageA (+ wageB)`, already net of pre-tax
+  contributions; extra income streams are not earned income. The no-children path returns a shared constant and
+  leaves the float order of the sum untouched (snapshot-exact). The two-filer branch puts the credits on Partner A.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
