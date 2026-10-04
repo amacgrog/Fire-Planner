@@ -23,6 +23,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { legacyToAccounts } = require('./legacy_balances');
 
 const near = (a, b, msg) => assert(Math.abs(a - b) < 1e-6, `${msg}: expected ${b}, got ${a}`);
 
@@ -181,15 +182,16 @@ const PATH = '(y) => [2000 + y, 8, 3, 0, 0]';
 async function engine(page, name, isUS) {
   const run = (patch) =>
     page.evaluate(
-      ({ patch, PATH }) => {
+      ({ patch, PATH, convert, isUS }) => {
         const state = window.__test_getState();
         if (!window.__refillBase) window.__refillBase = JSON.parse(JSON.stringify(state));
         for (const k of Object.keys(state)) delete state[k];
-        Object.assign(state, JSON.parse(JSON.stringify(window.__refillBase)), patch);
+        const toAccounts = eval('(' + convert + ')');
+        Object.assign(state, JSON.parse(JSON.stringify(window.__refillBase)), isUS ? toAccounts(patch, window.__refillBase) : patch);
         const res = window.__test_simulateHistorical(eval(PATH));
         return res.rows.map((r) => ({ age: r.age, bonds: r.bonds, expenses: r.expenses, lump: r.lumpExpense, home: r.homeEquity, working: r.working }));
       },
-      { patch, PATH },
+      { patch, PATH, convert: legacyToAccounts.toString(), isUS },
     );
   const base = isUS
     ? { singlePerson: true, ageA: 61, retireAgeA: 61, lifeExpectancyA: 80, taxable: 2000000, traditional: 500000, roth: 200000, cash: 40000, spending: 70000, bondYears: 4, stateTax: 'tx' }

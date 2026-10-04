@@ -28,6 +28,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { scenarios } = require('./snapshot_scenarios');
+const { legacyToAccounts } = require('./legacy_balances');
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
@@ -232,11 +233,13 @@ async function surfaceChecks(browser, planner) {
   const out = {};
   for (const sc of list) {
     const page = await newPage(browser, planner);
-    const r = await page.evaluate(async (patch) => {
+    const r = await page.evaluate(async ({ patch, convert }) => {
       const state = window.__test_getState();
       const base = JSON.parse(JSON.stringify(state));
       for (const k of Object.keys(state)) delete state[k];
-      Object.assign(state, base, patch);
+      // The grid uses the old pooled retirement fields; a planner with per-partner accounts gets the equivalent.
+      const toAccounts = eval('(' + convert + ')');
+      Object.assign(state, base, base.trad401kA !== undefined ? toAccounts(patch, base) : patch);
       // Re-render through the real input path, then open every collapsible card.
       const sp = document.getElementById('spending');
       sp.dispatchEvent(new Event('input', { bubbles: true }));
@@ -250,7 +253,7 @@ async function surfaceChecks(browser, planner) {
         rows: JSON.stringify(window.fireProjectionRows ?? null),
         histSuccess: document.getElementById('dashHistSuccess')?.innerText ?? null,
       };
-    }, sc.patch);
+    }, { patch: sc.patch, convert: legacyToAccounts.toString() });
     out[sc.name] = {
       textHash: sha(r.text),
       textLength: r.text.length,

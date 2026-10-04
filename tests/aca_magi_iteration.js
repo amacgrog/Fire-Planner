@@ -12,6 +12,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 (async () => {
   const browser = await chromium.launch();
@@ -57,7 +58,7 @@ const path = require('path');
     ['ltcEnabled', false],
     ['spending', 50000],
   ];
-  for (const [id, v] of baseFields) await set(id, v);
+  for (const [id, v] of translateFieldList(baseFields, true)) await set(id, v);
   await page.waitForTimeout(300);
 
   // ACA cost == acaNetCost(row's own MAGI) in every pre-65 year, in the

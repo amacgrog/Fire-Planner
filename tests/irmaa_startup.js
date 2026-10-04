@@ -8,6 +8,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 (async () => {
   const browser = await chromium.launch();
@@ -64,7 +65,7 @@ const path = require('path');
   assert.strictEqual(tax.ceilTop, Infinity);
 
   // --- Startup history: a retired 67-year-old living on a modest portfolio ---
-  for (const [id, v] of [
+  for (const [id, v] of translateFieldList([
     ['singlePerson', true],
     ['ageA', 67],
     ['retireAgeA', 67],
@@ -83,7 +84,7 @@ const path = require('path');
     ['stateTax', 'tx'],
     ['acaEnabled', false],
     ['ltcEnabled', false],
-  ])
+  ], true))
     await set(id, v);
   await page.waitForTimeout(250);
   const surcharges = async () =>

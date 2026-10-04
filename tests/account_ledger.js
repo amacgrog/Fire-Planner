@@ -70,7 +70,7 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
     returnRate: 0, bondReturn: 0, inflation: 0, hysaRate: 0, incomeGrowth: 0, medicalInflation: 0,
     incomeA: 100000, incomeB: 80000, matchA: 4, matchB: 0, k401PctA: 100, k401PctB: 50, iraPctA: 100, iraPctB: 0, catchupPctA: 0, catchupPctB: 0,
     megaBackdoor: false, spending: 40000, healthcare: 0, medicareYearly: 0, healthPremiumA: 0, healthPremiumB: 0,
-    traditional: 400000, roth: 100000, traditionalSharePctA: 50, taxable: 500000, cash: 50000, cashReserve: 50000,
+    tradIraA: 0, tradIraB: 0, trad401kA: 200000, trad401kB: 200000, rothIraA: 50000, rothIraB: 50000, roth401kA: 0, roth401kB: 0, taxable: 500000, cash: 50000, cashReserve: 50000,
     bondYears: 0, ssMonthlyA: 0, ssMonthlyB: 0, tenure: 'rent', rent: 1000, rentGrowth: 0,
   };
   const run = (patch, retire) =>
@@ -159,7 +159,7 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
       ...FLAT, ageA: 45, ageB: 45, retireAgeA: 50, retireAgeB: 45, lifeExpectancyA: 56, lifeExpectancyB: 56,
       k401Type: 'traditional', iraType: 'traditional', iraPctA: 0, incomeB: 0, k401PctB: 0,
       acaEnabled: true, healthcare: 18000, rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 58, rothConvBracket: 22,
-      traditional: 1200000, roth: 100000, taxable: 0, cash: 30000, cashReserve: 0, spending: 30000,
+      trad401kA: 600000, trad401kB: 600000, rothIraA: 50000, rothIraB: 50000, taxable: 0, cash: 30000, cashReserve: 0, spending: 30000,
     };
     const { trace, rows } = await run(patch, [50, 45]);
     // Five working years add 24,500 + 4,000 match to A's 401(k): 600,000 + 142,500 of 1,342,500.

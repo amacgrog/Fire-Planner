@@ -1,44 +1,35 @@
-  [
-    ['wizardAgeA', 'ageA'],
-    ['wizardAgeB', 'ageB'],
-    ['wizardIncomeA', 'incomeA'],
-    ['wizardIncomeB', 'incomeB'],
-    ['wizardRetireAgeA', 'retireAgeA'],
-    ['wizardRetireAgeB', 'retireAgeB'],
-    ['wizardTaxable', 'taxable'],
-    ['wizardTraditional', 'traditional'],
-    ['wizardRoth', 'roth'],
-    ['wizardCash', 'cash'],
-    ['wizardSpending', 'spending'],
-  ].forEach(([wizardId, realId]) => {
-    document.getElementById(wizardId).addEventListener('change', (e) => {
-      const real = document.getElementById(realId);
+  // Every wizard input that proxies a sidebar control names it in data-wizard-mirror: a
+  // change drives the real control with real input/change events, so all the existing
+  // state, visibility and render logic runs once, from one source of truth.
+  document.querySelectorAll('[data-wizard-mirror]').forEach((wizardEl) => {
+    wizardEl.addEventListener('change', (e) => {
+      const real = document.getElementById(wizardEl.dataset.wizardMirror);
       real.value = e.target.value;
       real.dispatchEvent(new Event('input', { bubbles: true }));
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
   const wizardOverlay = document.getElementById('wizardOverlay');
+  // Steps are the [data-wizard-step] panels in document order; each carries its own
+  // data-title and data-note (the "Step i of N" prefix is added here).
+  const wizardSteps = Array.from(document.querySelectorAll('#wizardModal [data-wizard-step]'));
   let wizardStep = 1;
   function renderWizardStep() {
-    document.getElementById('wizardStep1').hidden = wizardStep !== 1;
-    document.getElementById('wizardStep2').hidden = wizardStep !== 2;
-    document.getElementById('wizardTitle').textContent =
-      wizardStep === 1 ? 'Get started: the basics' : 'A few optional questions';
+    wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
+    const current = wizardSteps[wizardStep - 1];
+    document.getElementById('wizardTitle').textContent = current.dataset.title;
     document.getElementById('wizardStepNote').textContent =
-      wizardStep === 1
-        ? "Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here."
-        : "Step 2 of 2 — these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
+      `Step ${wizardStep} of ${wizardSteps.length} — ${current.dataset.note}`;
     document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
-    document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
+    document.getElementById('wizardNextBtn').hidden = wizardStep === wizardSteps.length;
     document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
     // #wizardModal itself is the scrolling container (overflow:auto) — it's
-    // one persistent element across both steps, never recreated, so its
+    // one persistent element across every step, never recreated, so its
     // scrollTop carries over from whatever step was showing before. Without
-    // this, clicking "Next" from partway (or all the way) down a long Step 1
-    // left Step 2 rendered already scrolled to that same position — often
-    // right at the bottom, since the Next button itself sits at the very
-    // end of Step 1. Reset on every step change (including the initial
+    // this, clicking "Next" from partway (or all the way) down a long step
+    // left the next step rendered already scrolled to that same position —
+    // often right at the bottom, since the Next button itself sits at the
+    // very end of the step. Reset on every step change (including the initial
     // open) so each step always starts at its own top.
     document.getElementById('wizardModal').scrollTop = 0;
   }
@@ -48,11 +39,11 @@
     wizardOverlay.classList.add('open');
   });
   document.getElementById('wizardNextBtn').addEventListener('click', () => {
-    wizardStep = 2;
+    wizardStep = Math.min(wizardSteps.length, wizardStep + 1);
     renderWizardStep();
   });
   document.getElementById('wizardBackBtn').addEventListener('click', () => {
-    wizardStep = 1;
+    wizardStep = Math.max(1, wizardStep - 1);
     renderWizardStep();
   });
   document.getElementById('wizardCloseBtn').addEventListener('click', () => {
@@ -69,7 +60,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') wizardOverlay.classList.remove('open');
   });
-  // Visible on both wizard steps (unlike wizardBackBtn/wizardNextBtn/
+  // Visible on every wizard step (unlike wizardBackBtn/wizardNextBtn/
   // wizardCloseBtn, which the wizardStep hidden-toggling logic above
   // governs) — does exactly what Escape/outside-click already do.
   document.getElementById('wizardXBtn').addEventListener('click', () => {
