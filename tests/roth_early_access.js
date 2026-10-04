@@ -9,6 +9,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 const file = path.resolve(__dirname, '..', 'Planner_US.html');
 
@@ -51,7 +52,7 @@ async function open(fields) {
   ];
   for (const [id, v] of base) await set(id, v);
   await page.evaluate(() => document.getElementById('rentBtn').click());
-  for (const [id, v] of [
+  for (const [id, v] of translateFieldList([
     ['rent', 0],
     ['taxable', 0],
     ['traditional', 0],
@@ -59,9 +60,9 @@ async function open(fields) {
     ['bondYears', 0],
     ['roth', 500000],
     ['rothBasisPct', 100],
-  ])
+    ...fields,
+  ], true, { single: true }))
     await set(id, v);
-  for (const [id, v] of fields) await set(id, v);
   await page.waitForTimeout(250);
   return { browser, page, errors };
 }

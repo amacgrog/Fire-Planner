@@ -66,8 +66,10 @@ async function setupAcaCliffScenario(page) {
   await setVal(page, 'lifeExpectancyA', 90); await setVal(page, 'lifeExpectancyB', 90);
   await setVal(page, 'taxable', 1500000);
   await setVal(page, 'basisRatio', 20);
-  await setVal(page, 'traditional', 900000);
-  await setVal(page, 'roth', 200000);
+  await setVal(page, 'trad401kA', 450000);
+  await setVal(page, 'trad401kB', 450000);
+  await setVal(page, 'rothIraA', 100000);
+  await setVal(page, 'rothIraB', 100000);
   await setVal(page, 'cash', 80000);
   await setVal(page, 'cashReserve', 50000);
   await setVal(page, 'spending', 75000);
@@ -166,10 +168,10 @@ async function setupAcaCliffScenario(page) {
     const r = await page.evaluate(() => {
       document.getElementById('taxable').value = '400000';
       document.getElementById('taxable').dispatchEvent(new Event('input', { bubbles: true }));
-      document.getElementById('traditional').value = '400000';
-      document.getElementById('traditional').dispatchEvent(new Event('input', { bubbles: true }));
-      document.getElementById('roth').value = '100000';
-      document.getElementById('roth').dispatchEvent(new Event('input', { bubbles: true }));
+      for (const [id, v] of [['trad401kA', '200000'], ['trad401kB', '200000'], ['rothIraA', '50000'], ['rothIraB', '50000']]) {
+        document.getElementById(id).value = v;
+        document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true }));
+      }
       document.getElementById('retireAgeA').value = 50;
       document.getElementById('retireAgeA').dispatchEvent(new Event('input', { bubbles: true }));
       document.getElementById('retireAgeB').value = 50;

@@ -36,6 +36,15 @@ feature list.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
   `normalizeState()` result is pinned (`tests/snapshots/legacy_state.json`); run it
   when touching `normalizeState`, `normalizeLists`, or an enum guard.
+- `tests/account_ledger.js` — the US per-account share ledger (contribution routing,
+  conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
+  how the eight account inputs, the Roth basis rules, single-person mode and the opening
+  ownership ratio feed the engine. `tests/legacy_balances.js` — test helper that turns the old
+  pooled vocabulary (`traditional`, `roth`, `traditionalSharePctA`, `rothBasisPct`) into the
+  per-partner account fields (`legacyToAccounts` for state patches, `translateFieldList` and
+  `setBalance` for DOM-driven tests); the snapshot grid and many older tests still speak the old
+  vocabulary through it. `test_wizard_accounts.js` — the three-step US wizard and the
+  Retirement accounts group.
 - `tests/bond_refill.js` — hand-computed unit test of `refillBondReserve` (cap, order,
   realized gain, never home/cash) plus engine checks of the cap and the surplus path.
 - `tests/historical_parity.js` — runs a constant-return historical path (equal to
@@ -156,7 +165,7 @@ Each planner is one big IIFE. Core shape:
   which includes this year's discretionary withdrawals, which depend on
   the premium that MAGI sets. Inside each engine's year loop the body is
   wrapped in `for (let iter = 0; ; iter++)`: it snapshots every mutated
-  balance (and the Roth ledger) before the first mutation, and if
+  balance (and the Roth and account ledgers) before the first mutation, and if
   `estUsed` (an ACA premium or a finite MAGI ceiling consumed
   `estTrad`/`estGain`) and the realized discretionary traditional
   withdrawals + taxable gains differ from the estimate by more than
@@ -200,6 +209,30 @@ Each planner is one big IIFE. Core shape:
   `withdrawRequiredDistributions`, `applyRothConversion`/`applyRrspMeltdown`,
   `sweepExcessCash`, `rotateIntoBondLadder`) and the withdrawal. Add a new
   per-year rule to the matching helper, not inline in an engine.
+- **Retirement accounts (US).** Four accounts per partner: `tradIraA/B`, `trad401kA/B`,
+  `rothIraA/B`, `roth401kA/B` (all `.money`), plus `rothIraBasisA/B` (dollars; **0 means "not entered"**
+  and the engine assumes `ROTH_BASIS_ASSUMED_PCT` = 50% of the balance, enter 1 for none) and
+  `roth401kBasisPctA/B` (slider, default 50). The snapshot grid and `tests/historical_rates.js` use the
+  planner's own basis defaults (so they run at 50%); hand-computed tests pin 100% through
+  `translateFieldList` / `pinBasis`. `openingAccounts()` reads them (Partner B's are zero in
+  single-person mode: B's balances are ignored, not summed); `bal.traditional/roth` start as the sums.
+  The old pooled `traditional`, `roth`, `traditionalSharePctA` and `rothBasisPct` are retired and **not
+  migrated** (owner decision): `normalizeState` deletes them, so an old save opens with default
+  accounts. Under the pooled `bal.traditional + bal.bondTraditional` and `bal.roth + bal.bondRoth` sits
+  the **account ledger** (`accts`, `accountsNew/Contribute/Convert/Clone/Restore`): each account's
+  SHARE of its pool in `ACCOUNT_SLOTS` order `[IRA A, 401(k) A, IRA B, 401(k) B]` (Roth pool: Roth IRA A,
+  Roth 401(k) A, Roth IRA B, Roth 401(k) B). Growth, ladder/refill moves and draws are pro rata and
+  leave shares alone; only a contribution (to the owner's account; employer match to the traditional
+  401(k), mega-backdoor to the Roth 401(k)) or a Roth conversion (IRAs first, then 401(k)s, into the
+  same partner's Roth IRA) changes them. The ledger is cloned/restored with the MAGI-iteration snapshot
+  (`accountsClone/Restore`, next to `rothLedgerClone/Restore`): a new mutable ledger must be added
+  there in the same commit. `window.__test_accountTrace` returns per-year account balances.
+  The engine reads the ledger: RMD and 72(t) sizing use `accountsOwnerShareA(accts.trad)` (A's
+  current share of the pool), the penalty blend uses the traditional share for traditional draws and
+  the Roth share (`accountsOwnerShareA(accts.roth)`) for `rothPenaltyFraction`, and a partner's RMD /
+  72(t) amount is drawn from that partner's own accounts (`accountsDraw`; a single person or the
+  survivor owns everything, so the draw is pro rata and no share moves). Roth conversions come from the
+  IRAs first. Batch 3B replaces the fractional blend with a per-account status.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
@@ -341,8 +374,10 @@ side before porting a feature:
 - `traditional`/`bondTraditional` are one pooled household balance (not
   separate per-partner accounts), but RMDs, the 72(t)/early-withdrawal
   penalty fraction, and 72(t) SEPP sizing all need to know each partner's
-  own share of that pool. `state.traditionalSharePctA` (a 0-100 slider,
-  default 50) is that assumed ownership split; `traditionalShareA`/
+  own share of that pool. Since Batch 3A that share comes from the account
+  inputs (see "Retirement accounts (US)" above); the former
+  `state.traditionalSharePctA` slider (0-100, default 50) is gone, and the text below
+  describes how the shares are used; `traditionalShareA`/
   `traditionalShareB` (computed fresh each loop year in both
   `simulate()`/`simulateHistorical()` from `traditionalBeforeRmd * pctA`/
   `* (1 - pctA)`) replace the old single `traditionalShare` variable
@@ -414,6 +449,15 @@ changes, which reproduces the old projections exactly. Additional expenses
 (`#extraExpensesGroup`) is `data-cat="spending"`; one-time expenses, other loans and the pre-retirement healthcare group are
 also `spending`; additional income is `income`; `extra` keeps survivor planning.
 Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
+
+## First-run wizard
+
+`#wizardModal` is a list of `[data-wizard-step]` panels in document order, each carrying its own
+`data-title` and `data-note` (the shared `28-wizardOverlay` fragment adds "Step i of N"). The US wizard
+has three: basics, balances (taxable, cash, the eight retirement accounts, a Roth-basis callout) and
+the optional questions; Canada has two. Every input names the sidebar control it proxies in
+`data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup,
+not lists in code. Step grids use `.wizard-grid`. `test_wizard_accounts.js` covers both planners.
 
 ## Dashboard tiles and the safe withdrawal rate
 

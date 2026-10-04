@@ -6,6 +6,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 const BASE = [
   ['inflation', 0],
@@ -31,7 +32,7 @@ const BASE = [
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
     await page.waitForTimeout(200);
-    for (const [id, v] of [...BASE, ...fields])
+    for (const [id, v] of translateFieldList([...BASE, ...fields], true))
       await page.evaluate(
         ({ id, v }) => {
           const e = document.getElementById(id);

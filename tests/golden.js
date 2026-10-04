@@ -24,6 +24,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { setBalance } = require('./legacy_balances');
 
 const setInput = (page, id, value) =>
   page.evaluate(
@@ -95,9 +96,9 @@ async function testDrawdown(file, label, ssFields) {
   await click(page, 'rentBtn');
   await setInput(page, 'rent', 0);
   await setInput(page, 'taxable', 0);
-  await setInput(page, 'traditional', 0);
+  await setBalance(setInput, page, 'traditional', 0, true);
   await setInput(page, 'cash', 0);
-  await setInput(page, 'roth', 500000);
+  await setBalance(setInput, page, 'roth', 500000, true);
   await setInput(page, 'bondYears', 0);
   await page.waitForTimeout(200);
 
@@ -157,8 +158,8 @@ async function testCompounding(file, label, ssFields) {
   await click(page, 'rentBtn');
   await setInput(page, 'rent', 0);
   await setInput(page, 'taxable', 100000);
-  await setInput(page, 'traditional', 0);
-  await setInput(page, 'roth', 0);
+  await setBalance(setInput, page, 'traditional', 0, true);
+  await setBalance(setInput, page, 'roth', 0, true);
   await setInput(page, 'cash', 0);
   await setInput(page, 'bondYears', 0);
   await page.waitForTimeout(200);
@@ -240,8 +241,8 @@ async function testLiveMixRothUntouched(file, label) {
   // $40k spending ($440k net need) even after tax, well short of ever
   // needing to touch Roth.
   await setInput(page, 'taxable', 300000);
-  await setInput(page, 'traditional', 300000);
-  await setInput(page, 'roth', 500000);
+  await setBalance(setInput, page, 'traditional', 300000, true);
+  await setBalance(setInput, page, 'roth', 500000, true);
   await setInput(page, 'cash', 0);
   await setInput(page, 'bondYears', 0);
   await setChecked(page, 'withdrawalMixEnabled', true);
@@ -287,8 +288,8 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
   await setInput(page, 'incomeB', 159000);
   await setInput(page, 'spending', 38500);
   await setInput(page, 'taxable', 204395);
-  await setInput(page, 'traditional', 433500);
-  await setInput(page, 'roth', 231000);
+  await setBalance(setInput, page, 'traditional', 433500, false);
+  await setBalance(setInput, page, 'roth', 231000, false);
   await setInput(page, 'cash', 116000);
   await setInput(page, 'cashReserve', 50000);
   await setInput(page, 'ssMonthlyA', 0);

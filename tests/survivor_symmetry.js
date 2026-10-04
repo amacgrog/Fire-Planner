@@ -8,6 +8,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 async function run(browser, planner, isUS) {
   const file = path.resolve(__dirname, '..', planner);
@@ -68,7 +69,7 @@ async function run(browser, planner, isUS) {
         ['oasStartAgeA', 65],
         ['oasStartAgeB', 65],
       );
-    for (const [id, v] of fields) await set(id, v);
+    for (const [id, v] of translateFieldList(fields, isUS)) await set(id, v);
     await page.click('#pensionBothBtn');
     await set('survivorPartner', deceased);
     // A household income stream (it lives in Partner A's slot in the engines).

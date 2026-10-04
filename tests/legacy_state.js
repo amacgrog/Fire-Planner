@@ -39,8 +39,11 @@ const US = {
   'employer flags absent': { acaEnabled: true },
   'legacy sepp72t both': { sepp72tEnabled: true },
   'sepp72t already split': { sepp72tEnabled: true, sepp72tEnabledA: true, sepp72tEnabledB: false },
-  'traditional share out of range': { traditionalSharePctA: 150 },
-  'traditional share junk': { traditionalSharePctA: 'x' },
+  // Batch 3A: the pooled retirement fields are retired and NOT migrated (owner decision); an old
+  // save opens with empty/default accounts and the retired keys are dropped.
+  'retired pooled retirement fields': { traditional: 500000, roth: 100000, traditionalSharePctA: 70, rothBasisPct: 40 },
+  'account balances valid': { trad401kA: 250000, tradIraB: 80000, roth401kA: 20000, rothIraB: 30000, rothIraBasisB: 12000, roth401kBasisPctA: 60 },
+  'account balances junk': { trad401kA: -5, tradIraA: 'x', rothIraB: null, rothIraBasisA: -1, roth401kBasisPctA: 250, roth401kBasisPctB: -3 },
 };
 const CA = {
   ...COMMON,

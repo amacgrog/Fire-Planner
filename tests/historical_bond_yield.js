@@ -19,6 +19,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 async function run(file, isUS) {
   const browser = await chromium.launch();
@@ -49,7 +50,7 @@ async function run(file, isUS) {
   await page.evaluate(() => document.getElementById('rentBtn').click());
   for (const [i, v] of [['rent', 0], ['cash', 0], ['taxable', 1000000], ['basisRatio', 100], ['bondYears', 10]])
     await set(i, v);
-  if (isUS) for (const [i, v] of [['traditional', 0], ['roth', 0]]) await set(i, v);
+  if (isUS) for (const [i, v] of translateFieldList([['traditional', 0], ['roth', 0]], true, { single: true })) await set(i, v);
   await page.waitForTimeout(300);
 
   // Extra tax paid in year 10 (when the reserve first holds the full $300k) because the dataset row

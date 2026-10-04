@@ -16,6 +16,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 function checks() {
   const t = window.__test_tax;
@@ -209,7 +210,7 @@ async function engineTax(browser, isoDate, income, overrides = {}) {
     ['medicareYearly', 0], ['ssMonthlyA', 0], ['hysaRate', 0], ['rent', 0],
     ...Object.entries(overrides).filter(([id]) => id !== 'tenure'),
   ];
-  for (const [id, v] of fields) await set(id, v);
+  for (const [id, v] of translateFieldList(fields, true)) await set(id, v);
   if (overrides.tenure === 'rent') await page.click('#rentBtn');
   await page.evaluate((amount) => {
     window.__test_getState().incomeSources = [{ amount, startAge: 60, endAge: 100, followGrowth: false, growth: 0 }];

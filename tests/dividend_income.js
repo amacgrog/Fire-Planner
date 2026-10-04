@@ -9,6 +9,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 const root = path.resolve(__dirname, '..');
 
@@ -52,7 +53,7 @@ async function scenario(file, isUS, fields, years = 2) {
   else base.push(['cppMonthlyA', 0], ['oasMonthlyA', 0]);
   for (const [id, v] of base) await set(id, v);
   await page.evaluate(() => document.getElementById('rentBtn').click());
-  for (const [id, v] of [
+  for (const [id, v] of translateFieldList([
     ['rent', 0],
     ['traditional', 0],
     ['roth', 0],
@@ -60,7 +61,7 @@ async function scenario(file, isUS, fields, years = 2) {
     ['bondYears', 0],
     ['taxable', 1000000],
     ['basisRatio', 100],
-  ])
+  ], isUS, { single: true }))
     await set(id, v);
   for (const [id, v] of fields) await set(id, v);
   await page.waitForTimeout(250);

@@ -62,14 +62,20 @@ const sha = (s, algo = 'sha256', n = 16) => crypto.createHash(algo).update(s).di
 const slug = (s) => s.replace(/[^a-z0-9+.-]+/gi, '_');
 
 // ---- code that runs inside the page ---------------------------------------
+const { legacyToAccounts } = require('./legacy_balances');
+
 const PAGE_RUNNER = `(() => {
   const state = window.__test_getState();
   const base = JSON.parse(JSON.stringify(state));
+  // The grid is written with the old pooled retirement fields; a planner that has the per-partner
+  // account fields (US, since Batch 3A) gets the equivalent accounts, an older tree is left alone.
+  const legacyToAccounts = ${legacyToAccounts.toString()};
+  const HAS_ACCOUNTS = base.trad401kA !== undefined;
   const HIST = window.__test_HIST;
 
   function resetState(patch) {
     for (const k of Object.keys(state)) delete state[k];
-    Object.assign(state, JSON.parse(JSON.stringify(base)), JSON.parse(JSON.stringify(patch)));
+    Object.assign(state, JSON.parse(JSON.stringify(base)), JSON.parse(JSON.stringify(HAS_ACCOUNTS ? legacyToAccounts(patch, base) : patch)));
     if (window.__test_setRothOverride) window.__test_setRothOverride(null);
     if (window.__test_setWithdrawalMixOverride) window.__test_setWithdrawalMixOverride(null);
   }

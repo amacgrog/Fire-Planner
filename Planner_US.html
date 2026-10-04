@@ -246,6 +246,7 @@
     .decision-questions button .q-desc{display:block;font-weight:500;font-size:.75rem;color:var(--muted);line-height:1.3}
     .decision-questions button .q-delta{display:block;font-weight:700;font-size:.72rem;color:var(--blue);line-height:1.3;margin-top:5px}
     .decision-questions button .q-delta:empty{display:none}
+    .group-subhead{margin:14px 0 4px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.74rem;font-weight:800}
     .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800;grid-column:1/-1}
     .wizard-subhead:first-of-type{margin-top:0}
     /* Wizard readability + Step 2 flow, round 3: the description text under
@@ -260,10 +261,11 @@
        instead of stacking one-per-row down the left edge. */
     #wizardModal label{font-size:.92rem}
     #wizardModal small{font-size:.82rem;line-height:1.45;margin-top:3px}
-    #wizardStep2{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
-    #wizardStep2[hidden]{display:none}
-    #wizardStep2 .field{grid-template-columns:1fr;margin:8px 0}
-    @media(max-width:600px){#wizardStep2{grid-template-columns:1fr}}
+    .wizard-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
+    .wizard-grid[hidden]{display:none}
+    .wizard-grid .field{grid-template-columns:1fr;margin:8px 0}
+    .wizard-callout{grid-column:1/-1;margin:10px 0 4px;padding:10px 12px;border-left:4px solid var(--blue);background:rgba(37,99,235,.08);border-radius:6px;font-size:.88rem;line-height:1.45}
+    @media(max-width:600px){.wizard-grid{grid-template-columns:1fr}}
     /* @@shared:styles end */
   </style>
 </head>
@@ -271,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V85</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V88</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -411,13 +413,27 @@
           <summary><span class="group-summary-text"><span class="group-title">Assets</span><span class="group-state" id="assetsGroupState"></span></span></summary>
           <div class="field"><label for="taxable">Taxable brokerage<small>Non-retirement investment account</small></label><input id="taxable" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="basisRatio">Starting brokerage cost <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Percent of the current brokerage balance that is original after-tax contributions rather than unrealized gain. Only the gain portion is taxed when shares are sold.">i</button></span><small>Share that&#x27;s original contributions, not gains</small></label><span class="range-value" id="basisRatioOut"></span></div><input id="basisRatio" type="range" min="0" max="100" step="1"></div>
-          <div class="field"><label for="traditional">Traditional <span class="info-nw">retirement<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The combined balance of every traditional 401(k) and traditional IRA you (and your partner, if applicable) hold — one number, not per-account.">i</button></span><small>Combined 401(k) and traditional IRA balance</small></label><input id="traditional" type="number" class="money" min="0" step="1000"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="traditionalSharePctA">Traditional balance ownership <span class="info-nw">split<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The Partner A / Partner B split of the traditional balance above. It only affects RMDs, 72(t) SEPP, and the early-withdrawal penalty — not the total balance.">i</button></span><small>Affects RMDs, 72(t), and early-withdrawal penalty only</small></label><span class="range-value" id="traditionalSharePctAOut"></span></div><input id="traditionalSharePctA" type="range" min="0" max="100" step="1"></div>
-          <div class="field"><label for="roth">Roth retirement<small>Combined Roth 401(k) and Roth IRA balance</small></label><input id="roth" type="number" class="money" min="0" step="1000"></div>
-          <div class="field"><label for="rothBasisPct">Roth balance that is <span class="info-nw">contributions<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of your current Roth balance that is contributions plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty. The rest (earnings) is taxed and penalized if withdrawn before 59.5. New Roth contributions and conversions are tracked from here on; investment growth counts as earnings.">i</button></span><small>Penalty-free principal, in percent</small></label><input id="rothBasisPct" type="number" min="0" max="100" step="5"></div>
           <div class="field"><label for="cash">Cash / HYSA</label><input id="cash" type="number" class="money" min="0" step="1000"></div>
           <div class="range-field"><div class="range-head"><label for="cashReserve">Emergency cash <span class="info-nw">reserve<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Cash above this target moves into your taxable brokerage account; the target itself grows with inflation.">i</button></span></label><span class="range-value" id="cashReserveOut"></span></div><input id="cashReserve" type="range" min="0" max="300000" step="5000"></div>
           <div class="field"><label for="bondYears">Bond reserve size (years of <span class="info-nw">expenses)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="A reserve of bonds sized in years of expenses. Used by the standard pre-retirement bond reserve and by the historical backtest and Monte Carlo bucket strategy, which draw cash and bonds only in down-market years.">i</button></span><small>0 turns the bond reserve off; fractions allowed</small></label><input id="bondYears" type="number" min="0" max="15" step="0.5"></div>
+        </details>
+        <details class="group" data-cat="assets" id="retirementAccountsGroup" open>
+          <summary><span class="group-summary-text"><span class="group-title">Retirement accounts</span><span class="group-state" id="retirementAccountsGroupState"></span></span></summary>
+          <p class="range-note">Enter each account&#x27;s balance. <strong>Basis matters</strong>: it decides how much Roth money an early retiree can use penalty-free.</p>
+          <div class="group-subhead">Partner A</div>
+          <div class="field"><label for="trad401kA">Partner A traditional <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Pre-tax 401(k), 403(b) or similar. Employer match is added here. Withdrawals are ordinary income; RMDs start at the RMD age; before 59.5 a withdrawal owes the 10% penalty unless Rule of 55 or a 72(t) plan covers it. For now the planner treats this and the traditional IRA the same way.">i</button></span><small>Pre-tax workplace plan balance</small></label><input id="trad401kA" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="tradIraA">Partner A traditional <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional IRA, SEP or rollover IRA. Leave at 0 if you have none. Rolled-over 401(k) money belongs here. Taxed like the 401(k) above.">i</button></span><small>Pre-tax IRA balance, including rollovers</small></label><input id="tradIraA" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="roth401kA">Partner A Roth <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth 401(k) or Roth 403(b). Set the share that is contributions with the slider below.">i</button></span><small>Roth workplace plan balance</small></label><input id="roth401kA" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="rothIraA">Partner A Roth <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth IRA balance, including conversions. Enter your contribution basis below.">i</button></span><small>Roth IRA balance</small></label><input id="rothIraA" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="rothIraBasisA">Partner A Roth IRA <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Dollars you contributed to the Roth IRA, plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty; the rest (earnings) is taxed and penalized before 59.5. Leave at 0 to use the planner&#x27;s default assumption (half of the balance is basis); enter 1 if you have no basis. New contributions and conversions are tracked from here on; investment growth counts as earnings.">i</button></span><small>Contributions + seasoned conversions, in dollars</small></label><input id="rothIraBasisA" type="number" class="money" min="0" step="1000"></div>
+          <div class="range-field"><div class="range-head"><label for="roth401kBasisPctA">Partner A Roth 401(k) <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of the Roth 401(k) balance that is contributions (the rest is earnings). Unlike a Roth IRA, a Roth 401(k) withdrawal before 59.5 and the 5-year rule is split pro rata between contributions and earnings. For now the planner treats this like Roth IRA basis: contributions first.">i</button></span><small>Share that is contributions, not earnings</small></label><span class="range-value" id="roth401kBasisPctAOut"></span></div><input id="roth401kBasisPctA" type="range" min="0" max="100" step="1"></div>
+          <div class="group-subhead" data-partner-b>Partner B</div>
+          <div class="field" data-partner-b><label for="trad401kB">Partner B traditional <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Pre-tax 401(k), 403(b) or similar. Employer match is added here. Withdrawals are ordinary income; RMDs start at the RMD age; before 59.5 a withdrawal owes the 10% penalty unless Rule of 55 or a 72(t) plan covers it. For now the planner treats this and the traditional IRA the same way.">i</button></span><small>Pre-tax workplace plan balance</small></label><input id="trad401kB" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" data-partner-b><label for="tradIraB">Partner B traditional <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional IRA, SEP or rollover IRA. Leave at 0 if you have none. Rolled-over 401(k) money belongs here. Taxed like the 401(k) above.">i</button></span><small>Pre-tax IRA balance, including rollovers</small></label><input id="tradIraB" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" data-partner-b><label for="roth401kB">Partner B Roth <span class="info-nw">401(k)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth 401(k) or Roth 403(b). Set the share that is contributions with the slider below.">i</button></span><small>Roth workplace plan balance</small></label><input id="roth401kB" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" data-partner-b><label for="rothIraB">Partner B Roth <span class="info-nw">IRA<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Roth IRA balance, including conversions. Enter your contribution basis below.">i</button></span><small>Roth IRA balance</small></label><input id="rothIraB" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" data-partner-b><label for="rothIraBasisB">Partner B Roth IRA <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Dollars you contributed to the Roth IRA, plus conversions made at least 5 years ago. That part can be withdrawn at any age with no tax or penalty; the rest (earnings) is taxed and penalized before 59.5. Leave at 0 to use the planner&#x27;s default assumption (half of the balance is basis); enter 1 if you have no basis. New contributions and conversions are tracked from here on; investment growth counts as earnings.">i</button></span><small>Contributions + seasoned conversions, in dollars</small></label><input id="rothIraBasisB" type="number" class="money" min="0" step="1000"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="roth401kBasisPctB">Partner B Roth 401(k) <span class="info-nw">basis<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The percent of the Roth 401(k) balance that is contributions (the rest is earnings). Unlike a Roth IRA, a Roth 401(k) withdrawal before 59.5 and the 5-year rule is split pro rata between contributions and earnings. For now the planner treats this like Roth IRA basis: contributions first.">i</button></span><small>Share that is contributions, not earnings</small></label><span class="range-value" id="roth401kBasisPctBOut"></span></div><input id="roth401kBasisPctB" type="range" min="0" max="100" step="1"></div>
         </details>
         <details class="group" data-cat="assets">
           <summary><span class="group-summary-text"><span class="group-title">Market assumptions</span><span class="group-state" id="marketGroupState"></span></span></summary>
@@ -691,21 +707,31 @@
     <button type="button" id="wizardXBtn" aria-label="Close">✕</button>
     <h2 id="wizardTitle">Get started: the basics</h2>
     <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
-    <div id="wizardStep1">
+    <div id="wizardStep1" data-wizard-step data-title="Get started: the basics" data-note="enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.">
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
-      <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" type="number" min="18" max="70" step="1"></div>
-      <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardIncomeA">Partner A income<small>Gross, before tax and before any 401(k)/IRA contribution — not take-home pay.</small></label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
-      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any 401(k)/IRA contribution.</small></label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" type="number" min="18" max="70" step="1"></div>
-      <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-retirement investment account.</small></label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardTraditional">Current traditional 401(k)/IRA balance<small>Add up every traditional 401(k) and traditional IRA you (and your partner) hold — one combined number, not per-account.</small></label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRoth">Current Roth balance<small>Add up every Roth 401(k) and Roth IRA you (and your partner) hold.</small></label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or health insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" data-wizard-mirror="ageA" type="number" min="18" max="70" step="1"></div>
+      <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" data-wizard-mirror="ageB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardIncomeA">Partner A income<small>Gross, before tax and before any 401(k)/IRA contribution — not take-home pay.</small></label><input id="wizardIncomeA" data-wizard-mirror="incomeA" type="number" class="money" min="0" step="1000"></div>
+      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any 401(k)/IRA contribution.</small></label><input id="wizardIncomeB" data-wizard-mirror="incomeB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" data-wizard-mirror="retireAgeA" type="number" min="18" max="70" step="1"></div>
+      <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" data-wizard-mirror="retireAgeB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or health insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard.</small></label><input id="wizardSpending" data-wizard-mirror="spending" type="number" class="money" min="0" step="1000"></div>
     </div>
-    <div id="wizardStep2" hidden>
+    <div id="wizardStep2" class="wizard-grid" data-wizard-step data-title="Your balances" data-note="enter what you hold today. Everything here is also in the sidebar (Assets, and Retirement accounts)." hidden>
+      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-retirement investment account.</small></label><input id="wizardTaxable" data-wizard-mirror="taxable" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" data-wizard-mirror="cash" type="number" class="money" min="0" step="1000"></div>
+      <h3 class="wizard-subhead">Retirement accounts</h3>
+      <div class="field"><label for="wizardTrad401kA">Partner A Traditional 401(k)<small>Pre-tax workplace plan.</small></label><input id="wizardTrad401kA" data-wizard-mirror="trad401kA" type="number" class="money" min="0" step="1000"></div>
+      <div class="field" data-partner-b><label for="wizardTrad401kB">Partner B Traditional 401(k)<small>Pre-tax workplace plan.</small></label><input id="wizardTrad401kB" data-wizard-mirror="trad401kB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTradIraA">Partner A Traditional IRA<small>Pre-tax IRA, including rollovers. Enter 0 if none.</small></label><input id="wizardTradIraA" data-wizard-mirror="tradIraA" type="number" class="money" min="0" step="1000"></div>
+      <div class="field" data-partner-b><label for="wizardTradIraB">Partner B Traditional IRA<small>Pre-tax IRA, including rollovers. Enter 0 if none.</small></label><input id="wizardTradIraB" data-wizard-mirror="tradIraB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRoth401kA">Partner A Roth 401(k)<small>Roth workplace plan.</small></label><input id="wizardRoth401kA" data-wizard-mirror="roth401kA" type="number" class="money" min="0" step="1000"></div>
+      <div class="field" data-partner-b><label for="wizardRoth401kB">Partner B Roth 401(k)<small>Roth workplace plan.</small></label><input id="wizardRoth401kB" data-wizard-mirror="roth401kB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRothIraA">Partner A Roth IRA<small>Roth IRA, including conversions.</small></label><input id="wizardRothIraA" data-wizard-mirror="rothIraA" type="number" class="money" min="0" step="1000"></div>
+      <div class="field" data-partner-b><label for="wizardRothIraB">Partner B Roth IRA<small>Roth IRA, including conversions.</small></label><input id="wizardRothIraB" data-wizard-mirror="rothIraB" type="number" class="money" min="0" step="1000"></div>
+      <p class="wizard-callout"><strong>Please set your Roth basis.</strong> Basis is what you actually contributed (not earnings). It can be withdrawn at any age with no tax or penalty, so it decides how much Roth money an early retiree can reach before 59½. Without it the planner assumes half of each Roth balance is basis. Enter it under <strong>Retirement accounts</strong> in the sidebar (Roth IRA basis in dollars, Roth 401(k) as a percent).</p>
+    </div>
+    <div id="wizardStep3" class="wizard-grid" data-wizard-step data-title="A few optional questions" data-note="these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly." hidden>
       <h3 class="wizard-subhead">Healthcare</h3>
       <div class="field"><label for="wizardAcaEnabled"><input id="wizardAcaEnabled" type="checkbox"> ACA premium subsidy<small>Nets your entered pre-65 healthcare premium against the ACA marketplace subsidy for your income. Turn off if you'll have employer retiree coverage, COBRA, or are paying full price. Lives in the Retirement income &amp; healthcare section.</small></label></div>
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
@@ -773,9 +799,25 @@
     inflation: 2.5,
     medicalInflation: 1,
     taxable: 50000,
-    traditional: 200000,
-    roth: 50000,
-    rothBasisPct: 100,
+    // Retirement accounts, per partner (Partner B's are ignored in single-person mode).
+    // Opening balances; each is one account in the engine's account ledger (see
+    // accountsNew). Roth IRA basis: dollars of contributions (and seasoned conversions);
+    // 0 means "not entered" and the planner assumes ROTH_BASIS_ASSUMED_PCT of the balance
+    // (enter $1 for none). Half is the default because most Roth balances hold some contributions and some
+    // earnings; early retirees should enter the real figure. Roth 401(k) basis is a slider: the share of the balance that is
+    // contributions (a Roth 401(k) is not a Roth IRA, so it has its own treatment).
+    tradIraA: 0,
+    tradIraB: 0,
+    trad401kA: 100000,
+    trad401kB: 100000,
+    rothIraA: 25000,
+    rothIraB: 25000,
+    roth401kA: 0,
+    roth401kB: 0,
+    rothIraBasisA: 0,
+    rothIraBasisB: 0,
+    roth401kBasisPctA: 50,
+    roth401kBasisPctB: 50,
     cash: 50000,
     cashReserve: 30000,
     bondYears: 5,
@@ -854,13 +896,6 @@
     rothConvEndAge: 63,
     rothConvBracket: 22,
     ruleOf55Enabled: false,
-    // Partner A's assumed share (%) of the pooled traditional 401(k)/IRA +
-    // bond-traditional balance, used only for RMD sizing/timing, 72(t) SEPP
-    // sizing, and the early-withdrawal-penalty fraction — the balance
-    // itself stays one pooled household total (see traditionalShareA/B in
-    // simulate()/simulateHistorical()). Defaults to 50/50, matching the
-    // assumption this app used before the split was configurable.
-    traditionalSharePctA: 50,
     sepp72tEnabledA: false,
     sepp72tEnabledB: false,
     buyAge: 50,
@@ -1058,10 +1093,18 @@
     { key: 'medicalInflation', type: 'number' },
     { key: 'taxable', type: 'number' },
     { key: 'basisRatio', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
-    { key: 'traditionalSharePctA', type: 'number', out: (v) => `${v}% / ${100 - v}%`, outSync: 'controls', inlineOut: true },
-    { key: 'traditional', type: 'number' },
-    { key: 'roth', type: 'number' },
-    { key: 'rothBasisPct', type: 'number' },
+    { key: 'tradIraA', type: 'number' },
+    { key: 'trad401kA', type: 'number' },
+    { key: 'rothIraA', type: 'number' },
+    { key: 'roth401kA', type: 'number' },
+    { key: 'tradIraB', type: 'number' },
+    { key: 'trad401kB', type: 'number' },
+    { key: 'rothIraB', type: 'number' },
+    { key: 'roth401kB', type: 'number' },
+    { key: 'rothIraBasisA', type: 'number' },
+    { key: 'rothIraBasisB', type: 'number' },
+    { key: 'roth401kBasisPctA', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
+    { key: 'roth401kBasisPctB', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
     { key: 'cash', type: 'number' },
     { key: 'cashReserve', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
     { key: 'bondYears', type: 'number' },
@@ -1226,10 +1269,20 @@
         'thirds',
       ]);
     }
-    {
-      const rawPct = Number(s.traditionalSharePctA);
-      s.traditionalSharePctA = Number.isFinite(rawPct) ? Math.min(100, Math.max(0, rawPct)) : 50;
-    }
+    // Retirement accounts (see the defaults): balances and Roth IRA basis are non-negative
+    // dollars, the Roth 401(k) basis is 0-100 percent. The pooled fields of older saves
+    // (traditional, roth, traditionalSharePctA, rothBasisPct) are retired and not migrated
+    // (owner decision, Batch 3A): they are deleted here because the spread above carries
+    // unknown keys through, and an old save opens with empty retirement accounts.
+    ['traditional', 'roth', 'traditionalSharePctA', 'rothBasisPct'].forEach((k) => delete s[k]);
+    ['A', 'B'].forEach((p) => {
+      ['tradIra', 'trad401k', 'rothIra', 'roth401k', 'rothIraBasis'].forEach((k) => {
+        const v = Number(s[k + p]);
+        s[k + p] = Number.isFinite(v) ? Math.max(0, v) : defaults[k + p];
+      });
+      const pctV = Number(s['roth401kBasisPct' + p]);
+      s['roth401kBasisPct' + p] = Number.isFinite(pctV) ? Math.min(100, Math.max(0, pctV)) : defaults['roth401kBasisPct' + p];
+    });
     // Migrate the old single household-wide `sepp72tEnabled` boolean (now
     // split into sepp72tEnabledA/B) for scenarios saved before the split
     // existed — only when the raw data predates the split entirely (both
@@ -1524,7 +1577,8 @@
   const ESTIMATE_ALWAYS_IDS = [
     'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB',
     'k401PctA', 'k401PctB', 'iraPctA', 'iraPctB', 'spending', 'taxable', 'basisRatio',
-    'traditional', 'roth', 'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
+    'trad401kA', 'trad401kB', 'tradIraA', 'tradIraB', 'roth401kA', 'roth401kB', 'rothIraA', 'rothIraB',
+    'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
     'mortgageRate', 'mortgageYears', 'extraPrincipal', 'maintenance', 'propertyTax',
     'homeInsurance', 'rent', 'ssMonthlyA', 'ssStartAgeA', 'ssMonthlyB', 'ssStartAgeB',
     'pensionYearlyA', 'pensionStartAgeA', 'pensionYearlyB', 'pensionStartAgeB', 'healthPremiumA',
@@ -2151,8 +2205,15 @@
     setGroupState('spendingGroupState', spendingText);
 
     // Assets: taxable + traditional + Roth as "invested", cash separately.
-    const invested = (state.taxable || 0) + (state.traditional || 0) + (state.roth || 0);
+    const invested = (state.taxable || 0) + retirementTotal();
     setGroupState('assetsGroupState', `${compact(invested)} invested · ${compact(state.cash || 0)} cash`);
+    {
+      const o = openingAccounts();
+      setGroupState(
+        'retirementAccountsGroupState',
+        `${compact(sumSlots(o.trad))} traditional · ${compact(sumSlots(o.roth))} Roth`,
+      );
+    }
 
     // Market assumptions: return, bond return, inflation.
     setGroupState(
@@ -3682,11 +3743,8 @@
   // The ledger covers the pooled Roth account (roth + bondRoth together);
   // the 5-year conversion clock runs from the conversion year, so a
   // conversion in year y is seasoned from year y + 5.
-  function rothLedgerNew(balance) {
-    return {
-      basis: Math.max(0, balance) * clamp(pct(state.rothBasisPct), 0, 1),
-      conv: [],
-    };
+  function rothLedgerNew() {
+    return { basis: openingRothBasis(), conv: [] };
   }
   function rothLedgerSeason(L, year) {
     while (L.conv.length && L.conv[0].year + 5 <= year) L.basis += L.conv.shift().amount;
@@ -3718,11 +3776,135 @@
       if (entry.amount <= 1e-9) L.conv.shift();
     }
   }
+  // Account ledger. The engine's balances stay pooled (bal.traditional +
+  // bal.bondTraditional, bal.roth + bal.bondRoth: tax, RMDs, ACA/IRMAA, the bond
+  // ladder and every table read the pools). Underneath, each pool is split among
+  // four accounts, in ACCOUNT_SLOTS order: [IRA A, 401(k) A, IRA B, 401(k) B]
+  // (for the Roth pool: Roth IRA A, Roth 401(k) A, Roth IRA B, Roth 401(k) B).
+  // The ledger stores each account's SHARE of its pool: growth, ladder/refill
+  // moves and draws hit every account in proportion (same-allocation assumption),
+  // so shares only change when money enters or leaves one account on its own: a
+  // contribution (the owner's account) or a Roth conversion (IRAs first, to keep
+  // 401(k) access longest; the money lands in the same partner's Roth IRA). An
+  // account's dollars are its share times the pool at that moment. The engine reads
+  // each partner's current share (accountsOwnerShareA) for RMD and 72(t) sizing and
+  // for the early-withdrawal-penalty blend, and a partner's RMD/72(t) distribution
+  // comes out of that partner's own accounts (accountsDraw).
+  const ACCOUNT_SLOTS = ['iraA', 'k401A', 'iraB', 'k401B'];
+  // Share of a Roth IRA balance assumed to be contributions when no basis is entered.
+  const ROTH_BASIS_ASSUMED_PCT = 50;
+  // The four retirement accounts' opening balances from the inputs, in ACCOUNT_SLOTS
+  // order. Partner B's accounts are ignored in single-person mode.
+  function openingAccounts() {
+    const single = !!state.singlePerson,
+      b = (v) => (single ? 0 : v);
+    return {
+      trad: [state.tradIraA, state.trad401kA, b(state.tradIraB), b(state.trad401kB)],
+      roth: [state.rothIraA, state.roth401kA, b(state.rothIraB), b(state.roth401kB)],
+    };
+  }
+  const sumSlots = (a) => a[0] + a[1] + a[2] + a[3];
+  // All retirement-account money (traditional + Roth, both partners unless single-person).
+  function retirementTotal() {
+    const o = openingAccounts();
+    return sumSlots(o.trad) + sumSlots(o.roth);
+  }
+  // Each account's opening share of its pool (equal split of an empty pool: nothing to divide).
+  function accountsNew() {
+    const o = openingAccounts(),
+      shares = (a) => {
+        const total = sumSlots(a);
+        return total > 0 ? a.map((x) => x / total) : [0.25, 0.25, 0.25, 0.25];
+      };
+    return { trad: shares(o.trad), roth: shares(o.roth) };
+  }
+  // Opening Roth basis (contributions): per partner, the entered Roth IRA basis (or the
+  // assumed share of the balance when none is entered, never more than the balance) plus
+  // the Roth 401(k) balance times its basis slider.
+  function openingRothBasis() {
+    const single = !!state.singlePerson,
+      o = openingAccounts();
+    let basis = 0;
+    [['A', 0], ['B', 2]].forEach(([p, i]) => {
+      if (p === 'B' && single) return;
+      const ira = o.roth[i],
+        entered = state['rothIraBasis' + p];
+      basis += entered > 0 ? Math.min(ira, entered) : ira * pct(ROTH_BASIS_ASSUMED_PCT);
+      basis += o.roth[i + 1] * pct(state['roth401kBasisPct' + p]);
+    });
+    return basis;
+  }
+  function accountsClone(a) {
+    return { trad: a.trad.slice(), roth: a.roth.slice() };
+  }
+  function accountsRestore(a, snap) {
+    for (let i = 0; i < 4; i++) {
+      a.trad[i] = snap.trad[i];
+      a.roth[i] = snap.roth[i];
+    }
+  }
+  // Dollars per account for a pool worth `pool`.
+  function accountBalances(shares, pool) {
+    return shares.map((sh) => sh * pool);
+  }
+  // `shares` are updated in place to the new dollar mix; they keep their old
+  // values when the pool is empty (nothing to divide).
+  function accountsSetFromDollars(shares, dollars) {
+    const total = dollars[0] + dollars[1] + dollars[2] + dollars[3];
+    if (total > 1e-9) for (let i = 0; i < 4; i++) shares[i] = dollars[i] / total;
+  }
+  // `amounts` (one per slot) is added to the pool `pool` as it stands before the add.
+  function accountsContribute(shares, pool, amounts) {
+    const d = accountBalances(shares, pool);
+    for (let i = 0; i < 4; i++) d[i] += amounts[i];
+    accountsSetFromDollars(shares, d);
+  }
+  // Partner A's current share of a pool (their IRA plus their 401(k)).
+  function accountsOwnerShareA(shares) {
+    return shares[0] + shares[1];
+  }
+  // Takes `amounts` ([from A's accounts, from B's accounts]) out of the pool `pool` as it stands
+  // before the draw, each pro rata among that partner's own accounts. A partner whose accounts
+  // cannot cover their amount (a market drop since the balance the RMD was sized on) is emptied;
+  // the pool itself was reduced by the full amount, and the shares are recomputed from the
+  // remaining dollars, so the ledger still sums to the pool whatever the shortfall was.
+  function accountsDraw(shares, pool, amounts) {
+    const d = accountBalances(shares, pool);
+    for (const p of [0, 1]) {
+      const own = d[2 * p] + d[2 * p + 1];
+      if (own <= 0) continue;
+      const f = 1 - Math.min(amounts[p], own) / own;
+      d[2 * p] *= f;
+      d[2 * p + 1] *= f;
+    }
+    accountsSetFromDollars(shares, d);
+  }
+  // A Roth conversion of `amount` out of the traditional pool `tradPool` into the
+  // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
+  // (pro rata). Each partner's converted money goes to that partner's Roth IRA.
+  function accountsConvert(a, tradPool, rothPool, amount) {
+    if (!(amount > 0)) return;
+    const d = accountBalances(a.trad, tradPool),
+      taken = [0, 0, 0, 0];
+    let rem = Math.min(amount, tradPool);
+    for (const group of [[0, 2], [1, 3]]) {
+      const have = d[group[0]] + d[group[1]],
+        take = Math.min(rem, have);
+      if (take > 0) for (const i of group) taken[i] = take * (d[i] / have);
+      rem -= take;
+    }
+    const r = accountBalances(a.roth, rothPool);
+    for (let i = 0; i < 4; i++) d[i] -= taken[i];
+    r[0] += taken[0] + taken[1];
+    r[2] += taken[2] + taken[3];
+    accountsSetFromDollars(a.trad, d);
+    accountsSetFromDollars(a.roth, r);
+  }
   // Share of the pooled traditional / Roth balance whose withdrawals owe the
   // 10% early-withdrawal penalty, given whether each partner is exempt. The
   // balance is one household pool, so when only one partner is exempt the
-  // other partner's own share (pctA: Partner A's assumed ownership share, not
-  // a flat 50/50) is the penalized part.
+  // other partner's own share (pctA: Partner A's current share of that pool from
+  // the account ledger, not a flat 50/50) is the penalized part.
   function penalizedShare(exemptA, exemptB, singlePerson, pctA) {
     if (singlePerson) return exemptA ? 0 : 1;
     if (exemptA && exemptB) return 0;
@@ -4255,7 +4437,28 @@
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
     const rothContrib = rothContribA + rothContribB;
-    return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib };
+    // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
+    // IRA B, 401(k) B). The employer match always goes to the traditional 401(k);
+    // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
+    const acct = {
+      trad: [
+        state.iraType === 'traditional' ? iraA : 0,
+        (state.k401Type === 'traditional' ? kBaseA : 0) +
+          (catchupTypeA === 'traditional' ? kCatchupA : 0) +
+          matchA,
+        state.iraType === 'traditional' ? iraB : 0,
+        (state.k401Type === 'traditional' ? kBaseB : 0) +
+          (catchupTypeB === 'traditional' ? kCatchupB : 0) +
+          matchB,
+      ],
+      roth: [
+        state.iraType === 'roth' ? iraA : 0,
+        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA,
+        state.iraType === 'roth' ? iraB : 0,
+        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB,
+      ],
+    };
+    return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct };
   }
 
   // Social Security for the year, each partner's own benefit once they reach
@@ -4319,7 +4522,7 @@
     singlePerson,
     isSurvivorPeriod,
     deceasedIsA,
-    pctA,
+    ownerShareA,
     workingA,
     workingB,
     retireAgeA,
@@ -4327,18 +4530,19 @@
   }) {
     const traditionalBeforeRmd = traditional + bondTraditional,
       // Each partner's own share of the pooled traditional balance, per
-      // the household's ownership split (pctA above, defaulting to
-      // 50/50) — used for RMDs, 72(t) SEPP sizing, and the
+      // the account ledger (ownerShareA above: Partner A's current share of
+      // the pool, which moves with contributions, conversions and each
+      // partner's own RMDs) — used for RMDs, 72(t) SEPP sizing, and the
       // early-withdrawal-penalty fraction below. During survivor period
       // or single-person mode, whichever partner remains is treated as
       // owning the whole pooled balance (the split only matters while
       // both partners are alive and the balance is genuinely shared).
       traditionalShareA =
-        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * pctA,
+        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd * ownerShareA,
       traditionalShareB =
         singlePerson || isSurvivorPeriod
           ? traditionalBeforeRmd
-          : traditionalBeforeRmd * (1 - pctA);
+          : traditionalBeforeRmd * (1 - ownerShareA);
     let rmdA = age >= rmdStartAge(state.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
       rmdB =
         !singlePerson && ageB >= rmdStartAge(state.ageB)
@@ -4776,8 +4980,9 @@
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
   // seasoning clock for penalty-free access.
-  function applyRothConversion(bal, rothLedger, conversionAmount, year) {
+  function applyRothConversion(bal, rothLedger, accts, conversionAmount, year) {
     if (conversionAmount <= 0) return;
+    accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount);
     const fromTradConv = Math.min(bal.traditional, conversionAmount);
     bal.traditional -= fromTradConv;
     bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
@@ -5289,14 +5494,14 @@
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  function runProjection({ mode, source, retireAgeA, retireAgeB }) {
+  function runProjection({ mode, source, retireAgeA, retireAgeB, trace = null }) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     // Only the historical source reports a start year; it also adds cumFactor to each row.
     const isHistorical = source.startYear !== undefined;
     // Partner A's share of the pooled traditional balance (normalizeState
     // already clamps this to 0-100) — see traditionalShareA/B below.
-    const pctA = state.traditionalSharePctA / 100;
+    const opening = openingAccounts();
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
@@ -5308,8 +5513,8 @@
       bondTaxableBasis: 0,
       bondTraditional: 0,
       bondRoth: 0,
-      traditional: state.traditional,
-      roth: state.roth,
+      traditional: sumSlots(opening.trad),
+      roth: sumSlots(opening.roth),
       cash: state.cash,
       home: state.tenure === 'own' ? state.homeValue : 0,
       mortgage: state.tenure === 'own' ? state.mortgage : 0,
@@ -5319,7 +5524,9 @@
       rows = [],
       magiHistory = [];
     // Roth contribution/conversion/earnings ledger (see rothLedgerNew).
-    const rothLedger = rothLedgerNew(state.roth);
+    const rothLedger = rothLedgerNew();
+    // Per-account shares of the traditional and Roth pools (see accountsNew).
+    const accts = accountsNew();
     let depletedAge = null,
       firstWithdrawal = 0;
     // Last year's realized discretionary income, used only to SEED each year's
@@ -5390,7 +5597,7 @@
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
-      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib } =
+      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib } =
         retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
@@ -5404,7 +5611,7 @@
         singlePerson,
         isSurvivorPeriod,
         deceasedIsA,
-        pctA,
+        ownerShareA: accountsOwnerShareA(accts.trad),
         workingA,
         workingB,
         retireAgeA,
@@ -5468,12 +5675,14 @@
         const scalarSnapshot = { depletedAge, firstWithdrawal };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothLedgerClone(rothLedger);
+        const acctSnapshot = accountsClone(accts);
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
             ({ depletedAge, firstWithdrawal } = scalarSnapshot);
             Object.assign(guardrails, guardrailSnapshot);
             rothLedgerRestore(rothLedger, ledgerSnapshot);
+            accountsRestore(accts, acctSnapshot);
           }
           estUsed = false;
         rothLedgerSeason(rothLedger, year);
@@ -5578,8 +5787,12 @@
             traditionalContrib -
             rothContrib;
         growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
+        // Each partner's RMD / 72(t) amount comes out of their own accounts (a single person or the
+        // survivor owns everything, so the draw is pro rata and no share moves).
+        if (rmd > 0 && !singlePerson && !isSurvivorPeriod)
+          accountsDraw(accts.trad, bal.traditional + bal.bondTraditional, [rmdA, rmdB]);
         withdrawRequiredDistributions(bal, rmd);
-        applyRothConversion(bal, rothLedger, conversionAmount, year);
+        applyRothConversion(bal, rothLedger, accts, conversionAmount, year);
         bal.cash += oneTimeAmount;
         const reserveTarget = state.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
@@ -5594,6 +5807,8 @@
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
         const surplusBondTarget = mode.bucketStrategy && stockReturn >= 0 ? bondTarget : null;
         if (flow >= 0) {
+          accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
+          accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           routeSurplus(bal, rothLedger, {
             flow,
             reserveTarget,
@@ -5615,9 +5830,9 @@
           // penalty unless the withdrawing partner is 59.5+ or covered by Rule of 55; see
           // traditionalPenaltyFraction for how the pooled balance is split between partners.
           wd.penalizedFraction = traditionalPenaltyFraction(
-            age, ageB, singlePerson, pctA, workingA, workingB, retireAgeA, retireAgeB,
+            age, ageB, singlePerson, accountsOwnerShareA(accts.trad), workingA, workingB, retireAgeA, retireAgeB,
           );
-          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, pctA);
+          wd.rothPenalizedFraction = rothPenaltyFraction(age, ageB, singlePerson, accountsOwnerShareA(accts.roth));
           if (mode.bucketStrategy)
             withdrawBucket(wd, {
               yearReturn: stockReturn,
@@ -5631,6 +5846,8 @@
           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
+          accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
+          accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
           bal.roth += rothContrib;
           rothLedger.basis += rothContrib;
@@ -5708,6 +5925,20 @@
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
         rows.push(row);
+        if (trace) {
+          const tradPool = bal.traditional + bal.bondTraditional,
+            rothPool = bal.roth + bal.bondRoth;
+          trace.push({
+            year,
+            tradPool,
+            rothPool,
+            trad: accountBalances(accts.trad, tradPool),
+            roth: accountBalances(accts.roth, rothPool),
+            tradShares: accts.trad.slice(),
+            rothShares: accts.roth.slice(),
+            conversionAmount,
+          });
+        }
         break;
       }
       source.endOfYear();
@@ -5856,7 +6087,7 @@
     } else {
       document.getElementById('buyPayoffHint').textContent = '';
     }
-    const currentInvestable = state.taxable + state.traditional + state.roth + state.cash;
+    const currentInvestable = state.taxable + retirementTotal() + state.cash;
     // Both "nest egg" numbers compare liquid assets only (taxable, retirement
     // accounts, cash — never home equity) against yearly spending divided by
     // the chosen safe withdrawal rate.
@@ -8609,7 +8840,7 @@
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
       end = sim.rows.at(-1),
-      currentInvestable = state.taxable + state.traditional + state.roth + state.cash,
+      currentInvestable = state.taxable + retirementTotal() + state.cash,
       fiNumber = sim.currentExpense * fiMultiple(),
       fireNumber = sim.retirementExpense * fiMultiple(),
       tenureLabels = { own: 'Own', rent: 'Rent', rentThenBuy: 'Rent, then buy' },
@@ -9152,17 +9383,9 @@
     document.querySelectorAll('.swr-input').forEach((el) => {
       if (document.activeElement !== el) el.value = String(state.fiWithdrawalRate);
     });
-    document.getElementById('wizardAgeA').value = state.ageA;
-    document.getElementById('wizardAgeB').value = state.ageB;
-    document.getElementById('wizardIncomeA').value = state.incomeA;
-    document.getElementById('wizardIncomeB').value = state.incomeB;
-    document.getElementById('wizardRetireAgeA').value = state.retireAgeA;
-    document.getElementById('wizardRetireAgeB').value = state.retireAgeB;
-    document.getElementById('wizardTaxable').value = state.taxable;
-    document.getElementById('wizardTraditional').value = state.traditional;
-    document.getElementById('wizardRoth').value = state.roth;
-    document.getElementById('wizardCash').value = state.cash;
-    document.getElementById('wizardSpending').value = state.spending;
+    document.querySelectorAll('[data-wizard-mirror]').forEach((el) => {
+      el.value = state[el.dataset.wizardMirror];
+    });
     [
       ['buyMortgageBtn', false],
       ['buyCashBtn', true],
@@ -10569,47 +10792,38 @@
     });
   });
   // @@shared:28-wizardOverlay begin
-  [
-    ['wizardAgeA', 'ageA'],
-    ['wizardAgeB', 'ageB'],
-    ['wizardIncomeA', 'incomeA'],
-    ['wizardIncomeB', 'incomeB'],
-    ['wizardRetireAgeA', 'retireAgeA'],
-    ['wizardRetireAgeB', 'retireAgeB'],
-    ['wizardTaxable', 'taxable'],
-    ['wizardTraditional', 'traditional'],
-    ['wizardRoth', 'roth'],
-    ['wizardCash', 'cash'],
-    ['wizardSpending', 'spending'],
-  ].forEach(([wizardId, realId]) => {
-    document.getElementById(wizardId).addEventListener('change', (e) => {
-      const real = document.getElementById(realId);
+  // Every wizard input that proxies a sidebar control names it in data-wizard-mirror: a
+  // change drives the real control with real input/change events, so all the existing
+  // state, visibility and render logic runs once, from one source of truth.
+  document.querySelectorAll('[data-wizard-mirror]').forEach((wizardEl) => {
+    wizardEl.addEventListener('change', (e) => {
+      const real = document.getElementById(wizardEl.dataset.wizardMirror);
       real.value = e.target.value;
       real.dispatchEvent(new Event('input', { bubbles: true }));
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
   const wizardOverlay = document.getElementById('wizardOverlay');
+  // Steps are the [data-wizard-step] panels in document order; each carries its own
+  // data-title and data-note (the "Step i of N" prefix is added here).
+  const wizardSteps = Array.from(document.querySelectorAll('#wizardModal [data-wizard-step]'));
   let wizardStep = 1;
   function renderWizardStep() {
-    document.getElementById('wizardStep1').hidden = wizardStep !== 1;
-    document.getElementById('wizardStep2').hidden = wizardStep !== 2;
-    document.getElementById('wizardTitle').textContent =
-      wizardStep === 1 ? 'Get started: the basics' : 'A few optional questions';
+    wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
+    const current = wizardSteps[wizardStep - 1];
+    document.getElementById('wizardTitle').textContent = current.dataset.title;
     document.getElementById('wizardStepNote').textContent =
-      wizardStep === 1
-        ? "Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here."
-        : "Step 2 of 2 — these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
+      `Step ${wizardStep} of ${wizardSteps.length} — ${current.dataset.note}`;
     document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
-    document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
+    document.getElementById('wizardNextBtn').hidden = wizardStep === wizardSteps.length;
     document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
     // #wizardModal itself is the scrolling container (overflow:auto) — it's
-    // one persistent element across both steps, never recreated, so its
+    // one persistent element across every step, never recreated, so its
     // scrollTop carries over from whatever step was showing before. Without
-    // this, clicking "Next" from partway (or all the way) down a long Step 1
-    // left Step 2 rendered already scrolled to that same position — often
-    // right at the bottom, since the Next button itself sits at the very
-    // end of Step 1. Reset on every step change (including the initial
+    // this, clicking "Next" from partway (or all the way) down a long step
+    // left the next step rendered already scrolled to that same position —
+    // often right at the bottom, since the Next button itself sits at the
+    // very end of the step. Reset on every step change (including the initial
     // open) so each step always starts at its own top.
     document.getElementById('wizardModal').scrollTop = 0;
   }
@@ -10619,11 +10833,11 @@
     wizardOverlay.classList.add('open');
   });
   document.getElementById('wizardNextBtn').addEventListener('click', () => {
-    wizardStep = 2;
+    wizardStep = Math.min(wizardSteps.length, wizardStep + 1);
     renderWizardStep();
   });
   document.getElementById('wizardBackBtn').addEventListener('click', () => {
-    wizardStep = 1;
+    wizardStep = Math.max(1, wizardStep - 1);
     renderWizardStep();
   });
   document.getElementById('wizardCloseBtn').addEventListener('click', () => {
@@ -10640,7 +10854,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') wizardOverlay.classList.remove('open');
   });
-  // Visible on both wizard steps (unlike wizardBackBtn/wizardNextBtn/
+  // Visible on every wizard step (unlike wizardBackBtn/wizardNextBtn/
   // wizardCloseBtn, which the wizardStep hidden-toggling logic above
   // governs) — does exactly what Escape/outside-click already do.
   document.getElementById('wizardXBtn').addEventListener('click', () => {
@@ -10988,6 +11202,20 @@
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
+  window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
+    const trace = [];
+    if (hist) {
+      const prevTaxFactors = histTaxFactors;
+      histTaxFactors = [];
+      try {
+        runProjection({ mode: BUCKET_MODE, source: historicalYearSource(hist), retireAgeA, retireAgeB, trace });
+      } finally {
+        histTaxFactors = prevTaxFactors;
+      }
+    } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
+    return trace;
+  };
+  window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
   window.__test_tax = { standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, stateRules, noTaxStates, taxIndexFactor };

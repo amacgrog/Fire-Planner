@@ -24,6 +24,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { setBalance } = require('./legacy_balances');
 
 const setInput = (page, id, value) =>
   page.evaluate(
@@ -85,10 +86,10 @@ async function run(file, label, extra) {
   await click(page, 'rentBtn');
   await setInput(page, 'rent', 0);
   await setInput(page, 'taxable', 0);
-  await setInput(page, 'roth', 0);
+  await setBalance(setInput, page, 'roth', 0, true);
   await setInput(page, 'cash', 0);
   await setInput(page, 'bondYears', 0);
-  await setInput(page, 'traditional', 2000000);
+  await setBalance(setInput, page, 'traditional', 2000000, true);
   await page.waitForTimeout(200);
 
   const start = 2000000;

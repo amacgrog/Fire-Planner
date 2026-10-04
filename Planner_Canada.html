@@ -246,6 +246,7 @@
     .decision-questions button .q-desc{display:block;font-weight:500;font-size:.75rem;color:var(--muted);line-height:1.3}
     .decision-questions button .q-delta{display:block;font-weight:700;font-size:.72rem;color:var(--blue);line-height:1.3;margin-top:5px}
     .decision-questions button .q-delta:empty{display:none}
+    .group-subhead{margin:14px 0 4px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.74rem;font-weight:800}
     .wizard-subhead{margin:18px 0 6px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.78rem;font-weight:800;grid-column:1/-1}
     .wizard-subhead:first-of-type{margin-top:0}
     /* Wizard readability + Step 2 flow, round 3: the description text under
@@ -260,10 +261,11 @@
        instead of stacking one-per-row down the left edge. */
     #wizardModal label{font-size:.92rem}
     #wizardModal small{font-size:.82rem;line-height:1.45;margin-top:3px}
-    #wizardStep2{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
-    #wizardStep2[hidden]{display:none}
-    #wizardStep2 .field{grid-template-columns:1fr;margin:8px 0}
-    @media(max-width:600px){#wizardStep2{grid-template-columns:1fr}}
+    .wizard-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
+    .wizard-grid[hidden]{display:none}
+    .wizard-grid .field{grid-template-columns:1fr;margin:8px 0}
+    .wizard-callout{grid-column:1/-1;margin:10px 0 4px;padding:10px 12px;border-left:4px solid var(--blue);background:rgba(37,99,235,.08);border-radius:6px;font-size:.88rem;line-height:1.45}
+    @media(max-width:600px){.wizard-grid{grid-template-columns:1fr}}
     /* @@shared:styles end */
   </style>
 </head>
@@ -639,21 +641,21 @@
     <button type="button" id="wizardXBtn" aria-label="Close">✕</button>
     <h2 id="wizardTitle">Get started: the basics</h2>
     <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
-    <div id="wizardStep1">
+    <div id="wizardStep1" data-wizard-step data-title="Get started: the basics" data-note="enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.">
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
-      <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" type="number" min="18" max="70" step="1"></div>
-      <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardIncomeA">Partner A income<small>Gross, before tax and before any RRSP contribution — not take-home pay.</small></label><input id="wizardIncomeA" type="number" class="money" min="0" step="1000"></div>
-      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any RRSP contribution.</small></label><input id="wizardIncomeB" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" type="number" min="18" max="70" step="1"></div>
-      <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" type="number" min="18" max="70" step="1"></div>
-      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-registered investment account.</small></label><input id="wizardTaxable" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardTraditional">Current RRSP balance<small>Combined across you and your partner, if applicable — one number, not per-account.</small></label><input id="wizardTraditional" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardRoth">Current TFSA balance<small>Combined across you and your partner, if applicable.</small></label><input id="wizardRoth" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or extra health/dental insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard. Provincial healthcare itself is universal and isn't something to budget for here.</small></label><input id="wizardSpending" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" data-wizard-mirror="ageA" type="number" min="18" max="70" step="1"></div>
+      <div data-partner-b class="field"><label for="wizardAgeB">Partner B starting age</label><input id="wizardAgeB" data-wizard-mirror="ageB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardIncomeA">Partner A income<small>Gross, before tax and before any RRSP contribution — not take-home pay.</small></label><input id="wizardIncomeA" data-wizard-mirror="incomeA" type="number" class="money" min="0" step="1000"></div>
+      <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any RRSP contribution.</small></label><input id="wizardIncomeB" data-wizard-mirror="incomeB" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" data-wizard-mirror="retireAgeA" type="number" min="18" max="70" step="1"></div>
+      <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" data-wizard-mirror="retireAgeB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-registered investment account.</small></label><input id="wizardTaxable" data-wizard-mirror="taxable" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardTraditional">Current RRSP balance<small>Combined across you and your partner, if applicable — one number, not per-account.</small></label><input id="wizardTraditional" data-wizard-mirror="traditional" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardRoth">Current TFSA balance<small>Combined across you and your partner, if applicable.</small></label><input id="wizardRoth" data-wizard-mirror="roth" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" data-wizard-mirror="cash" type="number" class="money" min="0" step="1000"></div>
+      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or extra health/dental insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard. Provincial healthcare itself is universal and isn't something to budget for here.</small></label><input id="wizardSpending" data-wizard-mirror="spending" type="number" class="money" min="0" step="1000"></div>
     </div>
-    <div id="wizardStep2" hidden>
+    <div id="wizardStep2" class="wizard-grid" data-wizard-step data-title="A few optional questions" data-note="these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly." hidden>
       <h3 class="wizard-subhead">Healthcare</h3>
       <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
       <h3 class="wizard-subhead">Taxes &amp; investing</h3>
@@ -8299,47 +8301,38 @@
     });
   });
   // @@shared:28-wizardOverlay begin
-  [
-    ['wizardAgeA', 'ageA'],
-    ['wizardAgeB', 'ageB'],
-    ['wizardIncomeA', 'incomeA'],
-    ['wizardIncomeB', 'incomeB'],
-    ['wizardRetireAgeA', 'retireAgeA'],
-    ['wizardRetireAgeB', 'retireAgeB'],
-    ['wizardTaxable', 'taxable'],
-    ['wizardTraditional', 'traditional'],
-    ['wizardRoth', 'roth'],
-    ['wizardCash', 'cash'],
-    ['wizardSpending', 'spending'],
-  ].forEach(([wizardId, realId]) => {
-    document.getElementById(wizardId).addEventListener('change', (e) => {
-      const real = document.getElementById(realId);
+  // Every wizard input that proxies a sidebar control names it in data-wizard-mirror: a
+  // change drives the real control with real input/change events, so all the existing
+  // state, visibility and render logic runs once, from one source of truth.
+  document.querySelectorAll('[data-wizard-mirror]').forEach((wizardEl) => {
+    wizardEl.addEventListener('change', (e) => {
+      const real = document.getElementById(wizardEl.dataset.wizardMirror);
       real.value = e.target.value;
       real.dispatchEvent(new Event('input', { bubbles: true }));
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
   const wizardOverlay = document.getElementById('wizardOverlay');
+  // Steps are the [data-wizard-step] panels in document order; each carries its own
+  // data-title and data-note (the "Step i of N" prefix is added here).
+  const wizardSteps = Array.from(document.querySelectorAll('#wizardModal [data-wizard-step]'));
   let wizardStep = 1;
   function renderWizardStep() {
-    document.getElementById('wizardStep1').hidden = wizardStep !== 1;
-    document.getElementById('wizardStep2').hidden = wizardStep !== 2;
-    document.getElementById('wizardTitle').textContent =
-      wizardStep === 1 ? 'Get started: the basics' : 'A few optional questions';
+    wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
+    const current = wizardSteps[wizardStep - 1];
+    document.getElementById('wizardTitle').textContent = current.dataset.title;
     document.getElementById('wizardStepNote').textContent =
-      wizardStep === 1
-        ? "Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here."
-        : "Step 2 of 2 — these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly.";
+      `Step ${wizardStep} of ${wizardSteps.length} — ${current.dataset.note}`;
     document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
-    document.getElementById('wizardNextBtn').hidden = wizardStep === 2;
+    document.getElementById('wizardNextBtn').hidden = wizardStep === wizardSteps.length;
     document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
     // #wizardModal itself is the scrolling container (overflow:auto) — it's
-    // one persistent element across both steps, never recreated, so its
+    // one persistent element across every step, never recreated, so its
     // scrollTop carries over from whatever step was showing before. Without
-    // this, clicking "Next" from partway (or all the way) down a long Step 1
-    // left Step 2 rendered already scrolled to that same position — often
-    // right at the bottom, since the Next button itself sits at the very
-    // end of Step 1. Reset on every step change (including the initial
+    // this, clicking "Next" from partway (or all the way) down a long step
+    // left the next step rendered already scrolled to that same position —
+    // often right at the bottom, since the Next button itself sits at the
+    // very end of the step. Reset on every step change (including the initial
     // open) so each step always starts at its own top.
     document.getElementById('wizardModal').scrollTop = 0;
   }
@@ -8349,11 +8342,11 @@
     wizardOverlay.classList.add('open');
   });
   document.getElementById('wizardNextBtn').addEventListener('click', () => {
-    wizardStep = 2;
+    wizardStep = Math.min(wizardSteps.length, wizardStep + 1);
     renderWizardStep();
   });
   document.getElementById('wizardBackBtn').addEventListener('click', () => {
-    wizardStep = 1;
+    wizardStep = Math.max(1, wizardStep - 1);
     renderWizardStep();
   });
   document.getElementById('wizardCloseBtn').addEventListener('click', () => {
@@ -8370,7 +8363,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') wizardOverlay.classList.remove('open');
   });
-  // Visible on both wizard steps (unlike wizardBackBtn/wizardNextBtn/
+  // Visible on every wizard step (unlike wizardBackBtn/wizardNextBtn/
   // wizardCloseBtn, which the wizardStep hidden-toggling logic above
   // governs) — does exactly what Escape/outside-click already do.
   document.getElementById('wizardXBtn').addEventListener('click', () => {

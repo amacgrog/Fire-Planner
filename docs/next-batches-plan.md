@@ -74,10 +74,12 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
     switch) are accepted. Social Security earnings test and WEP/GPO are not
     modeled (WEP/GPO is repealed).
 18. A survivor-benefit claim optimizer is added as Batch 8, after everything else.
-19. The first-run wizard collects balances by account type, not by assumed
-    shares: Traditional 401(k), Roth IRA and Roth 401(k) totals (each split
-    between the partners 50/50, single person all to Partner A). No traditional
-    IRA is assumed; it is entered only in the Retirement accounts group.
+19. The first-run wizard collects balances by account type. **Amended during 3A
+    (owner, 2026-10-04):** it asks for every balance directly, per partner and per
+    account (traditional 401(k), traditional IRA, Roth 401(k), Roth IRA, for A and
+    B), with no 50/50 split and no assumed traditional IRA. It became three steps
+    (basics, balances, optional questions) and carries a prominent note to set the
+    Roth basis. Legacy saves are not migrated (owner: they do not matter).
 
 ## Execution order
 
@@ -162,13 +164,12 @@ user-facing and `CLAUDE.md` is what future sessions read first.
   `age >= 65`), `magiSafeRoom` / `remainingMagiRoom`, and the optimizer
   (`optimizeMultiLever`, `ROTH_PER_YEAR_*`, `rothScheduleCost`) are the other
   touch points.
-- Retirement accounts today: one pooled `traditional` and one pooled `roth`
-  balance (plus `bondTraditional` / `bondRoth`), Partner A's share set by
-  `traditionalSharePctA`. Roth early access is a pooled `rothLedger`
-  (contribution basis from `rothBasisPct`, a conversion queue with 5-year
-  seasoning, earnings). The early-withdrawal penalty is a blended
-  `penalizedShare`; Rule of 55 and the 72(t) SEPP (`sepp72tEnabledA/B`,
-  `singleLifeDivisor`) act on the pooled traditional balance. Property tax
+- Retirement accounts (after 3A): four accounts per partner as inputs; the engine keeps pooled
+  `bal.traditional/roth` (plus `bondTraditional/bondRoth`) with a per-account share ledger underneath
+  (`accts`), which sizes RMDs, 72(t) and the blended penalty fraction. Roth early access is still a pooled
+  `rothLedger` (contribution basis, a conversion queue with 5-year seasoning, earnings). The early-
+  withdrawal penalty is still a blended `penalizedShare`; Rule of 55 and the 72(t) SEPP
+  (`sepp72tEnabledA/B`, `singleLifeDivisor`) still act on the pooled traditional balance. Property tax
   (`propertyTax`, `propertyTaxGrowth`) and tenure are already inputs.
 - `refillBondReserve` and `rotateIntoBondLadder` only move money between stock
   and bond holdings inside the same account type, so they never trigger the
@@ -362,14 +363,12 @@ scenario produces byte-identical output.
   `roth401kBasisPctA/B` (slider 0-100, default 100 so the default scenario is
   unchanged). One collapsible "Retirement accounts" group with a per-partner
   sub-group, with `<small>` descriptors and info bubbles per CLAUDE.md.
-- **Retired fields** (migrated and then deleted from the saved state):
-  `traditional`, `roth`, `traditionalSharePctA`, `rothBasisPct`, and the
-  `sepp72tEnabledA/B` pair in 3B. `normalizeState` migration maps legacy
-  `traditional` into the **401(k)** buckets split A/B by the old slider (this
-  preserves today's Rule-of-55-on-everything and SEPP behavior), legacy `roth`
-  into the **Roth IRA** buckets split the same way, and legacy `rothBasisPct`
-  into `rothIraBasisA/B` dollars (blank when it was 100). New `tests/legacy_state.js`
-  cases cover each of those, and the baseline stays byte-identical.
+- **Retired fields** (deleted from the saved state): `traditional`, `roth`,
+  `traditionalSharePctA`, `rothBasisPct`, and the `sepp72tEnabledA/B` pair in 3B.
+  **Amended during 3A (owner decision): no migration.** `normalizeState` just deletes
+  the four pooled keys, so an old save opens with default accounts. (The original plan
+  mapped them into the 401(k) and Roth IRA buckets; the snapshot grid and older tests
+  keep their old vocabulary through `tests/legacy_balances.js` instead.)
 - **Engine representation.** Keep `bal.traditional`, `bal.bondTraditional`,
   `bal.roth`, `bal.bondRoth` as the pooled totals everything downstream already
   reads (tax, RMD, ACA/IRMAA, bond ladder, Sankey, tables). Add an account
@@ -384,15 +383,9 @@ scenario produces byte-identical output.
 - **MAGI-iteration rule from CLAUDE.md applies:** every new mutable ledger is
   cloned and restored with the existing snapshot (`rothLedgerClone/Restore`
   pattern); add them in the same commit or convergence silently breaks.
-- **First-run wizard (decided).** It asks for household totals by account type
-  and splits each between the partners 50/50 (single person: all to Partner A),
-  which reproduces today's default ownership: Traditional 401(k); Roth IRA;
-  Roth 401(k). It never assumes a traditional IRA balance (many people, such as
-  backdoor-Roth users, keep that at zero), so Traditional IRA is entered only in
-  the Retirement accounts group, and the wizard says so. The group is where
-  exact per-account, per-partner balances, Roth IRA basis, Roth 401(k) basis and
-  72(t) elections live. Saved scenarios still migrate by the old ownership
-  slider (traditional into the 401(k) buckets, Roth into the Roth IRA buckets).
+- **First-run wizard (amended, see decision 19).** Step 2 asks for every account
+  balance per partner; the basis fields and 72(t) elections live only in the
+  Retirement accounts group, and the wizard says to set the basis.
 - Surfaces to update: field registry (one entry per field), MCP schema (derived),
   first-run wizard and field search, "investable at retirement" and other sums,
   CSV/table exports, scenario compare, `tests/field_registry.js`,
@@ -1105,7 +1098,159 @@ calculation first):
   never use it in the same command line as the pattern.
 
 ### Batch 3A / 3B / 3C notes
-_(to be added by the Batch 3 PRs)_
+
+#### Batch 3A: account model (US V85 -> V88; Canada code untouched)
+
+Branch `claude/batch-3a-account-model`, cut from the Batch 2 merge (`6b91093`). Four
+commits plus this notes commit. The plan called 3A a no-number-change batch; the owner
+changed that during the batch (the ledger should drive the shares, and the Roth basis
+should default to 50%), so two of the four commits are **intended number changes**, each
+isolated with its own snapshot update. All 359 Canada scenarios are byte-identical at every
+commit.
+
+**Source verification status (read this first).** irs.gov, law.cornell.edu and
+federalregister.gov returned `EGRESS_BLOCKED` again on 2026-10-04 (retried this session);
+ssa.gov, medicare.gov, cms.gov, congress.gov and bls.gov were blocked in Batch 2 earlier that
+day and not retried. No primary source could be opened. 3A changes **no limit, bracket or
+tax figure**; it only routes contributions that the engine already computed. The limits it
+routes were checked only against **secondary sources** (one WebSearch on 2026-10-04; the pages
+themselves were not opened): 2026 401(k) deferral $24,500, catch-up $8,000, age 60-63 catch-up
+$11,250, IRA $7,500 plus $1,100 catch-up, and the Roth catch-up rule above $150,000 of prior-year
+FICA wages, all attributed to IRS Notice 2025-67 (sources: 401kspecialistmag.com, Frier Levitt,
+visionretirement.com, credaily.com summaries). **Not confirmed at all:** the $72,000 annual
+additions limit the mega-backdoor room uses (`72000 * limitFactor` in
+`retirementContributions`), and every Roth ordering rule below (Treas. Reg. 1.402A-1 pro-rata
+for Roth 401(k), 5-year clocks), which stay as the plan's secondary-source rule check and are
+re-read when 3B implements them.
+
+**What was built.**
+- Per partner, four accounts: `tradIraA/B`, `trad401kA/B`, `rothIraA/B`, `roth401kA/B` (all
+  `.money`), `rothIraBasisA/B` (dollars) and `roth401kBasisPctA/B` (slider). One collapsible
+  "Retirement accounts" group (`#retirementAccountsGroup`, `data-cat="assets"`, US-only markup
+  outside the shared regions) replaces the four old Assets fields.
+- **`rothIraBasis` 0 means "not entered".** The registry's number listener cannot represent a
+  blank (it stores `Number(x) || 0`, in a shared fragment), so 0 = assume
+  `ROTH_BASIS_ASSUMED_PCT` (50) of the balance and "enter $1" means none. Tests that need a true zero
+  use a Roth 401(k) at 0% instead (an exact zero).
+- **Partner B's accounts are ignored in single-person mode** (not summed; owner decision). Toggling
+  single-person on therefore removes B's balances from the plan. `openingAccounts()` is the one place
+  that applies this; the sidebar sums, the group summary and the wizard use it too.
+- **Engine.** `bal.traditional/roth` start as the sums of the four accounts. The ledger `accts`
+  (`accountsNew/Contribute/Convert/Draw/Clone/Restore`) stores each account's SHARE of its pool in
+  `ACCOUNT_SLOTS` order `[IRA A, 401(k) A, IRA B, 401(k) B]`; growth, ladder/refill moves and draws
+  are pro rata and leave shares alone. Contributions route to the owner's account (employer match to
+  the traditional 401(k); k401Type roth and catch-up to the Roth 401(k); iraType roth to the Roth IRA;
+  mega-backdoor to the Roth 401(k)); Roth conversions draw the IRAs first (pro rata between the two),
+  then the 401(k)s, into the same partner's Roth IRA; a partner's RMD/72(t) amount comes out of that
+  partner's own accounts (a single person or the survivor draws pro rata, no share moves). The
+  ledger is cloned/restored in the MAGI-iteration snapshot (`accountsClone/Restore`).
+  `rothLedger` stays one pooled basis-first ledger (Roth IRA and Roth 401(k) share it); its opening
+  basis is `openingRothBasis()` = per partner `min(Roth IRA balance, entered basis)` (or the assumed
+  share when none) plus Roth 401(k) balance times its slider. **Per-account Roth ledgers and the
+  pro-rata Roth 401(k) rule are 3B**, where something reads them; building them now would have been
+  dead code.
+- **Wizard.** The shared `28-wizardOverlay` fragment is data-driven (`[data-wizard-step]` panels with
+  `data-title`/`data-note`, `[data-wizard-mirror]` inputs); Canada's wizard keeps two steps and its text
+  (its markup gained the data attributes only). CSS `#wizardStep2` rules became `.wizard-grid`. The US
+  wizard has three steps: basics, "Your balances" (taxable, cash, the eight accounts, a basis callout),
+  optional questions.
+
+**Decisions made while building (not in the plan).**
+- *Ledger as shares of a pool, not dollar balances per account.* Same-allocation growth means shares
+  only move on contributions, conversions and owner-specific draws, so the ledger hooks are four
+  places, and a hook that is skipped shows up as a share that is wrong. Dollars are derived
+  (`share x pool`).
+- *No-shortfall transfer in `accountsDraw`.* A first version moved the part of a partner's RMD their
+  accounts could not cover onto the other partner. It is unobservable: the short partner is emptied
+  either way and renormalizing the remaining dollars gives the same shares, so mutation testing could
+  not distinguish them; the code was removed and the test asserts the emptied-partner result.
+- *Roth penalty blend* uses the Roth share (`accountsOwnerShareA(accts.roth)`); the old engine used
+  the traditional ownership slider for both. Roth shares move only by contributions and conversions.
+- *Rule of 55 and 72(t) still act on the pooled traditional balance* (IRAs included). The plan's
+  "Rule of 55 only on 401(k)s" and per-account 72(t) are 3B; until then the traditional IRA and 401(k)
+  behave identically, and the info bubbles say so.
+- *Three-commit staging of the number changes* (owner agreed): commit 2 changed no number, commit 3
+  (ledger drives shares) and commit 4 (50% basis) each regenerated the simulation baseline on its own,
+  so each effect is attributable.
+- *Test vocabulary.* The grid and ~15 older tests speak the old pooled vocabulary through
+  `tests/legacy_balances.js`: `legacyToAccounts` (snapshot, UI surfaces, `bond_refill`,
+  `historical_rates`) and `translateFieldList`/`setBalance` (Playwright tests that drive DOM ids).
+  Old `traditional` becomes the 401(k)s split by the old slider (all on A when single), old `roth`
+  the Roth IRAs (snapshot) or Roth 401(k)s with the slider set from `rothBasisPct` (DOM tests, so a
+  0% basis is an exact zero). `pinBasis`/the DOM translator keep 100% for hand-computed tests; the
+  snapshot grid runs at the planner's own 50%. **Do not pass the old keys straight to
+  `Object.assign(state, ...)` in a new test: the engine ignores them.**
+
+**Gotchas.**
+- A first measurement of the early-retiree success rate showed 15.1% in both columns:
+  `tests/historical_rates.js` had set the retired pooled keys, which the new engine ignores. The script
+  now translates; the before column then reproduced the Batch 2 end values exactly (86.8% / 86.9%).
+- The snapshot harness merges patches straight into `state` (bypassing `normalizeState`), which is why
+  retiring a field breaks every scenario that names it until the grid is translated.
+- A single-person patch that names no balances needs the household's balances moved to A, or half of
+  the money silently disappears (the default single scenario caught this).
+- `roth_early_access` scenarios had `rothBasisPct` 0 and expect cent-exact numbers; a $1 Roth IRA
+  basis would have shifted them, hence the Roth 401(k) at 0% for those.
+- The two-step `renderWizardStep` hard-coded step ids in a shared fragment; any new step needs
+  `data-wizard-step` plus `data-title`/`data-note`, or it is skipped.
+- After a conversion the converted Roth money is all Roth IRA, but opening Roth 401(k) money stays in
+  the Roth 401(k) slots: shares are exact, but the pooled `rothLedger` still treats both the same.
+
+**What moved (before/after).**
+- Step 1 (ledger, no inputs) and step 2 (new inputs and wizard): nothing. 518 US and 359 Canada
+  simulation scenarios byte-identical, no simulation baseline update; the default scenario's rows hash in
+  the UI baseline is unchanged. Only the UI baseline (new controls, new text) and the legacy-state
+  corpus (retired keys dropped, new fields) were regenerated.
+- Step 3 (ledger drives RMD, 72(t) and penalty shares): 330 of 518 US scenarios moved (52 standard,
+  278 historical), none in Canada. Median |change| of final investable 0.017%, p90 0.05%. Default
+  scenario: age-60 penalty 2,391 -> 2,726, lifetime penalty 30,290 -> 34,539, lifetime tax
+  1,029,578 -> 1,030,174, investable at retirement 1,815,962 -> 1,815,568, end of plan 2,644,777 ->
+  2,523,687 (-4.6%; the extra penalty at 60-64 leaves the Roth balance about 7k lower at 75 and
+  that compounds for 30 years). Symmetric early retirees (`std R`) do not move.
+- Step 4 (Roth basis 50%): 89 of 518 US scenarios moved (11 standard, 78 historical), only those that
+  draw Roth before 59.5; median change 0, largest -3.9% (hist R mixApplied boom). `std R mixApplied`:
+  lifetime penalty 51,200 -> 62,139.
+- Seeded success rates (2000 paths, seed 7), start of 3A -> end of 3A (US; Canada unchanged):
+
+  | Scenario | Historical | Monte Carlo |
+  |---|---|---|
+  | default | 82.9% -> 82.9% | 84.7% -> 84.5% |
+  | early retiree | 86.8% -> 86.8% | 86.9% -> 86.9% |
+  | early retiree, smooth | 83.0% -> 83.0% | 86.3% -> 86.3% |
+  | early retiree, live mix | 86.8% -> 86.8% | 86.9% -> 86.9% |
+  | working, then retires, bondYears 4 | 85.4% -> 85.4% | 86.4% -> 86.2% |
+
+- A mis-worded sentence in the step 3 commit message says the UI baseline "moved only for the V87
+  badge-free rowsHash of 'std R' staying equal and the rendered text". What it should say: the
+  `std R` rows/projection hashes in the UI baseline did not change at step 3; only rendered text and
+  the new controls' wiring entries moved.
+
+**Tests.** New: `tests/account_ledger.js` (units for contribute/convert/draw/clone/restore;
+contribution routing in the surplus and deficit branches; mega-backdoor; invariants in both engines;
+the MAGI-iteration rewind on a lopsided ACA scenario; RMDs from the owner's accounts over three years,
+both partners, an emptied partner; the traditional and Roth penalty blends in both engines),
+`tests/account_inputs.js` (balances by account and partner, single-person mode, the Roth basis rules and
+the 50% defaults, the opening ownership ratio sizing the first RMD), `test_wizard_accounts.js` (three
+steps, mirrors, single-person hiding, the group, 390x844 overflow at every step, Canada's two-step wizard
+unchanged), `tests/legacy_balances.js` (helper). `tests/legacy_state.js` replaced the two slider cases
+with retired-key, valid and junk account cases. Every new test was mutation-checked: 20+ broken variants
+(skip the MAGI rewind, wrong routing slot, IRA/401(k) order, fixed 0.5 ratios, B accounts summed in
+single mode, assumed basis 0, slider ignored, basis cap removed, a wizard input losing its mirror, a
+panel losing `data-wizard-step`, RMD pro rata, B's RMD drawn from A, no clamp). Two survived at first
+and led to stronger tests (the rewind needed a lopsided scenario; the basis cap needed a second Roth
+account). `npm test` and the root scripts `test_wizard_accounts`, `test_info_tips`,
+`test_mobile_category_rail`, `test_dynamic_lists`, `test_spending_and_fi_widgets`,
+`test_apply_optimizer_schedule`, `test_live_withdrawal_mix`, `test_multi_lever_optimizer` pass.
+
+**New or changed fields.** Added: `tradIraA/B`, `trad401kA/B`, `rothIraA/B`, `roth401kA/B`,
+`rothIraBasisA/B`, `roth401kBasisPctA/B` (all in `FIELDS`, derived MCP schema, `normalizeState`
+clamps). Removed without migration: `traditional`, `roth`, `traditionalSharePctA`, `rothBasisPct`
+(deleted in `normalizeState`). Defaults: 100,000 per 401(k), 25,000 per Roth IRA, others 0,
+`roth401kBasisPct*` 50. Test hooks: `__test_accountTrace`, `__test_accounts`.
+
+**Carried to 3B.** The fractional `penalizedShare` blend (now fed by the ledger) is replaced by a
+per-account status; Rule of 55 and 72(t) move to per-account; per-account Roth ledgers and the Roth
+401(k) pro-rata rule; the pre-retirement bond-bucket strategy question (Open items) is unchanged by 3A.
 
 ### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
 _(to be added by the Batch 7 PRs)_
@@ -1123,6 +1268,35 @@ _(to be added by the Batch 6 PR)_
 _(to be added by the Batch 8 PR)_
 
 ---
+
+## Verification backlog (primary sources, to do at the end)
+
+Owner decision (2026-10-04): carry on without primary sources and verify everything in one pass at the
+end. Primary sites (irs.gov, law.cornell.edu, federalregister.gov, ssa.gov, medicare.gov, cms.gov,
+congress.gov, bls.gov) were blocked from this environment through Batch 3A. Every figure or rule below
+is in the code or the plan today on secondary sources or on our own reading; none was opened at its
+primary source. Each batch adds its items here as it lands; the final pass opens each primary document,
+cites it with the retrieval date in the consolidated `docs/reference.md`, and fixes the code where
+reality differs. Status key: S = secondary source only, U = no source checked, O = owner's own table or
+reading (itself secondary).
+
+| Item (where it lives) | Batch | Status | What to confirm |
+|---|---|---|---|
+| 2026 standard deduction $32,200 / $16,100 / $24,150 HoH; age 65+ additional $1,650 / $2,050 | 2 | S (Rev. Proc. 2025-32 summaries: KPMG, JofA) | Rev. Proc. 2025-32 text |
+| Senior deduction $6,000, 2025-2028, phase-out 6% over $75k / $150k, per eligible person, below AGI | 2 | S + O | IRC 151(d)(5)(C), P.L. 119-21 s.70103, Schedule 1-A and Form 1040 line numbers |
+| SALT cap table $40,000 / $40,400 / $40,804 / $41,212 / $41,624 / $10,000 from 2030; $500k/$505k threshold, 30% rate, +1% a year, $10,000 floor | 2 | S + O | IRC 164(b)(7) |
+| Mortgage interest limit $750,000 (permanent); grandfathered $1,000,000 not modeled | 2 | U / O | IRC 163(h)(3), Pub. 936 |
+| 2026 IRMAA tiers and per-partner Part B + D surcharges; MFJ bounds | 2 | O | CMS 2026 IRMAA notice |
+| Medicare timing: work past 65 delays enrollment, no late penalty; 8-month special enrollment, COBRA | 2 | O (modeling decision) | Medicare.gov / CMS rules |
+| 2026 401(k) deferral $24,500, catch-up $8,000, age 60-63 $11,250; IRA $7,500 + $1,100; Roth catch-up above $150,000 prior-year FICA wages | 3A | S (Notice 2025-67 summaries) | IRS Notice 2025-67 |
+| Annual additions limit $72,000 (`retirementContributions`, mega-backdoor room) | 3A | U | IRS Notice 2025-67 / Pub. 560 |
+| Roth ordering: contributions, then conversions (oldest first, each with its own 5-year clock for the 10% tax), then earnings | 3A / 3B | S | IRC 408A(d)(4), Treas. Reg. 1.408A-6 |
+| Roth 401(k) non-qualified distributions pro rata between contributions and earnings; no RMDs from 2024 | 3B | S | Treas. Reg. 1.402A-1, SECURE 2.0 s.325 |
+| Rule of 55 applies only to the plan of the employer separated from, lost on rollover to an IRA | 3B | S | IRC 72(t)(2)(A)(v) |
+| 72(t) SEPP: exact payments, recapture on modification, later of 5 years or 59.5, Single Life Table | 3B | S | Notice 2022-6, Rev. Rul. 2002-62 |
+| Single Life Table divisors in `singleLifeDivisor` | 3B | U | Treas. Reg. 1.401(a)(9)-9 |
+| Uniform Lifetime Table in `rmdDivisor` (72-100+) and RMD start ages 73 / 75 by birth year (`rmdStartAge`) | 3A (read by tests) | U | Treas. Reg. 1.401(a)(9)-9(c), SECURE 2.0 s.107 |
+| Treasury yields 2023-2025 kept as recorded (decision 14); CPI 2023-2024 confirmed, CPI 2025 to two decimals | 1 / 6 | S | Treasury, BLS index levels |
 
 ## Open items
 
@@ -1177,6 +1351,13 @@ remains is detail to settle when the relevant batch is scoped:
   is not above the line, its own phase-out MAGI is pre-deduction, and it stacks with the
   65+ additional standard deduction. This is what the model does. Not independently
   opened by us (primary sites blocked); confirm the line numbers when reachable.
+- Survivor and the account ledger (raised in 3A): after a death the survivor owns everything, so RMD and
+  penalty math treat the whole pool as theirs and draws are pro rata, but the ledger still labels the
+  deceased's accounts to them; nothing reads that label today. 3B's per-account Rule of 55 and 72(t) should
+  say what happens to a deceased partner's 401(k) (spousal rollover into the survivor's IRA is the
+  realistic answer).
+- Roth IRA basis uses 0 as "not entered" (3A): a true zero basis is entered as $1. If a real blank is
+  wanted, the shared `24-syncContributionControls` number listener needs a blank-aware option.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.

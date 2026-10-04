@@ -70,8 +70,10 @@ async function setupRealUserScenario(page) {
   await setVal(page, 'incomeA', 155000); await setVal(page, 'incomeB', 159000);
   await setVal(page, 'spending', 38500);
   await setVal(page, 'taxable', 204395);
-  await setVal(page, 'traditional', 433500);
-  await setVal(page, 'roth', 231000);
+  await setVal(page, 'trad401kA', 216750);
+  await setVal(page, 'trad401kB', 216750);
+  await setVal(page, 'rothIraA', 115500);
+  await setVal(page, 'rothIraB', 115500);
   await setVal(page, 'cash', 116000);
   await setVal(page, 'cashReserve', 50000);
   await setVal(page, 'ssMonthlyA', 0); await setVal(page, 'ssMonthlyB', 0);
