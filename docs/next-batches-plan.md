@@ -1007,6 +1007,27 @@ document at the next tax update. What was used:
   IRMAA guard (`!working && age >= 63`) already agree with this and are unchanged.
   The survivor's cost stays their half of the household figure, as before.
 
+**Cross-check against an owner-supplied table (2026-10-04).** The owner supplied a
+table of the same rules with IRS, Cornell LII (26 USC 151, 163(h)(3), 164(b)(7)),
+Medicare.gov and CMS links. Those links were not fetchable from this environment, so
+the table is a second secondary source, not a primary verification. It agrees with
+the implementation on every row: standard deduction $32,200 / $16,100 and the age
+amounts $1,650 / $2,050; the senior deduction ($6,000, 2025-2028, 65 by year end,
+phase-out 6% over $75,000 / $150,000, allowed with itemizing); the SALT cap table
+($40,000, $40,400, $40,804, $41,212, $41,624, then $10,000), the $505,000 (2026)
+threshold, 30% rate and $10,000 floor, and the threshold compounding at 101% of the
+prior year ($510,050 in 2027, not $510,000), which settles the compounding question
+above; the $750,000 acquisition-debt limit as permanent (pre-12/16/2017 loans keep
+$1,000,000, not modeled); and the 2026 IRMAA tiers (the code's per-partner Part B +
+Part D surcharges $95.70 / $240.40 / $385.00 / $529.60 / $578.00 equal the table's
+81.20+14.50, 202.90+37.50, 324.60+60.40, 446.30+83.30, 487.00+91.00; MFJ bounds
+$218k / $274k / $342k / $410k / $750k). The table's Medicare rules (Part B can wait
+while current-employment coverage lasts; an 8-month special enrollment period after
+work or coverage ends; COBRA does not extend it) match the modeled assumption of
+enrolling the year work stops and are consistent with "no late-enrollment penalty";
+the model does not represent the 8-month window or COBRA. Still to do at the next tax
+update: open the primary pages and cite them directly.
+
 **What moved (before/after).**
 - Step 1: nothing (475 US / 359 Canada scenarios and the UI baseline identical).
 - Step 2 (Medicare): no existing scenario moved (none has anyone working past 65).
@@ -1055,9 +1076,13 @@ calculation first):
 **Gotchas.**
 - The `07-mortgagePayment` fragment (mortgage schedules, `buildDeferredMortgage`)
   is shared with Canada, so the new `interest` arrays were added in `shared/` and
-  synced; the `propertyTax` field's label sits in the shared `html-medicalInflation`
-  region, so a US-only itemizing info bubble cannot go on it (the check failed); the
-  itemizing explanation lives on the filing-status bubble and in the methodology text.
+  synced. The `propertyTax` field's label used to sit inside the shared
+  `html-medicalInflation` markup region, so a US-only itemizing info bubble failed the
+  drift check. Fixed in a follow-up commit (US V84): that region now ends just before
+  the property-tax field and a new `html-propertyTaxGrowth` region starts right after
+  it, so the one `propertyTax` line is per-planner (Canada's text is unchanged, byte
+  for byte; only the marker comments moved). The US label carries the itemizing bubble
+  as well as the filing-status bubble and the methodology text.
 - The filing-status bubble is hidden for single-person plans, so the methodology
   callout ("Tax treatment") carries the same deduction text for them.
 - Any test that hand-derives US tax for a 65+ person must now allow for the
@@ -1121,6 +1146,15 @@ remains is detail to settle when the relevant batch is scoped:
   up only when money leaves the account.
 - Batch 3C: the safe-MAGI room has no behavioral test (carried from Batch 1, see
   its notes); resolve it there and carry the note into `docs/reference.md`.
+- Roth-conversion bracket sizing (raised in Batch 2): `solveRothConversion` sizes the
+  conversion with a conservative deduction lower bound (age-adjusted standard, or
+  property tax + mortgage interest if larger), leaving out the senior deduction and
+  state income tax because both depend on the conversion itself. Effect: in tax years
+  2026-2028 a 65+ filer converts up to about $6,000 per eligible person less than an
+  exact fill, and a large-state-tax itemizer slightly less; later years are
+  unaffected. Making it exact needs iterating on the conversion inside
+  `solveRothConversion`. Revisit with Batch 3C (safe-MAGI room and conversion
+  sizing), with a before/after on a 65+ conversion scenario.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.

@@ -186,7 +186,10 @@ Each planner is one big IIFE. Core shape:
   lower bound (age-adjusted standard, or property tax + interest if larger; no
   senior deduction, no state tax). `mortgageSchedule()` and `buildDeferredMortgage()`
   (shared fragment `07-mortgagePayment`) now also return a per-year `interest` array.
-  Canada has no equivalent in this batch.
+  Canada has no equivalent in this batch. The Annual property tax field line sits
+  between two shared markup regions (`html-medicalInflation` ends before it,
+  `html-propertyTaxGrowth` starts after it) so each planner can word its label
+  differently; keep it outside the shared regions.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
