@@ -105,6 +105,27 @@ function generate(rules) {
     L.push('');
     for (const c of noted) L.push(`- **${c.toUpperCase()}**: ${rules[c].notes}`);
   }
+  const researched = codes.filter((c) => rules[c].status === 'researched');
+  if (researched.length) {
+    L.push('');
+    L.push('## Researched rows in detail');
+    L.push('');
+    L.push('Every parameter of the mechanisms the rows use (credits, additions, exclusions, step tables), as the planner reads them.');
+    for (const c of researched) {
+      const r = rules[c];
+      L.push('');
+      L.push(`### ${c.toUpperCase()} ${r.name}`);
+      L.push('');
+      L.push(`Indexing: ${r.indexing}. Columns: ${Object.keys(r.standardDeduction).join(', ')}; head of household reads ${r.statusAs.hoh}, surviving spouse ${r.statusAs.qss}.`);
+      for (const [label, value] of [['Social Security', r.base.socialSecurity], ['Retirement exclusion', r.retirementExclusion], ['Exemption step-down', r.exemptionPhaseOut], ['Dependent exemption', r.dependentExemption]]) {
+        if (typeof value === 'object' && value !== null && value.kind === 'none') continue;
+        if (value === 'exempt' || value === 0) continue;
+        L.push(`- ${label}: \`${JSON.stringify(value)}\``);
+      }
+      for (const a of r.additions) L.push(`- Addition: \`${JSON.stringify(a)}\``);
+      for (const cr of r.credits) L.push(`- Credit: \`${JSON.stringify(cr)}\``);
+    }
+  }
   L.push('');
   L.push('## Brackets');
   L.push('');

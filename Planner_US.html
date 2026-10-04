@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V98</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V99</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -339,7 +339,7 @@
         </details>
         <details class="group" data-cat="profile" open>
           <summary>State income tax</summary>
-          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Covers every state with an individual-income tax, Washington&#x27;s capital-gains tax and DC. Not modeled: local income taxes, state credits, state itemized deductions, pension and retirement-income exclusions beyond the broad ones the inputs can identify, after-tax IRA basis, some state capital-gain rules, and income phase-outs. Treat it as a rough estimate; a later update will replace these simplifications with each state&#x27;s actual rules.">i</button></span><small>Simplified 2026 estimate; (i) lists what it leaves out</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
+          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Covers every state with an individual-income tax, Washington&#x27;s capital-gains tax and DC. Not modeled: local income taxes, state credits, state itemized deductions, pension and retirement-income exclusions beyond the broad ones the inputs can identify, after-tax IRA basis, some state capital-gain rules, and income phase-outs. California, New York, Pennsylvania, Connecticut, Washington and Texas use researched rules (credits, pension and Social Security rules, recapture); every other state is still the simplified estimate described above, and a later update will replace it with that state&#x27;s actual rules. Treat any state figure as a rough estimate.">i</button></span><small>Simplified 2026 estimate; (i) lists what it leaves out</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
     <!-- @@shared:html-timelineGroupState begin -->
         </details>
         <details class="group" data-cat="timeline" open>
@@ -2849,12 +2849,12 @@
     },
     ca: {
       name: 'California',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://a-us.storyblok.com/f/1015104/x/b62453f262/1225-fast-tax-facts.pdf',
+      asOf: 2025,
       indexing: 'cpi',
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
@@ -2866,19 +2866,41 @@
             [0, 0.01], [22158, 0.02], [52528, 0.04], [82904, 0.06], [115084, 0.08], [145448, 0.093], [742958, 0.103],
             [891542, 0.113], [1000000, 0.123], [1485906, 0.133],
           ],
+          hoh: [
+            [0, 0.01], [22173, 0.02], [52530, 0.04], [67716, 0.06], [83805, 0.08], [98990, 0.093], [505208, 0.103],
+            [606251, 0.113], [1000000, 0.123], [1010417, 0.133],
+          ],
         },
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
-      standardDeduction: { single: 5540, mfj: 11080 },
-      exemption: { single: 0, mfj: 0 },
+      standardDeduction: { single: 5706, mfj: 11412, hoh: 11412 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       retirementExclusion: { kind: 'none' },
-      credits: [],
+      credits: [
+        {
+          kind: 'exemptionCredits',
+          label: 'Exemption credits (personal, 65+, dependent)',
+          refundable: false,
+          personal: { single: 153, mfj: 307, hoh: 153 },
+          personalCount: { single: 1, mfj: 2, hoh: 1 },
+          senior: { age: 65, amount: 153 },
+          dependent: 475,
+          phaseOut: { start: { single: 252203, mfj: 504411, hoh: 378310 }, width: 2500, reduction: 6 },
+        },
+        {
+          kind: 'renterCredit',
+          label: 'Renter\'s credit',
+          refundable: false,
+          amount: { single: 60, mfj: 120, hoh: 120 },
+          agiLimit: { single: 53954, mfj: 107987, hoh: 107987 },
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary): the FTB publishes the 2026 indexed schedules later, so 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is inside the top two brackets. Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit, the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
     },
     co: {
       name: 'Colorado',
@@ -2903,30 +2925,133 @@
     },
     ct: {
       name: 'Connecticut',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
-      indexing: 'cpi',
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://portal.ct.gov/-/media/drs/forms/2025/income/ct-1040-tcs_1225.pdf',
+      asOf: 2025,
+      indexing: 'none',
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
           single: [[0, 0.02], [10000, 0.045], [50000, 0.055], [100000, 0.06], [200000, 0.065], [250000, 0.069], [500000, 0.0699]],
           mfj: [[0, 0.02], [20000, 0.045], [100000, 0.055], [200000, 0.06], [400000, 0.065], [500000, 0.069], [1000000, 0.0699]],
+          hoh: [[0, 0.02], [16000, 0.045], [80000, 0.055], [160000, 0.06], [320000, 0.065], [400000, 0.069], [800000, 0.0699]],
         },
       },
-      additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
-      standardDeduction: { single: 0, mfj: 0 },
-      exemption: { single: 0, mfj: 0 },
-      exemptionPhaseOut: { kind: 'none' },
+      additions: [
+        {
+          kind: 'agiStep',
+          label: '2% tax rate phase-out add-back (Table C)',
+          tables: {
+            single: [
+              [0, 0], [56500, 25], [61500, 50], [66500, 75], [71500, 100], [76500, 125], [81500, 150], [86500, 175], [91500, 200],
+              [96500, 225], [101500, 250],
+            ],
+            mfj: [
+              [0, 0], [100500, 50], [105500, 100], [110500, 150], [115500, 200], [120500, 250], [125500, 300], [130500, 350],
+              [135500, 400], [140500, 450], [145500, 500],
+            ],
+            hoh: [
+              [0, 0], [78500, 40], [82500, 80], [86500, 120], [90500, 160], [94500, 200], [98500, 240], [102500, 280], [106500, 320],
+              [110500, 360], [114500, 400],
+            ],
+          },
+        },
+        {
+          kind: 'agiStep',
+          label: 'Tax recapture (Table D)',
+          tables: {
+            single: [
+              [0, 0], [105000, 25], [110000, 50], [115000, 75], [120000, 100], [125000, 125], [130000, 150], [135000, 175],
+              [140000, 200], [145000, 225], [150000, 250], [200000, 340], [205000, 430], [210000, 520], [215000, 610], [220000, 700],
+              [225000, 790], [230000, 880], [235000, 970], [240000, 1060], [245000, 1150], [250000, 1240], [255000, 1330],
+              [260000, 1420], [265000, 1510], [270000, 1600], [275000, 1690], [280000, 1780], [285000, 1870], [290000, 1960],
+              [295000, 2050], [300000, 2140], [305000, 2230], [310000, 2320], [315000, 2410], [320000, 2500], [325000, 2590],
+              [330000, 2680], [335000, 2770], [340000, 2860], [345000, 2950], [500000, 3000], [505000, 3050], [510000, 3100],
+              [515000, 3150], [520000, 3200], [525000, 3250], [530000, 3300], [535000, 3350], [540000, 3400],
+            ],
+            mfj: [
+              [0, 0], [210000, 50], [220000, 100], [230000, 150], [240000, 200], [250000, 250], [260000, 300], [270000, 350],
+              [280000, 400], [290000, 450], [300000, 500], [400000, 680], [410000, 860], [420000, 1040], [430000, 1220],
+              [440000, 1400], [450000, 1580], [460000, 1760], [470000, 1940], [480000, 2120], [490000, 2300], [500000, 2480],
+              [510000, 2660], [520000, 2840], [530000, 3020], [540000, 3200], [550000, 3380], [560000, 3560], [570000, 3740],
+              [580000, 3920], [590000, 4100], [600000, 4280], [610000, 4460], [620000, 4640], [630000, 4820], [640000, 5000],
+              [650000, 5180], [660000, 5360], [670000, 5540], [680000, 5720], [690000, 5900], [1000000, 6000], [1010000, 6100],
+              [1020000, 6200], [1030000, 6300], [1040000, 6400], [1050000, 6500], [1060000, 6600], [1070000, 6700], [1080000, 6800],
+            ],
+            hoh: [
+              [0, 0], [168000, 40], [176000, 80], [184000, 120], [192000, 160], [200000, 200], [208000, 240], [216000, 280],
+              [224000, 320], [232000, 360], [240000, 400], [320000, 540], [328000, 680], [336000, 820], [344000, 960],
+              [352000, 1100], [360000, 1240], [368000, 1380], [376000, 1520], [384000, 1660], [392000, 1800], [400000, 1940],
+              [408000, 2080], [416000, 2220], [424000, 2360], [432000, 2500], [440000, 2640], [448000, 2780], [456000, 2920],
+              [464000, 3060], [472000, 3200], [480000, 3340], [488000, 3480], [496000, 3620], [504000, 3760], [512000, 3900],
+              [520000, 4040], [528000, 4180], [536000, 4320], [544000, 4460], [552000, 4600], [800000, 4680], [808000, 4760],
+              [816000, 4840], [824000, 4920], [832000, 5000], [840000, 5080], [848000, 5160], [856000, 5240], [864000, 5320],
+            ],
+          },
+        },
+      ],
+      base: {
+        ordinary: true,
+        gainsIncluded: 1,
+        socialSecurity: { kind: 'agiTested', exemptBelow: { single: 75000, mfj: 100000, hoh: 100000 }, taxedShareOfBenefits: 0.25 },
+      },
+      standardDeduction: { single: 0, mfj: 0, hoh: 0 },
+      exemption: { single: 15000, mfj: 24000, hoh: 19000 },
+      exemptionPhaseOut: { kind: 'stepDown', start: { single: 30000, mfj: 48000, hoh: 38000 }, step: 1000, width: 1000 },
       dependentExemption: 0,
-      retirementExclusion: { kind: 'none' },
-      credits: [],
+      retirementExclusion: {
+        kind: 'agiPhasedShare',
+        inclusive: true,
+        tables: {
+          single: [[0, 1], [75000, 0.85], [77500, 0.7], [80000, 0.55], [82500, 0.4], [85000, 0.25], [87500, 0.1], [90000, 0.05], [95000, 0.025], [100000, 0]],
+          mfj: [
+            [0, 1], [100000, 0.85], [105000, 0.7], [110000, 0.55], [115000, 0.4], [120000, 0.25], [125000, 0.1], [130000, 0.05],
+            [140000, 0.025], [150000, 0],
+          ],
+          hoh: [[0, 1], [75000, 0.85], [77500, 0.7], [80000, 0.55], [82500, 0.4], [85000, 0.25], [87500, 0.1], [90000, 0.05], [95000, 0.025], [100000, 0]],
+        },
+      },
+      credits: [
+        {
+          kind: 'agiStepFraction',
+          label: 'Personal tax credit (Table E)',
+          refundable: false,
+          tables: {
+            single: [
+              [0, 0], [15000, 0.75], [18800, 0.7], [19300, 0.65], [19800, 0.6], [20300, 0.55], [20800, 0.5], [21300, 0.45],
+              [21800, 0.4], [22300, 0.35], [25000, 0.3], [25500, 0.25], [26000, 0.2], [26500, 0.15], [31300, 0.14], [31800, 0.13],
+              [32300, 0.12], [32800, 0.11], [33300, 0.1], [60000, 0.09], [60500, 0.08], [61000, 0.07], [61500, 0.06], [62000, 0.05],
+              [62500, 0.04], [63000, 0.03], [63500, 0.02], [64000, 0.01], [64500, 0],
+            ],
+            mfj: [
+              [0, 0], [24000, 0.75], [30000, 0.7], [30500, 0.65], [31000, 0.6], [31500, 0.55], [32000, 0.5], [32500, 0.45],
+              [33000, 0.4], [33500, 0.35], [40000, 0.3], [40500, 0.25], [41000, 0.2], [41500, 0.15], [50000, 0.14], [50500, 0.13],
+              [51000, 0.12], [51500, 0.11], [52000, 0.1], [96000, 0.09], [96500, 0.08], [97000, 0.07], [97500, 0.06], [98000, 0.05],
+              [98500, 0.04], [99000, 0.03], [99500, 0.02], [100000, 0.01], [100500, 0],
+            ],
+            hoh: [
+              [0, 0], [19000, 0.75], [24000, 0.7], [24500, 0.65], [25000, 0.6], [25500, 0.55], [26000, 0.5], [26500, 0.45],
+              [27000, 0.4], [27500, 0.35], [34000, 0.3], [34500, 0.25], [35000, 0.2], [35500, 0.15], [44000, 0.14], [44500, 0.13],
+              [45000, 0.12], [45500, 0.11], [46000, 0.1], [74000, 0.09], [74500, 0.08], [75000, 0.07], [75500, 0.06], [76000, 0.05],
+              [76500, 0.04], [77000, 0.03], [77500, 0.02], [78000, 0.01], [78500, 0],
+            ],
+          },
+        },
+        {
+          kind: 'propertyTaxCredit',
+          label: 'Property tax credit',
+          refundable: false,
+          max: 300,
+          limit: { single: 49500, mfj: 70500, hoh: 54500 },
+          stepWidth: 10000,
+          stepPct: 0.15,
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Tax tables from Form CT-1040 TCS (Rev. 12/25, tax year 2025, primary): brackets, personal exemption (reduced $1,000 per $1,000 of AGI over $30,000 / $48,000 / $38,000), the 2% add-back, the recapture and the personal tax credit decimals; none is indexed. Retirement rules from OLR report 2025-R-0152 (Sept. 2025): Social Security is exempt under $75,000 AGI ($100,000 joint or head of household), above that no more than 25% of benefits is taxed; pension, annuity and IRA income is fully exempt under $75,000 ($100,000 joint) and phases down to nothing at $100,000 ($150,000 joint), with the IRA deduction at 100% from 2026. Property tax credit up to $300 for the home, 15% less per $10,000 of AGI over $49,500 / $70,500 / $54,500 (secondary; the vehicle tax part is not modeled). The 2026 table revisions, if any, and the CT EITC are not modeled.',
     },
     de: {
       name: 'Delaware',
@@ -3499,12 +3624,12 @@
     },
     ny: {
       name: 'New York',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
-      indexing: 'cpi',
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://www.tax.ny.gov/pdf/2025/inc/it201i_2025.pdf',
+      asOf: 2026,
+      indexing: 'none',
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
@@ -3516,19 +3641,45 @@
             [0, 0.039], [17150, 0.044], [23600, 0.0515], [27900, 0.054], [161550, 0.059], [323200, 0.0685], [2155350, 0.0965],
             [5000000, 0.103], [25000000, 0.109],
           ],
+          hoh: [
+            [0, 0.039], [12800, 0.044], [17650, 0.0515], [20900, 0.054], [107650, 0.059], [269300, 0.0685], [1616450, 0.0965],
+            [5000000, 0.103], [25000000, 0.109],
+          ],
         },
       },
-      additions: [],
+      additions: [
+        {
+          kind: 'benefitRecapture',
+          label: 'Tax benefit recapture',
+          agiStart: 107650,
+          phaseWidth: 50000,
+          flatAbove: 25000000,
+          flatRate: 0.109,
+          tiers: {
+            single: [[0, 0.059], [215400, 0.0685], [1077550, 0.0965], [5000000, 0.103]],
+            mfj: [[0, 0.054], [161550, 0.059], [323200, 0.0685], [2155350, 0.0965], [5000000, 0.103]],
+            hoh: [[0, 0.059], [269300, 0.0685], [1616450, 0.0965], [5000000, 0.103]],
+          },
+        },
+      ],
       base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
-      standardDeduction: { single: 8000, mfj: 16050 },
-      exemption: { single: 0, mfj: 0 },
+      standardDeduction: { single: 8000, mfj: 16050, hoh: 11200 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
-      retirementExclusion: { kind: 'perEligibleCap', minAge: 59.5, cap: 20000 },
-      credits: [],
+      dependentExemption: 1000,
+      retirementExclusion: { kind: 'perPerson', pensionMinAge: 59.5, traditionalMinAge: 59.5, cap: 20000 },
+      credits: [
+        {
+          kind: 'childCredit',
+          label: 'Empire State child credit',
+          refundable: true,
+          tiers: [[3, 1000], [16, 500]],
+          phaseOut: { start: { single: 75000, mfj: 110000, hoh: 75000 }, width: 1000, per: 16.5 },
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint); the reduction is applied per child (an assumption). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
     },
     nc: {
       name: 'North Carolina',
@@ -3652,11 +3803,11 @@
     },
     pa: {
       name: 'Pennsylvania',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
-      indexing: 'cpi',
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax/tax-forgiveness',
+      asOf: 2026,
+      indexing: 'none',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0307 },
       additions: [],
@@ -3665,11 +3816,21 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
-      retirementExclusion: { kind: 'full' },
-      credits: [],
+      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, cap: null },
+      credits: [
+        {
+          kind: 'taxForgiveness',
+          label: 'Tax Forgiveness (Schedule SP)',
+          refundable: false,
+          limit: { single: 6500, mfj: 13000 },
+          perDependent: 9500,
+          stepWidth: 250,
+          stepPct: 0.1,
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded; traditional (IRA and 401(k)) withdrawals are excluded only from age 59 and a half per filer, and taxed before it (secondary sources: distributions before 59 and a half are taxable, with cost recovery). Not modeled: the 401(k)-after-retirement exception, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
     },
     ri: {
       name: 'Rhode Island',
@@ -3763,11 +3924,11 @@
     },
     tx: {
       name: 'Texas',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
-      indexing: 'cpi',
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://comptroller.texas.gov/taxes/',
+      asOf: 2026,
+      indexing: 'none',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
@@ -3780,7 +3941,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'No individual income tax (Texas Constitution art. VIII, sec. 24-a). The Comptroller\'s list of the 100 taxes and fees it administers has no income tax; the constitutional text was not opened.',
     },
     ut: {
       name: 'Utah',
@@ -3859,13 +4020,13 @@
     },
     wa: {
       name: 'Washington',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://dor.wa.gov/taxes-rates/other-taxes/capital-gains-tax',
+      asOf: 2025,
       indexing: 'cpi',
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: { kind: 'graduated', columns: { single: [[0, 0.07], [1000000, 0.09]], mfj: [[0, 0.07], [1000000, 0.09]] } },
+      tax: { kind: 'graduated', columns: { single: [[0, 0.07], [1000000, 0.099]], mfj: [[0, 0.07], [1000000, 0.099]] } },
       additions: [],
       base: { ordinary: false, gainsIncluded: 1, socialSecurity: 'exempt' },
       standardDeduction: { single: 278000, mfj: 278000 },
@@ -3876,7 +4037,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'A tax on long-term capital gains only (real estate and retirement accounts excluded; the engine\'s gains are brokerage gains). 7% on the first $1 million above the $278,000 standard deduction (the same for a couple), 9.9% above (ESSB 5813, 2025; DOR). The exemption adjusts for inflation (DOR); the $1 million tier is assumed to index with it (not confirmed). No wage or retirement income tax.',
     },
     wv: {
       name: 'West Virginia',
@@ -4186,6 +4347,8 @@
     }
   }
   // Shown under every state's note. Interim: the state-tax update replaces these simplifications with real rules and rewrites this copy.
+  const STATE_TAX_RESEARCHED_NOTE =
+    '<b>Researched rules.</b> Local income taxes and state itemized deductions are not modeled; credits and income tests that depend on inputs this planner does not have (earned-income credits, for example) are left out. The generated table in the repository (docs/state-tax-rules.md) lists every rule and its source.';
   const STATE_TAX_SCOPE_NOTE =
     '<b>Simplified estimate.</b> Local income taxes, state credits, state itemized deductions, most pension-source rules, after-tax IRA basis, some capital-gain rules and income phase-outs are not modeled.';
   function stateTaxTreatmentNote() {
@@ -4200,6 +4363,7 @@
       return `<b>${stateName} state-tax treatment.</b> No individual state income tax is modeled. Wages, Social Security, pension income, traditional withdrawals/RMDs, and brokerage gains are not assessed a state income tax here. ${gainText}`;
     if (!rule.base.ordinary)
       return `<b>${stateName} state-tax treatment.</b> Wages, Social Security, pension income, and traditional withdrawals/RMDs are not subject to a state income tax in this model. The modeled long-term capital-gain portion of brokerage withdrawals is subject to Washington's capital-gains tax only above the modeled annual exemption. ${gainText}`;
+    if (rule.status === 'researched') return `<b>${stateName} state-tax treatment.</b> ${rule.notes}`;
     const base =
       'Wages, pension income, traditional withdrawals/RMDs, and the modeled long-term capital-gain portion of brokerage withdrawals are included in the state-tax estimate.';
     const notes = {
@@ -7572,7 +7736,9 @@
       ? 'first age liquid assets reach your retirement nest egg, at current savings rate'
       : 'Retirement nest egg not reached by your plan’s life expectancy at this savings rate';
     document.getElementById('stateTaxNote').innerHTML =
-      stateTaxTreatmentNote() + ' ' + STATE_TAX_SCOPE_NOTE;
+      stateTaxTreatmentNote() +
+      ' ' +
+      (STATE_RULES[state.stateTax]?.status === 'researched' ? STATE_TAX_RESEARCHED_NOTE : STATE_TAX_SCOPE_NOTE);
     document.getElementById('viewCaption').textContent =
       mode === 'real'
         ? 'Values shown in inflation-adjusted 2026 dollars.'

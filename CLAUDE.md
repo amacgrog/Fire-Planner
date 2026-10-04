@@ -243,7 +243,10 @@ Each planner is one big IIFE. Core shape:
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
   deducts federal tax gets one lagged pass, 7D). The block between the `STATE_RULES:begin` / `end` comments is pure
-  literals so `scripts/gen-state-rules.js` can evaluate it: that script writes `docs/state-tax-rules.md` (the owner's review
+  literals so `scripts/gen-state-rules.js` can evaluate it. Six rows are `researched` (CA, NY, PA, CT, WA, TX; tests in
+  `tests/state_reference.js`); the other 45 are `migrated` simplified rows until 7D researches them. Researched rows follow the
+  state's real indexing (`none` for NY, PA and CT; `cpi` for CA and WA), HoH and QSS columns, and income tests; their `notes` text is what the
+  planner shows under the selector. The generator also lists every parameter of the researched rows. Evaluating it: that script writes `docs/state-tax-rules.md` (the owner's review
   artifact: one row per jurisdiction with every rule and its source; `npm run gen:states`), and `npm test` fails if the file is
   stale. After changing a row, regenerate and commit the file. Not shared with Canada (US only).
 - **Child credits (US, `childCredits`, just above `taxFor`).** `childCredits(dependents, filing, yearIndex, magi,

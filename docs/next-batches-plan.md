@@ -1596,7 +1596,13 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed); the credit ends when the youngest child turns 17 | `childCredits`, `CTC_PHASE_START` | MAGI, filing status (`ctc` family), child ages | 7B step 4 |
 | ACTC phase-in (15% of earned income over $2,500) and the tax limit on the nonrefundable part: more income changes the credit, not just the tax | `childCredits` | earned wages, federal income tax | 7B step 4 |
 | Filing status (HoH / QSS) switches: QSS two-year window ends (MFJ brackets and deduction -> single or HoH), HoH starts and ends with the last qualifying child | `filingStatusFor`, `FILING` | year, children, survivor timeline | 7B step 3 |
-| State circuit-breaker and income-tested credits | (7C / 7D) `STATE_RULES` | AGI / income | 7C, 7D |
+| State circuit-breaker and income-tested credits (generic) | `STATE_RULES` `credits`, `additions`, `exemptionPhaseOut`, AGI-tested `base`/`retirementExclusion` | state AGI, federal AGI, filing column | 7C (reference rows), 7D (the rest) |
+| NY tax benefit recapture: phased in over $50,000 of AGI from $107,650 and from each band start; band by taxable income, so band crossings step; marginal rates well above the top rate inside phase-ins | `stateBenefitRecapture`, NY row | NY AGI, taxable income | 7C |
+| NY Empire State child credit: $16.50 per $1,000 of federal AGI over $75,000 / $110,000, per child | NY `credits` | federal AGI, child ages | 7C |
+| CT: Social Security exempt under $75,000 / $100,000 AGI, then 25% of benefits taxed; pension/IRA share steps 100% to 0% across $75,000-$100,000 ($100,000-$150,000 joint); exemption step-down from $30,000 / $48,000 / $38,000; add-back, recapture and personal-credit step tables; property tax credit 15% per $10,000 | CT row (`agiTested`, `agiPhasedShare`, `agiStep`, `agiStepFraction`, `propertyTaxCredit`) | CT AGI, filing column | 7C |
+| PA Tax Forgiveness: 10% per $250 of eligibility income over $6,500 / $13,000 plus $9,500 per child | PA `credits` | PA base, children | 7C |
+| CA exemption credits: $6 per credit per $2,500 of federal AGI over $252,203 / $504,411 / $378,310; renter's credit lost over AGI $53,954 / $107,987 | CA `credits` | federal AGI, state AGI | 7C |
+| PA / NY / CT / CA pension and IRA age tests (59 and a half per filer) | `retirementExclusion` `perPerson` | each filer's age | 7C |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
@@ -1816,6 +1822,73 @@ depleted age 88 -> 89); Canada and every joint or one-person scenario are unchan
 success rates in `tests/historical_rates.js` do not use separate returns, so they are unchanged. Test: `tests/state_mechanisms.js` (two
 separate returns, state and federal parts).
 
+**Commit 5: the researched reference states (US V98 -> V99; intended number changes for CA, NY, PA, CT and WA).** Rows for
+California, New York, Pennsylvania, Connecticut (the sixth reference state, owner decision, for income-tested Social Security and pension
+rules), Washington and Texas. Each row's `notes` (shown under the selector in the planner) and `docs/state-tax-rules.md` list what is and is
+not modeled and the source. Source status is S (secondary) unless marked P (primary: an official document opened and read):
+- **California (S, 2025 figures; the FTB's 2026 indexed schedules were not yet published, so 2025 stands for plan year 0 and the
+  index factor takes it from there).** CalCPA Fast Tax Facts, Dec. 2025: brackets for single and joint (the old table already held the
+  2025 bracket thresholds; the old standard deduction was the 2024 one), standard deduction $5,706 / $11,412 (HoH the same as joint),
+  exemption credits $153 (single, HoH) / $307 (joint) / $153 per filer 65+ / $475 per dependent, each cut by $6 per $2,500 of federal AGI over
+  $252,203 / $504,411 / $378,310, renter's credit $60 / $120 under AGI $53,954 / $107,987. HoH brackets from a 2025 Schedule Z listing
+  (22,173 / 52,530 / 67,716 / 83,805 / 98,990 / 505,208 / 606,251 / 1,010,417), with the 1% mental-health surcharge folded into the top two
+  brackets as before. HoH and QSS now read their own columns (QSS: joint). Not modeled: CalEITC, Young Child Tax Credit, senior HoH credit.
+- **New York (thresholds P, 2026 rates and amounts S).** Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, read);
+  2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent (the five-bracket cut, from secondary sources), standard deduction $8,000 / $16,050 / $11,200,
+  $1,000 per dependent. **Tax benefit recapture** is implemented from the IT-201-I worksheet structure and checked against its 2024 constants
+  (see commit 3). It has real steps: the phase-in is by AGI over $50,000 starting at $107,650 (or at the band start), the band is chosen by taxable
+  income, so crossing a band start with an AGI a deduction above it jumps by the incremental benefit times the ratio already reached
+  (single at taxable $215,400 with AGI $223,400: +$293), and inside a phase-in the marginal rate is high (about 70% across $1,077,550 to $1,127,550
+  for a single filer). That is the law's shape, not a bug; the invariants test exempts recapturing rows from its no-jump check. Pension and annuity
+  exclusion $20,000 per filer from 59 and a half (traditional withdrawals included, S). Empire State child credit $1,000 under 4 and $500 at
+  4-16 for 2026, refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint); the reduction is applied per child, which is an
+  assumption (to verify). A qualifying surviving spouse reads the joint column even for the child credit (the credit's own threshold is $75,000).
+  Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.
+- **Pennsylvania (rate, no deductions and the forgiveness tables P; retirement rules S).** Flat 3.07%, gains as ordinary income, Social Security
+  exempt, pensions excluded, **traditional withdrawals excluded only from 59 and a half per filer** (secondary sources: IRA distributions before
+  59 and a half are taxable with cost recovery). This fixes the old row, which excluded every traditional withdrawal at any age, so an early
+  retiree drawing from an IRA at 52 owed nothing; it now owes 3.07%. The 401(k)-after-retirement exception (an employer-plan distribution after
+  retiring is excluded at any age) and Roth cost recovery are not modeled: conservative. Tax Forgiveness: 100% at or under $6,500 of eligibility
+  income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (the no-dependent tables were read; the per-dependent structure
+  and the 10-step width are taken to hold for all rows); eligibility income is taken as the PA base (qualified retirement payments and Social
+  Security are excluded from it).
+- **Connecticut (tables P: Form CT-1040 TCS Rev. 12/25, tax year 2025; retirement rules P: OLR report 2025-R-0152, Sept. 2025).** Brackets, the
+  personal exemption ($15,000 / $24,000 / $19,000, less $1,000 per $1,000 of AGI over $30,000 / $48,000 / $38,000), Table C (2% add-back), Table D
+  (recapture) and Table E (personal tax credit decimals) are encoded as AGI step tables (C and D generated from their regular ramps and checked
+  against the printed endpoints; the PDF text of Table A is misaligned, so the exemption follows the rule that matches the joint column and the
+  stated phase-out ends). Social Security: exempt under $75,000 AGI ($100,000 joint or HoH), above that 25% of benefits received is the most
+  taxed. Pension, annuity and IRA income: share 100% under $75,000 ($100,000 joint) falling in steps to 0% at $100,000 ($150,000 joint); the IRA
+  deduction is 100% from 2026 (75% in 2025), so the 2026 share applies to all traditional income. Property tax credit up to $300 for the home,
+  15% less per $10,000 over $49,500 / $70,500 / $54,500 (S). Nothing is indexed. Not modeled: the CT EITC, the vehicle part of the property tax
+  credit, any 2026 table revisions.
+- **Washington (P, DOR).** 7% to $1 million of taxable gains, **9.9% above** (ESSB 5813, owner decision), standard deduction $278,000 (the same for a couple;
+  2025), assumed to index with inflation (DOR says the exemption adjusts; the $1 million tier is assumed to index too, to confirm).
+- **Texas.** No individual income tax (the Comptroller's tax list has none; the constitutional text was not opened).
+
+Before / after (state tax in plan year 0, `fb03255`'s rules vs commit 5, dollars):
+
+| Household | Change |
+|---|---|
+| Working couple 45/43, wages 200,000, children 6 and 9, owner (property tax 9,000) | CA 10,447 -> 9,159; NY 9,713 -> 10,548; PA 6,140 -> 6,140; CT 9,500 -> 10,000 |
+| Retired couple 66/64: pension 40,000, IRA draws 40,000, Social Security 40,000 (25,000 taxable), gains 10,000 | CA 1,885 -> 1,411; NY 1,501 -> 1,501; PA 307 -> 0; CT 4,825 -> 2,142 |
+| Early retiree, single, 55: traditional draws 50,000, gains 20,000 | CA 2,541 -> 2,375; NY 3,183 -> 3,183; PA 614 -> 2,149; CT 3,100 -> 40 |
+| Single, wages 100,000, renter (rent 18,000) | CA 5,223 -> 5,055; NY 4,860 -> 4,860; PA 3,070 -> 3,070; CT 4,750 -> 4,975 |
+| Single, wages 1,300,000 | CA 143,000 -> 142,978; NY 91,892 -> 124,678 (the recapture) |
+| Single, gains 400,000 | WA 8,540 -> 8,540 (the 9.9% tier starts above 1,000,000 of taxable gains) |
+
+Snapshots: 2 of 518 US scenarios moved, both explained by the new rows: "std R state ca" (first changed year index 0: tax 1,504 -> 1,177,
+the exemption credit and the new standard deduction; depleted age 87 -> 88) and "std R state ny" (first changed year index 1: tax 3,277 -> 3,308;
+depleted age 86 -> 86). Canada and every other scenario are byte-identical. UI snapshots (`ui_us.json`) changed only in the rendered-text
+hashes (the selector tip and the state note lines). Default scenario: unchanged (its state is the old default, Massachusetts, which is
+still a migrated row).
+
+Timing (`tests/bench_runs.js --scale 3`, 1,200 simulate + 360 historical, ms), `fb03255` -> commit 5: tx 760/159 -> 731/161, ca 1,580/310 ->
+1,145/235, ny 1,705/324 -> 1,146/250, pa 1,245/231 -> 1,056/222, ct 1,672/316 -> 1,403/315, wa 921/197 -> 887/193. Within the +5% gate everywhere.
+
+Tests: `tests/state_reference.js` (about 45 hand-computed households across the six rows, including QSS and HoH columns and the indexing
+choice), the updated literals in `tests/tax_brackets.js` (CA single $100k, WA 9.9%), and the invariants test now allows NY's recapture steps and
+checks that a non-indexing state stays put.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1872,6 +1945,13 @@ reading (itself secondary).
 | HoH needs a qualifying child (or other qualifying person), paying over half the home cost; a student 19-23 counts | 7B | O | IRC 2(b), Pub. 501 |
 | State tax: HoH read as single, QSS as joint, until 7C/7D | 7B | n/a (interim) | each state's forms |
 | Survivor files jointly for the year of death (code: step 2, V94); the deceased's own age counts for the 65+ deductions | 7B | U | IRC 6013(a)(3), Pub. 501 |
+| State tax table: CA 2025 brackets, HoH schedule, standard deduction, exemption credits and phase-out, renter's credit (CalCPA Fast Tax Facts Dec. 2025, a 2025 Schedule Z listing); 2026 figures when the FTB publishes | 7C | S | FTB 2025 540 instructions and tax rate schedules (blocked: 403), later the 2026 schedules |
+| NY: 2026 rates (3.9 / 4.4 / 5.15 / 5.4 / 5.9), 2026 standard deductions, $1,000 dependent exemption, pension exclusion includes IRA distributions from 59 and a half, Empire State child credit $1,000 / $500 for 2026 and its per-child $16.50 phase-out, QSS threshold | 7C | S (thresholds and recapture worksheets P: IT-201-I 2024 and 2025 read) | Tax Law sec. 601, IT-201-I 2026, IT-213 instructions |
+| PA: 59 and a half rule for IRA and 401(k) withdrawals, 401(k)-after-retirement exception, Roth cost recovery, forgiveness per-dependent rows and the 10% per $250 step for every row, eligibility income definition | 7C | S (rate, no deductions and the no-dependent forgiveness tables P: pa.gov) | PA-40 instructions, Schedule SP, 61 Pa. Code sec. 101.6 |
+| CT: Table A exemption (the PDF text is misaligned; formula $1,000 per $1,000 over $30,000 / $48,000 / $38,000 matches the printed joint column and stated ends), property tax credit steps (15% per $10,000), 2026 table revisions, IRA deduction 100% from 2026 | 7C | P (Form CT-1040 TCS Rev. 12/25; OLR 2025-R-0152) for tables and thresholds; S for the property tax credit | CT-1040 instructions 2025 and 2026, CGS sec. 12-701(a)(20) |
+| WA: $278,000 standard deduction for 2025 (P, DOR), 2026 amount, whether the $1 million tier indexes, 9.9% (P, DOR) | 7C | P / U | RCW 82.87.040 as amended by ESSB 5813 |
+| TX: no individual income tax | 7C | S (Comptroller tax list) | Tex. Const. art. VIII sec. 24-a |
+| State indexing: NY, PA and CT held nominal, CA and WA indexed with the plan's tax-index factor | 7C | O (own reading) | each state's statute |
 
 ## Open items
 
@@ -1944,6 +2024,9 @@ remains is detail to settle when the relevant batch is scoped:
 - HoH and QSS in state tax (raised in 7A): until 7C reconsiders them, the state-tax calls get
   the nearest `mfj` / `single` mapping (QSS as `mfj`, HoH as `single`); each state's own rules
   go in `STATE_RULES`.
+- State EITCs and other refundable earned-income credits (CalEITC, NY EITC, CT EITC) are not modeled in 7C; decide them with the federal EITC (above).
+- CA 2026 figures: replace the 2025 figures when the FTB publishes the 2026 schedules (the row is `asOf: 2025`).
+- NY real property tax credit and household credit, CA Young Child Tax Credit, and local income taxes are documented gaps.
 - 7A birth-year clamp: the bounds are fixed 1950-2100; a typed partial year is saved transiently
   (see the 7A gotchas).
 - Batch 8: grid ranges and the default objective are confirmed when it is
