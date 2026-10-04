@@ -1252,6 +1252,68 @@ clamps). Removed without migration: `traditional`, `roth`, `traditionalSharePctA
 per-account status; Rule of 55 and 72(t) move to per-account; per-account Roth ledgers and the Roth
 401(k) pro-rata rule; the pre-retirement bond-bucket strategy question (Open items) is unchanged by 3A.
 
+#### Batch 3B step 6: pre-retirement bond-bucket source for early retirees (no code change)
+
+**Decision: do nothing.** No option clearly wins, so the ladder (`rotateIntoBondLadder`) and the gradual
+refill (`refillBondReserve`) keep their traditional-first order and no shared fragment, test or badge changed.
+Measured at the 3B step 5 tip (V92), US only, seed 7, 2000 Monte Carlo paths, `simulate()` for the standard
+engine. Canada was not touched. The variants were throwaway edits in a scratch worktree (not committed).
+
+**Baseline.** `npm test` green at the tip. `node tests/historical_rates.js`: early retiree (52/50)
+historical 90.6% / Monte Carlo 88.4% (same for the smooth and live-mix versions); default 85.4% / 85.7%;
+bondYears 4 87.8% / 86.9%. So the penalty-aware order already recovers the Batch 1 loss (86.8% -> 90.6%) in the
+stock early-retiree scenario.
+
+**Upper bound.** Variant `nopen` switches all early-withdrawal rules off (every account free). Where tip equals
+`nopen` there is no penalty cost left for any ladder rule to recover:
+
+| Scenario (historical % / MC %) | tip | nopen (ceiling) | (a) | (c) | (b1) half reserve | (b2) none |
+|---|---|---|---|---|---|---|
+| Early 52/50 (stock) | 90.6 / 88.4 | 90.6 / 88.3 | 90.6 / 88.5 | 94.3 / 90.0 | 90.6 / 89.2 | 96.2 / 89.5 |
+| Early, thin taxable | 83.0 / 83.2 | 90.6 / 87.1 | 81.1 / 83.7 | 86.8 / 87.0 | 86.8 / 85.3 | 86.8 / 86.1 |
+| Early, trad-heavy, no Roth | 79.2 / 82.8 | 86.8 / 86.5 | 77.4 / 83.0 | 86.8 / 86.0 | 86.8 / 84.9 | 84.9 / 85.8 |
+| Early 45/45 | 81.3 / 88.0 | 89.6 / 89.8 | 85.4 / 88.8 | 91.7 / 90.6 | 85.4 / 89.0 | 91.7 / 90.1 |
+| Early, bondYears 8 | 81.1 / 85.5 | 81.1 / 85.2 | 79.2 / 84.9 | 92.5 / 89.0 | 90.6 / 87.6 | 94.3 / 88.9 |
+| Rule of 55 (all 401(k)) | 94.8 / 95.8 | 94.8 / 95.3 | 94.8 / 95.2 | 94.8 / 95.3 | 96.6 / 96.0 | 98.3 / 95.2 |
+| Rule of 55 (IRA-heavy) | 96.6 / 96.6 | 96.6 / 96.4 | not run | not run | not run | not run |
+| Default (retire 55) | 85.4 / 85.7 | 85.4 / 86.3 | 85.4 / 85.5 | 90.2 / 90.1 | 87.8 / 88.0 | 92.7 / 89.8 |
+| Working, bondYears 4 | 87.8 / 86.9 | 87.8 / 88.2 | 85.4 / 87.0 | 92.7 / 90.4 | 90.2 / 88.3 | 92.7 / 89.8 |
+| Retire 62/60 (not early) | 100.0 / 99.5 | same | same | same | same | same |
+| Retire 59/57 after 5 working years | 100.0 / 99.5 | same | same | same | 100.0 / 99.4 | 100.0 / 98.9 |
+
+(a) = taxable or Roth first while the reserve will first be drawn before 59.5 (Roth, then taxable, then
+traditional as a last resort), traditional first otherwise; "early" is decided from the per-account statuses at
+retirement (ladder) or this year (refill), so a Rule-of-55 401(k) counts as free. (c) = penalty-free money only
+(no traditional while early). (b1) / (b2) = reserve and ladder target halved / zero while early.
+
+**Standard engine** (`simulate()`, no depletion in any scenario; investable at the last year / total tax over
+the plan): early 52/50 tip $11.5M / $1.44M; (a) $8.9M / $2.01M; (b2) $18.2M / $2.45M. Default: tip $2.9M;
+(a) $1.7M; (c) $7.4M. Other early scenarios move the same way.
+
+**Findings.**
+1. The remaining penalty cost is where penalty-free money runs out (thin taxable, trad-heavy, 45/45): tip is
+   4-8 points below `nopen` there. It is a real cost of retiring early with most money in traditional accounts,
+   not an artifact of where the reserve sits; in the stock early-retiree case and the Rule-of-55 cases tip equals
+   `nopen`.
+2. (a) does not help and costs tax. Historical success falls in 4 of the 6 early scenarios (thin taxable
+   83.0 -> 81.1, trad-heavy 79.2 -> 77.4, bondYears 8 81.1 -> 79.2, working-bondYears-4 87.8 -> 85.4; only
+   45/45 rises, 81.3 -> 85.4). Taxable bonds are taxed on their interest every year and a Roth reserve spends the
+   free money the plan wants to draw anyway; total plan tax rises about $0.5-0.6M in the stock case and
+   investable at the end falls about $2.6M.
+3. (b) and (c) look better but are mostly not a penalty effect: they shrink the actual bond reserve, so the plan
+   holds more stock and the 1928-2025 data rewards that. Proof: Default and bondYears 4 gain 4-7 points under
+   (c)/(b2) although `nopen` equals tip there (no penalty to avoid), and (b2) with the penalty off is identical
+   to `nopen` by construction. A smaller reserve is a different assumption the user already controls through the
+   Bond reserve size field; changing it silently would be a hidden strategy change, hard to explain.
+4. Non-early plans (retire 62/60, retire 59/57) are unchanged under every option, and the Rule-of-55 plans
+   show no gain from (a)/(c) because their 401(k) is already free.
+
+**Recommendation.** Leave the ladder and refill as they are. If the owner wants the early-retiree reserve to
+protect against down years without the penalty, the lever is the existing Bond reserve size field, or a
+future "penalty-free reserve" checkbox decided as a product choice (it needs its own measurement because it
+changes the reserve size, not just its source). No new unverified figure was introduced, so the Verification
+backlog is unchanged.
+
 ### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
 _(to be added by the Batch 7 PRs)_
 
@@ -1306,7 +1368,7 @@ remains is detail to settle when the relevant batch is scoped:
   time (decided). The planning pass used secondary sources because irs.gov and
   bls.gov were not reachable.
 - Pre-retirement bond-bucket strategy for early retirees (raised after Batch 1;
-  look at it with Batch 3B): the ladder and the gradual refill now park the whole
+  look at it with Batch 3B; resolved in 3B step 6, no code change, see "Batch 3B step 6" in the notes): the ladder and the gradual refill now park the whole
   reserve in `bondTraditional` first. For a household retiring before 59.5 that
   forces the 10% early-withdrawal penalty whenever the reserve is drawn (a down
   year, or after taxable, cash and Roth are exhausted), unless Rule of 55 or a
