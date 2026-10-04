@@ -46,8 +46,11 @@ function checks() {
   near(t.seniorDeduction('single', 0, [70], 400000), 0, 'single far above, floored at zero');
   near(t.seniorDeduction('single', 0, [64], 50000), 0, 'single under 65');
   near(t.seniorDeduction('mfj', 0, [70, 70], 150000), 12000, 'MFJ both 65+ at the start');
-  near(t.seniorDeduction('mfj', 0, [70, 70], 250000), 6000, 'MFJ both 65+ phase-out'); // 12,000 - 6% x 100,000
-  near(t.seniorDeduction('mfj', 0, [70, 70], 350000), 0, 'MFJ both 65+ gone at 350,000');
+  // Each eligible spouse's 6,000 is reduced by the same 6% x excess MAGI, then summed.
+  near(t.seniorDeduction('mfj', 0, [70, 70], 175000), 9000, 'MFJ both 65+ phase-out'); // 2 x (6,000 - 6% x 25,000)
+  near(t.seniorDeduction('mfj', 0, [70, 70], 200000), 6000, 'MFJ both 65+ phase-out, 200,000'); // 2 x (6,000 - 3,000)
+  near(t.seniorDeduction('mfj', 0, [70, 70], 250000), 0, 'MFJ both 65+ gone at 250,000'); // 6% x 100,000 = 6,000 each
+  near(t.seniorDeduction('mfj', 0, [70, 70], 350000), 0, 'MFJ both 65+ stays zero above');
   near(t.seniorDeduction('mfj', 0, [70, 60], 200000), 3000, 'MFJ one 65+'); // 6,000 - 6% x 50,000
   near(t.seniorDeduction('mfj', 0, [70, 60], 250000), 0, 'MFJ one 65+ gone at 250,000');
   // Cutoff: tax years 2025-2028 only (plan year 0 = 2026).
@@ -124,6 +127,10 @@ function checks() {
   near(t.taxFor(prof({ singlePerson: true, filing: 'single', ageA: 70, otherA: 100000, pensionA: 100000 }), 0, 0), 11729, 'single 70 phase-out');
   // MFJ both 70, 100,000: deduction 32,200 + 3,300 + 12,000 = 47,500; taxable 52,500: 2,480 + 12% x 27,700 = 3,324.
   near(t.taxFor(prof({ filing: 'mfj', ageA: 70, ageB: 70, otherA: 100000, pensionA: 100000 }), 0, 0), 5804, 'MFJ both 70');
+  // MFJ both 70, 200,000 pension: each senior 6,000 - 6% x 50,000 = 3,000 -> 6,000 total;
+  //   deduction 32,200 + 3,300 + 6,000 = 41,500; taxable 158,500:
+  //   2,480 + 12% x 76,000 = 9,120 + 22% x 57,700 = 12,694 -> 24,294.
+  near(t.taxFor(prof({ filing: 'mfj', ageA: 70, ageB: 70, otherA: 200000, pensionA: 200000 }), 0, 0), 24294, 'MFJ both 70, per-person phase-out');
   // Two separate filers 70/70 (pre-marriage), 40,000 each: 18,150 + 6,000 = 24,150; taxable 15,850:
   //   1,240 + 12% x 3,450 = 414 -> 1,654 each.
   near(t.taxFor(prof({ filing: 'single', ageA: 70, ageB: 70, otherA: 40000, otherB: 40000, pensionA: 40000, pensionB: 40000 }), 0, 0), 3308, 'two filers 70/70');

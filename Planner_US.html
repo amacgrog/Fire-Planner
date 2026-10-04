@@ -271,7 +271,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V84</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V85</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -2463,16 +2463,22 @@
     return deduction;
   }
   // The senior deduction for the return, given its MAGI (zero after the last
-  // eligible tax year). The phase-out reduces the return's total, not each filer.
+  // eligible tax year). It is a deduction from taxable income (not from AGI), so
+  // `magi` is the return's income before it. The 6% phase-out reduces EACH eligible
+  // person's $6,000 by the same amount, so two eligible spouses lose it entirely at
+  // $250,000 joint MAGI (one eligible spouse also at $250,000), a single filer at $175,000.
   function seniorDeduction(filing, yearIndex, ages, magi) {
     if (taxYearOf(yearIndex) > SENIOR_DEDUCTION_LAST_YEAR) return 0;
     let seniors = 0;
     for (const a of ages) if (a >= 65) seniors++;
     if (!seniors) return 0;
     const start = filing === 'mfj' ? 150000 : 75000;
-    return Math.max(
-      0,
-      seniors * SENIOR_DEDUCTION_AMOUNT - SENIOR_DEDUCTION_PHASE_RATE * Math.max(0, magi - start),
+    return (
+      seniors *
+      Math.max(
+        0,
+        SENIOR_DEDUCTION_AMOUNT - SENIOR_DEDUCTION_PHASE_RATE * Math.max(0, magi - start),
+      )
     );
   }
   function saltCap(yearIndex, magi) {

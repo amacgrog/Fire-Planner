@@ -984,9 +984,16 @@ document at the next tax update. What was used:
 - *SALT threshold after 2026* compounds at 1% from $500,000 (510,050 in 2027).
   Secondary sources say only "increases 1% a year"; confirm when primary sources
   are reachable.
-- *Senior phase-out* reduces the return's total (6% of the excess MAGI against the
-  sum of both spouses' $6,000), so a joint couple with both 65+ loses it entirely at
-  $350,000, one eligible spouse at $250,000. Age is the planner's integer age
+- *Senior phase-out* reduces each eligible person's $6,000 by 6% of the excess MAGI,
+  then sums (so a joint couple with both 65+ and one eligible spouse alike lose it
+  entirely at $250,000, a single filer at $175,000). The first version of step 3
+  reduced the couple's combined $12,000 once (gone at $350,000); corrected after the
+  owner's reading of 151(d)(5)(C) and the widely quoted $250,000 joint figure, which
+  the statute text should settle. It is treated as a deduction from taxable income,
+  not from AGI (our understanding: it is claimed with the qualified business income
+  deduction on Form 1040 and does not lower AGI), so the phase-out MAGI, taxable
+  Social Security, the SALT phase-down and IRMAA all read income before it; this is
+  also unverified against the form and should be confirmed. Age is the planner's integer age
   during the year (the law says 65 by year end), so a person turning 65 mid-year is
   treated as 65 for the whole year.
 - *Two single filers (`marryLater` before the wedding).* Each return picks its own
