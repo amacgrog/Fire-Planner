@@ -1600,6 +1600,51 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
+#### 7B: US federal credits (US V93 -> V94 ...; Canada untouched)
+
+Branch `claude/batch-7b-federal-credits`, cut from the 7A tip (`a9d88a1`). US only.
+
+**Step 1: filing-status table (no behavior change).** `FILING` (just above `standardDeduction`) maps a
+status to, per parameter family, the data row it reads, plus a `joint` flag for the structural branch.
+Families: brackets, deduction, extraAge (the 65+ add-on), gains, ss, niit, medicare, irmaa, senior, state.
+Data rows: `ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
+`NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`. `bracketCeilingReal` is now derived from
+`ORDINARY_BRACKETS`. State tax reads a `state` column (`joint` inside `stateIncomeTax`); the state data
+itself still has only MFJ and single columns (7C/7D own that). All 518 US and 359 Canada snapshot scenarios
+were byte-identical.
+
+**Step 2: death-year MFJ (intended number change).** `filingStatusFor` now returns `'mfj'` for the year of
+death (IRC 6013(a)(3)) when the couple was married that year, and `'single'` in later years. Married means
+`marryLater ? age >= marriageAgeA : filingStatus === 'mfj'`: an unmarried couple (`filingStatus: single`, or
+before the marriage age) has no joint year. The survivor remap in `buildTaxProfile` puts the deceased's age
+in the B slot for a joint year (a one-person return keeps `null`), so the death-year 65+ standard and senior
+deductions do not depend on which partner died (`tests/survivor_symmetry.js` and `tests/filing_status.js`).
+Side effects, all deliberate: the IRMAA table and the Roth-conversion bracket ceiling also read the MFJ row in
+the death year (the IRMAA lookback MAGI is two years old, so it was a joint return); the Additional Medicare
+Tax threshold is the MFJ one; the ACA household size is unchanged (survivor household). Income is still the
+survivor's own: the deceased's income for the part of the year before death is not modeled, as before.
+
+Before / after (standard projection, from the snapshot dumps): first changed year only.
+
+| Scenario | Death year (age of Partner A) | Tax before -> after | Healthcare before -> after |
+|---|---|---|---|
+| std R work past 65 survivor | 67 | 33,877 -> 26,079 | 0 -> 0 |
+| std R survivor+loans | 75 | 22,563 -> 11,366 | 12,240 -> 11,092 (IRMAA on the joint table) |
+| std R survivor A | 80 | 0 -> 0 | 14,338 -> 13,190 |
+| std R survivor B | 80 | no change | no change |
+
+Success rates (`tests/historical_rates.js`, seed 7, 2000 paths; two survivor scenarios added to it):
+
+| Scenario | Historical before -> after | Monte Carlo before -> after |
+|---|---|---|
+| default, early retiree (3 variants), bondYears 4 | unchanged | unchanged |
+| survivor, A dies at 70 (rich) | 100.0% -> 100.0% | 100.0% -> 100.0% |
+| survivor, B dies at 75, early retiree | 90.6% -> 90.6% | 89.2% -> 89.3% |
+
+49 of 518 US scenarios moved, every one a survivor scenario (names containing "survivor" or "everything");
+Canada and every non-survivor scenario are byte-identical. Baselines updated: `tests/snapshots/us.json`,
+`ui_us.json` (the survivor info bubble and README-visible text changed).
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1647,7 +1692,7 @@ reading (itself secondary).
 | 2025 poverty guideline $15,650 + $5,500 per extra person, used for the 2026 coverage year (`fplForHousehold`); indexed by `taxIndexFactor` in later years | Phase 1 (found in 7A) | U | HHS poverty guidelines notice, Rev. Proc. 2025-25 |
 | Child Tax Credit under 17; ACTC; ODC for other dependents | 7B | S / O | IRC 24, Schedule 8812 instructions |
 | QSS: two years after the death year with a dependent child; QSS thresholds (Social Security base amounts, IRMAA table, senior-deduction phase-out, CTC phase-out) | 7B | U | IRC 2(a), 1(a), Pub. 501, Pub. 915, SSA / CMS IRMAA notice |
-| Survivor files jointly for the year of death | 7B | U | IRC 6013(a)(3) |
+| Survivor files jointly for the year of death (code: step 2, V94); the deceased's own age counts for the 65+ deductions | 7B | U | IRC 6013(a)(3), Pub. 501 |
 
 ## Open items
 
