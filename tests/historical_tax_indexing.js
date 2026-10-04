@@ -51,6 +51,12 @@ async function run(file, label, extra) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  // Plan year 0 is tax year 2030. The US temporary senior deduction ($6,000,
+  // tax years 2025-2028) is a fixed nominal amount that is deliberately not
+  // indexed, so it would break this fully-indexed invariant for a 65-year-old;
+  // after it ends the retiree faces only indexed parameters again (including
+  // the indexed 65+ additional standard deduction).
+  await page.clock.install({ time: new Date('2030-06-15T12:00:00Z') });
   await page.goto('file://' + path.resolve(file));
   await page.waitForTimeout(200);
 

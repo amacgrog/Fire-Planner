@@ -2731,26 +2731,30 @@
     maxYear,
   ) {
     const payments = Array(maxYear + 1).fill(0),
-      balances = Array(maxYear + 1).fill(0);
-    if (principal <= 0 || termYears <= 0) return { payments, balances };
+      balances = Array(maxYear + 1).fill(0),
+      interest = Array(maxYear + 1).fill(0);
+    if (principal <= 0 || termYears <= 0) return { payments, balances, interest, principal };
     let balance = principal;
     const scheduled = mortgagePayment(principal, annualRate, termYears),
       rate = annualRate / 12;
     for (let year = startYear; year <= maxYear; year++) {
-      let paid = 0;
+      let paid = 0,
+        interestPaid = 0;
       if (year - startYear < termYears) {
         for (let month = 0; month < 12 && balance > 0; month++) {
-          const interest = balance * rate,
-            scheduledPrincipal = Math.max(0, scheduled - interest),
+          const monthInterest = balance * rate,
+            scheduledPrincipal = Math.max(0, scheduled - monthInterest),
             princ = Math.min(balance, scheduledPrincipal + extraMonthly);
           balance -= princ;
-          paid += interest + princ;
+          paid += monthInterest + princ;
+          interestPaid += monthInterest;
         }
       }
       payments[year] = paid;
+      interest[year] = interestPaid;
       balances[year] = Math.max(0, balance);
     }
-    return { payments, balances };
+    return { payments, balances, interest, principal };
   }
   // Precomputes the mechanics of a future rent-to-buy purchase: the home's
   // value at the purchase year (today's homeValue input, appreciated
@@ -2786,7 +2790,8 @@
   }
   function mortgageSchedule() {
     const payments = [],
-      balances = [];
+      balances = [],
+      interest = [];
     let balance = state.tenure === 'own' ? state.mortgage : 0;
     // The level payment is fixed at origination by the *original* principal
     // and term, not by whatever balance happens to be left today — extra
@@ -2800,19 +2805,28 @@
       rate = pct(state.mortgageRate) / 12,
       maxYears = Math.max(0, state.mortgageYears);
     for (let year = 0; year <= Math.max(70, maxYears); year++) {
-      let paid = 0;
+      let paid = 0,
+        interestPaid = 0;
       for (let month = 0; month < 12 && balance > 0 && year < maxYears; month++) {
-        const interest = balance * rate,
-          scheduledPrincipal = Math.max(0, scheduled - interest),
+        const monthInterest = balance * rate,
+          scheduledPrincipal = Math.max(0, scheduled - monthInterest),
           principal = Math.min(balance, scheduledPrincipal + state.extraPrincipal);
         balance -= principal;
-        paid += interest + principal;
+        paid += monthInterest + principal;
+        interestPaid += monthInterest;
       }
       payments.push(paid);
+      interest.push(interestPaid);
       balances.push(Math.max(0, balance));
     }
     const payoffYear = balances.findIndex((b) => b < 1);
-    return { payments, balances, payoffYear: payoffYear < 0 ? null : payoffYear };
+    return {
+      payments,
+      balances,
+      interest,
+      originalPrincipal,
+      payoffYear: payoffYear < 0 ? null : payoffYear,
+    };
   }
   function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;

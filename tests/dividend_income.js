@@ -31,12 +31,15 @@ async function scenario(file, isUS, fields, years = 2) {
       { id, v },
     );
   // Retired single person, nothing but a taxable account, zero inflation, so
-  // every tax parameter is exactly its 2026 value.
+  // every tax parameter is exactly its 2026 value. The US person is 64, one year
+  // under the 65+ additional standard deduction and senior deduction (Batch 2),
+  // so the plain $16,100 standard deduction in the hand calculations applies.
+  const startAge = isUS ? 64 : 65;
   const base = [
     ['singlePerson', true],
-    ['ageA', 65],
-    ['retireAgeA', 65],
-    ['lifeExpectancyA', 65 + years],
+    ['ageA', startAge],
+    ['retireAgeA', startAge],
+    ['lifeExpectancyA', startAge + years],
     ['spending', 40000],
     ['healthcare', 0],
     ['ltcEnabled', false],
