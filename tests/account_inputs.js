@@ -119,15 +119,15 @@ const BASE = {
     const rows = await run({ ...BASE, roth401kA: 500000, roth401kBasisPctA: 30, spending: 10000 });
     near(rows[3].earlyPenalty, rows[0].earlyPenalty, 0.01, 'Roth 401(k): the earnings fraction is stable year to year');
   }
-  // 5. Draws come out of every Roth account pro rata and each account keeps its own basis (no pooling):
-  //    IRA A 400,000 (basis 100,000) and IRA B 200,000 (basis 60,000) give A two thirds and B one third of
-  //    each draw, so A's basis covers draws up to 150,000 and B's up to 180,000; the first penalty is at 150,000.
+  // 5. While penalized money exists every Roth account's basis is penalty-free money drawn first, so the two
+  //    partners' bases pool for the first dollars: IRA A 400,000 (basis 100,000) and IRA B 200,000 (basis
+  //    60,000) give 160,000 of free draws (in proportion to each partner's basis); past that the penalty applies.
   {
     const couple = { singlePerson: false, ageB: 40, retireAgeB: 40, rothIraA: 400000, rothIraBasisA: 100000, rothIraB: 200000, rothIraBasisB: 60000 };
-    let r = await y0({ ...couple, spending: 150000 });
-    near(r.earlyPenalty, 0, 0.01, 'couple: each partner\'s own basis covers their pro rata share up to 150,000');
-    r = await y0({ ...couple, spending: 160000 });
-    assert(r.earlyPenalty > 0, 'couple: past 150,000 Partner A\'s share reaches earnings, although B still has basis left');
+    let r = await y0({ ...couple, spending: 160000 });
+    near(r.earlyPenalty, 0, 0.01, 'couple: both partners\' bases are penalty-free money, 160,000 in all');
+    r = await y0({ ...couple, spending: 170000 });
+    assert(r.earlyPenalty > 0, 'couple: past the pooled bases the penalty applies');
     // Single mode drops B entirely: A alone holds 400,000 with 100,000 of basis.
     r = await y0({ ...couple, singlePerson: true, spending: 100000 });
     near(r.earlyPenalty, 0, 0.01, 'single: A alone has 100,000 of basis');

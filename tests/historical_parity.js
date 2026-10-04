@@ -147,7 +147,7 @@ function checkRoomWiring() {
   const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'Planner_US.html'), 'utf8');
   const room = 'incomeRoom(magiSafeRoom, conversionAmount)';
   assert(src.includes(`withdrawStandard(wd, { age, remainingMagiRoom: ${room} })`), 'standard engine must pass the remaining MAGI room');
-  assert(/withdrawBucket\(wd, \{[^}]*remainingMagiRoom: incomeRoom\(magiSafeRoom, conversionAmount\)[^}]*\}\)/.test(src), 'historical engine must pass the remaining MAGI room');
+  assert(/\)\(wd, \{[^}]*remainingMagiRoom: incomeRoom\(magiSafeRoom, conversionAmount\)[^}]*\}\)/.test(src), 'historical engine must pass the remaining MAGI room');
   assert(src.includes('remainingMagiRoom: opts.remainingMagiRoom'), 'BUCKET_STEP.stocks must forward the remaining MAGI room');
   console.log('ok   [F5] US safe-MAGI room is passed to the live mix by both engines (source check)');
 }

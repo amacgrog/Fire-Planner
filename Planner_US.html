@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V90</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V91</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -689,11 +689,11 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, healthcare/ACA/IRMAA rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>
           <div class="assumptions">
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
-            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity.</div>
+            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity. While anyone would owe the 10% early-withdrawal penalty on some of their money, the order protects the penalty-free money instead: taxable and penalty-free traditional accounts (59½ or older, or a 401(k) under Rule of 55) first, then cash, then the taxable bond reserve, then Roth contributions (basis), and only then penalized money, cheapest per dollar first, with home equity last. Once everyone is 59½ or older (or exempt) the order above applies.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled. Federal deductions: each year uses the larger of the standard deduction (plus $1,650 per married filer, $2,050 if single, aged 65+) and a simplified itemized total (state income tax plus property tax under the SALT cap, plus mortgage interest on up to $750,000 of loan; charitable gifts, QCDs and medical expenses are not modeled), and the temporary $6,000-per-person senior deduction (phased out above $75,000 single / $150,000 joint of income) is added on top for tax years 2025 through 2028 only. The Roth-conversion bracket target uses a conservative deduction (standard, or property tax plus mortgage interest if larger), so it converts slightly less than an exact calculation would.</div>
             <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at the later of 65 and their own retirement age: a partner still working at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against household MAGI from two years prior (each year's full realized MAGI, withdrawals included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
-            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (traditional first, then Roth, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI, and the moves inside traditional and Roth create no income and no early-withdrawal penalty). The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
+            <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (traditional first, then Roth, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI, and the moves inside traditional and Roth create no income and no early-withdrawal penalty). The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. While anyone would owe the early-withdrawal penalty on some of their money, only penalty-free money is used in those steps, Roth basis waits until after cash and the bond reserve in an up year too, and penalized money is the last resort before home equity. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
         <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal tax parameters are held constant in real terms and increase with inflation in nominal projections. Sources: IRS 2026 federal brackets, Tax Foundation 2026 state brackets, IRS 2026 retirement contribution limits, IRS 2026 capital-gains thresholds, IRS RMD tables, CMS 2026 Medicare IRMAA tiers, IRS ACA premium tax credit rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
@@ -3526,7 +3526,9 @@
     if (grossPremium <= 0) return 0;
     if (magi <= 0) return 0;
     const ratio = magi / fplForHousehold(householdSize, yearIndex);
-    if (!state.acaEnhanced && ratio > 4) return grossPremium;
+    // A conversion is sized to land exactly on the 400% line, so the comparison needs a tolerance
+    // or a last-bit rounding difference between the two engines would decide the whole premium.
+    if (!state.acaEnhanced && ratio > 4 + 1e-9) return grossPremium;
     const expected = (magi * acaExpectedPct(ratio, state.acaEnhanced)) / 100;
     return Math.min(grossPremium, Math.max(0, expected));
   }
@@ -3985,22 +3987,29 @@
   }
   // Draw `targetNet` (after the tax and penalty the draw itself triggers) from a Roth bucket
   // holding `bucketBal`, updating the per-account ledgers. The pool `pool` (roth + bondRoth) is
-  // split among the four accounts by `shares`; a draw comes out of every account pro rata, each
-  // account applying its own ledger rule and status (rothSlotSplit). The taxable-earnings part is
-  // returned as `earn` so the caller can add it to traditionalGross (ordinary income, and the MAGI
-  // lag); `penalty` is the 10% early-withdrawal penalty, which the caller adds to earlyPenalty.
-  function rothDraw(R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status) {
-    const none = { gross: 0, net: 0, penalty: 0, earn: 0 };
-    if (targetNet > 0 && bucketBal <= 0) return none;
+  // split among the four accounts by `shares`; by default a draw comes out of every account pro
+  // rata, each account applying its own ledger rule and status (rothSlotSplit). With `caps` (a
+  // gross room per account, see rothFreeCaps) the draw comes only from those accounts, in
+  // proportion to their room, and the share ledger follows; the bucket is then `caps`' total.
+  // `dry` prices the draw without applying it. The taxable-earnings part is returned as `earn`
+  // so the caller can add it to traditionalGross (ordinary income, and the MAGI lag); `penalty`
+  // is the 10% early-withdrawal penalty, which the caller adds to earlyPenalty; `tax` is the
+  // income tax the earnings add.
+  function rothDraw(R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status, caps = null, dry = false) {
+    const none = { gross: 0, net: 0, penalty: 0, earn: 0, tax: 0 };
+    const capSum = caps ? caps.reduce((sum, c) => sum + c, 0) : 0,
+      avail = caps ? capSum : bucketBal;
+    if (targetNet > 0 && avail <= 0) return none;
     // A slightly negative target (the withdrawal bisections above overshoot by a fraction of a
     // cent) is handed back to the bucket.
     if (targetNet <= 0) {
-      const gross = Math.min(bucketBal, targetNet);
-      return { gross, net: gross, penalty: 0, earn: 0 };
+      const gross = Math.min(avail, targetNet);
+      return { gross, net: gross, penalty: 0, earn: 0, tax: 0 };
     }
     const dollars = shares.map((sh) => sh * pool);
+    const weight = caps ? caps.map((c) => c / capSum) : shares;
     const pieces = (g) => {
-      const sp = shares.map((sh, i) => rothSlotSplit(R[i], i, dollars[i], g * sh, status[i]));
+      const sp = weight.map((w, i) => rothSlotSplit(R[i], i, dollars[i], g * w, status[i]));
       let base = 0,
         earn = 0;
       for (const x of sp) {
@@ -4009,31 +4018,38 @@
       }
       return { sp, penalty: 0.1 * base, earn };
     };
-    const apply = (sp) => sp.forEach((x, i) => rothSlotApply(R[i], x));
+    const apply = (sp, gross) => {
+      if (dry) return;
+      sp.forEach((x, i) => rothSlotApply(R[i], x));
+      if (caps) {
+        const d = dollars.map((dl, i) => dl - gross * weight[i]);
+        accountsSetFromDollars(shares, d);
+      }
+    };
     // Everything comes out of penalty-free, tax-free money: dollar for dollar.
-    const flat = Math.min(bucketBal, targetNet),
+    const flat = Math.min(avail, targetNet),
       c0 = pieces(flat);
     if (c0.penalty === 0 && c0.earn === 0) {
-      apply(c0.sp);
-      return { gross: flat, net: flat, penalty: 0, earn: 0 };
+      apply(c0.sp, flat);
+      return { gross: flat, net: flat, penalty: 0, earn: 0, tax: 0 };
     }
     const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
     const cost = (gross) => {
       const c = pieces(gross),
         tax = c.earn > 0 ? taxFor(profile, taxableGainGross, traditionalGross + c.earn) - baseTax : 0;
-      return { ...c, net: gross - tax - c.penalty };
+      return { ...c, tax, net: gross - tax - c.penalty };
     };
     let lo = 0,
-      hi = Math.min(bucketBal, targetNet * 6 + 1);
+      hi = Math.min(avail, targetNet * 6 + 1);
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2;
       if (cost(mid).net < targetNet) lo = mid;
       else hi = mid;
     }
-    const gross = Math.min(bucketBal, hi),
+    const gross = Math.min(avail, hi),
       c = cost(gross);
-    apply(c.sp);
-    return { gross, net: c.net, penalty: c.penalty, earn: c.earn };
+    apply(c.sp, gross);
+    return { gross, net: c.net, penalty: c.penalty, earn: c.earn, tax: c.tax };
   }
   // Solves for how much must come out of the traditional balance so that,
   // net of the tax (and early-withdrawal penalty, if applicable) that
@@ -5113,6 +5129,7 @@
       rothAccts,
       accts,
       status: ALL_FREE,
+      penaltyAware: false,
       profile,
       need: 0,
       taxableGainGross: 0,
@@ -5147,38 +5164,58 @@
     const slots = [0, 1, 2, 3].filter((i) => wd.status[i].free === !penalized);
     return { slots, share: slots.reduce((sum, i) => sum + wd.accts.trad[i], 0) };
   }
-  // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection bracket (see
-  // solveTraditionalForNetFromNeed). Penalty-free accounts are drawn first (no 10%), then the
-  // penalized ones. Every account holds the same stock/bond mix, so a group's room in a bucket is
-  // its share of the pool times the bucket.
-  function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
-    const { bal } = wd;
-    let net = 0;
-    for (const penalized of [false, true]) {
-      const { slots, share } = tradGroup(wd, penalized),
-        cap = bal[bucket] * share;
-      if (!(cap > 0)) continue;
-      const { fromTrad, tradNet, penalty } = solver(
-        cap,
-        amount - net,
-        wd.taxableGainGross,
-        wd.traditionalGross,
-        wd.profile,
-        penalized ? 1 : 0,
-      );
-      accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, fromTrad);
-      bal[bucket] -= fromTrad;
-      wd.traditionalGross += fromTrad;
-      wd.traditionalWithdrawn += fromTrad;
-      wd.earlyPenalty += penalty;
-      net += tradNet;
-    }
-    return net;
+  // True when some account holding money would owe the 10% on a discretionary draw: a penalized
+  // traditional account, or a Roth account whose owner is neither 59.5+ nor covered by Rule of 55.
+  // While it is true the withdrawal order protects the penalty-free money (see withdrawStandard).
+  function hasPenalizedMoney(wd) {
+    const { bal, accts, status } = wd;
+    if (bal.traditional + bal.bondTraditional > 0 && tradGroup(wd, true).share > 0) return true;
+    return bal.roth + bal.bondRoth > 0 && [0, 1, 2, 3].some((i) => !status[i].free && accts.roth[i] > 0);
   }
-  // `bucket` is 'roth' | 'bondRoth'. Roth earnings count as ordinary income
-  // (traditionalGross) when the draw is early.
-  function takeRoth(wd, bucket, amount) {
+  // Gross room per Roth account for a penalty-free draw from `bucket`: an account whose owner is
+  // free (59.5+, inherited, or a 401(k) under Rule of 55) all of it; an early Roth IRA only its
+  // basis (contributions and seasoned conversions); an early Roth 401(k) none (every draw is
+  // partly earnings).
+  function rothFreeCaps(wd, bucket) {
+    const { bal, accts, status, rothAccts } = wd,
+      pool = bal.roth + bal.bondRoth;
+    return accts.roth.map((sh, i) => {
+      const dollars = sh * pool;
+      if (!(dollars > 0)) return 0;
+      const frac = status[i].free ? 1 : i % 2 === 1 ? 0 : Math.min(Math.max(0, rothAccts[i].basis), dollars) / dollars;
+      return sh * bal[bucket] * frac;
+    });
+  }
+  // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection bracket (see
+  // solveTraditionalForNetFromNeed). Draws the penalty-free accounts only (no 10%); the penalized
+  // ones are takePenalized's job. Every account holds the same stock/bond mix, so a group's room in a
+  // bucket is its share of the pool times the bucket.
+  function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet, penalized = false) {
     const { bal } = wd;
+    const { slots, share } = tradGroup(wd, penalized),
+      cap = bal[bucket] * share;
+    if (!(cap > 0)) return 0;
+    const { fromTrad, tradNet, penalty } = solver(
+      cap,
+      amount,
+      wd.taxableGainGross,
+      wd.traditionalGross,
+      wd.profile,
+      penalized ? 1 : 0,
+    );
+    accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, fromTrad);
+    bal[bucket] -= fromTrad;
+    wd.traditionalGross += fromTrad;
+    wd.traditionalWithdrawn += fromTrad;
+    wd.earlyPenalty += penalty;
+    return tradNet;
+  }
+  // `bucket` is 'roth' | 'bondRoth'. Roth earnings count as ordinary income (traditionalGross)
+  // when the draw is early. While penalized money exists only penalty-free Roth money is drawn
+  // here (rothFreeCaps); `caps` overrides that (takePenalized).
+  function takeRoth(wd, bucket, amount, caps = null) {
+    const { bal } = wd;
+    if (!caps && wd.penaltyAware) caps = rothFreeCaps(wd, bucket);
     const d = rothDraw(
       wd.rothAccts,
       wd.accts.roth,
@@ -5189,12 +5226,62 @@
       wd.traditionalGross,
       wd.profile,
       wd.status,
+      caps,
     );
     bal[bucket] -= d.gross;
     wd.rothWithdrawn += d.gross;
     wd.traditionalGross += d.earn;
     wd.earlyPenalty += d.penalty;
     return d.net;
+  }
+  // The penalized tier: only when every penalty-free source above is exhausted. Repeatedly takes the
+  // cheapest source per gross dollar (income tax plus the 10%), probing each at the remaining need:
+  // a penalized traditional account (tax plus 10% on the whole draw), a Roth 401(k) (the earnings share
+  // only, pro rata), a Roth IRA (conversions inside their 5 years, 10% only; then earnings, tax plus
+  // 10%). A tie goes to traditional, which keeps Roth growing tax-free. `solverStocks` is the
+  // bisection bracket for traditional stock draws (bond draws always use solveTraditionalForNetFromNeed).
+  function takePenalized(wd, solverStocks) {
+    const { bal } = wd,
+      pen = tradGroup(wd, true);
+    for (let guard = 0; wd.need > 0.005 && guard < 40; guard++) {
+      const cands = [];
+      if (pen.share > 0)
+        for (const [bucket, solver] of [['traditional', solverStocks], ['bondTraditional', solveTraditionalForNetFromNeed]]) {
+          const cap = bal[bucket] * tradGroup(wd, true).share;
+          if (cap > 0)
+            cands.push({
+              probe: () => {
+                const r = solver(cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1);
+                return { gross: r.fromTrad, net: r.tradNet };
+              },
+              run: () => takeTraditional(wd, bucket, wd.need, solver, true),
+            });
+        }
+      for (const bucket of ['roth', 'bondRoth'])
+        for (let i = 0; i < 4; i++) {
+          const room = wd.accts.roth[i] * bal[bucket];
+          if (!(room > 0)) continue;
+          const caps = [0, 0, 0, 0];
+          caps[i] = room;
+          cands.push({
+            probe: () => {
+              const pool = bal.roth + bal.bondRoth,
+                d = rothDraw(wd.rothAccts, wd.accts.roth, pool, bal[bucket], wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, wd.status, caps, true);
+              return { gross: d.gross, net: d.net };
+            },
+            run: () => takeRoth(wd, bucket, wd.need, caps),
+          });
+        }
+      let best = null;
+      for (const c of cands) {
+        const pr = c.probe();
+        if (!(pr.gross > 1e-9)) continue;
+        const cost = 1 - pr.net / pr.gross;
+        if (!best || cost < best.cost - 1e-5) best = { c, cost };
+      }
+      if (!best) return;
+      wd.need = Math.max(0, wd.need - best.c.run());
+    }
   }
   // @@shared:takeCash begin
   function takeCash(wd, amount) {
@@ -5256,7 +5343,11 @@
         : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
           ? state.appliedMixSchedule[age]
           : 0;
-    const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, bal.traditional, bal.roth);
+    // Mix weights see only the money this tier may use: penalty-free traditional (and, while penalized
+    // money exists, penalty-free Roth).
+    const freeTrad = bal.traditional * tradGroup(wd, false).share,
+      freeRoth = wd.penaltyAware ? rothFreeCaps(wd, 'roth').reduce((sum, c) => sum + c, 0) : bal.roth;
+    const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, freeTrad, freeRoth);
     if (mixWeights && wd.need > 0) {
       wd.mixCandidate = mixCandidate;
       const [wTaxable, wTraditional, wRoth] = mixWeights;
@@ -5264,9 +5355,9 @@
         traditionalShare = wd.need * wTraditional,
         rothShare = wd.need * wRoth;
       wd.need -= takeTaxable(wd, 'taxable', taxableShare);
-      if (traditionalShare > 0 && bal.traditional > 0)
+      if (traditionalShare > 0 && freeTrad > 0)
         wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
-      if (rothShare > 0 && bal.roth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
+      if (rothShare > 0 && freeRoth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
     } else if (state.withdrawalMixEnabled && wd.need > 0) {
       // 'live' is a display-only marker, not a WITHDRAWAL_MIX_CANDIDATES id.
       wd.mixCandidate = 'live';
@@ -5274,7 +5365,7 @@
         live = pickLiveWithdrawalOrder(
           wd.need,
           bal.taxable,
-          bal.traditional * free.share,
+          freeTrad,
           bal.taxableBasis,
           wd.profile,
           wd.taxableGainGross,
@@ -5292,16 +5383,13 @@
       wd.traditionalWithdrawn += live.fromTraditional;
       wd.earlyPenalty += live.penalty;
       wd.need = live.remainingNeed;
-      // Whatever the penalty-free accounts could not cover comes from the penalized ones.
-      if (wd.need > 0 && bal.traditional > 0)
-        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
     } else if (state.smoothWithdrawals) {
-      const pool = bal.taxable + bal.traditional;
+      const pool = bal.taxable + freeTrad;
       if (pool > 0 && wd.need > 0) {
         const taxableShare = wd.need * (bal.taxable / pool),
-          traditionalShare = wd.need * (bal.traditional / pool);
+          traditionalShare = wd.need * (freeTrad / pool);
         wd.need -= takeTaxable(wd, 'taxable', taxableShare);
-        if (traditionalShare > 0 && bal.traditional > 0)
+        if (traditionalShare > 0 && freeTrad > 0)
           wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       }
     } else return false;
@@ -5320,12 +5408,28 @@
       wd.need -= takeTaxable(wd, 'taxable', wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
     }
-    wd.need -= takeRoth(wd, 'roth', wd.need);
-    wd.need -= takeCash(wd, wd.need);
-    wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
-    if (wd.need > 0 && bal.bondTraditional > 0)
-      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
-    wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+    const bondTrad = () => {
+      if (wd.need > 0 && bal.bondTraditional > 0)
+        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
+    };
+    if (wd.penaltyAware) {
+      // Penalized money exists: cash and the taxable bond reserve come before Roth basis (decision 10),
+      // penalty-free Roth before anything penalized, home equity last. A bisection overshoot from the
+      // draws above is dropped, not credited back to cash (the live mix clamps it the same way).
+      wd.need = Math.max(0, wd.need);
+      wd.need -= takeCash(wd, wd.need);
+      wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+      bondTrad();
+      wd.need -= takeRoth(wd, 'roth', wd.need);
+      wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+      takePenalized(wd, solveTraditionalForNet);
+    } else {
+      wd.need -= takeRoth(wd, 'roth', wd.need);
+      wd.need -= takeCash(wd, wd.need);
+      wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+      bondTrad();
+      wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+    }
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
   // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
@@ -5361,8 +5465,10 @@
         BUCKET_STEP.taxable(wd);
         if (wd.need > 0) BUCKET_STEP.traditional(wd);
       }
-      if (wd.need > 0) BUCKET_STEP.roth(wd);
+      // While penalized money exists Roth is its own step later (withdrawBucketPenaltyAware).
+      if (wd.need > 0 && !wd.penaltyAware) BUCKET_STEP.roth(wd);
     },
+    penalized: (wd) => takePenalized(wd, solveTraditionalForNetFromNeed),
   };
   // @@shared:BUCKET_DOWN_YEAR_ORDER begin
   const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
@@ -5384,6 +5490,16 @@
       refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
   }
   // @@shared:BUCKET_DOWN_YEAR_ORDER end
+  // The bucket strategy while penalized money exists (US): the same two years, but every step draws
+  // only penalty-free money, cash and the bond reserve come before Roth basis in an up year too, and a
+  // penalized tier (cheapest per dollar) runs just before home equity.
+  const BUCKET_DOWN_PENALIZED_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'roth', 'penalized', 'home'].map((k) => BUCKET_STEP[k]);
+  const BUCKET_UP_PENALIZED_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'roth', 'penalized', 'home'].map((k) => BUCKET_STEP[k]);
+  function withdrawBucketPenaltyAware(wd, opts) {
+    const { yearReturn, bondTarget } = opts;
+    for (const step of yearReturn < 0 ? BUCKET_DOWN_PENALIZED_ORDER : BUCKET_UP_PENALIZED_ORDER) if (wd.need > 0) step(wd, opts);
+    if (yearReturn >= 0) refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
+  }
   // @@shared:10-refillBondReserve begin
   // Tops the bond reserve up toward bondTarget by moving stocks into bonds: traditional first,
   // then Roth, then taxable only as a last resort when neither has anything left to move.
@@ -5915,8 +6031,9 @@
           // by Rule of 55; see accountStatuses.
           const statusCtx = { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB };
           wd.status = accountStatuses(statusCtx);
+          wd.penaltyAware = hasPenalizedMoney(wd);
           if (mode.bucketStrategy)
-            withdrawBucket(wd, {
+            (wd.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(wd, {
               yearReturn: stockReturn,
               bondTarget,
               refillCap: expenses - lumpExpense,

@@ -124,11 +124,12 @@ const grossForNet = (net) => {
 
   // 4. Conversion seasoning: convert in year 0, then draw from Roth only.
   // Principal converted in year 0 owes the penalty through year 4 (ages
-  // 41-44) and is free from year 5 (age 45).
+  // 41-44) and is free from year 5 (age 45). All the traditional money (100,000)
+  // is converted, so the unseasoned conversion is the only money left to draw.
   ({ browser, page, errors } = await open([
     ['rothBasisPct', 0],
     ['roth', 0],
-    ['traditional', 500000],
+    ['traditional', 100000],
     ['spending', 10000],
     ['rothConvEnabled', true],
     ['rothConvStartAge', 40],

@@ -154,32 +154,32 @@
     "B"
    ]
   },
-  "executeProjectionHash": "e220369b128d876b",
+  "executeProjectionHash": "dafd3f4e9a1f21ed",
   "executeStateHash": "8be460b46d3bb833",
   "readMatchesExecute": true
  },
  "surfaces": {
   "std default": {
-   "textHash": "8cd1c50236ad4b5d",
-   "textLength": 25826,
-   "projectionHash": "1317f2f1bad9cc62",
-   "rowsHash": "9606f3614de403de",
+   "textHash": "6a10d0a805571606",
+   "textLength": 26534,
+   "projectionHash": "28d1f87748ae04ac",
+   "rowsHash": "cd4444ce112a5411",
    "histSuccess": "—",
    "errors": []
   },
   "std R": {
-   "textHash": "d839169a7e0f6e38",
-   "textLength": 25806,
-   "projectionHash": "60b7ca521e98955c",
-   "rowsHash": "106bb1d0bc0b4841",
+   "textHash": "50e6575583c2c830",
+   "textLength": 26515,
+   "projectionHash": "73dad8c139e6fb21",
+   "rowsHash": "4f381e8f76fa135b",
    "histSuccess": "—",
    "errors": []
   },
   "std R everything": {
-   "textHash": "8bca5b51a0fec508",
-   "textLength": 27634,
-   "projectionHash": "1937d5e7083b0eae",
-   "rowsHash": "f7b7ba5b9b7bd8ec",
+   "textHash": "b86add5b420a3fbe",
+   "textLength": 28340,
+   "projectionHash": "3e2fee3c43f79d3b",
+   "rowsHash": "55cc6c96c4790271",
    "histSuccess": "—",
    "errors": []
   }
@@ -885,15 +885,12 @@
    "domChanged": [
     "inflation"
    ],
-   "hiddenNowVisible": [
-    "shortfallBanner"
-   ],
+   "hiddenNowVisible": [],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "35b6e0607310",
-   "reloadDomHash": "35b6e0607310",
+   "domHash": "07fd15553b21",
+   "reloadDomHash": "07fd15553b21",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []

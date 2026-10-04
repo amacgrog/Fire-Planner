@@ -57,18 +57,22 @@ const BASE = {
     }, patch);
   const rows = (patch, fn) => run({ ...BASE, ...patch }, fn);
 
-  // 1. Each account is judged by its own owner's age. A is 60 (qualified), B is 45 with a $1 basis: the
-  //    two Roth IRAs are drawn pro rata, so only B's half owes the 10%: net 10,000 = g - 0.1 * (g/2 - 1).
+  // 1. Each account is judged by its own owner's age, and penalty-free money is drawn first. A is 60
+  //    (qualified) with a 100,000 Roth IRA, B is 45 with a 100,000 Roth IRA and a $1 basis. Spending 60,000 a
+  //    year: year 0 comes entirely from A (no penalty); in year 1 A's last 40,000 and B's $1 of basis are free
+  //    and the remaining 19,999 is B's earnings, grossed up for the 10%: x = 19,999 / 0.9.
   {
-    const couple = { singlePerson: false, ageA: 60, retireAgeA: 60, lifeExpectancyA: 70, rothIraA: 100000, rothIraBasisA: 1, rothIraB: 100000, rothIraBasisB: 1 };
+    const couple = { singlePerson: false, ageA: 60, retireAgeA: 60, lifeExpectancyA: 70, rothIraA: 100000, rothIraBasisA: 1, rothIraB: 100000, rothIraBasisB: 1, spending: 60000 };
     for (const fn of ['std', 'hist']) {
-      const r = (await rows(couple, fn))[0];
-      near(r.rothWithdrawn, 9999.9 / 0.95, 0.05, `${fn}: gross with only Partner B's half penalized`);
-      near(r.earlyPenalty, 0.1 * (9999.9 / 0.95 / 2 - 1), 0.05, `${fn}: penalty only on Partner B's half`);
+      const r = await rows(couple, fn);
+      near(r[0].rothWithdrawn, 60000, 0.01, `${fn} year 0: only Partner A's penalty-free Roth is drawn`);
+      near(r[0].earlyPenalty, 0, 0.01, `${fn} year 0: no penalty`);
+      near(r[1].rothWithdrawn, 40001 + 19999 / 0.9, 0.05, `${fn} year 1: A's last 40,000 and B's $1 of basis, then B's earnings grossed up`);
+      near(r[1].earlyPenalty, 0.1 * (19999 / 0.9), 0.05, `${fn} year 1: 10% only on B's earnings draw`);
     }
-    // Both under 59.5: both halves penalized.
-    const both = (await rows({ ...couple, ageA: 45, retireAgeA: 45, lifeExpectancyA: 60 }))[0];
-    near(both.earlyPenalty, 0.1 * (9998 / 0.9), 0.05, 'both partners early: the whole draw less the $1 bases is penalized');
+    // Both under 59.5: the penalty applies from the first dollar past the $1 bases.
+    const both = (await rows({ ...couple, ageA: 45, retireAgeA: 45, lifeExpectancyA: 60, spending: 10000 }))[0];
+    near(both.earlyPenalty, 0.1 * (9998 / 0.9), 0.05, 'both partners early: everything past the $1 bases is penalized');
   }
   // 2. Roth IRA ordering inside one account: basis first (free), then earnings. Basis 40,000 covers four
   //    10,000 draws; year 4 is all earnings, g = 10,000 / 0.9.

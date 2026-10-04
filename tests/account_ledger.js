@@ -182,20 +182,21 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
   }
   // 5. MAGI iteration: with ACA on and no brokerage account, the discretionary traditional draw differs from
   //    the first estimate and the conversion year body re-runs; the ledger must be rewound each pass (a
-  //    conversion applied once per pass would move the Roth shares each time). A works five years first
-  //    (401(k) 100% of limit + match), B is already retired, so the traditional shares are lopsided toward
-  //    A; with no IRAs a conversion draws the 401(k)s pro rata, so each partner's Roth IRA receives that
+  //    conversion applied once per pass would move the Roth shares each time). A works ten years first
+  //    (401(k) 100% of limit + match), B has no income, so the traditional shares are lopsided toward A; both
+  //    retire at 55 with Rule of 55 on, so the 401(k) draws are penalty-free and come before any Roth money;
+  //    with no IRAs a conversion draws the 401(k)s pro rata, so each partner's Roth IRA receives that
   //    partner's share of every converted dollar. Zero returns: exact dollars.
   {
     const patch = {
-      ...FLAT, ageA: 45, ageB: 45, retireAgeA: 50, retireAgeB: 45, lifeExpectancyA: 56, lifeExpectancyB: 56,
+      ...FLAT, ageA: 45, ageB: 45, retireAgeA: 55, retireAgeB: 55, lifeExpectancyA: 66, lifeExpectancyB: 66, ruleOf55Enabled: true,
       k401Type: 'traditional', iraType: 'traditional', iraPctA: 0, incomeB: 0, k401PctB: 0,
-      acaEnabled: true, healthcare: 18000, rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 58, rothConvBracket: 22,
+      acaEnabled: true, healthcare: 18000, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 62, rothConvBracket: 22,
       trad401kA: 600000, trad401kB: 600000, rothIraA: 50000, rothIraB: 50000, taxable: 0, cash: 30000, cashReserve: 0, spending: 30000,
     };
-    const { trace, rows } = await run(patch, [50, 45]);
-    // Five working years add 24,500 + 4,000 match to A's 401(k): 600,000 + 142,500 of 1,342,500.
-    close(trace[4].tradShares[1], 742500 / 1342500, 'A holds 742,500 of the 1,342,500 pool when work stops', 1e-9);
+    const { trace, rows } = await run(patch, [55, 55]);
+    // Ten working years add 24,500 + 4,000 match to A's 401(k): 600,000 + 285,000 of 1,485,000.
+    close(trace[9].tradShares[1], 885000 / 1485000, 'A holds 742,500 of the 1,342,500 pool when work stops', 1e-9);
     let converted = 0,
       expectA = 50000,
       expectB = 50000;
@@ -306,18 +307,23 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
     }
   }
 
-  // 8. The Roth penalty blend follows the Roth ledger too: A (76) is exempt, B (50) is not; the Roth money is
-  //    300,000 (A) and 100,000 (B), all earnings (0% basis), so a draw is 25% penalized: 10% x 25% of the gross draw.
+  // 8. Roth draws are per account too: A (76) is penalty-free and B (50) is not. A's 60,000 is drawn first (no
+  //    tax or penalty, 40,000 in year 0); in year 1 A's last 20,000 comes first and the rest comes from B's
+  //    100,000 (0% basis, all earnings): x - 0.1x = 20,000 -> x = 22,222.22, penalty 2,222.22 (the earnings
+  //    stay under the standard deduction).
   {
     const rothCase = {
       ...FLAT, ageA: 76, retireAgeA: 76, lifeExpectancyA: 78, ageB: 50, retireAgeB: 50, lifeExpectancyB: 78, incomeA: 0, incomeB: 0,
       matchA: 0, spending: 40000, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0,
-      roth401kA: 300000, roth401kB: 100000, roth401kBasisPctA: 0, roth401kBasisPctB: 0, taxable: 0, cash: 0, cashReserve: 0,
+      roth401kA: 60000, roth401kB: 100000, roth401kBasisPctA: 0, roth401kBasisPctB: 0, taxable: 0, cash: 0, cashReserve: 0, rent: 0, stateTax: 'tx',
     };
     for (const hist of [false, true]) {
+      const tag = hist ? 'hist' : 'std';
       const { rows } = hist ? await runHist(rothCase) : await run(rothCase);
-      assert.ok(rows[0].rothWithdrawn > 40000, `${hist ? 'hist' : 'std'}: the earnings draw is grossed up`);
-      near2(rows[0].earlyPenalty, 0.25 * 0.1 * rows[0].rothWithdrawn, 0.01, `${hist ? 'hist' : 'std'}: Roth penalty = B's 25% share x 10% x the draw`);
+      near2(rows[0].rothWithdrawn, 40000, 0.01, `${tag} year 0: only A's penalty-free Roth is drawn`);
+      near2(rows[0].earlyPenalty, 0, 0.01, `${tag} year 0: no penalty`);
+      near2(rows[1].rothWithdrawn, 20000 + 20000 / 0.9, 0.05, `${tag} year 1: A's last 20,000, then B's earnings grossed up`);
+      near2(rows[1].earlyPenalty, 2000 / 0.9, 0.05, `${tag} year 1: 10% on B's draw only`);
     }
   }
 
