@@ -45,7 +45,7 @@ Failure modes the spec implies but the happy-path tests would not exercise, most
 
 1. **Deferred or absent OAS.** A 66-year-old with `oasStartAge` 70 gets no OAS and no GIS; the spouse is then "spouse without OAS" (table 3). An OAS input of 0 means no OAS at all, and the 75-plus factor applies by actual age. Task 3 and Task 4 pin these.
 2. **Survivor transitions.** Survivor aged 60 to 64 gets the Allowance for the Survivor (table 5), at 65 the single GIS; A-dies must equal B-dies. Task 4 extends `tests/survivor_symmetry.js`.
-3. **Cliffs and zero income.** Table 4's GIS spouse amount drops from 3,155.04 to 0 at 42,768; zero, negative-offset and very large incomes must give 0 (not NaN, not negative benefits). The withdrawal solve must still return net at least the need through a cliff. Task 4 pins these.
+3. **Cliffs and zero income.** Table 4 ends at 42,768 because the younger spouse's Allowance reaches 0 (the pensioner continues on table 3, so there is no cliff); zero, negative-offset and very large incomes must give 0 (not NaN, not negative benefits). The withdrawal solve must still return net at least the need through a cliff. Task 4 pins these.
 4. **Children boundaries.** Age 17 vs 18 vs 19 (CCB under 18, CGEB under 19), a child born after the year, four or more children (rates cap at the fourth), a single parent. Task 5 pins them.
 5. **Old saves.** A saved state with the old default `oasMonthlyA: 742` keeps its value (only the default for new and partial saves changes to 762.50) and one with `oasMonthlyA: 0` still means no OAS; the legacy-state corpus hashes change only because the default changed. Task 3 pins this with `tests/legacy_state.js`.
 

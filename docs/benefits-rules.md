@@ -28,7 +28,7 @@ Same-year income stands in for the prior-year return the programs really use (an
 
 ### gis: Guaranteed Income Supplement, Allowance and Allowance for the Survivor
 
-Fitted to ESDC tables 1 to 5 for October to December 2026 (docs/sources). Income is annual net income less OAS and the employment exemption, combined for couples. Amounts and income cutoffs scale together with the plan inflation factor (quarterly CPI approximated by annual plan inflation). A single filer aged 60 to 64 who is not a survivor gets no Allowance.
+Fitted to ESDC tables 1 to 5 for October to December 2026 (docs/sources). Income is annual net income less OAS and the employment exemption, combined for couples. Amounts and income cutoffs scale together with the plan inflation factor (quarterly CPI approximated by annual plan inflation). A single filer aged 60 to 64 who is not a survivor gets no Allowance. Table 4 (a spouse aged 60 to 64 on the Allowance) ends at 42,768 where that Allowance reaches 0; the pensioner then continues on table 3, so there is no cliff.
 
 ```json
 {

@@ -96,13 +96,15 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   const bg = await page.evaluate((p) => { window.__test_tax.benefitsFor(p, 10000, 0); return window.__test_tax.getBenefits().gis; }, p1);
   near(bg, await G('single', 15000), 1e-9, 'capital gains enter GIS income at 50 percent');
 
-  // Review focus 3: a withdrawal solve through the table-4 cliff still returns at least the net it was asked for.
+  // Review focus 3: a withdrawal solve right where table 4 ends (GIS income 42,500; table 4 ends at 42,768 because the
+  // younger spouse's Allowance reaches 0 and the pensioner continues on table 3, so there is no cliff) still returns at
+  // least the net it was asked for.
   const solved = await page.evaluate(() => {
     const T = window.__test_tax;
     // One pensioner aged 66 (OAS 9,150 inside otherA) with a 62-year-old spouse: table 4 applies (GIS part cliff at 42,768).
-    const p = { otherA: 40000, otherB: 0, dtcA: 0, dtcB: 0, penA: 0, penB: 0, ageA: 66, ageB: 62, singlePerson: false, year: 0, oasA: 9150, oasB: 0, earnedA: 0, earnedB: 0, survivor: false, dependents: [] };
+    const p = { otherA: 9150 + 42500, otherB: 0, dtcA: 0, dtcB: 0, penA: 0, penB: 0, ageA: 66, ageB: 62, singlePerson: false, year: 0, oasA: 9150, oasB: 0, earnedA: 0, earnedB: 0, survivor: false, dependents: [] };
     const out = [];
-    for (const need of [1000, 3000, 5000, 8000]) {
+    for (const need of [500, 1000, 3000, 8000]) {
       const r = T.drawTaxable(1e6, 5e5, need, p, 0, 0); // pool, basis, need, profile, priorGains, priorTraditionalExtra
       out.push({ need, net: r.net });
     }
@@ -324,6 +326,46 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   // With children the exit does not apply: the Canada Child Benefit reaches high incomes (one child under 6 to about 196,000).
   o = await withProv('on', prof({ otherA: 80000, otherB: 80000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(3)] }));
   assert(o.ccb > 0, 'the child benefit is still paid at family income 160,000');
+
+  // --- Review fixes ---
+  // C1: table 4 ends at 42,768 only because the younger spouse's Allowance reaches 0. The pensioner then continues on
+  // table 3 (ESDC table 3, band 42,720 to 42,768: 263.49 a month; next band 262.49), so the GIS is continuous.
+  const pc4 = (inc) => prof({ otherA: 9150 + inc, otherB: 0, oasA: 9150, ageA: 66, ageB: 62, singlePerson: false });
+  const lo4 = await ben(pc4(42700)), hi4 = await ben(pc4(42800));
+  near(hi4.gis, await G('spouseNoOas', 42800), 1e-9, 'past the Allowance cutoff the pensioner is on table 3');
+  near(hi4.allowance, 0, 0, 'no Allowance past its cutoff');
+  // The two points are 100 of income apart (about 25 a year of ordinary slope); the old cliff was about 3,150.
+  assert(Math.abs(lo4.gis + lo4.allowance - hi4.gis) < 60, 'GIS plus Allowance is continuous across 42,768 (' + (lo4.gis + lo4.allowance) + ' vs ' + hi4.gis + ')');
+  // I1: OAS is not inherited. A survivor under 65 gets none; at 65 or older the greater-of rule is kept.
+  const sv = (over) => page.evaluate((over) => {
+    const s = window.__test_getState();
+    const saved = { oasMonthlyA: s.oasMonthlyA, oasMonthlyB: s.oasMonthlyB, oasStartAgeA: s.oasStartAgeA, oasStartAgeB: s.oasStartAgeB };
+    Object.assign(s, { oasMonthlyA: 762.5, oasMonthlyB: 762.5, oasStartAgeA: 65, oasStartAgeB: 65 });
+    const r = window.__test_tax.cppAndOasIncome({ age: over.age, ageB: over.ageB, singlePerson: false, factor: 1, isSurvivorPeriod: true, deceasedIsA: over.deceasedIsA });
+    Object.assign(s, saved);
+    return r;
+  }, over);
+  r = await sv({ age: 71, ageB: 62, deceasedIsA: true });
+  near(r.oasGrossA + r.oasGrossB, 0, 0, 'a survivor aged 62 gets no OAS (A, 71, died)');
+  r = await sv({ age: 62, ageB: 71, deceasedIsA: false });
+  near(r.oasGrossA + r.oasGrossB, 0, 0, 'a survivor aged 62 gets no OAS (B, 71, died)');
+  r = await sv({ age: 71, ageB: 66, deceasedIsA: true });
+  near(r.oasGrossB, 9150, 1e-9, 'a survivor aged 66 keeps the greater-of OAS');
+  near(r.oasGrossA, 0, 0, 'the deceased receives nothing');
+  // I2: the Allowance for the Survivor in the engine. A (70) dies at 71; B (62) is the survivor from age 63: no OAS, the
+  // Allowance for the Survivor instead (ESDC table 5), and the pension income is the survivor's CPP only.
+  const sr = await page.evaluate(() => {
+    const s = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(s));
+    Object.assign(s, { singlePerson: false, ageA: 70, ageB: 62, retireAgeA: 70, retireAgeB: 62, lifeExpectancyA: 95, lifeExpectancyB: 95, incomeA: 0, incomeB: 0, pensionCoverage: 'none', inflation: 0, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 71, cppMonthlyA: 500, cppMonthlyB: 500, cppStartAgeA: 65, cppStartAgeB: 65, oasMonthlyA: 762.5, oasMonthlyB: 762.5, taxable: 0, traditional: 0, roth: 150000, cash: 50000, spending: 20000, healthcare: 0, dividendYield: 0, tenure: 'rent', rent: 0 });
+    const rows = window.__test_simulate().rows;
+    const row = rows.find((x) => x.ageB === 63);
+    Object.keys(saved).forEach((k) => { s[k] = saved[k]; });
+    return { ss: row.ss, allowance: row.benefitAllowance, gis: row.benefitGis };
+  });
+  near(sr.ss, 6000, 1e-6, 'survivor aged 63: CPP only (500 x 12), no inherited OAS');
+  assert(sr.allowance > 0 && sr.allowance < 20714.16, 'survivor aged 63 receives the Allowance for the Survivor, within the table-5 maximum (got ' + sr.allowance + ')');
+  near(sr.gis, 0, 0, 'a survivor under 65 receives no GIS');
 
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
