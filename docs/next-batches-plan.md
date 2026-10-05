@@ -2015,6 +2015,8 @@ Branch `claude/batch-7d-remaining-states`, cut from the 3B-line tip `2136d7b` (7
 
 **Commit 1: per-person Social Security on `sources` (mechanism 15; no behavior change).** `ssBenefitsA/B` and the taxable Social Security split in proportion to benefits (`taxableSSA/B`) join `ssBenefits` in all three `taxFor` branches; a one-person return and each separate return read slot A. Snapshots exact (518 US, 359 Canada), UI snapshots unchanged. The end-to-end test arrives with mechanism 5, the first reader.
 
+**Commit 2: state tax on additional income (US V99 -> V100; intended number change).** `profile.extraIncome` (income streams plus one-time income, which `buildTaxProfile` already put in Partner A's slot of `otherA`) now feeds the state `wages` in the joint, one-person and (on A's return) two-separate-returns branches, including the survivor remap. The bug: the federal side read `otherA`, the state read the wage fields only, so these streams were never state taxed. Before/after, plan year 0, default household plus a $20,000 stream: MA 39,455 -> 40,455 (+1,000, 5%), CA 37,166 -> 38,790 (+1,625), NY 39,018 -> 40,224 (+1,206), NC 38,054 -> 38,852 (+798, 3.99%), TX unchanged. No snapshot scenario combines an income stream with a taxing state, so 0 of 518 US scenarios moved (Canada untouched). Test: `tests/state_extra_income.js` (joint, one person, two returns, a profile without the field). Canada was not checked for the equivalent.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
