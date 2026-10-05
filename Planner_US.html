@@ -5845,6 +5845,8 @@
       ssRule: typeof ss === 'object' ? ss : null,
       retirement: compileRetirement(row.retirementExclusion),
       needsSsSplit: row.retirementExclusion.kind === 'perPerson' && row.retirementExclusion.reducedBy === 'socialSecuritySubtracted',
+      // Whether the row reads the per-person inputs of the sources (pension, traditional draw, Social Security by partner).
+      needsPerPerson: row.retirementExclusion.kind === 'perPerson' || (typeof ss === 'object' && ss.kind === 'ageAgiTiered'),
       exemptionPhaseOut: row.exemptionPhaseOut.kind === 'stepDown' ? row.exemptionPhaseOut : null,
       exemptionLinear: row.exemptionPhaseOut.kind === 'linear' ? row.exemptionPhaseOut : null,
       dependentExemption: typeof dep === 'number' ? dep : dep.kind === 'afterFirst' ? dep.amount : 0,
@@ -5882,6 +5884,8 @@
         return v;
       });
     }
+    // taxFor builds the inputs before it knows the year, so the flag covers every variant.
+    if (rule.variants && rule.variants.some((v) => v.needsPerPerson)) rule.needsPerPerson = true;
     return rule;
   }
   // Tax on `income` from graduated brackets; bracket i runs from starts[i] to starts[i + 1]
@@ -6479,6 +6483,22 @@
       credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
   }
+  // The state-tax inputs of one return. taxFor refills one of these per call instead of allocating a new object (and
+  // arrays) for every call: stateIncomeTax reads it and keeps nothing, and the two returns of the two-filer branch
+  // use two objects because both are built before either is evaluated. The per-person fields are only written (and
+  // so only valid) when the selected row reads them (rule.needsPerPerson); every row reads the others.
+  function newStateSources(agesCount) {
+    return {
+      wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: new Array(agesCount).fill(0),
+      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, federalTax: 0,
+      ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0, taxableSSA: 0, taxableSSB: 0,
+      dependents: NO_DEPENDENTS, propertyTax: 0, rent: 0,
+    };
+  }
+  const SOURCES_JOINT = newStateSources(2),
+    SOURCES_SINGLE = newStateSources(1),
+    SOURCES_A = newStateSources(1),
+    SOURCES_B = newStateSources(1);
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
     // qualified) are household-level and taxed every year; qualified
@@ -6491,8 +6511,10 @@
       rent = profile.rent || 0,
       // Income streams and one-time income ride in Partner A's slot of `other`; the state taxes them as wages.
       extra = profile.extraIncome || 0,
-      stateOn = stateTaxActive(),
-      lagged = stateOn && stateNeedsFederalTax();
+      stateRule = stateRuleFor(state.stateTax),
+      stateOn = !!stateRule && !stateRule.noTax,
+      lagged = stateOn && stateRule.lagged !== null,
+      perPerson = stateOn && stateRule.needsPerPerson;
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
@@ -6500,30 +6522,36 @@
       const other = profile.otherA + profile.otherB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
       const ordinary = profile.otherA + profile.otherB + traditionalExtra + invOrd + taxableSS;
-      const sources = !stateOn ? null : {
-        wages: profile.wageA + profile.wageB + invOrd + extra,
-        pension: profile.pensionA + profile.pensionB,
-        retirement: profile.rmdA + profile.rmdB + traditionalExtra,
-        gains,
-        taxableSS,
-        ages: [profile.ageA, profile.ageB],
-        // Per-person amounts: the discretionary traditional draw follows each partner's share
-        // of the pool in the year (the account ledger).
-        pensionA: profile.pensionA,
-        pensionB: profile.pensionB,
-        retirementA: profile.rmdA + traditionalExtra * (profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA),
-        retirementB: profile.rmdB + traditionalExtra * (1 - (profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA)),
-        federalTax: !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB),
-        ssBenefits: profile.ssA + profile.ssB,
-        // Per-person Social Security: each partner's benefits, and the taxable part split in proportion.
-        ssBenefitsA: profile.ssA,
-        ssBenefitsB: profile.ssB,
-        taxableSSA: profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0,
-        taxableSSB: profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0,
-        dependents,
-        propertyTax,
-        rent,
-      };
+      let sources = null;
+      if (stateOn) {
+        sources = SOURCES_JOINT;
+        sources.wages = profile.wageA + profile.wageB + invOrd + extra;
+        sources.pension = profile.pensionA + profile.pensionB;
+        sources.retirement = profile.rmdA + profile.rmdB + traditionalExtra;
+        sources.gains = gains;
+        sources.taxableSS = taxableSS;
+        sources.ages[0] = profile.ageA;
+        sources.ages[1] = profile.ageB;
+        if (perPerson) {
+          // Per-person amounts: the discretionary traditional draw follows each partner's share
+          // of the pool in the year (the account ledger).
+          const shareA = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA;
+          sources.pensionA = profile.pensionA;
+          sources.pensionB = profile.pensionB;
+          sources.retirementA = profile.rmdA + traditionalExtra * shareA;
+          sources.retirementB = profile.rmdB + traditionalExtra * (1 - shareA);
+          sources.ssBenefitsA = profile.ssA;
+          sources.ssBenefitsB = profile.ssB;
+          // Per-person Social Security: each partner's benefits, and the taxable part split in proportion.
+          sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
+          sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
+        }
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB);
+        sources.ssBenefits = profile.ssA + profile.ssB;
+        sources.dependents = dependents;
+        sources.propertyTax = propertyTax;
+        sources.rent = rent;
+      }
       const stateTaxPaid = stateIncomeTax(sources, 'mfj', profile.year),
         deduction = federalDeduction(
           'mfj',
@@ -6554,27 +6582,31 @@
         status,
       );
       const ordinary = profile.otherA + traditionalExtra + invOrd + taxableSS;
-      const sources = !stateOn ? null : {
-        wages: profile.wageA + invOrd + extra,
-        pension: profile.pensionA,
-        retirement: profile.rmdA + traditionalExtra,
-        gains,
-        taxableSS,
-        ages: [profile.ageA],
-        pensionA: profile.pensionA,
-        pensionB: 0,
-        retirementA: profile.rmdA + traditionalExtra,
-        retirementB: 0,
-        federalTax: !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA),
-        ssBenefits: profile.ssA,
-        ssBenefitsA: profile.ssA,
-        ssBenefitsB: 0,
-        taxableSSA: taxableSS,
-        taxableSSB: 0,
-        dependents,
-        propertyTax,
-        rent,
-      };
+      let sources = null;
+      if (stateOn) {
+        sources = SOURCES_SINGLE;
+        sources.wages = profile.wageA + invOrd + extra;
+        sources.pension = profile.pensionA;
+        sources.retirement = profile.rmdA + traditionalExtra;
+        sources.gains = gains;
+        sources.taxableSS = taxableSS;
+        sources.ages[0] = profile.ageA;
+        if (perPerson) {
+          sources.pensionA = profile.pensionA;
+          sources.pensionB = 0;
+          sources.retirementA = profile.rmdA + traditionalExtra;
+          sources.retirementB = 0;
+          sources.ssBenefitsA = profile.ssA;
+          sources.ssBenefitsB = 0;
+          sources.taxableSSA = taxableSS;
+          sources.taxableSSB = 0;
+        }
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA);
+        sources.ssBenefits = profile.ssA;
+        sources.dependents = dependents;
+        sources.propertyTax = propertyTax;
+        sources.rent = rent;
+      }
       const stateTaxPaid = stateIncomeTax(sources, status, profile.year),
         deduction = federalDeduction(
           status,
@@ -6622,49 +6654,55 @@
     );
     const ordinaryA = profile.otherA + tradA + invA + taxableSSA,
       ordinaryB = profile.otherB + tradB + invB + taxableSSB;
-    const sourcesA = !stateOn ? null : {
-        wages: profile.wageA + invA + extra,
-        pension: profile.pensionA,
-        retirement: profile.rmdA + tradA,
-        gains: gainA,
-        taxableSS: taxableSSA,
-        ages: [profile.ageA],
-        pensionA: profile.pensionA,
-        pensionB: 0,
-        retirementA: profile.rmdA + tradA,
-        retirementB: 0,
-        federalTax: !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA),
-        ssBenefits: profile.ssA,
-        ssBenefitsA: profile.ssA,
-        ssBenefitsB: 0,
-        taxableSSA: taxableSSA,
-        taxableSSB: 0,
-        dependents,
-        propertyTax: halfProperty,
-        rent: halfRent,
-      },
-      sourcesB = !stateOn ? null : {
-        wages: profile.wageB + invB,
-        pension: profile.pensionB,
-        retirement: profile.rmdB + tradB,
-        gains: gainB,
-        taxableSS: taxableSSB,
-        ages: [profile.ageB],
+    let sourcesA = null,
+      sourcesB = null;
+    if (stateOn) {
+      sourcesA = SOURCES_A;
+      sourcesA.wages = profile.wageA + invA + extra;
+      sourcesA.pension = profile.pensionA;
+      sourcesA.retirement = profile.rmdA + tradA;
+      sourcesA.gains = gainA;
+      sourcesA.taxableSS = taxableSSA;
+      sourcesA.ages[0] = profile.ageA;
+      if (perPerson) {
+        sourcesA.pensionA = profile.pensionA;
+        sourcesA.pensionB = 0;
+        sourcesA.retirementA = profile.rmdA + tradA;
+        sourcesA.retirementB = 0;
+        sourcesA.ssBenefitsA = profile.ssA;
+        sourcesA.ssBenefitsB = 0;
+        sourcesA.taxableSSA = taxableSSA;
+        sourcesA.taxableSSB = 0;
+      }
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA);
+      sourcesA.ssBenefits = profile.ssA;
+      sourcesA.dependents = dependents;
+      sourcesA.propertyTax = halfProperty;
+      sourcesA.rent = halfRent;
+      sourcesB = SOURCES_B;
+      sourcesB.wages = profile.wageB + invB;
+      sourcesB.pension = profile.pensionB;
+      sourcesB.retirement = profile.rmdB + tradB;
+      sourcesB.gains = gainB;
+      sourcesB.taxableSS = taxableSSB;
+      sourcesB.ages[0] = profile.ageB;
+      if (perPerson) {
         // Partner B's own return: the slot a one-person return reads is A.
-        pensionA: profile.pensionB,
-        pensionB: 0,
-        retirementA: profile.rmdB + tradB,
-        retirementB: 0,
-        federalTax: !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB),
-        ssBenefits: profile.ssB,
-        ssBenefitsA: profile.ssB,
-        ssBenefitsB: 0,
-        taxableSSA: taxableSSB,
-        taxableSSB: 0,
-        dependents: NO_DEPENDENTS,
-        propertyTax: halfProperty,
-        rent: halfRent,
-      };
+        sourcesB.pensionA = profile.pensionB;
+        sourcesB.pensionB = 0;
+        sourcesB.retirementA = profile.rmdB + tradB;
+        sourcesB.retirementB = 0;
+        sourcesB.ssBenefitsA = profile.ssB;
+        sourcesB.ssBenefitsB = 0;
+        sourcesB.taxableSSA = taxableSSB;
+        sourcesB.taxableSSB = 0;
+      }
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB);
+      sourcesB.ssBenefits = profile.ssB;
+      sourcesB.dependents = NO_DEPENDENTS;
+      sourcesB.propertyTax = halfProperty;
+      sourcesB.rent = halfRent;
+    }
     // Two separate returns: the household's property tax and deductible mortgage
     // interest are split 50/50 between them, and each return picks its own
     // standard-or-itemized deduction.
@@ -14764,6 +14802,8 @@
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_setCurrentYear = (y) => { currentYear = y; };
+  // For tests/tax_caches.js: the compiled state rules, so a test can force the per-person inputs on for every row.
+  window.__test_stateRuleFor = stateRuleFor;
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };

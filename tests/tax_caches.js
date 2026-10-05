@@ -3,6 +3,10 @@
 // tolerance.
 //   * taxIndexFactor: the remembered factor against Math.pow, across inflation changes, whole and fractional
 //     year indexes, in both orders, and inside a historical run (which has its own factors).
+//   * the per-person state inputs (needsPerPerson): every projection with the flags as compiled against the same
+//     projection with the per-person inputs built for every row, in every state, for each of a list of one-input
+//     changes, so a row that reads a field the flag skipped, or a stale value left in a reused inputs object,
+//     shows as a changed double. Also pins which rows have the flag.
 //   node tests/tax_caches.js
 
 const { chromium } = require('playwright');
@@ -49,6 +53,61 @@ function ok(desc, cond, detail) {
   ok(`taxIndexFactor == Math.pow over ${factor.n} calls`, factor.bad === 0, factor);
   ok('a changed inflation misses, the old value returns with it', factor.flipped);
   ok('the plan factor is intact after a historical run', factor.restored);
+
+  // 3. The per-person inputs: flags as compiled against every row forced on.
+  const per = await page.evaluate(() => {
+    const st = window.__test_getState(), rules = window.__test_stateRuleFor, R = window.__test_tax.STATE_RULES;
+    const base = JSON.parse(JSON.stringify(st));
+    const reset = () => { for (const k of Object.keys(st)) delete st[k]; Object.assign(st, JSON.parse(JSON.stringify(base))); };
+    const codes = Object.keys(R);
+    // Which rows should carry the flag: a per-person retirement kind or the age-and-AGI-tiered Social Security kind.
+    const expectFlag = (row) => {
+      const hit = (r) => r.retirementExclusion.kind === 'perPerson' || (typeof r.base.socialSecurity === 'object' && r.base.socialSecurity.kind === 'ageAgiTiered');
+      return hit(row) || (row.schedule || []).some((v) => (v.retirementExclusion ? v.retirementExclusion.kind === 'perPerson' : false) || (v.base && v.base.socialSecurity && v.base.socialSecurity.kind === 'ageAgiTiered'));
+    };
+    const flagWrong = codes.filter((c) => !!rules(c).needsPerPerson !== expectFlag(R[c]));
+    const kids = [{ birthYear: 2012, student: false }, { birthYear: 2020, student: false }];
+    const changes = [
+      ['base', {}], ['single person', { singlePerson: true }], ['filing single', { filingStatus: 'single' }],
+      ['children', { children: kids }], ['retired both', { ageA: 68, ageB: 66, retireAgeA: 60, retireAgeB: 60 }],
+      ['income A only', { incomeB: 0 }], ['survivor', { lifeExpectancyA: 72 }], ['survivor B', { lifeExpectancyB: 72 }],
+      ['roth conversions', { rothConvEnabled: true }],
+    ];
+    const flat = (v, out) => {
+      if (typeof v === 'number') out.push(v);
+      else if (Array.isArray(v)) for (const x of v) flat(x, out);
+      else if (v && typeof v === 'object') for (const k of Object.keys(v).sort()) flat(v[k], out);
+    };
+    const H = window.__test_HIST;
+    const run = (code, patch) => {
+      reset();
+      Object.assign(st, patch, { stateTax: code });
+      const out = [];
+      const a = window.__test_simulate(st.retireAgeA, st.retireAgeB); flat(a.rows, out);
+      const b = window.__test_simulateHistorical((y) => H[5 + y], st.retireAgeA, st.retireAgeB); flat(b.rows, out);
+      return out;
+    };
+    // The same sweep twice: as compiled, then with every row forced to build the per-person inputs.
+    const sweep = () => {
+      const all = [];
+      for (const code of codes) for (const [, patch] of changes) all.push(run(code, patch));
+      return all;
+    };
+    const asCompiled = sweep();
+    const saved = codes.map((c) => rules(c).needsPerPerson);
+    codes.forEach((c) => { rules(c).needsPerPerson = true; });
+    const forced = sweep();
+    codes.forEach((c, i) => { rules(c).needsPerPerson = saved[i]; });
+    reset();
+    let bad = 0, first = null;
+    asCompiled.forEach((row, i) => {
+      for (let k = 0; k < row.length || k < forced[i].length; k++)
+        if (!Object.is(row[k], forced[i][k])) { bad++; if (!first) first = { code: codes[Math.floor(i / changes.length)], change: changes[i % changes.length][0], at: k }; break; }
+    });
+    return { n: asCompiled.length, flagged: saved.filter(Boolean).length, flagWrong, bad, first };
+  });
+  ok('needsPerPerson is set exactly for per-person retirement and age-tiered Social Security rows', per.flagWrong.length === 0, per);
+  ok(`${per.n} state x change projections: compiled flags == per-person inputs built for every row`, per.bad === 0, per);
 
   ok('no page errors', errors.length === 0, errors);
   console.log(`\n${pass} passed, ${fail} failed`);
