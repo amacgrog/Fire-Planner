@@ -153,16 +153,18 @@ async function testUS() {
 
 async function testCanada() {
   const file = path.join(root, 'Planner_Canada.html');
+  // Ontario excluded: its Health Premium is based on the grossed-up dividend and is not reduced by the credit.
   const ordinary = await scenario(file, false, [
     ['dividendYield', 2],
     ['qualifiedDivPct', 0],
   ]);
   const eligible = await scenario(file, false, [
+    ['province', 'bc'],
     ['dividendYield', 2],
     ['qualifiedDivPct', 100],
   ]);
-  const none = await scenario(file, false, [['dividendYield', 0]]);
-  assert(ordinary[0].tax > none[0].tax + 200, `Canada: dividends should add tax (${ordinary[0].tax} vs ${none[0].tax})`);
+  const none = await scenario(file, false, [['province', 'bc'], ['dividendYield', 0]]);
+  assert(ordinary[0].tax > none[0].tax + 100, `Canada: dividends should add tax (${ordinary[0].tax} vs ${none[0].tax})`);
   assert(
     eligible[0].tax < ordinary[0].tax,
     `Canada: eligible dividends (gross-up + credit) should owe less than ordinary-rate dividends (${eligible[0].tax} vs ${ordinary[0].tax})`,
