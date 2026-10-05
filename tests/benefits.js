@@ -231,6 +231,87 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   o = await withProv('qc', prof({ otherA: 40000, ageA: 40, dependents: [kid(18)] }));
   near(o.provChild, 0, 0, 'Quebec: an 18-year-old gets no family allowance');
 
+  // --- Ontario Energy and Property Tax Credit (CRA 2026 sheets) and senior homeowners grant ---
+  // (a) Couple, both under 64, renting 18,000, family income 50,000, no children.
+  //     Occupancy 0.20 x 18,000 = 3,600; energy min(3,600, 290) = 290; property tax component min(10% x 3,600 = 360, 944) + 73
+  //     = 433, capped at 3,600 -> 433; credit 723 (the CRA example: a 1,500 a month renter gets 723) less 2% x (50,000 - 36,309)
+  //     = 273.82 -> 449.18. Sales tax credit: 2 adults 756 less 4% x 13,691 = 547.64 -> 208.36. provCredit = 657.54.
+  o = await withProv('on', prof({ otherA: 25000, otherB: 25000, ageA: 40, ageB: 40, singlePerson: false, rentPaid: 18000 }));
+  near(o.provCredit, 723 - 0.02 * (50000 - 36309) + (756 - 0.04 * (50000 - 36309)), 1e-6, 'OEPTC and OSTC, couple renting');
+  near(o.provSenior, 0, 0, 'no grant for a renter');
+  // (b) Single, 40, owner paying 3,000 property tax, income 20,000: occupancy 3,000; energy 290; property tax min(300, 944) + 73
+  //     = 373 -> credit 663 (income under 29,047, no reduction); OSTC 378 (income under 29,047). provCredit 1,041.
+  o = await withProv('on', prof({ otherA: 20000, ageA: 40, propertyTaxPaid: 3000 }));
+  near(o.provCredit, 663 + 378, 1e-6, 'OEPTC and OSTC, single owner');
+  // (c) Single senior 70, owner paying 500 property tax, family income 30,000 (senior figures: 581 cap, 617 add-on, 36,309).
+  //     Occupancy 500; energy min(500, 290) = 290; property tax min(min(50, 581) + 617 = 667, 500) = 500; step 4 = 790.
+  //     Grant: income 30,000 under 35,000 -> 500. Step 5: A = 500 + 790 = 1,290; B = 1,290 - 290 = 1,000; C = 1,000 - 500 = 500;
+  //     OEPTC = 790 - 500 = 290. OSTC: 378 - 4% x (30,000 - 29,047) = 339.88. provCredit = 629.88, provSenior (grant) = 500.
+  o = await withProv('on', prof({ otherA: 30000, ageA: 70, propertyTaxPaid: 500 }));
+  near(o.provCredit, 290 + (378 - 0.04 * (30000 - 29047)), 1e-6, 'OEPTC with the grant interaction, OSTC');
+  near(o.provSenior, 500, 1e-9, 'grant 500 at income 30,000');
+  // (d) Senior couple (66 and 66), renting 12,000, family income 50,000: occupancy 2,400; energy 290; property tax
+  //     min(240, 581) + 617 = 857 -> 857; 1,147 less 2% x (50,000 - 43,571) = 128.58 -> 1,018.42. OSTC 208.36.
+  o = await withProv('on', prof({ otherA: 25000, otherB: 25000, ageA: 66, ageB: 66, singlePerson: false, rentPaid: 12000 }));
+  near(o.provCredit, 1147 - 0.02 * (50000 - 43571) + (756 - 0.04 * (50000 - 36309)), 1e-6, 'OEPTC senior couple renting');
+  // (e) The grant: single at 42,500 gets 500 - 3.33% x 7,500 = 250.25; a couple at 60,000 or more gets nothing; a tenant never does.
+  o = await withProv('on', prof({ otherA: 42500, ageA: 70, propertyTaxPaid: 4000 }));
+  near(o.provSenior, 500 - 0.0333 * 7500, 1e-6, 'grant single at 42,500');
+  o = await withProv('on', prof({ otherA: 30000, otherB: 30000, ageA: 70, ageB: 70, singlePerson: false, propertyTaxPaid: 4000 }));
+  near(o.provSenior, 0, 1e-9, 'grant couple at 60,000');
+  // (f) No rent and no property tax: no energy and property tax credit (the sales tax credit still applies).
+  o = await withProv('on', prof({ otherA: 20000, ageA: 40 }));
+  near(o.provCredit, 378, 1e-9, 'only the sales tax credit without housing costs');
+  // (g) A single parent of a child under 18 uses the sole-care threshold 36,309 (not 29,047): income 33,000, rent 12,000.
+  //     Occupancy 2,400; energy 290; property tax min(240, 944) + 73 = 313; credit 603 less 2% x 0 = 603 (33,000 < 36,309);
+  //     with the 29,047 threshold it would be reduced by 79.06.
+  o = await withProv('on', prof({ otherA: 33000, ageA: 40, rentPaid: 12000, dependents: [kid(5)] }));
+  near(o.provCredit - (378 * 2 - 0.04 * Math.max(0, 33000 - 36309)), 603, 1e-6, 'OEPTC single parent uses the sole-care threshold');
+
+  // Plumbing: housingForYear reports the rent and the property tax paid (annual, nominal).
+  const hy = await page.evaluate(() => {
+    const s = window.__test_getState();
+    const saved = { tenure: s.tenure, rent: s.rent, rentGrowth: s.rentGrowth, propertyTax: s.propertyTax, propertyTaxGrowth: s.propertyTaxGrowth };
+    const sched = { payments: [0, 0], balances: [0, 0] },
+      fb = { buyYear: 99 };
+    s.tenure = 'rent'; s.rent = 2000; s.rentGrowth = 0; s.propertyTax = 4800; s.propertyTaxGrowth = 0;
+    const renter = window.__test_tax.housingForYear(1, 1, sched, fb);
+    s.tenure = 'own';
+    const owner = window.__test_tax.housingForYear(1, 1, sched, fb);
+    Object.assign(s, saved);
+    return { renter, owner };
+  });
+  near(hy.renter.rentPaid, 24000, 1e-9, 'renter pays 2,000 x 12');
+  near(hy.renter.propertyTaxPaid, 0, 0, 'renter pays no property tax');
+  near(hy.owner.propertyTaxPaid, 4800, 1e-9, 'owner pays the property tax');
+  near(hy.owner.rentPaid, 0, 0, 'owner pays no rent');
+
+  // --- Quebec solidarity credit and work premium (Finance Quebec Tables 3 and 4, July 2026 to June 2027) ---
+  // Single living alone, family income 30,000: QST 363 + 172 + housing 746 = 1,281; under 43,195, no reduction.
+  o = await withProv('qc', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 1281, 1e-6, 'solidarity credit, single living alone');
+  // Same, income 50,000: 1,281 - 6% x (50,000 - 43,195) = 872.70.
+  o = await withProv('qc', prof({ otherA: 50000, ageA: 40 }));
+  near(o.provCredit, 1281 - 0.06 * (50000 - 43195), 1e-6, 'solidarity credit reduced');
+  // Couple with 2 children, income 60,000: 363 + 363 + 906 + 2 x 158 = 1,948; less 6% x 16,805 = 1,008.30 -> 939.70.
+  o = await withProv('qc', prof({ otherA: 30000, otherB: 30000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provCredit, 1948 - 0.06 * (60000 - 43195), 1e-6, 'solidarity credit, couple with two children');
+  // Work premium, person living alone, work income 8,000 (family 8,000): 11.6% x (8,000 - 2,400) = 649.60, plus the solidarity credit 1,281.
+  o = await withProv('qc', prof({ otherA: 8000, earnedA: 8000, ageA: 40 }));
+  near(o.provCredit, 1281 + 0.116 * (8000 - 2400), 1e-6, 'work premium phase-in, living alone');
+  // Work income 15,000: 11.6% x (12,808 - 2,400) = 1,207.33 (the 2026 maximum) less 10% x (15,000 - 12,808) = 219.20 -> 988.13.
+  o = await withProv('qc', prof({ otherA: 15000, earnedA: 15000, ageA: 40 }));
+  near(o.provCredit, 1281 + 0.116 * (12808 - 2400) - 0.1 * (15000 - 12808), 1e-6, 'work premium reduction, living alone');
+  near(0.116 * (12808 - 2400), 1207.33, 0.005, 'the phase-in rate reproduces the published 2026 maximum');
+  // Couple with children, combined work income 30,000: 25% x (19,828 - 3,600) = 4,057.00 less 10% x (30,000 - 19,828) = 1,017.20 -> 3,039.80; + 1,948.
+  o = await withProv('qc', prof({ otherA: 15000, otherB: 15000, earnedA: 15000, earnedB: 15000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provCredit, 1948 + 0.25 * (19828 - 3600) - 0.1 * (30000 - 19828), 1e-6, 'work premium, couple with children');
+  // Work income at or below the exclusion: nothing. Single parent maximum 3,122.40 reached at the threshold 12,808, nil at 44,032.
+  o = await withProv('qc', prof({ otherA: 2400, earnedA: 2400, ageA: 40 }));
+  near(o.provCredit, 1281, 1e-6, 'no work premium at the exclusion');
+  o = await withProv('qc', prof({ otherA: 44032, earnedA: 44032, ageA: 40, dependents: [kid(5)] }));
+  near(o.provCredit - (363 + 172 + 746 + 158 - 0.06 * (44032 - 43195)), 0, 1e-6, 'single parent work premium is nil at 44,032');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');

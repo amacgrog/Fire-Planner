@@ -2779,6 +2779,85 @@
       to: 107000,
       notes: 'Finance Quebec Table 3 (2026): 3,068 maximum and 1,221 minimum for each child, plus 1,077 maximum and 430 minimum once per single-parent family; reduction thresholds 60,398 for a couple and 44,032 for a single parent. The income where the minimum is reached (107,000, from the Retraite Quebec table) and the linear shape in between are secondary and on the verification backlog. The school supplies and handicapped children supplements are not modeled.',
     },
+    oshptg: {
+      name: 'Ontario Senior Homeowners Property Tax Grant',
+      kind: 'occupancyCredit',
+      scope: 'on',
+      source: 'https://www.ontario.ca/page/senior-homeowners-property-tax-grant',
+      asOf: '2026-01-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'secondary', thresholds: 'secondary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: [],
+      style: 'oshptg',
+      seniorAge: 64,
+      max: 500,
+      singleFrom: 35000,
+      coupleFrom: 45000,
+      singleTo: 50000,
+      coupleTo: 60000,
+      rate: 0.0333,
+      notes: 'Up to 500 a year for a homeowner aged 64 or older who pays property tax: full at family net income of 35,000 or less (45,000 for a couple), reduced by 3.33 percent of the excess, nil at 50,000 (60,000). Figures are from a summary of the ontario.ca page and are on the verification backlog. Not indexed (500 since 2010).',
+    },
+    oeptc: {
+      name: 'Ontario Energy and Property Tax Credit',
+      kind: 'occupancyCredit',
+      scope: 'on',
+      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/ontario-energy-property-tax-credit-oeptc-calculation-sheets/2026-ontario-energy-property-tax-credit-calculation-sheets.html',
+      asOf: '2026-07-01',
+      retrieved: '2026-10-05',
+      verified: { formula: 'primary', amounts: 'primary' },
+      indexing: { amountsAndThresholds: true },
+      dependsOn: ['oshptg'],
+      style: 'oeptc',
+      seniorAge: 64,
+      rentRate: 0.2,
+      propertyTaxRate: 0.1,
+      reductionRate: 0.02,
+      nonSenior: { propertyTaxCap: 944, propertyTaxAdd: 73, energyCap: 290, fromSingle: 29047, fromCouple: 36309, fromSingleParent: 36309 },
+      senior: { propertyTaxCap: 581, propertyTaxAdd: 617, energyCap: 290, fromSingle: 36309, fromCouple: 43571, fromSingleParent: 43571 },
+      notes: 'CRA 2026 calculation sheets. Occupancy cost is 20 percent of rent plus property tax. Energy component is the lesser of the occupancy cost and 290; property tax component is the lesser of the occupancy cost and (10 percent of it, capped, plus a fixed add-on); less 2 percent of family net income over the threshold. Seniors (either spouse 64 or older) use the senior figures and, with a senior homeowners grant, the credit plus the grant cannot exceed the energy component plus the occupancy cost. The long-term-care and on-reserve energy lines and the student residence 25 dollars are not modeled. Children matter only for a single filer (the sole-care sheet).',
+    },
+    qcsol: {
+      name: 'Quebec Solidarity Tax Credit (QST and housing components)',
+      kind: 'quebecCredit',
+      scope: 'qc',
+      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
+      asOf: '2026-07-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'primary', reduction: 'secondary' },
+      indexing: { amountsAndThresholds: true },
+      dependsOn: [],
+      style: 'solidarity',
+      childMaxAge: 17,
+      qst: { basic: 363, spouse: 363, livingAlone: 172 },
+      housing: { couple: 906, singleOrParent: 746, child: 158 },
+      reductionFrom: 43195,
+      reductionRate: 0.06,
+      notes: 'Finance Quebec Table 4, July 2026 to June 2027. A single person or single parent gets the basic and living-alone QST amounts; a couple gets the basic and spouse amounts; housing is the couple or single amount plus 158 per dependent child, for owners and tenants alike. Reduced by 6 percent of family income over 43,195 (3 percent applies when only one component is received: not modeled). The northern village component is not modeled.',
+    },
+    qcwp: {
+      name: 'Quebec Work Premium (general)',
+      kind: 'quebecCredit',
+      scope: 'qc',
+      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
+      asOf: '2026-01-01',
+      retrieved: '2026-10-05',
+      verified: { maxima: 'primary', thresholds: 'primary', rates: 'secondary' },
+      indexing: { amountsAndThresholds: true },
+      dependsOn: [],
+      style: 'workPremium',
+      childMaxAge: 17,
+      exclusion: { single: 2400, couple: 3600 },
+      reductionRate: 0.1,
+      situations: {
+        alone: { rate: 0.116, threshold: 12808 },
+        coupleNoKids: { rate: 0.116, threshold: 19828 },
+        singleParent: { rate: 0.3, threshold: 12808 },
+        coupleKids: { rate: 0.25, threshold: 19828 },
+      },
+      notes: 'Finance Quebec Table 3 (2026 maxima 1,207.33 / 1,882.45 / 3,122.40 / 4,057.00 and the two reduction thresholds) and the work income exclusions of 2,400 and 3,600. Premium = rate x (the lesser of work income and the threshold, less the exclusion) less 10 percent of family income over the threshold. The rates are derived from the table maxima (maximum / (threshold - exclusion)); 11.6 percent is also in a search summary. Work income is wages. The adapted work premium and the supplement are not modeled; full-time student and other eligibility exclusions are not modeled.',
+    },
   };
   // BENEFIT_RULES:end
   // Each row is resolved once per province code: its brackets are split into flat cap and
@@ -3183,6 +3262,30 @@
         let m = 0;
         for (let i = 0; i < kids.length; i++) if (kids[i].age <= O.maxAge) m++;
         if (m > 0) BEN.provChild = Math.max(0, O.amountPerChild * f * m - O.reduction.rate * Math.max(0, fam - O.reduction.from * f));
+        // Ontario senior homeowners property tax grant, then the Energy and Property Tax Credit (which reads it).
+        // Occupancy cost is 20 percent of rent plus property tax (CRA 2026 calculation sheets, step 1).
+        {
+          const H = BENEFIT_RULES.oshptg,
+            E = BENEFIT_RULES.oeptc,
+            ptPaid = profile.propertyTaxPaid || 0,
+            occ = E.rentRate * (profile.rentPaid || 0) + ptPaid,
+            senior = ageA >= E.seniorAge || (couple && ageB >= E.seniorAge);
+          let grant = 0;
+          if (senior && ptPaid > 0 && fam < (couple ? H.coupleTo : H.singleTo)) grant = Math.max(0, H.max - H.rate * Math.max(0, fam - (couple ? H.coupleFrom : H.singleFrom)));
+          if (occ > 0) {
+            let childUnder18 = false;
+            for (let i = 0; i < kids.length; i++) if (kids[i].age <= 17) childUnder18 = true;
+            const P = senior ? E.senior : E.nonSenior,
+              from = (couple ? P.fromCouple : childUnder18 ? P.fromSingleParent : P.fromSingle) * f,
+              energy = Math.min(P.energyCap * f, occ),
+              propertyTax = Math.min(Math.min(E.propertyTaxRate * occ, P.propertyTaxCap * f) + P.propertyTaxAdd * f, occ);
+            let credit = Math.max(0, energy + propertyTax - E.reductionRate * Math.max(0, fam - from));
+            // Step 5: with a grant, the credit plus the grant cannot exceed the energy component plus the occupancy cost.
+            if (grant > 0) credit = Math.max(0, credit - Math.max(0, Math.max(0, grant + credit - energy) - occ));
+            BEN.provCredit += credit;
+          }
+          BEN.provSenior += grant;
+        }
         break;
       }
       case 'bc': {
@@ -3245,6 +3348,24 @@
           let v = m * (R.perChild.max - (R.perChild.max - R.perChild.min) * share);
           if (!couple) v += R.singleParentSupplement.max - (R.singleParentSupplement.max - R.singleParentSupplement.min) * share;
           BEN.provChild = v * f;
+        }
+        // Quebec Solidarity Tax Credit (QST and housing components), Finance Quebec Table 4.
+        {
+          const S = BENEFIT_RULES.qcsol,
+            W = BENEFIT_RULES.qcwp;
+          let m = 0;
+          for (let i = 0; i < kids.length; i++) if (kids[i].age <= S.childMaxAge) m++;
+          const amount = (S.qst.basic + (couple ? S.qst.spouse + S.housing.couple : S.qst.livingAlone + S.housing.singleOrParent) + S.housing.child * m) * f;
+          BEN.provCredit += Math.max(0, amount - S.reductionRate * Math.max(0, fam - S.reductionFrom * f));
+          // Work premium: needs work income above the exclusion; maximum reached at the threshold, then reduced by family income.
+          const earned = (profile.earnedA || 0) + (couple ? profile.earnedB || 0 : 0),
+            exclusion = (couple ? W.exclusion.couple : W.exclusion.single) * f;
+          if (earned > exclusion) {
+            const sit = couple ? (m > 0 ? W.situations.coupleKids : W.situations.coupleNoKids) : m > 0 ? W.situations.singleParent : W.situations.alone,
+              threshold = sit.threshold * f,
+              premium = sit.rate * (Math.min(earned, threshold) - exclusion) - W.reductionRate * Math.max(0, fam - threshold);
+            if (premium > 0) BEN.provCredit += premium;
+          }
         }
         break;
       }
@@ -3903,6 +4024,7 @@
         state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
       : 0;
     const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
+    const propertyTaxPaid = ownsHome ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) : 0;
     if (state.tenure === 'own') {
       const annualPI = schedule.payments[year] || 0;
       return {
@@ -3910,10 +4032,12 @@
         mortgage: schedule.balances[year] || 0,
         homeValue: null,
         fhsaToRoth: null,
+        rentPaid: 0,
+        propertyTaxPaid,
       };
     }
     if (state.tenure === 'rent' || year < futureBuy.buyYear)
-      return { housing: rent, mortgage: null, homeValue: null, fhsaToRoth: null };
+      return { housing: rent, mortgage: null, homeValue: null, fhsaToRoth: null, rentPaid: rent, propertyTaxPaid: 0 };
     const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
     let purchaseCashNet = year === futureBuy.buyYear ? futureBuy.purchaseCash : 0;
     let fhsaToRoth = null;
@@ -3927,6 +4051,8 @@
       mortgage: futureBuy.buySchedule.balances[year] || 0,
       homeValue: year === futureBuy.buyYear ? futureBuy.homeValueAtPurchase : null,
       fhsaToRoth,
+      rentPaid: 0,
+      propertyTaxPaid,
     };
   }
 
@@ -3963,6 +4089,8 @@
     deceasedIsA,
     deceasedIsB,
     inv,
+    rentPaid,
+    propertyTaxPaid,
   }) {
     const earnedA = Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA),
       earnedB = Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB);
@@ -4009,7 +4137,7 @@
       splitB = totalB + splitTransfer;
     const profile =
       isSurvivorPeriod && deceasedIsA
-        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, penA: eligibleBOwn, penB: 0, ageA: ageB, ageB: null, singlePerson: true, year, oasA: oasGrossB, oasB: 0, earnedA: earnedB, earnedB: 0, survivor: true, dependents: dependentsInYear(CURRENT_YEAR + year) }
+        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, penA: eligibleBOwn, penB: 0, ageA: ageB, ageB: null, singlePerson: true, year, oasA: oasGrossB, oasB: 0, earnedA: earnedB, earnedB: 0, survivor: true, dependents: dependentsInYear(CURRENT_YEAR + year), rentPaid, propertyTaxPaid }
         : {
             otherA: splitA,
             otherB: splitB,
@@ -4027,6 +4155,8 @@
             earnedB,
             survivor: isSurvivorPeriod,
             dependents: dependentsInYear(CURRENT_YEAR + year),
+            rentPaid,
+            propertyTaxPaid,
           };
     return { aliveA, aliveB, totalA, totalB, splitA, splitB, profile };
   }
@@ -4617,6 +4747,8 @@
         deceasedIsA,
         deceasedIsB,
         inv,
+        rentPaid: housingYear.rentPaid,
+        propertyTaxPaid: housingYear.propertyTaxPaid,
       });
       let meltdownAmount = 0;
       if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
@@ -9455,7 +9587,7 @@
   window.__test_getState = () => state;
   window.__test_children = { dependentsInYear, qualifyingChildCount };
   window.__test_FIELDS = FIELDS;
-  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, gisIncomeRoom, drawTaxable, cppContribution, quebecPoolAmount, taxIndexFactor };
+  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, gisIncomeRoom, housingForYear, drawTaxable, cppContribution, quebecPoolAmount, taxIndexFactor };
 })();
 </script>
 </body>
