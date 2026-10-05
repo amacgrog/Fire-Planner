@@ -378,6 +378,10 @@ function checks() {
   near(run(itc(taper), { wages: 50500 }), 4975, 'income-tested credit: one taper step (100 x 0.75)');
   near(run(itc(taper), { wages: 51001 }), 5050.1, 'income-tested credit: two steps (100 x 0.5)');
   near(run(itc(taper), { wages: 54000 }), 5400, 'income-tested credit: four steps, gone');
+  const lineTaper = { taper: { rate: 0.1 } };
+  near(run(itc(lineTaper), { wages: 50500 }), 5000, 'income-tested credit: a straight-line taper loses 10 cents per dollar (100 - 50)');
+  near(run(itc(lineTaper), { wages: 51000 }), 5100, 'income-tested credit: and is gone after 1,000');
+  near(run(itc(lineTaper), { wages: 50000 }), 4900, 'income-tested credit: nothing is lost at the limit');
   near(run(itc({ refundable: true, amount: cols(500), limit: null, perSenior: null, perDependent: 0 }), { wages: 1000 }), -400, 'income-tested credit: a refundable credit takes the tax below zero (100 - 500)');
 
   // --- Mechanism 13: gains shapes ----------------------------------------------------------------------------------------------

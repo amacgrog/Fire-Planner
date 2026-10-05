@@ -1638,6 +1638,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | PA Tax Forgiveness: 10% per $250 of eligibility income over $6,500 / $13,000 plus $9,500 per child | PA `credits` | PA base, children | 7C |
 | CA exemption credits: $6 per credit per $2,500 of federal AGI over $252,203 / $504,411 / $378,310; renter's credit lost over AGI $53,954 / $107,987 | CA `credits` | federal AGI, state AGI | 7C |
 | PA / NY / CT / CA pension and IRA age tests (59 and a half per filer) | `retirementExclusion` `perPerson` | each filer's age | 7C |
+| 7D G2: UT taxpayer credit lost at 1.3 cents per dollar over $18,213 / $36,426 (straight line); UT Social Security credit lost at 2.5 cents per dollar over $54,000 / $90,000; NC child deduction steps down every $10,000-$20,000 of AGI to zero (joint $140,000); LA retirement exclusion starts at 65; MA child credit ends at 13; KY and IN 65+ amounts start at 65 | UT, NC, LA, MA, KY, IN rows | state AGI, filing column, ages | 7D |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
@@ -2076,6 +2077,42 @@ secondary); Alaska, Florida, Nevada, South Dakota and Wyoming from a no-income-t
   identical. 0 of 518 US and 0 of 359 Canada scenarios moved.
 - Test: `tests/state_7d_households.js` (the two shared households; every no-tax state owes 0). The file grows with each group.
 
+**Commit 6: G2, the flat-rate states (AZ ID IN KY LA MA NC UT; US V100; intended number change for Massachusetts, the planner's default state).** Eight rows become
+`researched`. Source status per state (P = official page or document read, S = secondary or search excerpt; figures not found are listed in the backlog):
+- **Arizona (S; the Department of Revenue page read for the dependent credit only).** Flat 2.5%; the standard deduction is the federal base (conformity, no 65+ add-on); 25%
+  of net long-term gains subtracted; Social Security exempt; dependent credit $100 under 17 and $25 other dependents (P). The 2026 session's $125 credit (SB 1845) was vetoed on
+  May 5, 2026 (P, azleg.gov summary read), and the extension of the gains subtraction to all assets appears only in a vetoed bill, so neither is modeled; the dependent credit's
+  high-income phase-out, the $2,100 age-65 and $2,300 dependent exemptions (from memory of A.R.S. 43-1023, S) and conformity to the federal senior deduction (SB 1106 and HB 2531
+  disagreed; no enacted conformity found) are in the backlog.
+- **Idaho (P: Tax Commission announcement read).** Flat 5.3% since 2025; the larger federal standard deduction and the senior deduction through House Bill 559 (S: news and
+  software summaries); Social Security exempt; food tax credit $155 per person, refundable (P, the 2025 amount).
+- **Indiana (P: Departmental Notice #1, effective October 1, 2026, read).** State rate 2.95% for 2026; the Notice says 2.90% from 2027 on, modeled as the one scheduled change
+  (further cuts depend on revenue and are left out). Exemptions $1,000 per filer, $1,000 more per filer 65+, and $2,500 per dependent child (P). All 92 county rates are in the
+  Notice (0.5% Porter to 3.0% Randolph); the planner applies **1.77%**, the average weighted by approximate 2020 census county populations (populations from memory, S), to the
+  state taxable income. The extra $500 for 65+ under $40,000, the renter's deduction ($3,000) and the military and other deductions are not modeled.
+- **Kentucky (P: the 2026 withholding formula read).** 3.5% and a $3,360 standard deduction (indexed); retirement income exclusion $31,110 per person (S) and a $40 credit at 65
+  (S). The family size credit and local occupational taxes are not modeled.
+- **Louisiana (S).** 3% flat; standard deduction $12,500 / $25,000 inflation-adjusted from 2026; retirement exclusion $12,000 per person 65+ (S, EY and a Department of Revenue FAQ
+  excerpt); Social Security exempt. Whether the personal and dependent exemptions survive the 2025 reform was not settled and none is modeled.
+- **Massachusetts (S; the mass.gov exemptions page returned 403).** 5% flat (long-term gains included) plus the 4% surtax over $1,107,750 (P in the worklist); exemptions $4,400 /
+  $8,800 / $6,800, $1,000 per dependent, $700 at 65; Child and Family Tax Credit $440 per dependent under 13, refundable, no income test (S, mass.gov search excerpts); Social Security
+  exempt. Short-term gains (8.5%), the rent deduction and public-pension rules are not modeled. This fixes the migrated row's omission of the exemptions (worklist).
+- **North Carolina (P: Department of Revenue child-deduction tables read).** 3.99%; the 2027 and later cuts depend on revenue and are left out; standard deduction $12,750 /
+  $25,500 / $19,125 (S); child deduction by AGI and status, $3,000 down to $0 (P, 2025 tables). Social Security exempt.
+- **Utah (P: Tax Commission credit pages read, tax year 2025 amounts; the rate S).** 4.45% (SB 60; the legislature's page failed a certificate check). Taxpayer tax credit:
+  6% of the federal standard deduction plus $2,111 per dependent, less 1.3 cents per dollar of income over $18,213 / $36,426 / $27,320 (modeled as an `incomeTestedCredit` with a
+  straight-line taper; the 2026 federal deduction is used for the amounts); Social Security benefits credit 4.45% of taxable benefits, less 2.5 cents per dollar over $54,000 /
+  $90,000; taxable Social Security is included. The retirement credit (born 1952 or earlier) is not modeled.
+Mechanism change: the `incomeTestedCredit` taper may be a straight line (`{ rate }`, dollars lost per dollar of AGI over the limit) as well as steps (needed for Utah's 1.3%); test
+added in `tests/state_mechanisms.js`.
+**Intended number change: Massachusetts.** The default state now takes the exemptions: the default scenario's year-0 state tax falls by $440 (the $8,800 joint exemption at 5%),
+35,055.25 -> 34,615.25. 22 of 518 US scenarios moved, all using the default state (the 10 `hist_default` runs, `std_default` and its variants, `std R state ma`); Canada is
+untouched. Default scenario success rates (`tests/historical_rates.js`): historical 85.4% -> 85.4% (41 cycles), Monte Carlo 85.7% -> 86.1% (2,000 paths, seed 7); the early retiree,
+working-then-retires and survivor scenarios each move by 0.0 to 0.5 point of Monte Carlo (88.4 -> 88.6, 86.9 -> 87.4, 89.3 -> 89.5). UI snapshot: rendered-text hashes only for the
+state note; `histSuccess` unchanged.
+Tests: `tests/state_7d_households.js` (16 hand-computed household pairs so far, Indiana also at plan year 1 for the 2027 rate), the tax-schedule invariants test now lets a
+refundable per-person credit (Idaho's) start the schedule below zero and skips scheduled rows in its plain-indexing check, and its MA literals moved to the exemption-adjusted values.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -2139,6 +2176,7 @@ reading (itself secondary).
 | WA: $278,000 standard deduction for 2025 (P, DOR), 2026 amount, whether the $1 million tier indexes, 9.9% (P, DOR) | 7C | P / U | RCW 82.87.040 as amended by ESSB 5813 |
 | TX: no individual income tax | 7C | S (Comptroller tax list) | Tex. Const. art. VIII sec. 24-a |
 | 7D G1: AK, FL, NV, SD, WY have no individual income tax (a no-income-tax roundup, taxact.com; no state page opened); NH Interest and Dividends Tax repealed from 2025 (a law-firm summary quoting the DRA); TN Hall tax repealed from 2021 (revenue.support.tn.gov, search excerpt) | 7D | S (TN: official page via excerpt) | each state's revenue department page, NH DRA notice, RSA 77, Tenn. Code 67-2-102 repeal |
+| 7D G2: AZ (age-65 $2,100 and dependent $2,300 exemptions, dependent-credit phase-out, senior-deduction conformity, whether the 25% gains subtraction covers all assets), ID (2026 food credit amount, rate for 2026), IN (county populations behind the 1.77% average, the $500 extra at 65, renter deduction), KY (the $31,110 exclusion and $40 credit at the Department of Revenue), LA (exemptions after the 2025 reform; the $12,000 exclusion's coverage of IRA income), MA (exemption amounts, the Child and Family Tax Credit, at mass.gov), NC (2026 standard deduction), UT (SB 60 rate, 2026 deduction amounts behind the credit) | 7D | S (P for the IN notice, KY formula, NC child deduction, UT credit pages, ID announcement) | each state's forms and instructions |
 | State indexing by family: NY, PA and CT nothing indexed; CA all indexed except the $1 million surcharge; WA deduction indexed, $1 million tier not; the 17-state list of bracket-indexing states and each state's measure (owner's table) | 7C / 7D | O (owner's table, secondary) | each state's statute and revenue department notices |
 
 ## Open items

@@ -153,9 +153,10 @@ function usChecks() {
 
   // Hand-worked literals for the states whose logic is hand-written.
   near(stateTax('tx', src({ wages: 500000 }), 'single'), 0, 1e-9, 'TX no tax');
-  near(stateTax('ma', src({ wages: 100000 }), 'single'), 5000, 0.005, 'MA 5%');
-  // MA surtax: 4% above 1,107,750 -> 60,000 + 3,690
-  near(stateTax('ma', src({ wages: 1200000 }), 'single'), 63690, 0.005, 'MA surtax');
+  // MA single, wages 100,000: the $4,400 personal exemption comes off first, 5% of 95,600.
+  near(stateTax('ma', src({ wages: 100000 }), 'single'), 4780, 0.005, 'MA 5%');
+  // MA surtax: taxable 1,195,600 -> 5% = 59,780, plus 4% of the part above 1,107,750 (87,850) = 3,514
+  near(stateTax('ma', src({ wages: 1200000 }), 'single'), 63294, 0.005, 'MA surtax');
   // CA single $100k (2025 figures): 94,294 after the 5,706 deduction
   //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,006.01 = 5,207.98; less the $153 personal exemption credit = 5,054.98
   near(stateTax('ca', src({ wages: 100000 }), 'single'), 5054.98, 0.005, 'CA single $100k');
@@ -216,10 +217,13 @@ function usChecks() {
   for (const code of Object.keys(t.STATE_RULES)) {
     const recaptures = t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture');
     for (const filing of ['single', 'mfj']) {
-      let prev = 0;
+      // A refundable per-person credit with no income test (Idaho's food tax credit) pays out at zero income: the tax starts negative.
+      const atZero = stateTax(code, src({ wages: 0 }), filing),
+        refundsAtZero = atZero < -1e-9;
+      let prev = refundsAtZero ? atZero : 0;
       for (let inc = 0; inc <= 1500000; inc += 2500) {
         const tax = stateTax(code, src({ wages: inc }), filing);
-        if (tax < -1e-9) fails.push(`${code} ${filing} ${inc}: negative tax ${tax}`);
+        if (tax < -1e-9 && !refundsAtZero) fails.push(`${code} ${filing} ${inc}: negative tax ${tax}`);
         if (tax < prev - 1e-6) fails.push(`${code} ${filing} ${inc}: tax fell from ${prev} to ${tax}`);
         // New York's recapture phases the benefit of the lower brackets back in over $50,000 of AGI with the band chosen by taxable
         // income, so its tax has real steps (and marginal rates well above the top rate inside a phase-in); the rest must not jump.
@@ -237,6 +241,8 @@ function usChecks() {
     // (Washington: deduction indexed, its $1 million tier not) are covered in state_mechanisms.js.
     const flags = Object.values(t.STATE_RULES[code].indexing);
     if (!flags.every(Boolean) && flags.some(Boolean)) continue;
+    // A row with scheduled changes changes its own figures from the scheduled year; its cases are in state_7d_households.js.
+    if (t.STATE_RULES[code].schedule.length) continue;
     const indexed = flags.every(Boolean);
     for (const filing of ['single', 'mfj']) {
       for (const inc of [30000, 90000, 250000]) {
