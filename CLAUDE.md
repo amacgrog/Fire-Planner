@@ -244,7 +244,14 @@ Each planner is one big IIFE. Core shape:
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
-  deducts federal tax gets one lagged pass, 7D). The block between the `STATE_RULES:begin` / `end` comments is pure
+  deducts federal tax gets one lagged pass, 7D). 7D mechanisms (all data, evaluator in `stateIncomeTax`, hand-computed cases in `tests/state_mechanisms.js`): `schedule` (year-effective
+  rule sets: `[{ fromYear, baseYear?, ...overrides }]`, each building on the one before; a scheduled family holds statutory dollars of its
+  base year and indexes from there, `base / taxIndexFactor(baseYear - currentYear)`; only unconditional enacted changes, never revenue
+  triggers), `standardDeductionPhase` (`stepDown` / `linear` by state AGI), `seniorExemption` (per filer, optional AGI phase-out),
+  `dependentExemption` as a number or an AGI-tiered table, `federalConformity` (the state deducts the federal standard deduction, optionally
+  with the 65+ add-on and the senior deduction), additions with a `threshold` per column, and the per-person `perPerson` retirement kind
+  now carries `applies` (pension / traditional), `tiers` (age-tiered caps), `reducedBy` (the filer's Social Security subtraction or all
+  benefits received uses up the same cap) and `share` (an AGI step share). The block between the `STATE_RULES:begin` / `end` comments is pure
   literals so `scripts/gen-state-rules.js` can evaluate it. Six rows are `researched` (CA, NY, PA, CT, WA, TX; tests in
   `tests/state_reference.js`); the other 45 are `migrated` simplified rows until 7D researches them. Researched rows follow the
   state's real indexing (`none` for NY, PA and CT; `cpi` for CA and WA), HoH and QSS columns, and income tests; their `notes` text is what the

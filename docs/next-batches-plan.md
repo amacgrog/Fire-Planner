@@ -2017,6 +2017,27 @@ Branch `claude/batch-7d-remaining-states`, cut from the 3B-line tip `2136d7b` (7
 
 **Commit 2: state tax on additional income (US V99 -> V100; intended number change).** `profile.extraIncome` (income streams plus one-time income, which `buildTaxProfile` already put in Partner A's slot of `otherA`) now feeds the state `wages` in the joint, one-person and (on A's return) two-separate-returns branches, including the survivor remap. The bug: the federal side read `otherA`, the state read the wage fields only, so these streams were never state taxed. Before/after, plan year 0, default household plus a $20,000 stream: MA 39,455 -> 40,455 (+1,000, 5%), CA 37,166 -> 38,790 (+1,625), NY 39,018 -> 40,224 (+1,206), NC 38,054 -> 38,852 (+798, 3.99%), TX unchanged. No snapshot scenario combines an income stream with a taxing state, so 0 of 518 US scenarios moved (Canada untouched). Test: `tests/state_extra_income.js` (joint, one person, two returns, a profile without the field). Canada was not checked for the equivalent.
 
+**Commit 3: mechanisms 1, 2, 3, 4, 5, 6, 8, 10 and 14 (no behavior change for any row).** Every row declares four new fields (an explicit none):
+`standardDeductionPhase`, `seniorExemption`, `federalConformity` and `schedule`; `dependentExemption` may be a number or an AGI-tiered table and a
+`threshold` addition may carry a number or a per-column object. The NY and PA rows moved to the new `perPerson` shape (`applies`, `tiers`,
+`reducedBy`, `share`; the old `cap` is `tiers: [[0, cap]]`). Snapshots, the 1.37-million-value differential and every existing state test are unchanged.
+Decisions taken while building:
+- **Mechanism 5 is a field, not a separate kind.** `perPerson` carries `reducedBy` ('none' | 'socialSecuritySubtracted' | 'benefitsReceived') instead of a
+  second kind `perPersonSharedCap`: one loop, one test. The filer's own Social Security subtraction is the household's subtraction split in proportion to the
+  taxable benefits (`taxableSSA/B` from commit 1); mechanism 9 will compute it per person where a state's rule is per person.
+- **Schedule entries build on each other** (a 2030 rate cut keeps the 2028 deduction change). Each indexing family remembers the base year of the latest entry
+  that touched it (`SCHEDULE_FAMILIES`: a field maps to the family of its amounts and, if it has them, of its thresholds), so a rate-only entry never rebases the
+  deduction. A `fromYear` before the plan's first year applies from year 0. A no-tax row has no schedule.
+- **Mechanism 8 takes the whole federal helper**: `standardDeduction(filing, yearIndex, ages)` with the 65+ add-on only if asked, and `seniorDeduction` at the
+  AGI proxy; a conforming row carries zeros in its own `standardDeduction` (checked), and the senior and 65+ options require conformity.
+- **Mechanism 2 uses the credit-threshold index flag for its AGI bounds** (no new family yet); the amounts follow the deduction family.
+- Mechanism 10's `seniorExemption` has the optional per-filer phase-out proposed for Virginia-style age deductions.
+Timing (`tests/bench_runs.js --scale 3 --repeats 5`, 1,200 simulate + 360 historical, ms, previous commit -> this one): NY (the only reference row on the new per-person loop) 1,333 -> 1,373 and 288 -> 292, 1,313 -> 1,345 and 294 -> 300; PA 1,176 -> 1,217, 1,331 -> 1,229; CA, CT, TX, WA inside run-to-run noise. A first version that read the exclusion's nested fields on every call measured +5% on NY; the per-person exclusion is now flattened once in `compileRetirement`, which brought it to +2-3%.
+
+Tests: `tests/state_mechanisms.js` (about 80 new hand-computed cases, each checked in a mutation run to fail when its expected value is wrong; the per-person
+Social Security plumbing through `taxFor` in the joint, two-return and one-person branches), `tests/state_rules.js` (the new fields, scheduled variants checked as
+complete rows).
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 

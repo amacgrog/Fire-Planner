@@ -53,7 +53,12 @@ function exclusionText(e) {
     case 'perEligibleCap': return `up to ${money(e.cap)} per filer ${e.minAge}+`;
     case 'perEligibleCapSeniorTier': return `up to ${money(e.cap)} per filer ${e.minAge}+, ${money(e.seniorCap)} if anyone is ${e.seniorAge}+`;
     case 'seniorCap': return `up to ${money(e.cap)} per filer ${e.seniorAge}+`;
-    case 'perPerson': return `per filer: pension from ${e.pensionMinAge}, traditional withdrawals from ${e.traditionalMinAge}${e.cap === null ? '' : ', up to ' + money(e.cap)}`;
+    case 'perPerson': {
+      const buckets = [e.applies.pension ? `pension from ${e.pensionMinAge}` : '', e.applies.traditional ? `traditional withdrawals from ${e.traditionalMinAge}` : ''].filter(Boolean).join(', ');
+      const caps = e.tiers.map(([age, cap]) => (cap === null ? `no limit from ${age}` : `${money(cap)} from ${age}`)).join(', ');
+      const extras = [e.reducedBy === 'none' ? '' : `reduced by ${e.reducedBy === 'benefitsReceived' ? 'all benefits received' : 'the Social Security subtraction'}`, e.share ? 'times an AGI share' : ''].filter(Boolean).join(', ');
+      return `per filer: ${buckets}; cap ${caps}${extras ? '; ' + extras : ''}`;
+    }
     case 'agiPhasedShare': return 'all, phased out by AGI (step table)';
     default: return JSON.stringify(e);
   }
@@ -71,14 +76,16 @@ function indexingText(ix, long) {
 }
 function additionsText(list) {
   if (!list.length) return 'none';
-  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${money(a.threshold)}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
+  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${typeof a.threshold === 'number' ? money(a.threshold) : Object.entries(a.threshold).map(([k, v]) => k + ' ' + money(v)).join(' / ')}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
 }
 function deductionText(r) {
   const col = (k) => {
     const s = r.standardDeduction[k], e = r.exemption[k];
     return s || e ? `${money(s)}${e ? ' + ' + money(e) + ' exemption' : ''}` : '0';
   };
-  return Object.keys(r.standardDeduction).map((k) => `${k} ${col(k)}`).join(', ');
+  const conf = r.federalConformity.standardDeduction ? 'federal standard deduction' : '';
+  const extras = [conf, r.standardDeductionPhase.kind === 'none' ? '' : 'phased by AGI', r.seniorExemption.kind === 'none' ? '' : 'senior exemption', r.schedule.length ? 'scheduled changes ' + r.schedule.map((s) => s.fromYear).join(', ') : ''].filter(Boolean);
+  return Object.keys(r.standardDeduction).map((k) => `${k} ${col(k)}`).join(', ') + (extras.length ? ' (' + extras.join('; ') + ')' : '');
 }
 function sourceText(r) {
   return r.source ? `[${r.status}, ${r.sourceKind}, ${r.asOf}](${r.source})` : r.status + ' (no source recorded)';
@@ -124,7 +131,7 @@ function generate(rules) {
       L.push(`### ${c.toUpperCase()} ${r.name}`);
       L.push('');
       L.push(`Indexing: ${indexingText(r.indexing, true)}. Columns: ${Object.keys(r.standardDeduction).join(', ')}; head of household reads ${r.statusAs.hoh}, surviving spouse ${r.statusAs.qss}.`);
-      for (const [label, value] of [['Social Security', r.base.socialSecurity], ['Retirement exclusion', r.retirementExclusion], ['Exemption step-down', r.exemptionPhaseOut], ['Dependent exemption', r.dependentExemption]]) {
+      for (const [label, value] of [['Social Security', r.base.socialSecurity], ['Retirement exclusion', r.retirementExclusion], ['Exemption step-down', r.exemptionPhaseOut], ['Dependent exemption', r.dependentExemption], ['Standard deduction phase', r.standardDeductionPhase], ['Senior exemption', r.seniorExemption], ['Federal conformity', r.federalConformity.standardDeduction ? r.federalConformity : { kind: 'none' }], ['Scheduled changes', r.schedule.length ? r.schedule : 0]]) {
         if (typeof value === 'object' && value !== null && value.kind === 'none') continue;
         if (value === 'exempt' || value === 0) continue;
         L.push(`- ${label}: \`${JSON.stringify(value)}\``);

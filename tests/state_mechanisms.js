@@ -24,7 +24,8 @@ function checks() {
     name: 'Synthetic', status: 'migrated', sourceKind: 'none', source: null, asOf: null, indexing: idx(false),
     statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' }, tax: flat(0.1), additions: [],
     base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
-    standardDeduction: { ...zero3 }, exemption: { ...zero3 }, exemptionPhaseOut: { kind: 'none' }, dependentExemption: 0,
+    standardDeduction: { ...zero3 }, standardDeductionPhase: { kind: 'none' }, exemption: { ...zero3 }, exemptionPhaseOut: { kind: 'none' }, dependentExemption: 0,
+    seniorExemption: { kind: 'none' }, federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false }, schedule: [],
     retirementExclusion: { kind: 'none' }, credits: [], federalTaxSubtraction: 'none', localTax: 'notModeled', notes: '',
   }, o);
   // The compiled row is cached per code, so each case registers a fresh code.
@@ -147,13 +148,13 @@ function checks() {
   near(run(ssTest, { wages: 75000, taxableSS: 3000, ssBenefits: 30000 }), 7800, 'Social Security test: never more than the federally taxable part is taxed');
 
   // --- Per-person retirement exclusion (NY / PA style) ----------------------------------------------------------------
-  const per = { retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, cap: 20000 } };
+  const per = { retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, 20000]], reducedBy: 'none', share: null } };
   // A (62): pension 10,000 + traditional 15,000 = 25,000 -> 20,000 cap; B (50): pension 5,000 (pensions from age 0), traditional 12,000 excluded
   // only from 59.5 -> 0. Exclusion 25,000; base 15,000 + 27,000 = 42,000 -> 17,000 -> 1,700
   const two = { pension: 15000, retirement: 27000, ages: [62, 50], pensionA: 10000, pensionB: 5000, retirementA: 15000, retirementB: 12000 };
   near(run(per, two, 'mfj'), 1700, 'per person: each filer capped and age-tested on their own');
   // No cap: A excludes 25,000, B 5,000 -> taxable 42,000 - 30,000 = 12,000 -> 1,200
-  near(run({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, cap: null } }, two, 'mfj'), 1200, 'per person: no cap');
+  near(run({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null } }, two, 'mfj'), 1200, 'per person: no cap');
   // B absent (age null): only A's 20,000 is excluded -> 42,000 - 20,000 = 22,000 -> 2,200
   near(run(per, { ...two, ages: [62, null] }, 'mfj'), 2200, 'per person: a missing partner is skipped');
 
@@ -191,11 +192,149 @@ function checks() {
   near(run(qssCredit, { wages: 90000, dependents: kid1 }, 'mfj'), 9000 - 500, 'child credit: joint 110,000 still applies to joint filers');
   st.inflation = 0;
 
+  // =====================================================================================================
+  // 7D mechanisms (commit A). The synthetic row is a flat 10% tax unless a case says otherwise.
+  // =====================================================================================================
+  const perP = (o) => Object.assign({ kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 0, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null }, o);
+  const setYear = window.__test_setCurrentYear;
+  setYear(2026);
+
+  // --- Mechanism 1: scheduled changes ------------------------------------------------------------------
+  // Base: 10% and a 1,000 deduction. From 2028 (year index 2): 8% and a 2,000 deduction. Wages 20,000.
+  const sched1 = { standardDeduction: cols(1000), schedule: [{ fromYear: 2028, tax: flat(0.08), standardDeduction: cols(2000) }] };
+  near(run(sched1, { wages: 20000 }, 'single', 0), 1900, 'schedule: before the change (20,000 - 1,000) x 10%');
+  near(run(sched1, { wages: 20000 }, 'single', 1), 1900, 'schedule: the year before the change');
+  near(run(sched1, { wages: 20000 }, 'single', 2), 1440, 'schedule: the change year (20,000 - 2,000) x 8%');
+  near(run(sched1, { wages: 20000 }, 'single', 5), 1440, 'schedule: later years keep the latest variant');
+  // A later variant on top of an earlier one: 2030 goes to 5% and keeps the 2028 deduction (a variant replaces only what it lists).
+  const sched2 = { standardDeduction: cols(1000), schedule: [{ fromYear: 2028, standardDeduction: cols(2000) }, { fromYear: 2030, tax: flat(0.05) }] };
+  near(run(sched2, { wages: 20000 }, 'single', 3), 1800, 'schedule: before the 2030 variant only the 2028 one applies');
+  near(run(sched2, { wages: 20000 }, 'single', 4), 900, 'schedule: a later variant builds on the earlier one (2030: 5% and the 2028 deduction)');
+  // Indexing: 3% a year. The deduction is indexed. The 2028 variant states 2,000 as 2028 dollars, so in 2028 it is exactly 2,000
+  // (not 2,000 x 1.03^2), and it grows from there: 2030 is 2,000 x 1.03^2 = 2,121.80.
+  st.inflation = 3;
+  const sched3 = { indexing: idx(false, { standardDeductionIndexed: true }), standardDeduction: cols(1000), schedule: [{ fromYear: 2028, standardDeduction: cols(2000) }] };
+  near(run(sched3, { wages: 20000 }, 'single', 1), 1897, 'schedule indexing: before the variant, 1,000 x 1.03 = 1,030');
+  near(run(sched3, { wages: 20000 }, 'single', 2), 1800, 'schedule indexing: statutory 2,000 in its own year');
+  near(run(sched3, { wages: 20000 }, 'single', 4), 1787.82, 'schedule indexing: 2,000 x 1.0609 two years on');
+  // A variant that overrides only the rate leaves the deduction on the plan-start index: 1,000 x 1.03^4 = 1,125.50881 in 2030.
+  const sched4 = { indexing: idx(false, { standardDeductionIndexed: true }), standardDeduction: cols(1000), schedule: [{ fromYear: 2028, tax: flat(0.08) }] };
+  near(run(sched4, { wages: 20000 }, 'single', 4), 1509.9592952, 'schedule indexing: a rate-only variant does not rebase the deduction');
+  st.inflation = 0;
+  // A variant dated in the past (before the plan year) applies from year 0: pin the clock to 2029.
+  setYear(2029);
+  near(run(sched1, { wages: 20000 }, 'single', 0), 1440, 'schedule: a variant already in force at plan start');
+  setYear(2026);
+
+  // --- Mechanism 2: a standard deduction that steps down or phases out with AGI ----------------------------------
+  const stepDown = { standardDeduction: cols(3000), standardDeductionPhase: { kind: 'stepDown', columns: { single: { start: 25999, width: 500, step: 25, floor: 2500 }, mfj: { start: 25999, width: 500, step: 25, floor: 2500 }, hoh: { start: 25999, width: 500, step: 25, floor: 2500 } } } };
+  near(run(stepDown, { wages: 25999 }), 2299.9, 'step-down: at the start nothing is lost (25,999 - 3,000)');
+  near(run(stepDown, { wages: 26000 }), 2302.5, 'step-down: one dollar over is one step of 25 (26,000 - 2,975)');
+  near(run(stepDown, { wages: 26499 }), 2352.4, 'step-down: still one step at 500 over');
+  near(run(stepDown, { wages: 26500 }), 2355, 'step-down: two steps at 501 over (26,500 - 2,950)');
+  near(run(stepDown, { wages: 40000 }), 3750, 'step-down: held at the floor (40,000 - 2,500)');
+  const linear = { standardDeduction: cols(15000), standardDeductionPhase: { kind: 'linear', columns: { single: { start: 40000, end: 95000, floor: 0 }, mfj: { start: 40000, end: 95000, floor: 0 }, hoh: { start: 40000, end: 95000, floor: 0 } } } };
+  near(run(linear, { wages: 40000 }), 2500, 'linear: at the start the full deduction');
+  near(run(linear, { wages: 67500 }), 6000, 'linear: half way, half the deduction (67,500 - 7,500)');
+  near(run(linear, { wages: 95000 }), 9500, 'linear: at the end, the floor (0)');
+  near(run(linear, { wages: 120000 }), 12000, 'linear: beyond the end stays at the floor');
+  const linearFloor = { standardDeduction: cols(15000), standardDeductionPhase: { kind: 'linear', columns: { single: { start: 40000, end: 95000, floor: 3000 }, mfj: { start: 40000, end: 95000, floor: 3000 }, hoh: { start: 40000, end: 95000, floor: 3000 } } } };
+  near(run(linearFloor, { wages: 95000 }), 9200, 'linear: a floor above zero holds (95,000 - 3,000)');
+
+  // --- Mechanism 3: age-tiered per-person caps ---------------------------------------------------------------------
+  const tiered = { retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]] }) };
+  const pen = (a, b) => ({ pension: a + b, pensionA: a, pensionB: b, retirement: 0, retirementA: 0, retirementB: 0 });
+  near(run(tiered, { ...pen(30000, 15000), ages: [66, 58] }, 'mfj'), 600, 'tiers: A at the 65 tier (24,000 of 30,000), B at the 55 tier (all 15,000): 45,000 - 39,000');
+  near(run(tiered, { ...pen(30000, 15000), ages: [66, 50] }, 'mfj'), 2100, 'tiers: B under the first tier gets nothing: 45,000 - 24,000');
+  near(run(tiered, { ...pen(30000, 15000), ages: [54, 54] }, 'mfj'), 4500, 'tiers: both under the first tier');
+  near(run(tiered, { ...pen(30000, 0), ages: [65] }), 600, 'tiers: exactly 65 reaches the top tier');
+  near(run(tiered, { ...pen(30000, 0), ages: [64.9] }), 1000, 'tiers: just under 65 is the 20,000 tier');
+
+  // --- Mechanism 4: which buckets qualify ------------------------------------------------------------------------------
+  const mix = { pension: 10000, pensionA: 10000, pensionB: 0, retirement: 6000, retirementA: 6000, retirementB: 0, ages: [70] };
+  near(run({ retirementExclusion: perP({ applies: { pension: true, traditional: false } }) }, mix), 600, 'applies: pension only excludes 10,000 of 16,000');
+  near(run({ retirementExclusion: perP({ applies: { pension: false, traditional: true } }) }, mix), 1000, 'applies: traditional only excludes 6,000 of 16,000');
+  near(run({ retirementExclusion: perP({ pensionMinAge: 60, traditionalMinAge: 65 }) }, { ...mix, ages: [62] }), 600, 'applies: bucket minimum ages still gate each bucket (62: pension yes, traditional no)');
+
+  // --- Mechanism 5: a cap shared with Social Security (a per-person bucket) ----------------------------------------------
+  const co = { base: { ordinary: true, gainsIncluded: 1, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 20000 } }, retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]], reducedBy: 'socialSecuritySubtracted' }) };
+  const coSrc = (ss) => ({ ...pen(20000, 0), taxableSS: ss, taxableSSA: ss, taxableSSB: 0, ssBenefits: ss, ssBenefitsA: ss, ages: [70] });
+  // Taxable Social Security 10,000 (subtracted in full at 70): room 24,000 - 10,000 = 14,000 of the 20,000 pension.
+  // Base 20,000 + 10,000 = 30,000; minus 10,000 and 14,000 = 6,000.
+  near(run(co, coSrc(10000)), 600, 'shared cap: benefits 10,000 leave room for 14,000 of pension');
+  near(run(co, coSrc(20000)), 1600, 'shared cap: benefits 20,000 leave room for 4,000 (40,000 - 20,000 - 4,000)');
+  near(run(co, coSrc(24000)), 2000, 'shared cap: benefits at the cap leave no room (44,000 - 24,000)');
+  near(run(co, coSrc(30000)), 2000, 'shared cap: benefits above the cap leave no room (50,000 - 30,000)');
+  near(run(co, coSrc(0)), 0, 'shared cap: no benefits, the 20,000 pension is under the 24,000 cap');
+  // A couple: A has all the Social Security (20,000), so A has 4,000 of room; B has the full 24,000 for 20,000 of pension.
+  near(run(co, { ...pen(20000, 20000), taxableSS: 20000, taxableSSA: 20000, taxableSSB: 0, ssBenefits: 20000, ssBenefitsA: 20000, ssBenefitsB: 0, ages: [70, 70] }, 'mfj'), 1600, 'shared cap: the cap is each person\'s own (60,000 - 20,000 - 4,000 - 20,000 = 16,000)');
+  // Maine-style: reduced by all benefits received, taxable or not (Social Security itself exempt here).
+  const me = { retirementExclusion: perP({ tiers: [[0, 30000]], reducedBy: 'benefitsReceived' }) };
+  near(run(me, { ...pen(25000, 0), ssBenefits: 10000, ssBenefitsA: 10000, ages: [70] }), 500, 'benefits received: 30,000 - 10,000 = 20,000 excluded of 25,000');
+  near(run(me, { ...pen(25000, 0), ssBenefits: 40000, ssBenefitsA: 40000, ages: [70] }), 2500, 'benefits received: benefits over the cap leave no exclusion');
+  near(run(me, { ...pen(25000, 0), ssBenefits: 40000, ssBenefitsA: 0, ssBenefitsB: 40000, ages: [70] }), 0, 'benefits received: the other partner\'s benefits do not reduce this cap (25,000 excluded)');
+
+  // --- Mechanism 6: the cap and an AGI share together ---------------------------------------------------------------------
+  const shareTable = cols([[0, 1], [50000, 0.5], [100000, 0]]);
+  const capShare = (inclusive) => ({ retirementExclusion: perP({ tiers: [[0, 20000]], share: { inclusive, tables: shareTable } }) });
+  near(run(capShare(false), { ...pen(30000, 0), wages: 20000, ages: [70] }), 3000, 'cap x share: AGI 50,000 is not over the step, share 1: 20,000 excluded');
+  near(run(capShare(false), { ...pen(30000, 0), wages: 20001, ages: [70] }), 4000.1, 'cap x share: AGI 50,001 is in the 50% step: 10,000 excluded');
+  near(run(capShare(true), { ...pen(30000, 0), wages: 20000, ages: [70] }), 4000, 'cap x share: an inclusive table steps at 50,000');
+  near(run(capShare(false), { ...pen(30000, 0), wages: 80000, ages: [70] }), 11000, 'cap x share: AGI 110,000 is past the last step, nothing excluded');
+
+  // --- Mechanism 8: the federal standard deduction as the state deduction ---------------------------------------------------------
+  const conform = (o) => ({ federalConformity: { standardDeduction: true, seniorDeduction: false, ageAdditional: false, ...o } });
+  near(t.standardDeduction('single', 0, []), 16100, 'the federal helper: single 2026 standard deduction');
+  near(run(conform(), { wages: 50000, ages: [40] }), 3390, 'conformity: (50,000 - 16,100) x 10%');
+  near(run(conform(), { wages: 50000, ages: [66] }), 3390, 'conformity: without the 65+ add-on, an older filer gets the base only');
+  near(run(conform({ ageAdditional: true }), { wages: 50000, ages: [66] }), 3185, 'conformity: with the add-on 16,100 + 2,050');
+  near(run(conform({ ageAdditional: true, seniorDeduction: true }), { wages: 50000, ages: [66] }), 2585, 'conformity: and the senior deduction 6,000 (2026)');
+  near(run(conform({ ageAdditional: true, seniorDeduction: true }), { wages: 80000, ages: [66, 66] }, 'mfj'), 3250, 'conformity: a senior couple, 32,200 + 2 x 1,650 + 2 x 6,000');
+  near(run(conform(), { wages: 50000, ages: [40] }, 'hoh'), 2585, 'conformity: head of household reads 24,150');
+  setYear(2029);
+  near(run(conform({ ageAdditional: true, seniorDeduction: true }), { wages: 50000, ages: [66] }), 3185, 'conformity: the senior deduction ends after 2028');
+  setYear(2026);
+
+  // --- Mechanism 10: senior exemption and an AGI-tiered dependent exemption ---------------------------------------------------------
+  const senior = (phaseOut) => ({ seniorExemption: { kind: 'perSenior', age: 65, amount: 1000, phaseOut } });
+  near(run(senior(null), { wages: 50000, ages: [66, 67] }, 'mfj'), 4800, 'senior exemption: two seniors, 50,000 - 2,000');
+  near(run(senior(null), { wages: 50000, ages: [66, 60] }, 'mfj'), 4900, 'senior exemption: one senior');
+  near(run(senior({ start: cols(40000), rate: 0.5 }), { wages: 50000, ages: [66] }), 5000, 'senior exemption: phased out entirely (1,000 - 0.5 x 10,000 < 0)');
+  near(run(senior({ start: cols(40000), rate: 0.5 }), { wages: 41000, ages: [66] }), 4050, 'senior exemption: 1,000 - 500 = 500 left');
+  near(run(senior({ start: cols(40000), rate: 0.5 }), { wages: 41000, ages: [66, 66] }, 'mfj'), 4000, 'senior exemption: each senior loses the same 500');
+  const tiers3 = { dependentExemption: { kind: 'agiTiered', tables: cols([[0, 1000], [50000, 500], [100000, 300]]) } };
+  const kids2 = [kid(5), kid(8), kid(20, { qualifyingChild: false })];
+  near(run(tiers3, { wages: 40000, dependents: kids2 }), 3800, 'tiered dependents: two qualifying children at 1,000 (40,000 - 2,000)');
+  near(run(tiers3, { wages: 50000, dependents: kids2 }), 4800, 'tiered dependents: AGI at the step is still the first tier');
+  near(run(tiers3, { wages: 50001, dependents: kids2 }), 4900.1, 'tiered dependents: one dollar over drops to 500 each');
+  near(run(tiers3, { wages: 120000, dependents: kids2 }), 11940, 'tiered dependents: 300 each (120,000 - 600)');
+  near(run(tiers3, { wages: 120000 }), 12000, 'tiered dependents: no children, no exemption');
+
+  // --- Mechanism 14: an addition with a threshold per filing column --------------------------------------------------------------------
+  const surtax = { additions: [{ kind: 'threshold', indexed: false, threshold: { single: 50000, mfj: 100000, hoh: 75000 }, rate: 0.05 }] };
+  near(run(surtax, { wages: 120000 }, 'single'), 15500, 'threshold per column: single 12,000 + 70,000 x 5%');
+  near(run(surtax, { wages: 120000, ages: [40, 40] }, 'mfj'), 13000, 'threshold per column: joint 12,000 + 20,000 x 5%');
+  near(run(surtax, { wages: 120000 }, 'hoh'), 14250, 'threshold per column: head of household 12,000 + 45,000 x 5%');
+
+  // --- Mechanism 15 through taxFor: each partner's own benefits reach the state ------------------------------------------------
+  // A cap of 30,000 reduced by the filer's own benefits. A (70) has the pension 25,000; B (68) has none. The state tax is the
+  // difference from Texas (the federal part is identical).
+  R.zzb = mk({ retirementExclusion: perP({ tiers: [[0, 30000]], reducedBy: 'benefitsReceived' }) });
+  const bp = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 25000, otherB: 0, wageA: 0, wageB: 0, pensionA: 25000, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 70, ageB: 68, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
+  const stateOnly = (p) => { st.stateTax = 'zzb'; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; return a - t.taxFor(p, 0, 0); };
+  near(stateOnly(bp({ ssA: 12000 })), 700, 'taxFor, joint: A\'s own benefits 12,000 leave 18,000 excluded of 25,000');
+  near(stateOnly(bp({ ssB: 12000 })), 0, 'taxFor, joint: B\'s benefits do not reduce A\'s cap (25,000 excluded)');
+  near(stateOnly(bp({ filing: 'single', ssA: 12000 })), 700, 'taxFor, two returns: A\'s return reads A\'s benefits');
+  near(stateOnly(bp({ filing: 'single', ssB: 12000 })), 0, 'taxFor, two returns: B\'s benefits stay on B\'s return');
+  near(stateOnly(bp({ filing: 'single', singlePerson: true, ageB: null, ssA: 12000 })), 700, 'taxFor, one person: reads A\'s benefits');
+  delete R.zzb;
+  setYear(new Date().getFullYear());
+
   // --- Plumbing through taxFor: each partner's discretionary traditional draw follows the account-ledger share ---
   // A retiree couple (A 62, B 50) draws 100,000 from traditional accounts; the synthetic state excludes a filer's own
   // traditional income from 59.5, so only A's part is excluded. The state tax is the difference between the same
   // profile under the synthetic state and under Texas (the federal part is identical: the standard deduction wins).
-  R.zzp = mk({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, cap: null } });
+  R.zzp = mk({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null } });
   const profile = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 0, otherB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 62, ageB: 50, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
   const stateOf = (p, trad) => { st.stateTax = 'zzp'; const a = t.taxFor(p, 0, trad); st.stateTax = 'tx'; return a - t.taxFor(p, 0, trad); };
   near(stateOf(profile({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor: A holds 80% of the pool, 80,000 excluded, 20,000 taxed');

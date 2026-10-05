@@ -2760,6 +2760,15 @@
   //   retirementExclusion            see stateRetirementExclusion
   //   credits          see stateCreditAmount (nonrefundable credits are capped by the tax;
   //                    refundable ones can take the state tax below zero)
+  //   standardDeductionPhase  { kind: 'none' } | { kind: 'stepDown' | 'linear', columns } (statePhasedDeduction)
+  //   seniorExemption  { kind: 'none' } | { kind: 'perSenior', age, amount, phaseOut } (a deduction per filer at or over `age`,
+  //                    phaseOut null or { start by column, rate } cutting each filer's amount per dollar of AGI over start)
+  //   dependentExemption  a number per qualifying child, or { kind: 'agiTiered', tables } (an AGI step table per column)
+  //   federalConformity   { standardDeduction, seniorDeduction, ageAdditional }: the state deducts the federal standard
+  //                    deduction (the columns' standardDeduction are then 0), optionally with the 65+ add-on and the senior deduction
+  //   schedule         [] or [{ fromYear, baseYear?, ...overrides }]: from tax year `fromYear` the listed fields replace the
+  //                    base row's whole field (tax, standardDeduction, credits, ...); the overridden amounts are statutory
+  //                    dollars of `baseYear` (default fromYear), so an indexed family grows from that year, not from plan start
   //   federalTaxSubtraction ('none' in every row so far), localTax ('notModeled'), notes
   // Step tables are [[lowerBound, value], ...] per column; a value applies when the AGI is
   // more than its lower bound (at or over it when the table says `inclusive`).
@@ -2791,6 +2800,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2819,6 +2832,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2847,6 +2864,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2875,6 +2896,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'perEligibleCap', minAge: 59.5, cap: 6000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -2921,6 +2946,10 @@
       exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [
         {
@@ -2967,6 +2996,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3060,6 +3093,10 @@
       exemption: { single: 15000, mfj: 24000, hoh: 19000 },
       exemptionPhaseOut: { kind: 'stepDown', start: { single: 30000, mfj: 48000, hoh: 38000 }, step: 1000, width: 1000 },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: {
         kind: 'agiPhasedShare',
         inclusive: true,
@@ -3140,6 +3177,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3168,6 +3209,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3196,6 +3241,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'seniorCap', seniorAge: 65, cap: 65000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3236,6 +3285,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3264,6 +3317,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3292,6 +3349,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'full' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3320,6 +3381,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3348,6 +3413,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'shareByAge', minAge: 59.5 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3376,6 +3445,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3404,6 +3477,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3432,6 +3509,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3463,6 +3544,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3503,6 +3588,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3533,6 +3622,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3561,6 +3654,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3595,6 +3692,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3623,6 +3724,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'shareByAge', minAge: 59.5 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3657,6 +3762,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3685,6 +3794,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3716,6 +3829,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3744,6 +3861,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3772,6 +3893,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3809,6 +3934,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3843,6 +3972,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3902,7 +4035,11 @@
       exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 1000,
-      retirementExclusion: { kind: 'perPerson', pensionMinAge: 59.5, traditionalMinAge: 59.5, cap: 20000 },
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
+      retirementExclusion: { kind: 'perPerson', pensionMinAge: 59.5, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, 20000]], reducedBy: 'none', share: null },
       credits: [
         {
           kind: 'childCredit',
@@ -3938,6 +4075,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3969,6 +4110,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -3997,6 +4142,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4031,6 +4180,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4065,6 +4218,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4093,7 +4250,11 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
-      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, cap: null },
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
+      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null },
       credits: [
         {
           kind: 'taxForgiveness',
@@ -4134,6 +4295,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4165,6 +4330,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'perEligibleCapSeniorTier', minAge: 59.5, cap: 3000, seniorAge: 65, seniorCap: 15000 },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4193,6 +4362,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4221,6 +4394,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4249,6 +4426,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4277,6 +4458,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4311,6 +4496,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4345,6 +4534,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4373,6 +4566,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4407,6 +4604,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4441,6 +4642,10 @@
       exemption: { single: 700, mfj: 1400 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4469,6 +4674,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4503,6 +4712,10 @@
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
+      standardDeductionPhase: { kind: 'none' },
+      seniorExemption: { kind: 'none' },
+      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
@@ -4517,9 +4730,29 @@
     SS_TAXED = 1,
     SS_SUBTRACTION = 2,
     SS_AGI_TESTED = 3;
-  function compileStateRule(code) {
-    const row = STATE_RULES[code];
-    if (!row) return null;
+  // Which indexing families a scheduled variant's override moves onto its own base year (a field's amounts
+  // and, where it has them, its thresholds): see the `schedule` field.
+  const SCHEDULE_FAMILIES = {
+    tax: ['br'], standardDeduction: ['sd'], standardDeductionPhase: ['sd', 'ct'], exemption: ['ex'],
+    dependentExemption: ['ex', 'ct'], seniorExemption: ['ex', 'ct'], exemptionPhaseOut: ['ex', 'ct'],
+    credits: ['ca', 'ct'], retirementExclusion: ['re'], additions: ['ad'],
+  };
+  const NO_BASE_YEARS = { br: 0, sd: 0, ex: 0, ca: 0, ct: 0, re: 0, ad: 0 };
+  const NO_AGES = [];
+  // A per-person exclusion is flattened once (ages and caps in plain arrays, absent buckets as an age nobody reaches).
+  function compileRetirement(ex) {
+    if (ex.kind !== 'perPerson') return ex;
+    return {
+      kind: 'perPerson',
+      pensionFrom: ex.applies.pension ? ex.pensionMinAge : Infinity,
+      tradFrom: ex.applies.traditional ? ex.traditionalMinAge : Infinity,
+      tierAges: ex.tiers.map((t) => t[0]),
+      tierCaps: ex.tiers.map((t) => (t[1] === null ? Infinity : t[1])),
+      reducedBy: ex.reducedBy === 'benefitsReceived' ? 1 : ex.reducedBy === 'socialSecuritySubtracted' ? 2 : 0,
+      share: ex.share,
+    };
+  }
+  function compileRow(row) {
     const cols = {};
     for (const key of ['single', 'mfj', 'hoh']) {
       if (row.standardDeduction[key] === undefined) continue;
@@ -4531,7 +4764,9 @@
         rates: brackets && brackets.map((b) => b[1]),
       };
     }
-    const ss = row.base.socialSecurity;
+    const ss = row.base.socialSecurity,
+      dep = row.dependentExemption,
+      conform = row.federalConformity;
     return {
       noTax: row.tax.kind === 'none',
       idx: row.indexing,
@@ -4544,12 +4779,44 @@
       gainsIncluded: row.base.gainsIncluded,
       ss: ss === 'taxed' ? SS_TAXED : typeof ss !== 'object' ? SS_EXEMPT : ss.kind === 'agiTested' ? SS_AGI_TESTED : SS_SUBTRACTION,
       ssRule: typeof ss === 'object' ? ss : null,
-      retirement: row.retirementExclusion,
+      retirement: compileRetirement(row.retirementExclusion),
+      needsSsSplit: row.retirementExclusion.kind === 'perPerson' && row.retirementExclusion.reducedBy === 'socialSecuritySubtracted',
       exemptionPhaseOut: row.exemptionPhaseOut.kind === 'stepDown' ? row.exemptionPhaseOut : null,
-      dependentExemption: row.dependentExemption,
+      dependentExemption: typeof dep === 'number' ? dep : 0,
+      dependentTiers: typeof dep === 'number' ? null : dep.tables,
+      seniorExemption: row.seniorExemption.kind === 'none' ? null : row.seniorExemption,
+      stdPhase: row.standardDeductionPhase.kind === 'none' ? null : row.standardDeductionPhase,
+      conformStd: conform.standardDeduction,
+      conformAge: conform.ageAdditional,
+      conformSenior: conform.seniorDeduction,
       credits: row.credits,
       cols,
+      // Scheduled variants (see `schedule`); the base compiled row has none, and its div says nothing moves.
+      variants: null,
+      fromYear: 0,
+      baseYears: NO_BASE_YEARS,
     };
+  }
+  function compileStateRule(code) {
+    const row = STATE_RULES[code];
+    if (!row) return null;
+    const rule = compileRow(row);
+    // Each variant builds on the one before it (a later change keeps an earlier one), and each family remembers
+    // the base year of the latest variant that touched it.
+    if (row.schedule.length) {
+      let current = row;
+      const years = { ...NO_BASE_YEARS };
+      rule.variants = row.schedule.map((s) => {
+        const { fromYear, baseYear, ...over } = s;
+        current = { ...current, ...over, schedule: [] };
+        for (const key of Object.keys(over)) for (const f of SCHEDULE_FAMILIES[key] || []) years[f] = baseYear === undefined ? fromYear : baseYear;
+        const v = compileRow(current);
+        v.fromYear = fromYear;
+        v.baseYears = { ...years };
+        return v;
+      });
+    }
+    return rule;
   }
   // Tax on `income` from graduated brackets; bracket i runs from starts[i] to starts[i + 1]
   // (the last is open-ended), scaled by the index factor.
@@ -4591,24 +4858,38 @@
   // filers at or over minAge); 'perEligibleCap' (cap per filer at or over minAge);
   // 'perEligibleCapSeniorTier' (a larger cap if anyone is at or over seniorAge, counted over the
   // larger group); 'seniorCap' (cap per filer at or over seniorAge, nothing below). Per-person
-  // kinds read each filer's own pension and traditional income: 'perPerson' (pension from
-  // pensionMinAge, traditional withdrawals from traditionalMinAge, each filer's total limited
-  // to `cap`, null for no limit) and 'agiPhasedShare' (all of it times a share that falls with
-  // the AGI, from a step table).
-  function stateRetirementExclusion(ex, sources, factor, colKey, agi) {
+  // kinds read each filer's own pension and traditional income: 'agiPhasedShare' (all of it times a
+  // share that falls with the AGI, from a step table) and 'perPerson':
+  //   pensionMinAge / traditionalMinAge  the filer's age from which each bucket counts
+  //   applies { pension, traditional }   which buckets the state lets in at all
+  //   tiers [[minAge, cap|null], ...]    the cap is the highest tier the filer has reached (null: no
+  //                                      limit); a filer under the first tier gets nothing
+  //   reducedBy                          'none' | 'socialSecuritySubtracted' (the filer's own Social
+  //                                      Security subtraction uses up the same cap: CO) |
+  //                                      'benefitsReceived' (all the filer's benefits, taxable or not: ME)
+  //   share                              null, or { inclusive, tables }: the total times a step-table
+  //                                      value of the AGI (NJ-style, or ME's phase-out)
+  // ssSplit is [A, B]: each filer's Social Security subtraction (the household's, in proportion to the
+  // taxable benefits), or null.
+  function stateRetirementExclusion(ex, sources, factor, colKey, agi, ssSplit) {
     if (ex.kind === 'none') return 0;
     const ages = sources.ages || [];
     if (ex.kind === 'perPerson') {
-      const cap = ex.cap === null ? Infinity : ex.cap * factor;
       let total = 0;
       for (let i = 0; i < 2; i++) {
         const age = ages[i];
         if (age === null || age === undefined) continue;
-        const pension = age >= ex.pensionMinAge ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
-          traditional = age >= ex.traditionalMinAge ? Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0) : 0;
-        total += Math.min(pension + traditional, cap);
+        let cap = -1;
+        for (let t = 0; t < ex.tierAges.length; t++) if (age >= ex.tierAges[t]) cap = ex.tierCaps[t] * factor;
+        if (cap < 0) continue;
+        const pension = age >= ex.pensionFrom ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
+          traditional = age >= ex.tradFrom ? Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0) : 0;
+        let room = cap;
+        if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));
+        else if (ex.reducedBy === 2) room = Math.max(0, cap - (ssSplit ? ssSplit[i] : 0));
+        total += Math.min(pension + traditional, room);
       }
-      return total;
+      return ex.share ? total * stateStepValue(ex.share.tables[colKey], agi, ex.share.inclusive, factor) : total;
     }
     const retirement = Math.max(0, sources.pension + sources.retirement);
     if (ex.kind === 'full') return retirement;
@@ -4630,6 +4911,18 @@
       return senior ? Math.min(retirement, ex.cap * factor * senior) : 0;
     }
     return 0;
+  }
+  // A standard deduction that steps down or phases out with the state AGI (`standardDeductionPhase`):
+  // 'stepDown' loses `step` per `width` of AGI over `start` down to `floor`; 'linear' falls from the
+  // full amount at `start` to `floor` at `end`. The amounts index with the deduction family, the AGI
+  // bounds with the credit-threshold family.
+  function statePhasedDeduction(p, colKey, amount, agi, fSd, fCt) {
+    const c = p.columns[colKey],
+      over = agi - c.start * fCt;
+    if (!(over > 0)) return amount;
+    const floor = c.floor * fSd;
+    if (p.kind === 'stepDown') return Math.max(floor, amount - c.step * fSd * Math.ceil(over / (c.width * fCt)));
+    return amount - (amount - floor) * Math.min(1, over / ((c.end - c.start) * fCt));
   }
   // New York's tax benefit recapture. Above `agiStart` of NY AGI the benefit of the lower
   // brackets is taken back, phased in over `phaseWidth` of AGI, until the whole taxable income
@@ -4774,16 +5067,27 @@
     return !!rule && !rule.noTax;
   }
   function stateIncomeTax(sources, filing, yearIndex) {
-    const rule = stateRuleFor(state.stateTax);
+    let rule = stateRuleFor(state.stateTax);
     if (!rule || rule.noTax) return 0;
+    // A scheduled change: the latest variant whose tax year has arrived replaces the base row.
+    if (rule.variants) {
+      const taxYear = taxYearOf(yearIndex);
+      for (let v = rule.variants.length - 1; v >= 0; v--)
+        if (taxYear >= rule.variants[v].fromYear) {
+          rule = rule.variants[v];
+          break;
+        }
+    }
     // Each family of parameters has its own indexing flag (rule.idx): states index some and not others.
+    // A scheduled family holds statutory dollars of its base year, so it indexes from there (by.x = 0: plan start).
     const base = rule.anyIndexed ? taxIndexFactor(yearIndex) : 1,
-      fBr = rule.idx.bracketsIndexed ? base : 1,
-      fSd = rule.idx.standardDeductionIndexed ? base : 1,
-      fEx = rule.idx.personalExemptionIndexed ? base : 1,
-      fCa = rule.idx.creditAmountsIndexed ? base : 1,
-      fCt = rule.idx.creditThresholdsIndexed ? base : 1,
-      fRe = rule.idx.retirementExclusionIndexed ? base : 1,
+      by = rule.baseYears,
+      fBr = rule.idx.bracketsIndexed ? (by.br > currentYear ? base / taxIndexFactor(by.br - currentYear) : base) : 1,
+      fSd = rule.idx.standardDeductionIndexed ? (by.sd > currentYear ? base / taxIndexFactor(by.sd - currentYear) : base) : 1,
+      fEx = rule.idx.personalExemptionIndexed ? (by.ex > currentYear ? base / taxIndexFactor(by.ex - currentYear) : base) : 1,
+      fCa = rule.idx.creditAmountsIndexed ? (by.ca > currentYear ? base / taxIndexFactor(by.ca - currentYear) : base) : 1,
+      fCt = rule.idx.creditThresholdsIndexed ? (by.ct > currentYear ? base / taxIndexFactor(by.ct - currentYear) : base) : 1,
+      fRe = rule.idx.retirementExclusionIndexed ? (by.re > currentYear ? base / taxIndexFactor(by.re - currentYear) : base) : 1,
       colKey = rule.statusAs[filing] || 'single',
       col = rule.cols[colKey],
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
@@ -4804,23 +5108,52 @@
             : taxableSS - Math.min(taxableSS, rule.ssRule.taxedShareOfBenefits * (sources.ssBenefits || 0));
       }
     }
+    // Each filer's own Social Security subtraction, for a retirement cap it shares (the household's, in
+    // proportion to the taxable benefits).
+    let ssSplit = null;
+    if (rule.needsSsSplit && ssSubtraction > 0 && taxableSS > 0)
+      ssSplit = [(ssSubtraction * (sources.taxableSSA || 0)) / taxableSS, (ssSubtraction * (sources.taxableSSB || 0)) / taxableSS];
     // `start` stands for the federal AGI; `agi` is the state's AGI after its own subtractions.
-    const agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start);
+    const agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit);
     let exemption = col.exemption * fEx;
     if (rule.exemptionPhaseOut) {
       const p = rule.exemptionPhaseOut,
         over = agi - p.start[colKey] * fCt;
       if (over > 0) exemption = Math.max(0, exemption - p.step * fEx * Math.ceil(over / (p.width * fCt)));
     }
-    let taxable = agi - col.standard * fSd - exemption;
+    // The deduction: the federal standard deduction (a conforming state), or the state's own, phased by AGI.
+    let deduction;
+    if (rule.conformStd) {
+      const ages = sources.ages || NO_AGES;
+      deduction = standardDeduction(filing, yearIndex, rule.conformAge ? ages : NO_AGES);
+      if (rule.conformSenior) deduction += seniorDeduction(filing, yearIndex, ages, start);
+    } else {
+      deduction = col.standard * fSd;
+      if (rule.stdPhase) deduction = statePhasedDeduction(rule.stdPhase, colKey, deduction, agi, fSd, fCt);
+    }
+    let taxable = agi - deduction - exemption;
     if (rule.dependentExemption)
       taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * fEx;
+    else if (rule.dependentTiers) {
+      const kids = countQualifyingChildren(sources.dependents || NO_DEPENDENTS);
+      if (kids) taxable -= kids * stateStepValue(rule.dependentTiers[colKey], agi, false, fCt) * fEx;
+    }
+    if (rule.seniorExemption) {
+      const se = rule.seniorExemption,
+        seniors = countAtLeast(sources.ages || NO_AGES, se.age);
+      if (seniors) {
+        let per = se.amount * fEx;
+        if (se.phaseOut) per = Math.max(0, per - se.phaseOut.rate * Math.max(0, agi - se.phaseOut.start[colKey] * fCt));
+        taxable -= seniors * per;
+      }
+    }
     const income = Math.max(0, taxable);
     let tax = rule.graduated ? graduatedTax(income, col.starts, col.rates, fBr) : income * rule.flatRate;
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
-      const fa = a.indexed ? base : 1; // each addition says whether its thresholds index
-      if (a.kind === 'threshold') tax += Math.max(0, income - a.threshold * fa) * a.rate;
+      const fa = a.indexed ? (by.ad > currentYear ? base / taxIndexFactor(by.ad - currentYear) : base) : 1; // each addition says whether its thresholds index
+      if (a.kind === 'threshold')
+        tax += Math.max(0, income - (typeof a.threshold === 'number' ? a.threshold : a.threshold[colKey]) * fa) * a.rate;
       else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, fa);
       else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, fa);
     }

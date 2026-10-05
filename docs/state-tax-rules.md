@@ -43,13 +43,13 @@ carried over unverified (no source); `researched` rows cite the source and as-of
 | NH | New Hampshire | migrated (no source recorded) | none | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | none | none | none |
 | NJ | New Jersey | migrated (no source recorded) | graduated 1.4% to 10.75% (8 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | none | none | none |
 | NM | New Mexico | migrated (no source recorded) | graduated 1.5% to 5.9% (6 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; taxable Social Security included | single $16,100, mfj $32,200 | none | none | none |
-| NY | New York | [researched, secondary, 2026](https://www.tax.ny.gov/pdf/2025/inc/it201i_2025.pdf) | graduated 3.9% to 10.9% (9 brackets) | none indexed | hoh / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $8,000, mfj $16,050, hoh $11,200 | per filer: pension from 59.5, traditional withdrawals from 59.5, up to $20,000 | benefit recapture from $107,650 AGI | Empire State child credit (refundable) |
+| NY | New York | [researched, secondary, 2026](https://www.tax.ny.gov/pdf/2025/inc/it201i_2025.pdf) | graduated 3.9% to 10.9% (9 brackets) | none indexed | hoh / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $8,000, mfj $16,050, hoh $11,200 | per filer: pension from 59.5, traditional withdrawals from 59.5; cap $20,000 from 0 | benefit recapture from $107,650 AGI | Empire State child credit (refundable) |
 | NC | North Carolina | migrated (no source recorded) | flat 3.99% | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | none | none | none |
 | ND | North Dakota | migrated (no source recorded) | graduated 0% to 2.5% (3 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $16,100, mfj $32,200 | none | none | none |
 | OH | Ohio | migrated (no source recorded) | graduated 0% to 2.75% (2 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | none | none | none |
 | OK | Oklahoma | migrated (no source recorded) | graduated 0% to 4.5% (4 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $6,350, mfj $12,700 | none | none | none |
 | OR | Oregon | migrated (no source recorded) | graduated 4.75% to 9.9% (4 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $2,910, mfj $5,820 | none | none | none |
-| PA | Pennsylvania | [researched, secondary, 2026](https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax/tax-forgiveness) | flat 3.07% | none indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | per filer: pension from 0, traditional withdrawals from 59.5 | none | Tax Forgiveness (Schedule SP) |
+| PA | Pennsylvania | [researched, secondary, 2026](https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax/tax-forgiveness) | flat 3.07% | none indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | per filer: pension from 0, traditional withdrawals from 59.5; cap no limit from 0 | none | Tax Forgiveness (Schedule SP) |
 | RI | Rhode Island | migrated (no source recorded) | graduated 3.75% to 5.99% (3 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; taxable Social Security included | single $11,200, mfj $22,400 | none | none | none |
 | SC | South Carolina | migrated (no source recorded) | graduated 0% to 6% (3 brackets) | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single $8,350, mfj $16,700 | up to $3,000 per filer 59.5+, $15,000 if anyone is 65+ | none | none |
 | SD | South Dakota | migrated (no source recorded) | none | all indexed | single / mfj | wages, pensions, withdrawals; gains in full; Social Security exempt | single 0, mfj 0 | none | none | none |
@@ -98,7 +98,7 @@ Indexing: none indexed. Columns: single, mfj, hoh; head of household reads hoh, 
 ### NY New York
 
 Indexing: none indexed. Columns: single, mfj, hoh; head of household reads hoh, surviving spouse mfj.
-- Retirement exclusion: `{"kind":"perPerson","pensionMinAge":59.5,"traditionalMinAge":59.5,"cap":20000}`
+- Retirement exclusion: `{"kind":"perPerson","pensionMinAge":59.5,"traditionalMinAge":59.5,"applies":{"pension":true,"traditional":true},"tiers":[[0,20000]],"reducedBy":"none","share":null}`
 - Dependent exemption: `1000`
 - Addition: `{"kind":"benefitRecapture","label":"Tax benefit recapture","agiStart":107650,"phaseWidth":50000,"flatAbove":25000000,"flatRate":0.109,"tiers":{"single":[[0,0.059],[215400,0.0685],[1077550,0.0965],[5000000,0.103]],"mfj":[[0,0.054],[161550,0.059],[323200,0.0685],[2155350,0.0965],[5000000,0.103]],"hoh":[[0,0.059],[269300,0.0685],[1616450,0.0965],[5000000,0.103]]},"indexed":false}`
 - Credit: `{"kind":"childCredit","label":"Empire State child credit","refundable":true,"tiers":[[3,1000],[16,500]],"phaseOut":{"start":{"single":75000,"mfj":110000,"hoh":75000,"qss":75000},"width":1000,"per":16.5}}`
@@ -106,7 +106,7 @@ Indexing: none indexed. Columns: single, mfj, hoh; head of household reads hoh, 
 ### PA Pennsylvania
 
 Indexing: none indexed. Columns: single, mfj; head of household reads single, surviving spouse mfj.
-- Retirement exclusion: `{"kind":"perPerson","pensionMinAge":0,"traditionalMinAge":59.5,"cap":null}`
+- Retirement exclusion: `{"kind":"perPerson","pensionMinAge":0,"traditionalMinAge":59.5,"applies":{"pension":true,"traditional":true},"tiers":[[0,null]],"reducedBy":"none","share":null}`
 - Credit: `{"kind":"taxForgiveness","label":"Tax Forgiveness (Schedule SP)","refundable":false,"limit":{"single":6500,"mfj":13000},"perDependent":9500,"stepWidth":250,"stepPct":0.1}`
 
 ### TX Texas
