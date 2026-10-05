@@ -6,7 +6,7 @@ const path = require('path');
 
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
 const INDEX_KEYS = ['bracketsIndexed', 'bpaIndexed', 'ageAmountIndexed', 'pensionAmountIndexed', 'surtaxIndexed'];
-const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
+const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'pooled', 'payroll', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
 
 (async () => {
   const browser = await chromium.launch();
@@ -53,6 +53,10 @@ const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verif
         if (!(r.dividend.eligible > 0.04 && r.dividend.eligible < 0.2)) fails.push(`${c}: eligible dividend credit out of range`);
         if ((c === 'on') !== !!r.surtax) fails.push(`${c}: only Ontario has a surtax`);
         if ((c === 'on') !== r.healthPremium) fails.push(`${c}: only Ontario has a health premium`);
+        if ((c === 'qc') !== !!r.pooled) fails.push(`${c}: only Quebec has the pooled amounts`);
+        if (!(r.payroll.pensionRate > 0.05 && r.payroll.pensionRate < 0.07)) fails.push(`${c}: pension contribution rate out of range`);
+        if (!!r.payroll.premium !== (c === 'qc')) fails.push(`${c}: only Quebec has a parental insurance premium`);
+        if (c === 'qc' && !(r.pooled.reductionRate === 0.1875 && r.pooled.reductionThreshold > 0)) fails.push('qc: bad pooled reduction');
         if (!r.age && c !== 'qc') fails.push(`${c}: age amount missing`);
         if (!r.pension && c !== 'qc') fails.push(`${c}: pension amount missing`);
         if (c !== 'mb' && r.bpa.phase) fails.push(`${c}: only Manitoba has a basic personal amount phase-down in 2026`);

@@ -38,7 +38,8 @@ function indexingText(ix) {
 function bpaText(b) {
   return money(b.amount) + (b.phase ? ` (reduced to ${money(b.phase.floor)} between ${money(b.phase.start)} and ${money(b.phase.end)} net income)` : '');
 }
-function ageText(a) {
+function ageText(a, pooled) {
+  if (!a && pooled) return 'pooled with the retirement-income and living-alone amounts (see Quebec below)';
   if (!a) return 'not modeled';
   return `${money(a.amount)}, reduced ${pct(a.rate)} of net income over ${money(a.threshold)}` + (a.supplement ? `, plus ${money(a.supplement)} supplement (not reduced)` : '');
 }
@@ -59,12 +60,12 @@ function generate(rules) {
   L.push('');
   L.push('**Credits.** Every non-refundable amount is worth the province\'s lowest bracket rate (`creditRate`) and comes off the tax, floored at zero.');
   L.push('Provincial credits never reduce federal tax and the reverse. **Not modeled (documented gaps):** non-eligible Canadian dividends (taxed like interest),');
-  L.push('spouse and eligible-dependant amounts, paid benefits (7L), and territorial taxes.');
+  L.push('spouse and eligible-dependant amounts, the transfer of a spouse unused amounts, paid benefits (7L), and territorial taxes.');
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Indexing | Sources |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Pension plan contribution | Indexing | Sources |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
     const extra = [r.surtax ? `surtax ${pct(r.surtax.firstRate)} over ${money(r.surtax.first)}, ${pct(r.surtax.secondRate)} over ${money(r.surtax.second)}` : '', r.healthPremium ? 'income-tested health premium (up to $900)' : ''].filter(Boolean).join('; ') || 'none';
@@ -75,10 +76,11 @@ function generate(rules) {
           r.name,
           pct(r.creditRate),
           bpaText(r.bpa),
-          ageText(r.age),
-          r.pension ? money(r.pension.amount) : 'not modeled',
+          ageText(r.age, r.pooled),
+          r.pension ? money(r.pension.amount) : r.pooled ? `retirement income ${money(r.pooled.retirementAmount)} (pooled)` : 'not modeled',
           pct(r.dividend.eligible) + ' of the grossed-up dividend',
           extra,
+          (r.pooled ? 'QPP ' : 'CPP ') + pct(r.payroll.pensionRate) + (r.payroll.premium ? ` + QPIP ${pct(r.payroll.premium.rate)} up to ${money(r.payroll.premium.max)}` : ''),
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]
@@ -87,6 +89,10 @@ function generate(rules) {
         ' |',
     );
   }
+  L.push('');
+  L.push('## Quebec pooled amounts');
+  L.push('');
+  for (const c of codes) if (rules[c].pooled) { const p = rules[c].pooled; L.push(`- **${c.toUpperCase()}**: age ${money(p.ageAmount)} (65+), retirement income up to ${money(p.retirementAmount)}, living alone ${money(p.livingAlone)} (single filers and survivors); the total is reduced by ${pct(p.reductionRate)} of family net income over ${money(p.reductionThreshold)}, then taken at the credit rate.`); }
   L.push('');
   L.push('## Notes');
   L.push('');

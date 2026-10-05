@@ -430,7 +430,8 @@ function caChecks() {
     for (const inc of [0, 8000, 20000, 45000, 80000, 120000, 200000, 400000, 900000]) {
       const ph = table.bpa.phase,
         bpa = ph ? table.bpa.amount * Math.min(1, Math.max(0, (ph.end - inc) / (ph.end - ph.start))) : table.bpa.amount,
-        base = Math.max(0, refTax(inc, table.brackets) - table.creditRate * bpa);
+        living = table.pooled ? Math.max(0, table.pooled.livingAlone - table.pooled.reductionRate * Math.max(0, inc - table.pooled.reductionThreshold)) : 0, // Quebec single filers live alone
+        base = Math.max(0, refTax(inc, table.brackets) - table.creditRate * (bpa + living));
       if (code !== 'on') near(t.provincialTaxCA(inc, 0), base, 0.005, `${code} provincial ${inc}`);
       else if (t.provincialTaxCA(inc, 0) < base - 0.005) fails.push(`on ${inc}: provincial tax below credited bracket tax`);
     }
@@ -460,10 +461,69 @@ function caChecks() {
   // The age and pension credits come off federal tax before the abatement.
   near(
     t.personTaxCA(60000, 0, 0, 0, 66, 3000),
-    t.federalTaxCA(60000, 0, 7172.8 + 2000) * 0.835 + t.provincialTaxCA(60000, 0),
+    t.federalTaxCA(60000, 0, 7172.8 + 2000) * 0.835 + t.provincialTaxCA(60000, 0, 0, 66, 3000),
     0.005,
     'Quebec abatement applies after the age and pension credits',
   );
+
+  // --- Quebec: pooled age, retirement-income and living-alone amounts, family-income reduction, QPP/QPIP (7K) ---
+  {
+    st.province = 'qc';
+    const q = (...a) => t.provincialTaxCA(...a);
+    // Single, 66, $30k: 4,200 less 14% of 18,952 + age 3,986 + living alone 2,172 = 25,110 (3,515.4); the
+    // pool is not reduced below the $42,955 family income threshold -> 684.6
+    near(q(30000, 0, 0, 66, 0), 684.6, 0.005, 'Quebec single 66 at $30k');
+    // Single, 66, $50k, $10k pension: 7,000 less 14% of 18,952 + a pool of 3,986 + 3,541 + 2,172 = 9,699, reduced
+    // by 18.75% of (50,000 - 42,955) = 1,320.9375 -> 8,378.0625; credits 27,330.0625 -> 3,826.20875 -> 3,173.79125
+    near(q(50000, 0, 0, 66, 10000), 3173.79125, 0.005, 'Quebec single 66 with a pension at $50k');
+    // The same person in a couple with $100k of family income: no living-alone amount; the pool of 7,527 is
+    // reduced by 18.75% of 57,045 = 10,696.6 to nothing; credits 14% of 18,952 = 2,653.28 -> 4,346.72
+    near(q(50000, 0, 0, 66, 10000, 100000), 4346.72, 0.005, 'Quebec couple 66, family income reduces the pool to nil');
+    // Under 65, no pension, $60k single: the living-alone amount (2,172) is reduced to nothing (3,195.9);
+    // tax 7,608.3 + 1,074.45 = 8,682.75 less 2,653.28 = 6,029.47
+    near(q(60000, 0, 0, 0, 0), 6029.47, 0.005, 'Quebec under 65 at $60k, pool reduced away');
+    st.inflation = 3;
+    {
+      const yi = 7,
+        f = Math.pow(1.03, yi);
+      near(q(50000 * f, yi, 0, 66, 10000 * f), f * q(50000, 0, 0, 66, 10000), 1e-6 * f * 50000, 'Quebec pooled amounts and threshold are indexed');
+    }
+    st.inflation = 0;
+    // taxFor: a couple reads the family income, a single filer is living alone.
+    {
+      const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+      near(
+        t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
+        2 * t.personTaxCA(50000, 0, 0, 0, 66, 10000, 100000),
+        1e-9,
+        'Quebec taxFor couple uses family income',
+      );
+      near(t.taxFor(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
+      if (!(t.taxFor(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2))
+        fails.push('Quebec: a single filer should owe less than each spouse of a couple with the same income (living-alone amount)');
+    }
+    // QPP and QPIP replace CPP for a Quebec resident: (60,000 - 3,500) * 6.30% + 0.43% * 60,000 = 3,817.5;
+    // at 100,000: 71,100 * 6.30% (4,479.3) + 4% * 10,400 (416) + 0.43% * 100,000 (430) = 5,325.3
+    near(t.cppContribution(60000, 0), 3817.5, 0.005, 'Quebec QPP + QPIP at $60k');
+    near(t.cppContribution(100000, 0), 5325.3, 0.005, 'Quebec QPP + QPIP at $100k');
+    st.province = 'on';
+    near(t.cppContribution(60000, 0), 3361.75, 0.005, 'CPP at $60k (56,500 * 5.95%)');
+    // The pension split sees family income: Quebec at 66 with an unequal couple, regret against a scan.
+    st.province = 'qc';
+    {
+      let worst = 0;
+      for (const [oa, ob, ea, eb] of [[90000, 20000, 40000, 5000], [60000, 30000, 30000, 0], [45000, 45000, 20000, 20000], [80000, 15000, 50000, 10000]]) {
+        const x = t.solvePensionSplit(oa, ob, ea, eb, 0, 68, 66);
+        const fam = oa + ob;
+        const cost = (y) => t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam) + t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam);
+        let best = Infinity;
+        for (let y = -0.5 * eb; y <= 0.5 * ea; y += 50) best = Math.min(best, cost(y));
+        worst = Math.max(worst, cost(x) - best);
+      }
+      if (worst > 3) fails.push('Quebec pension split regret $' + worst.toFixed(2) + ' against a $50 scan');
+    }
+    st.province = 'on';
+  }
 
   // --- Eligible dividend credit ------------------------------------------------
   st.province = 'on';
