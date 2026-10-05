@@ -2398,10 +2398,10 @@
       pooled: null,
       payroll: { pensionRate: 0.0595, premium: null },
       dividend: { eligible: 0.1 },
-      surtax: { first: 5818, firstRate: 0.2, second: 7446, secondRate: 0.16 },
+      surtax: { first: 5818, firstRate: 0.2, second: 7446, secondRate: 0.36 },
       healthPremium: true,
       indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: true, surtaxIndexed: true },
-      notes: 'Surtax of 20% on Ontario tax over $5,818 plus a further 16% over $7,446, computed on the tax after non-refundable credits and before the dividend tax credit (the order on CRA form ON428). The Ontario Health Premium (up to $900) is based on taxable income. Ontario tax reduction is a low-income item (not yet modeled).',
+      notes: 'Surtax: 20% of Ontario tax over $5,818 plus 36% of Ontario tax over $7,446 (both apply above the second threshold, a 56% surtax on the top slice), computed on the tax after non-refundable credits and before the dividend tax credit (the order on CRA form ON428). Until 7K the code used 16% for the second tier, a bug. The Ontario Health Premium (up to $900) is based on taxable income. Ontario tax reduction is a low-income item (not yet modeled).',
     },
     bc: {
       name: 'British Columbia',
@@ -2481,7 +2481,7 @@
       surtax: null,
       healthPremium: false,
       indexing: { bracketsIndexed: false, bpaIndexed: false, ageAmountIndexed: false, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: 'The basic personal amount, its phase-down (nil from $400,000 net income) and the brackets are frozen, not indexed (CRA T4127). The age amount is also unindexed for 2026 per TaxTips (factor 1.000, secondary).',
+      notes: 'The basic personal amount is $15,780 up to $200,000 of net income, reduced proportionally to nil at $400,000 (amount x (400,000 - income) / 200,000 between); it, the phase-down range and the brackets are frozen, not indexed (CRA T4127). The age amount is also unindexed for 2026 per TaxTips (factor 1.000, secondary).',
     },
     qc: {
       name: 'Quebec',
@@ -2581,7 +2581,7 @@
       surtax: null,
       healthPremium: false,
       indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: 'The basic personal amount is $11,188 for January to June and $15,000 from July 1, 2026; $13,094 is the time-weighted 2026 amount (backlog: not read on an NL Finance page). Modeled as indexed from $13,094; from 2027 the full-year amount is $15,000 (not modeled).',
+      notes: '2026 transitional basic personal amount: $13,094, reflecting $11,188 for January to June and $15,000 from July 1, 2026 (a time-weighted figure, not an indexed amount; backlog: not read on an NL Finance page). The full-year amount is $15,000 from 2027 (not modeled); the planner indexes $13,094 forward.',
     },
   };
   // PROVINCE_RULES:end

@@ -372,8 +372,8 @@ function caChecks() {
   {
     const on = t.PROVINCE_RULES.on;
     const base = refTax(200000, on.brackets) - on.creditRate * on.bpa.amount; // 18,443.9905 - 655.9445 = 17,788.046
-    const surtax = Math.max(0, base - 5818) * 0.2 + Math.max(0, base - 7446) * 0.16; // 2,394.0092 + 1,654.7273 = 4,048.7366
-    near(t.provincialTaxCA(200000, 0), 22586.7826, 0.005, 'Ontario with surtax (hand computed)');
+    const surtax = Math.max(0, base - 5818) * 0.2 + Math.max(0, base - 7446) * 0.36; // 2,394.0092 + 3,723.1366 = 6,117.1458 (20% and 36% both apply over 7,446)
+    near(t.provincialTaxCA(200000, 0), 24655.1918, 0.005, 'Ontario with surtax (hand computed)');
     near(t.provincialTaxCA(200000, 0), base + surtax + 750, 0.005, 'Ontario with surtax');
     if (!(surtax > 1000)) fails.push(`Ontario surtax should be material at $200k, got ${surtax}`);
   }

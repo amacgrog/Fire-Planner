@@ -64,7 +64,7 @@ function generate(rules) {
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Pension plan contribution | Indexing | Sources |');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Pension plan contribution (base rate; 4% second tier shared) | Indexing | Sources |');
   L.push('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
