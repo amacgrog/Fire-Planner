@@ -222,15 +222,14 @@ Each planner is one big IIFE. Core shape:
 - **State income tax (US, `STATE_RULES`, just above `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
   50 states and DC, matching the `#stateTax` options) and one generic evaluator, `stateIncomeTax(sources, filing,
   yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/state_rules.js` fails on
-  a missing field or a state missing from the table): `status` (`migrated` = carried over unverified, `source` null;
-  `researched` = `source` URL + `asOf` year), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
+  a missing field or a state missing from the table): `status` (always `researched`: `source` URL + `asOf` year; the `migrated` status of 7C is gone), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
   `creditThresholdsIndexed`, `retirementExclusionIndexed`, never one switch for the whole state: CA indexes its brackets, deduction and credits but not
   its $1 million surcharge, NY indexes nothing, WA indexes the deduction but not its $1 million tier; each `additions` entry has its own `indexed`;
-  a true flag scales that family by `taxIndexFactor`; all migrated rows are fully indexed), `statusAs` (which column `mfj`/`single`/`hoh`/`qss` read: HoH falls back to the
+  a true flag scales that family by `taxIndexFactor`), `statusAs` (which column `mfj`/`single`/`hoh`/`qss` read: HoH falls back to the
   single column and QSS to the joint one unless the row has its own `hoh` column; the old `FILING.state` family is gone),
   `tax` (`none`, `flat`, or `graduated` with `[start, rate]` columns), `surtax`, `base` (ordinary income yes/no, share
   of gains included, Social Security `exempt`/`taxed`/subtraction), `standardDeduction`, `exemption`, `retirementExclusion`
-  (kinds in `stateRetirementExclusion`; the migrated kinds are household-level quirks that per-person kinds replace),
+  (kinds in `stateRetirementExclusion`: `perPerson` and `agiPhasedShare`; the household-level kinds of 7C were removed in 7D),
   `credits`, `federalTaxSubtraction`, `localTax` (local income taxes are an accepted, documented gap) and `notes`. Mechanisms
   (all data, evaluator in `stateIncomeTax`): `additions` (a threshold surtax, an AGI step table, NY's `benefitRecapture`),
   `exemptionPhaseOut` and `dependentExemption`, the AGI-tested Social Security kind, per-person retirement kinds
@@ -239,14 +238,26 @@ Each planner is one big IIFE. Core shape:
   can take the state tax negative, as the ACTC can). Step tables are `[[lowerBound, value], ...]` per column. The state
   inputs come from `taxFor`'s `sources`: besides the household sums it carries per-person pensions and traditional draws
   (`pensionA/B`, `retirementA/B`; the discretionary draw is split by `profile.ownerShareA`, the account-ledger share, 0.5 if
-  absent), `ssBenefits`, `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
+  absent), `ssBenefits` (plus per-person `ssBenefitsA/B` and the taxable part split in proportion, `taxableSSA/B`; a one-person return reads slot A), `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
   `sources` at all for a no-tax state (`stateTaxActive()`): that path stays as fast as before. Each
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
-  deducts federal tax gets one lagged pass, 7D). The block between the `STATE_RULES:begin` / `end` comments is pure
-  literals so `scripts/gen-state-rules.js` can evaluate it. Six rows are `researched` (CA, NY, PA, CT, WA, TX; tests in
-  `tests/state_reference.js`); the other 45 are `migrated` simplified rows until 7D researches them. Researched rows follow the
+  deducts federal tax gets one lagged pass, 7D). 7D mechanisms (all data, evaluator in `stateIncomeTax`, hand-computed cases in `tests/state_mechanisms.js`): `schedule` (year-effective
+  rule sets: `[{ fromYear, baseYear?, ...overrides }]`, each building on the one before; a scheduled family holds statutory dollars of its
+  base year and indexes from there, `base / taxIndexFactor(baseYear - currentYear)`; only unconditional enacted changes, never revenue
+  triggers), `standardDeductionPhase` (`stepDown` / `linear` by state AGI), `seniorExemption` (per filer, optional AGI phase-out),
+  `dependentExemption` as a number or an AGI-tiered table, `federalConformity` (the state deducts the federal standard deduction, optionally
+  with the 65+ add-on and the senior deduction), additions with a `threshold` per column, and the per-person `perPerson` retirement kind
+  now carries `applies` (pension / traditional), `tiers` (age-tiered caps), `reducedBy` (the filer's Social Security subtraction or all
+  benefits received uses up the same cap) and `share` (an AGI step share). Second set: Social Security kinds `ageAgiTiered` (per filer by age, with an AGI limit and a cap over it),
+  `agiShare` and `agiPhaseOut`; credits `incomeTestedCredit` and `ssCredit`; `base.gainsRate` / `gainsDeduction` (gains taxed separately or reduced by a dollar
+  exclusion); `federalTaxSubtraction` as `{ kind: 'lagged', placement, cap, phase }` (taxFor runs one extra federal pass with state tax zero, only for a row that
+  deducts federal tax: `stateNeedsFederalTax`, `federalLiabilityForState`; the liability excludes NIIT, payroll tax and the ACTC; the small SALT-feedback
+  inconsistency is accepted and named in the row); and `localTax: { kind: 'flat', rate }` (MD and IN only, a flat county rate on the state taxable income, which
+  feeds the federal SALT deduction like the state tax). Third set: `exemptionPhaseOut` kind `linear` (every exemption, the filers' and `dependent` per child, loses `rate` x the federal AGI over `start`), `dependentExemption` `{ kind: 'afterFirst', amount }`, a `seniorExemption` phase-out with a rate per column and `basis: 'federal'`, and credit kind `childStepCredit` (per qualifying child, from a step table of the federal AGI). Circuit-breaker credits are deliberately not built (owner decision). The block between the `STATE_RULES:begin` / `end` comments is pure
+  literals so `scripts/gen-state-rules.js` can evaluate it. Rows are `researched` (the six reference states CA, NY, PA, CT, WA, TX with tests in
+  `tests/state_reference.js`; the 7D states with hand-computed households in `tests/state_7d_households.js`) and now all 51 rows are researched. Rows follow the
   state's real indexing (`none` for NY, PA and CT; `cpi` for CA and WA), HoH and QSS columns, and income tests; their `notes` text is what the
   planner shows under the selector. The generator also lists every parameter of the researched rows. Evaluating it: that script writes `docs/state-tax-rules.md` (the owner's review
   artifact: one row per jurisdiction with every rule and its source; `npm run gen:states`), and `npm test` fails if the file is

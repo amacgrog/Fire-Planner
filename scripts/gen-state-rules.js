@@ -41,19 +41,28 @@ function baseText(b) {
   const parts = [];
   parts.push(b.ordinary ? 'wages, pensions, withdrawals' : 'ordinary income not taxed');
   parts.push(b.gainsIncluded === 1 ? 'gains in full' : `gains ${pct(b.gainsIncluded)} included`);
+  if (b.gainsRate !== null) parts.push(Array.isArray(b.gainsRate) ? `gains taxed at a rate per bracket (${b.gainsRate.map((x) => pct(x)).join(' / ')})` : `gains taxed separately at ${pct(b.gainsRate)}`);
+  if (b.gainsDeduction > 0) parts.push(`${money(b.gainsDeduction)} gains exclusion`);
   const ss = b.socialSecurity;
-  parts.push(ss === 'exempt' ? 'Social Security exempt' : ss === 'taxed' ? 'taxable Social Security included' : ss.kind === 'agiTested' ? `Social Security exempt below an AGI, else ${pct(ss.taxedShareOfBenefits)} of benefits taxed` : `Social Security subtracted (all at ${ss.seniorAge}+, else up to ${money(ss.belowSeniorCap)})`);
+  const ssText = {
+    agiTested: () => `Social Security exempt below an AGI, else ${pct(ss.taxedShareOfBenefits)} of benefits taxed`,
+    agiShare: () => 'Social Security subtracted by an AGI step table',
+    agiPhaseOut: () => 'Social Security subtraction phased out by AGI',
+    ageAgiTiered: () => 'Social Security subtracted by age and AGI tiers (per filer)',
+    subtraction: () => `Social Security subtracted (all at ${ss.seniorAge}+, else up to ${money(ss.belowSeniorCap)})`,
+  };
+  parts.push(ss === 'exempt' ? 'Social Security exempt' : ss === 'taxed' ? 'taxable Social Security included' : ssText[ss.kind]());
   return parts.join('; ');
 }
 function exclusionText(e) {
   switch (e.kind) {
     case 'none': return 'none';
-    case 'full': return 'all pension and traditional income';
-    case 'shareByAge': return `all, scaled by the share of filers ${e.minAge}+`;
-    case 'perEligibleCap': return `up to ${money(e.cap)} per filer ${e.minAge}+`;
-    case 'perEligibleCapSeniorTier': return `up to ${money(e.cap)} per filer ${e.minAge}+, ${money(e.seniorCap)} if anyone is ${e.seniorAge}+`;
-    case 'seniorCap': return `up to ${money(e.cap)} per filer ${e.seniorAge}+`;
-    case 'perPerson': return `per filer: pension from ${e.pensionMinAge}, traditional withdrawals from ${e.traditionalMinAge}${e.cap === null ? '' : ', up to ' + money(e.cap)}`;
+    case 'perPerson': {
+      const buckets = [e.applies.pension ? `pension from ${e.pensionMinAge}` : '', e.applies.traditional ? `traditional withdrawals from ${e.traditionalMinAge}` : ''].filter(Boolean).join(', ');
+      const caps = e.tiers.map(([age, cap]) => (cap === null ? `no limit from ${age}` : `${money(cap)} from ${age}`)).join(', ');
+      const extras = [e.reducedBy === 'none' ? '' : `reduced by ${e.reducedBy === 'benefitsReceived' ? 'all benefits received' : 'the Social Security subtraction'}`, e.share ? 'times an AGI share' : ''].filter(Boolean).join(', ');
+      return `per filer: ${buckets}; cap ${caps}${extras ? '; ' + extras : ''}`;
+    }
     case 'agiPhasedShare': return 'all, phased out by AGI (step table)';
     default: return JSON.stringify(e);
   }
@@ -71,14 +80,16 @@ function indexingText(ix, long) {
 }
 function additionsText(list) {
   if (!list.length) return 'none';
-  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${money(a.threshold)}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
+  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${typeof a.threshold === 'number' ? money(a.threshold) : Object.entries(a.threshold).map(([k, v]) => k + ' ' + money(v)).join(' / ')}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
 }
 function deductionText(r) {
   const col = (k) => {
     const s = r.standardDeduction[k], e = r.exemption[k];
     return s || e ? `${money(s)}${e ? ' + ' + money(e) + ' exemption' : ''}` : '0';
   };
-  return Object.keys(r.standardDeduction).map((k) => `${k} ${col(k)}`).join(', ');
+  const conf = r.federalConformity.standardDeduction ? 'federal standard deduction' : '';
+  const extras = [conf, r.standardDeductionPhase.kind === 'none' ? '' : 'phased by AGI', r.seniorExemption.kind === 'none' ? '' : 'senior exemption', r.schedule.length ? 'scheduled changes ' + r.schedule.map((s) => s.fromYear).join(', ') : '', r.federalTaxSubtraction === 'none' ? '' : 'federal income tax deducted', r.localTax === 'notModeled' ? '' : `local tax ${pct(r.localTax.rate)}`].filter(Boolean);
+  return Object.keys(r.standardDeduction).map((k) => `${k} ${col(k)}`).join(', ') + (extras.length ? ' (' + extras.join('; ') + ')' : '');
 }
 function sourceText(r) {
   return r.source ? `[${r.status}, ${r.sourceKind}, ${r.asOf}](${r.source})` : r.status + ' (no source recorded)';
@@ -90,10 +101,10 @@ function generate(rules) {
   L.push('# State income tax rules (generated)');
   L.push('');
   L.push('Generated by `node scripts/gen-state-rules.js` from `STATE_RULES` in `Planner_US.html`; do not edit by hand.');
-  L.push('`npm test` fails if this file is stale. Amounts are 2026 dollars. `migrated` rows are the pre-7C simplified figures,');
-  L.push('carried over unverified (no source); `researched` rows cite the source and as-of year shown.');
+  L.push('`npm test` fails if this file is stale. Amounts are 2026 dollars. Every row cites its source and as-of year;');
+  L.push('a source marked secondary was not read in the original (see the Verification backlog in docs/next-batches-plan.md).');
   L.push('');
-  L.push(`${codes.length} jurisdictions: ${codes.filter((c) => rules[c].status === 'researched').length} researched, ${codes.filter((c) => rules[c].status === 'migrated').length} migrated.`);
+  L.push(`${codes.length} jurisdictions: ${codes.filter((c) => rules[c].status === 'researched').length} researched.`);
   L.push('');
   L.push('**Not modeled (documented gap):** local income taxes (for example NYC, parts of PA, OH, MD and IN).');
   L.push('');
@@ -124,7 +135,7 @@ function generate(rules) {
       L.push(`### ${c.toUpperCase()} ${r.name}`);
       L.push('');
       L.push(`Indexing: ${indexingText(r.indexing, true)}. Columns: ${Object.keys(r.standardDeduction).join(', ')}; head of household reads ${r.statusAs.hoh}, surviving spouse ${r.statusAs.qss}.`);
-      for (const [label, value] of [['Social Security', r.base.socialSecurity], ['Retirement exclusion', r.retirementExclusion], ['Exemption step-down', r.exemptionPhaseOut], ['Dependent exemption', r.dependentExemption]]) {
+      for (const [label, value] of [['Social Security', r.base.socialSecurity], ['Retirement exclusion', r.retirementExclusion], ['Exemption step-down', r.exemptionPhaseOut], ['Dependent exemption', r.dependentExemption], ['Standard deduction phase', r.standardDeductionPhase], ['Senior exemption', r.seniorExemption], ['Federal conformity', r.federalConformity.standardDeduction ? r.federalConformity : { kind: 'none' }], ['Scheduled changes', r.schedule.length ? r.schedule : 0]]) {
         if (typeof value === 'object' && value !== null && value.kind === 'none') continue;
         if (value === 'exempt' || value === 0) continue;
         L.push(`- ${label}: \`${JSON.stringify(value)}\``);

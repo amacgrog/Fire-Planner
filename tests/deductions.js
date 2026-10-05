@@ -140,14 +140,14 @@ function checks() {
   near(t.taxFor(prof({ filing: 'mfj', ageA: 55, ageB: 55, otherA: 100000, pensionA: 100000, propertyTax: 12000, mortgageInterest: 25000 }), 0, 0), 7064, 'MFJ itemizes');
   // Same, interest 15,000: itemized 27,000 < 32,200 -> standard; taxable 67,800: 2,480 + 12% x 43,000 = 5,160 -> 7,640.
   near(t.taxFor(prof({ filing: 'mfj', ageA: 55, ageB: 55, otherA: 100000, pensionA: 100000, propertyTax: 12000, mortgageInterest: 15000 }), 0, 0), 7640, 'MFJ takes the standard deduction');
-  // State income tax counts toward SALT: Illinois flat 4.95% on 100,000 wages = 4,950.
-  //   itemized = 4,950 + 12,000 + 20,000 = 36,950; taxable 63,050: 2,480 + 12% x 38,250 = 4,590 -> 7,070; + 4,950.
+  // State income tax counts toward SALT: Illinois flat 4.95% on 100,000 wages less the 5,850 joint exemption = 4,660.425, less the 5% property tax credit (600) = 4,060.425.
+  //   itemized = 4,060.425 + 12,000 + 20,000 = 36,060.425; taxable 63,939.575: 2,480 + 12% x 39,139.575 (4,696.749) = 7,176.749; + 4,060.425 = 11,237.174.
   st.stateTax = 'il';
-  near(t.taxFor(prof({ filing: 'mfj', ageA: 55, ageB: 55, otherA: 100000, wageA: 100000, propertyTax: 12000, mortgageInterest: 20000 }), 0, 0), 12020, 'state tax inside SALT');
+  near(t.taxFor(prof({ filing: 'mfj', ageA: 55, ageB: 55, otherA: 100000, wageA: 100000, propertyTax: 12000, mortgageInterest: 20000 }), 0, 0), 11237.174, 'state tax inside SALT');
   // Pre-marriage two-filer split: each return gets half of 24,000 property tax and 20,000 interest.
-  //   Each: 4,950/2... wages 50,000 each -> state 2,475; itemized = 2,475 + 12,000 + 10,000 = 24,475 > 16,100;
-  //   taxable 25,525: 1,240 + 12% x 13,125 = 1,575 -> 2,815 each; state 2,475 each.
-  near(t.taxFor(prof({ filing: 'single', ageA: 55, ageB: 55, otherA: 50000, otherB: 50000, wageA: 50000, wageB: 50000, propertyTax: 24000, mortgageInterest: 20000 }), 0, 0), 2 * (2815 + 2475), 'two filers split housing deductions');
+  //   Each: wages 50,000, exemption 2,925, state (47,075 x 4.95%) 2,330.2125 less the 5% credit on 12,000 (600) = 1,730.2125; itemized = 1,730.2125 + 12,000 + 10,000 = 23,730.2125 > 16,100;
+  //   taxable 26,269.7875: 1,240 + 12% x 13,869.7875 (1,664.3745) = 2,904.3745; state 1,730.2125 -> 4,634.587 each.
+  near(t.taxFor(prof({ filing: 'single', ageA: 55, ageB: 55, otherA: 50000, otherB: 50000, wageA: 50000, wageB: 50000, propertyTax: 24000, mortgageInterest: 20000 }), 0, 0), 2 * 4634.587, 'two filers split housing deductions');
   st.stateTax = 'tx';
   // Gains use the same (larger) deduction: single 70, 60,000 pension + 60,000 long-term gain.
   //   MAGI 120,000 -> senior 6,000 - 6% x 45,000 = 3,300; deduction 16,100 + 2,050 + 3,300 = 21,450.

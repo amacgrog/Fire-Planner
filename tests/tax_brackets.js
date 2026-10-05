@@ -153,43 +153,46 @@ function usChecks() {
 
   // Hand-worked literals for the states whose logic is hand-written.
   near(stateTax('tx', src({ wages: 500000 }), 'single'), 0, 1e-9, 'TX no tax');
-  near(stateTax('ma', src({ wages: 100000 }), 'single'), 5000, 0.005, 'MA 5%');
-  // MA surtax: 4% above 1,107,750 -> 60,000 + 3,690
-  near(stateTax('ma', src({ wages: 1200000 }), 'single'), 63690, 0.005, 'MA surtax');
+  // MA single, wages 100,000: the $4,400 personal exemption comes off first, 5% of 95,600.
+  near(stateTax('ma', src({ wages: 100000 }), 'single'), 4780, 0.005, 'MA 5%');
+  // MA surtax: taxable 1,195,600 -> 5% = 59,780, plus 4% of the part above 1,107,750 (87,850) = 3,514
+  near(stateTax('ma', src({ wages: 1200000 }), 'single'), 63294, 0.005, 'MA surtax');
   // CA single $100k (2025 figures): 94,294 after the 5,706 deduction
   //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,006.01 = 5,207.98; less the $153 personal exemption credit = 5,054.98
   near(stateTax('ca', src({ wages: 100000 }), 'single'), 5054.98, 0.005, 'CA single $100k');
-  // NJ single $100k: 280 + 262.50 + 175 + 1,933.75 + 1,592.50 = 4,243.75
-  near(stateTax('nj', src({ wages: 100000 }), 'single'), 4243.75, 0.005, 'NJ single $100k');
-  // WI single $100k: 85,340 after 13,960 + 700 -> 528.85 + 1,620.96 + 1,769.67 = 3,919.48
-  near(stateTax('wi', src({ wages: 100000 }), 'single'), 3919.48, 0.005, 'WI single $100k');
+  // NJ single $100k: the $1,000 exemption first (99,000): 280 + 262.50 + 175 + 1,933.75 + 24,000 x 6.37% (1,528.80) = 4,180.05
+  near(stateTax('nj', src({ wages: 100000 }), 'single'), 4180.05, 0.005, 'NJ single $100k');
+  // WI single $100k (2025 amounts): standard deduction on the straight-line approximation 13,560 x (1 - 80,930 / 133,930) = 5,366.10, exemption 700 -> 93,933.90:
+  //   14,680 x 3.5% (513.80) + 35,800 x 4.4% (1,575.20) + 43,453.90 x 5.3% (2,303.06) = 4,392.06
+  near(stateTax('wi', src({ wages: 100000 }), 'single'), 4392.06, 0.005, 'WI single $100k');
   // WA capital-gains tax: nothing on wages; 7% above 278,000, 9.9% above 1M of taxable gain (ESSB 5813, 2025).
   near(stateTax('wa', src({ wages: 500000 }), 'single'), 0, 1e-9, 'WA wages untaxed');
   near(stateTax('wa', src({ gains: 378000 }), 'single'), 7000, 0.005, 'WA gains 7%');
   near(stateTax('wa', src({ gains: 1378000 }), 'single'), 79900, 0.005, 'WA gains 9.9% tier'); // 70,000 + 100,000 x 9.9%
-  // CO 4.4% flat.
-  near(stateTax('co', src({ wages: 100000 }), 'single'), 4400, 0.005, 'CO flat 4.4%');
+  // CO 4.4% flat on federal taxable income: (100,000 - 16,100) x 4.4% = 3,691.60
+  near(stateTax('co', src({ wages: 100000 }), 'single'), 3691.6, 0.005, 'CO flat 4.4%');
   // IL / PA do not tax pension or traditional withdrawals.
   for (const code of ['il', 'pa']) {
     // (per-person fields too: PA reads each filer's own pension and traditional income)
     near(stateTax(code, src({ pension: 50000, retirement: 30000, ages: [70], pensionA: 50000, retirementA: 30000 }), 'single'), 0, 1e-9, `${code.toUpperCase()} retirement income excluded`);
     near(
       stateTax(code, src({ wages: 40000, pension: 50000, ages: [70], pensionA: 50000 }), 'single'),
-      stateTax(code, src({ wages: 40000 }), 'single'),
+      stateTax(code, src({ wages: 40000, ages: [70] }), 'single'),
       1e-9,
       `${code.toUpperCase()} retirement income adds no tax on top of wages`,
     );
   }
   // GA excludes up to 65,000 of retirement income per person at 65+.
-  near(stateTax('ga', src({ pension: 50000, ages: [66] }), 'single'), 0, 1e-9, 'GA 65+ pension excluded');
+  near(stateTax('ga', src({ pension: 50000, pensionA: 50000, ages: [66] }), 'single'), 0, 1e-9, 'GA 65+ pension excluded');
 
   // Every state with a bracket table or flat rate vs. a reference built from
   // its own table (deduction, then per-slice sum from explicit lower bounds).
   // Rows whose tax is just the table (no additions, credits, step-downs or dependent rules): those are checked against the
   // reference calculation below; the rest are covered by hand-computed cases in state_mechanisms.js and state_reference.js.
-  const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary;
+  const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary && !r.federalConformity.standardDeduction && r.seniorExemption.kind === 'none' && r.localTax === 'notModeled';
   const tableStates = Object.entries(t.STATE_RULES).filter(([, r]) => r.tax.kind !== 'none' && plainRow(r));
-  if (tableStates.length < 25) fails.push(`expected 25+ table-driven states, found ${tableStates.length}`);
+  // As rows gain credits, exemptions and conformity they leave this plain check for hand-computed cases (state_7d_households.js).
+  if (tableStates.length < 1) fails.push(`expected a table-driven state, found ${tableStates.length}`);
   for (const [code, rule] of tableStates) {
     if (['sc', 'co', 'nc', 'ma', 'wi', 'nj', 'wa'].includes(code)) continue; // hand-written above
     for (const filing of ['single', 'mfj']) {
@@ -214,12 +217,19 @@ function usChecks() {
   // married never owes more than single on the same single-earner income,
   // and the whole schedule scales with inflation indexing.
   for (const code of Object.keys(t.STATE_RULES)) {
-    const recaptures = t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture');
+    // Rows with deliberate cliffs: NY's recapture steps, an exemption that steps down with income (Maryland), an exemption credit that ends at an income (Oregon).
+    const recaptures =
+      t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture') ||
+      t.STATE_RULES[code].exemptionPhaseOut.kind !== 'none' ||
+      t.STATE_RULES[code].credits.some((c) => c.kind === 'exemptionCredits' && c.phaseOut.reduction >= 100000);
     for (const filing of ['single', 'mfj']) {
-      let prev = 0;
+      // A refundable per-person credit with no income test (Idaho's food tax credit) pays out at zero income: the tax starts negative.
+      const atZero = stateTax(code, src({ wages: 0 }), filing),
+        refundsAtZero = atZero < -1e-9;
+      let prev = refundsAtZero ? atZero : 0;
       for (let inc = 0; inc <= 1500000; inc += 2500) {
         const tax = stateTax(code, src({ wages: inc }), filing);
-        if (tax < -1e-9) fails.push(`${code} ${filing} ${inc}: negative tax ${tax}`);
+        if (tax < -1e-9 && !refundsAtZero) fails.push(`${code} ${filing} ${inc}: negative tax ${tax}`);
         if (tax < prev - 1e-6) fails.push(`${code} ${filing} ${inc}: tax fell from ${prev} to ${tax}`);
         // New York's recapture phases the benefit of the lower brackets back in over $50,000 of AGI with the band chosen by taxable
         // income, so its tax has real steps (and marginal rates well above the top rate inside a phase-in); the rest must not jump.
@@ -237,6 +247,8 @@ function usChecks() {
     // (Washington: deduction indexed, its $1 million tier not) are covered in state_mechanisms.js.
     const flags = Object.values(t.STATE_RULES[code].indexing);
     if (!flags.every(Boolean) && flags.some(Boolean)) continue;
+    // A row with scheduled changes changes its own figures from the scheduled year; its cases are in state_7d_households.js.
+    if (t.STATE_RULES[code].schedule.length) continue;
     const indexed = flags.every(Boolean);
     for (const filing of ['single', 'mfj']) {
       for (const inc of [30000, 90000, 250000]) {
