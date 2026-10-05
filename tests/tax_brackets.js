@@ -482,6 +482,23 @@ function caChecks() {
       for (let y = -0.5 * eB; y <= 0.5 * eA + 1e-9; y += 250)
         if (combined(x) > combined(y) + 1e-6) fails.push(`split ${oA}/${oB}: transfer ${x} costs more than ${y}`);
     }
+    // Regret against a $50 brute-force scan over 360 households with a 65+ partner: the clawback makes
+    // combined tax non-convex (flat plateaus with narrow dips), so the search is grid + refine, not exact.
+    st.province = 'on';
+    let worst = 0;
+    for (const pa of [0, 10000, 25000, 40000, 60000, 90000])
+      for (const pb of [0, 10000, 25000, 40000, 60000])
+        for (const oa of [0, 20000, 40000, 70000])
+          for (const ob of [0, 20000, 40000]) {
+            const oA = pa + oa,
+              oB = pb + ob;
+            const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68);
+            const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y);
+            let best = Infinity;
+            for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
+            worst = Math.max(worst, combined(x) - best);
+          }
+    if (!(worst < 3)) fails.push(`pension split regret up to $${worst.toFixed(2)} a year against a brute-force scan`);
   }
   return fails;
 }

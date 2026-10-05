@@ -2299,9 +2299,15 @@ merge (`a123c45`).
   person's half (or all, single) of the discretionary RRSP/RRIF draw as RRIF income (owner decision: count it).
   A profile without `ageA`/`penA` (the older literals) reads as under 65 with no pension.
 - `solvePensionSplit` now passes ages and the transferred pension income, so the split sees both credits. Because
-  the age-amount clawback makes combined tax non-convex for a 65+ filer, the ternary search can end in a local
-  minimum; when either partner is 65+ it also tries the two end points and returns the cheapest (not done under 65, so
-  those results are untouched). `window.__test_tax` now exports `solvePensionSplit`.
+  the age-amount clawback makes combined tax non-convex for a 65+ filer (flat plateaus with narrow dips), a plain ternary
+  search can end in the wrong place. When either partner is 65+ it first scans 48 cells across the transfer range,
+  refines inside the best cell (20 iterations), and also tries the equal-income transfer (where the narrow dip often is),
+  returning the cheapest. Under 65 the original 40-iteration ternary search is untouched, so those results are byte-identical.
+  Measured against a $50 brute-force scan over 360 households with a 65+ partner (ages 70 / 68, Ontario): end points only
+  (first version) 20 of 360 worse than the scan, worst $144 a year; grid of 24 cells 13, worst $144; grid of 48 cells plus the
+  equal-income candidate, 9 worse, worst $1.89 a year (total $7.87 over all 360). Cost with pension splitting on
+  (200 `simulate()`, interleaved, median of 7): 563 ms before the grid, 584 ms after (+4%); a 96-cell grid with 40 iterations was
+  +86% and was rejected. The split itself is the dominant cost of a split-enabled run (about 6x a run without it), which predates 7J. `window.__test_tax` now exports `solvePensionSplit`.
 
 **Simplifications (named)**: net income for the clawback is the person's own income after the split, with the 50%
 gains inclusion and grossed-up dividends, and the OAS recovery tax is not deducted from it (CRA does); the age amount
@@ -2326,7 +2332,7 @@ Engine level: every Canada scenario in the snapshot grid moves from year 0 (work
 default household, which is in the second bracket; 65+ rows down by roughly $3k to $9k a year by the late 70s, partly
 through the path: lower tax leaves more in the accounts). Example, `std default fhsa`: year 0 tax 39,466 -> 40,940,
 age 68 22,711 -> 19,400, age 78 20,319 -> 13,201, age 88 23,604 -> 14,670; final investable 1,518,380 -> 2,316,535.
-Intended baseline change: `tests/snapshots/canada.json` (every scenario) and `tests/snapshots/ui_canada.json` (the
+Intended baseline change: `tests/snapshots/canada.json` (every scenario; the grid-plus-refine split search then moved 25 more, all pension-splitting scenarios, by small amounts) and `tests/snapshots/ui_canada.json` (the
 rendered-text hashes; control count, MCP schema and state hashes unchanged). US snapshots byte-identical.
 
 **Timing** (Canada, interleaved same-process, 300 `simulate()` per round, median of 7, previous commit's file vs
@@ -2338,7 +2344,7 @@ reference; age amount at $40k (2,007.60 federal), $60k (5,188.533, partly clawed
 the pension credit capped at $2,000 and below the cap; age amount plus pension; the zero floor; indexing (age amount
 and threshold scale, pension amount does not); monotone and cliff-free in every province at 66 with a pension; Quebec
 abatement after the credits; `taxFor` per-person ages and pension, the RRSP-draw rule at 66 and at 60, a profile with no ages;
-and `solvePensionSplit` on four 65+ households against a $250 grid. The dividend-credit literal moved from 13,252.5707 to
+and `solvePensionSplit` on four 65+ households against a $250 grid, plus the 360-household regret bound (under $3 a year against a $50 scan). The dividend-credit literal moved from 13,252.5707 to
 13,989.2357 (the BPA change). `tests/historical_tax_indexing.js`: Canada's tolerance is 3e-3 instead of 1e-6, because the
 $2,000 pension amount is not indexed (a 65+ filer's real tax drifts with inflation by that much).
 

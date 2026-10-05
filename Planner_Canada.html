@@ -2765,30 +2765,45 @@
     const combinedTax = (x) =>
       personTaxCA(otherA - x, 0, yearIndex, 0, ageA, eligibleA - x) +
       personTaxCA(otherB + x, 0, yearIndex, 0, ageB, eligibleB + x);
-    const loEnd = lo,
-      hiEnd = hi;
-    for (let i = 0; i < 40; i++) {
+    // The age-amount clawback makes combined tax non-convex for a 65+ filer
+    // (its slope drops back where the clawback ends), so a ternary search over
+    // the whole range can settle in the wrong dip. With a 65+ partner, scan a
+    // coarse grid first and run the ternary search inside the best cell. Where
+    // both partners are on the same marginal rate the tax is flat over a wide
+    // stretch, with a narrow dip where their incomes are equal that neither the
+    // grid nor the search can see, so that transfer is also a candidate.
+    const search65 = ageA >= 65 || ageB >= 65,
+      loAll = lo,
+      hiAll = hi;
+    let iterations = 40;
+    if (search65) {
+      iterations = 20; // refining inside one grid cell
+      const cells = 48,
+        step = (hi - lo) / cells;
+      let bestI = 0,
+        bestTax = Infinity;
+      for (let i = 0; i <= cells; i++) {
+        const tax = combinedTax(lo + step * i);
+        if (tax < bestTax) {
+          bestTax = tax;
+          bestI = i;
+        }
+      }
+      const cellLo = lo + step * Math.max(0, bestI - 1),
+        cellHi = lo + step * Math.min(cells, bestI + 1);
+      lo = cellLo;
+      hi = cellHi;
+    }
+    for (let i = 0; i < iterations; i++) {
       const m1 = lo + (hi - lo) / 3,
         m2 = hi - (hi - lo) / 3;
       if (combinedTax(m1) < combinedTax(m2)) hi = m2;
       else lo = m1;
     }
-    const best = (lo + hi) / 2;
-    // The age-amount clawback makes combined tax non-convex for a 65+ filer, so
-    // the search can settle on a local minimum: also try the two end points.
-    if (ageA >= 65 || ageB >= 65) {
-      let bestX = best,
-        bestTax = combinedTax(best);
-      for (const x of [loEnd, hiEnd]) {
-        const tax = combinedTax(x);
-        if (tax < bestTax) {
-          bestTax = tax;
-          bestX = x;
-        }
-      }
-      return bestX;
-    }
-    return best;
+    const found = (lo + hi) / 2;
+    if (!search65) return found;
+    const equal = Math.min(hiAll, Math.max(loAll, (otherA - otherB) / 2));
+    return combinedTax(equal) < combinedTax(found) ? equal : found;
   }
   // CPP contributions (employee side): 5.95% on earnings between the basic
   // exemption and the YMPE, plus 4% (CPP2) between the YMPE and YAMPE. EI
