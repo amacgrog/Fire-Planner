@@ -62,7 +62,9 @@ function assertClose(actual, expected, label) {
 // `benefitPerYear` is the tax-free income-tested benefit a person with no income receives each year. Canada: the
 // Canada Groceries and Essentials Benefit pays a single person with no income 445 a year (Income Tax Act
 // 122.5(3.005) as enacted by Bill C-19: 445 for the individual; the 2 percent single supplement is nil at zero
-// income; no indexation here because inflation is 0). The US has none.
+// income), and Ontario, the planner default province, adds the Ontario Sales Tax Credit of 378 for one adult
+// (CRA Ontario page: 378 per adult, reduced only above 29,047); no indexation here because inflation is 0.
+// The US has none.
 async function testDrawdown(file, label, ssFields, benefitPerYear = 0) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -338,7 +340,7 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
   allErrors.push(...(await testDrawdown('Planner_Canada.html', 'Canada', [
     ['cppMonthlyA', 0],
     ['oasMonthlyA', 0],
-  ], 445)));
+  ], 445 + 378)));
   allErrors.push(...(await testCompounding('Planner_Canada.html', 'Canada', [
     ['cppMonthlyA', 0],
     ['oasMonthlyA', 0],

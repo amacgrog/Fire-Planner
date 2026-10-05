@@ -3168,6 +3168,87 @@
         BEN.ccb = Math.max(0, sum - red);
       }
     }
+    // Provincial paid benefits. The province row set is small and fixed, so dispatch is a switch on the code.
+    switch (state.province) {
+      case 'on': {
+        // Ontario Sales Tax Credit: like the CGEB, per adult and child under 19, reduced over a threshold.
+        const R = BENEFIT_RULES.ostc;
+        let n = 0;
+        for (let i = 0; i < kids.length; i++) if (kids[i].age <= R.childMaxAge) n++;
+        const people = (couple ? 2 : 1) + n,
+          from = (couple || n > 0 ? R.reduction.from : R.reduction.fromSingle) * f;
+        BEN.provCredit = Math.max(0, R.adult * f * people - R.reduction.rate * Math.max(0, fam - from));
+        // Ontario Child Benefit: per child under 18, family total reduced over a threshold.
+        const O = BENEFIT_RULES.ocb;
+        let m = 0;
+        for (let i = 0; i < kids.length; i++) if (kids[i].age <= O.maxAge) m++;
+        if (m > 0) BEN.provChild = Math.max(0, O.amountPerChild * f * m - O.reduction.rate * Math.max(0, fam - O.reduction.from * f));
+        break;
+      }
+      case 'bc': {
+        // BC Family Benefit: per child by order, a floor between the two thresholds, a second reduction above.
+        const R = BENEFIT_RULES.bcfb;
+        let m = 0;
+        for (let i = 0; i < kids.length; i++) if (kids[i].age <= R.maxAge) m++;
+        if (m > 0) {
+          let max = 0,
+            floor = 0;
+          for (let i = 0; i < m; i++) {
+            max += R.amounts[Math.min(i, 2)];
+            floor += R.floors[Math.min(i, 2)];
+          }
+          if (!couple) max += R.singleParentFirstChild;
+          max *= f;
+          floor *= f;
+          const t1 = R.reduction.from1 * f,
+            t2 = R.reduction.from2 * f;
+          let v = max - R.reduction.rate * Math.max(0, fam - t1);
+          if (fam <= t2) v = Math.max(v, floor);
+          else v = Math.max(0, floor - R.reduction.rate * (fam - t2));
+          BEN.provChild = Math.max(0, v);
+        }
+        break;
+      }
+      case 'ab': {
+        // Alberta Child and Family Benefit: base reduced by child count over a threshold, plus a working component.
+        const R = BENEFIT_RULES.acfb;
+        let m = 0;
+        for (let i = 0; i < kids.length; i++) if (kids[i].age <= R.maxAge) m++;
+        if (m > 0) {
+          const idx = Math.min(m, 4) - 1,
+            earned = (profile.earnedA || 0) + (couple ? profile.earnedB || 0 : 0);
+          const base = Math.max(0, R.baseMax[idx] * f - R.baseRate[idx] * Math.max(0, fam - R.baseFrom * f));
+          const phaseIn = Math.min(R.workingMax[idx] * f, R.workingPhaseInRate * Math.max(0, earned - R.workingPhaseInFrom * f));
+          const working = Math.max(0, phaseIn - R.workingRate[idx] * Math.max(0, fam - R.workingFrom * f));
+          BEN.provChild = base + working;
+        }
+        // Alberta Seniors Benefit: needs a partner (or the person) receiving OAS; income is net income less OAS,
+        // GIS and up to 3,600 of employment income; a couple is one benefit on combined income.
+        const S = BENEFIT_RULES.absb;
+        if (pA || pB) {
+          const used = Math.max(0, fam - oasA - oasB - Math.min(S.employmentDeduction * f, (profile.earnedA || 0) + (couple ? profile.earnedB || 0 : 0)));
+          const row = couple ? S.couple : S.single;
+          BEN.provSenior = Math.max(0, row.max * f - row.rate * used);
+        }
+        break;
+      }
+      case 'qc': {
+        // Quebec Family Allowance: per child (plus a single-parent supplement once), linear between the reduction
+        // threshold and the income where the minimum is reached.
+        const R = BENEFIT_RULES.qcfa;
+        let m = 0;
+        for (let i = 0; i < kids.length; i++) if (kids[i].age <= R.maxAge) m++;
+        if (m > 0) {
+          const from = (couple ? R.from.twoParent : R.from.oneParent) * f,
+            to = R.to * f,
+            share = fam <= from ? 0 : fam >= to ? 1 : (fam - from) / (to - from); // 0 = maximum, 1 = minimum
+          let v = m * (R.perChild.max - (R.perChild.max - R.perChild.min) * share);
+          if (!couple) v += R.singleParentSupplement.max - (R.singleParentSupplement.max - R.singleParentSupplement.min) * share;
+          BEN.provChild = v * f;
+        }
+        break;
+      }
+    }
     BEN.total = BEN.gis + BEN.allowance + BEN.ccb + BEN.cgeb + BEN.provChild + BEN.provSenior + BEN.provCredit;
     return BEN.total;
   }

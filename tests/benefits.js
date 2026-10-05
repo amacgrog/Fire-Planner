@@ -159,6 +159,78 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   // No children: nothing.
   near((await ben(prof({ otherA: 20000, ageA: 40 }))).ccb, 0, 0, 'no children, no CCB');
 
+  // --- Provincial rows. Province is read from state; set it for each case. ---
+  const withProv = (code, p, g = 0, tr = 0) => page.evaluate(({ code, p, g, tr }) => {
+    const s = window.__test_getState();
+    const saved = s.province;
+    s.province = code;
+    window.__test_tax.benefitsFor(p, g, tr);
+    const out = window.__test_tax.getBenefits();
+    s.province = saved;
+    return out;
+  }, { code, p, g, tr });
+  // Ontario Sales Tax Credit (CRA Ontario page): couple, 2 children, family income 50,000: max = 378 x (2 adults + 2 children)
+  // = 1,512; reduction 4% x (50,000 - 36,309) = 547.64 -> 964.36. Children under 19.
+  let o = await withProv('on', prof({ otherA: 25000, otherB: 25000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provCredit, 1512 - 0.04 * (50000 - 36309), 1e-6, 'OSTC couple with 2 children');
+  // Single, no children, 40,000: 378 - 4% x (40,000 - 29,047) = 378 - 438.12 -> 0.
+  o = await withProv('on', prof({ otherA: 40000, ageA: 40 }));
+  near(o.provCredit, 0, 0, 'OSTC single above its threshold');
+  // Ontario Child Benefit: 1,759.92 per child under 18; family 40,000, 2 children: 3,519.84 - 8% x (40,000 - 26,865) = 2,468.96.
+  o = await withProv('on', prof({ otherA: 20000, otherB: 20000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provChild, 3519.84 - 0.08 * (40000 - 26865), 1e-6, 'OCB two children');
+  // Provinces do not leak: the same household in Manitoba gets neither Ontario program.
+  o = await withProv('mb', prof({ otherA: 20000, otherB: 20000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provChild + o.provCredit + o.provSenior, 0, 0, 'no Ontario benefits outside Ontario');
+
+  // BC Family Benefit (CRA BC page): 1 child, family income 50,000: max 1,749.96; reduction 4% x (50,000 - 30,176) = 792.96
+  // -> 957.00, above the floor 774.96.
+  o = await withProv('bc', prof({ otherA: 25000, otherB: 25000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5)] }));
+  near(o.provChild, 1749.96 - 0.04 * (50000 - 30176), 1e-6, 'BCFB one child at 50,000');
+  // At 80,000 the floor binds: 1,749.96 - 0.04 x 49,824 = -243.00 -> floor 774.96.
+  o = await withProv('bc', prof({ otherA: 40000, otherB: 40000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5)] }));
+  near(o.provChild, 774.96, 1e-6, 'BCFB floor between 30,176 and 96,562');
+  // Above 96,562 the floor itself falls 4%: at 106,562: 774.96 - 0.04 x 10,000 = 374.96.
+  o = await withProv('bc', prof({ otherA: 53281, otherB: 53281, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5)] }));
+  near(o.provChild, 774.96 - 0.04 * (106562 - 96562), 1e-6, 'BCFB above 96,562');
+  // Single parent adds 499.92 to the first child: 1 child, income 30,000 (below the threshold): 1,749.96 + 499.92.
+  o = await withProv('bc', prof({ otherA: 30000, ageA: 40, dependents: [kid(5)] }));
+  near(o.provChild, 1749.96 + 499.92, 1e-6, 'BCFB single parent first child');
+
+  // Alberta Child and Family Benefit (Alberta page): 2 children, family income 40,000 all wages:
+  // base 2,293 - 12.07% x (40,000 - 28,116) = 858.59; working min(1,494, 15% x (40,000 - 2,760)) = 1,494 -> 2,352.59.
+  o = await withProv('ab', prof({ otherA: 20000, otherB: 20000, earnedA: 20000, earnedB: 20000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provChild, 2293 - 0.1207 * (40000 - 28116) + 1494, 1e-6, 'ACFB two children at 40,000');
+  // Working component phases in at 15 percent: earned 5,000, income 5,000, one child: base 1,529, working 15% x 2,240 = 336.
+  o = await withProv('ab', prof({ otherA: 5000, earnedA: 5000, ageA: 40, dependents: [kid(5)] }));
+  near(o.provChild, 1529 + 0.15 * (5000 - 2760), 1e-6, 'ACFB working phase-in');
+
+  // Alberta Seniors Benefit (Alberta page): couple both 66 with OAS, income 48,000 (OAS 18,300 inside); income used
+  // = 48,000 - 18,300 = 29,700; benefit = 5,918 - 17.17% x 29,700 = 818.51. GIS is zero at this income.
+  o = await withProv('ab', prof({ otherA: 24000, otherB: 24000, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66, singlePerson: false }));
+  near(o.provSenior, 5918 - 0.1717 * (48000 - 18300), 1e-6, 'Alberta Seniors Benefit couple');
+  // Requires OAS in payment: a 66-year-old deferring OAS to 70 gets nothing.
+  o = await withProv('ab', prof({ otherA: 20000, oasA: 0, ageA: 66 }));
+  near(o.provSenior, 0, 0, 'no Alberta Seniors Benefit while OAS is deferred');
+  // Single 70, income 20,000 (OAS 9,150): 3,946 - 17.14% x 10,850 = 2,086.11.
+  o = await withProv('ab', prof({ otherA: 20000, oasA: 9150, ageA: 70 }));
+  near(o.provSenior, 3946 - 0.1714 * (20000 - 9150), 1e-6, 'Alberta Seniors Benefit single');
+
+  // Quebec Family Allowance (Finance Quebec Table 3, 2026): per child 3,068 down to 1,221; a single-parent family also gets
+  // 1,077 down to 430 once. Reduction starts at 60,398 (couple) or 44,032 (single parent) and ends at 107,000 (secondary).
+  // Two parents, 1 child, family income 83,699 = midway between 60,398 and 107,000: 3,068 - (3,068 - 1,221) x 0.5 = 2,144.50.
+  o = await withProv('qc', prof({ otherA: 41849.5, otherB: 41849.5, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5)] }));
+  near(o.provChild, 3068 - (3068 - 1221) * 0.5, 1e-6, 'Quebec family allowance two parents midway');
+  // Single parent, 2 children, income 40,000 (at or under 44,032): 2 x 3,068 + 1,077 = 7,213.
+  o = await withProv('qc', prof({ otherA: 40000, ageA: 40, dependents: [kid(5), kid(8)] }));
+  near(o.provChild, 2 * 3068 + 1077, 1e-6, 'Quebec family allowance single parent maximum');
+  // At or above 107,000: 2 x 1,221 + 430 = 2,872.
+  o = await withProv('qc', prof({ otherA: 120000, ageA: 40, dependents: [kid(5), kid(8)] }));
+  near(o.provChild, 2 * 1221 + 430, 1e-6, 'Quebec family allowance single parent minimum');
+  // Children over 17 are not counted.
+  o = await withProv('qc', prof({ otherA: 40000, ageA: 40, dependents: [kid(18)] }));
+  near(o.provChild, 0, 0, 'Quebec: an 18-year-old gets no family allowance');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
