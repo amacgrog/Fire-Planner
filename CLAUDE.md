@@ -31,6 +31,12 @@ feature list.
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
   state); not in `npm test`; compare a worktree of the previous commit with the working tree (+5% allowed).
+  Wall-clock noise between runs is ±10% on this machine, so for a decision compare two trees in ONE process, interleaved
+  (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
+  `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
+  the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
+  at the 7C merge so it runs unchanged on an old worktree; not in `npm test`. `tests/tax_caches.js` (in `npm test`) — the
+  guard for the tax-code memos and the per-row `needsPerPerson` flag: identical doubles (`Object.is`), never a tolerance.
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
   senior deduction through 2028, SALT cap schedule, simplified itemizing, the
   $750,000 mortgage-debt limit), hand-computed, plus engine-level cases with the
@@ -239,7 +245,13 @@ Each planner is one big IIFE. Core shape:
   inputs come from `taxFor`'s `sources`: besides the household sums it carries per-person pensions and traditional draws
   (`pensionA/B`, `retirementA/B`; the discretionary draw is split by `profile.ownerShareA`, the account-ledger share, 0.5 if
   absent), `ssBenefits` (plus per-person `ssBenefitsA/B` and the taxable part split in proportion, `taxableSSA/B`; a one-person return reads slot A), `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
-  `sources` at all for a no-tax state (`stateTaxActive()`): that path stays as fast as before. Each
+  `sources` at all for a no-tax state: that path stays as fast as before. For a taxing state it refills four module-level
+  scratch objects (`SOURCES_JOINT/SINGLE/A/B`, one per return, same shape, `newStateSources`) instead of allocating, and
+  writes the per-person fields (`pensionA/B`, `retirementA/B`, `ssBenefitsA/B`, `taxableSSA/B`) only when the row's
+  `needsPerPerson` flag is set (`compileRow`: a per-person retirement kind or the age-and-AGI-tiered Social Security kind;
+  `compileStateRule` ORs in the scheduled variants), so **a new mechanism that reads a per-person field must set that flag**
+  (`tests/tax_caches.js` runs every state with the flag forced on for all rows and fails on a difference, and pins which rows
+  carry it). `stateIncomeTax` and its credit helpers must keep nothing from `sources` (it is reused on the next call). Each
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
@@ -253,7 +265,7 @@ Each planner is one big IIFE. Core shape:
   benefits received uses up the same cap) and `share` (an AGI step share). Second set: Social Security kinds `ageAgiTiered` (per filer by age, with an AGI limit and a cap over it),
   `agiShare` and `agiPhaseOut`; credits `incomeTestedCredit` and `ssCredit`; `base.gainsRate` / `gainsDeduction` (gains taxed separately or reduced by a dollar
   exclusion); `federalTaxSubtraction` as `{ kind: 'lagged', placement, cap, phase }` (taxFor runs one extra federal pass with state tax zero, only for a row that
-  deducts federal tax: `stateNeedsFederalTax`, `federalLiabilityForState`; the liability excludes NIIT, payroll tax and the ACTC; the small SALT-feedback
+  deducts federal tax: `rule.lagged`, `federalLiabilityForState`; the liability excludes NIIT, payroll tax and the ACTC; the small SALT-feedback
   inconsistency is accepted and named in the row); and `localTax: { kind: 'flat', rate }` (MD and IN only, a flat county rate on the state taxable income, which
   feeds the federal SALT deduction like the state tax). Third set: `exemptionPhaseOut` kind `linear` (every exemption, the filers' and `dependent` per child, loses `rate` x the federal AGI over `start`), `dependentExemption` `{ kind: 'afterFirst', amount }`, a `seniorExemption` phase-out with a rate per column and `basis: 'federal'`, and credit kind `childStepCredit` (per qualifying child, from a step table of the federal AGI). Circuit-breaker credits are deliberately not built (owner decision). The block between the `STATE_RULES:begin` / `end` comments is pure
   literals so `scripts/gen-state-rules.js` can evaluate it. Rows are `researched` (the six reference states CA, NY, PA, CT, WA, TX with tests in
@@ -272,6 +284,14 @@ Each planner is one big IIFE. Core shape:
   be negative (only through the ACTC). Earned income is `profile.wageA (+ wageB)`, already net of pre-tax
   contributions; extra income streams are not earned income. The no-children path returns a shared constant and
   leaves the float order of the sum untouched (snapshot-exact). The two-filer branch puts the credits on Partner A.
+- **Tax-code hot-path rules (7D part 2).** `taxFor` is the hottest function (a withdrawal solve probes it 25 to 50 times
+  per year), so: `taxIndexFactor(yearIndex)` (shared fragment `06-histTaxFactors`) remembers the plan's own factor per whole
+  year index while `state.inflation` is the value it was computed for (`Math.pow` was a fifth of a projection; the historical
+  path still reads its own per-run array first); `drawTaxable`'s bisection computes the no-draw `taxFor` once, not per probe
+  (the other solvers already did). Measured and rejected, do not retry: a memo inside `standardDeduction`, a conformity-
+  deduction cache, and a 4-slot memo of the federal pass (the lagged pass reused by the main pass) all cost as much to look up as
+  they save. A memo must be keyed on every input it reads (so it never needs clearing) and give the very double the uncached
+  path gives; verify with `tests/tax_caches.js` and the snapshots.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
