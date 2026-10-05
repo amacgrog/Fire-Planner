@@ -3057,7 +3057,7 @@
     const e = BENEFIT_RULES.gis.employmentExemption;
     return Math.min(earned, e.full) + 0.5 * Math.min(Math.max(earned - e.full, 0), e.halfBand);
   }
-  function taxFor(profile, gains = 0, traditionalExtra = 0) {
+  function incomeTaxCA(profile, gains = 0, traditionalExtra = 0) {
     // Eligible pension income for the credit: the profile's pension (and RRIF
     // income at 65+, after any split) plus, from RRIF_PENSION_AGE, the discretionary
     // RRSP/RRIF draw, which counts as RRIF income. A profile built without
@@ -3088,6 +3088,76 @@
       personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, pensionA, family, quebecPoolAmount(ageB, pensionB, profile.year)) +
       personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, pensionB, family, quebecPoolAmount(ageA, pensionA, profile.year))
     );
+  }
+  // Canada taxFor is the household's net cost of income: income tax minus the income-tested benefits it
+  // triggers. The shared withdrawal solvers (drawTaxable and the Canada solvers) price a withdrawal as the change
+  // in taxFor, so with this definition they see lost GIS and the other benefits as a cost of withdrawing. The
+  // benefits are tax-free cash, so net cash is the same as a separate inflow; the engine reports gross tax and
+  // each benefit separately (see runProjection).
+  function taxFor(profile, gains = 0, traditionalExtra = 0) {
+    return incomeTaxCA(profile, gains, traditionalExtra) - benefitsFor(profile, gains, traditionalExtra);
+  }
+  // Income-tested benefits for one year (annual dollars). Fills the module-level scratch object BEN (read the
+  // lines with getBenefits() right after the call; any later benefitsFor call overwrites them) and returns the
+  // total. Allocation-free. Evaluation order: GIS and Allowance first (their results gate the provincial seniors
+  // programs), then the child and sales-tax programs. Same-year income stands in for the prior-year return.
+  const BEN = { gis: 0, allowance: 0, ccb: 0, cgeb: 0, provChild: 0, provSenior: 0, provCredit: 0, total: 0 };
+  function benefitsFor(profile, gains, traditionalExtra) {
+    BEN.gis = BEN.allowance = BEN.ccb = BEN.cgeb = BEN.provChild = BEN.provSenior = BEN.provCredit = BEN.total = 0;
+    const couple = !profile.singlePerson,
+      f = taxIndexFactor(profile.year),
+      trad = traditionalExtra || 0,
+      g = gains || 0;
+    // Family net income: each return's income plus half the extra RRSP draw and a quarter of the gains (50 percent
+    // inclusion, split evenly), as taxFor does for Quebec's family income.
+    const incA = Math.max(0, profile.otherA + (couple ? trad / 2 + g / 4 : trad + g * 0.5)),
+      incB = couple ? Math.max(0, profile.otherB + trad / 2 + g / 4) : 0,
+      fam = incA + incB;
+    const oasA = profile.oasA || 0,
+      oasB = couple ? profile.oasB || 0 : 0,
+      ageA = profile.ageA || 0,
+      ageB = couple ? profile.ageB || 0 : 0;
+    // GIS and the Allowances. A pensioner is 65 or older and receiving OAS this year.
+    const pA = ageA >= 65 && oasA > 0,
+      pB = couple && ageB >= 65 && oasB > 0;
+    if (pA || pB || (!couple && profile.survivor && ageA >= 60 && ageA < 65)) {
+      const exemption = gisEmploymentExemption(profile.earnedA || 0) + (couple ? gisEmploymentExemption(profile.earnedB || 0) : 0),
+        gisInc = Math.max(0, fam - oasA - oasB - exemption);
+      if (!couple) {
+        if (pA) BEN.gis = gisAnnual('single', gisInc, f);
+        else BEN.allowance = gisAnnual('survivorAllowance', gisInc, f);
+      } else if (pA && pB) {
+        BEN.gis = 2 * gisAnnual('spouseOas', gisInc, f);
+      } else {
+        const otherAge = pA ? ageB : ageA;
+        if (otherAge >= 60 && otherAge < 65) {
+          BEN.gis = gisAnnual('couplePensioner', gisInc, f);
+          BEN.allowance = gisAnnual('coupleAllowance', gisInc, f);
+        } else BEN.gis = gisAnnual('spouseNoOas', gisInc, f);
+      }
+    }
+    BEN.total = BEN.gis + BEN.allowance + BEN.ccb + BEN.cgeb + BEN.provChild + BEN.provSenior + BEN.provCredit;
+    return BEN.total;
+  }
+  function getBenefits() {
+    return { ...BEN };
+  }
+  // How much more income (extra traditional draw) the household can take before GIS and the Allowances end:
+  // the hook the Canada mixed-withdrawal batch (4A) reads for its income room. Zero when no GIS situation applies.
+  // Not hot: bisection over benefitsFor (benefits never rise with income, so the bisection is valid, cliffs included).
+  function gisIncomeRoom(profile, gains, traditionalExtra) {
+    const f = taxIndexFactor(profile.year);
+    benefitsFor(profile, gains, traditionalExtra);
+    if (BEN.gis + BEN.allowance <= 0) return 0;
+    let lo = 0,
+      hi = 200000 * f;
+    for (let i = 0; i < 50; i++) {
+      const mid = (lo + hi) / 2;
+      benefitsFor(profile, gains, (traditionalExtra || 0) + mid);
+      if (BEN.gis + BEN.allowance > 0) lo = mid;
+      else hi = mid;
+    }
+    return hi;
   }
   // @@shared:drawTaxable begin
   function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
@@ -3781,13 +3851,15 @@
     deceasedIsB,
     inv,
   }) {
+    const earnedA = Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA),
+      earnedB = Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB);
     const otherA =
-        Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA) +
+        earnedA +
         pensionA +
         rrifA +
         extraIncome,
       otherB =
-        Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB) +
+        earnedB +
         pensionB +
         rrifB;
     // Pension income splitting: up to 50% of eligible pension/RRIF income
@@ -3824,7 +3896,7 @@
       splitB = totalB + splitTransfer;
     const profile =
       isSurvivorPeriod && deceasedIsA
-        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, penA: eligibleBOwn, penB: 0, ageA: ageB, ageB: null, singlePerson: true, year }
+        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, penA: eligibleBOwn, penB: 0, ageA: ageB, ageB: null, singlePerson: true, year, oasA: oasGrossB, oasB: 0, earnedA: earnedB, earnedB: 0, survivor: true, dependents: dependentsInYear(CURRENT_YEAR + year) }
         : {
             otherA: splitA,
             otherB: splitB,
@@ -3836,6 +3908,12 @@
             ageB,
             singlePerson: effectiveSingle,
             year,
+            oasA: aliveA ? oasGrossA : 0,
+            oasB: aliveB ? oasGrossB : 0,
+            earnedA,
+            earnedB,
+            survivor: isSurvivorPeriod,
+            dependents: dependentsInYear(CURRENT_YEAR + year),
           };
     return { aliveA, aliveB, totalA, totalB, splitA, splitB, profile };
   }
@@ -4527,6 +4605,12 @@
         bal.roth += rothContrib;
         bal.fhsa += fhsaContrib;
       }
+      // The year's income-tested benefits, at the final withdrawal. `totalTax` (and `tax` above) is net of
+      // them, so the gross tax the rows report adds them back.
+      const finalGains = flow >= 0 ? (ladderGain > 0 ? ladderGain : 0) : wd.taxableGainGross,
+        finalTrad = flow >= 0 ? meltdownAmount : wd.traditionalGross;
+      benefitsFor(profile, finalGains, finalTrad);
+      const benefitsNow = BEN.total;
       const { traditionalWithdrawn, taxableWithdrawn } = wd;
       bal.mortgage = Math.max(0, bal.mortgage);
       const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
@@ -4555,7 +4639,15 @@
         workingB,
         grossIncome: totalIncome,
         expenses,
-        tax: totalTax,
+        tax: totalTax + benefitsNow,
+        benefits: benefitsNow,
+        benefitGis: BEN.gis,
+        benefitAllowance: BEN.allowance,
+        benefitCcb: BEN.ccb,
+        benefitCgeb: BEN.cgeb,
+        benefitProvChild: BEN.provChild,
+        benefitProvSenior: BEN.provSenior,
+        benefitProvCredit: BEN.provCredit,
         wages,
         ss: cppA + cppB + oasNetA + oasNetB,
         pension,
@@ -5523,7 +5615,7 @@
       return {
         bracket,
         endAssets: displayValue(end.total, end.year),
-        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax, r.year), 0),
+        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax - (r.benefits || 0), r.year), 0),
         depletedAge: sim.depletedAge,
       };
     });
@@ -5583,6 +5675,9 @@
       { label: 'Pension', value: val(row.pension), color: sankeyHue('aqua', dark) },
       { label: 'Traditional withdrawal', value: val(row.traditionalWithdrawn), color: sankeyHue('yellow', dark) },
       { label: 'Taxable/brokerage', value: val(row.taxableWithdrawn), color: sankeyHue('magenta', dark) },
+      { label: 'GIS / Allowance', value: val((row.benefitGis || 0) + (row.benefitAllowance || 0)), color: sankeyHue('green', dark) },
+      { label: 'Child benefits', value: val((row.benefitCcb || 0) + (row.benefitProvChild || 0)), color: sankeyHue('green', dark) },
+      { label: 'Credits and provincial seniors', value: val((row.benefitCgeb || 0) + (row.benefitProvCredit || 0) + (row.benefitProvSenior || 0)), color: sankeyHue('green', dark) },
     ].filter((s) => s.value > 1);
     const uses = [
       { label: 'Taxes', value: val(row.tax), color: sankeyHue('blue', dark) },
@@ -7026,7 +7121,7 @@
     const projRows = sim.rows
       .map(
         (r) =>
-          `<tr><td>${r.age}${state.singlePerson ? '' : ` / ${r.ageB}`}</td><td>${money(displayValue(r.grossIncome, r.year))}</td><td>${money(displayValue(r.expenses, r.year))}</td><td>${money(displayValue(r.tax, r.year))}</td><td>${money(displayValue(r.taxable, r.year))}</td><td>${money(displayValue(r.bonds, r.year))}</td><td>${money(displayValue(r.traditional, r.year))}</td><td>${money(displayValue(r.roth, r.year))}</td><td>${money(displayValue(r.cash, r.year))}</td><td>${money(displayValue(r.homeEquity, r.year))}</td><td>${money(displayValue(r.total, r.year))}</td></tr>`,
+          `<tr><td>${r.age}${state.singlePerson ? '' : ` / ${r.ageB}`}</td><td>${money(displayValue(r.grossIncome, r.year))}</td><td>${money(displayValue(r.expenses, r.year))}</td><td>${money(displayValue(r.tax, r.year))}</td><td>${money(displayValue(r.benefits || 0, r.year))}</td><td>${money(displayValue(r.taxable, r.year))}</td><td>${money(displayValue(r.bonds, r.year))}</td><td>${money(displayValue(r.traditional, r.year))}</td><td>${money(displayValue(r.roth, r.year))}</td><td>${money(displayValue(r.cash, r.year))}</td><td>${money(displayValue(r.homeEquity, r.year))}</td><td>${money(displayValue(r.total, r.year))}</td></tr>`,
       )
       .join('');
     document.getElementById('printReport').innerHTML = `
@@ -7039,8 +7134,8 @@
       <h2>Projected total assets</h2>
       ${chartImg}
       <h2>Year-by-year projection</h2>
-      <table class="pr-proj"><thead><tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Taxable</th><th>Bonds</th><th>RRSP</th><th>TFSA</th><th>Cash</th><th>Home equity</th><th>Net assets</th></tr></thead><tbody>${projRows}</tbody></table>
-      <p class="pr-disclaimer">"Income" is an estimate of taxable income (wages after retirement contributions, CPP, OAS, pension, RRIF withdrawals, and any RRSP meltdown) and excludes brokerage capital gains, which are taxed separately on withdrawal. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/provincial income tax plus CPP contributions. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal/provincial tax parameters, RRSP/TFSA/FHSA limits, CPP/OAS amounts, and RRIF minimum withdrawal factors are 2026 planning estimates and held constant in real terms.</p>
+      <table class="pr-proj"><thead><tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Benefits</th><th>Taxable</th><th>Bonds</th><th>RRSP</th><th>TFSA</th><th>Cash</th><th>Home equity</th><th>Net assets</th></tr></thead><tbody>${projRows}</tbody></table>
+      <p class="pr-disclaimer">"Income" is an estimate of taxable income (wages after retirement contributions, CPP, OAS, pension, RRIF withdrawals, and any RRSP meltdown) and excludes brokerage capital gains, which are taxed separately on withdrawal. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/provincial income tax plus CPP contributions. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal/provincial tax parameters, RRSP/TFSA/FHSA limits, CPP/OAS amounts, and RRIF minimum withdrawal factors are 2026 planning estimates and held constant in real terms. "Benefits" are the income-tested payments (GIS, Allowance, child benefits, groceries benefit and provincial benefits) estimated on the same year's income.</p>
     `;
   }
   // @@shared:22-exportCsv begin
@@ -9247,7 +9342,7 @@
   window.__test_getState = () => state;
   window.__test_children = { dependentsInYear, qualifyingChildCount };
   window.__test_FIELDS = FIELDS;
-  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, cppContribution, quebecPoolAmount, taxIndexFactor };
+  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, gisIncomeRoom, drawTaxable, cppContribution, quebecPoolAmount, taxIndexFactor };
 })();
 </script>
 </body>

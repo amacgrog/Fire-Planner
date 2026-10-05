@@ -1656,7 +1656,9 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | 7D G6: NM Social Security taxed in full at federal AGI $100,000 single / $150,000 joint (cliff); NM age-65 exemption falling to zero by $28,500 / $51,000; NM low- and middle-income exemption gone by $36,667 / $55,000; NM Child Income Tax Credit steps at $25,000 / $50,000 / $75,000 / $100,000 / $200,000 / $350,000; DC child credit gone above $55,000 / $70,000 | NM, DC rows | federal AGI | 7D |
 | Canada: federal age amount clawback (15% of net income over $46,432, gone at about $107,800) and the BPA phase-down ($16,452 to $14,829 between $181,440 and $258,482); the $2,000 pension amount has no income test. Continuous, not cliffs: about +2.1 points of marginal rate through the age-amount range | `personTaxCA`, `federalTaxCA`, `ageAndPensionCreditBase` | each person's own net income (after any pension split), age 65+ | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
-| Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
+| Canada: GIS and Allowances (BENEFIT_RULES.gis knots: 50 percent and 25 percent reductions of income, top-up reductions, a cliff at 42,768 in the table-4 GIS spouse part) | net income less OAS and the employment exemption, combined for couples | each household situation, OAS in payment | 7L |
+| Canada: Canada Groceries and Essentials Benefit (5 percent over 46,432, single supplement 2 percent over 11,564) | BENEFIT_RULES.cgeb | family net income, children under 19 | 7L |
+| Canada: Canada Child Benefit (reduction from 38,237 and 82,847 by child count) | BENEFIT_RULES.ccb | family net income, children under 18 | 7L |
 
 #### 7B: US federal credits (US V93 -> V97; Canada untouched)
 

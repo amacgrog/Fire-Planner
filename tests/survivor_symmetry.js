@@ -10,7 +10,8 @@ const assert = require('assert');
 const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
 
-async function run(browser, planner, isUS) {
+// `low` (Canada only): a low-income retired couple, so the income-tested benefits (GIS) are in play.
+async function run(browser, planner, isUS, low = false) {
   const file = path.resolve(__dirname, '..', planner);
   const rowsFor = async (deceased) => {
     const page = await browser.newPage();
@@ -69,15 +70,26 @@ async function run(browser, planner, isUS) {
         ['oasStartAgeA', 65],
         ['oasStartAgeB', 65],
       );
+    if (low)
+      for (const [id, v] of [
+        ['ageA', 66], ['ageB', 66], ['retireAgeA', 66], ['retireAgeB', 66], ['pensionYearlyA', 0], ['pensionYearlyB', 0],
+        ['taxable', 0], ['traditional', 60000], ['roth', 100000], ['cash', 20000], ['spending', 24000], ['cppMonthlyA', 500], ['cppMonthlyB', 500],
+      ]) {
+        const i = fields.findIndex((f) => f[0] === id);
+        if (i < 0) throw new Error('low-income override for unknown field ' + id);
+        fields[i][1] = v;
+      }
     for (const [id, v] of translateFieldList(fields, isUS)) await set(id, v);
     await page.click('#pensionBothBtn');
     await set('survivorPartner', deceased);
     // A household income stream (it lives in Partner A's slot in the engines).
-    await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
-    await page.click('[data-dyn-add="incomeSources"]');
-    await page.fill('#incSrc0Amount', '15000');
-    await page.fill('#incSrc0StartAge', '62');
-    await page.fill('#incSrc0EndAge', '90');
+    if (!low) {
+      await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
+      await page.click('[data-dyn-add="incomeSources"]');
+      await page.fill('#incSrc0Amount', '15000');
+      await page.fill('#incSrc0StartAge', '62');
+      await page.fill('#incSrc0EndAge', '90');
+    }
     await page.waitForTimeout(400);
     const rows = await page.evaluate(() => window.fireProjectionRows.map((r) => ({ ...r })));
     assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
@@ -94,19 +106,22 @@ async function run(browser, planner, isUS) {
       if (Math.abs(a[i].tax - b[i].tax) > 0.01) diffs.push(`age ${a[i].age} (pre-death): tax ${a[i].tax} vs ${b[i].tax}`);
       continue;
     }
-    for (const key of ['tax', 'income', 'investable']) {
+    for (const key of ['tax', 'income', 'investable', 'benefits', 'benefitGis', 'benefitAllowance']) {
+      if (a[i][key] === undefined && b[i][key] === undefined) continue; // US rows carry no benefit fields
       if (Math.abs(a[i][key] - b[i][key]) > 0.01)
         diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key].toFixed(2)}, when B dies = ${b[i][key].toFixed(2)}`);
     }
   }
   assert.deepStrictEqual(diffs.slice(0, 6), [], `${planner}: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
-  console.log(`[${isUS ? 'US' : 'Canada'}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
+  if (low) assert(a.some((r) => r.benefits > 0) && a.some((r) => r.age >= 75 && r.benefitGis > 0), 'the low-income scenario must receive GIS, before and after the survivor transition');
+  console.log(`[${isUS ? 'US' : 'Canada'}${low ? ' low-income' : ''}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
 }
 
 (async () => {
   const browser = await chromium.launch();
   await run(browser, 'Planner_US.html', true);
   await run(browser, 'Planner_Canada.html', false);
+  await run(browser, 'Planner_Canada.html', false, true);
   await browser.close();
 })().catch((e) => {
   console.error(e.message || e);
