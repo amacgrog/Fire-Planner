@@ -1654,7 +1654,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | 7D G4: CO Social Security by age and AGI ($75,000 / $95,000) and the shared $20,000 / $24,000 bucket; NJ pension exclusion 100% to $100,000 of income, 50% / 25% (joint) to $150,000, none above (a cliff); MO federal tax share 35% -> 0 by income, private pension lost over $25,000 / $32,000, Social Security at 62; AL standard deduction stepping down over $26,000-$35,500; ME pension deduction reduced by benefits and its AGI phase-out; SC SCIAD lost over $40,000 / $60,000 / $80,000 to $95,000 / $142,500 / $190,000; IL exemption and property credit lost over $250,000 / $500,000 (not modeled); IA, DE, GA, ME, MS age gates (55, 60, 62, 65) | AL CO DE GA IL IA ME MS MO NJ SC rows | state AGI, federal AGI, ages | 7D |
 | 7D G5: MN Social Security subtraction 10% per $4,000 over $84,490 / $108,320; MD exemption lost in steps over $100,000 and pension exclusion less benefits; OR exemption credit lost in a cliff over $100,000 / $200,000 and federal-tax deduction phased out to $250,000+; VT Social Security fully taxed over $80,000 / $100,000 and pension exclusion over $70,000 / $90,000; WI standard deduction sliding 12% per dollar over $20,000+; MI retirement deduction by birth year | MD MI MN OR VT WI rows | state AGI, ages | 7D |
 | 7D G6: NM Social Security taxed in full at federal AGI $100,000 single / $150,000 joint (cliff); NM age-65 exemption falling to zero by $28,500 / $51,000; NM low- and middle-income exemption gone by $36,667 / $55,000; NM Child Income Tax Credit steps at $25,000 / $50,000 / $75,000 / $100,000 / $200,000 / $350,000; DC child credit gone above $55,000 / $70,000 | NM, DC rows | federal AGI | 7D |
-| Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
+| Canada: federal age amount clawback (15% of net income over $46,432, gone at about $107,800) and the BPA phase-down ($16,452 to $14,829 between $181,440 and $258,482); the $2,000 pension amount has no income test. Continuous, not cliffs: about +2.1 points of marginal rate through the age-amount range | `personTaxCA`, `federalTaxCA`, `ageAndPensionCreditBase` | each person's own net income (after any pension split), age 65+ | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
 
@@ -2257,6 +2257,103 @@ Source status (P = document read, S = secondary; unverified figures are in the b
 *Heavy paths and slider latency, per state, once (`tests/bench_heavy.js`: median of 5 slider moves after a 0.9 s settle, MC 100 paths seeded, per-year Roth optimizer once; 7C base -> this branch, ms).* All 51 states run on both trees. Slider move with every card closed: median ratio 0.89 (VA worst at 1.13, one state over 1.05); with the tornado card open: 0.88 (AL 1.21, 2 states over); **with every results card open: median 0.86, worst IA 1.07, 1 state over 1.05**. Spot states (all cards open): TX 55 -> 33, MA 45 -> 43, OR 48 -> 48, MO 45 -> 46 (the 7D tip was about 80 ms in most states and 161 ms in MO, so the slider is back at or under the base everywhere). Monte Carlo (100 paths, single shot, noisy): median 0.93; 15 states above 1.05, as the historical table predicts (a 300-path repeat: OR 272 -> 338, MO 265 -> 335, IL 260 -> 258, TX 202 -> 196, MA 856 -> 620 for base -> branch). Per-year Roth optimizer: median 0.84, 6 states above 1.05 (worst MO 322 -> 385).
 
 *Method notes for the next performance batch.* (1) inlining hides the cost: profile with `--js-flags=--no-turbo-inlining` and read absolute milliseconds, not percentages, between trees; (2) count the calls before building a cache (231k lagged calls looked cacheable, and the cheaper fix was to stop making the duplicate call two levels up); (3) a memo must beat the work it replaces by a clear margin, and with these functions (a few dozen floating-point operations) a 4-slot lookup does not; (4) `tests/bench_runs.js` alone cannot settle a +5% question here: use an interleaved comparison. `tests/bench_heavy.js` and `tests/tax_caches.js` are new; CLAUDE.md records both and the rules above.
+
+#### 7J: Canadian federal age amount and pension income credit (Canada V39 -> V40; US untouched)
+
+Branch `claude/batch-7j-canada-age-credits`, cut from `origin/claude/batch-3b-penalty-rules` at the 7D part 2
+merge (`a123c45`).
+
+**Verified 2026 figures** (retrieved 2026-10-05)
+- Indexation adjustment page, CRA ("Indexation adjustment for personal income tax and benefit amounts",
+  canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/adjustment-personal-income-tax-benefit-amounts.html):
+  brackets start at $58,523 / $117,045 / $181,440 / $258,482 (the code already had these); basic personal amount (BPA)
+  maximum **$16,452** for net income up to the 29% threshold ($181,440), minimum **$14,829** from the 33% threshold
+  ($258,482), the $1,623 difference phasing out linearly between them; age amount **$9,208**, net income threshold
+  **$46,432** (2.0% indexation). Cross-checked on the 2026 bracket and BPA figures in CTV / BNN Bloomberg (CRA release, 2025-12-01).
+- Age amount reduction rate **15%** of net income over the threshold: Income Tax Act s. 118(2) (statutory, not
+  restated on the indexation page).
+- Pension income amount: **$2,000** federal maximum, not indexed; CRA line 31400 page (2025 version; the amount is
+  statutory in s. 118(3)). The same page says RRIF and RRSP income at 65+ qualifies (employer pension annuities at any
+  age; RRIF/RRSP only from 65), CPP and OAS never do.
+- Credit rate: 14% (the lowest bracket rate for all of 2026), already the first bracket in `federalTaxCA`.
+- Not re-verified because it is unchanged by this step: the provincial amounts (7K).
+
+**What changed**
+- `personTaxCA(ordinary, gains, yearIndex, dtcBase, age, pensionIncome)` takes the person's age and eligible
+  pension income (both default to 0, so a caller that passes neither, including the tests' older calls, gets an
+  under-65 result with no pension). `ageAndPensionCreditBase` returns the credit amount; `federalTaxCA` takes it as
+  `extraCreditBase` and subtracts 14% of (BPA + that), floored at zero. Quebec: the credits come off the federal tax
+  before the 0.835 abatement, like the dividend credit. No allocation was added (two scalar arguments; the credit
+  work is skipped when age < 65 and there is no pension).
+- **BPA fix (owner decision, 2026-10-05: "can you fix it").** The old code subtracted a BPA of $14,829 from income
+  *before* the brackets, which is a deduction at the marginal rate, not a 14% credit, and $14,829 is the *minimum*
+  BPA, so the old comment ("the full BPA is used") was wrong. It now takes the credit at 14% and phases the BPA from
+  $16,452 to $14,829 over $181,440-$258,482 (keyed on net income). Effect: about -$227 a year for anyone with income
+  under the second bracket, and +$0.7k to +$2.8k for incomes of $80k to $300k (the old deduction was worth the
+  marginal rate times $14,829). Provincial BPAs are still deductions at the marginal rate (7K).
+- `solveMeltdown` (RRSP ladder): the old target was `bracket ceiling + BPA` because the BPA was a deduction. Credits
+  no longer move the brackets, so the target is the bracket ceiling itself (taxable income = income). The age and
+  pension credits do not change it.
+- `buildTaxProfile` adds `penA`/`penB`: each person's eligible pension income after the split transfer (employer
+  pension at any age, RRIF at 65+; the survivor remap carries the survivor's own). `taxFor` adds, at 65+, that
+  person's half (or all, single) of the discretionary RRSP/RRIF draw as RRIF income (owner decision: count it).
+  A profile without `ageA`/`penA` (the older literals) reads as under 65 with no pension.
+- `solvePensionSplit` now passes ages and the transferred pension income, so the split sees both credits. Because
+  the age-amount clawback makes combined tax non-convex for a 65+ filer (flat plateaus with narrow dips), a plain ternary
+  search can end in the wrong place. When either partner is 65+ it first scans 48 cells across the transfer range,
+  refines inside the best cell (20 iterations), and also tries the equal-income transfer (where the narrow dip often is),
+  returning the cheapest. Under 65 the original 40-iteration ternary search is untouched, so those results are byte-identical.
+  Measured against a $50 brute-force scan over 360 households with a 65+ partner (ages 70 / 68, Ontario): end points only
+  (first version) 20 of 360 worse than the scan, worst $144 a year; grid of 24 cells 13, worst $144; grid of 48 cells plus the
+  equal-income candidate, 9 worse, worst $1.89 a year (total $7.87 over all 360). Cost with pension splitting on
+  (200 `simulate()`, interleaved, median of 7): 563 ms before the grid, 584 ms after (+4%); a 96-cell grid with 40 iterations was
+  +86% and was rejected. The split itself is the dominant cost of a split-enabled run (about 6x a run without it), which predates 7J. `window.__test_tax` now exports `solvePensionSplit`.
+
+**Simplifications (named)**: net income for the clawback is the person's own income after the split, with the 50%
+gains inclusion and grossed-up dividends, and the OAS recovery tax is not deducted from it (CRA does); the age amount
+uses the tax year's whole-year age rule (age on December 31 is not tracked: the engine's age in the year); provincial
+age and pension amounts are not modeled (7K); the pension amount counts whatever the engine calls RRIF income at 65+, even
+a lump-sum RRSP withdrawal (CRA allows that at 65+); a spouse's unused age amount transfer is not modeled.
+
+**Before / after, one filer, Ontario, today's dollars, tax in dollars** (`personTaxCA`; the "65+ with pension" columns
+use age 66 and eligible pension income of the smaller of income and $30,000; the "under 65" column is the BPA fix alone)
+
+| Income | Before | After, under 65 | Change | After, 65+ with pension | Change |
+|---|---|---|---|---|---|
+| $20,000 | 1,078 | 851 | -227 | 354 | -724 |
+| $30,000 | 2,983 | 2,756 | -227 | 1,187 | -1,796 |
+| $50,000 | 7,154 | 6,926 | -227 | 5,432 | -1,721 |
+| $80,000 | 14,078 | 14,815 | +737 | 13,951 | -128 |
+| $120,000 | 26,463 | 27,362 | +899 | 27,082 | +619 |
+| $200,000 | 59,357 | 61,451 | +2,095 | 61,171 | +1,815 |
+| $300,000 | 107,236 | 110,053 | +2,818 | 109,773 | +2,538 |
+
+Engine level: every Canada scenario in the snapshot grid moves from year 0 (working-age tax up about $1.5k on the
+default household, which is in the second bracket; 65+ rows down by roughly $3k to $9k a year by the late 70s, partly
+through the path: lower tax leaves more in the accounts). Example, `std default fhsa`: year 0 tax 39,466 -> 40,940,
+age 68 22,711 -> 19,400, age 78 20,319 -> 13,201, age 88 23,604 -> 14,670; final investable 1,518,380 -> 2,316,535.
+Intended baseline change: `tests/snapshots/canada.json` (every scenario; the grid-plus-refine split search then moved 25 more, all pension-splitting scenarios, by small amounts) and `tests/snapshots/ui_canada.json` (the
+rendered-text hashes; control count, MCP schema and state hashes unchanged). US snapshots byte-identical.
+
+**Timing** (Canada, interleaved same-process, 300 `simulate()` per round, median of 7, previous commit's file vs
+this one): 126 ms -> 123 ms (ratio 0.98), within noise. No `bench_runs.js` run: that gate is US-only (state tax).
+
+**Tests.** `tests/tax_brackets.js` (Canada section) rewritten for the credit form with hand-computed literals: federal at $100k
+(14,392.725), at the BPA, at $181,440 and $258,482 and in the middle of the phase-out; every bracket edge against an independent
+reference; age amount at $40k (2,007.60 federal), $60k (5,188.533, partly clawed back) and $120k (equal to under 65);
+the pension credit capped at $2,000 and below the cap; age amount plus pension; the zero floor; indexing (age amount
+and threshold scale, pension amount does not); monotone and cliff-free in every province at 66 with a pension; Quebec
+abatement after the credits; `taxFor` per-person ages and pension, the RRSP-draw rule at 66 and at 60, a profile with no ages;
+and `solvePensionSplit` on four 65+ households against a $250 grid, plus the 360-household regret bound (under $3 a year against a $50 scan). The dividend-credit literal moved from 13,252.5707 to
+13,989.2357 (the BPA change). `tests/historical_tax_indexing.js`: Canada's tolerance is 3e-3 instead of 1e-6, because the
+$2,000 pension amount is not indexed (a 65+ filer's real tax drifts with inflation by that much).
+
+**Gotchas**
+- Sandbox: a quoted bash heredoc containing an apostrophe in the body failed to parse here; write edit scripts with the
+  file tool instead.
+- The BPA, as a deduction, was baked into `solveMeltdown` and `federalBracketCeilingCA` callers; any future code that
+  needs "income where the next bracket starts" for Canada should use the bracket cap directly.
+- Provincial tax still deducts its BPA at the marginal rate; 7K is the place to convert it with the rest of the provincial credits.
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_

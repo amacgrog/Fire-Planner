@@ -287,19 +287,80 @@ function caChecks() {
     return tax;
   };
   const FED = [[58523, 0.14], [117045, 0.205], [181440, 0.26], [258482, 0.2929], [Infinity, 0.33]];
-  const BPA = 14829;
+  // Non-refundable credits are 14% of the credit amount, taken off the bracket tax (2026, CRA).
+  // Basic personal amount: 16,452 up to net income 181,440, falling linearly to 14,829 at 258,482.
+  const bpaAt = (inc) => (inc <= 181440 ? 16452 : inc >= 258482 ? 14829 : 14829 + 1623 * ((258482 - inc) / (258482 - 181440)));
+  const refFed = (inc, extra = 0) => Math.max(0, refTax(inc, FED) - 0.14 * (bpaAt(inc) + extra));
   st.inflation = 0;
   st.province = 'on';
 
   // --- Federal --------------------------------------------------------------
-  // $100k: 85,171 taxable -> 8,193.22 + 26,648 * 20.5% (5,462.84) = 13,656.06
-  near(t.federalTaxCA(100000, 0), 13656.06, 0.005, 'federal $100k');
-  near(t.federalTaxCA(BPA, 0), 0, 1e-9, 'federal at basic personal amount');
-  for (const inc of [0, 10000, 14829, 30000, 73352, 75000, 131874, 132000, 196269, 300000, 600000])
-    near(t.federalTaxCA(inc, 0), refTax(Math.max(0, inc - BPA), FED), 0.005, `federal ${inc}`);
+  // $100k: 8,193.22 + 41,477 * 20.5% (8,502.785) = 16,696.005, less 14% of 16,452 (2,303.28)
+  near(t.federalTaxCA(100000, 0), 14392.725, 0.005, 'federal $100k');
+  near(t.federalTaxCA(16452, 0), 0, 1e-9, 'federal at basic personal amount');
+  near(t.federalTaxCA(10000, 0), 0, 1e-9, 'federal below basic personal amount');
+  // $181,440 (top of the full BPA): 36,932.93 - 2,303.28
+  near(t.federalTaxCA(181440, 0), 34629.65, 0.005, 'federal at the top of the full BPA');
+  // $258,482 (BPA fully phased down to 14,829): 59,498.5318 - 2,076.06
+  near(t.federalTaxCA(258482, 0), 57422.4718, 0.005, 'federal at the bottom of the BPA phase-out');
+  // Halfway through the phase-out the BPA is 14,829 + 811.5 = 15,640.5
+  near(t.federalTaxCA(219961, 0), refTax(219961, FED) - 0.14 * 15640.5, 0.005, 'federal mid BPA phase-out');
+  for (const inc of [0, 10000, 14829, 16452, 30000, 73352, 75000, 131874, 132000, 181440, 196269, 219961, 258482, 300000, 600000])
+    near(t.federalTaxCA(inc, 0), refFed(inc), 0.005, `federal ${inc}`);
   for (const [cap] of FED.slice(0, -1))
     for (const d of [-1, 0, 1])
-      near(t.federalTaxCA(cap + BPA + d, 0), refTax(cap + d, FED), 0.005, `federal bracket edge ${cap}${d >= 0 ? '+' : ''}${d}`);
+      near(t.federalTaxCA(cap + d, 0), refFed(cap + d), 0.005, `federal bracket edge ${cap}${d >= 0 ? '+' : ''}${d}`);
+  // Extra credit amounts are taken at the same 14% and cannot push tax below zero.
+  near(t.federalTaxCA(60000, 0, 5000), refFed(60000, 5000), 0.005, 'federal with extra credit amount');
+  near(t.federalTaxCA(5000, 0, 20000), 0, 1e-9, 'extra credits cannot push federal tax below zero');
+  // Continuous across the BPA phase-out (no jump at either end).
+  for (const inc of [181439, 181441, 258481, 258483])
+    near(t.federalTaxCA(inc, 0), refFed(inc), 0.005, `federal near the phase-out edge ${inc}`);
+
+  // --- Federal age amount and pension income amount (7J) ---------------------------
+  // Age amount 9,208, reduced 15% of net income over 46,432 (gone at 107,818.67);
+  // pension income amount: first 2,000 of eligible pension income, not indexed.
+  // Age 65, $40k, no pension: 5,600 - 14% * (16,452 + 9,208 = 25,660 = 3,592.4) = 2,007.6
+  near(t.personTaxCA(40000, 0, 0, 0, 65, 0) - t.provincialTaxCA(40000, 0), 2007.6, 0.005, 'age amount at $40k');
+  // Age 65, $60k: reduction 15% * 13,568 = 2,035.2 -> age amount 7,172.8;
+  // 8,496.005 - 14% * (16,452 + 7,172.8 = 23,624.8 = 3,307.472) = 5,188.533
+  near(t.personTaxCA(60000, 0, 0, 0, 65, 0) - t.provincialTaxCA(60000, 0), 5188.533, 0.005, 'age amount partly clawed back at $60k');
+  // Age 65, $120k: fully clawed back, equals the under-65 tax
+  near(t.personTaxCA(120000, 0, 0, 0, 65, 0), t.personTaxCA(120000, 0, 0, 0, 64, 0), 1e-9, 'age amount gone at $120k');
+  near(t.personTaxCA(120000, 0, 0, 0, 65, 0) - t.provincialTaxCA(120000, 0), 18655.25, 0.005, 'federal $120k with BPA only');
+  // Not 65 yet: no age amount, whatever the income
+  near(t.personTaxCA(40000, 0, 0, 0, 64, 0), t.personTaxCA(40000, 0, 0), 1e-9, 'no age amount at 64');
+  // Pension credit at age 60 (employer pension): $5,000 pension -> base 2,000;
+  // 8,496.005 - 14% * 18,452 (2,583.28) = 5,912.725. $1,500 pension -> base 1,500.
+  near(t.personTaxCA(60000, 0, 0, 0, 60, 5000) - t.provincialTaxCA(60000, 0), 5912.725, 0.005, 'pension credit capped at $2,000');
+  near(t.personTaxCA(60000, 0, 0, 0, 60, 1500) - t.provincialTaxCA(60000, 0), 8496.005 - 0.14 * 17952, 0.005, 'pension credit below the cap');
+  // Age 70, $40k, $5k pension: 5,600 - 14% * (16,452 + 9,208 + 2,000 = 27,660 = 3,872.4) = 1,727.6
+  near(t.personTaxCA(40000, 0, 0, 0, 70, 5000) - t.provincialTaxCA(40000, 0), 1727.6, 0.005, 'age amount plus pension credit');
+  // Tax floors at zero
+  near(t.personTaxCA(5000, 0, 0, 0, 70, 5000) - t.provincialTaxCA(5000, 0), 0, 1e-9, 'federal tax floored at zero with credits');
+  // Indexing: the age amount and its threshold scale with the plan's index; the pension amount does not.
+  st.inflation = 3;
+  {
+    const yi = 7,
+      f = Math.pow(1.03, yi);
+    st.province = 'on';
+    for (const inc of [30000, 60000, 90000])
+      near(t.personTaxCA(inc * f, 0, yi, 0, 66, 0), f * t.personTaxCA(inc, 0, 0, 0, 66, 0), 1e-6 * f * inc, `age amount indexing at ${inc}`);
+    near(t.federalTaxCA(60000 * f, yi, 2000), refTax(60000 * f, FED.map(([c, r]) => [c * f, r])) - 0.14 * (16452 * f + 2000), 1e-6 * f * 60000, 'pension amount is not indexed');
+  }
+  st.inflation = 0;
+  // Combined tax never falls as income rises and has no cliffs, at age 66 with a pension, in every province.
+  for (const code of Object.keys(t.PROVINCE_TAX)) {
+    st.province = code;
+    let prev = 0;
+    for (let inc = 0; inc <= 400000; inc += 500) {
+      const tax = t.personTaxCA(inc, 0, 0, 0, 66, Math.min(inc, 30000));
+      if (tax < prev - 1e-6) fails.push(`${code} age 66 ${inc}: combined tax fell from ${prev} to ${tax}`);
+      if (tax - prev > 500 * 0.9) fails.push(`${code} age 66 ${inc}: combined tax jumped ${tax - prev}`);
+      prev = tax;
+    }
+  }
+  st.province = 'on';
 
   // --- Ontario ---------------------------------------------------------------
   // $100k: 87,011 taxable -> 2,721.4955 + 3,030.48 = 5,751.9755; no surtax
@@ -354,13 +415,20 @@ function caChecks() {
   // --- Quebec federal abatement ----------------------------------------------
   st.province = 'qc';
   near(t.personTaxCA(100000, 0, 0), t.federalTaxCA(100000, 0) * 0.835 + t.provincialTaxCA(100000, 0), 0.005, 'Quebec 16.5% abatement');
+  // The age and pension credits come off federal tax before the abatement.
+  near(
+    t.personTaxCA(60000, 0, 0, 0, 66, 3000),
+    t.federalTaxCA(60000, 0, 7172.8 + 2000) * 0.835 + t.provincialTaxCA(60000, 0),
+    0.005,
+    'Quebec abatement applies after the age and pension credits',
+  );
 
   // --- Eligible dividend credit ------------------------------------------------
   st.province = 'on';
   // $27,600 grossed-up dividend on top of $72,400 other income = $100k taxable.
-  // Tax before credit = 13,656.06 + 6,501.9755 = 20,158.0355;
-  // credit = 27,600 * (15.0198% + 10%) = 6,905.4648 -> 13,252.5707
-  near(t.personTaxCA(100000, 0, 0, 27600), 13252.5707, 0.005, 'eligible dividend credit');
+  // Tax before credit = 14,392.725 + 6,501.9755 = 20,894.7005;
+  // credit = 27,600 * (15.0198% + 10%) = 6,905.4648 -> 13,989.2357
+  near(t.personTaxCA(100000, 0, 0, 27600), 13989.2357, 0.005, 'eligible dividend credit');
   near(t.personTaxCA(27600, 0, 0, 27600), 0, 1e-9, 'dividend credit cannot push tax below zero');
 
   // --- OAS clawback -----------------------------------------------------------
@@ -381,6 +449,57 @@ function caChecks() {
     1e-9,
     'taxFor couple splits gains and extra RRSP income',
   );
+  // --- Two returns: ages and eligible pension income per person --------------
+  {
+    const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    near(
+      t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 20000, ageA: 66, ageB: 66, penA: 30000, penB: 0 }), 0, 0),
+      t.personTaxCA(50000, 0, 0, 0, 66, 30000) + t.personTaxCA(20000, 0, 0, 0, 66, 0),
+      1e-9,
+      "taxFor couple reads each partner's own age and pension",
+    );
+    // A discretionary RRSP/RRIF draw counts as RRIF income for the pension credit at 65+, not before.
+    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'RRSP draw at 66 is pension income');
+    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 60, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 60, 0), 1e-9, 'RRSP draw at 60 is not pension income');
+    near(
+      t.taxFor(p({ singlePerson: false, otherA: 40000, otherB: 40000, ageA: 66, ageB: 60, penA: 0, penB: 0 }), 0, 20000),
+      t.personTaxCA(50000, 0, 0, 0, 66, 10000) + t.personTaxCA(50000, 0, 0, 0, 60, 0),
+      1e-9,
+      "RRSP draw: only the 65+ partner's half counts",
+    );
+    // A profile without ages or pension fields reads as under 65.
+    near(t.taxFor(p({ singlePerson: true, otherA: 50000 }), 0, 0), t.personTaxCA(50000, 0, 0), 1e-9, 'profile without ages');
+    // Pension splitting sees the credits: the chosen transfer is no worse than any other on a grid.
+    for (const [oA, oB, eA, eB, ageA, ageB] of [
+      [100000, 20000, 80000, 0, 70, 70],
+      [70000, 15000, 40000, 0, 66, 62],
+      [60000, 60000, 30000, 30000, 68, 68],
+      [120000, 0, 90000, 0, 75, 75],
+    ]) {
+      const x = t.solvePensionSplit(oA, oB, eA, eB, 0, ageA, ageB);
+      const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, ageA, eA - y) + t.personTaxCA(oB + y, 0, 0, 0, ageB, eB + y);
+      if (!(x >= -0.5 * eB - 1e-9 && x <= 0.5 * eA + 1e-9)) fails.push(`split ${oA}/${oB}: transfer ${x} outside the allowed range`);
+      for (let y = -0.5 * eB; y <= 0.5 * eA + 1e-9; y += 250)
+        if (combined(x) > combined(y) + 1e-6) fails.push(`split ${oA}/${oB}: transfer ${x} costs more than ${y}`);
+    }
+    // Regret against a $50 brute-force scan over 360 households with a 65+ partner: the clawback makes
+    // combined tax non-convex (flat plateaus with narrow dips), so the search is grid + refine, not exact.
+    st.province = 'on';
+    let worst = 0;
+    for (const pa of [0, 10000, 25000, 40000, 60000, 90000])
+      for (const pb of [0, 10000, 25000, 40000, 60000])
+        for (const oa of [0, 20000, 40000, 70000])
+          for (const ob of [0, 20000, 40000]) {
+            const oA = pa + oa,
+              oB = pb + ob;
+            const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68);
+            const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y);
+            let best = Infinity;
+            for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
+            worst = Math.max(worst, combined(x) - best);
+          }
+    if (!(worst < 3)) fails.push(`pension split regret up to $${worst.toFixed(2)} a year against a brute-force scan`);
+  }
   return fails;
 }
 
