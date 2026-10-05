@@ -222,15 +222,14 @@ Each planner is one big IIFE. Core shape:
 - **State income tax (US, `STATE_RULES`, just above `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
   50 states and DC, matching the `#stateTax` options) and one generic evaluator, `stateIncomeTax(sources, filing,
   yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/state_rules.js` fails on
-  a missing field or a state missing from the table): `status` (`migrated` = carried over unverified, `source` null;
-  `researched` = `source` URL + `asOf` year), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
+  a missing field or a state missing from the table): `status` (always `researched`: `source` URL + `asOf` year; the `migrated` status of 7C is gone), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
   `creditThresholdsIndexed`, `retirementExclusionIndexed`, never one switch for the whole state: CA indexes its brackets, deduction and credits but not
   its $1 million surcharge, NY indexes nothing, WA indexes the deduction but not its $1 million tier; each `additions` entry has its own `indexed`;
-  a true flag scales that family by `taxIndexFactor`; all migrated rows are fully indexed), `statusAs` (which column `mfj`/`single`/`hoh`/`qss` read: HoH falls back to the
+  a true flag scales that family by `taxIndexFactor`), `statusAs` (which column `mfj`/`single`/`hoh`/`qss` read: HoH falls back to the
   single column and QSS to the joint one unless the row has its own `hoh` column; the old `FILING.state` family is gone),
   `tax` (`none`, `flat`, or `graduated` with `[start, rate]` columns), `surtax`, `base` (ordinary income yes/no, share
   of gains included, Social Security `exempt`/`taxed`/subtraction), `standardDeduction`, `exemption`, `retirementExclusion`
-  (kinds in `stateRetirementExclusion`; the migrated kinds are household-level quirks that per-person kinds replace),
+  (kinds in `stateRetirementExclusion`: `perPerson` and `agiPhasedShare`; the household-level kinds of 7C were removed in 7D),
   `credits`, `federalTaxSubtraction`, `localTax` (local income taxes are an accepted, documented gap) and `notes`. Mechanisms
   (all data, evaluator in `stateIncomeTax`): `additions` (a threshold surtax, an AGI step table, NY's `benefitRecapture`),
   `exemptionPhaseOut` and `dependentExemption`, the AGI-tested Social Security kind, per-person retirement kinds
@@ -258,7 +257,7 @@ Each planner is one big IIFE. Core shape:
   inconsistency is accepted and named in the row); and `localTax: { kind: 'flat', rate }` (MD and IN only, a flat county rate on the state taxable income, which
   feeds the federal SALT deduction like the state tax). Third set: `exemptionPhaseOut` kind `linear` (every exemption, the filers' and `dependent` per child, loses `rate` x the federal AGI over `start`), `dependentExemption` `{ kind: 'afterFirst', amount }`, a `seniorExemption` phase-out with a rate per column and `basis: 'federal'`, and credit kind `childStepCredit` (per qualifying child, from a step table of the federal AGI). Circuit-breaker credits are deliberately not built (owner decision). The block between the `STATE_RULES:begin` / `end` comments is pure
   literals so `scripts/gen-state-rules.js` can evaluate it. Rows are `researched` (the six reference states CA, NY, PA, CT, WA, TX with tests in
-  `tests/state_reference.js`; the 7D states with hand-computed households in `tests/state_7d_households.js`) or still `migrated` simplified rows until their 7D group lands. Researched rows follow the
+  `tests/state_reference.js`; the 7D states with hand-computed households in `tests/state_7d_households.js`) and now all 51 rows are researched. Rows follow the
   state's real indexing (`none` for NY, PA and CT; `cpi` for CA and WA), HoH and QSS columns, and income tests; their `notes` text is what the
   planner shows under the selector. The generator also lists every parameter of the researched rows. Evaluating it: that script writes `docs/state-tax-rules.md` (the owner's review
   artifact: one row per jurisdiction with every rule and its source; `npm run gen:states`), and `npm test` fails if the file is

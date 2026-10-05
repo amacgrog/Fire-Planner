@@ -29,8 +29,7 @@ function checks() {
   const FIELDS = ['name', 'status', 'sourceKind', 'source', 'asOf', 'indexing', 'statusAs', 'tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'schedule', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'localTax', 'notes'];
   const SCHEDULE_KEYS = ['tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'statusAs', 'indexing'];
   const EXCLUSION_PARAMS = {
-    none: [], full: [], shareByAge: ['minAge'], perEligibleCap: ['minAge', 'cap'],
-    perEligibleCapSeniorTier: ['minAge', 'cap', 'seniorAge', 'seniorCap'], seniorCap: ['seniorAge', 'cap'],
+    none: [],
     perPerson: ['pensionMinAge', 'traditionalMinAge', 'applies', 'tiers', 'reducedBy', 'share'], agiPhasedShare: ['inclusive', 'tables'],
   };
   const CREDIT_PARAMS = {
@@ -45,11 +44,10 @@ function checks() {
     const keys = Object.keys(r).sort();
     need(JSON.stringify(keys) === JSON.stringify(FIELDS.slice().sort()), at + 'fields ' + keys.filter((k) => !FIELDS.includes(k)).concat(FIELDS.filter((k) => !(k in r)).map((k) => 'missing ' + k)));
     need(typeof r.name === 'string' && r.name.length > 0, at + 'name');
-    need(r.status === 'migrated' || r.status === 'researched', at + 'status');
+    need(r.status === 'researched', at + 'every row is researched (the migrated status is gone)');
     need(['none', 'secondary', 'primary'].includes(r.sourceKind), at + 'sourceKind');
-    need(r.status === 'researched' ? r.sourceKind !== 'none' : r.sourceKind === 'none', at + 'source kind must match the row status');
-    if (r.status === 'researched') need(typeof r.source === 'string' && /^https?:\/\//.test(r.source) && Number.isInteger(r.asOf) && r.asOf >= 2025, at + 'researched rows need a source URL and an asOf year');
-    else need(r.source === null || typeof r.source === 'string', at + 'source');
+    need(r.sourceKind !== 'none', at + 'source kind');
+    need(typeof r.source === 'string' && /^https?:\/\//.test(r.source) && Number.isInteger(r.asOf) && r.asOf >= 2025, at + 'every row needs a source URL and an asOf year');
     const IDX = ['bracketsIndexed', 'standardDeductionIndexed', 'personalExemptionIndexed', 'creditAmountsIndexed', 'creditThresholdsIndexed', 'retirementExclusionIndexed'];
     need(r.indexing && JSON.stringify(Object.keys(r.indexing)) === JSON.stringify(IDX) && IDX.every((k) => typeof r.indexing[k] === 'boolean'), at + 'indexing must declare every family as a boolean');
     const columns = Object.keys(r.standardDeduction);

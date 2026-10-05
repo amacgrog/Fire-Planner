@@ -1,5 +1,5 @@
-// Ad-hoc UI check (not in npm test): each researched state shows its own note, the generic ones keep the simplified
-// scope line, and nothing overflows horizontally at 390x844.
+// Ad-hoc UI check (not in npm test): every state shows its own note followed by the not-modeled line, and nothing
+// overflows horizontally at 390x844.
 //   node test_state_notes.js
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -12,7 +12,7 @@ const path = require('path');
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('file://' + path.resolve(__dirname, 'Planner_US.html'));
   await page.waitForTimeout(400);
-  for (const [code, researched] of [['ca', true], ['ny', true], ['pa', true], ['ct', true], ['wa', true], ['tx', true], ['ma', false], ['fl', false]]) {
+  for (const code of ['ca', 'ny', 'pa', 'ct', 'wa', 'tx', 'ma', 'fl', 'nm', 'dc']) {
     await page.selectOption('#stateTax', code);
     await page.waitForTimeout(150);
     const r = await page.evaluate(() => ({
@@ -20,10 +20,10 @@ const path = require('path');
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     }));
     assert.strictEqual(r.overflow, false, code + ': horizontal overflow at 390px');
-    assert.strictEqual(r.note.includes('Researched rules'), researched, code + ': scope line (' + r.note.slice(0, 60) + ')');
-    assert.strictEqual(r.note.includes('Simplified estimate'), !researched, code + ': simplified line');
+    assert.ok(r.note.includes('Not modeled for any state'), code + ': not-modeled line (' + r.note.slice(0, 60) + ')');
+    assert.ok(!r.note.includes('Simplified estimate'), code + ': no simplified-estimate line');
   }
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   await browser.close();
-  console.log('state notes: every researched state shows its own note; no overflow at 390px');
+  console.log('state notes: every state shows its own note; no overflow at 390px');
 })().catch((e) => { console.error(e); process.exit(1); });

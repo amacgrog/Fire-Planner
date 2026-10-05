@@ -2736,8 +2736,7 @@
   // federal tax, because the state tax feeds the federal SALT deduction.
   //
   //   name             display name
-  //   status           'migrated' = carried over from the pre-7C table (figures unverified);
-  //                    'researched' = checked against `source` as of `asOf`
+  //   status           'researched' = checked against `source` as of `asOf` (every row; the 'migrated' status is gone)
   //   sourceKind       'none' | 'secondary' | 'primary' (what `source` is; see the generated
   //                    docs/state-tax-rules.md and the plan's Verification backlog)
   //   indexing         { bracketsIndexed, standardDeductionIndexed, personalExemptionIndexed (exemptions, dependent
@@ -5906,13 +5905,8 @@
     }
     return value;
   }
-  // Amount of pension and traditional-withdrawal income a state leaves out. Household-level
-  // kinds (the migrated pre-7C quirks): 'full'; 'shareByAge' (all of it, scaled by the share of
-  // filers at or over minAge); 'perEligibleCap' (cap per filer at or over minAge);
-  // 'perEligibleCapSeniorTier' (a larger cap if anyone is at or over seniorAge, counted over the
-  // larger group); 'seniorCap' (cap per filer at or over seniorAge, nothing below). Per-person
-  // kinds read each filer's own pension and traditional income: 'agiPhasedShare' (all of it times a
-  // share that falls with the AGI, from a step table) and 'perPerson':
+  // Amount of pension and traditional-withdrawal income a state leaves out. Kinds read each filer's own pension and traditional
+  // income: 'agiPhasedShare' (all of it times a share that falls with the AGI, from a step table) and 'perPerson':
   //   pensionMinAge / traditionalMinAge  the filer's age from which each bucket counts
   //   applies { pension, traditional }   which buckets the state lets in at all
   //   tiers [[minAge, cap|null], ...]    the cap is the highest tier the filer has reached (null: no
@@ -5946,24 +5940,8 @@
       return ex.share ? total * stateStepValue(ex.share.tables[colKey], agi, ex.share.inclusive, factor) : total;
     }
     const retirement = Math.max(0, sources.pension + sources.retirement);
-    if (ex.kind === 'full') return retirement;
     if (ex.kind === 'agiPhasedShare')
       return retirement * stateStepValue(ex.tables[colKey], agi, ex.inclusive, factor);
-    if (ex.kind === 'shareByAge') {
-      const eligible = countAtLeast(ages, ex.minAge);
-      return eligible ? retirement * Math.min(1, eligible / Math.max(1, ages.length)) : 0;
-    }
-    if (ex.kind === 'perEligibleCap')
-      return Math.min(retirement, ex.cap * factor * countAtLeast(ages, ex.minAge));
-    if (ex.kind === 'perEligibleCapSeniorTier') {
-      const eligible = countAtLeast(ages, ex.minAge),
-        senior = countAtLeast(ages, ex.seniorAge);
-      return Math.min(retirement, (senior ? ex.seniorCap : ex.cap) * factor * Math.max(eligible, senior));
-    }
-    if (ex.kind === 'seniorCap') {
-      const senior = countAtLeast(ages, ex.seniorAge);
-      return senior ? Math.min(retirement, ex.cap * factor * senior) : 0;
-    }
     return 0;
   }
   // What a state lets the filer deduct for the federal income tax paid: the tax, up to the cap for the column
@@ -6111,11 +6089,9 @@
         return 0;
     }
   }
-  // Shown under every state's note. Interim: the state-tax update replaces these simplifications with real rules and rewrites this copy.
-  const STATE_TAX_RESEARCHED_NOTE =
-    '<b>Researched rules.</b> Local income taxes and state itemized deductions are not modeled; credits and income tests that depend on inputs this planner does not have (earned-income credits, for example) are left out. The generated table in the repository (docs/state-tax-rules.md) lists every rule and its source.';
-  const STATE_TAX_SCOPE_NOTE =
-    '<b>Simplified estimate.</b> Local income taxes, state credits, state itemized deductions, most pension-source rules, after-tax IRA basis, some capital-gain rules and income phase-outs are not modeled.';
+  // Shown under every state's note: what no row models.
+  const STATE_TAX_NOT_MODELED_NOTE =
+    '<b>Not modeled for any state:</b> local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, income-tested property-tax and renter credits, earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains. The generated table in the repository (docs/state-tax-rules.md) lists every rule and its source.';
   function stateTaxTreatmentNote() {
     const stateName = (
         document.querySelector('#stateTax option:checked')?.textContent || 'Selected state'
@@ -6124,35 +6100,13 @@
     const gainText =
       'Brokerage withdrawals are represented only by their modeled long-term capital-gain portion; returned cost basis is not treated as income.';
     const rule = STATE_RULES[code];
-    if (rule && rule.tax.kind === 'none' && rule.status === 'researched')
+    if (rule && rule.tax.kind === 'none')
       return `<b>${stateName} state-tax treatment.</b> ${rule.notes} ${gainText}`;
-    if (!rule || rule.tax.kind === 'none')
-      return `<b>${stateName} state-tax treatment.</b> No individual state income tax is modeled. Wages, Social Security, pension income, traditional withdrawals/RMDs, and brokerage gains are not assessed a state income tax here. ${gainText}`;
+    if (!rule)
+      return `<b>${stateName} state-tax treatment.</b> No individual state income tax is modeled. ${gainText}`;
     if (!rule.base.ordinary)
       return `<b>${stateName} state-tax treatment.</b> Wages, Social Security, pension income, and traditional withdrawals/RMDs are not subject to a state income tax in this model. The modeled long-term capital-gain portion of brokerage withdrawals is subject to Washington's capital-gains tax only above the modeled annual exemption. ${gainText}`;
-    if (rule.status === 'researched') return `<b>${stateName} state-tax treatment.</b> ${rule.notes}`;
-    const base =
-      'Wages, pension income, traditional withdrawals/RMDs, and the modeled long-term capital-gain portion of brokerage withdrawals are included in the state-tax estimate.';
-    const notes = {
-      ma: "Social Security is excluded. The model applies Massachusetts' 5% income tax and its high-income surtax threshold.",
-      co: "Taxable Social Security is included only to the extent not covered by the model's Colorado Social Security subtraction; the model uses the full subtraction at age 65+ and a capped subtraction before then.",
-      nc: "Social Security is excluded; the model applies North Carolina's flat individual income-tax rate to the other modeled income.",
-      sc: 'Social Security is excluded. The model applies its configured standard deduction and a broad age-based retirement-income exclusion to eligible pension/traditional income.',
-      wi: 'Social Security is excluded. The model uses Wisconsin brackets and counts 70% of modeled long-term brokerage gains.',
-      nj: "Social Security is excluded. Wages, pension income, traditional withdrawals/RMDs, and modeled brokerage gains are taxed under the planner's New Jersey gross-income brackets; New Jersey retirement exclusions and after-tax IRA basis are not modeled.",
-      il: 'Social Security, pension income, and traditional withdrawals/RMDs are excluded; wages and modeled brokerage gains remain included.',
-      pa: 'Social Security, pension income, and traditional withdrawals/RMDs are excluded; wages and modeled brokerage gains remain included.',
-      ia: 'Social Security is excluded. The model excludes pension and traditional retirement income once the applicable age threshold is met; wages and modeled brokerage gains remain included.',
-      ms: 'Social Security is excluded. The model excludes pension and traditional retirement income once the applicable retirement-age threshold is met; wages and modeled brokerage gains remain included.',
-      ar: 'Social Security is excluded. The model applies a limited age-based exclusion to pension and traditional retirement income; wages and modeled brokerage gains remain included.',
-      ny: 'Social Security is excluded. The model applies a limited age-based exclusion to pension and traditional retirement income; wages and modeled brokerage gains remain included.',
-      ga: 'Social Security is excluded. The model applies its broad age-65+ retirement-income exclusion to eligible pension and traditional income; wages and modeled brokerage gains remain included.',
-    };
-    const ssText =
-      rule.base.socialSecurity === 'taxed'
-        ? "Taxable Social Security is included in the state-tax estimate, subject to the planner's simplified state treatment."
-        : 'Social Security is excluded from the state-tax estimate.';
-    return `<b>${stateName} state-tax treatment.</b> ${notes[code] || `${base} ${ssText} The planner then applies the selected state\'s configured 2026 brackets or flat rate and standard deduction.`} ${gainText}`;
+    return `<b>${stateName} state-tax treatment.</b> ${rule.notes}`;
   }
   // The text of the state field's info bubble, built from the selected row: what every state's estimate leaves out, then
   // this state's own notes (or a pointer, for a row not yet researched) and its source.
@@ -6161,8 +6115,6 @@
   function stateTaxTipText() {
     const rule = STATE_RULES[state.stateTax];
     if (!rule) return STATE_TIP_COMMON;
-    if (rule.status !== 'researched')
-      return `${STATE_TIP_COMMON} ${rule.name} is still a simplified estimate until its rules are researched.`;
     return `${STATE_TIP_COMMON} ${rule.name} (figures as of ${rule.asOf}): ${rule.notes} Source: ${rule.source}`;
   }
   function stateRuleFor(code) {
@@ -9658,9 +9610,7 @@
     const stateTip = document.querySelector('label[for="stateTax"] .info-tip');
     if (stateTip) stateTip.dataset.tip = stateTaxTipText();
     document.getElementById('stateTaxNote').innerHTML =
-      stateTaxTreatmentNote() +
-      ' ' +
-      (STATE_RULES[state.stateTax]?.status === 'researched' ? STATE_TAX_RESEARCHED_NOTE : STATE_TAX_SCOPE_NOTE);
+      stateTaxTreatmentNote() + ' ' + STATE_TAX_NOT_MODELED_NOTE;
     document.getElementById('viewCaption').textContent =
       mode === 'real'
         ? 'Values shown in inflation-adjusted 2026 dollars.'
