@@ -3136,6 +3136,38 @@
         } else BEN.gis = gisAnnual('spouseNoOas', gisInc, f);
       }
     }
+    // Canada Groceries and Essentials Benefit (ITA 122.5(3.005)): amounts and cutoffs scale with f from 2027.
+    const kids = profile.dependents || NO_DEPENDENTS;
+    {
+      const R = BENEFIT_RULES.cgeb;
+      let n = 0;
+      for (let i = 0; i < kids.length; i++) if (kids[i].age <= R.childMaxAge) n++;
+      let a = R.adult * f;
+      if (couple) a += (R.spouse + R.child * n) * f;
+      else if (n > 0) a += (R.eligibleDependant + R.child * (n - 1) + R.singleParentExtra) * f;
+      else a += Math.min(R.singleSupplement.max * f, Math.max(0, R.singleSupplement.rate * (fam - R.singleSupplement.from * f)));
+      BEN.cgeb = Math.max(0, a - R.reduction.rate * Math.max(0, fam - R.reduction.from * f));
+    }
+    // Canada Child Benefit: per child by age band, reduced by the number of children on family net income.
+    if (kids.length) {
+      const R = BENEFIT_RULES.ccb;
+      let n = 0,
+        sum = 0;
+      for (let i = 0; i < kids.length; i++) {
+        const age = kids[i].age;
+        if (age > R.amounts[1].maxAge) continue;
+        n++;
+        sum += (age <= R.amounts[0].maxAge ? R.amounts[0].amount : R.amounts[1].amount) * f;
+      }
+      if (n > 0) {
+        const idx = Math.min(n, 4) - 1,
+          RR = R.reduction,
+          from1 = RR.from1 * f,
+          from2 = RR.from2 * f;
+        const red = fam <= from1 ? 0 : fam <= from2 ? RR.rate1[idx] * (fam - from1) : RR.base2[idx] * f + RR.rate2[idx] * (fam - from2);
+        BEN.ccb = Math.max(0, sum - red);
+      }
+    }
     BEN.total = BEN.gis + BEN.allowance + BEN.ccb + BEN.cgeb + BEN.provChild + BEN.provSenior + BEN.provCredit;
     return BEN.total;
   }
@@ -7410,7 +7442,7 @@
     rowTitle: (i) => `Child ${i + 1}`,
     addLabel: '+ Add a child',
     note: 'Children in your household, including planned ones.',
-    tip: "Not used by this planner's tax or benefit calculations yet: the list feeds the Canada Child Benefit, the GST/HST credit and the provincial child credits when those arrive in a later update. Spending is NOT adjusted automatically: add what children cost under household spending, additional expenses or spending changes.",
+    tip: "Feeds the Canada Child Benefit, the Canada Groceries and Essentials Benefit and the provincial child benefits (Ontario, BC, Alberta and Quebec). Other provinces are not modeled yet. Spending is NOT adjusted automatically: add what children cost under household spending, additional expenses or spending changes.",
     fresh: () => ({ birthYear: new Date().getFullYear(), student: false }),
     fields: [
       {

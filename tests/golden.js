@@ -59,7 +59,11 @@ function assertClose(actual, expected, label) {
   );
 }
 
-async function testDrawdown(file, label, ssFields) {
+// `benefitPerYear` is the tax-free income-tested benefit a person with no income receives each year. Canada: the
+// Canada Groceries and Essentials Benefit pays a single person with no income 445 a year (Income Tax Act
+// 122.5(3.005) as enacted by Bill C-19: 445 for the individual; the 2 percent single supplement is nil at zero
+// income; no indexation here because inflation is 0). The US has none.
+async function testDrawdown(file, label, ssFields, benefitPerYear = 0) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const errors = [];
@@ -105,7 +109,7 @@ async function testDrawdown(file, label, ssFields) {
   const rows = await page.evaluate(() => window.fireProjectionRows);
   assert(Array.isArray(rows) && rows.length === 11, `${label} drawdown: expected 11 rows, got ${rows?.length}`);
   for (let i = 0; i < rows.length; i++) {
-    const expected = 500000 - 40000 * (i + 1);
+    const expected = 500000 - (40000 - benefitPerYear) * (i + 1);
     assertClose(rows[i].roth, expected, `${label} drawdown year ${i} roth/TFSA balance`);
     assertClose(rows[i].total, expected, `${label} drawdown year ${i} total assets`);
     assertClose(rows[i].taxable, 0, `${label} drawdown year ${i} taxable (should stay 0)`);
@@ -334,7 +338,7 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
   allErrors.push(...(await testDrawdown('Planner_Canada.html', 'Canada', [
     ['cppMonthlyA', 0],
     ['oasMonthlyA', 0],
-  ])));
+  ], 445)));
   allErrors.push(...(await testCompounding('Planner_Canada.html', 'Canada', [
     ['cppMonthlyA', 0],
     ['oasMonthlyA', 0],

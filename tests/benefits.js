@@ -54,12 +54,14 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   const inc0 = await t('incomeTax', p1, 0, 0), inc5 = await t('incomeTax', p1, 0, 5000);
   // A 5,000 RRSP draw moves GIS income from 10,000 to 15,000: the loss is G(10,000) - G(15,000).
   const lost = (await G('single', 10000)) - (await G('single', 15000));
-  near(net5 - net0, inc5 - inc0 + lost, 1e-6, 'taxFor = income tax minus benefits (single, GIS)');
+  // taxFor is income tax minus ALL benefits: GIS and, from Task 5, the groceries benefit (CGEB) too.
+  const tot = (p, g, tr) => page.evaluate(({ p, g, tr }) => window.__test_tax.benefitsFor(p, g, tr), { p, g, tr });
+  near(net5 - net0, inc5 - inc0 + (await tot(p1, 0, 0)) - (await tot(p1, 0, 5000)), 1e-6, 'taxFor = income tax minus benefits (single)');
   // Table 1 (ESDC): between 10,500 and 15,000 each extra dollar costs 50 cents; below 10,464 it costs 75 cents.
   near(lost, 0.75 * 464 + 0.6025 * 48 + 0.5 * 4488, 5, 'GIS lost on a 5,000 draw: slopes 0.75, then 0.60, then 0.50');
   let b = await page.evaluate((p) => { window.__test_tax.benefitsFor(p, 0, 0); return window.__test_tax.getBenefits(); }, p1);
   near(b.gis, await G('single', 10000), 1e-9, 'benefitsFor.gis single');
-  near(b.total, b.gis, 1e-9, 'total is the sum of the lines');
+  near(b.total, b.gis + b.allowance + b.ccb + b.cgeb + b.provChild + b.provSenior + b.provCredit, 1e-9, 'total is the sum of the lines');
 
   // Couple, both 66 with OAS: table 2, each spouse gets the amount at combined income. Combined otherA+otherB =
   // 2 x (8,000 CPP + 9,150 OAS) = 34,300; GIS income = 34,300 - 18,300 = 16,000 -> 2 x G('spouseOas', 16000).
@@ -79,7 +81,7 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   b = await page.evaluate((p) => { window.__test_tax.benefitsFor(p, 0, 0); return window.__test_tax.getBenefits(); }, prof({ ageA: 61, survivor: true, otherA: 5000 }));
   near(b.allowance, await G('survivorAllowance', 5000), 1e-9, 'survivor aged 61: table 5');
   b = await page.evaluate((p) => { window.__test_tax.benefitsFor(p, 0, 0); return window.__test_tax.getBenefits(); }, prof({ ageA: 61, survivor: false, otherA: 5000 }));
-  near(b.total, 0, 0, 'single aged 61, not a survivor: no Allowance');
+  near(b.allowance + b.gis, 0, 0, 'single aged 61, not a survivor: no Allowance and no GIS');
   b = await page.evaluate((p) => { window.__test_tax.benefitsFor(p, 0, 0); return window.__test_tax.getBenefits(); }, prof({ ageA: 65, survivor: true, otherA: 9150 + 5000, oasA: 9150 }));
   near(b.gis, await G('single', 5000), 1e-9, 'survivor aged 65: single GIS');
   // Review focus 3: zero income gives the maximum; an income far above gives exactly zero; a cliff at 42,768.
@@ -113,6 +115,49 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   const room = await page.evaluate((p) => window.__test_tax.gisIncomeRoom(p, 0, 0), p1);
   near(room, 23112 - 10000, 0.01, 'GIS income room, single pensioner');
   near(await page.evaluate((p) => window.__test_tax.gisIncomeRoom(p, 0, 0), prof({ otherA: 30000, ageA: 50 })), 0, 0, 'no GIS situation, no room');
+
+  // --- CGEB, Income Tax Act 122.5(3.005) as enacted by Bill C-19 (year index 0, factor 1) ---
+  const kid = (age) => ({ age, student: false, qualifyingChild: age <= 18 });
+  const ben = (p, g = 0, tr = 0) => page.evaluate(({ p, g, tr }) => { window.__test_tax.benefitsFor(p, g, tr); return window.__test_tax.getBenefits(); }, { p, g, tr });
+  // Couple, 2 children, family income 60,000: A = 445 + 445 + 2 x 234 = 1,358; B = 5% x (60,000 - 46,432) = 678.40.
+  let c = await ben(prof({ otherA: 30000, otherB: 30000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(c.cgeb, 1358 - 678.4, 1e-6, 'CGEB couple 2 children at 60,000');
+  // Single, no children, income 20,000: A = 445 + min(234, 2% x (20,000 - 11,564) = 168.72) = 613.72; B = 0.
+  c = await ben(prof({ otherA: 20000, ageA: 40 }));
+  near(c.cgeb, 613.72, 1e-6, 'CGEB single at 20,000 (supplement 168.72)');
+  // Single, income 60,000: A = 445 + 234 = 679; B = 678.40 -> 0.60.
+  c = await ben(prof({ otherA: 60000, ageA: 40 }));
+  near(c.cgeb, 0.6, 1e-6, 'CGEB single at 60,000');
+  // Single parent, 1 child, income 30,000: A = 445 (adult) + 445 (eligible dependant) + 234 (single parent) = 1,124; B = 0.
+  c = await ben(prof({ otherA: 30000, ageA: 40, dependents: [kid(8)] }));
+  near(c.cgeb, 1124, 1e-6, 'CGEB single parent, 1 child');
+  // Review focus 4: a child of 19 does not count; 18 does (under 19); a single parent of one 19-year-old is a single person.
+  c = await ben(prof({ otherA: 30000, ageA: 40, dependents: [kid(19)] }));
+  near(c.cgeb, 445 + Math.min(234, 0.02 * (30000 - 11564)), 1e-6, 'CGEB: a 19-year-old child is not counted');
+  c = await ben(prof({ otherA: 30000, ageA: 40, dependents: [kid(18)] }));
+  near(c.cgeb, 1124, 1e-6, 'CGEB: an 18-year-old child is counted');
+  // Indexation: at year index 10 the amounts and thresholds scale together (factor f): cgeb(income * f, f) = f * cgeb(income, 1).
+  const f10 = await page.evaluate(() => window.__test_tax.taxIndexFactor(10));
+  const cA = await ben(prof({ otherA: 30000, ageA: 40, dependents: [kid(8)] }));
+  const cB = await ben(prof({ otherA: 30000 * f10, ageA: 40, dependents: [kid(8)], year: 10 }));
+  near(cB.cgeb, cA.cgeb * f10, 1e-6, 'CGEB scales with the inflation factor');
+
+  // --- CCB, CRA July 2026 to June 2027 ---
+  // 1 child aged 4, family income 60,000: 8,157 - 7% x (60,000 - 38,237) = 8,157 - 1,523.41 = 6,633.59.
+  c = await ben(prof({ otherA: 60000, ageA: 40, dependents: [kid(4)] }));
+  near(c.ccb, 8157 - 0.07 * (60000 - 38237), 1e-6, 'CCB one child under 6');
+  // 2 children (4 and 10), family income 100,000: 8,157 + 6,883 = 15,040; reduction 6,022 + 5.7% x (100,000 - 82,847) = 6,999.72.
+  c = await ben(prof({ otherA: 50000, otherB: 50000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(4), kid(10)] }));
+  near(c.ccb, 15040 - (6022 + 0.057 * (100000 - 82847)), 1e-6, 'CCB two children at 100,000');
+  // Under 18 only: a 17-year-old gets the 6 to 17 amount, an 18-year-old gets nothing; four or more use the last column.
+  c = await ben(prof({ otherA: 20000, ageA: 40, dependents: [kid(17), kid(18)] }));
+  near(c.ccb, 6883, 1e-6, 'CCB counts only the 17-year-old');
+  c = await ben(prof({ otherA: 20000, ageA: 40, dependents: [kid(1), kid(2), kid(3), kid(4), kid(5)] }));
+  near(c.ccb, 5 * 8157, 1e-6, 'CCB five children under 6 at low income');
+  c = await ben(prof({ otherA: 90000, ageA: 40, dependents: [kid(1), kid(2), kid(3), kid(4), kid(5)] }));
+  near(c.ccb, 5 * 8157 - (10260 + 0.095 * (90000 - 82847)), 1e-6, 'CCB five children uses the four-or-more column');
+  // No children: nothing.
+  near((await ben(prof({ otherA: 20000, ageA: 40 }))).ccb, 0, 0, 'no children, no CCB');
 
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
