@@ -1,0 +1,68 @@
+// Coverage test for PROVINCE_RULES (Canada): every province present, every field explicit, schema ranges.
+// Mechanisms are tested with hand-computed households in tests/tax_brackets.js.
+const { chromium } = require('playwright');
+const assert = require('assert');
+const path = require('path');
+
+const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
+const INDEX_KEYS = ['bracketsIndexed', 'bpaIndexed', 'ageAmountIndexed', 'pensionAmountIndexed', 'surtaxIndexed'];
+const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
+
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_Canada.html'));
+  await page.waitForTimeout(300);
+  const fails = await page.evaluate(
+    ({ PROVINCES, INDEX_KEYS, ROW_KEYS }) => {
+      const rules = window.__test_tax.PROVINCE_RULES;
+      const fails = [];
+      const codes = Object.keys(rules);
+      if (codes.length !== 10) fails.push(`expected 10 provinces, found ${codes.length}`);
+      for (const c of PROVINCES) if (!rules[c]) fails.push(`${c}: missing`);
+      for (const c of codes) {
+        if (!PROVINCES.includes(c)) fails.push(`${c}: not a province code`);
+        const r = rules[c];
+        for (const k of ROW_KEYS) if (!(k in r)) fails.push(`${c}: field ${k} missing`);
+        for (const k of Object.keys(r)) if (!ROW_KEYS.includes(k)) fails.push(`${c}: unknown field ${k}`);
+        for (const k of INDEX_KEYS) if (typeof r.indexing[k] !== 'boolean') fails.push(`${c}: indexing.${k} must be a boolean`);
+        for (const k of ['source', 'amountsSource']) if (!/^https:\/\//.test(r[k])) fails.push(`${c}: ${k} must be an https URL`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(r.retrieved)) fails.push(`${c}: retrieved must be a date`);
+        for (const k of ['brackets', 'bpa', 'age', 'pension', 'dividend'])
+          if (!['primary', 'secondary'].includes(r.verified[k])) fails.push(`${c}: verified.${k} must be primary or secondary`);
+        // Brackets: increasing caps, increasing rates, open-ended last, and the credit rate is the lowest rate.
+        const b = r.brackets;
+        for (let i = 1; i < b.length; i++) {
+          if (!(b[i][0] > b[i - 1][0])) fails.push(`${c}: bracket caps not increasing at ${i}`);
+          if (!(b[i][1] > b[i - 1][1])) fails.push(`${c}: bracket rates not increasing at ${i}`);
+        }
+        if (b[b.length - 1][0] !== Infinity) fails.push(`${c}: last bracket must be open-ended`);
+        if (r.creditRate !== b[0][1]) fails.push(`${c}: credit rate ${r.creditRate} is not the lowest bracket rate ${b[0][1]}`);
+        if (!(r.bpa.amount > 5000 && r.bpa.amount < 30000)) fails.push(`${c}: basic personal amount out of range`);
+        if (r.bpa.phase) {
+          const p = r.bpa.phase;
+          if (!(p.end > p.start && p.floor >= 0 && p.floor < r.bpa.amount)) fails.push(`${c}: bad basic personal amount phase-down`);
+        }
+        if (r.age) {
+          if (r.age.rate !== 0.15) fails.push(`${c}: age amount reduction rate should be 15%`);
+          if (!(r.age.amount > 0 && r.age.threshold > 0 && r.age.supplement >= 0)) fails.push(`${c}: bad age amount`);
+        }
+        if (r.pension && !(r.pension.amount > 0 && r.pension.amount <= 2000)) fails.push(`${c}: pension amount out of range`);
+        if (!(r.dividend.eligible > 0.04 && r.dividend.eligible < 0.2)) fails.push(`${c}: eligible dividend credit out of range`);
+        if ((c === 'on') !== !!r.surtax) fails.push(`${c}: only Ontario has a surtax`);
+        if ((c === 'on') !== r.healthPremium) fails.push(`${c}: only Ontario has a health premium`);
+        if (!r.age && c !== 'qc') fails.push(`${c}: age amount missing`);
+        if (!r.pension && c !== 'qc') fails.push(`${c}: pension amount missing`);
+        if (c !== 'mb' && r.bpa.phase) fails.push(`${c}: only Manitoba has a basic personal amount phase-down in 2026`);
+      }
+      return fails;
+    },
+    { PROVINCES, INDEX_KEYS, ROW_KEYS },
+  );
+  await browser.close();
+  assert.deepStrictEqual(errors, [], 'page errors ' + errors);
+  assert.deepStrictEqual(fails, [], '\n  ' + fails.join('\n  '));
+  console.log('province rules coverage ok');
+})();

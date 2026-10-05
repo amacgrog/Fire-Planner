@@ -321,23 +321,23 @@ function caChecks() {
   // Age amount 9,208, reduced 15% of net income over 46,432 (gone at 107,818.67);
   // pension income amount: first 2,000 of eligible pension income, not indexed.
   // Age 65, $40k, no pension: 5,600 - 14% * (16,452 + 9,208 = 25,660 = 3,592.4) = 2,007.6
-  near(t.personTaxCA(40000, 0, 0, 0, 65, 0) - t.provincialTaxCA(40000, 0), 2007.6, 0.005, 'age amount at $40k');
+  near(t.personTaxCA(40000, 0, 0, 0, 65, 0) - t.provincialTaxCA(40000, 0, 0, 65, 0), 2007.6, 0.005, 'age amount at $40k');
   // Age 65, $60k: reduction 15% * 13,568 = 2,035.2 -> age amount 7,172.8;
   // 8,496.005 - 14% * (16,452 + 7,172.8 = 23,624.8 = 3,307.472) = 5,188.533
-  near(t.personTaxCA(60000, 0, 0, 0, 65, 0) - t.provincialTaxCA(60000, 0), 5188.533, 0.005, 'age amount partly clawed back at $60k');
+  near(t.personTaxCA(60000, 0, 0, 0, 65, 0) - t.provincialTaxCA(60000, 0, 0, 65, 0), 5188.533, 0.005, 'age amount partly clawed back at $60k');
   // Age 65, $120k: fully clawed back, equals the under-65 tax
   near(t.personTaxCA(120000, 0, 0, 0, 65, 0), t.personTaxCA(120000, 0, 0, 0, 64, 0), 1e-9, 'age amount gone at $120k');
-  near(t.personTaxCA(120000, 0, 0, 0, 65, 0) - t.provincialTaxCA(120000, 0), 18655.25, 0.005, 'federal $120k with BPA only');
+  near(t.personTaxCA(120000, 0, 0, 0, 65, 0) - t.provincialTaxCA(120000, 0, 0, 65, 0), 18655.25, 0.005, 'federal $120k with BPA only');
   // Not 65 yet: no age amount, whatever the income
   near(t.personTaxCA(40000, 0, 0, 0, 64, 0), t.personTaxCA(40000, 0, 0), 1e-9, 'no age amount at 64');
   // Pension credit at age 60 (employer pension): $5,000 pension -> base 2,000;
   // 8,496.005 - 14% * 18,452 (2,583.28) = 5,912.725. $1,500 pension -> base 1,500.
-  near(t.personTaxCA(60000, 0, 0, 0, 60, 5000) - t.provincialTaxCA(60000, 0), 5912.725, 0.005, 'pension credit capped at $2,000');
-  near(t.personTaxCA(60000, 0, 0, 0, 60, 1500) - t.provincialTaxCA(60000, 0), 8496.005 - 0.14 * 17952, 0.005, 'pension credit below the cap');
+  near(t.personTaxCA(60000, 0, 0, 0, 60, 5000) - t.provincialTaxCA(60000, 0, 0, 60, 5000), 5912.725, 0.005, 'pension credit capped at $2,000');
+  near(t.personTaxCA(60000, 0, 0, 0, 60, 1500) - t.provincialTaxCA(60000, 0, 0, 60, 1500), 8496.005 - 0.14 * 17952, 0.005, 'pension credit below the cap');
   // Age 70, $40k, $5k pension: 5,600 - 14% * (16,452 + 9,208 + 2,000 = 27,660 = 3,872.4) = 1,727.6
-  near(t.personTaxCA(40000, 0, 0, 0, 70, 5000) - t.provincialTaxCA(40000, 0), 1727.6, 0.005, 'age amount plus pension credit');
+  near(t.personTaxCA(40000, 0, 0, 0, 70, 5000) - t.provincialTaxCA(40000, 0, 0, 70, 5000), 1727.6, 0.005, 'age amount plus pension credit');
   // Tax floors at zero
-  near(t.personTaxCA(5000, 0, 0, 0, 70, 5000) - t.provincialTaxCA(5000, 0), 0, 1e-9, 'federal tax floored at zero with credits');
+  near(t.personTaxCA(5000, 0, 0, 0, 70, 5000) - t.provincialTaxCA(5000, 0, 0, 70, 5000), 0, 1e-9, 'federal tax floored at zero with credits');
   // Indexing: the age amount and its threshold scale with the plan's index; the pension amount does not.
   st.inflation = 3;
   {
@@ -350,7 +350,7 @@ function caChecks() {
   }
   st.inflation = 0;
   // Combined tax never falls as income rises and has no cliffs, at age 66 with a pension, in every province.
-  for (const code of Object.keys(t.PROVINCE_TAX)) {
+  for (const code of Object.keys(t.PROVINCE_RULES)) {
     st.province = code;
     let prev = 0;
     for (let inc = 0; inc <= 400000; inc += 500) {
@@ -363,16 +363,17 @@ function caChecks() {
   st.province = 'on';
 
   // --- Ontario ---------------------------------------------------------------
-  // $100k: 87,011 taxable -> 2,721.4955 + 3,030.48 = 5,751.9755; no surtax
-  // (below 5,818); health premium $750 -> 6,501.9755
-  near(t.provincialTaxCA(100000, 0), 6501.9755, 0.005, 'Ontario $100k');
+  // $100k: 53,891 * 5.05% + 46,109 * 9.15% = 6,940.469, less 5.05% of the 12,989 basic personal
+  // amount (655.9445) = 6,284.5245; surtax 20% of (6,284.5245 - 5,818) = 93.3049; health
+  // premium $750 (on taxable income, not income less the personal amount) -> 7,127.8294
+  near(t.provincialTaxCA(100000, 0), 7127.8294, 0.005, 'Ontario $100k');
   // Surtax: $200k -> taxable 187,011. Base = 53,891*5.05% + 53,894*9.15% + 79,226*19.8%
   //   = 2,721.4955 + 4,931.1 + 15,686.7 (approx) -- compared via the reference below instead.
   {
-    const on = t.PROVINCE_TAX.on;
-    const taxable = 200000 - on.bpa;
-    const base = refTax(taxable, on.brackets);
-    const surtax = Math.max(0, base - 5818) * 0.2 + Math.max(0, base - 7446) * 0.16;
+    const on = t.PROVINCE_RULES.on;
+    const base = refTax(200000, on.brackets) - on.creditRate * on.bpa.amount; // 18,443.9905 - 655.9445 = 17,788.046
+    const surtax = Math.max(0, base - 5818) * 0.2 + Math.max(0, base - 7446) * 0.16; // 2,394.0092 + 1,654.7273 = 4,048.7366
+    near(t.provincialTaxCA(200000, 0), 22586.7826, 0.005, 'Ontario with surtax (hand computed)');
     near(t.provincialTaxCA(200000, 0), base + surtax + 750, 0.005, 'Ontario with surtax');
     if (!(surtax > 1000)) fails.push(`Ontario surtax should be material at $200k, got ${surtax}`);
   }
@@ -380,18 +381,58 @@ function caChecks() {
   for (const [taxable, premium] of [[15000, 0], [22500, 150], [30000, 300], [37000, 360], [45000, 450], [48300, 525], [60000, 600], [72300, 675], [150000, 750], [200300, 825], [500000, 900]])
     near(t.ontarioHealthPremium(taxable, 1), premium, 0.005, `Ontario health premium at ${taxable}`);
 
+  // --- Provincial credits (7K): basic personal, age and pension amounts, phase-down, indexing ----
+  {
+    const prov = (code, ...a) => {
+      st.province = code;
+      return t.provincialTaxCA(...a);
+    };
+    // BC, age 66, $40k (under the 44,119 age threshold): tax 40,000 * 5.6% = 2,240; credits at 5.6% of
+    // 13,216 + 5,927 = 19,143 (1,072.008) -> 1,167.992
+    near(prov('bc', 40000, 0, 0, 66, 0), 1167.992, 0.005, 'BC age amount at $40k');
+    // AB, age 70, $60k, $5k pension: 4,800 less 8% of 22,769 + age amount (6,345 - 15% * (60,000 - 47,234)
+    // = 4,430.1) + pension 1,753 = 28,952.1 (2,316.168) -> 2,483.832
+    near(prov('ab', 60000, 0, 0, 70, 5000), 2483.832, 0.005, 'AB age and pension amounts');
+    // BC, age 60, $5k pension, $60k: 2,820.328 + 742.049 = 3,562.377 less 5.6% of 13,216 + 1,000 (796.096) = 2,766.281
+    near(prov('bc', 60000, 0, 0, 60, 5000), 2766.281, 0.005, 'BC pension amount at 60');
+    // The age amount is reduced to nothing; Saskatchewan's senior supplement (2,569) is not reduced.
+    near(prov('sk', 200000, 0, 0, 70, 0), prov('sk', 200000, 0, 0, 64, 0) - 0.105 * 2569, 0.005, 'SK senior supplement is not income tested');
+    // Manitoba: the personal amount is 15,780 up to $200k and nil from $400k; at $300k it is 7,890.
+    // Tax 5,076 + 6,757.5 + 34,800 = 46,633.5 less 10.8% of 7,890 (852.12) -> 45,781.38
+    near(prov('mb', 300000, 0), 45781.38, 0.005, 'Manitoba basic personal amount phase-down');
+    near(prov('mb', 400000, 0), refTax(400000, t.PROVINCE_RULES.mb.brackets), 0.005, 'Manitoba basic personal amount nil at $400k');
+    // The credit cannot make tax negative.
+    near(prov('bc', 5000, 0, 0, 70, 5000), 0, 1e-9, 'provincial tax floored at zero');
+    near(prov('nb', 10000, 0), 0, 1e-9, 'no provincial tax below the personal amount');
+    // Indexing: Manitoba's brackets and amounts are frozen; an indexed province scales; the pension
+    // amount scales only where it is indexed (AB, ON, NS), not where it is a flat $1,000 (BC).
+    st.inflation = 3;
+    {
+      const yi = 7,
+        f = Math.pow(1.03, yi);
+      near(prov('mb', 50000, yi), prov('mb', 50000, 0), 1e-9, 'Manitoba schedule is not indexed');
+      near(prov('ab', 40000 * f, yi, 0, 60, 5000 * f), f * prov('ab', 40000, 0, 0, 60, 5000), 1e-6 * f * 40000, 'AB pension amount is indexed');
+      near(prov('bc', 40000 * f, yi, 0, 60, 5000), f * prov('bc', 40000, 0, 0, 0, 0) - 0.056 * 1000, 1e-6 * f * 40000, 'BC pension amount is not indexed');
+      near(prov('on', 60000 * f, yi, 0, 66, 0), f * prov('on', 60000, 0, 0, 66, 0), 1e-6 * f * 60000, 'ON age amount and threshold are indexed');
+    }
+    st.inflation = 0;
+    st.province = 'on';
+  }
+
   // --- Every province against its own table --------------------------------
-  const codes = Object.keys(t.PROVINCE_TAX);
+  const codes = Object.keys(t.PROVINCE_RULES);
   if (codes.length !== 10) fails.push(`expected 10 provinces, found ${codes.length}`);
   for (const code of codes) {
     st.province = code;
-    const table = t.PROVINCE_TAX[code];
+    const table = t.PROVINCE_RULES[code];
     for (let i = 1; i < table.brackets.length; i++)
       if (!(table.brackets[i][0] > table.brackets[i - 1][0])) fails.push(`${code}: bracket caps not increasing at ${i}`);
     for (const inc of [0, 8000, 20000, 45000, 80000, 120000, 200000, 400000, 900000]) {
-      const base = refTax(Math.max(0, inc - table.bpa), table.brackets);
+      const ph = table.bpa.phase,
+        bpa = ph ? table.bpa.amount * Math.min(1, Math.max(0, (ph.end - inc) / (ph.end - ph.start))) : table.bpa.amount,
+        base = Math.max(0, refTax(inc, table.brackets) - table.creditRate * bpa);
       if (code !== 'on') near(t.provincialTaxCA(inc, 0), base, 0.005, `${code} provincial ${inc}`);
-      else if (t.provincialTaxCA(inc, 0) < base - 0.005) fails.push(`on ${inc}: provincial tax below bracket tax`);
+      else if (t.provincialTaxCA(inc, 0) < base - 0.005) fails.push(`on ${inc}: provincial tax below credited bracket tax`);
     }
     // Monotone and continuous (no jumps larger than the top marginal rate allows).
     let prev = 0;
@@ -407,8 +448,9 @@ function caChecks() {
     st.inflation = 3;
     const yi = 7,
       f = Math.pow(1.03, yi);
-    for (const inc of [30000, 90000, 250000])
-      near(t.personTaxCA(inc * f, 0, yi), f * t.personTaxCA(inc, 0, 0), 1e-6 * f * inc, `${code} indexing at ${inc}`);
+    if (code !== 'mb')
+      for (const inc of [30000, 90000, 250000])
+        near(t.personTaxCA(inc * f, 0, yi), f * t.personTaxCA(inc, 0, 0), 1e-6 * f * inc, `${code} indexing at ${inc}`);
     st.inflation = 0;
   }
 
@@ -426,10 +468,17 @@ function caChecks() {
   // --- Eligible dividend credit ------------------------------------------------
   st.province = 'on';
   // $27,600 grossed-up dividend on top of $72,400 other income = $100k taxable.
-  // Tax before credit = 14,392.725 + 6,501.9755 = 20,894.7005;
-  // credit = 27,600 * (15.0198% + 10%) = 6,905.4648 -> 13,989.2357
-  near(t.personTaxCA(100000, 0, 0, 27600), 13989.2357, 0.005, 'eligible dividend credit');
-  near(t.personTaxCA(27600, 0, 0, 27600), 0, 1e-9, 'dividend credit cannot push tax below zero');
+  // Federal 14,392.725 - 27,600 * 15.0198% (4,145.4648) = 10,247.2602. Ontario: 6,284.5245 after the
+  // personal amount credit + surtax 93.3049 = 6,377.8294, less 27,600 * 10% = 2,760 -> 3,617.8294, plus the
+  // 750 health premium (the surtax comes before the dividend credit, as on ON428) = 4,367.8294
+  near(t.personTaxCA(100000, 0, 0, 27600), 14615.0896, 0.005, 'eligible dividend credit');
+  // Each credit is floored against its own level of tax: $40k income, $5k and $20k grossed-up dividends.
+  // Federal 3,296.72 - 750.99 = 2,545.73; Ontario 2,020 - 655.9445 = 1,364.0555 - 500 = 864.0555 + 450 premium.
+  near(t.personTaxCA(40000, 0, 0, 5000), 3859.7855, 0.005, 'dividend credit, both levels positive');
+  // $20k: federal 3,296.72 - 3,003.96 = 292.76; Ontario credit 2,000 exceeds 1,364.0555 -> 0, plus the 450 premium
+  near(t.personTaxCA(40000, 0, 0, 20000), 742.76, 0.005, 'a provincial credit larger than provincial tax does not reduce federal tax');
+  // Both credits are floored at zero; only Ontario's 300 health premium (taxable income 27,600) is left.
+  near(t.personTaxCA(27600, 0, 0, 27600), 300, 1e-9, 'dividend credit cannot push tax below zero');
 
   // --- OAS clawback -----------------------------------------------------------
   near(t.oasClawback(95000, 8500, 0), 0, 1e-9, 'OAS clawback below threshold');

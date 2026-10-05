@@ -45,7 +45,8 @@ async function run(file, isUS) {
     ['returnRate', 0], ['hysaRate', 0], ['dividendYield', 0],
   ];
   if (isUS) base.push(['medicareYearly', 0], ['acaEnabled', false], ['stateTax', 'tx'], ['ssMonthlyA', 0]);
-  else base.push(['cppMonthlyA', 0], ['oasMonthlyA', 0]);
+  // Canada: $24,000 of CPP uses up the age and personal credits, so the interest is taxed at a positive rate.
+  else base.push(['cppMonthlyA', 2000], ['oasMonthlyA', 0]);
   for (const [i, v] of base) await set(i, v);
   await page.evaluate(() => document.getElementById('rentBtn').click());
   for (const [i, v] of [['rent', 0], ['cash', 0], ['taxable', 1000000], ['basisRatio', 100], ['bondYears', 10]])
