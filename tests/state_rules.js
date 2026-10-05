@@ -81,7 +81,7 @@ function checks() {
       else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');
       else fails.push(at + 'addition kind ' + a.kind);
     }
-    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && isNum(r.exemptionPhaseOut.step) && isNum(r.exemptionPhaseOut.width)), at + 'exemptionPhaseOut');
+    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && (isNum(r.exemptionPhaseOut.step) || columns.every((c) => isNum(r.exemptionPhaseOut.step[c]))) && isNum(r.exemptionPhaseOut.width)), at + 'exemptionPhaseOut');
     need((isNum(r.dependentExemption) && r.dependentExemption >= 0) || (r.dependentExemption && r.dependentExemption.kind === 'agiTiered' && columns.every((c) => stepOk(r.dependentExemption.tables[c]))), at + 'dependentExemption');
     const sp = r.standardDeductionPhase;
     if (sp.kind === 'none') need(Object.keys(sp).length === 1, at + 'standardDeductionPhase none carries nothing');
@@ -96,7 +96,7 @@ function checks() {
     need(fc.standardDeduction || (!fc.seniorDeduction && !fc.ageAdditional), at + 'the senior deduction and the 65+ add-on need the federal standard deduction');
     if (fc.standardDeduction) need(columns.every((c) => r.standardDeduction[c] === 0), at + 'a conforming state carries no standard deduction of its own');
     need(typeof r.base.ordinary === 'boolean' && isNum(r.base.gainsIncluded) && r.base.gainsIncluded >= 0 && r.base.gainsIncluded <= 1, at + 'base');
-    need(r.base.gainsRate === null || (isNum(r.base.gainsRate) && r.base.gainsRate > 0 && r.base.gainsRate < 0.15), at + 'base.gainsRate (null or a flat rate)');
+    need(r.base.gainsRate === null || (isNum(r.base.gainsRate) && r.base.gainsRate > 0 && r.base.gainsRate < 0.15) || (Array.isArray(r.base.gainsRate) && r.tax.kind === 'graduated' && columns.every((c) => r.tax.columns[c].length === r.base.gainsRate.length) && r.base.gainsRate.every((x) => isNum(x) && x >= 0 && x < 0.15)), at + 'base.gainsRate (null, a flat rate, or one rate per bracket)');
     need(isNum(r.base.gainsDeduction) && r.base.gainsDeduction >= 0, at + 'base.gainsDeduction');
     const ss = r.base.socialSecurity;
     need(ss === 'exempt' || ss === 'taxed' || (ss && ss.kind === 'subtraction' && isNum(ss.seniorAge) && isNum(ss.belowSeniorCap)) || (ss && ss.kind === 'agiTested' && isNum(ss.taxedShareOfBenefits) && columns.every((c) => isNum(ss.exemptBelow[c]))) ||

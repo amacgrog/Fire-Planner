@@ -41,7 +41,7 @@ function baseText(b) {
   const parts = [];
   parts.push(b.ordinary ? 'wages, pensions, withdrawals' : 'ordinary income not taxed');
   parts.push(b.gainsIncluded === 1 ? 'gains in full' : `gains ${pct(b.gainsIncluded)} included`);
-  if (b.gainsRate !== null) parts.push(`gains taxed separately at ${pct(b.gainsRate)}`);
+  if (b.gainsRate !== null) parts.push(Array.isArray(b.gainsRate) ? `gains taxed at a rate per bracket (${b.gainsRate.map((x) => pct(x)).join(' / ')})` : `gains taxed separately at ${pct(b.gainsRate)}`);
   if (b.gainsDeduction > 0) parts.push(`${money(b.gainsDeduction)} gains exclusion`);
   const ss = b.socialSecurity;
   const ssText = {

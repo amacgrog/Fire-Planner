@@ -405,6 +405,17 @@ function checks() {
   near(run(gs({ gainsRate: null, gainsDeduction: 1000 }), { wages: 20000, gains: 11000 }), 3000, 'gains deduction alone: (20,000 + 10,000) x 10%');
   near(run(gs({ gainsRate: 0.05, gainsDeduction: 1000, gainsIncluded: 0.5 }), { wages: 0, gains: 11000 }), 225, 'gains rate: half included, less the deduction, at 5% ((5,500 - 1,000) x 5%)');
 
+  // --- Gains taxed at a rate per ordinary bracket, stacked on top of the ordinary income (Montana) ---
+  const stacked = { tax: { kind: 'graduated', columns: { single: [[0, 0.1], [10000, 0.2]], mfj: [[0, 0.1], [10000, 0.2]], hoh: [[0, 0.1], [10000, 0.2]] } }, base: baseWith('exempt', { gainsRate: [0.05, 0.1] }) };
+  // wages 8,000, gains 4,000: ordinary 800; gains 8,000 to 12,000: 2,000 in the first bracket (5%: 100) and 2,000 in the second (10%: 200).
+  near(run(stacked, { wages: 8000, gains: 4000 }), 1100, 'gains rates by bracket: stacked across the bracket edge');
+  near(run(stacked, { wages: 20000, gains: 4000 }), 3400, 'gains rates by bracket: all in the upper bracket (ordinary 1,000 + 2,000, gains 4,000 x 10%)');
+  near(run(stacked, { wages: 0, gains: 4000 }), 200, 'gains rates by bracket: gains alone start in the first bracket (4,000 x 5%)');
+  // An exemption step-down whose step differs by column: 2,000 single / 4,000 joint, 1,000 / 2,000 lost per 10,000 of AGI over 50,000.
+  const exStep = { exemption: { single: 2000, mfj: 4000, hoh: 2000 }, exemptionPhaseOut: { kind: 'stepDown', start: cols(50000), step: { single: 1000, mfj: 2000, hoh: 1000 }, width: 10000 } };
+  near(run(exStep, { wages: 50000 }), 4800, 'exemption step by column: at the start nothing is lost (50,000 - 2,000)');
+  near(run(exStep, { wages: 55000 }), 5400, 'exemption step by column: single loses 1,000 (55,000 - 1,000)');
+  near(run(exStep, { wages: 55000, ages: [40, 40] }, 'mfj'), 5300, 'exemption step by column: joint loses 2,000 (55,000 - 2,000)');
   // --- The flat local tax (MD, IN) ----------------------------------------------------------------------------------------------------
   const loc = (o) => ({ localTax: { kind: 'flat', rate: 0.03 }, standardDeduction: cols(5000), ...o });
   near(run(loc(), { wages: 50000 }), 5850, 'local tax: 4,500 state + 3% of the 45,000 taxable');

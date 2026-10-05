@@ -209,6 +209,43 @@ const CASES = [
   //   retiree: 40,000 + 40,000 + 5,600 - 3,000 = 82,600; SCIAD 30,000 x (1 - 2,600/110,000) = 29,290.91; - 15,000: taxable 38,309.09 -> 597 + 8,309.09 x 5.21% (432.90) = 1,029.904
   //   family:  130,000 + 1,120 = 131,120; SCIAD 30,000 x (1 - 51,120/110,000) = 16,058.18; dependents 9,860: taxable 105,201.82 -> 597 + 75,201.82 x 5.21% (3,918.015) = 4,515.015
   { code: 'sc', retiree: 1029.9036, family: 4515.0147, why: 'SCIAD phase-out, 65+ deduction, gains deduction' },
+
+  // --- G5: MD MI MN MT OR VT WI ---------------------------------------------------------------------------------------------------
+  // MD (joint). Pension exclusion for a filer 65+: 40,600 less benefits received (A: 40,600 - 24,000 = 16,600 of 30,000 pension; B is 64: none; IRA withdrawals not eligible);
+  // std 6,700; exemptions 6,400 + 1,000 (65+), +3,200 per child; 2% / 3% / 4% to 3,000, 4.75% to 150,000; local 3.2%.
+  //   retiree: 90,000 - 16,600 = 73,400 - 6,700 - 7,400 = 59,300: 20 + 30 + 40 + 56,300 x 4.75% (2,674.25) = 2,764.25; + 3.2% x 59,300 (1,897.60) = 4,661.85
+  //   family:  132,000 - 6,700 - 6,400 - 6,400 = 112,500: 90 + 109,500 x 4.75% (5,201.25) = 5,291.25; + 3.2% x 112,500 (3,600) = 8,891.25
+  { code: 'md', retiree: 4661.85, family: 8891.25, why: 'pension exclusion less benefits, county tax' },
+  // MI (joint). 4.25%; exemptions 11,800 + 5,900 per child; retirement deduction up to 135,220 per filer: all 80,000.
+  //   retiree: 90,000 - 80,000 = 10,000 - 11,800 < 0: 0
+  //   family:  132,000 - 11,800 - 11,800 = 108,400 x 4.25% = 4,607
+  { code: 'mi', retiree: 0, family: 4607, why: 'retirement deduction, exemptions' },
+  // MN (joint). Taxable Social Security 22,000 is included; AGI 112,000 is over 108,320 (not over 112,320): 90% subtracted = 19,800; std 30,600 + 1,300 (one filer 65+);
+  // dependent exemption 5,300 each; 5.35% to 48,700, 6.8% above.
+  //   retiree: 112,000 - 19,800 = 92,200 - 30,600 - 1,300 = 60,300: 2,605.45 + 11,600 x 6.8% (788.80) = 3,394.25
+  //   family:  132,000 - 30,600 - 10,600 = 90,800: 2,605.45 + 42,100 x 6.8% (2,862.80) = 5,468.25
+  { code: 'mn', retiree: 3394.25, family: 5468.25, why: 'Social Security subtraction phase-out' },
+  // MT (joint). Starts from federal taxable income: deduction 32,200 + 1,650 + 6,000 (retiree); taxable Social Security included; gains 3.0% / 4.1% stacked on the ordinary income;
+  // 4.7% to 95,000, 5.65% above (2027: 4.7% to 130,000, 5.4% above).
+  //   retiree: ordinary 112,000 - 10,000 - 39,850 = 62,150 x 4.7% = 2,921.05; gains 10,000 at 3.0% = 300 -> 3,221.05
+  //   family:  ordinary 130,000 - 32,200 = 97,800: 95,000 x 4.7% (4,465) + 2,800 x 5.65% (158.20) = 4,623.20; gains 2,000 all above 95,000 at 4.1% = 82 -> 4,705.20
+  //   family 2027: 97,800 x 4.7% = 4,596.60 + gains 2,000 at 3.0% = 60 -> 4,656.60
+  { code: 'mt', retiree: 3221.05, family: 4705.2, why: 'conformity, stacked gains rates, scheduled 2027 brackets', extra: [{ household: 'family', yearIndex: 1, expect: 4656.6, why: '2027 brackets' }] },
+  // OR (joint). Federal tax paid deducted (retiree 6,962, family 6,975; both under the 8,500 cap and the 250,000 phase-out); std 5,670; 4.75% to 9,100, 6.75% to 22,800, 8.75% above;
+  // exemption credit 256 per person and child.
+  //   retiree: 90,000 - 6,962 - 5,670 = 77,368: 432.25 + 924.75 + 54,568 x 8.75% (4,774.70) = 6,131.70; - 512 = 5,619.70
+  //   family:  132,000 - 6,975 - 5,670 = 119,355: 1,357 + 96,555 x 8.75% (8,448.5625) = 9,805.5625; - 1,024 = 8,781.5625
+  { code: 'or', retiree: 5619.7, family: 8781.5625, why: 'federal tax subtraction, exemption credits' },
+  // VT (joint, 2025 amounts). AGI 112,000 is over 80,000: no Social Security subtraction (taxable 22,000 included); pension exclusion 10,000 per filer (20,000);
+  // std 15,300; exemptions 10,600 + 1,250 (65+) + 5,300 per child; 3.35% to 82,500, 6.6% above.
+  //   retiree: 112,000 - 20,000 = 92,000 - 15,300 - 10,600 - 1,250 = 64,850 x 3.35% = 2,172.475
+  //   family:  132,000 - 15,300 - 10,600 - 10,600 = 95,500: 2,763.75 + 13,000 x 6.6% (858) = 3,621.75
+  { code: 'vt', retiree: 2172.475, family: 3621.75, why: 'Social Security phase-out, pension exclusion' },
+  // WI (joint, 2025 amounts). 70% of gains; nobody is 67, so no retirement subtraction; standard deduction on the straight-line approximation 25,110 x (1 - (income - 35,600) / 131,200);
+  // exemptions 1,400 + 250 (one filer 65+) + 700 per child; 3.5% to 19,580, 4.4% to 67,300, 5.3% above.
+  //   retiree: 40,000 + 40,000 + 7,000 = 87,000; std 15,272.70; taxable 70,077.30: 685.30 + 2,099.68 + 2,777.30 x 5.3% (147.19) = 2,932.177
+  //   family:  130,000 + 1,400 = 131,400; std 6,775.11; taxable 121,824.89: 685.30 + 2,099.68 + 54,524.89 x 5.3% (2,889.82) = 5,674.80
+  { code: 'wi', retiree: 2932.177, family: 5674.7993, why: 'gains exclusion, sliding standard deduction (approximated)' },
 ];
 
 (async () => {

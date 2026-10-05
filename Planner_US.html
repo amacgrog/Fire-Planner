@@ -339,7 +339,7 @@
         </details>
         <details class="group" data-cat="profile" open>
           <summary>State income tax</summary>
-          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Select a state to see what its estimate includes and leaves out.">i</button></span><small>2026 estimate; (i) shows what this state includes</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
+          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Select a state to see what its estimate includes and leaves out.">i</button></span><small>2026 estimate; (i) shows what this state includes</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana (with average county tax)</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (with average county tax)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
     <!-- @@shared:html-timelineGroupState begin -->
         </details>
         <details class="group" data-cat="timeline" open>
@@ -3970,47 +3970,88 @@
     },
     md: {
       name: 'Maryland',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/legal-publications/alerts/tax-alert-changes-to-standard-and-itemized-deductions-and-to-state-and-local-income-tax-rates-from-the-2025-legislative-session.pdf',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
+        bracketsIndexed: false,
         standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
         retirementExclusionIndexed: true,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
           single: [
-            [0, 0.02], [1000, 0.03], [2000, 0.04], [3000, 0.0475], [100000, 0.05], [125000, 0.0525], [150000, 0.055],
-            [250000, 0.0575], [500000, 0.0625], [1000000, 0.065],
+            [ 0, 0.02 ],
+            [ 1000, 0.03 ],
+            [ 2000, 0.04 ],
+            [ 3000, 0.0475 ],
+            [ 100000, 0.05 ],
+            [ 125000, 0.0525 ],
+            [ 150000, 0.055 ],
+            [ 250000, 0.0575 ],
+            [ 500000, 0.0625 ],
+            [ 1000000, 0.065 ]
           ],
           mfj: [
-            [0, 0.02], [1000, 0.03], [2000, 0.04], [3000, 0.0475], [150000, 0.05], [175000, 0.0525], [225000, 0.055],
-            [300000, 0.0575], [600000, 0.0625], [1200000, 0.065],
+            [ 0, 0.02 ],
+            [ 1000, 0.03 ],
+            [ 2000, 0.04 ],
+            [ 3000, 0.0475 ],
+            [ 150000, 0.05 ],
+            [ 175000, 0.0525 ],
+            [ 225000, 0.055 ],
+            [ 300000, 0.0575 ],
+            [ 600000, 0.0625 ],
+            [ 1200000, 0.065 ]
           ],
-        },
+          hoh: [
+            [ 0, 0.02 ],
+            [ 1000, 0.03 ],
+            [ 2000, 0.04 ],
+            [ 3000, 0.0475 ],
+            [ 150000, 0.05 ],
+            [ 175000, 0.0525 ],
+            [ 225000, 0.055 ],
+            [ 300000, 0.0575 ],
+            [ 600000, 0.0625 ],
+            [ 1200000, 0.065 ]
+          ]
+        }
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 3350, mfj: 6700 },
-      exemption: { single: 0, mfj: 0 },
-      exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
+      standardDeduction: { single: 3350, mfj: 6700, hoh: 6700 },
+      exemption: { single: 3200, mfj: 6400, hoh: 3200 },
+      exemptionPhaseOut: {
+        kind: 'stepDown',
+        start: { single: 100000, mfj: 150000, hoh: 100000 },
+        step: { single: 1600, mfj: 3200, hoh: 1600 },
+        width: 25000
+      },
+      dependentExemption: 3200,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: 1000, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
-      retirementExclusion: { kind: 'none' },
+      retirementExclusion: {
+        kind: 'perPerson',
+        pensionMinAge: 65,
+        traditionalMinAge: 65,
+        applies: { pension: true, traditional: false },
+        tiers: [ [ 0, 40600 ] ],
+        reducedBy: 'benefitsReceived',
+        share: null
+      },
       credits: [],
       federalTaxSubtraction: 'none',
-      localTax: 'notModeled',
-      notes: '',
+      localTax: { kind: 'flat', rate: 0.032 },
+      notes: "Ten brackets from 2% to 6.5% (the Comptroller's tax alert on the 2025 session, read: 5.75% from $250,000 single or $300,000 joint, 6.25% from $500,000 / $600,000 and 6.5% from $1,000,000 / $1,200,000), a $3,350 single and $6,700 joint or head of household standard deduction with no income test, indexed (the 2025 amounts; 2026 not found), and a $3,200 exemption per person and dependent that shrinks over $100,000 ($150,000 joint) of income (about 1,600 per $25,000; the real schedule has a 800 step the planner rounds), $1,000 more at 65. Social Security is exempt. A filer 65 or older excludes up to $40,600 of pension (defined-benefit) income, less all benefits received (Comptroller pension exclusion page, search excerpt); a 2026 bill phasing in a larger exclusion that includes IRAs (30% in 2026) was not confirmed as law and is not modeled. Every county also taxes income at 2.25% to 3.3%; the planner adds 3.2%, the most common county rate (Comptroller 2026 withholding information), to the Maryland taxable income. The 2% surtax on gains for incomes over $350,000 is not modeled.",
     },
     ma: {
       name: 'Massachusetts',
@@ -4054,16 +4095,16 @@
     },
     mi: {
       name: 'Michigan',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://www.michigan.gov/taxes/rep-legal/rab/2026-revenue-administrative-bulletins/revenue-administrative-bulletin-2026-1',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
         personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
         retirementExclusionIndexed: true,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
@@ -4071,56 +4112,115 @@
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
-      exemption: { single: 0, mfj: 0 },
+      exemption: { single: 5900, mfj: 11800 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
+      dependentExemption: 5900,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
-      retirementExclusion: { kind: 'none' },
+      retirementExclusion: {
+        kind: 'perPerson',
+        pensionMinAge: 0,
+        traditionalMinAge: 0,
+        applies: { pension: true, traditional: true },
+        tiers: [ [ 0, { single: 67610, mfj: 135220, hoh: 67610 } ] ],
+        reducedBy: 'none',
+        share: null
+      },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Flat 4.25% with a $5,900 exemption per person and dependent for 2026. Social Security is exempt. From 2026 every retiree, whatever the birth year, deducts retirement and pension benefits up to $67,610 single or $135,220 joint (Revenue Administrative Bulletin 2026-1 and Public Acts 4 of 2023 and 24 of 2025, search excerpts; the planner applies the joint figure to each spouse). The alternative standard deduction at 67 ($20,000 / $40,000) is never larger and is not modeled. The homestead property tax credit and city income taxes (Detroit and others) are not modeled.',
     },
     mn: {
       name: 'Minnesota',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://www.revenue.state.mn.us/press-release/2025-12-16/minnesota-income-tax-brackets-standard-deduction-and-dependent-exemption',
+      asOf: 2026,
       indexing: {
         bracketsIndexed: true,
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
         retirementExclusionIndexed: true,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.0535], [33310, 0.068], [109430, 0.0785], [203150, 0.0985]],
-          mfj: [[0, 0.0535], [48700, 0.068], [193480, 0.0785], [337930, 0.0985]],
-        },
+          single: [ [ 0, 0.0535 ], [ 33310, 0.068 ], [ 109430, 0.0785 ], [ 203150, 0.0985 ] ],
+          mfj: [ [ 0, 0.0535 ], [ 48700, 0.068 ], [ 193480, 0.0785 ], [ 337930, 0.0985 ] ],
+          hoh: [ [ 0, 0.0535 ], [ 41010, 0.068 ], [ 164800, 0.0785 ], [ 270060, 0.0985 ] ]
+        }
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
-      standardDeduction: { single: 15300, mfj: 30600 },
-      exemption: { single: 0, mfj: 0 },
+      base: {
+        ordinary: true,
+        gainsIncluded: 1,
+        gainsRate: null,
+        gainsDeduction: 0,
+        socialSecurity: {
+          kind: 'agiShare',
+          inclusive: false,
+          tables: {
+            single: [
+              [ 0, 1 ],
+              [ 84490, 0.9 ],
+              [ 88490, 0.8 ],
+              [ 92490, 0.7 ],
+              [ 96490, 0.6 ],
+              [ 100490, 0.5 ],
+              [ 104490, 0.4 ],
+              [ 108490, 0.3 ],
+              [ 112490, 0.2 ],
+              [ 116490, 0.1 ],
+              [ 120490, 0 ]
+            ],
+            mfj: [
+              [ 0, 1 ],
+              [ 108320, 0.9 ],
+              [ 112320, 0.8 ],
+              [ 116320, 0.7 ],
+              [ 120320, 0.6 ],
+              [ 124320, 0.5 ],
+              [ 128320, 0.4 ],
+              [ 132320, 0.3 ],
+              [ 136320, 0.2 ],
+              [ 140320, 0.1 ],
+              [ 144320, 0 ]
+            ],
+            hoh: [
+              [ 0, 1 ],
+              [ 84490, 0.9 ],
+              [ 88490, 0.8 ],
+              [ 92490, 0.7 ],
+              [ 96490, 0.6 ],
+              [ 100490, 0.5 ],
+              [ 104490, 0.4 ],
+              [ 108490, 0.3 ],
+              [ 112490, 0.2 ],
+              [ 116490, 0.1 ],
+              [ 120490, 0 ]
+            ]
+          }
+        }
+      },
+      standardDeduction: { single: 15300, mfj: 30600, hoh: 23000 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
+      dependentExemption: 5300,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: 1300, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. The public pension subtraction, the property tax refund and the dependent exemption's high-income phase-out are not modeled.",
     },
     ms: {
       name: 'Mississippi',
@@ -4322,35 +4422,54 @@
     },
     mt: {
       name: 'Montana',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://revenue.mt.gov/news/recent-news/HB-337',
+      asOf: 2026,
       indexing: {
         bracketsIndexed: true,
         standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
-      tax: { kind: 'graduated', columns: { single: [[0, 0.047], [47500, 0.0565]], mfj: [[0, 0.047], [95000, 0.0565]] } },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
+      tax: {
+        kind: 'graduated',
+        columns: {
+          single: [ [ 0, 0.047 ], [ 47500, 0.0565 ] ],
+          mfj: [ [ 0, 0.047 ], [ 95000, 0.0565 ] ],
+          hoh: [ [ 0, 0.047 ], [ 71250, 0.0565 ] ]
+        }
+      },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
-      standardDeduction: { single: 16100, mfj: 32200 },
-      exemption: { single: 0, mfj: 0 },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: [ 0.03, 0.041 ], gainsDeduction: 0, socialSecurity: 'taxed' },
+      standardDeduction: { single: 0, mfj: 0, hoh: 0 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
-      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
-      schedule: [],
+      federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
+      schedule: [
+        {
+          fromYear: 2027,
+          tax: {
+            kind: 'graduated',
+            columns: {
+              single: [ [ 0, 0.047 ], [ 65000, 0.054 ] ],
+              mfj: [ [ 0, 0.047 ], [ 130000, 0.054 ] ],
+              hoh: [ [ 0, 0.047 ], [ 97500, 0.054 ] ]
+            }
+          }
+        }
+      ],
       retirementExclusion: { kind: 'none' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'From 2026 Montana starts from federal taxable income, so the federal standard deduction, 65+ add-on and senior deduction come through, and taxable Social Security is taxed as federally. Two brackets: 4.7% to $47,500 single, $71,250 head of household, $95,000 joint and 5.65% above; in 2027 4.7% to $65,000 / $97,500 / $130,000 and 5.4% above (House Bill 337, Department of Revenue, read). Long-term gains are taxed at 3.0% in the lower bracket and 4.1% in the upper, stacked on top of the other income. Montana does not deduct federal income tax (the earlier guess was wrong). The earned income credit (20% of the federal one), the elderly homeowner credit and the pension exclusion for 65+ are not modeled.',
     },
     ne: {
       name: 'Nebraska',
@@ -4876,30 +4995,31 @@
     },
     or: {
       name: 'Oregon',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf',
+      asOf: 2026,
       indexing: {
         bracketsIndexed: true,
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
         creditAmountsIndexed: true,
         creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        retirementExclusionIndexed: false,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.0475], [4550, 0.0675], [11400, 0.0875], [125000, 0.099]],
-          mfj: [[0, 0.0475], [9100, 0.0675], [22800, 0.0875], [250000, 0.099]],
-        },
+          single: [ [ 0, 0.0475 ], [ 4550, 0.0675 ], [ 11400, 0.0875 ], [ 125000, 0.099 ] ],
+          mfj: [ [ 0, 0.0475 ], [ 9100, 0.0675 ], [ 22800, 0.0875 ], [ 250000, 0.099 ] ],
+          hoh: [ [ 0, 0.0475 ], [ 9100, 0.0675 ], [ 22800, 0.0875 ], [ 250000, 0.099 ] ]
+        }
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 2910, mfj: 5820 },
-      exemption: { single: 0, mfj: 0 },
+      standardDeduction: { single: 2835, mfj: 5670, hoh: 4560 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
@@ -4907,10 +5027,33 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
-      credits: [],
-      federalTaxSubtraction: 'none',
+      credits: [
+        {
+          kind: 'exemptionCredits',
+          label: 'Exemption credit ($256 each)',
+          refundable: false,
+          personal: { single: 256, mfj: 512, hoh: 256 },
+          personalCount: { single: 1, mfj: 2, hoh: 1 },
+          senior: { age: 65, amount: 0 },
+          dependent: 256,
+          phaseOut: { start: { single: 100000, mfj: 200000, hoh: 200000 }, width: 1, reduction: 1000000 }
+        }
+      ],
+      federalTaxSubtraction: {
+        kind: 'lagged',
+        placement: 'subtraction',
+        cap: { single: 8500, mfj: 8500, hoh: 8500 },
+        phase: {
+          basis: 'cap',
+          tables: {
+            single: [ [ 0, 1 ], [ 125000, 0.8 ], [ 130000, 0.6 ], [ 135000, 0.4 ], [ 140000, 0.2 ], [ 145000, 0 ] ],
+            mfj: [ [ 0, 1 ], [ 250000, 0.8 ], [ 260000, 0.6 ], [ 270000, 0.4 ], [ 280000, 0.2 ], [ 290000, 0 ] ],
+            hoh: [ [ 0, 1 ], [ 250000, 0.8 ], [ 260000, 0.6 ], [ 270000, 0.4 ], [ 280000, 0.2 ], [ 290000, 0 ] ]
+          }
+        }
+      },
       localTax: 'notModeled',
-      notes: '',
+      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled.',
     },
     pa: {
       name: 'Pennsylvania',
@@ -5219,41 +5362,60 @@
     },
     vt: {
       name: 'Vermont',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://tax.vermont.gov/sites/tax/files/documents/TaxRateSched-2025.pdf',
+      asOf: 2025,
       indexing: {
         bracketsIndexed: true,
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
         retirementExclusionIndexed: true,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.0335], [49400, 0.066], [119700, 0.076], [249700, 0.0875]],
-          mfj: [[0, 0.0335], [82500, 0.066], [199450, 0.076], [304000, 0.0875]],
-        },
+          single: [ [ 0, 0.0335 ], [ 49400, 0.066 ], [ 119700, 0.076 ], [ 249700, 0.0875 ] ],
+          mfj: [ [ 0, 0.0335 ], [ 82500, 0.066 ], [ 199450, 0.076 ], [ 304000, 0.0875 ] ],
+          hoh: [ [ 0, 0.0335 ], [ 66200, 0.066 ], [ 171000, 0.076 ], [ 276850, 0.0875 ] ]
+        }
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
-      standardDeduction: { single: 7650, mfj: 15300 },
-      exemption: { single: 0, mfj: 0 },
+      base: {
+        ordinary: true,
+        gainsIncluded: 1,
+        gainsRate: null,
+        gainsDeduction: 0,
+        socialSecurity: {
+          kind: 'agiPhaseOut',
+          start: { single: 55000, mfj: 70000, hoh: 55000 },
+          end: { single: 65000, mfj: 80000, hoh: 65000 }
+        }
+      },
+      standardDeduction: { single: 7650, mfj: 15300, hoh: 11450 },
+      exemption: { single: 5300, mfj: 10600, hoh: 5300 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
+      dependentExemption: 5300,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: 1250, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
-      retirementExclusion: { kind: 'none' },
+      retirementExclusion: {
+        kind: 'perPerson',
+        pensionMinAge: 0,
+        traditionalMinAge: 0,
+        applies: { pension: true, traditional: false },
+        tiers: [ [ 0, 10000 ] ],
+        reducedBy: 'none',
+        share: null
+      },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the child credit and the renter credit are not modeled.',
     },
     va: {
       name: 'Virginia',
@@ -5365,41 +5527,52 @@
     },
     wi: {
       name: 'Wisconsin',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://www.revenue.wi.gov/TaxForms2025/2025-Form1-inst.pdf',
+      asOf: 2025,
       indexing: {
         bracketsIndexed: true,
         standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.035], [15110, 0.044], [51950, 0.053], [332720, 0.0765]],
-          mfj: [[0, 0.035], [20150, 0.044], [69260, 0.053], [443630, 0.0765]],
-        },
+          single: [ [ 0, 0.035 ], [ 14680, 0.044 ], [ 50480, 0.053 ], [ 323290, 0.0765 ] ],
+          mfj: [ [ 0, 0.035 ], [ 19580, 0.044 ], [ 67300, 0.053 ], [ 431060, 0.0765 ] ]
+        }
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 0.7, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 13960, mfj: 25840 },
+      standardDeduction: { single: 13560, mfj: 25110 },
       exemption: { single: 700, mfj: 1400 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
-      standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      dependentExemption: 700,
+      standardDeductionPhase: {
+        kind: 'linear',
+        columns: { single: { start: 19070, end: 153000, floor: 0 }, mfj: { start: 35600, end: 166800, floor: 0 } }
+      },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: 250, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
-      retirementExclusion: { kind: 'none' },
+      retirementExclusion: {
+        kind: 'perPerson',
+        pensionMinAge: 67,
+        traditionalMinAge: 67,
+        applies: { pension: true, traditional: true },
+        tiers: [ [ 0, 24000 ] ],
+        reducedBy: 'none',
+        share: null
+      },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: '2025 schedule (Form 1 instructions, read): 3.5% to $14,680 and 4.4% to $50,480 single, 3.5% to $19,580 and 4.4% to $67,300 joint, 5.3% to $323,290 / $431,060, 7.65% above (the 2026 limits were not found). The standard deduction slides down with income from $13,560 single and $25,110 joint; the planner approximates the sliding scale with a straight line (within about 5% of the printed table). Exemption $700 per person and dependent, $250 more at 65. 30% of net long-term gains is excluded. Social Security is exempt. A filer 67 or older subtracts up to $24,000 of retirement income (new for 2025; Form 1 instructions, read); the older $5,000 subtraction is covered by it. The homestead credit and the earned income credit are not modeled.',
     },
     wy: {
       name: 'Wyoming',
@@ -5543,7 +5716,8 @@
                   : ss.kind === 'agiPhaseOut'
                     ? SS_PHASE
                     : SS_SUBTRACTION,
-      gainsRate: row.base.gainsRate,
+      gainsRate: Array.isArray(row.base.gainsRate) ? null : row.base.gainsRate,
+      gainsRates: Array.isArray(row.base.gainsRate) ? row.base.gainsRate : null,
       gainsDeduction: row.base.gainsDeduction,
       lagged: row.federalTaxSubtraction === 'none' ? null : row.federalTaxSubtraction,
       localRate: row.localTax === 'notModeled' ? 0 : row.localTax.rate,
@@ -5971,7 +6145,8 @@
     if (rule.exemptionPhaseOut) {
       const p = rule.exemptionPhaseOut,
         over = agi - p.start[colKey] * fCt;
-      if (over > 0) exemption = Math.max(0, exemption - p.step * fEx * Math.ceil(over / (p.width * fCt)));
+      if (over > 0)
+        exemption = Math.max(0, exemption - (typeof p.step === 'number' ? p.step : p.step[colKey]) * fEx * Math.ceil(over / (p.width * fCt)));
     }
     // The deduction: the federal standard deduction (a conforming state), or the state's own, phased by AGI.
     let deduction;
@@ -5985,7 +6160,7 @@
     }
     if (federalAllowance > deduction && rule.lagged.placement === 'itemized') deduction = federalAllowance;
     // Gains with their own flat rate leave the bracketed base (the ordinary deduction does not offset them).
-    const separateGains = rule.gainsRate === null ? 0 : Math.min(includedGains, Math.max(0, agi));
+    const separateGains = rule.gainsRate === null && rule.gainsRates === null ? 0 : Math.min(includedGains, Math.max(0, agi));
     let taxable = agi - separateGains - deduction - exemption;
     if (rule.dependentExemption)
       taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * fEx;
@@ -6004,7 +6179,12 @@
     }
     const income = Math.max(0, taxable);
     let tax = rule.graduated ? graduatedTax(income, col.starts, col.rates, fBr) : income * rule.flatRate;
-    if (separateGains > 0) tax += separateGains * rule.gainsRate;
+    if (separateGains > 0) {
+      // Flat rate, or one rate per ordinary bracket applied to the gains stacked on top of the ordinary income (Montana).
+      if (rule.gainsRates !== null)
+        tax += graduatedTax(income + separateGains, col.starts, rule.gainsRates, fBr) - graduatedTax(income, col.starts, rule.gainsRates, fBr);
+      else tax += separateGains * rule.gainsRate;
+    }
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
       const fa = a.indexed ? (by.ad > currentYear ? base / taxIndexFactor(by.ad - currentYear) : base) : 1; // each addition says whether its thresholds index
