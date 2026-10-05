@@ -86,7 +86,7 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 1 (historical parity) -> 2 (US tax and Medicare) -> 3A (account model) -> 3B
 (penalty-aware rules, 72(t), Rule of 55) -> 7A (children)
 -> 7B (federal credits) -> 7C (state framework + reference states) -> 7D (all
-remaining states and DC, one PR) -> 7J (Canada federal credits) -> 7K (all
+remaining states and DC, one PR) -> 7D part 2 (state-tax performance, one small PR) -> 7J (Canada federal credits) -> 7K (all
 provinces, one PR) -> 7L (income-tested benefits) -> 3C (safe-MAGI room; moved
 here, owner decision) -> 4A -> 4B -> 5 -> 6 -> 8 (survivor-benefit claim
 optimizer).
@@ -875,6 +875,17 @@ pension distinctions, blind exemptions, earned-income credits that follow the fe
 Sequencing inside 7D: (1) a plumbing commit (15), (2) a mechanisms commit for 1, 2, 3, 4, 5, 6, 8, 10, 14 with tests, (3) a second mechanisms commit for 7, 9, 11, 12, 13
 with tests, (4) the data commits by group. A mechanism that the data of its own group does not need yet may slip to the group that does, but never after
 its data: the rule from 7C holds that a row is not written before the mechanism and its test exist.
+
+### 7D part 2: state-tax performance (owner decision, after the 7D PR)
+
+Why: the 7D PR fails the +5% timing gate (`tests/bench_runs.js`, all 51 states, branch base -> 7D: about 40 states above +5%; Oregon +83%, Missouri +79%, Colorado +57%, Montana +45%, Kentucky +44%, Maryland +43%; flat-rate states +20% to +30%; numbers in the 7D commit 11 notes). A slider move stays about 80 ms in most states (measured with every results card open), but Missouri went 67 -> 161 ms, and the heavy paths (Monte Carlo, tornado, Roth optimizer) were not measured per state. The cause is the generic evaluator, not any row. The owner chose to ship 7D as is, record the cost, and fix it in this follow-up. No behavior change is allowed: every number (all snapshots, `tests/state_7d_households.js`, `tests/state_reference.js`) must stay exact.
+
+Three optimizations, in this order, each its own commit with a before/after from `tests/bench_runs.js --scale 3` on all 51 states against the 7D tip:
+1. **Cache the federal conformity deduction.** `stateIncomeTax` calls `standardDeduction(filing, yearIndex, ages)` and `seniorDeduction(...)` on every call for a conforming row (DC, MT, ID, NM, and others). Cache per (filing, year index, ages signature, AGI for the senior phase-out), cleared when the state inputs that feed them change. Expected: removes most of the DC/MT/ID cost.
+2. **Cache the lagged federal-tax pass** (`federalLiabilityForState`, rows with `federalTaxSubtraction.kind === 'lagged'`: AL, MO, OR). Key on the profile and year and the gains and traditional draw it depends on. Correctness risk: a stale value gives a wrong state tax, so add a test that changes one input at a time (wages, gains, draw, filing status, children) and compares cached against uncached results, and cover the MAGI-iteration rewind path (`tests/aca_magi_iteration.js`). Expected: removes most of the OR/MO/AL cost.
+3. **Build per-person inputs only for rows that read them.** `taxFor` assembles pension, retirement and Social Security splits (`pensionA/B`, `retirementA/B`, `ssBenefitsA/B`, `taxableSSA/B`) for every taxing state. Compile a per-row `needs` flag set (per-person retirement kind, Social Security split, property tax, rent, dependents) and skip the rest; also keep the compiled row's hot-path arrays allocation-free. Expected: the +20% to +30% on flat-rate states.
+
+Acceptance: every state within +5% of the branch base on the full 51-state run (or the remaining overruns named, with the reason); `npm test` green with snapshots unchanged; slider latency re-measured with all cards open for TX, MA, OR, MO; measure Monte Carlo, the tornado chart and the Roth optimizer per state once (not done in 7D). If a state still exceeds the gate after all three, record it in this section.
 
 ### 7J: Canadian federal age amount and pension income credit
 
@@ -2272,6 +2283,8 @@ reading (itself secondary).
 | State indexing by family: NY, PA and CT nothing indexed; CA all indexed except the $1 million surcharge; WA deduction indexed, $1 million tier not; the 17-state list of bracket-indexing states and each state's measure (owner's table) | 7C / 7D | O (owner's table, secondary) | each state's statute and revenue department notices |
 
 ## Open items
+
+- 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.
 
 Everything raised so far is answered or recorded as a decision above. What
 remains is detail to settle when the relevant batch is scoped:
