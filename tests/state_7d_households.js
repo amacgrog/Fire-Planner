@@ -246,6 +246,17 @@ const CASES = [
   //   retiree: 40,000 + 40,000 + 7,000 = 87,000; std 15,272.70; taxable 70,077.30: 685.30 + 2,099.68 + 2,777.30 x 5.3% (147.19) = 2,932.177
   //   family:  130,000 + 1,400 = 131,400; std 6,775.11; taxable 121,824.89: 685.30 + 2,099.68 + 54,524.89 x 5.3% (2,889.82) = 5,674.80
   { code: 'wi', retiree: 2932.177, family: 5674.7993, why: 'gains exclusion, sliding standard deduction (approximated)' },
+
+  // --- G6: NM DC ----------------------------------------------------------------------------------------------------------------------
+  // NM (joint). Federal AGI 112,000 is under 150,000: the taxable Social Security 22,000 is exempt; gains deduction 2,500; standard deduction 32,200 + 1,650 (A is 66);
+  // the low- and middle-income and the 65+ exemptions are gone at this income; dependents beyond the first 4,000; brackets 1.5% to 8,000, 3.2% to 25,000, 4.3% to 50,000, 4.7% to 100,000.
+  //   retiree: 90,000 - 2,500 - 33,850 = 53,650: 120 + 544 + 1,075 + 3,650 x 4.7% (171.55) = 1,910.55
+  //   family:  130,000 + 2,000 - 2,000 (gains under the 2,500) = 130,000 - 32,200 - 4,000 (second child) = 93,800: 1,739 + 43,800 x 4.7% (2,058.60) = 3,797.60; Child Income Tax Credit 2 x 79 = 158 -> 3,639.60
+  { code: 'nm', retiree: 1910.55, family: 3639.6, why: 'Social Security test, gains deduction, dependents beyond the first, child credit' },
+  // DC (joint). Conforms to the federal standard deduction with the 65+ add-on and the senior deduction (retiree 32,200 + 1,650 + 6,000 = 39,850; family 32,200); Social Security exempt; no child credit at this income.
+  //   retiree: 90,000 - 39,850 = 50,150: 400 + 1,800 + 10,150 x 6.5% (659.75) = 2,859.75
+  //   family:  132,000 - 32,200 = 99,800: 3,500 + 39,800 x 8.5% (3,383) = 6,883
+  { code: 'dc', retiree: 2859.75, family: 6883, why: 'federal conformity with the senior deduction, bracket 8.5%' },
 ];
 
 (async () => {

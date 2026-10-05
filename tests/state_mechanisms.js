@@ -416,6 +416,37 @@ function checks() {
   near(run(exStep, { wages: 50000 }), 4800, 'exemption step by column: at the start nothing is lost (50,000 - 2,000)');
   near(run(exStep, { wages: 55000 }), 5400, 'exemption step by column: single loses 1,000 (55,000 - 1,000)');
   near(run(exStep, { wages: 55000, ages: [40, 40] }, 'mfj'), 5300, 'exemption step by column: joint loses 2,000 (55,000 - 2,000)');
+  // --- A straight-line exemption, dependents beyond the first, a federal-AGI senior phase-out, a per-child step credit (New Mexico) ---
+  // Every exemption (2,500 single; 5,000 joint; 2,500 per child) loses 15% (single) or 10% (joint) of the federal AGI over 20,000 / 30,000, none left at 2,500.
+  const lin = { exemption: { single: 2500, mfj: 5000, hoh: 2500 }, exemptionPhaseOut: { kind: 'linear', start: { single: 20000, mfj: 30000, hoh: 30000 }, rate: { single: 0.15, mfj: 0.10, hoh: 0.10 }, full: 2500, dependent: 2500 } };
+  near(run(lin, { wages: 20000 }), 1750, 'linear exemption: at the start nothing is lost (20,000 - 2,500)');
+  near(run(lin, { wages: 30000 }), 2900, 'linear exemption: single loses 15% x 10,000 = 1,500 (30,000 - 1,000)');
+  near(run(lin, { wages: 36667 }), 3666.7, 'linear exemption: gone at 36,667');
+  const kidsLin = [kid(5), kid(8), kid(20, { qualifyingChild: false })];
+  near(run(lin, { wages: 40000, ages: [40, 40], dependents: kidsLin }, 'mfj'), 3400, 'linear exemption: the pool is 5,000 + 2 x 2,500, kept 60% (40,000 - 6,000)');
+  near(run(lin, { wages: 40000, ages: [40, 40] }, 'mfj'), 3700, 'linear exemption: no children, 5,000 kept 60% (40,000 - 3,000)');
+  // Dependents beyond the first: 4,000 each.
+  const after1 = { dependentExemption: { kind: 'afterFirst', amount: 4000 } };
+  near(run(after1, { wages: 50000, dependents: [kid(5)] }), 5000, 'after the first: one child, nothing');
+  near(run(after1, { wages: 50000, dependents: [kid(5), kid(8), kid(10)] }), 4200, 'after the first: three children, 2 x 4,000 (50,000 - 8,000)');
+  near(run(after1, { wages: 50000, dependents: kidsLin }), 4600, 'after the first: a non-qualifying child does not count (50,000 - 4,000)');
+  // Senior exemption cut by the FEDERAL AGI (taxable Social Security included) at 50% (single) / 25% (joint) of the dollars over 25,000.
+  const fedSenior = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'agiTested', exemptBelow: cols(1000000), taxedShareOfBenefits: 1 } },
+    seniorExemption: { kind: 'perSenior', age: 65, amount: 1000, phaseOut: { start: cols(25000), rate: { single: 0.5, mfj: 0.25, hoh: 0.25 }, basis: 'federal' } } };
+  near(run(fedSenior, { wages: 10000, taxableSS: 16000, ages: [66] }), 950, 'senior, federal basis: AGI 26,000 cuts 500 (single): (10,000 - 500) x 10%');
+  near(run(fedSenior, { wages: 10000, taxableSS: 16000, ages: [66, 60] }, 'mfj'), 925, 'senior, federal basis: joint cuts 25% of 1,000 = 250 (10,000 - 750)');
+  near(run(fedSenior, { wages: 10000, taxableSS: 20000, ages: [66] }), 1000, 'senior, federal basis: federal AGI 30,000 removes it (state AGI is only 10,000)');
+  // An amount per qualifying child from a step table of the federal AGI (600 to 25,000, 400 to 50,000, 200 above), refundable.
+  const childStep = { credits: [{ kind: 'childStepCredit', label: 'child step credit', refundable: true, tables: cols([[0, 600], [25000, 400], [50000, 200]]) }] };
+  near(run(childStep, { wages: 30000, dependents: kidsLin }), 2200, 'child step credit: 2 qualifying children at 400 (3,000 - 800)');
+  near(run(childStep, { wages: 25000, dependents: kidsLin }), 1300, 'child step credit: AGI at the bound is still the first row (2,500 - 1,200)');
+  near(run(childStep, { wages: 60000, dependents: kidsLin }), 5600, 'child step credit: 200 each above 50,000');
+  near(run(childStep, { wages: 1000, dependents: kidsLin }), -1100, 'child step credit: refundable (100 - 1,200)');
+  near(run(childStep, { wages: 30000 }), 3000, 'child step credit: no children');
+  // Social Security taxed in full at and over the AGI test (taxedShareOfBenefits 1), exempt below.
+  const ssAll = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'agiTested', exemptBelow: cols(100000), taxedShareOfBenefits: 1 } } };
+  near(run(ssAll, { wages: 70000, taxableSS: 20000, ssBenefits: 30000 }), 7000, 'ss test, all taxed: below 100,000 exempt (70,000 x 10%)');
+  near(run(ssAll, { wages: 80000, taxableSS: 20000, ssBenefits: 30000 }), 10000, 'ss test, all taxed: at 100,000 the taxable benefits join (100,000 x 10%)');
   // --- The flat local tax (MD, IN) ----------------------------------------------------------------------------------------------------
   const loc = (o) => ({ localTax: { kind: 'flat', rate: 0.03 }, standardDeduction: cols(5000), ...o });
   near(run(loc(), { wages: 50000 }), 5850, 'local tax: 4,500 state + 3% of the 45,000 taxable');

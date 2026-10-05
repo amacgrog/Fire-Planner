@@ -37,7 +37,7 @@ function checks() {
     exemptionCredits: ['personal', 'personalCount', 'senior', 'dependent', 'phaseOut'], renterCredit: ['amount', 'agiLimit'],
     childCredit: ['tiers', 'phaseOut'], propertyTaxCredit: ['max', 'limit', 'stepWidth', 'stepPct'],
     taxForgiveness: ['limit', 'perDependent', 'stepWidth', 'stepPct'], agiStepFraction: ['tables'],
-    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'], taxShareCredit: ['share', 'max'], propertyTaxShareCredit: ['rate', 'agiLimit'],
+    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'], taxShareCredit: ['share', 'max'], propertyTaxShareCredit: ['rate', 'agiLimit'], childStepCredit: ['tables'],
   };
   const stepOk = (rows) => Array.isArray(rows) && rows.length > 0 && rows.every((r, i) => r.length === 2 && isNum(r[0]) && isNum(r[1]) && (i === 0 || r[0] > rows[i - 1][0]));
   const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -81,8 +81,8 @@ function checks() {
       else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');
       else fails.push(at + 'addition kind ' + a.kind);
     }
-    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && (isNum(r.exemptionPhaseOut.step) || columns.every((c) => isNum(r.exemptionPhaseOut.step[c]))) && isNum(r.exemptionPhaseOut.width)), at + 'exemptionPhaseOut');
-    need((isNum(r.dependentExemption) && r.dependentExemption >= 0) || (r.dependentExemption && r.dependentExemption.kind === 'agiTiered' && columns.every((c) => stepOk(r.dependentExemption.tables[c]))), at + 'dependentExemption');
+    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && (isNum(r.exemptionPhaseOut.step) || columns.every((c) => isNum(r.exemptionPhaseOut.step[c]))) && isNum(r.exemptionPhaseOut.width)) || (r.exemptionPhaseOut.kind === 'linear' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c]) && isNum(r.exemptionPhaseOut.rate[c]) && r.exemptionPhaseOut.rate[c] > 0) && isNum(r.exemptionPhaseOut.full) && r.exemptionPhaseOut.full > 0 && isNum(r.exemptionPhaseOut.dependent)), at + 'exemptionPhaseOut');
+    need((isNum(r.dependentExemption) && r.dependentExemption >= 0) || (r.dependentExemption && r.dependentExemption.kind === 'agiTiered' && columns.every((c) => stepOk(r.dependentExemption.tables[c]))) || (r.dependentExemption && r.dependentExemption.kind === 'afterFirst' && isNum(r.dependentExemption.amount) && r.dependentExemption.amount > 0), at + 'dependentExemption');
     const sp = r.standardDeductionPhase;
     if (sp.kind === 'none') need(Object.keys(sp).length === 1, at + 'standardDeductionPhase none carries nothing');
     else if (sp.kind === 'stepDown') need(columns.every((c) => sp.columns[c] && isNum(sp.columns[c].start) && isNum(sp.columns[c].width) && sp.columns[c].width > 0 && isNum(sp.columns[c].step) && sp.columns[c].step > 0 && isNum(sp.columns[c].floor) && sp.columns[c].floor >= 0 && sp.columns[c].floor <= r.standardDeduction[c]), at + 'standardDeductionPhase stepDown');
@@ -90,7 +90,7 @@ function checks() {
     else fails.push(at + 'standardDeductionPhase kind ' + sp.kind);
     const se = r.seniorExemption;
     if (se.kind === 'none') need(Object.keys(se).length === 1, at + 'seniorExemption none carries nothing');
-    else need(se.kind === 'perSenior' && isNum(se.age) && isNum(se.amount) && se.amount > 0 && (se.phaseOut === null || (isNum(se.phaseOut.rate) && se.phaseOut.rate > 0 && columns.every((c) => isNum(se.phaseOut.start[c])))), at + 'seniorExemption');
+    else need(se.kind === 'perSenior' && isNum(se.age) && isNum(se.amount) && se.amount > 0 && (se.phaseOut === null || (((isNum(se.phaseOut.rate) && se.phaseOut.rate > 0) || columns.every((c) => isNum(se.phaseOut.rate[c]) && se.phaseOut.rate[c] > 0)) && columns.every((c) => isNum(se.phaseOut.start[c])) && (se.phaseOut.basis === undefined || se.phaseOut.basis === 'federal'))), at + 'seniorExemption');
     const fc = r.federalConformity;
     need(JSON.stringify(Object.keys(fc)) === JSON.stringify(['standardDeduction', 'seniorDeduction', 'ageAdditional']) && Object.values(fc).every((v) => typeof v === 'boolean'), at + 'federalConformity declares three booleans');
     need(fc.standardDeduction || (!fc.seniorDeduction && !fc.ageAdditional), at + 'the senior deduction and the 65+ add-on need the federal standard deduction');

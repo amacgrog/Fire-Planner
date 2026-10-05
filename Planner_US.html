@@ -2763,7 +2763,10 @@
   //   standardDeductionPhase  { kind: 'none' } | { kind: 'stepDown' | 'linear', columns } (statePhasedDeduction)
   //   seniorExemption  { kind: 'none' } | { kind: 'perSenior', age, amount, phaseOut } (a deduction per filer at or over `age`,
   //                    phaseOut null or { start by column, rate } cutting each filer's amount per dollar of AGI over start)
-  //   dependentExemption  a number per qualifying child, or { kind: 'agiTiered', tables } (an AGI step table per column)
+  //   dependentExemption  a number per qualifying child, { kind: 'agiTiered', tables } (an AGI step table per column), or
+  //                    { kind: 'afterFirst', amount } (an amount per qualifying child beyond the first)
+  //   exemptionPhaseOut  { kind: 'none' } | { kind: 'stepDown', start, step, width } | { kind: 'linear', start, rate, full, dependent }
+  //                    (linear: every exemption, the filers' and `dependent` per child, loses `rate` x the federal AGI over `start`, by column, none at `full`)
   //   federalConformity   { standardDeduction, seniorDeduction, ageAdditional }: the state deducts the federal standard
   //                    deduction (the columns' standardDeduction are then 0), optionally with the 65+ add-on and the senior deduction
   //   schedule         [] or [{ fromYear, baseYear?, ...overrides }]: from tax year `fromYear` the listed fields replace the
@@ -4679,41 +4682,119 @@
     },
     nm: {
       name: 'New Mexico',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://realfile.tax.newmexico.gov/2025pit-adj-ins.pdf',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
+        bracketsIndexed: false,
         standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
+        personalExemptionIndexed: false,
         creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.015], [5500, 0.032], [16500, 0.043], [33500, 0.047], [66500, 0.049], [210000, 0.059]],
-          mfj: [[0, 0.015], [8000, 0.032], [25000, 0.043], [50000, 0.047], [100000, 0.049], [315000, 0.059]],
-        },
+          single: [
+            [ 0, 0.015 ],
+            [ 5500, 0.032 ],
+            [ 16500, 0.043 ],
+            [ 33500, 0.047 ],
+            [ 66500, 0.049 ],
+            [ 210000, 0.059 ]
+          ],
+          mfj: [
+            [ 0, 0.015 ],
+            [ 8000, 0.032 ],
+            [ 25000, 0.043 ],
+            [ 50000, 0.047 ],
+            [ 100000, 0.049 ],
+            [ 315000, 0.059 ]
+          ],
+          hoh: [
+            [ 0, 0.015 ],
+            [ 8000, 0.032 ],
+            [ 25000, 0.043 ],
+            [ 50000, 0.047 ],
+            [ 100000, 0.049 ],
+            [ 315000, 0.059 ]
+          ]
+        }
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
-      standardDeduction: { single: 16100, mfj: 32200 },
-      exemption: { single: 0, mfj: 0 },
-      exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 0,
+      base: {
+        ordinary: true,
+        gainsIncluded: 1,
+        gainsRate: null,
+        gainsDeduction: 2500,
+        socialSecurity: { kind: 'agiTested', exemptBelow: { single: 100000, mfj: 150000, hoh: 150000 }, taxedShareOfBenefits: 1 }
+      },
+      standardDeduction: { single: 0, mfj: 0, hoh: 0 },
+      exemption: { single: 2500, mfj: 5000, hoh: 2500 },
+      exemptionPhaseOut: {
+        kind: 'linear',
+        start: { single: 20000, mfj: 30000, hoh: 30000 },
+        rate: { single: 0.15, mfj: 0.1, hoh: 0.1 },
+        full: 2500,
+        dependent: 2500
+      },
+      dependentExemption: { kind: 'afterFirst', amount: 4000 },
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
-      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      seniorExemption: {
+        kind: 'perSenior',
+        age: 65,
+        amount: 8000,
+        phaseOut: {
+          start: { single: 18000, mfj: 30000, hoh: 30000 },
+          rate: { single: 0.6666666666666666, mfj: 0.3333333333333333, hoh: 0.3333333333333333 },
+          basis: 'federal'
+        }
+      },
+      federalConformity: { standardDeduction: true, seniorDeduction: false, ageAdditional: true },
       schedule: [],
       retirementExclusion: { kind: 'none' },
-      credits: [],
+      credits: [
+        {
+          kind: 'childStepCredit',
+          label: 'Child Income Tax Credit',
+          refundable: true,
+          tables: {
+            single: [
+              [ 0, 637 ],
+              [ 25000, 424 ],
+              [ 50000, 212 ],
+              [ 75000, 106 ],
+              [ 100000, 79 ],
+              [ 200000, 53 ],
+              [ 350000, 26 ]
+            ],
+            mfj: [
+              [ 0, 637 ],
+              [ 25000, 424 ],
+              [ 50000, 212 ],
+              [ 75000, 106 ],
+              [ 100000, 79 ],
+              [ 200000, 53 ],
+              [ 350000, 26 ]
+            ],
+            hoh: [
+              [ 0, 637 ],
+              [ 25000, 424 ],
+              [ 50000, 212 ],
+              [ 75000, 106 ],
+              [ 100000, 79 ],
+              [ 200000, 53 ],
+              [ 350000, 26 ]
+            ]
+          }
+        }
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Six brackets, 1.5% to 5.9% (5,500 / 16,500 / 33,500 / 66,500 / 210,000 single; 8,000 / 25,000 / 50,000 / 100,000 / 315,000 joint and head of household; secondary sources, not indexed). The deduction is the federal standard deduction with the 65+ add-on (the 2025 Form PIT-1 instructions, line 12, read). Exemptions: a low- and middle-income exemption of $2,500 per person and dependent, reduced by 15 cents (single) or 10 cents (joint, head of household) per dollar of federal AGI over $20,000 or $30,000 and gone by $36,667 / $55,000 (PIT-1 worksheet, read); $4,000 for each dependent beyond the first (PIT-1 line 13); and for each filer 65 or older up to $8,000, falling by $1,000 per $1,500 of federal AGI over $18,000 single or per $3,000 over $30,000 joint, none over $28,500 / $51,000 (PIT-ADJ Table 1, read; the planner cuts it in a straight line, a few hundred dollars off the table in places). Social Security is exempt while federal AGI is under $100,000 single or $150,000 joint or head of household, and fully taxable at the federal amount from there (cliff; PIT-ADJ, read). Capital gains: a deduction of the first $2,500 (the 40% deduction is only for a New Mexico business sale; PIT-ADJ line 16, read). No retirement-income exclusion for private pensions or IRAs. Child Income Tax Credit per qualifying child by federal AGI, refundable: $637 to $25,000, then $424, $212, $106, $79 over $100,000, $53 over $200,000 and $26 over $350,000 (the 2025 amounts from PIT-RC Table 4, read; indexed by the planner). Not modeled: the low-income comprehensive tax rebate, the working families credit (state EITC), the medical care credit and exemption for 65+ with large medical costs, blind status, and the active-duty military exemption.',
     },
     ny: {
       name: 'New York',
@@ -5608,41 +5689,68 @@
     },
     dc: {
       name: 'Washington, DC',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://otr.cfo.dc.gov/page/dc-individual-and-fiduciary-income-tax-rates',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
+        bracketsIndexed: false,
         standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
-          single: [[0, 0.04], [10000, 0.06], [40000, 0.065], [60000, 0.085], [250000, 0.0925], [500000, 0.0975], [1000000, 0.1075]],
-          mfj: [[0, 0.04], [10000, 0.06], [40000, 0.065], [60000, 0.085], [250000, 0.0925], [500000, 0.0975], [1000000, 0.1075]],
-        },
+          single: [
+            [ 0, 0.04 ],
+            [ 10000, 0.06 ],
+            [ 40000, 0.065 ],
+            [ 60000, 0.085 ],
+            [ 250000, 0.0925 ],
+            [ 500000, 0.0975 ],
+            [ 1000000, 0.1075 ]
+          ],
+          mfj: [
+            [ 0, 0.04 ],
+            [ 10000, 0.06 ],
+            [ 40000, 0.065 ],
+            [ 60000, 0.085 ],
+            [ 250000, 0.0925 ],
+            [ 500000, 0.0975 ],
+            [ 1000000, 0.1075 ]
+          ]
+        }
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 16100, mfj: 32200 },
+      standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
-      federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
+      federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
       schedule: [],
       retirementExclusion: { kind: 'none' },
-      credits: [],
+      credits: [
+        {
+          kind: 'incomeTestedCredit',
+          label: 'Child tax credit (from 2026)',
+          refundable: true,
+          amount: { single: 0, mfj: 0 },
+          perSenior: null,
+          perDependent: 1000,
+          limit: { single: 55000, mfj: 70000 },
+          taper: null
+        }
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). District income tax follows the federal code on a rolling basis: the 2025 booklet shows $15,000 / $30,000 / $22,500 because the District decoupled from the 2025 federal increase, but the 2026 budget decoupled only from the business provisions and the non-itemizer charitable deduction, so the planner uses the federal standard deduction with the 65+ add-on and the senior deduction (a news summary of the budget act; the text was not read). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). A new fully refundable child tax credit from 2026: $1,000 per child under 18 for AGI up to $55,000 (single, head of household) or $70,000 (joint); the planner counts children through 18 (secondary summary of the act). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the 2025 repeal of the older child credit.',
     },
   };
   // STATE_RULES:end
@@ -5725,8 +5833,10 @@
       retirement: compileRetirement(row.retirementExclusion),
       needsSsSplit: row.retirementExclusion.kind === 'perPerson' && row.retirementExclusion.reducedBy === 'socialSecuritySubtracted',
       exemptionPhaseOut: row.exemptionPhaseOut.kind === 'stepDown' ? row.exemptionPhaseOut : null,
-      dependentExemption: typeof dep === 'number' ? dep : 0,
-      dependentTiers: typeof dep === 'number' ? null : dep.tables,
+      exemptionLinear: row.exemptionPhaseOut.kind === 'linear' ? row.exemptionPhaseOut : null,
+      dependentExemption: typeof dep === 'number' ? dep : dep.kind === 'afterFirst' ? dep.amount : 0,
+      dependentSkip: typeof dep !== 'number' && dep.kind === 'afterFirst' ? 1 : 0,
+      dependentTiers: typeof dep === 'number' || dep.kind === 'afterFirst' ? null : dep.tables,
       seniorExemption: row.seniorExemption.kind === 'none' ? null : row.seniorExemption,
       stdPhase: row.standardDeductionPhase.kind === 'none' ? null : row.standardDeductionPhase,
       conformStd: conform.standardDeduction,
@@ -5983,6 +6093,11 @@
         if (cr.taper.rate !== undefined) return Math.max(0, gross - cr.taper.rate * over);
         return gross * Math.max(0, 1 - cr.taper.pct * Math.ceil(over / (cr.taper.width * fCt)));
       }
+      case 'childStepCredit': {
+        // An amount per qualifying child from a step table of the federal AGI (New Mexico's Child Income Tax Credit).
+        const kids = countQualifyingChildren(deps);
+        return kids ? kids * stateStepValue(cr.tables[colKey], c.fedAgi, false, fCt) * fCa : 0;
+      }
       case 'propertyTaxShareCredit':
         // A share of the property tax paid (Illinois: 5%), lost above an AGI limit by column.
         return c.agi <= cr.agiLimit[colKey] * fCt ? Math.max(0, sources.propertyTax || 0) * cr.rate : 0;
@@ -6148,6 +6263,14 @@
       if (over > 0)
         exemption = Math.max(0, exemption - (typeof p.step === 'number' ? p.step : p.step[colKey]) * fEx * Math.ceil(over / (p.width * fCt)));
     }
+    // A straight-line exemption (New Mexico): each exemption (the filers' and `dependent` per qualifying child) loses `rate` dollars per
+    // dollar of federal AGI over the start, none left at `full`.
+    if (rule.exemptionLinear) {
+      const p = rule.exemptionLinear,
+        over = start - p.start[colKey] * fCt,
+        pool = exemption + countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * p.dependent * fEx;
+      exemption = over > 0 ? pool * Math.max(0, 1 - (p.rate[colKey] * over) / (p.full * fEx)) : pool;
+    }
     // The deduction: the federal standard deduction (a conforming state), or the state's own, phased by AGI.
     let deduction;
     if (rule.conformStd) {
@@ -6163,7 +6286,7 @@
     const separateGains = rule.gainsRate === null && rule.gainsRates === null ? 0 : Math.min(includedGains, Math.max(0, agi));
     let taxable = agi - separateGains - deduction - exemption;
     if (rule.dependentExemption)
-      taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * fEx;
+      taxable -= Math.max(0, countQualifyingChildren(sources.dependents || NO_DEPENDENTS) - rule.dependentSkip) * rule.dependentExemption * fEx;
     else if (rule.dependentTiers) {
       const kids = countQualifyingChildren(sources.dependents || NO_DEPENDENTS);
       if (kids) taxable -= kids * stateStepValue(rule.dependentTiers[colKey], agi, false, fCt) * fEx;
@@ -6173,7 +6296,10 @@
         seniors = countAtLeast(sources.ages || NO_AGES, se.age);
       if (seniors) {
         let per = se.amount * fEx;
-        if (se.phaseOut) per = Math.max(0, per - se.phaseOut.rate * Math.max(0, agi - se.phaseOut.start[colKey] * fCt));
+        if (se.phaseOut) {
+          const rate = typeof se.phaseOut.rate === 'number' ? se.phaseOut.rate : se.phaseOut.rate[colKey];
+          per = Math.max(0, per - rate * Math.max(0, (se.phaseOut.basis === 'federal' ? start : agi) - se.phaseOut.start[colKey] * fCt));
+        }
         taxable -= seniors * per;
       }
     }
