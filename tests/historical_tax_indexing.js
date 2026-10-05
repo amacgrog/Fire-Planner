@@ -121,8 +121,11 @@ async function run(file, label, extra) {
   for (let t = 0; t < lo.length; t++) {
     assert(lo[t] > 70000, `${label}: year ${t} draw should exceed spending (${lo[t]})`);
     const rel = Math.abs(hi[t] - lo[t]) / lo[t];
+    // Canada's $2,000 pension income amount is not indexed (statute), so a 65+ filer's tax
+    // drifts with inflation by a few thousandths; every indexed parameter must still cancel.
+    const tol = label === 'Canada' ? 3e-3 : 1e-6;
     assert(
-      rel < 1e-6,
+      rel < tol,
       `${label}: year ${t} real draw should not depend on inflation when taxes are indexed ` +
         `(2.5%: ${lo[t].toFixed(2)}, 10%: ${hi[t].toFixed(2)})`,
     );
