@@ -2529,6 +2529,33 @@ Branch `claude/batch-7l-benefits`, base `origin/claude/batch-3b-penalty-rules` a
 - Task 7 sources (read 2026-10-05): CRA 2026 OEPTC calculation sheets (primary; every sheet read except the shared-care variants): occupancy cost = 20 percent of rent plus property tax; energy component = lesser of occupancy cost and 290 (so it is computable, only the long-term-care and on-reserve lines are not modeled); property tax component = lesser of occupancy cost and (10 percent of it capped at 944, plus 73; seniors cap 581 plus 617); less 2 percent of family net income over 29,047 (single), 36,309 (couple or single parent), seniors 36,309 (single) and 43,571 (couple or single parent); senior step 5 limits credit plus senior homeowners grant to energy plus occupancy cost. Finance Quebec Parameters of the Personal Income Tax System for 2026 (primary, https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf, Tables 3 and 4): family allowance 3,068 / 1,221 per child and 1,077 / 430 once per single-parent family with reduction thresholds 44,032 and 60,398 (the earlier assumption that 4,145 is per child was wrong: it is 3,068 plus the 1,077 family supplement); solidarity credit QST 363 / 363 / 172 and housing 906 / 746 / 158 per child, threshold 43,195; general work premium maxima and thresholds. Derived and interim (secondary, on the backlog): work premium phase-in rates 11.6 / 30 / 25 percent from maximum / (threshold - exclusion); solidarity 6 percent reduction (consistent with the published ceilings 64,545 and 70,395); Ontario senior homeowners grant 500, 35,000 / 45,000, 3.33 percent (a search summary of the ontario.ca page); the Quebec family allowance reduction end at 107,000.
 **Corrections to the first catalog:** CGEB replaces the GST/HST credit; the GIS figures used the July to September quarter; the BC Climate Action Tax Credit has ended (per the reviewer, CRA page not yet read); Ontario Child Benefit, Saskatchewan Income Plan, NL seniors benefit and income supplement, NB Low-Income Seniors Benefit and others were missing.
 
+**Built (7L, Canada V42; branch claude/batch-7l-benefits, eight commits after the plan commits)**
+1. BENEFIT_RULES table, generated docs/benefits-rules.md (npm run gen:benefits), coverage test (tests/benefit_rules.js). No behavior change.
+2. GIS and Allowance evaluator (knots fitted to ESDC tables 1 to 5; tests/gis_tables.js checks every row: worst difference 8.98 / 8.83 / 9.00 / 10.86 / 21.97 / 27.98 dollars a year, tolerances 12 and 30; the Allowance tables carry up to 28 dollars a year of band-width rounding stair).
+3. OAS: the oasMonthly inputs stay; default 762.50 (was 742); x1.10 from age 75. Canada snapshots changed (intended).
+4. Net-tax taxFor (incomeTaxCA minus benefitsFor), GIS and Allowances in the engine, benefit lines in rows, Sankey and printed table, gisIncomeRoom hook for 4A, survivor symmetry extended with a low-income couple.
+5. CCB and CGEB with the children plumbing.
+6. Provincial: Ontario (sales tax credit, child benefit), BC Family Benefit, Alberta (ACFB, Seniors Benefit), Quebec family allowance.
+7. Ontario Energy and Property Tax Credit and senior homeowners grant, Quebec solidarity credit and work premium (interim values on the backlog).
+8. Docs, version V42.
+
+**Before and after (nominal dollars; old = the 7K merge base, new = this branch)**
+| Household | Old | New |
+|---|---|---|
+| Default Ontario couple (retires, then draws) | lifetime benefits 0; end assets 3,012,385 at 105 | benefits 95 a year at 73 rising to 2,155 at 105 (19,915 over the plan, Ontario Sales Tax Credit plus later GIS-range years); end assets 3,666,522 |
+| Low-income retired couple, 66, Ontario, renting, 80k RRSP and 120k TFSA, 30k spending | runs out at 82 | never runs out; benefits 5,308 at 66, 11,217 at 76, 19,775 at 90; 293,230 over the plan |
+| Quebec couple, 38, two children, working | runs out at 61 (benefits 0) | runs out at 66; benefits 17,067 at 38, 13,753 at 48, 4,676 at 63 (534,261 over the plan) |
+
+Gross tax is unchanged by benefits (checked: with no children the rows are identical). With children the rows differ because the extra cash changes how the pre-retirement bond ladder is funded. Snapshot changes (all intended, US byte-identical): task 3 every Canada scenario (default OAS and the 75-plus step), task 4 every Canada scenario (row fields and low-income GIS), task 5 (CGEB), task 6 331 of 359 (Ontario sales tax credit for the default province), task 7 24 of 359 (housing credits, Quebec).
+
+**Timing** (interleaved same-process, 300 simulate() per round, median of 7, old file from origin/claude/batch-3b-penalty-rules against the working file): Ontario 135 -> 149 ms (1.10), BC 142 -> 153 (1.08), Quebec 192 -> 200 (1.04), Ontario with two children 173 -> 198 (1.15), Alberta with two children 161 -> 190 (1.18), Quebec with two children 190 -> 216 (1.14). Noise is about 10 percent. With benefitsFor stubbed to return 0 the ratio is 1.01, so the cost is the evaluators, which run on every solver probe; they allocate nothing, and an early exit skips a household with no children above 125,000. Over the plan's 5 percent target; accepted because the work is real (every withdrawal now prices the benefits) and the absolute cost is small (about 0.05 ms per projection year); a tighter per-situation exit or caching would be the next step if needed.
+
+**Rulings made during execution** (details in the ledger): the CSV export has no benefit columns (it is shared region 22-exportCsv); the golden drawdown test and the bond-refill test now account for the CGEB and Ontario credit (445 plus 378 a year at zero income); the bond-yield test reads the row tax field; the OSHPTG has explicit cutoffs; three Task 4 assertions compare against total benefits; the extraction script reads inline-string headers.
+
+**Named limitation:** where a benefit phases in as income rises (the CGEB single supplement at 2 percent, the ACFB working component, the Quebec work premium), a taxable sale can net more than its gross and the shared drawTaxable bisection (which starts at the amount needed) over-sells by up to the phase-in amount (at most 234 for the CGEB). Documented in CLAUDE.md; not fixed because drawTaxable is a shared region.
+
+**Not built (named gaps):** other provinces' programs (7M); the Allowance for the Survivor beyond the survivor remap; disability benefits; the Ontario energy component for long-term care and reserves, the Northern Ontario Energy Credit and the shared-care sheets; low-income tax reductions; the prior-year lookback; the CSV columns; OAS deferral and partial residence (the input stays manual).
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 

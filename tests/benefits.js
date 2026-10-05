@@ -312,6 +312,19 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   o = await withProv('qc', prof({ otherA: 44032, earnedA: 44032, ageA: 40, dependents: [kid(5)] }));
   near(o.provCredit - (363 + 172 + 746 + 158 - 0.06 * (44032 - 43195)), 0, 1e-6, 'single parent work premium is nil at 44,032');
 
+  // --- Early exit: with no children, family income above 125,000 (indexed) can receive nothing; just below, the largest
+  // case (a senior couple owning a home with a large property tax: OEPTC 290 + 581 + 617 = 1,488 less 2% over 43,571, nil at
+  // 117,971) still receives something. Pins the threshold used to skip the evaluators on the hot path.
+  for (const prov of ['on', 'bc', 'ab', 'qc']) {
+    o = await withProv(prov, prof({ otherA: 62500.5, otherB: 62500.5, ageA: 70, ageB: 70, singlePerson: false, oasA: 9150, oasB: 9150, propertyTaxPaid: 9000 }));
+    near(o.total, 0, 0, prov + ': nothing at family income 125,001 with no children');
+  }
+  o = await withProv('on', prof({ otherA: 58500, otherB: 58500, ageA: 70, ageB: 70, singlePerson: false, propertyTaxPaid: 9000 }));
+  assert(o.provCredit > 0, 'a large-property-tax senior couple still gets the Ontario credit at family income 117,000');
+  // With children the exit does not apply: the Canada Child Benefit reaches high incomes (one child under 6 to about 196,000).
+  o = await withProv('on', prof({ otherA: 80000, otherB: 80000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(3)] }));
+  assert(o.ccb > 0, 'the child benefit is still paid at family income 160,000');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
