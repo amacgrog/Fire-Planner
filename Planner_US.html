@@ -6140,11 +6140,6 @@
     if (rule === undefined) rule = stateRuleCache[code] = compileStateRule(code);
     return rule;
   }
-  // False for a state with no income tax (and for an unknown code): taxFor skips building the inputs.
-  function stateTaxActive() {
-    const rule = stateRuleFor(state.stateTax);
-    return !!rule && !rule.noTax;
-  }
   function stateIncomeTax(sources, filing, yearIndex) {
     let rule = stateRuleFor(state.stateTax);
     if (!rule || rule.noTax) return 0;
@@ -6469,11 +6464,6 @@
       );
     return { nonrefundable, refundable };
   }
-  // True when the selected state deducts federal income tax paid (only then does taxFor pay for the extra pass).
-  function stateNeedsFederalTax() {
-    const rule = stateRuleFor(state.stateTax);
-    return !!rule && rule.lagged !== null;
-  }
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
@@ -6511,6 +6501,8 @@
       rent = profile.rent || 0,
       // Income streams and one-time income ride in Partner A's slot of `other`; the state taxes them as wages.
       extra = profile.extraIncome || 0,
+      // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
+      // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
       stateOn = !!stateRule && !stateRule.noTax,
       lagged = stateOn && stateRule.lagged !== null,
