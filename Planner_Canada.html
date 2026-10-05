@@ -462,12 +462,12 @@
           <summary><span class="group-summary-text"><span class="group-title">Retirement income & healthcare (CPP, OAS, pensions)</span><span class="group-state" id="retireIncomeHealthGroupState"></span></span></summary>
           <div class="field"><label for="cppMonthlyA">Partner A CPP / month<small>Estimate yours in your <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" rel="noopener">My Service Canada Account</a>.</small></label><input id="cppMonthlyA" type="number" class="money" min="0" step="50"></div>
           <div class="field"><label for="cppStartAgeA">Partner A CPP start <span class="info-nw">age<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The monthly CPP amount above is used as-is from this age on — the planner doesn&#x27;t adjust it for claiming early (reduced) or late (enhanced). Enter the benefit your My Service Canada estimate shows for the age you plan to claim.">i</button></span><small>Valid ages 60–70</small></label><input id="cppStartAgeA" type="number" min="60" max="70" step="1"></div>
-          <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>Defaults to the 2026 maximum (ages 65–74)</small></label><input id="oasMonthlyA" type="number" class="money" min="0" step="25"></div>
-          <div class="field"><label for="oasStartAgeA">Partner A OAS start <span class="info-nw">age<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The OAS amount above is used as-is from this age on. Real OAS rises about 0.6% for each month you defer past 65, but the planner doesn&#x27;t apply that, so raise the monthly figure yourself if you plan to defer.">i</button></span><small>Valid ages 65–70</small></label><input id="oasStartAgeA" type="number" min="65" max="70" step="1"></div>
+          <div class="field"><label for="oasMonthlyA">Partner A OAS / month<small>2026 maximum 762.50 a month at 65 to 74; the planner adds 10% from age 75. Enter 0 for no OAS.</small></label><input id="oasMonthlyA" type="number" class="money" min="0" step="25"></div>
+          <div class="field"><label for="oasStartAgeA">Partner A OAS start <span class="info-nw">age<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The OAS amount above is used from this age on, with the 10% increase the planner adds from age 75. Real OAS rises about 0.6% for each month you defer past 65 (up to 36% at 70), but the planner doesn&#x27;t apply that, so raise the monthly figure yourself if you plan to defer. Partial residence in Canada also reduces OAS: enter your own estimate.">i</button></span><small>Valid ages 65–70</small></label><input id="oasStartAgeA" type="number" min="65" max="70" step="1"></div>
           <div data-partner-b class="field"><label for="cppMonthlyB">Partner B CPP / month<small>Estimate yours in your <a href="https://www.canada.ca/en/employment-social-development/services/my-account.html" target="_blank" rel="noopener">My Service Canada Account</a>.</small></label><input id="cppMonthlyB" type="number" class="money" min="0" step="50"></div>
           <div data-partner-b class="field"><label for="cppStartAgeB">Partner B CPP start <span class="info-nw">age<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The monthly CPP amount above is used as-is from this age on — the planner doesn&#x27;t adjust it for claiming early (reduced) or late (enhanced). Enter the benefit your My Service Canada estimate shows for the age you plan to claim.">i</button></span></label><input id="cppStartAgeB" type="number" min="60" max="70" step="1"></div>
-          <div data-partner-b class="field"><label for="oasMonthlyB">Partner B OAS / month</label><input id="oasMonthlyB" type="number" class="money" min="0" step="25"></div>
-          <div data-partner-b class="field"><label for="oasStartAgeB">Partner B OAS start <span class="info-nw">age<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The OAS amount above is used as-is from this age on. Real OAS rises about 0.6% for each month you defer past 65, but the planner doesn&#x27;t apply that, so raise the monthly figure yourself if you plan to defer.">i</button></span></label><input id="oasStartAgeB" type="number" min="65" max="70" step="1"></div>
+          <div data-partner-b class="field"><label for="oasMonthlyB">Partner B OAS / month<small>2026 maximum 762.50 a month at 65 to 74; the planner adds 10% from age 75. Enter 0 for no OAS.</small></label><input id="oasMonthlyB" type="number" class="money" min="0" step="25"></div>
+          <div data-partner-b class="field"><label for="oasStartAgeB">Partner B OAS start <span class="info-nw">age<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The OAS amount above is used from this age on, with the 10% increase the planner adds from age 75. Real OAS rises about 0.6% for each month you defer past 65 (up to 36% at 70), but the planner doesn&#x27;t apply that, so raise the monthly figure yourself if you plan to defer. Partial residence in Canada also reduces OAS: enter your own estimate.">i</button></span></label><input id="oasStartAgeB" type="number" min="65" max="70" step="1"></div>
           <div class="field"><label>Pension coverage</label><div class="choice" role="radiogroup" aria-label="Pension coverage"><button type="button" id="pensionNoneBtn" role="radio">None</button><button type="button" id="pensionABtn" role="radio">A only</button><button type="button" id="pensionBBtn" role="radio">B only</button><button type="button" id="pensionBothBtn" role="radio">Both</button></div></div>
           <div class="field"><label for="pensionYearlyA">Partner A annual <span class="info-nw">pension<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Entered in today&#x27;s dollars; treated as fully inflation-indexed from the start age.">i</button></span></label><input id="pensionYearlyA" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
@@ -749,9 +749,9 @@
     cppStartAgeA: 65,
     cppMonthlyB: 1200,
     cppStartAgeB: 65,
-    oasMonthlyA: 742,
+    oasMonthlyA: 762.5,
     oasStartAgeA: 65,
-    oasMonthlyB: 742,
+    oasMonthlyB: 762.5,
     oasStartAgeB: 65,
     pensionCoverage: 'none',
     pensionYearlyA: 0,
@@ -3637,15 +3637,23 @@
   // benefit once they reach their start age, inflated by `factor`. In the
   // survivor period the household keeps the greater CPP and the greater OAS
   // (a simplified survivor swap, not the full CPP survivor-benefit rules).
+  // OAS 75-plus step: the pension is increased 10 percent from age 75 (permanent since July 2022; the ESDC
+  // maximums are 762.50 a month at 65 to 74 and 838.75 at 75 and over, a ratio of exactly 1.10). The OAS
+  // input is the 65 to 74 amount in today's dollars; this factor is applied by the partner's actual age.
+  // Deferral increases (0.6 percent a month, up to 36 percent at 70) are not applied: raise the input.
+  function oasAgeFactor(age) {
+    const f = BENEFIT_RULES.oas.ageFactors;
+    return age >= f[0].from ? f[0].factor : 1;
+  }
   function cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
     let cppA = (age >= state.cppStartAgeA ? state.cppMonthlyA * 12 : 0) * factor,
       cppB = singlePerson
         ? 0
         : (ageB >= state.cppStartAgeB ? state.cppMonthlyB * 12 : 0) * factor;
-    let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 : 0) * factor,
+    let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 * oasAgeFactor(age) : 0) * factor,
       oasGrossB = singlePerson
         ? 0
-        : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 : 0) * factor;
+        : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 * oasAgeFactor(ageB) : 0) * factor;
     if (isSurvivorPeriod) {
       // Simplified survivor-benefit swap: the survivor keeps the greater
       // of the two benefits (each computed as if both were still alive),
@@ -9239,7 +9247,7 @@
   window.__test_getState = () => state;
   window.__test_children = { dependentsInYear, qualifyingChildCount };
   window.__test_FIELDS = FIELDS;
-  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, cppContribution, quebecPoolAmount, taxIndexFactor };
+  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, cppContribution, quebecPoolAmount, taxIndexFactor };
 })();
 </script>
 </body>
