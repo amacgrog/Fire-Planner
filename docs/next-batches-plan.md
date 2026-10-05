@@ -1639,6 +1639,7 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | CA exemption credits: $6 per credit per $2,500 of federal AGI over $252,203 / $504,411 / $378,310; renter's credit lost over AGI $53,954 / $107,987 | CA `credits` | federal AGI, state AGI | 7C |
 | PA / NY / CT / CA pension and IRA age tests (59 and a half per filer) | `retirementExclusion` `perPerson` | each filer's age | 7C |
 | 7D G2: UT taxpayer credit lost at 1.3 cents per dollar over $18,213 / $36,426 (straight line); UT Social Security credit lost at 2.5 cents per dollar over $54,000 / $90,000; NC child deduction steps down every $10,000-$20,000 of AGI to zero (joint $140,000); LA retirement exclusion starts at 65; MA child credit ends at 13; KY and IN 65+ amounts start at 65 | UT, NC, LA, MA, KY, IN rows | state AGI, filing column, ages | 7D |
+| 7D G3: HI 13% bracket from 2027 and the Act 46 bracket and deduction steps; NE 2027 bracket and rate change; OH senior credit lost at $100,000 and the joint filing credit's cap; RI Social Security and pension modifications lost above $107,000 / $133,750 (a cliff) and need age 67; VA age deduction lost dollar for dollar over $50,000 / $75,000; ND zero bracket to $49,575 / $82,800 | HI, NE, OH, RI, VA, ND rows | state AGI, filing column, ages | 7D |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
@@ -2113,6 +2114,36 @@ state note; `histSuccess` unchanged.
 Tests: `tests/state_7d_households.js` (16 hand-computed household pairs so far, Indiana also at plan year 1 for the 2027 rate), the tax-schedule invariants test now lets a
 refundable per-person credit (Idaho's) start the schedule below zero and skips scheduled rows in its plain-indexing check, and its MA literals moved to the exemption-adjusted values.
 
+**Commit 7: G3, progressive states with simpler structures (AR HI KS NE ND OH OK RI VA WV; US V100).** Ten rows become `researched`; one mechanism is added first
+(`taxShareCredit`: a share of the tax up to a cap, by column, for Ohio's joint filing credit; test in `tests/state_mechanisms.js`). Source status (P = document read, S = secondary):
+- **Arkansas (P: the Department of Finance and Administration's 2026 withholding formula).** Table 0 / 2% / 3% / 3.4% / 3.9% at $5,600 / $11,200 / $16,000 / $26,400 and a $2,470
+  standard deduction (one table for all filers; joint standard deduction doubled); half of net long-term gains taxed, $6,000 retirement exclusion per filer and $29 personal credits
+  (P: DFA pension and capital gains pages via search excerpts). The earlier aggregator figure of a 3.7% top rate was wrong or is not the 2026 law: the DFA table says 3.9%.
+- **Hawaii (P: Announcements 2024-03, 2025-07 and 2026-06).** The Act 46 schedule is data: 2026 brackets equal 2025's; 2027 and 2029 widen every bracket; standard deductions
+  $8,000 / $16,000 / $12,000 in 2026, $9,000 / $18,000 / $13,500 in 2028, $10,000 / $20,000 / $15,000 in 2030, $12,000 / $24,000 / $18,000 from 2031. Act 24 of 2026 changes the 2027 and
+  2029 brackets: second bracket 2.5%, third 5%, a new 13% bracket above $500,000 single / $750,000 head of household / $1,000,000 joint (the worklist's thresholds are confirmed). The
+  rows are five `schedule` entries (the first user of mechanism 1). Hawaii is not indexed, so no base year matters. Employer-funded pensions are excluded and IRA and 401(k)
+  withdrawals taxed (S: from the state's pension rules; the pension stream is all-or-nothing). The 7.25% cap on long-term gains is not modeled (overstates tax on gains in the upper
+  brackets); backlog.
+- **Kansas (P: KW-100).** 5.2% / 5.58% at $23,000 ($46,000 joint), 2026 standard deduction and exemption allowance, Social Security fully exempt; the $2,320 dependent amount is S.
+- **Nebraska (P: the 2026 and 2027 estimated tax schedules in Form 1040N-ES, and the rate chronology).** 2.46% / 3.51% / 4.55% in 2026 (the third and fourth brackets share the top rate)
+  at $4,130 / $24,760 single, $8,250 / $49,530 joint, $7,700 / $39,620 head of household; 3.99% from 2027 (draft 2027 schedule, thresholds $4,270 / $25,570 and so on, modeled as a `schedule`
+  entry in 2027 dollars). Standard deduction $8,850 / $17,700 (chronology), personal exemption credit $176. The head of household deduction of $13,000 is derived (S).
+- **North Dakota (P: tax.nd.gov rate table; the 2025 ND-1 form read).** Brackets by filing status, starting from federal taxable income; head of household treated as single (the withholding
+  booklet does the same; the tax schedule's own head of household column was not found, backlog); a net long-term gain exclusion of 40% (S, from memory) and Social Security exempt.
+- **Ohio (S: Legislative Service Commission analysis of HB 96 and Department of Taxation search excerpts).** Flat 2.75% above $26,050 in 2026; exemptions by income; the $50 senior credit; the
+  joint filing credit approximated as 20% of the tax up to $650 (S; the per-spouse $500 income rule is not checked); the $200 retirement income credit and the $500,000 cutoff are not modeled.
+- **Oklahoma (P: HB 2764 enrolled; 2026 withholding tables).** The three new 2026 brackets, standard deduction $6,350 / $12,700 / $9,350, exemption $1,000, retirement exclusion $10,000 per
+  filer, Social Security exempt. Head of household reading the joint table is from memory (S).
+- **Rhode Island (P: Division of Taxation Advisory 2025-22, converted to text with pdftotext).** 2026 brackets $82,050 / $186,450, standard deduction, exemption $5,250 and dependent amounts; the Social
+  Security and pension modifications (full retirement age, AGI under $107,000 / $133,750, the pension modification up to $50,000 from 2025). The 2026 limits are not published, so the 2025 limits are used.
+- **Virginia (P: the Department of Taxation deductions page and 2025 Form 760 instruction excerpts).** Rates 2 / 3 / 5 / 5.75%, standard deduction $8,750 / $17,500, exemption $930, age deduction $12,000
+  per filer reduced dollar for dollar by income over $50,000 / $75,000.
+- **West Virginia (P: the Tax Division's rate-cut page and Social Security page, excerpts).** 2.11 / 2.81 / 3.16 / 4.22 / 4.58% (SB 392); Social Security fully exempt from 2026; $2,000 exemption (S) and $8,000 for
+  filers 65+ (S, as an exemption).
+Tests: `tests/state_7d_households.js` now has 25 states (hand-computed; Hawaii at plan years 1, 2 and 3, Nebraska at year 1, Rhode Island with a filer at 67); `tests/tax_brackets.js` keeps its plain
+table check for the rows that are still just a table (the threshold moved from 25 to 8 as rows gain exemptions, credits and conformity). No snapshot scenario uses these states: 0 moved.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -2177,6 +2208,7 @@ reading (itself secondary).
 | TX: no individual income tax | 7C | S (Comptroller tax list) | Tex. Const. art. VIII sec. 24-a |
 | 7D G1: AK, FL, NV, SD, WY have no individual income tax (a no-income-tax roundup, taxact.com; no state page opened); NH Interest and Dividends Tax repealed from 2025 (a law-firm summary quoting the DRA); TN Hall tax repealed from 2021 (revenue.support.tn.gov, search excerpt) | 7D | S (TN: official page via excerpt) | each state's revenue department page, NH DRA notice, RSA 77, Tenn. Code 67-2-102 repeal |
 | 7D G2: AZ (age-65 $2,100 and dependent $2,300 exemptions, dependent-credit phase-out, senior-deduction conformity, whether the 25% gains subtraction covers all assets), ID (2026 food credit amount, rate for 2026), IN (county populations behind the 1.77% average, the $500 extra at 65, renter deduction), KY (the $31,110 exclusion and $40 credit at the Department of Revenue), LA (exemptions after the 2025 reform; the $12,000 exclusion's coverage of IRA income), MA (exemption amounts, the Child and Family Tax Credit, at mass.gov), NC (2026 standard deduction), UT (SB 60 rate, 2026 deduction amounts behind the credit) | 7D | S (P for the IN notice, KY formula, NC child deduction, UT credit pages, ID announcement) | each state's forms and instructions |
+| 7D G3: AR retirement exclusion age gates and the one-table reading for joint returns; HI IRA/401(k) taxable vs employer pension exempt, the 7.25% gains cap, Act 24's other bracket effects; KS $2,320 dependent amount; NE head of household standard deduction; ND head of household column, the 40% gains exclusion; OH exemption tiers and joint filing credit rule; OK head of household brackets, retirement exclusion ages; RI 2026 Social Security / pension limits, FRA; VA $800 age exemption, 2026 standard deduction beyond 2026; WV $2,000 exemption and $8,000 modification rules | 7D | S (P for the AR formula, HI announcements, KS guide, NE schedules, OK bill, RI advisory) | each state's instructions |
 | State indexing by family: NY, PA and CT nothing indexed; CA all indexed except the $1 million surcharge; WA deduction indexed, $1 million tier not; the 17-state list of bracket-indexing states and each state's measure (owner's table) | 7C / 7D | O (owner's table, secondary) | each state's statute and revenue department notices |
 
 ## Open items

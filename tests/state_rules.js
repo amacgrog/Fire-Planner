@@ -37,7 +37,7 @@ function checks() {
     exemptionCredits: ['personal', 'personalCount', 'senior', 'dependent', 'phaseOut'], renterCredit: ['amount', 'agiLimit'],
     childCredit: ['tiers', 'phaseOut'], propertyTaxCredit: ['max', 'limit', 'stepWidth', 'stepPct'],
     taxForgiveness: ['limit', 'perDependent', 'stepWidth', 'stepPct'], agiStepFraction: ['tables'],
-    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'],
+    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'], taxShareCredit: ['share', 'max'],
   };
   const stepOk = (rows) => Array.isArray(rows) && rows.length > 0 && rows.every((r, i) => r.length === 2 && isNum(r[0]) && isNum(r[1]) && (i === 0 || r[0] > rows[i - 1][0]));
   const isNum = (x) => typeof x === 'number' && Number.isFinite(x);

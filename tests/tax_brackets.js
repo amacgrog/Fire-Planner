@@ -188,9 +188,10 @@ function usChecks() {
   // its own table (deduction, then per-slice sum from explicit lower bounds).
   // Rows whose tax is just the table (no additions, credits, step-downs or dependent rules): those are checked against the
   // reference calculation below; the rest are covered by hand-computed cases in state_mechanisms.js and state_reference.js.
-  const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary;
+  const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary && !r.federalConformity.standardDeduction && r.seniorExemption.kind === 'none' && r.localTax === 'notModeled';
   const tableStates = Object.entries(t.STATE_RULES).filter(([, r]) => r.tax.kind !== 'none' && plainRow(r));
-  if (tableStates.length < 25) fails.push(`expected 25+ table-driven states, found ${tableStates.length}`);
+  // As rows gain credits, exemptions and conformity they leave this plain check for hand-computed cases (state_7d_households.js).
+  if (tableStates.length < 8) fails.push(`expected 8+ table-driven states, found ${tableStates.length}`);
   for (const [code, rule] of tableStates) {
     if (['sc', 'co', 'nc', 'ma', 'wi', 'nj', 'wa'].includes(code)) continue; // hand-written above
     for (const filing of ['single', 'mfj']) {

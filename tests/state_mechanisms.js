@@ -378,6 +378,10 @@ function checks() {
   near(run(itc(taper), { wages: 50500 }), 4975, 'income-tested credit: one taper step (100 x 0.75)');
   near(run(itc(taper), { wages: 51001 }), 5050.1, 'income-tested credit: two steps (100 x 0.5)');
   near(run(itc(taper), { wages: 54000 }), 5400, 'income-tested credit: four steps, gone');
+  // A share of the tax up to a cap (Ohio's joint filing credit): 20% of the tax, at most 650.
+  const share = { credits: [{ kind: 'taxShareCredit', label: 'share credit', refundable: false, share: cols(0.2), max: cols(650) }] };
+  near(run(share, { wages: 50000 }), 4350, 'tax share credit: 20% of 5,000 is 1,000, capped at 650');
+  near(run(share, { wages: 2000 }), 160, 'tax share credit: below the cap it is 20% of the tax (200 - 40)');
   const lineTaper = { taper: { rate: 0.1 } };
   near(run(itc(lineTaper), { wages: 50500 }), 5000, 'income-tested credit: a straight-line taper loses 10 cents per dollar (100 - 50)');
   near(run(itc(lineTaper), { wages: 51000 }), 5100, 'income-tested credit: and is gone after 1,000');

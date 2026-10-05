@@ -42,7 +42,7 @@ function checks(CASES) {
     near(t.stateIncomeTax(retiree, 'mfj', 0), c.retiree, c.code + ' retiree (' + c.why + ')');
     near(t.stateIncomeTax(family, 'mfj', 0), c.family, c.code + ' family (' + c.why + ')');
     // Extra checks: a household, a plan year index, the expected tax (scheduled changes and other year-dependent rules).
-    for (const x of c.extra || []) near(t.stateIncomeTax(x.household === 'retiree' ? retiree : family, 'mfj', x.yearIndex), x.expect, c.code + ' ' + x.household + ' year ' + x.yearIndex + ' (' + x.why + ')');
+    for (const x of c.extra || []) near(t.stateIncomeTax(Object.assign({}, x.household === 'retiree' ? retiree : family, x.ages ? { ages: x.ages } : {}), 'mfj', x.yearIndex || 0), x.expect, c.code + ' ' + x.household + ' year ' + x.yearIndex + ' (' + x.why + ')');
   }
   st.stateTax = 'tx';
   return fails;
@@ -94,6 +94,59 @@ const CASES = [
   //            credit 2 = 0.0445 x 22,000 - 0.025 x (112,000 - 90,000) = 979 - 550 = 429; 4,984 - 1,501.538 = 3,482.462
   //   family:  132,000 x 4.45% = 5,874; credit 1 = 1,932 + 254 - 0.013 x 95,574 = 2,186 - 1,242.462 = 943.538; credit 2 = 0 (no benefits); 5,874 - 943.538 = 4,930.462
   { code: 'ut', retiree: 3482.462, family: 4930.462, why: 'credits with a straight-line phase-out, Social Security credit' },
+
+  // --- G3: progressive states, simpler ----------------------------------------------------------------------------------------------
+  // AR (joint column). Gains half taxed; 6,000 retirement exclusion per filer; std 4,940; brackets 0 / 2% from 5,600 / 3% from 11,200 / 3.4% from 16,000 / 3.9% from 26,400;
+  // credits 29 per filer, 29 per filer 65+, 29 per dependent.
+  //   retiree: 40,000 + 40,000 + 5,000 = 85,000; - 6,000 (A) - 6,000 (B) = 73,000; - 4,940 = 68,060: 112 + 144 + 353.60 + 41,660 x 3.9% (1,624.74) = 2,234.34; credits 58 + 29 = 87 -> 2,147.34
+  //   family:  130,000 + 1,000 = 131,000 - 4,940 = 126,060: 112 + 144 + 353.60 + 99,660 x 3.9% (3,886.74) = 4,496.34; credits 58 + 58 = 116 -> 4,380.34
+  { code: 'ar', retiree: 2147.34, family: 4380.34, why: 'half of gains, per-filer retirement cap, personal credits' },
+  // HI (joint column, 2026). Pension income (40,000) excluded, IRA withdrawals taxed; std 16,000; exemption 1,144 per person and dependent;
+  // brackets 1.4% to 19,200, 3.2% to 28,800, 5.5% to 38,400, 6.4% to 48,000, 6.8% to 72,000, 7.2% to 96,000, 7.6% above.
+  //   retiree: 40,000 + 40,000 + 10,000 - 40,000 = 50,000 - 16,000 - 2,288 = 31,712: 268.80 + 307.20 + 2,912 x 5.5% (160.16) = 736.16
+  //   family:  132,000 - 16,000 - 2,288 - 2,288 = 111,424: 268.80 + 307.20 + 528 + 614.40 + 1,632 + 1,728 + 15,424 x 7.6% (1,172.224) = 6,250.624
+  //   2027 (Act 24: second bracket 2.5%, third 5%, bracket limits widen): 31,712 -> 28,800 x 1.4% (403.20) + 2,912 x 2.5% (72.80) = 476.00
+  //   2028 (deduction 18,000): 50,000 - 18,000 - 2,288 = 29,712 -> 403.20 + 912 x 2.5% (22.80) = 426.00
+  //   2029 (brackets widen again, 1.4% to 38,400): 29,712 x 1.4% = 415.968
+  { code: 'hi', retiree: 736.16, family: 6250.624, why: 'pension exclusion, exemptions, scheduled 2027-2029 changes', extra: [
+    { household: 'retiree', yearIndex: 1, expect: 476, why: '2027 brackets with Act 24' },
+    { household: 'retiree', yearIndex: 2, expect: 426, why: '2028 standard deduction' },
+    { household: 'retiree', yearIndex: 3, expect: 415.968, why: '2029 brackets' } ] },
+  // KS (joint). Social Security exempt; std 8,240; exemption allowance 18,320; 2,320 per dependent; 5.2% to 46,000, 5.58% above.
+  //   retiree: 90,000 - 8,240 - 18,320 = 63,440: 2,392 + 17,440 x 5.58% (973.152) = 3,365.152
+  //   family:  132,000 - 8,240 - 18,320 - 4,640 = 100,800: 2,392 + 54,800 x 5.58% (3,057.84) = 5,449.84
+  { code: 'ks', retiree: 3365.152, family: 5449.84, why: 'exemption allowance, dependent exemptions' },
+  // NE (joint). Std 17,700 + 1,700 for one filer 65+; 2.46% to 8,250, 3.51% to 49,530, 4.55% above; credit 176 per exemption (2 filers, +2 children).
+  //   retiree: 90,000 - 17,700 - 1,700 = 70,600: 202.95 + 41,280 x 3.51% (1,448.928) + 21,070 x 4.55% (958.685) = 2,610.563; - 352 = 2,258.563
+  //   family:  132,000 - 17,700 = 114,300: 202.95 + 1,448.928 + 64,770 x 4.55% (2,947.035) = 4,598.913; - 704 = 3,894.913
+  //   2027 (3.99%, brackets 8,520 / 51,150): retiree 202.95 -> 8,520 x 2.46% = 209.592; 42,630 x 3.51% = 1,496.313; 19,450 x 3.99% = 776.055; 2,481.96 - 352 = 2,129.96
+  { code: 'ne', retiree: 2258.563, family: 3894.913, why: 'exemption credits, senior add-on, scheduled 2027 rate', extra: [{ household: 'retiree', yearIndex: 1, expect: 2129.96, why: '2027 schedule' }] },
+  // ND (joint). Federal base deduction 32,200 + 1,650 (one filer 65+) + senior deduction 6,000; 40% of gains excluded; 0% to 82,800, 1.95% to 304,850.
+  //   retiree: 40,000 + 40,000 + 6,000 = 86,000 - 39,850 = 46,150 -> inside the 0% band: 0
+  //   family:  130,000 + 1,200 = 131,200 - 32,200 = 99,000: (99,000 - 82,800) x 1.95% = 315.90
+  { code: 'nd', retiree: 0, family: 315.9, why: 'conformity, gains exclusion, zero bracket' },
+  // OH (joint). 2.75% above 26,050; exemptions 4,300 (filers); dependents 1,900 each at this income; senior credit 50; joint filing credit 20% of the tax.
+  //   retiree: 90,000 - 4,300 = 85,700: 59,650 x 2.75% = 1,640.375; credits 50 + 328.075 -> 1,262.30
+  //   family:  132,000 - 4,300 - 3,800 = 123,900: 97,850 x 2.75% = 2,690.875; joint filing credit 538.175 -> 2,152.70
+  { code: 'oh', retiree: 1262.3, family: 2152.7, why: 'zero bracket, tiered exemptions, senior and joint filing credits' },
+  // OK (joint). Retirement exclusion 10,000 per filer; std 12,700; exemption 2,000 + 1,000 per child; 2.5% from 7,500, 3.5% from 9,800, 4.5% from 14,400.
+  //   retiree: 90,000 - 10,000 - 10,000 = 70,000 - 12,700 - 2,000 = 55,300: 57.50 + 161 + 40,900 x 4.5% (1,840.50) = 2,059
+  //   family:  132,000 - 12,700 - 2,000 - 2,000 = 115,300: 57.50 + 161 + 100,900 x 4.5% (4,540.50) = 4,759
+  { code: 'ok', retiree: 2059, family: 4759, why: 'new 2026 brackets, per-filer retirement exclusion' },
+  // RI (joint). Nobody at 67: taxable Social Security is included and no pension exclusion; std 22,400; exemptions 10,500 + 5,250 per child; 3.75% to 82,050, 4.75% above.
+  //   retiree: 40,000 + 40,000 + 10,000 + 22,000 = 112,000 - 22,400 - 10,500 = 79,100 x 3.75% = 2,966.25
+  //   family:  132,000 - 22,400 - 10,500 - 10,500 = 88,600: 3,076.875 + 6,550 x 4.75% (311.125) = 3,388
+  //   retiree ages 68 and 66: A subtracts all 14,000 of benefits and 50,000 of the 55,000 retirement income (AGI 112,000 under 133,750); B (66) nothing;
+  //   112,000 - 14,000 - 50,000 = 48,000 - 22,400 - 10,500 = 15,100 x 3.75% = 566.25
+  { code: 'ri', retiree: 2966.25, family: 3388, why: 'full-retirement-age tests', extra: [{ household: 'retiree', ages: [68, 66], expect: 566.25, why: 'one filer at 67 or older' }] },
+  // VA (joint). Std 17,500; exemption 930 each; age deduction 12,000 per filer 65+ cut dollar for dollar over 75,000 (AGI 90,000: gone); 2% / 3% / 5% / 5.75% at 3,000 / 5,000 / 17,000.
+  //   retiree: 90,000 - 17,500 - 1,860 = 70,640: 60 + 60 + 600 + 53,640 x 5.75% (3,084.30) = 3,804.30
+  //   family:  132,000 - 17,500 - 1,860 - 1,860 = 110,780: 720 + 93,780 x 5.75% (5,392.35) = 6,112.35
+  { code: 'va', retiree: 3804.3, family: 6112.35, why: 'age deduction phased out by income' },
+  // WV (joint). Exemptions 4,000 + 2,000 per child; 8,000 for one filer 65+; 2.11% to 10,000, 2.81% to 25,000, 3.16% to 40,000, 4.22% to 60,000, 4.58% above.
+  //   retiree: 90,000 - 4,000 - 8,000 = 78,000: 211 + 421.50 + 474 + 844 + 18,000 x 4.58% (824.40) = 2,774.90
+  //   family:  132,000 - 4,000 - 4,000 = 124,000: 1,950.50 + 64,000 x 4.58% (2,931.20) = 4,881.70
+  { code: 'wv', retiree: 2774.9, family: 4881.7, why: 'SB 392 rates, senior modification' },
 ];
 
 (async () => {
