@@ -1981,6 +1981,11 @@ read (or an official site's own page), S = secondary.
   line 3 is a prior subtraction on the same schedule, probably the capped Social Security subtraction of a 55-64 filer above the AGI limits, so that capped Social Security amount
   would use up part of the same cap (to confirm in the Form 104 booklet when reachable; tax.colorado.gov returned 403 to the fetch tool). Our migrated row's $24,000 under-65 Social
   Security cap is therefore wrong in both directions (it is the 65+ pension cap, and a 55-64 filer above the AGI limit is capped at $20,000 together with pension income).
+The 2025 Colorado schedule DR 0104AD (the subtractions schedule, supplied by the owner, read) confirms the structure but not the line 3 wording: the Social Security and the
+pension, annuity and IRA subtractions are separate lines **per person** (line 3 primary taxpayer's Social Security, line 4 primary's pension, annuity and IRA income, lines 5 and 6 the spouse's),
+so the per-person kinds are the right shape and "minus line 3" in the instructions refers to that same person's Social Security subtraction. Whether a 65+ filer's full Social Security subtraction
+reduces the $24,000 pension cap is not stated on the form (the instruction booklet's wording for lines 3 and 4 is still needed; the form is not the instructions). It also lists the
+subtractions the planner does not model: military retirement under 55 (lines 7 and 8), railroad benefits, PERA, and others.
 Backlog: record the line 3 reading and the HB24-1142 thresholds' indexing (none stated) as open.
 
 Findings that are disclosed simplifications, not errors: credits shown as `none` (every migrated row), the household-level retirement kinds (MS share,
