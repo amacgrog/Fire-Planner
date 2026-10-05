@@ -2495,13 +2495,13 @@
       bpa: { amount: 18952, phase: null },
       age: null,
       pension: null,
-      pooled: { ageAmount: 3986, retirementAmount: 3541, livingAlone: 2172, reductionThreshold: 42955, reductionRate: 0.1875 },
+      pooled: { ageAmount: 3986, retirementAmount: 3541, retirementMultiplier: 1.25, livingAlone: 2172, reductionThreshold: 42955, reductionRate: 0.1875 },
       payroll: { pensionRate: 0.063, premium: { rate: 0.0043, max: 103000 } },
       dividend: { eligible: 0.117 },
       surtax: null,
       healthPremium: false,
       indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: true, surtaxIndexed: false },
-      notes: 'Quebec files its own provincial return and residents get a 16.5% federal abatement (applied after the federal credits). Its age ($3,986), retirement-income ($3,541) and living-alone ($2,172) amounts are one pool, reduced by 18.75% of family income over $42,955 (amounts and threshold: Finance Quebec parameters PDF; the 18.75% rate is secondary, backlog); every amount is indexed (Quebec uses its own CPI factor, 2.05% for 2026; the planner applies its plan inflation). Contributions: QPP 6.30% (basic plus first additional) and QPIP 0.430% up to $103,000 (secondary, backlog). Not modeled: transfer of a spouse unused amounts, the single-parent supplement ($2,681, needs the children list), the Health Services Fund contribution, the solidarity credit and work premium (paid benefits, 7L).',
+      notes: 'Quebec files its own provincial return and residents get a 16.5% federal abatement (applied after the federal credits). Its age ($3,986), retirement-income ($3,541) and living-alone ($2,172) amounts are one pool, reduced by 18.75% of family income over $42,955 (Revenu Quebec form TP-1015.3-V 2026, Work Chart 2, and the Finance Quebec parameters PDF); the retirement-income amount is the lesser of $3,541 and 1.25 times the qualifying retirement income (pension and RRIF income, not CPP, QPP or OAS); for a couple the two spouses amounts are added and reduced once, by 18.75% of their combined net income over $42,955; every amount is indexed (Quebec uses its own CPI factor, 2.05% for 2026; the planner applies its plan inflation). Contributions: QPP 6.30% (basic plus first additional) and QPIP 0.430% up to $103,000 (secondary, backlog). Not modeled: a spouse unused-amount transfer beyond the pooled split (each spouse takes a share of the reduced pool in proportion to their own amounts), the single-parent supplement ($2,681, needs the children list), the Health Services Fund contribution, the solidarity credit and work premium (paid benefits, 7L).',
     },
     nb: {
       name: 'New Brunswick',
@@ -2628,13 +2628,25 @@
     if (i <= 200600 * factor) return 750 * factor + (i - 200000 * factor) * 0.25;
     return 900 * factor;
   }
+  // Quebec: a person's age amount (65+) plus retirement-income amount (the lesser of the amount and
+  // 1.25 times the eligible pension or RRIF income); zero outside Quebec. The living-alone amount is
+  // added by the caller (single filers only).
+  function quebecPoolAmount(age, pensionIncome, yearIndex) {
+    const rule = currentProvince().rule,
+      pool = rule.pooled;
+    if (!pool) return 0;
+    const g = rule.indexing.ageAmountIndexed ? taxIndexFactor(yearIndex) : 1;
+    let amount = pensionIncome > 0 ? Math.min(pool.retirementAmount * g, pensionIncome * pool.retirementMultiplier) : 0;
+    if (age >= 65) amount += pool.ageAmount * g;
+    return amount;
+  }
   // Provincial tax for one person: tax on the brackets, less each non-refundable credit
   // at the province's lowest rate (basic personal amount, with its phase-down where
   // there is one), floored at zero; then Ontario's surtax on that; then the eligible
   // dividend credit (against the provincial tax only, floored at zero; Ontario takes it
   // after the surtax, as form ON428 does); then Ontario's Health Premium, which is not
   // reduced by credits and is based on taxable income.
-  function provincialTaxCA(income, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null) {
+  function provincialTaxCA(income, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0) {
     const c = currentProvince(),
       rule = c.rule,
       ix = rule.indexing,
@@ -2659,16 +2671,21 @@
       credits += Math.max(0, a.amount * fa - a.rate * Math.max(0, ni - a.threshold * fa)) + a.supplement * fa;
     }
     if (pensionIncome > 0 && rule.pension) credits += Math.min(rule.pension.amount * (ix.pensionAmountIndexed ? f : 1), pensionIncome);
-    // Quebec: one pool of age, retirement-income and living-alone amounts, reduced as a whole by
-    // 18.75% of family income over the threshold. `familyIncome` is both spouses' net income for a
-    // couple; null means a single filer (own income, living alone).
+    // Quebec: age, retirement-income and living-alone amounts are one pool, reduced as a whole by
+    // 18.75% of family income over the threshold (form TP-1015.3-V, Work Chart 2). For a couple the
+    // two spouses' amounts are added and reduced ONCE; each spouse takes a share of what is left in
+    // proportion to their own amounts (`partnerPool` is the other spouse's amount, `familyIncome`
+    // both spouses' net income). `familyIncome` null means a single filer: own income, living alone.
     const pool = rule.pooled;
     if (pool) {
       const g = ix.ageAmountIndexed ? f : 1;
-      let amounts = pensionIncome > 0 ? Math.min(pool.retirementAmount * g, pensionIncome) : 0;
-      if (age >= 65) amounts += pool.ageAmount * g;
-      if (familyIncome === null) amounts += pool.livingAlone * g;
-      credits += Math.max(0, amounts - pool.reductionRate * Math.max(0, (familyIncome === null ? ni : familyIncome) - pool.reductionThreshold * g));
+      let own = quebecPoolAmount(age, pensionIncome, yearIndex);
+      if (familyIncome === null) own += pool.livingAlone * g;
+      const total = own + partnerPool;
+      if (total > 0) {
+        const reduction = pool.reductionRate * Math.max(0, (familyIncome === null ? ni : familyIncome) - pool.reductionThreshold * g);
+        credits += Math.max(0, total - reduction) * (own / total);
+      }
     }
     let tax = Math.max(0, base - rule.creditRate * credits);
     if (rule.surtax) {
@@ -2803,7 +2820,7 @@
     }
     return base;
   }
-  function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null) {
+  function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0) {
     const taxableIncome = Math.max(0, ordinaryIncome + Math.max(0, gains) * 0.5);
     let fedTax = federalTaxCA(
       taxableIncome,
@@ -2812,7 +2829,7 @@
     );
     if (dtcBase > 0) fedTax = Math.max(0, fedTax - dtcBase * FEDERAL_ELIGIBLE_DTC);
     if (state.province === 'qc') fedTax *= 0.835;
-    return fedTax + provincialTaxCA(taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome);
+    return fedTax + provincialTaxCA(taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool);
   }
   // The planner converts the RRSP to a RRIF at 71 (see rrifMinPct). CRA counts RRIF payments as
   // pension income from 65, but a withdrawal from an RRSP that is not an annuity or RRIF payment
@@ -2844,9 +2861,11 @@
       tradB = traditionalExtra / 2;
     // Family net income (Quebec's reductions): both spouses' income with the 50% gains inclusion.
     const family = Math.max(0, profile.otherA + tradA + gainA * 0.5) + Math.max(0, profile.otherB + tradB + gainB * 0.5);
+    const pensionA = ageA >= RRIF_PENSION_AGE ? penA + tradA : penA,
+      pensionB = ageB >= RRIF_PENSION_AGE ? penB + tradB : penB;
     return (
-      personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, ageA >= RRIF_PENSION_AGE ? penA + tradA : penA, family) +
-      personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, ageB >= RRIF_PENSION_AGE ? penB + tradB : penB, family)
+      personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, pensionA, family, quebecPoolAmount(ageB, pensionB, profile.year)) +
+      personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, pensionB, family, quebecPoolAmount(ageA, pensionA, profile.year))
     );
   }
   // @@shared:drawTaxable begin
@@ -2914,8 +2933,8 @@
     // pension credit and the age-amount clawback both move with it.
     const family = Math.max(0, otherA) + Math.max(0, otherB); // unchanged by the transfer
     const combinedTax = (x) =>
-      personTaxCA(otherA - x, 0, yearIndex, 0, ageA, eligibleA - x, family) +
-      personTaxCA(otherB + x, 0, yearIndex, 0, ageB, eligibleB + x, family);
+      personTaxCA(otherA - x, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ageB, eligibleB + x, yearIndex)) +
+      personTaxCA(otherB + x, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ageA, eligibleA - x, yearIndex));
     // The age-amount clawback makes combined tax non-convex for a 65+ filer
     // (its slope drops back where the clawback ends), so a ternary search over
     // the whole range can settle in the wrong dip. With a 65+ partner, scan a
@@ -8999,7 +9018,7 @@
   window.__test_getState = () => state;
   window.__test_children = { dependentsInYear, qualifyingChildCount };
   window.__test_FIELDS = FIELDS;
-  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, cppContribution, taxIndexFactor };
+  window.__test_tax = { taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, cppContribution, quebecPoolAmount, taxIndexFactor };
 })();
 </script>
 </body>

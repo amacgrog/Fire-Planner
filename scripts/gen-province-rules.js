@@ -92,7 +92,7 @@ function generate(rules) {
   L.push('');
   L.push('## Quebec pooled amounts');
   L.push('');
-  for (const c of codes) if (rules[c].pooled) { const p = rules[c].pooled; L.push(`- **${c.toUpperCase()}**: age ${money(p.ageAmount)} (65+), retirement income up to ${money(p.retirementAmount)}, living alone ${money(p.livingAlone)} (single filers and survivors); the total is reduced by ${pct(p.reductionRate)} of family net income over ${money(p.reductionThreshold)}, then taken at the credit rate.`); }
+  for (const c of codes) if (rules[c].pooled) { const p = rules[c].pooled; L.push(`- **${c.toUpperCase()}**: age ${money(p.ageAmount)} (65+), retirement income the lesser of ${money(p.retirementAmount)} and ${p.retirementMultiplier} times the qualifying retirement income, living alone ${money(p.livingAlone)} (single filers and survivors); the total is reduced by ${pct(p.reductionRate)} of family net income over ${money(p.reductionThreshold)} (for a couple the two spouses' amounts are added and reduced once), then taken at the credit rate.`); }
   L.push('');
   L.push('## Notes');
   L.push('');

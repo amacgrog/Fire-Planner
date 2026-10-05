@@ -476,9 +476,14 @@ function caChecks() {
     // Single, 66, $50k, $10k pension: 7,000 less 14% of 18,952 + a pool of 3,986 + 3,541 + 2,172 = 9,699, reduced
     // by 18.75% of (50,000 - 42,955) = 1,320.9375 -> 8,378.0625; credits 27,330.0625 -> 3,826.20875 -> 3,173.79125
     near(q(50000, 0, 0, 66, 10000), 3173.79125, 0.005, 'Quebec single 66 with a pension at $50k');
-    // The same person in a couple with $100k of family income: no living-alone amount; the pool of 7,527 is
-    // reduced by 18.75% of 57,045 = 10,696.6 to nothing; credits 14% of 18,952 = 2,653.28 -> 4,346.72
-    near(q(50000, 0, 0, 66, 10000, 100000), 4346.72, 0.005, 'Quebec couple 66, family income reduces the pool to nil');
+    // A couple, both 66 with $10k pension and $50k each ($100k family income), no living-alone amount: each has 7,527
+    // (3,986 + 3,541; 1.25 x 10,000 is above the 3,541 cap), 15,054 together, reduced ONCE by 18.75% of 57,045 =
+    // 10,695.9375 -> 4,358.0625; each takes half, 2,179.03125; credits 14% of 18,952 + 2,179.03125 = 2,958.344375
+    // -> 7,000 - 2,958.344375 = 4,041.655625 each (reducing each spouse's pool separately would leave nil)
+    near(q(50000, 0, 0, 66, 10000, 100000, 7527), 4041.655625, 0.005, 'Quebec couple 66, the pool is reduced once for the couple');
+    // The retirement-income amount is the lesser of 3,541 and 125% of the qualifying income: $2,000 -> 2,500.
+    // Single, 60, $30k, $2,000 pension: 4,200 less 14% of 18,952 + 2,500 + 2,172 (living alone) = 23,624 (3,307.36) -> 892.64
+    near(q(30000, 0, 0, 60, 2000), 892.64, 0.005, 'Quebec retirement-income amount is 125% of the pension income');
     // Under 65, no pension, $60k single: the living-alone amount (2,172) is reduced to nothing (3,195.9);
     // tax 7,608.3 + 1,074.45 = 8,682.75 less 2,653.28 = 6,029.47
     near(q(60000, 0, 0, 0, 0), 6029.47, 0.005, 'Quebec under 65 at $60k, pool reduced away');
@@ -494,7 +499,7 @@ function caChecks() {
       const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
       near(
         t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
-        2 * t.personTaxCA(50000, 0, 0, 0, 66, 10000, 100000),
+        2 * t.personTaxCA(50000, 0, 0, 0, 66, 10000, 100000, 7527),
         1e-9,
         'Quebec taxFor couple uses family income',
       );
@@ -515,7 +520,9 @@ function caChecks() {
       for (const [oa, ob, ea, eb] of [[90000, 20000, 40000, 5000], [60000, 30000, 30000, 0], [45000, 45000, 20000, 20000], [80000, 15000, 50000, 10000]]) {
         const x = t.solvePensionSplit(oa, ob, ea, eb, 0, 68, 66);
         const fam = oa + ob;
-        const cost = (y) => t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam) + t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam);
+        const cost = (y) =>
+          t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam, t.quebecPoolAmount(66, eb + y, 0)) +
+          t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam, t.quebecPoolAmount(68, ea - y, 0));
         let best = Infinity;
         for (let y = -0.5 * eb; y <= 0.5 * ea; y += 50) best = Math.min(best, cost(y));
         worst = Math.max(worst, cost(x) - best);

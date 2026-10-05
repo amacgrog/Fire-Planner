@@ -56,7 +56,7 @@ const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verif
         if ((c === 'qc') !== !!r.pooled) fails.push(`${c}: only Quebec has the pooled amounts`);
         if (!(r.payroll.pensionRate > 0.05 && r.payroll.pensionRate < 0.07)) fails.push(`${c}: pension contribution rate out of range`);
         if (!!r.payroll.premium !== (c === 'qc')) fails.push(`${c}: only Quebec has a parental insurance premium`);
-        if (c === 'qc' && !(r.pooled.reductionRate === 0.1875 && r.pooled.reductionThreshold > 0)) fails.push('qc: bad pooled reduction');
+        if (c === 'qc' && !(r.pooled.reductionRate === 0.1875 && r.pooled.reductionThreshold > 0 && r.pooled.retirementMultiplier === 1.25)) fails.push('qc: bad pooled reduction');
         if (!r.age && c !== 'qc') fails.push(`${c}: age amount missing`);
         if (!r.pension && c !== 'qc') fails.push(`${c}: pension amount missing`);
         if (c !== 'mb' && r.bpa.phase) fails.push(`${c}: only Manitoba has a basic personal amount phase-down in 2026`);
