@@ -2038,6 +2038,33 @@ Tests: `tests/state_mechanisms.js` (about 80 new hand-computed cases, each check
 Social Security plumbing through `taxFor` in the joint, two-return and one-person branches), `tests/state_rules.js` (the new fields, scheduled variants checked as
 complete rows).
 
+**Commit 4: mechanisms 7, 9, 12, 13 and the flat local tax (no behavior change for any row).** Mechanism 11 (circuit breakers) was dropped by the owner;
+the local tax is the owner-requested addition for MD and IN. All rows gain `base.gainsRate: null` and `base.gainsDeduction: 0`; the schema accepts
+`federalTaxSubtraction` and `localTax` objects. Snapshots exact, existing state tests unchanged. Decisions taken while building:
+- **Mechanism 7 (`federalTaxSubtraction`)** has a `placement`: 'subtraction' lowers the state AGI (Oregon, Missouri, Montana style) and 'itemized' replaces the
+  standard deduction when larger (Alabama style, where the federal tax is the main itemized item); `cap` is null or a dollar amount per column, `phase` a step
+  table that scales the cap by the state AGI (Oregon's phase-out). The liability is the one defined in the owner decisions above, computed by `taxFor` once per
+  call with a state tax of zero, only when the selected row asks (`stateNeedsFederalTax`), per return in the two-return branch. The accepted inconsistency: a
+  filer who itemizes federally deducts a federal tax computed without this state's tax in the SALT total. A schedule may not add or drop the deduction.
+- **Mechanism 9**: `ageAgiTiered` is per filer (each filer's own age and own taxable benefits, the household figure split in proportion; the highest tier reached
+  applies; under the first tier nothing; within a tier all of the filer's taxable benefits while the federal AGI is at or under the tier's limit, else at most
+  `capOverLimit`), and it feeds the same per-filer subtraction to a shared retirement cap (Colorado). `agiShare` (a step table of the share subtracted) covers the
+  AGI cliffs (KS, MO, NM, RI, WV) and `agiPhaseOut` (a straight line between two AGIs) covers Vermont-style phase-outs. `ssCredit` is a nonrefundable credit of
+  `rate` on the taxable benefits reduced by `phase.rate` per dollar of AGI over `phase.start`; it is a first guess at Utah's credit and gets amended if the Utah
+  research shows another shape (no row uses it yet).
+- **Mechanism 12**: `incomeTestedCredit` (a flat amount per column, a senior amount per filer from an age, an amount per qualifying child, none above an AGI
+  limit or tapering by `pct` per `width`); `exemptionCredits` already covers the California shape.
+- **Mechanism 13**: with a `gainsRate` the included gains (after the dollar exclusion) are taxed at that flat rate outside the bracketed base; the ordinary
+  deduction and exemptions do not offset them (conservative). A dollar exclusion alone is taken from the included gains before they join the base.
+- **Local tax**: `localTax: { kind: 'flat', rate }` adds `rate` x the state taxable income after the credits, and the whole amount is the state tax that
+  `taxFor` hands to the federal SALT deduction. A state credit does not reduce it. MD: the most common county rate; IN: the population-weighted average
+  county rate (both sourced when the rows are written).
+Timing (`tests/bench_runs.js --scale 3 --repeats 5`, previous commit -> this one, three alternating rounds): NY 1,352 / 1,370 / 1,351 -> 1,371 / 1,428 / 1,391 simulate and 292 / 295 / 289 -> 298 / 317 / 297 historical; CT 1,521 / 1,520 / 1,486 -> 1,531 / 1,535 / 1,533; TX and CA inside noise (one round measured +10% on a loaded machine and did not repeat).
+
+Tests: `tests/state_mechanisms.js` (about 60 more hand-computed cases: each Social Security kind at, below and above its bounds; the credit kinds; the gains shapes;
+the local tax including its effect on the federal itemized deduction; the federal tax paid for a single filer, a joint couple with and without a child, two
+separate returns, a cap, a phase and both placements), `tests/state_rules.js` (the new schema).
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 

@@ -37,6 +37,7 @@ function checks() {
     exemptionCredits: ['personal', 'personalCount', 'senior', 'dependent', 'phaseOut'], renterCredit: ['amount', 'agiLimit'],
     childCredit: ['tiers', 'phaseOut'], propertyTaxCredit: ['max', 'limit', 'stepWidth', 'stepPct'],
     taxForgiveness: ['limit', 'perDependent', 'stepWidth', 'stepPct'], agiStepFraction: ['tables'],
+    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'],
   };
   const stepOk = (rows) => Array.isArray(rows) && rows.length > 0 && rows.every((r, i) => r.length === 2 && isNum(r[0]) && isNum(r[1]) && (i === 0 || r[0] > rows[i - 1][0]));
   const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -95,8 +96,13 @@ function checks() {
     need(fc.standardDeduction || (!fc.seniorDeduction && !fc.ageAdditional), at + 'the senior deduction and the 65+ add-on need the federal standard deduction');
     if (fc.standardDeduction) need(columns.every((c) => r.standardDeduction[c] === 0), at + 'a conforming state carries no standard deduction of its own');
     need(typeof r.base.ordinary === 'boolean' && isNum(r.base.gainsIncluded) && r.base.gainsIncluded >= 0 && r.base.gainsIncluded <= 1, at + 'base');
+    need(r.base.gainsRate === null || (isNum(r.base.gainsRate) && r.base.gainsRate > 0 && r.base.gainsRate < 0.15), at + 'base.gainsRate (null or a flat rate)');
+    need(isNum(r.base.gainsDeduction) && r.base.gainsDeduction >= 0, at + 'base.gainsDeduction');
     const ss = r.base.socialSecurity;
-    need(ss === 'exempt' || ss === 'taxed' || (ss && ss.kind === 'subtraction' && isNum(ss.seniorAge) && isNum(ss.belowSeniorCap)) || (ss && ss.kind === 'agiTested' && isNum(ss.taxedShareOfBenefits) && columns.every((c) => isNum(ss.exemptBelow[c]))), at + 'base.socialSecurity');
+    need(ss === 'exempt' || ss === 'taxed' || (ss && ss.kind === 'subtraction' && isNum(ss.seniorAge) && isNum(ss.belowSeniorCap)) || (ss && ss.kind === 'agiTested' && isNum(ss.taxedShareOfBenefits) && columns.every((c) => isNum(ss.exemptBelow[c]))) ||
+      (ss && ss.kind === 'agiShare' && typeof ss.inclusive === 'boolean' && columns.every((c) => stepOk(ss.tables[c]))) ||
+      (ss && ss.kind === 'agiPhaseOut' && columns.every((c) => isNum(ss.start[c]) && isNum(ss.end[c]) && ss.end[c] > ss.start[c])) ||
+      (ss && ss.kind === 'ageAgiTiered' && Array.isArray(ss.tiers) && ss.tiers.length > 0 && ss.tiers.every((t, i) => isNum(t.minAge) && (i === 0 || t.minAge > ss.tiers[i - 1].minAge) && isNum(t.capOverLimit) && t.capOverLimit >= 0 && (t.agiLimit === null || columns.every((c) => isNum(t.agiLimit[c]))))), at + 'base.socialSecurity');
     const ex = r.retirementExclusion;
     need(ex && ex.kind in EXCLUSION_PARAMS, at + 'retirementExclusion kind ' + (ex && ex.kind));
     if (ex && ex.kind in EXCLUSION_PARAMS)
@@ -106,8 +112,9 @@ function checks() {
       need(cr.kind in CREDIT_PARAMS && typeof cr.label === 'string' && typeof cr.refundable === 'boolean', at + 'credit kind/label/refundable ' + cr.kind);
       if (cr.kind in CREDIT_PARAMS) need(CREDIT_PARAMS[cr.kind].every((k) => k in cr), at + 'credit ' + cr.kind + ' parameters');
     }
-    need(r.federalTaxSubtraction === 'none', at + 'federalTaxSubtraction');
-    need(r.localTax === 'notModeled', at + 'localTax');
+    const ft = r.federalTaxSubtraction;
+    need(ft === 'none' || (ft && ft.kind === 'lagged' && ['subtraction', 'itemized'].includes(ft.placement) && (ft.cap === null || columns.every((c) => isNum(ft.cap[c]) && ft.cap[c] >= 0)) && (ft.phase === null || columns.every((c) => stepOk(ft.phase.tables[c]))) && JSON.stringify(Object.keys(ft).sort()) === JSON.stringify(['cap', 'kind', 'phase', 'placement'])), at + 'federalTaxSubtraction');
+    need(r.localTax === 'notModeled' || (r.localTax && r.localTax.kind === 'flat' && isNum(r.localTax.rate) && r.localTax.rate > 0 && r.localTax.rate < 0.06 && Object.keys(r.localTax).length === 2), at + 'localTax');
     need(typeof r.notes === 'string', at + 'notes');
   };
   for (const code of codes) {
@@ -116,6 +123,7 @@ function checks() {
     // A scheduled change replaces whole fields from a tax year on; each variant is a complete row that must pass the same checks.
     need(Array.isArray(r.schedule), at + 'schedule must be a list ([] for none)');
     need(r.tax.kind !== 'none' || r.schedule.length === 0, at + 'a no-tax row has no schedule');
+    need(r.schedule.every((s) => !('federalTaxSubtraction' in s) || (s.federalTaxSubtraction === 'none') === (r.federalTaxSubtraction === 'none')), at + 'a schedule cannot add or drop the federal tax deduction');
     let prevYear = 2025, built = r;
     for (const s of r.schedule || []) {
       const { fromYear, baseYear, ...over } = s;

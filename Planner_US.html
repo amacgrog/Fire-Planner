@@ -2769,7 +2769,15 @@
   //   schedule         [] or [{ fromYear, baseYear?, ...overrides }]: from tax year `fromYear` the listed fields replace the
   //                    base row's whole field (tax, standardDeduction, credits, ...); the overridden amounts are statutory
   //                    dollars of `baseYear` (default fromYear), so an indexed family grows from that year, not from plan start
-  //   federalTaxSubtraction ('none' in every row so far), localTax ('notModeled'), notes
+  //   federalTaxSubtraction  'none' | { kind: 'lagged', placement: 'subtraction' | 'itemized', cap, phase }: the state lets the filer
+  //                    deduct the year's federal income tax (taxFor runs ONE extra federal pass with state tax zero, no iteration;
+  //                    'subtraction' lowers the state AGI, 'itemized' replaces the standard deduction when larger); `cap` is null or
+  //                    a dollar amount by column, `phase` null or a step table of the AGI share of the cap
+  //   base.gainsRate / base.gainsDeduction  null / 0 where gains simply join the base; a rate taxes the included gains
+  //                    separately at that flat rate (the ordinary deduction does not offset them), a dollar deduction is
+  //                    taken from the included gains first
+  //   localTax         'notModeled' | { kind: 'flat', rate }: a flat county rate on the state taxable income (MD, IN)
+  //   notes
   // Step tables are [[lowerBound, value], ...] per column; a value applies when the AGI is
   // more than its lower bound (at or over it when the table says `inclusive`).
   // ---------------------------------------------------------------------------
@@ -2795,7 +2803,7 @@
         columns: { single: [[0, 0.02], [500, 0.04], [3000, 0.05]], mfj: [[0, 0.02], [1000, 0.04], [6000, 0.05]] },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 3000, mfj: 8500 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -2827,7 +2835,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -2859,7 +2867,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.025 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 8350, mfj: 16700 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -2891,7 +2899,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.02], [4600, 0.039]], mfj: [[0, 0.02], [4600, 0.039]] } },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 2470, mfj: 4940 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -2941,7 +2949,7 @@
           indexed: false,
         },
       ],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 5706, mfj: 11412, hoh: 11412 },
       exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -2991,7 +2999,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.044 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 24000 } },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 24000 } },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3087,6 +3095,8 @@
       base: {
         ordinary: true,
         gainsIncluded: 1,
+        gainsRate: null,
+        gainsDeduction: 0,
         socialSecurity: { kind: 'agiTested', exemptBelow: { single: 75000, mfj: 100000, hoh: 100000 }, taxedShareOfBenefits: 0.25 },
       },
       standardDeduction: { single: 0, mfj: 0, hoh: 0 },
@@ -3172,7 +3182,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 3250, mfj: 6500 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3204,7 +3214,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3236,7 +3246,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0519 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 12000, mfj: 24000 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3280,7 +3290,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 4400, mfj: 8800 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3312,7 +3322,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.053 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3344,7 +3354,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0495 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3376,7 +3386,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0295 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3408,7 +3418,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.038 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3440,7 +3450,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.052], [23000, 0.0558]], mfj: [[0, 0.052], [46000, 0.0558]] } },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 3605, mfj: 8240 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3472,7 +3482,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.035 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 3360, mfj: 3360 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3504,7 +3514,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.03 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 12875, mfj: 25750 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3539,7 +3549,7 @@
         columns: { single: [[0, 0.058], [27399, 0.0675], [64849, 0.0715]], mfj: [[0, 0.058], [54849, 0.0675], [129749, 0.0715]] },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 8350, mfj: 16700 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3583,7 +3593,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 3350, mfj: 6700 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3617,7 +3627,7 @@
       additions: [
         { kind: 'threshold', threshold: 1107750, rate: 0.04, indexed: true },
       ],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3649,7 +3659,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0425 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3687,7 +3697,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
       standardDeduction: { single: 15300, mfj: 30600 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3719,7 +3729,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0], [10000, 0.04]], mfj: [[0, 0], [10000, 0.04]] } },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 2300, mfj: 4600 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3757,7 +3767,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3789,7 +3799,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.047], [47500, 0.0565]], mfj: [[0, 0.047], [95000, 0.0565]] } },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3824,7 +3834,7 @@
         columns: { single: [[0, 0.0246], [4130, 0.0351], [24760, 0.0455]], mfj: [[0, 0.0246], [8250, 0.0351], [49530, 0.0455]] },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 8850, mfj: 17700 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3856,7 +3866,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3888,7 +3898,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3929,7 +3939,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -3967,7 +3977,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4030,7 +4040,7 @@
           indexed: false,
         },
       ],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 8000, mfj: 16050, hoh: 11200 },
       exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4070,7 +4080,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0399 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4105,7 +4115,7 @@
         columns: { single: [[0, 0], [48475, 0.0195], [244825, 0.025]], mfj: [[0, 0], [80975, 0.0195], [298075, 0.025]] },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4137,7 +4147,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0], [26050, 0.0275]], mfj: [[0, 0], [26050, 0.0275]] } },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4175,7 +4185,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 6350, mfj: 12700 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4213,7 +4223,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 2910, mfj: 5820 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4245,7 +4255,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.0307 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4290,7 +4300,7 @@
         columns: { single: [[0, 0.0375], [82050, 0.0475], [186450, 0.0599]], mfj: [[0, 0.0375], [82050, 0.0475], [186450, 0.0599]] },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
       standardDeduction: { single: 11200, mfj: 22400 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4325,7 +4335,7 @@
         columns: { single: [[0, 0], [3640, 0.03], [18230, 0.06]], mfj: [[0, 0], [3640, 0.03], [18230, 0.06]] },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 8350, mfj: 16700 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4357,7 +4367,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4389,7 +4399,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4421,7 +4431,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4453,7 +4463,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.045 },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4491,7 +4501,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'taxed' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'taxed' },
       standardDeduction: { single: 7650, mfj: 15300 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4529,7 +4539,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 8750, mfj: 17500 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4561,7 +4571,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'graduated', columns: { single: [[0, 0.07], [1000000, 0.099]], mfj: [[0, 0.07], [1000000, 0.099]] } },
       additions: [],
-      base: { ordinary: false, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: false, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 278000, mfj: 278000 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4599,7 +4609,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4637,7 +4647,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 0.7, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 0.7, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 13960, mfj: 25840 },
       exemption: { single: 700, mfj: 1400 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4669,7 +4679,7 @@
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4707,7 +4717,7 @@
         },
       },
       additions: [],
-      base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+      base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 16100, mfj: 32200 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
@@ -4737,6 +4747,9 @@
     dependentExemption: ['ex', 'ct'], seniorExemption: ['ex', 'ct'], exemptionPhaseOut: ['ex', 'ct'],
     credits: ['ca', 'ct'], retirementExclusion: ['re'], additions: ['ad'],
   };
+  const SS_TIERED = 4,
+    SS_SHARE = 5,
+    SS_PHASE = 6;
   const NO_BASE_YEARS = { br: 0, sd: 0, ex: 0, ca: 0, ct: 0, re: 0, ad: 0 };
   const NO_AGES = [];
   // A per-person exclusion is flattened once (ages and caps in plain arrays, absent buckets as an age nobody reaches).
@@ -4777,7 +4790,24 @@
       additions: row.additions,
       ordinary: row.base.ordinary,
       gainsIncluded: row.base.gainsIncluded,
-      ss: ss === 'taxed' ? SS_TAXED : typeof ss !== 'object' ? SS_EXEMPT : ss.kind === 'agiTested' ? SS_AGI_TESTED : SS_SUBTRACTION,
+      ss:
+        ss === 'taxed'
+          ? SS_TAXED
+          : typeof ss !== 'object'
+            ? SS_EXEMPT
+            : ss.kind === 'agiTested'
+              ? SS_AGI_TESTED
+              : ss.kind === 'ageAgiTiered'
+                ? SS_TIERED
+                : ss.kind === 'agiShare'
+                  ? SS_SHARE
+                  : ss.kind === 'agiPhaseOut'
+                    ? SS_PHASE
+                    : SS_SUBTRACTION,
+      gainsRate: row.base.gainsRate,
+      gainsDeduction: row.base.gainsDeduction,
+      lagged: row.federalTaxSubtraction === 'none' ? null : row.federalTaxSubtraction,
+      localRate: row.localTax === 'notModeled' ? 0 : row.localTax.rate,
       ssRule: typeof ss === 'object' ? ss : null,
       retirement: compileRetirement(row.retirementExclusion),
       needsSsSplit: row.retirementExclusion.kind === 'perPerson' && row.retirementExclusion.reducedBy === 'socialSecuritySubtracted',
@@ -4912,6 +4942,14 @@
     }
     return 0;
   }
+  // What a state lets the filer deduct for the federal income tax paid: the tax, up to the cap for the column
+  // (an amount, scaled with the deduction family), the cap itself scaled by an AGI step table where the state phases it out.
+  function stateFederalTaxAllowance(l, colKey, agi, federalTax, fSd, fCt) {
+    if (!(federalTax > 0)) return 0;
+    let cap = l.cap === null ? Infinity : l.cap[colKey] * fSd;
+    if (l.phase) cap *= stateStepValue(l.phase.tables[colKey], agi, false, fCt);
+    return Math.min(federalTax, cap);
+  }
   // A standard deduction that steps down or phases out with the state AGI (`standardDeductionPhase`):
   // 'stepDown' loses `step` per `width` of AGI over `start` down to `floor`; 'linear' falls from the
   // full amount at `start` to `floor` at `end`. The amounts index with the deduction family, the AGI
@@ -5011,6 +5049,21 @@
       }
       case 'agiStepFraction':
         return c.tax * stateStepValue(cr.tables[colKey], c.agi, false, fCt);
+      case 'incomeTestedCredit': {
+        // A flat amount per filing column, plus a senior amount per filer at or over `perSenior.age` and an amount per
+        // qualifying child; none above the AGI `limit` (or cut by `taper.pct` per `taper.width` of AGI over it).
+        let gross = cr.amount[colKey];
+        if (cr.perSenior) gross += countAtLeast(sources.ages || [], cr.perSenior.age) * cr.perSenior.amount;
+        if (cr.perDependent) gross += countQualifyingChildren(deps) * cr.perDependent;
+        gross *= fCa;
+        if (cr.limit === null) return gross;
+        const over = c.agi - cr.limit[colKey] * fCt;
+        if (!(over > 0)) return gross;
+        return cr.taper === null ? 0 : gross * Math.max(0, 1 - cr.taper.pct * Math.ceil(over / (cr.taper.width * fCt)));
+      }
+      case 'ssCredit':
+        // A credit of `rate` on the taxable Social Security benefits, reduced by `phase.rate` per dollar of AGI over `phase.start`.
+        return Math.max(0, cr.rate * Math.max(0, sources.taxableSS) * fCa - (cr.phase ? cr.phase.rate * Math.max(0, c.agi - cr.phase.start[colKey] * fCt) : 0));
       default:
         return 0;
     }
@@ -5093,8 +5146,11 @@
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
       gains = Math.max(0, sources.gains),
       taxableSS = Math.max(0, sources.taxableSS);
-    let start = rule.ordinary ? ordinaryNonSS + gains * rule.gainsIncluded : gains * rule.gainsIncluded,
-      ssSubtraction = 0;
+    let includedGains = gains * rule.gainsIncluded;
+    if (rule.gainsDeduction > 0) includedGains = Math.max(0, includedGains - rule.gainsDeduction * fSd);
+    let start = rule.ordinary ? ordinaryNonSS + includedGains : includedGains,
+      ssSubtraction = 0,
+      ssSplit = null;
     if (rule.ss !== SS_EXEMPT) {
       start += taxableSS;
       if (rule.ss === SS_SUBTRACTION) {
@@ -5106,15 +5162,44 @@
           start < rule.ssRule.exemptBelow[colKey] * fRe
             ? taxableSS
             : taxableSS - Math.min(taxableSS, rule.ssRule.taxedShareOfBenefits * (sources.ssBenefits || 0));
+      } else if (rule.ss === SS_SHARE) {
+        // A share of the taxable benefits is subtracted, from a step table of the AGI.
+        ssSubtraction = taxableSS * stateStepValue(rule.ssRule.tables[colKey], start, rule.ssRule.inclusive, fRe);
+      } else if (rule.ss === SS_PHASE) {
+        // All of it below `start`, none at `end`, falling in a straight line between.
+        const lo = rule.ssRule.start[colKey] * fRe,
+          hi = rule.ssRule.end[colKey] * fRe;
+        ssSubtraction = taxableSS * Math.min(1, Math.max(0, (hi - start) / (hi - lo)));
+      } else if (rule.ss === SS_TIERED) {
+        // Per filer, by the filer's own age: the highest tier reached applies; within it all of the filer's taxable
+        // benefits while the AGI is at or under the tier's limit (none = no limit), otherwise at most `capOverLimit`.
+        const ages = sources.ages || NO_AGES,
+          tiers = rule.ssRule.tiers;
+        ssSplit = [0, 0];
+        for (let i = 0; i < 2; i++) {
+          const age = ages[i];
+          if (age === null || age === undefined) continue;
+          let tier = null;
+          for (let t = 0; t < tiers.length; t++) if (age >= tiers[t].minAge) tier = tiers[t];
+          if (!tier) continue;
+          const own = Math.max(0, (i === 0 ? sources.taxableSSA : sources.taxableSSB) || 0);
+          ssSplit[i] = tier.agiLimit === null || start <= tier.agiLimit[colKey] * fRe ? own : Math.min(own, tier.capOverLimit * fRe);
+        }
+        ssSubtraction = ssSplit[0] + ssSplit[1];
       }
     }
     // Each filer's own Social Security subtraction, for a retirement cap it shares (the household's, in
     // proportion to the taxable benefits).
-    let ssSplit = null;
-    if (rule.needsSsSplit && ssSubtraction > 0 && taxableSS > 0)
+    if (ssSplit === null && rule.needsSsSplit && ssSubtraction > 0 && taxableSS > 0)
       ssSplit = [(ssSubtraction * (sources.taxableSSA || 0)) / taxableSS, (ssSubtraction * (sources.taxableSSB || 0)) / taxableSS];
     // `start` stands for the federal AGI; `agi` is the state's AGI after its own subtractions.
-    const agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit);
+    let agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit);
+    // The federal income tax paid (one lagged pass, see taxFor), as a subtraction from the state AGI.
+    let federalAllowance = 0;
+    if (rule.lagged !== null) {
+      federalAllowance = stateFederalTaxAllowance(rule.lagged, colKey, agi, sources.federalTax || 0, fSd, fCt);
+      if (rule.lagged.placement === 'subtraction') agi -= federalAllowance;
+    }
     let exemption = col.exemption * fEx;
     if (rule.exemptionPhaseOut) {
       const p = rule.exemptionPhaseOut,
@@ -5131,7 +5216,10 @@
       deduction = col.standard * fSd;
       if (rule.stdPhase) deduction = statePhasedDeduction(rule.stdPhase, colKey, deduction, agi, fSd, fCt);
     }
-    let taxable = agi - deduction - exemption;
+    if (federalAllowance > deduction && rule.lagged.placement === 'itemized') deduction = federalAllowance;
+    // Gains with their own flat rate leave the bracketed base (the ordinary deduction does not offset them).
+    const separateGains = rule.gainsRate === null ? 0 : Math.min(includedGains, Math.max(0, agi));
+    let taxable = agi - separateGains - deduction - exemption;
     if (rule.dependentExemption)
       taxable -= countQualifyingChildren(sources.dependents || NO_DEPENDENTS) * rule.dependentExemption * fEx;
     else if (rule.dependentTiers) {
@@ -5149,6 +5237,7 @@
     }
     const income = Math.max(0, taxable);
     let tax = rule.graduated ? graduatedTax(income, col.starts, col.rates, fBr) : income * rule.flatRate;
+    if (separateGains > 0) tax += separateGains * rule.gainsRate;
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
       const fa = a.indexed ? (by.ad > currentYear ? base / taxIndexFactor(by.ad - currentYear) : base) : 1; // each addition says whether its thresholds index
@@ -5169,6 +5258,7 @@
       }
       tax = remaining - refundable;
     }
+    if (rule.localRate > 0) tax += income * rule.localRate;
     return tax;
   }
   function niitTax(magi, netInvestmentIncome, filing = 'mfj') {
@@ -5336,6 +5426,20 @@
       );
     return { nonrefundable, refundable };
   }
+  // True when the selected state deducts federal income tax paid (only then does taxFor pay for the extra pass).
+  function stateNeedsFederalTax() {
+    const rule = stateRuleFor(state.stateTax);
+    return !!rule && rule.lagged !== null;
+  }
+  // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
+  // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
+  // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
+  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned) {
+    const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest),
+      federal = ordinaryTax(ordinary, year, status, deduction) + longTermGainTax(gains, ordinary, year, status, deduction),
+      credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
+    return Math.max(0, federal - credits.nonrefundable);
+  }
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
     // qualified) are household-level and taxed every year; qualified
@@ -5348,7 +5452,8 @@
       rent = profile.rent || 0,
       // Income streams and one-time income ride in Partner A's slot of `other`; the state taxes them as wages.
       extra = profile.extraIncome || 0,
-      stateOn = stateTaxActive();
+      stateOn = stateTaxActive(),
+      lagged = stateOn && stateNeedsFederalTax();
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
@@ -5369,6 +5474,7 @@
         pensionB: profile.pensionB,
         retirementA: profile.rmdA + traditionalExtra * (profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA),
         retirementB: profile.rmdB + traditionalExtra * (1 - (profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA)),
+        federalTax: !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB),
         ssBenefits: profile.ssA + profile.ssB,
         // Per-person Social Security: each partner's benefits, and the taxable part split in proportion.
         ssBenefitsA: profile.ssA,
@@ -5420,6 +5526,7 @@
         pensionB: 0,
         retirementA: profile.rmdA + traditionalExtra,
         retirementB: 0,
+        federalTax: !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA),
         ssBenefits: profile.ssA,
         ssBenefitsA: profile.ssA,
         ssBenefitsB: 0,
@@ -5487,6 +5594,7 @@
         pensionB: 0,
         retirementA: profile.rmdA + tradA,
         retirementB: 0,
+        federalTax: !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA),
         ssBenefits: profile.ssA,
         ssBenefitsA: profile.ssA,
         ssBenefitsB: 0,
@@ -5508,6 +5616,7 @@
         pensionB: 0,
         retirementA: profile.rmdB + tradB,
         retirementB: 0,
+        federalTax: !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB),
         ssBenefits: profile.ssB,
         ssBenefitsA: profile.ssB,
         ssBenefitsB: 0,

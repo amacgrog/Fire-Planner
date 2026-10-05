@@ -41,8 +41,17 @@ function baseText(b) {
   const parts = [];
   parts.push(b.ordinary ? 'wages, pensions, withdrawals' : 'ordinary income not taxed');
   parts.push(b.gainsIncluded === 1 ? 'gains in full' : `gains ${pct(b.gainsIncluded)} included`);
+  if (b.gainsRate !== null) parts.push(`gains taxed separately at ${pct(b.gainsRate)}`);
+  if (b.gainsDeduction > 0) parts.push(`${money(b.gainsDeduction)} gains exclusion`);
   const ss = b.socialSecurity;
-  parts.push(ss === 'exempt' ? 'Social Security exempt' : ss === 'taxed' ? 'taxable Social Security included' : ss.kind === 'agiTested' ? `Social Security exempt below an AGI, else ${pct(ss.taxedShareOfBenefits)} of benefits taxed` : `Social Security subtracted (all at ${ss.seniorAge}+, else up to ${money(ss.belowSeniorCap)})`);
+  const ssText = {
+    agiTested: () => `Social Security exempt below an AGI, else ${pct(ss.taxedShareOfBenefits)} of benefits taxed`,
+    agiShare: () => 'Social Security subtracted by an AGI step table',
+    agiPhaseOut: () => 'Social Security subtraction phased out by AGI',
+    ageAgiTiered: () => 'Social Security subtracted by age and AGI tiers (per filer)',
+    subtraction: () => `Social Security subtracted (all at ${ss.seniorAge}+, else up to ${money(ss.belowSeniorCap)})`,
+  };
+  parts.push(ss === 'exempt' ? 'Social Security exempt' : ss === 'taxed' ? 'taxable Social Security included' : ssText[ss.kind]());
   return parts.join('; ');
 }
 function exclusionText(e) {
@@ -84,7 +93,7 @@ function deductionText(r) {
     return s || e ? `${money(s)}${e ? ' + ' + money(e) + ' exemption' : ''}` : '0';
   };
   const conf = r.federalConformity.standardDeduction ? 'federal standard deduction' : '';
-  const extras = [conf, r.standardDeductionPhase.kind === 'none' ? '' : 'phased by AGI', r.seniorExemption.kind === 'none' ? '' : 'senior exemption', r.schedule.length ? 'scheduled changes ' + r.schedule.map((s) => s.fromYear).join(', ') : ''].filter(Boolean);
+  const extras = [conf, r.standardDeductionPhase.kind === 'none' ? '' : 'phased by AGI', r.seniorExemption.kind === 'none' ? '' : 'senior exemption', r.schedule.length ? 'scheduled changes ' + r.schedule.map((s) => s.fromYear).join(', ') : '', r.federalTaxSubtraction === 'none' ? '' : 'federal income tax deducted', r.localTax === 'notModeled' ? '' : `local tax ${pct(r.localTax.rate)}`].filter(Boolean);
   return Object.keys(r.standardDeduction).map((k) => `${k} ${col(k)}`).join(', ') + (extras.length ? ' (' + extras.join('; ') + ')' : '');
 }
 function sourceText(r) {

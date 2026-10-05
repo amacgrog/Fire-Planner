@@ -23,7 +23,7 @@ function checks() {
   const mk = (o) => Object.assign({
     name: 'Synthetic', status: 'migrated', sourceKind: 'none', source: null, asOf: null, indexing: idx(false),
     statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' }, tax: flat(0.1), additions: [],
-    base: { ordinary: true, gainsIncluded: 1, socialSecurity: 'exempt' },
+    base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
     standardDeduction: { ...zero3 }, standardDeductionPhase: { kind: 'none' }, exemption: { ...zero3 }, exemptionPhaseOut: { kind: 'none' }, dependentExemption: 0,
     seniorExemption: { kind: 'none' }, federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false }, schedule: [],
     retirementExclusion: { kind: 'none' }, credits: [], federalTaxSubtraction: 'none', localTax: 'notModeled', notes: '',
@@ -139,7 +139,7 @@ function checks() {
   near(run({ dependentExemption: 1000 }, { wages: 30000, dependents: [kid(5), kid(10), kid(17, { qualifyingChild: false })] }), 2800, 'dependent exemption: 1,000 per qualifying child (taxable 28,000)');
 
   // --- Social Security tested on AGI (CT-style) ----------------------------------------------------------------------
-  const ssTest = { base: { ordinary: true, gainsIncluded: 1, socialSecurity: { kind: 'agiTested', exemptBelow: cols(75000), taxedShareOfBenefits: 0.25 } } };
+  const ssTest = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'agiTested', exemptBelow: cols(75000), taxedShareOfBenefits: 0.25 } } };
   // AGI 40,000 + 20,000 taxable SS = 60,000 < 75,000: all 20,000 subtracted -> taxable 40,000 -> 4,000
   near(run(ssTest, { wages: 40000, taxableSS: 20000, ssBenefits: 30000 }), 4000, 'Social Security test: exempt under the AGI');
   // AGI 90,000 >= 75,000: taxed amount = min(20,000, 25% x 30,000) = 7,500; subtraction 12,500 -> 77,500 -> 7,750
@@ -257,7 +257,7 @@ function checks() {
   near(run({ retirementExclusion: perP({ pensionMinAge: 60, traditionalMinAge: 65 }) }, { ...mix, ages: [62] }), 600, 'applies: bucket minimum ages still gate each bucket (62: pension yes, traditional no)');
 
   // --- Mechanism 5: a cap shared with Social Security (a per-person bucket) ----------------------------------------------
-  const co = { base: { ordinary: true, gainsIncluded: 1, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 20000 } }, retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]], reducedBy: 'socialSecuritySubtracted' }) };
+  const co = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 20000 } }, retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]], reducedBy: 'socialSecuritySubtracted' }) };
   const coSrc = (ss) => ({ ...pen(20000, 0), taxableSS: ss, taxableSSA: ss, taxableSSB: 0, ssBenefits: ss, ssBenefitsA: ss, ages: [70] });
   // Taxable Social Security 10,000 (subtracted in full at 70): room 24,000 - 10,000 = 14,000 of the 20,000 pension.
   // Base 20,000 + 10,000 = 30,000; minus 10,000 and 14,000 = 6,000.
@@ -329,6 +329,96 @@ function checks() {
   near(stateOnly(bp({ filing: 'single', singlePerson: true, ageB: null, ssA: 12000 })), 700, 'taxFor, one person: reads A\'s benefits');
   delete R.zzb;
   setYear(new Date().getFullYear());
+
+  // =====================================================================================================
+  // 7D mechanisms (commit B): 7 (federal tax paid), 9 (Social Security rules), 12 (income-tested credits),
+  // 13 (gains shapes) and the flat local tax. Mechanism 11 (circuit breakers) was dropped by the owner.
+  // =====================================================================================================
+  const pf = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 0, otherB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 50, ageB: 48, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
+  const baseWith = (ss, o) => ({ ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: ss, ...o });
+  const ssSrc = (o) => ({ pension: 20000, pensionA: 20000, taxableSS: 30000, taxableSSA: 30000, ssBenefits: 30000, ssBenefitsA: 30000, ages: [70], ...o });
+
+  // --- Mechanism 9: age and AGI tiers (Colorado-style) ---------------------------------------------------------------------
+  const ssT = { base: baseWith({ kind: 'ageAgiTiered', tiers: [{ minAge: 55, agiLimit: cols(75000), capOverLimit: 20000 }, { minAge: 65, agiLimit: null, capOverLimit: 0 }] }) };
+  near(run(ssT, ssSrc({})), 2000, 'ss tiers: 65+ subtract all (50,000 - 30,000)');
+  near(run(ssT, ssSrc({ ages: [60] })), 2000, 'ss tiers: 55-64 under the AGI limit subtract all');
+  near(run(ssT, ssSrc({ ages: [60], wages: 25000 })), 4500, 'ss tiers: AGI exactly at the limit (75,000) still subtracts all');
+  near(run(ssT, ssSrc({ ages: [60], wages: 25001 })), 5500.1, 'ss tiers: one dollar over the limit caps the subtraction at 20,000 (75,001 - 20,000)');
+  near(run(ssT, ssSrc({ ages: [60], wages: 40000 })), 7000, 'ss tiers: well over the limit, capped at 20,000 (90,000 - 20,000)');
+  near(run(ssT, ssSrc({ ages: [50] })), 5000, 'ss tiers: under the first tier subtract nothing');
+  // A couple: A (66) has 5,000 of taxable benefits, B (58) 25,000. Federal AGI 100,000 is over B's limit (mfj 95,000), so B is capped at 20,000;
+  // A has no limit: 25,000 subtracted, 100,000 - 25,000 = 75,000.
+  const ssTj = { base: baseWith({ kind: 'ageAgiTiered', tiers: [{ minAge: 55, agiLimit: cols(95000), capOverLimit: 20000 }, { minAge: 65, agiLimit: null, capOverLimit: 0 }] }) };
+  near(run(ssTj, { wages: 50000, pension: 20000, taxableSS: 30000, taxableSSA: 5000, taxableSSB: 25000, ages: [66, 58] }, 'mfj'), 7500, 'ss tiers: each filer reads their own age and benefits');
+  near(run(ssTj, { wages: 40000, pension: 20000, taxableSS: 30000, taxableSSA: 5000, taxableSSB: 25000, ages: [66, 58] }, 'mfj'), 6000, 'ss tiers: AGI 90,000 under B\'s limit, all 30,000 subtracted (90,000 - 30,000 = 60,000... 5,000 + 25,000)');
+  const shareT = { base: baseWith({ kind: 'agiShare', inclusive: false, tables: cols([[0, 1], [50000, 0.5], [75000, 0]]) }) };
+  const shSrc = (w) => ({ wages: w, pension: 20000, pensionA: 20000, taxableSS: 10000, taxableSSA: 10000, ages: [70] });
+  near(run(shareT, shSrc(0)), 2000, 'ss share: AGI 30,000 subtracts all 10,000');
+  near(run(shareT, shSrc(30000)), 5500, 'ss share: AGI 60,000 subtracts half');
+  near(run(shareT, shSrc(50000)), 8000, 'ss share: AGI 80,000 subtracts none');
+  const phaseT = { base: baseWith({ kind: 'agiPhaseOut', start: cols(50000), end: cols(60000) }) };
+  near(run(phaseT, shSrc(20000)), 4000, 'ss phase-out: at the start, all of it');
+  near(run(phaseT, shSrc(25000)), 5000, 'ss phase-out: half way, half of it (55,000 - 5,000)');
+  near(run(phaseT, shSrc(30000)), 6000, 'ss phase-out: at the end, none');
+  near(run(phaseT, shSrc(40000)), 7000, 'ss phase-out: past the end, none');
+  const ssCr = (w) => ({ base: baseWith('taxed'), credits: [{ kind: 'ssCredit', label: 'ss credit', refundable: false, rate: 0.04, phase: { start: cols(30000), rate: 0.02 } }] });
+  near(run(ssCr(), { pension: 20000, taxableSS: 10000 }), 2600, 'ss credit: 4% of 10,000 off a 3,000 tax');
+  near(run(ssCr(), { wages: 10000, pension: 20000, taxableSS: 10000 }), 3800, 'ss credit: AGI 40,000 cuts it by 2 cents per dollar over 30,000 (400 - 200)');
+  near(run(ssCr(), { wages: 40000, pension: 20000, taxableSS: 10000 }), 7000, 'ss credit: gone at AGI 70,000');
+
+  // --- Mechanism 12: an income-tested flat credit -------------------------------------------------------------------------
+  const itc = (o) => ({ credits: [{ kind: 'incomeTestedCredit', label: 'flat credit', refundable: false, amount: cols(100), perSenior: { age: 60, amount: 50 }, perDependent: 25, limit: cols(50000), taper: null, ...o }] });
+  near(run(itc(), { wages: 30000, ages: [40] }), 2900, 'income-tested credit: 3,000 - 100');
+  near(run(itc(), { wages: 30000, ages: [61] }), 2850, 'income-tested credit: plus 50 for a filer 60+');
+  near(run(itc(), { wages: 30000, ages: [61, 62] }, 'mfj'), 2800, 'income-tested credit: two seniors, 100 + 2 x 50 = 200');
+  near(run(itc(), { wages: 30000, ages: [61, 62], dependents: [kid(5), kid(9), kid(20, { qualifyingChild: false })] }, 'mfj'), 2750, 'income-tested credit: plus 25 per qualifying child');
+  near(run(itc(), { wages: 50000 }), 4900, 'income-tested credit: AGI at the limit still qualifies');
+  near(run(itc(), { wages: 50001 }), 5000.1, 'income-tested credit: one dollar over loses it (no taper)');
+  const taper = { taper: { width: 1000, pct: 0.25 } };
+  near(run(itc(taper), { wages: 50500 }), 4975, 'income-tested credit: one taper step (100 x 0.75)');
+  near(run(itc(taper), { wages: 51001 }), 5050.1, 'income-tested credit: two steps (100 x 0.5)');
+  near(run(itc(taper), { wages: 54000 }), 5400, 'income-tested credit: four steps, gone');
+  near(run(itc({ refundable: true, amount: cols(500), limit: null, perSenior: null, perDependent: 0 }), { wages: 1000 }), -400, 'income-tested credit: a refundable credit takes the tax below zero (100 - 500)');
+
+  // --- Mechanism 13: gains shapes ----------------------------------------------------------------------------------------------
+  const gs = (o, rest) => ({ base: baseWith('exempt', o), ...rest });
+  near(run(gs({ gainsRate: 0.05, gainsDeduction: 1000 }), { wages: 20000, gains: 11000 }), 2500, 'gains rate: ordinary 2,000 + (11,000 - 1,000) x 5%');
+  near(run(gs({ gainsRate: 0.05, gainsDeduction: 1000 }, { standardDeduction: cols(5000) }), { wages: 20000, gains: 11000 }), 2000, 'gains rate: the deduction offsets only the ordinary income (1,500 + 500)');
+  near(run(gs({ gainsRate: 0.05, gainsDeduction: 1000 }, { standardDeduction: cols(5000) }), { wages: 3000, gains: 11000 }), 500, 'gains rate: a deduction larger than the ordinary income does not offset gains');
+  near(run(gs({ gainsRate: null, gainsDeduction: 1000 }), { wages: 20000, gains: 11000 }), 3000, 'gains deduction alone: (20,000 + 10,000) x 10%');
+  near(run(gs({ gainsRate: 0.05, gainsDeduction: 1000, gainsIncluded: 0.5 }), { wages: 0, gains: 11000 }), 225, 'gains rate: half included, less the deduction, at 5% ((5,500 - 1,000) x 5%)');
+
+  // --- The flat local tax (MD, IN) ----------------------------------------------------------------------------------------------------
+  const loc = (o) => ({ localTax: { kind: 'flat', rate: 0.03 }, standardDeduction: cols(5000), ...o });
+  near(run(loc(), { wages: 50000 }), 5850, 'local tax: 4,500 state + 3% of the 45,000 taxable');
+  near(run(loc(itc({ perSenior: null, perDependent: 0, amount: cols(500), limit: null })), { wages: 50000 }), 5350, 'local tax: a state credit does not reduce it (4,500 - 500 + 1,350)');
+  // It feeds the federal itemized deduction: single, wages 200,000, property tax 10,000, state tax 20,000 + local 6,000. SALT 36,000 (under the cap)
+  // instead of 30,000: 6,000 more deducted at 24% (taxable 164,000 and 170,000 are both in the 24% bracket), so the combined tax rises by 6,000 - 1,440.
+  R['zzloc' + n] = mk(loc({ standardDeduction: zero3 })); R['zzlocz' + n] = mk({}); const locN = n++;
+  const withLocal = (code) => { st.stateTax = code; return t.taxFor(pf({ filing: 'single', singlePerson: true, ageB: null, ageA: 40, otherA: 200000, wageA: 200000, propertyTax: 10000 }), 0, 0); };
+  near(withLocal('zzloc' + locN) - withLocal('zzlocz' + locN), 4560, 'local tax: feeds the federal SALT deduction');
+  delete R['zzloc' + locN]; delete R['zzlocz' + locN];
+
+  // --- Mechanism 7: federal income tax paid, from one lagged pass ---------------------------------------------------------------------
+  const lag = (o) => ({ federalTaxSubtraction: { kind: 'lagged', placement: 'subtraction', cap: null, phase: null, ...o } });
+  const lagTax = (row, p) => { const code = 'zzl' + n++; R[code] = mk(row); st.stateTax = code; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; const b = t.taxFor(p, 0, 0); delete R[code]; return a - b; };
+  const lp = (o) => pf(Object.assign({ filing: 'single', singlePerson: true, ageB: null, ageA: 40, wageA: 100000, otherA: 100000 }, o));
+  // Single, wages 100,000, 2026: taxable 83,900 = 1,240 + 4,560 + 33,500 x 22% = 13,170 of federal tax; state (100,000 - 13,170) x 10%.
+  near(lagTax(lag(), lp({})), 8683, 'federal tax paid: single, 13,170 subtracted');
+  // Joint wages 100,000 (60,000 + 40,000): taxable 67,800 = 2,480 + 43,000 x 12% = 7,640; state (100,000 - 7,640) x 10%.
+  const jp = (o) => pf(Object.assign({ filing: 'mfj', wageA: 60000, wageB: 40000, otherA: 60000, otherB: 40000 }, o));
+  near(lagTax(lag(), jp({})), 9236, 'federal tax paid: joint, 7,640 subtracted');
+  // With a child under 17 the 2,200 child tax credit comes off the liability first: 5,440.
+  near(lagTax(lag(), jp({ dependents: [kid(5)] })), 9456, 'federal tax paid: the nonrefundable child credit reduces the tax deducted');
+  // Two separate returns: A 60,000 (federal 5,020) and B 40,000 (2,620): (60,000 - 5,020) x 10% + (40,000 - 2,620) x 10%.
+  near(lagTax(lag(), pf({ filing: 'single', wageA: 60000, wageB: 40000, otherA: 60000, otherB: 40000 })), 9236, 'federal tax paid: each separate return deducts its own');
+  const cap5 = { single: 5000, mfj: 10000, hoh: 5000 };
+  near(lagTax(lag({ cap: cap5 }), lp({})), 9500, 'federal tax paid: capped at 5,000');
+  near(lagTax(lag({ cap: cap5, phase: { tables: cols([[0, 1], [90000, 0.5], [120000, 0]]) } }), lp({})), 9750, 'federal tax paid: the cap halved by an AGI step (2,500)');
+  const itemizedRow = (o) => ({ standardDeduction: cols(3000), federalTaxSubtraction: { kind: 'lagged', placement: 'itemized', cap: null, phase: null, ...o } });
+  near(lagTax(itemizedRow({}), lp({})), 8683, 'federal tax paid, itemized: 13,170 beats the 3,000 standard deduction');
+  near(lagTax(itemizedRow({ cap: cap5 }), lp({})), 9500, 'federal tax paid, itemized: capped at 5,000, still above 3,000');
+  near(lagTax(itemizedRow({}), lp({ wageA: 20000, otherA: 20000 })), 1700, 'federal tax paid, itemized: 390 of federal tax loses to the 3,000 standard deduction');
 
   // --- Plumbing through taxFor: each partner's discretionary traditional draw follows the account-ledger share ---
   // A retiree couple (A 62, B 50) draws 100,000 from traditional accounts; the synthetic state excludes a filer's own
