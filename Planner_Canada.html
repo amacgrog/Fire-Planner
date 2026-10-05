@@ -2781,9 +2781,14 @@
     if (state.province === 'qc') fedTax *= 0.835;
     return fedTax + provincialTaxCA(taxableIncome, yearIndex, dtcBase, age, pensionIncome);
   }
+  // The planner converts the RRSP to a RRIF at 71 (see rrifMinPct). CRA counts RRIF payments as
+  // pension income from 65, but a withdrawal from an RRSP that is not an annuity or RRIF payment
+  // is not pension income at any age, so the discretionary draw earns the pension income amount
+  // only once the account is a RRIF (7K fix of the 7J rule, which counted it from 65).
+  const RRIF_PENSION_AGE = 71;
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     // Eligible pension income for the credit: the profile's pension (and RRIF
-    // income at 65+, after any split) plus, at 65+, the discretionary
+    // income at 65+, after any split) plus, from RRIF_PENSION_AGE, the discretionary
     // RRSP/RRIF draw, which counts as RRIF income. A profile built without
     // ages or pension fields (the Roth-style literals) reads as under 65, none.
     const ageA = profile.ageA || 0,
@@ -2797,7 +2802,7 @@
         profile.year,
         profile.dtcA,
         ageA,
-        ageA >= 65 ? penA + traditionalExtra : penA,
+        ageA >= RRIF_PENSION_AGE ? penA + traditionalExtra : penA,
       );
     }
     const gainA = gains / 2,
@@ -2805,8 +2810,8 @@
       tradA = traditionalExtra / 2,
       tradB = traditionalExtra / 2;
     return (
-      personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, ageA >= 65 ? penA + tradA : penA) +
-      personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, ageB >= 65 ? penB + tradB : penB)
+      personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, ageA >= RRIF_PENSION_AGE ? penA + tradA : penA) +
+      personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, ageB >= RRIF_PENSION_AGE ? penB + tradB : penB)
     );
   }
   // @@shared:drawTaxable begin

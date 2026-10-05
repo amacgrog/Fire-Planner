@@ -507,14 +507,18 @@ function caChecks() {
       1e-9,
       "taxFor couple reads each partner's own age and pension",
     );
-    // A discretionary RRSP/RRIF draw counts as RRIF income for the pension credit at 65+, not before.
-    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'RRSP draw at 66 is pension income');
+    // A discretionary RRSP/RRIF draw counts as RRIF income for the pension credit from 71 (when the planner
+    // converts the RRSP to a RRIF), not before: an RRSP withdrawal that is not an annuity or RRIF payment is
+    // not pension income at any age (7K fix).
+    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 71, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 71, 10000), 1e-9, 'RRSP draw at 71 is pension income');
+    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 0), 1e-9, 'RRSP draw at 66 is not pension income');
+    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 5000 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 5000), 1e-9, 'an employer pension at 66 is, the RRSP draw on top is not');
     near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 60, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 60, 0), 1e-9, 'RRSP draw at 60 is not pension income');
     near(
-      t.taxFor(p({ singlePerson: false, otherA: 40000, otherB: 40000, ageA: 66, ageB: 60, penA: 0, penB: 0 }), 0, 20000),
-      t.personTaxCA(50000, 0, 0, 0, 66, 10000) + t.personTaxCA(50000, 0, 0, 0, 60, 0),
+      t.taxFor(p({ singlePerson: false, otherA: 40000, otherB: 40000, ageA: 72, ageB: 60, penA: 0, penB: 0 }), 0, 20000),
+      t.personTaxCA(50000, 0, 0, 0, 72, 10000) + t.personTaxCA(50000, 0, 0, 0, 60, 0),
       1e-9,
-      "RRSP draw: only the 65+ partner's half counts",
+      "RRSP draw: only the RRIF-age partner's half counts",
     );
     // A profile without ages or pension fields reads as under 65.
     near(t.taxFor(p({ singlePerson: true, otherA: 50000 }), 0, 0), t.personTaxCA(50000, 0, 0), 1e-9, 'profile without ages');
