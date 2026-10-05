@@ -2353,7 +2353,145 @@ $2,000 pension amount is not indexed (a 65+ filer's real tax drifts with inflati
   file tool instead.
 - The BPA, as a deduction, was baked into `solveMeltdown` and `federalBracketCeilingCA` callers; any future code that
   needs "income where the next bracket starts" for Canada should use the bracket cap directly.
-- Provincial tax still deducts its BPA at the marginal rate; 7K is the place to convert it with the rest of the provincial credits.
+- Provincial tax deducted its BPA at the marginal rate when this was written; 7K converted it (see the 7K notes).
+
+### 7K notes: provinces (Canada V41)
+
+Three commits and one docs commit on one branch (`claude/batch-7k-provinces`, base `claude/batch-3b-penalty-rules` at the 7J merge 44af361):
+1. `PROVINCE_RULES` table, provincial credits at the lowest rate, generated `docs/province-tax-rules.md`;
+2. the pension income amount counts an RRSP/RRIF draw from 71, not 65 (a correction to 7J);
+3. Quebec's pooled amounts, QPP and QPIP (its own commit, owner decision).
+US snapshots byte-identical; Canada snapshots changed by intent (every scenario in commit 1, a few in commit 2, one Quebec scenario in commit 3).
+
+**Owner decisions in this step (2026-10-05)**
+- Quebec: its own commit inside this PR (the plan said both "its own commit" and "its own PR").
+- Non-eligible Canadian dividends: not built, no new input. They stay taxed like interest (as foreign dividends are), a named gap; they come mostly from private-company shares, so a household that owns a corporation is the only likely case.
+- Where a figure could only be found on a secondary source, use the best secondary value and flag it in the table and the backlog.
+- Paid benefits (Ontario Trillium Benefit, BC and Alberta family benefits, Quebec solidarity credit and work premium) are 7L, not here.
+- RRSP withdrawals and the pension amount: fix it in 7K (see commit 2).
+
+**What changed**
+- `PROVINCE_RULES[code]` (inside `// PROVINCE_RULES:begin` / `end`, pure literals): per province `creditRate` (the lowest bracket rate), `brackets`, `bpa` (amount, optional phase-down to a floor), `age` (amount, threshold, 15% reduction rate, optional supplement), `pension` (maximum), `pooled` (Quebec only), `payroll` (CPP or QPP rate, Quebec's QPIP premium), `dividend.eligible`, Ontario's `surtax` and `healthPremium`, an explicit `indexing` object (`bracketsIndexed`, `bpaIndexed`, `ageAmountIndexed`, `pensionAmountIndexed`, `surtaxIndexed`) and a `verified` object (primary or secondary, per family). `compileProvince(code)` splits the brackets into flat arrays once per code; `provincialTaxCA` allocates nothing (the old code built a scaled bracket array on every call).
+- `scripts/gen-province-rules.js` writes `docs/province-tax-rules.md` (`npm run gen:provinces`); `npm test` runs it with `--check` and runs `tests/province_rules.js` (coverage: 10 provinces, every field present and typed, brackets increasing, credit rate equals the lowest bracket rate, only Ontario has a surtax and premium, only Manitoba a BPA phase-down, only Quebec the pooled amounts).
+- Provincial amounts are credits at the province's lowest rate, floored at zero, instead of deductions at the marginal rate. Manitoba's BPA phases down linearly from $15,780 at $200,000 net income to nil at $400,000 (CRA T4127; Manitoba Income Tax Act per the second review, not fetched).
+- Age amount (65+): amount reduced by 15% of net income over the threshold (every province's figures satisfy `amount = 15% x (eliminated at - threshold)`, checked), plus Saskatchewan's $2,569 senior supplement (not income tested). Pension amount: the first dollars of eligible pension income up to the province's maximum ($1,000 most provinces; AB $1,753, NS $1,173 and ON $1,796 are indexed; the $1,000 ones are flat).
+- The federal and provincial dividend credits are floored against their own tax (before, one combined floor); Ontario's surtax is computed on Ontario tax after non-refundable credits and before the dividend credit, which is the order on form ON428 (verified from the form text: line 62 tax, surtax on line 65, dividend credit subtracted on line 70), so the old "not recomputed after the credit" simplification was in fact correct and is now documented as the rule.
+- The Ontario Health Premium is now computed on taxable income. The old code fed it income *less the BPA* (an artifact of the deduction form), which understated it near each step.
+- `personTaxCA(ordinary, gains, yearIndex, dtcBase, age, pensionIncome, familyIncome = null)`; `provincialTaxCA(income, yearIndex, dtcBase, age, pensionIncome, familyIncome)`. `familyIncome` is only read by Quebec: a number for a couple (both spouses' net income, built in `taxFor` and in `solvePensionSplit`, where it does not move with the transfer), `null` for a single filer or survivor (own income, lives alone).
+- `cppContribution` reads `payroll` from the province row: QPP 6.30% and the 0.430% QPIP premium up to $103,000 for Quebec wages (the 4% second tier and $74,600 / $85,000 / $3,500 figures are shared).
+- Callout and notes corrected: the "Tax treatment" callout and the province note under the selector no longer say provincial credits or dividend credits are not modeled; they list what is (BPA, age, pension, dividend credits) and what is not.
+
+**Commit 2: the pension amount and RRSP draws (correction to 7J).** 7J counted a discretionary RRSP/RRIF draw as RRIF income from 65 ("CRA allows a lump sum at 65+"). CRA's line 31400 page says RRSP income qualifies only as an annuity payment (or on a spouse's death or as split-pension income), not as a withdrawal. The planner converts the RRSP to a RRIF at 71 (`rrifMinPct` is zero before it), so the draw earns the federal and provincial pension amounts from `RRIF_PENSION_AGE = 71`. Employer pensions still qualify at any age, the mandatory RRIF minimum from 71 (it was already zero before 71). Effect: ages 65 to 70 with a discretionary draw owe a little more (the pension amount is $2,000 federal at 14% plus the province's, about $300 to $400 a year).
+
+**Verified 2026 figures** (retrieved 2026-10-05; P = primary page read by this session, S = secondary or relayed)
+| Item | Value | Source |
+|---|---|---|
+| Brackets and BPA AB, MB, NB, NS, ON, PE, SK, BC (except the BC rate) | as in the table | P: CRA T4127 122nd ed. (Jan 1, 2026), https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html |
+| BC lowest rate 5.60% (CRA T4127 still shows 5.06%, a stale payroll rate) | 5.60% | P: https://www2.gov.bc.ca/gov/content/taxes/income-taxes/personal/tax-rates (page dated 2026-04-17) |
+| Manitoba: BPA 15,780, nil at 400,000; brackets 47,000 / 100,000, not indexed | | P: CRA T4127 |
+| Nova Scotia BPA at its maximum at every income (no phase-down in 2026) | 11,932 | P: CRA T4127; https://www.novascotia.ca/personal-income-tax-rates-and-indexation (age amount 5,826, indexation 1.6%) |
+| PEI brackets 33,928 / 65,820 / 106,890 / 142,520 (the code had 142,250: corrected) and BPA 15,000 | | P: CRA T4127 |
+| Saskatchewan: BPA 20,381, age amount 5,901 (threshold 43,927), senior supplement 2,569 (65+, claimable with a nil age amount), pension 1,000, spouse 20,381, dependent child 8,358 | | P: https://www.saskatchewan.ca/residents/taxes-and-investments/personal-income-tax/2026-personal-income-tax-structure |
+| Quebec: indexation 2.05%, brackets 54,345 / 108,680 / 132,245, BPA 18,952, age 3,986, retirement income 3,541, living alone 2,172 (single-parent supplement 2,681), reduction threshold 42,955 | | P: Finance Quebec, "Parameters of the Personal Income Tax System for 2026" (Nov 2025), Table 3, https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf |
+| Pension income amount: RRIF income qualifies at 65+ (any age on a spouse's death), an RRSP withdrawal does not; CPP and OAS never; provincial maximums $1,000 except AB, ON (and NS per TaxTips) | | P: https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/about-your-tax-return/tax-return/completing-a-tax-return/deductions-credits-expenses/line-31400-pension-income-amount.html (2025 amounts shown: AB 1,719, ON 1,762; the 2026 AB 1,753 and ON 1,796 are S) |
+| Ontario surtax 5,818 / 7,446 at 20% / 36%; form ON428 orders the surtax before the dividend credit | | P for the order (CRA form ON428 text, 2023 thresholds in the excerpt); S for the 2026 thresholds (TaxTips; second review cites CRA ON payroll table) |
+| Provincial age amounts and thresholds (all but SK, NS), spouse amounts, pension amounts for AB, ON, NS | as in `docs/province-tax-rules.md` | S: https://www.taxtips.ca/nrcredits/tax-credits-2026.htm (also shown by KPMG 2026 PDF, not readable here) |
+| Eligible dividend credit rates (all ten) | unchanged from the code | S: https://taxtips.ca/dtc/eligible-dividends/eligible-dividend-tax-credit-rates.htm; Ontario 10.0% also stated on the Ontario page per the second review (not fetched) |
+
+**Verification backlog (7K)**
+- Quebec's 18.75% reduction rate: not in the Finance Quebec PDF and the Revenu Quebec "Principal changes for 2026" page returned HTTP 403 to this session. The rate comes from the second review (Revenu Quebec form TP-1015.3). Needs the primary page.
+- QPP 6.30% / $74,600 / $85,000 / 4% and QPIP 0.430% up to $103,000: from the second review, not read on a Revenu Quebec page.
+- Newfoundland and Labrador BPA: $11,188 for January to June and $15,000 from July 1, 2026 (T4127 and budget summaries); the $13,094 time-weighted figure the code uses is relayed (TaxTips and the second review), not read on an NL Finance page. $15,000 is the full-year amount from 2027 (not modeled).
+- PEI top bracket: the CRA payroll table lists 19% above $142,520; EY (updated budget alert) says the new 20% bracket over $200,000 applies from 2026. The code keeps 20%. Needs the PEI Finance page, which blocked automated access (Radware).
+- PEI indexing: CRA says no statutory indexing for 2026 (thresholds were raised by hand, 1.8%); modeled as indexed.
+- Manitoba age amount and other credit amounts: unindexed per TaxTips (factor 1.000), secondary.
+- Dividend credits for the nine non-Ontario provinces: no 2026 provincial Form 428 or statute read; CRA's general page still shows 2025 tables.
+- Provincial credit amounts for the age, spouse and pension rows marked S above.
+- Low-income reductions: see "Not built".
+
+**Indexing, per row and family** (`indexing` flags; true scales the family by the plan's `taxIndexFactor`)
+- All brackets, BPAs and age amounts indexed, except **Manitoba**: brackets, BPA (and its phase-down range) and the age amount are frozen (statutory freeze, CRA T4127; the age amount per TaxTips).
+- Pension amount indexed only for AB, ON and NS (the $1,000 maximum elsewhere is flat), and not for Quebec's pool (indexed with the rest of Quebec's parameters).
+- Ontario's surtax thresholds and Health Premium steps are indexed (unchanged from before).
+- `tests/historical_tax_indexing.js` (Canada tolerance 3e-3 for the unindexed federal pension amount) passes unchanged: its household is Ontario, whose amounts are indexed or small. No tolerance change was needed.
+
+**Before / after** (`personTaxCA`, today's dollars, tax in dollars, one filer, no gains or dividends; "68, pension" is age 68 with eligible pension income of the smaller of income and $30,000; before = the 7J merge, after = this branch)
+
+| Prov | Income | Before (under 65) | After (under 65) | Change | Before (68, pension) | After (68, pension) | Change |
+|---|---|---|---|---|---|---|---|
+| ON | 20,000 | 851 | 851 | +0 | 354 | 0 | -354 |
+| ON | 40,000 | 4,961 | 5,111 | +150 | 3,392 | 3,131 | -261 |
+| ON | 60,000 | 9,017 | 9,417 | +400 | 7,733 | 7,819 | +86 |
+| ON | 100,000 | 20,895 | 21,521 | +626 | 20,451 | 20,968 | +517 |
+| ON | 200,000 | 61,451 | 62,707 | +1,256 | 61,171 | 62,304 | +1,133 |
+| BC | 20,000 | 877 | 877 | +0 | 380 | 0 | -380 |
+| BC | 40,000 | 4,797 | 4,797 | +0 | 3,228 | 2,840 | -388 |
+| BC | 60,000 | 8,813 | 9,015 | +202 | 7,528 | 7,476 | -52 |
+| BC | 100,000 | 20,017 | 20,295 | +278 | 19,573 | 19,795 | +222 |
+| BC | 200,000 | 58,245 | 59,650 | +1,405 | 57,965 | 59,314 | +1,349 |
+| AB | 20,000 | 497 | 497 | +0 | 0 | 0 | +0 |
+| AB | 40,000 | 4,675 | 4,675 | +0 | 3,106 | 2,458 | -648 |
+| AB | 60,000 | 9,171 | 9,171 | +0 | 7,887 | 7,392 | -495 |
+| AB | 100,000 | 20,892 | 21,347 | +455 | 20,448 | 20,763 | +315 |
+| AB | 200,000 | 57,079 | 58,139 | +1,060 | 56,799 | 57,719 | +920 |
+| SK | 20,000 | 497 | 497 | +0 | 0 | 0 | +0 |
+| SK | 40,000 | 5,357 | 5,357 | +0 | 3,788 | 2,793 | -995 |
+| SK | 60,000 | 10,353 | 10,462 | +109 | 9,069 | 8,437 | -632 |
+| SK | 100,000 | 23,254 | 23,662 | +408 | 22,810 | 22,843 | +33 |
+| SK | 200,000 | 61,959 | 62,774 | +815 | 61,679 | 62,119 | +440 |
+| MB | 20,000 | 952 | 952 | +0 | 456 | 0 | -456 |
+| MB | 40,000 | 5,912 | 5,912 | +0 | 4,343 | 4,031 | -312 |
+| MB | 60,000 | 10,968 | 11,222 | +254 | 9,684 | 9,830 | +146 |
+| MB | 100,000 | 24,214 | 24,522 | +308 | 23,770 | 23,970 | +200 |
+| MB | 200,000 | 66,608 | 67,650 | +1,042 | 66,328 | 67,262 | +934 |
+| QC | 20,000 | 561 | 415 | -146 | 147 | 0 | -147 |
+| QC | 40,000 | 5,699 | 5,395 | -304 | 4,389 | 3,031 | -1,358 |
+| QC | 60,000 | 10,918 | 11,200 | +282 | 9,845 | 9,218 | -627 |
+| QC | 100,000 | 24,700 | 25,647 | +947 | 24,329 | 25,276 | +947 |
+| QC | 200,000 | 69,655 | 71,882 | +2,227 | 69,421 | 71,648 | +2,227 |
+| NB | 20,000 | 1,092 | 1,092 | +0 | 596 | 0 | -596 |
+| NB | 40,000 | 5,772 | 5,772 | +0 | 4,203 | 3,530 | -673 |
+| NB | 60,000 | 10,548 | 10,901 | +353 | 9,264 | 9,144 | -120 |
+| NB | 100,000 | 24,072 | 24,701 | +629 | 23,628 | 24,163 | +535 |
+| NB | 200,000 | 65,434 | 66,550 | +1,116 | 65,154 | 66,176 | +1,022 |
+| NS | 20,000 | 1,206 | 1,206 | +0 | 709 | 94 | -615 |
+| NS | 40,000 | 5,764 | 6,319 | +555 | 4,195 | 4,255 | +60 |
+| NS | 60,000 | 11,470 | 12,205 | +735 | 10,185 | 10,690 | +505 |
+| NS | 100,000 | 26,098 | 27,060 | +962 | 25,654 | 26,513 | +859 |
+| NS | 200,000 | 70,331 | 71,788 | +1,457 | 70,051 | 71,405 | +1,354 |
+| PE | 20,000 | 972 | 972 | +0 | 475 | 0 | -475 |
+| PE | 40,000 | 5,672 | 5,913 | +241 | 4,103 | 3,679 | -424 |
+| PE | 60,000 | 10,907 | 11,503 | +596 | 9,623 | 9,839 | +216 |
+| PE | 100,000 | 25,096 | 26,161 | +1,065 | 24,651 | 25,621 | +970 |
+| PE | 200,000 | 68,810 | 70,231 | +1,421 | 68,530 | 69,856 | +1,326 |
+| NL | 20,000 | 1,098 | 1,098 | +0 | 601 | 0 | -601 |
+| NL | 40,000 | 5,638 | 5,638 | +0 | 4,068 | 3,371 | -697 |
+| NL | 60,000 | 10,403 | 11,162 | +759 | 9,119 | 9,442 | +323 |
+| NL | 100,000 | 24,403 | 25,301 | +898 | 23,959 | 24,769 | +810 |
+| NL | 200,000 | 66,446 | 67,638 | +1,192 | 66,166 | 67,271 | +1,105 |
+
+Reading it: below roughly the second bracket the credit equals the old deduction, so the under-65 change is nil in provinces whose lowest bracket reaches that far (AB, SK to $40k, BC, MB, NB, NL); above it the credit is worth the lowest rate, not the marginal rate, so tax rises (up to $1,000 to $2,200 at $200,000). Quebec's under-65 change at low incomes is a decrease because a single Quebec filer gets the living-alone amount ($2,172). At 68 with a pension the age and pension amounts now come off provincial tax too, which more than offsets it up to about $50,000. Engine level: every Canada scenario in the snapshot grid moves from year 0. Default scenario (Ontario), tax in dollars, 7J merge -> this branch: year 0 40,940 -> 42,305; age 68 19,400 -> 20,420; age 78 13,201 -> 11,863; age 88 14,670 -> 13,147 (higher while working, lower once the age and pension amounts apply).
+
+**Not built (named gaps; none changes a Canadian result until built)**
+- Spouse and eligible-dependant amounts (provincial and federal alike): they need the spouse's income and the 7A children list in the Canada engine; the federal ones are not modeled either.
+- A spouse's transfer of unused age and pension amounts (Quebec included, where the pool is reduced by family income).
+- Non-eligible Canadian dividends (owner decision): taxed like interest.
+- Low-income tax reductions and credits (Ontario tax reduction, BC tax reduction, NB, NL, PEI, Saskatchewan low-income credits) and property-tax and rent credits (7K list). Figures I could read were unreliable: the CRA payroll excerpt returned identical text for the Ontario and BC reductions ($575, $25,570, $41,722, 3.56%), and the second review quotes "$300 + $575 per dependant" for Ontario and $842 / $563 for NL and a $23,000 PEI threshold, none confirmed on a primary page. They matter mostly for incomes under about $40,000. Deferred rather than built on unconfirmed numbers; the list is in the backlog.
+- Quebec: Health Services Fund contribution, the single-parent supplement (needs children), and the paid credits (solidarity, work premium, family allowance: 7L).
+- Provincial child and family credits: the Canada engine does not read the 7A children list yet.
+
+**Timing** (Canada, interleaved same-process, 300 `simulate()` per round, median of 7, the 7J merge's file vs this branch): Ontario 378 ms -> 308 ms (0.81), BC 397 -> 289 (0.73), Quebec 260 -> 232 (0.90). Faster because the new `provincialTaxCA` no longer builds a scaled bracket array per call. Pension splitting not re-timed (its search is unchanged apart from the family-income argument).
+
+**Pension-split regret** (the 360-household check in `tests/tax_brackets.js`, 65+ partner, Ontario, against a $50 brute-force scan): still under $3 a year, no change to the search. Added a four-household Quebec check (family income changes nothing about the transfer, so the same search holds); regret under $3.
+
+**Tests.** `tests/tax_brackets.js` (Canada section) updated for the credit form with hand-computed literals: Ontario $100k (7,127.8294) and $200k with surtax (22,586.7826), the dividend credit (14,615.0896), separate floors for the federal and provincial credits, BC age amount, AB age plus pension, BC pension at 60, SK senior supplement, Manitoba BPA at $300k (45,781.38) and nil at $400k, Manitoba's frozen schedule, per-province indexing of the pension amount, Quebec's pooled amounts (single 66 at $30k and at $50k with a pension, a couple's family income, under 65), QPP and QPIP at $60k and $100k, taxFor's family income. `tests/province_rules.js` and the generated-doc check are in `npm test`. `tests/dividend_income.js` (Canada) uses British Columbia for the eligible-versus-ordinary comparison, because Ontario's Health Premium is on the grossed-up dividend and is not reduced by the credit. `tests/historical_bond_yield.js` (Canada) now has $24,000 of CPP so the age and personal credits do not shelter the interest.
+
+**Gotchas**
+- Sandbox: a quoted bash heredoc containing an apostrophe in the body failed to parse again; write edit scripts with the file tool.
+- A summarising fetch of the CRA payroll page can merge unrelated sections (it gave the BC reduction formula under Ontario); read formulas from the form or statute, not a summary.
+- CRA's payroll tables lag provincial legislation in both directions (BC 5.06% vs 5.60%, NL's two BPAs, PEI's top rate); for an annual tax figure prefer the province's own page or statute.
+- Quebec `familyIncome === null` means "single, lives alone": do not pass 0 for a single filer.
+
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
