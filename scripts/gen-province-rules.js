@@ -64,7 +64,7 @@ function generate(rules) {
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Pension plan contribution (base rate; 4% second tier shared) | Indexing | Sources |');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | Indexing | Sources |');
   L.push('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
@@ -80,7 +80,7 @@ function generate(rules) {
           r.pension ? money(r.pension.amount) : r.pooled ? `retirement income ${money(r.pooled.retirementAmount)} (pooled)` : 'not modeled',
           pct(r.dividend.eligible) + ' of the grossed-up dividend',
           extra,
-          (r.pooled ? 'QPP ' : 'CPP ') + pct(r.payroll.pensionRate) + (r.payroll.premium ? ` + QPIP ${pct(r.payroll.premium.rate)} up to ${money(r.payroll.premium.max)}` : ''),
+          (r.pooled ? 'QPP ' : 'CPP ') + pct(r.payroll.pensionRate) + ' on earnings from $3,500 to $74,600, then 4% to $85,000' + (r.payroll.premium ? `; QPIP ${pct(r.payroll.premium.rate)} on earnings up to ${money(r.payroll.premium.max)} (its own ceiling)` : ''),
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]
