@@ -382,6 +382,15 @@ function checks() {
   const share = { credits: [{ kind: 'taxShareCredit', label: 'share credit', refundable: false, share: cols(0.2), max: cols(650) }] };
   near(run(share, { wages: 50000 }), 4350, 'tax share credit: 20% of 5,000 is 1,000, capped at 650');
   near(run(share, { wages: 2000 }), 160, 'tax share credit: below the cap it is 20% of the tax (200 - 40)');
+  // A property tax share (Illinois: 5%, gone above an AGI limit): property tax 6,000.
+  const pts = { credits: [{ kind: 'propertyTaxShareCredit', label: 'property tax credit', refundable: false, rate: 0.05, agiLimit: cols(250000) }] };
+  near(run(pts, { wages: 100000, propertyTax: 6000 }), 10000 - 300, 'property tax share credit: 5% of 6,000');
+  near(run(pts, { wages: 250000, propertyTax: 6000 }), 25000 - 300, 'property tax share credit: at the AGI limit');
+  near(run(pts, { wages: 250001, propertyTax: 6000 }), 25000.1, 'property tax share credit: gone one dollar over');
+  // A tier cap by filing column (New Jersey: 75,000 single, 100,000 joint): pension 90,000 of one 65-year-old filer.
+  const colCap = { retirementExclusion: perP({ tiers: [[62, { single: 75000, mfj: 100000, hoh: 75000 }]] }) };
+  near(run(colCap, { ...pen(90000, 0), ages: [65] }, 'single'), 1500, 'tier cap by column: single 75,000 of 90,000 excluded');
+  near(run(colCap, { ...pen(90000, 0), ages: [65, 40] }, 'mfj'), 0, 'tier cap by column: joint 100,000 covers all 90,000');
   const lineTaper = { taper: { rate: 0.1 } };
   near(run(itc(lineTaper), { wages: 50500 }), 5000, 'income-tested credit: a straight-line taper loses 10 cents per dollar (100 - 50)');
   near(run(itc(lineTaper), { wages: 51000 }), 5100, 'income-tested credit: and is gone after 1,000');
@@ -422,7 +431,12 @@ function checks() {
   near(lagTax(lag(), pf({ filing: 'single', wageA: 60000, wageB: 40000, otherA: 60000, otherB: 40000 })), 9236, 'federal tax paid: each separate return deducts its own');
   const cap5 = { single: 5000, mfj: 10000, hoh: 5000 };
   near(lagTax(lag({ cap: cap5 }), lp({})), 9500, 'federal tax paid: capped at 5,000');
-  near(lagTax(lag({ cap: cap5, phase: { tables: cols([[0, 1], [90000, 0.5], [120000, 0]]) } }), lp({})), 9750, 'federal tax paid: the cap halved by an AGI step (2,500)');
+  near(lagTax(lag({ cap: cap5, phase: { basis: 'cap', tables: cols([[0, 1], [90000, 0.5], [120000, 0]]) } }), lp({})), 9750, 'federal tax paid: the cap halved by an AGI step (2,500)');
+  // Missouri-style: the share applies to the federal tax itself (35% / 25% / 15% / 5% by income), then the cap: single, federal tax 13,170, income 100,000 -> the 15% step is for
+  // 50,001-100,000 (income exactly 100,000), so 15% x 13,170 = 1,975.50 -> (100,000 - 1,975.50) x 10% = 9,802.45
+  const moTax = { basis: 'tax', tables: cols([[0, 0.35], [25000, 0.25], [50000, 0.15], [100000, 0.05], [125000, 0]]) };
+  near(lagTax(lag({ cap: cap5, phase: moTax }), lp({})), 9802.45, 'federal tax paid: a share of the tax (15% at income 100,000)');
+  near(lagTax(lag({ cap: cap5, phase: moTax }), lp({ wageA: 30000, otherA: 30000 })), 2964.5, 'federal tax paid: income 30,000, the 25% step of the federal tax 1,420 (355)');
   const itemizedRow = (o) => ({ standardDeduction: cols(3000), federalTaxSubtraction: { kind: 'lagged', placement: 'itemized', cap: null, phase: null, ...o } });
   near(lagTax(itemizedRow({}), lp({})), 8683, 'federal tax paid, itemized: 13,170 beats the 3,000 standard deduction');
   near(lagTax(itemizedRow({ cap: cap5 }), lp({})), 9500, 'federal tax paid, itemized: capped at 5,000, still above 3,000');

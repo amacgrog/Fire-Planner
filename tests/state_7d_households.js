@@ -9,6 +9,12 @@
 //   FAMILY    ages 42 and 40. Wages 130,000 (A 80,000, B 50,000), gains 2,000, two qualifying children aged 6 and 9,
 //             owner with 6,000 of property tax, no rent. Federal AGI proxy = 132,000.
 //
+// Rows that deduct the federal income tax paid (AL, MO and others) read it from the household's federalTax, worked out by hand with the 2026
+// federal rules and a state tax of zero:
+//   RETIREE   ordinary 40,000 + 40,000 + 22,000 = 102,000, gains 10,000, deduction 32,200 + 1,650 + senior 6,000 = 39,850; ordinary taxable 62,150
+//             = 2,480 + 37,350 x 12% (4,482) = 6,962; the gains sit in the 0% band; no credits -> 6,962
+//   FAMILY    ordinary 130,000, gains 2,000, standard deduction 32,200 (property tax 6,000 does not itemize); ordinary taxable 97,800 = 2,480 + 73,000 x 12% (8,760)
+//             = 11,240; gains: 1,100 at 0% and 900 at 15% = 135; child tax credit 2 x 2,200 -> 11,375 - 4,400 = 6,975
 // Every expected figure is worked out by hand in the comment beside the state, from that state's published
 // figures (see its row in docs/state-tax-rules.md for the source), never copied from the evaluator.
 // A row's `why` names the rules the case exercises.
@@ -28,12 +34,12 @@ function checks(CASES) {
   const retiree = {
     wages: 0, pension: 40000, pensionA: 30000, pensionB: 10000, retirement: 40000, retirementA: 25000, retirementB: 15000,
     gains: 10000, taxableSS: 22000, taxableSSA: 14000, taxableSSB: 8000, ssBenefits: 36000, ssBenefitsA: 24000, ssBenefitsB: 12000,
-    ages: [66, 64], dependents: [], propertyTax: 0, rent: 0, federalTax: 0,
+    ages: [66, 64], dependents: [], propertyTax: 0, rent: 0, federalTax: 6962,
   };
   const family = {
     wages: 130000, pension: 0, pensionA: 0, pensionB: 0, retirement: 0, retirementA: 0, retirementB: 0,
     gains: 2000, taxableSS: 0, taxableSSA: 0, taxableSSB: 0, ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0,
-    ages: [42, 40], dependents: [kid(6), kid(9)], propertyTax: 6000, rent: 0, federalTax: 0,
+    ages: [42, 40], dependents: [kid(6), kid(9)], propertyTax: 6000, rent: 0, federalTax: 6975,
   };
   for (const c of CASES) {
     const rule = t.STATE_RULES[c.code];
@@ -147,6 +153,62 @@ const CASES = [
   //   retiree: 90,000 - 4,000 - 8,000 = 78,000: 211 + 421.50 + 474 + 844 + 18,000 x 4.58% (824.40) = 2,774.90
   //   family:  132,000 - 4,000 - 4,000 = 124,000: 1,950.50 + 64,000 x 4.58% (2,931.20) = 4,881.70
   { code: 'wv', retiree: 2774.9, family: 4881.7, why: 'SB 392 rates, senior modification' },
+
+  // --- G4a: states with large retirement rules (AL CO DE GA IL IA) -----------------------------------------------------------------------
+  // AL (joint). Defined-benefit pension (40,000) exempt, IRA withdrawals taxed; standard deduction falls to 5,000 at this income, so the federal tax 6,962 is deducted instead;
+  // exemption 3,000; 2% / 4% / 5% at 1,000 / 6,000.
+  //   retiree: 90,000 - 40,000 = 50,000 - 6,962 - 3,000 = 40,038: 20 + 200 + 34,038 x 5% (1,701.90) = 1,921.90
+  //   family:  132,000 - 6,975 - 3,000 - 2 x 300 (income over 100,000) = 121,425: 20 + 200 + 115,425 x 5% (5,771.25) = 5,991.25
+  { code: 'al', retiree: 1921.9, family: 5991.25, why: 'federal tax deducted, income-tiered dependents, defined-benefit pension' },
+  // CO (joint). 4.4% of federal taxable income. Federal deduction 32,200 + 1,650 + senior 6,000 (retiree); Social Security: A (66) all 14,000, B (64) 8,000 (AGI 112,000 is over 95,000 but the cap 20,000 is not binding);
+  // pension caps shared: A 24,000 - 14,000 = 10,000, B 20,000 - 8,000 = 12,000.
+  //   retiree: 112,000 - 22,000 - 22,000 = 68,000 - 39,850 = 28,150 x 4.4% = 1,238.60
+  //   family:  132,000 - 32,200 = 99,800 x 4.4% = 4,391.20
+  { code: 'co', retiree: 1238.6, family: 4391.2, why: 'shared Social Security and pension cap, conformity' },
+  // DE (joint). Std 6,500; exclusion 12,500 per filer 60+ (A 55,000 and B 25,000 both reach it: 25,000 total); brackets 2.175% from 2,000 ... 5.525% from 25,000 to 60,000, 6.6% to 125,000, 6.75% above;
+  // credits 220 + 110 per filer 60+ (440) and 110 per child.
+  //   retiree: 90,000 - 25,000 = 65,000 - 6,500 = 58,500: 65.25 + 193.75 + 477.50 + 258.75 + 33,500 x 5.525% (1,850.875) = 2,846.125; - 440 = 2,406.125
+  //   family:  132,000 - 6,500 = 125,500: 7,219 + 500 x 6.75% (33.75) = 7,252.75; - 220 - 220 = 6,812.75
+  { code: 'de', retiree: 2406.125, family: 6812.75, why: 'new 2026 brackets, age-tiered exclusion, credits' },
+  // GA (joint). 4.99%; std 30,000; A (66) excludes up to 65,000 (55,000), B (64) up to 35,000 (25,000); 4,000 per dependent. From 2027 the 65+ cap is 70,000 (nothing changes here).
+  //   retiree: 90,000 - 80,000 = 10,000 -> inside the standard deduction: 0; at ages 60 and 58 (no exclusion): 90,000 - 30,000 = 60,000 x 4.99% = 2,994
+  //   family:  132,000 - 30,000 - 8,000 = 94,000 x 4.99% = 4,690.60
+  { code: 'ga', retiree: 0, family: 4690.6, why: 'age-tiered retirement exclusion', extra: [{ household: 'retiree', ages: [60, 58], expect: 2994, why: 'no exclusion under 62' }] },
+  // IL (joint). 4.95%; all retirement income exempt; exemptions 5,850 + 1,000 for a filer 65+ + 2,925 per child; 5% property tax credit.
+  //   retiree: 90,000 - 80,000 = 10,000 - 5,850 - 1,000 = 3,150 x 4.95% = 155.925
+  //   family:  132,000 - 5,850 - 5,850 = 120,300 x 4.95% = 5,954.85; - 5% x 6,000 (300) = 5,654.85
+  { code: 'il', retiree: 155.925, family: 5654.85, why: 'retirement income exempt, exemptions, property tax credit' },
+  // IA (joint). 3.8%; federal deduction 32,200 + 1,650 + 6,000; retirement income of a filer 55+ excluded (all 80,000); credits 80 + 20 (one filer 65+) + 40 per child.
+  //   retiree: 90,000 - 80,000 = 10,000 - 39,850 < 0: 0; ages 54 and 52 (no exclusion, no add-ons): 90,000 - 32,200 = 57,800 x 3.8% = 2,196.40; - 80 = 2,116.40
+  //   family:  132,000 - 32,200 = 99,800 x 3.8% = 3,792.40; - 80 - 80 = 3,632.40
+  { code: 'ia', retiree: 0, family: 3632.4, why: 'conformity, all retirement income excluded from 55', extra: [{ household: 'retiree', ages: [54, 52], expect: 2116.4, why: 'under 55' }] },
+
+  // --- G4b: ME MS MO NJ SC ------------------------------------------------------------------------------------------------------
+  // ME (joint). Standard deduction 31,400 + 1,650 (one filer 65+), exemption 10,600 + 5,300 per child; pension deduction 49,824 less the filer's own Social Security benefits
+  // (A 24,000 -> 25,824 of A's 55,000; B 12,000 -> 37,824 of B's 25,000); 5.8% to 54,850, 6.75% to 129,750.
+  //   retiree: 90,000 - 25,824 - 25,000 = 39,176 - 31,400 - 10,600 - 1,650 < 0: 0
+  //   family:  132,000 - 31,400 - 10,600 - 10,600 = 79,400: 54,850 x 5.8% (3,181.30) + 24,550 x 6.75% (1,657.125) = 4,838.425
+  { code: 'me', retiree: 0, family: 4838.425, why: 'pension deduction reduced by benefits received' },
+  // MS (joint). 4% above 10,000 (3.75% in 2027 ... 3% in 2030); std 4,600; exemptions 12,000 + 1,500 for one filer 65+ + 1,500 per child; retirement income exempt.
+  //   retiree: 90,000 - 80,000 = 10,000 - 4,600 - 13,500 < 0: 0
+  //   family:  132,000 - 4,600 - 12,000 - 3,000 = 112,400: 102,400 x 4% = 4,096; 2027: x 3.75% = 3,840; 2030: x 3% = 3,072
+  { code: 'ms', retiree: 0, family: 4096, why: 'exemptions, retirement income exempt, scheduled rate cuts', extra: [
+    { household: 'family', yearIndex: 1, expect: 3840, why: '2027 rate 3.75%' }, { household: 'family', yearIndex: 4, expect: 3072, why: '2030 rate 3%' } ] },
+  // MO (joint). Gains fully subtracted; Social Security exempt at 62+ (22,000); pension exemption lost (income 102,000 is over the joint limit); federal tax paid deducted
+  // at 15% of 6,962 (income 80,000) = 1,044.30; federal deduction 32,200 + 1,650; 2% from 1,348 ... 4.5% from 8,088, 4.7% above 9,436 (the six brackets 2% to 4.5% add 195 x 1,348 / 1,000).
+  //   retiree: 90,000 - 10,000 (gains) = 80,000 start 102,000 less 22,000 = 80,000; - 1,044.30 = 78,955.70 - 33,850 = 45,105.70: 262.86 + 35,669.70 x 4.7% (1,676.476) = 1,939.336
+  //   family:  130,000 - 32,200 = 97,800 (gains subtracted, the deduction share is 0 over 125,000): 262.86 + 88,364 x 4.7% (4,153.108) = 4,415.968
+  { code: 'mo', retiree: 1939.3359, family: 4415.968, why: 'federal tax deducted by income, gains subtracted, conformity' },
+  // NJ (joint). Retirement exclusion for a filer 62+: all 80,000 (income 90,000 is under 100,000); exemptions 2,000 + 1,000 (one filer 65+) + 1,500 per child;
+  // joint brackets 1.4% to 20,000, 1.75% to 50,000, 2.45% to 70,000, 3.5% to 80,000, 5.525% to 150,000.
+  //   retiree: 90,000 - 80,000 - 3,000 = 7,000 x 1.4% = 98
+  //   family:  132,000 - 2,000 - 3,000 = 127,000: 280 + 525 + 490 + 350 + 47,000 x 5.525% (2,596.75) = 4,241.75
+  { code: 'nj', retiree: 98, family: 4241.75, why: 'income-tested pension exclusion, exemptions' },
+  // SC (joint). 44% of gains deducted; B (64) deducts 3,000 of retirement income, A (66) none (the age deduction applies instead); SCIAD 30,000 less (income - 80,000)/110,000 of it;
+  // age deduction 15,000 for A; 1.99% to 30,000, 5.21% above (597 + 5.21%).
+  //   retiree: 40,000 + 40,000 + 5,600 - 3,000 = 82,600; SCIAD 30,000 x (1 - 2,600/110,000) = 29,290.91; - 15,000: taxable 38,309.09 -> 597 + 8,309.09 x 5.21% (432.90) = 1,029.904
+  //   family:  130,000 + 1,120 = 131,120; SCIAD 30,000 x (1 - 51,120/110,000) = 16,058.18; dependents 9,860: taxable 105,201.82 -> 597 + 75,201.82 x 5.21% (3,918.015) = 4,515.015
+  { code: 'sc', retiree: 1029.9036, family: 4515.0147, why: 'SCIAD phase-out, 65+ deduction, gains deduction' },
 ];
 
 (async () => {

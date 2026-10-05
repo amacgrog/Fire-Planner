@@ -37,7 +37,7 @@ function checks() {
     exemptionCredits: ['personal', 'personalCount', 'senior', 'dependent', 'phaseOut'], renterCredit: ['amount', 'agiLimit'],
     childCredit: ['tiers', 'phaseOut'], propertyTaxCredit: ['max', 'limit', 'stepWidth', 'stepPct'],
     taxForgiveness: ['limit', 'perDependent', 'stepWidth', 'stepPct'], agiStepFraction: ['tables'],
-    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'], taxShareCredit: ['share', 'max'],
+    incomeTestedCredit: ['amount', 'perSenior', 'perDependent', 'limit', 'taper'], ssCredit: ['rate', 'phase'], taxShareCredit: ['share', 'max'], propertyTaxShareCredit: ['rate', 'agiLimit'],
   };
   const stepOk = (rows) => Array.isArray(rows) && rows.length > 0 && rows.every((r, i) => r.length === 2 && isNum(r[0]) && isNum(r[1]) && (i === 0 || r[0] > rows[i - 1][0]));
   const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -106,14 +106,14 @@ function checks() {
     const ex = r.retirementExclusion;
     need(ex && ex.kind in EXCLUSION_PARAMS, at + 'retirementExclusion kind ' + (ex && ex.kind));
     if (ex && ex.kind in EXCLUSION_PARAMS)
-      need(JSON.stringify(Object.keys(ex).sort()) === JSON.stringify(['kind'].concat(EXCLUSION_PARAMS[ex.kind]).sort()) && EXCLUSION_PARAMS[ex.kind].every((k) => (k === 'tables' ? columns.every((c) => stepOk(ex.tables[c])) : k === 'inclusive' ? typeof ex[k] === 'boolean' : ex.kind === 'perPerson' && k === 'applies' ? typeof ex.applies.pension === 'boolean' && typeof ex.applies.traditional === 'boolean' : ex.kind === 'perPerson' && k === 'tiers' ? Array.isArray(ex.tiers) && ex.tiers.length > 0 && ex.tiers.every((t, i) => t.length === 2 && isNum(t[0]) && (t[1] === null || (isNum(t[1]) && t[1] >= 0)) && (i === 0 || t[0] > ex.tiers[i - 1][0])) : ex.kind === 'perPerson' && k === 'reducedBy' ? ['none', 'socialSecuritySubtracted', 'benefitsReceived'].includes(ex.reducedBy) : ex.kind === 'perPerson' && k === 'share' ? ex.share === null || (typeof ex.share.inclusive === 'boolean' && columns.every((c) => stepOk(ex.share.tables[c]))) : isNum(ex[k]))), at + 'retirementExclusion parameters');
+      need(JSON.stringify(Object.keys(ex).sort()) === JSON.stringify(['kind'].concat(EXCLUSION_PARAMS[ex.kind]).sort()) && EXCLUSION_PARAMS[ex.kind].every((k) => (k === 'tables' ? columns.every((c) => stepOk(ex.tables[c])) : k === 'inclusive' ? typeof ex[k] === 'boolean' : ex.kind === 'perPerson' && k === 'applies' ? typeof ex.applies.pension === 'boolean' && typeof ex.applies.traditional === 'boolean' : ex.kind === 'perPerson' && k === 'tiers' ? Array.isArray(ex.tiers) && ex.tiers.length > 0 && ex.tiers.every((t, i) => t.length === 2 && isNum(t[0]) && (t[1] === null || (isNum(t[1]) && t[1] >= 0) || (typeof t[1] === 'object' && columns.every((c) => isNum(t[1][c]) && t[1][c] >= 0))) && (i === 0 || t[0] > ex.tiers[i - 1][0])) : ex.kind === 'perPerson' && k === 'reducedBy' ? ['none', 'socialSecuritySubtracted', 'benefitsReceived'].includes(ex.reducedBy) : ex.kind === 'perPerson' && k === 'share' ? ex.share === null || (typeof ex.share.inclusive === 'boolean' && columns.every((c) => stepOk(ex.share.tables[c]))) : isNum(ex[k]))), at + 'retirementExclusion parameters');
     need(Array.isArray(r.credits), at + 'credits must be a list ([] for none)');
     for (const cr of r.credits || []) {
       need(cr.kind in CREDIT_PARAMS && typeof cr.label === 'string' && typeof cr.refundable === 'boolean', at + 'credit kind/label/refundable ' + cr.kind);
       if (cr.kind in CREDIT_PARAMS) need(CREDIT_PARAMS[cr.kind].every((k) => k in cr), at + 'credit ' + cr.kind + ' parameters');
     }
     const ft = r.federalTaxSubtraction;
-    need(ft === 'none' || (ft && ft.kind === 'lagged' && ['subtraction', 'itemized'].includes(ft.placement) && (ft.cap === null || columns.every((c) => isNum(ft.cap[c]) && ft.cap[c] >= 0)) && (ft.phase === null || columns.every((c) => stepOk(ft.phase.tables[c]))) && JSON.stringify(Object.keys(ft).sort()) === JSON.stringify(['cap', 'kind', 'phase', 'placement'])), at + 'federalTaxSubtraction');
+    need(ft === 'none' || (ft && ft.kind === 'lagged' && ['subtraction', 'itemized'].includes(ft.placement) && (ft.cap === null || columns.every((c) => isNum(ft.cap[c]) && ft.cap[c] >= 0)) && (ft.phase === null || ((ft.phase.basis === 'cap' || ft.phase.basis === 'tax') && columns.every((c) => stepOk(ft.phase.tables[c])))) && JSON.stringify(Object.keys(ft).sort()) === JSON.stringify(['cap', 'kind', 'phase', 'placement'])), at + 'federalTaxSubtraction');
     need(r.localTax === 'notModeled' || (r.localTax && r.localTax.kind === 'flat' && isNum(r.localTax.rate) && r.localTax.rate > 0 && r.localTax.rate < 0.06 && Object.keys(r.localTax).length === 2), at + 'localTax');
     need(typeof r.notes === 'string', at + 'notes');
   };

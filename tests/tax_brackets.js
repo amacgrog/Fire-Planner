@@ -160,29 +160,29 @@ function usChecks() {
   // CA single $100k (2025 figures): 94,294 after the 5,706 deduction
   //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,006.01 = 5,207.98; less the $153 personal exemption credit = 5,054.98
   near(stateTax('ca', src({ wages: 100000 }), 'single'), 5054.98, 0.005, 'CA single $100k');
-  // NJ single $100k: 280 + 262.50 + 175 + 1,933.75 + 1,592.50 = 4,243.75
-  near(stateTax('nj', src({ wages: 100000 }), 'single'), 4243.75, 0.005, 'NJ single $100k');
+  // NJ single $100k: the $1,000 exemption first (99,000): 280 + 262.50 + 175 + 1,933.75 + 24,000 x 6.37% (1,528.80) = 4,180.05
+  near(stateTax('nj', src({ wages: 100000 }), 'single'), 4180.05, 0.005, 'NJ single $100k');
   // WI single $100k: 85,340 after 13,960 + 700 -> 528.85 + 1,620.96 + 1,769.67 = 3,919.48
   near(stateTax('wi', src({ wages: 100000 }), 'single'), 3919.48, 0.005, 'WI single $100k');
   // WA capital-gains tax: nothing on wages; 7% above 278,000, 9.9% above 1M of taxable gain (ESSB 5813, 2025).
   near(stateTax('wa', src({ wages: 500000 }), 'single'), 0, 1e-9, 'WA wages untaxed');
   near(stateTax('wa', src({ gains: 378000 }), 'single'), 7000, 0.005, 'WA gains 7%');
   near(stateTax('wa', src({ gains: 1378000 }), 'single'), 79900, 0.005, 'WA gains 9.9% tier'); // 70,000 + 100,000 x 9.9%
-  // CO 4.4% flat.
-  near(stateTax('co', src({ wages: 100000 }), 'single'), 4400, 0.005, 'CO flat 4.4%');
+  // CO 4.4% flat on federal taxable income: (100,000 - 16,100) x 4.4% = 3,691.60
+  near(stateTax('co', src({ wages: 100000 }), 'single'), 3691.6, 0.005, 'CO flat 4.4%');
   // IL / PA do not tax pension or traditional withdrawals.
   for (const code of ['il', 'pa']) {
     // (per-person fields too: PA reads each filer's own pension and traditional income)
     near(stateTax(code, src({ pension: 50000, retirement: 30000, ages: [70], pensionA: 50000, retirementA: 30000 }), 'single'), 0, 1e-9, `${code.toUpperCase()} retirement income excluded`);
     near(
       stateTax(code, src({ wages: 40000, pension: 50000, ages: [70], pensionA: 50000 }), 'single'),
-      stateTax(code, src({ wages: 40000 }), 'single'),
+      stateTax(code, src({ wages: 40000, ages: [70] }), 'single'),
       1e-9,
       `${code.toUpperCase()} retirement income adds no tax on top of wages`,
     );
   }
   // GA excludes up to 65,000 of retirement income per person at 65+.
-  near(stateTax('ga', src({ pension: 50000, ages: [66] }), 'single'), 0, 1e-9, 'GA 65+ pension excluded');
+  near(stateTax('ga', src({ pension: 50000, pensionA: 50000, ages: [66] }), 'single'), 0, 1e-9, 'GA 65+ pension excluded');
 
   // Every state with a bracket table or flat rate vs. a reference built from
   // its own table (deduction, then per-slice sum from explicit lower bounds).
