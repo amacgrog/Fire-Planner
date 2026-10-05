@@ -2000,6 +2000,21 @@ several rows need a mechanism the schema does not have yet (a combined cap reduc
 AL and SC's SCIAD; a pension cap by age tier with a younger tier, CO and DE; a tax deduction for federal tax paid, AL / MO / OR / MT), to be added with
 tests before the data lands.
 
+#### 7D: all remaining states and DC (US only; Canada untouched)
+
+Branch `claude/batch-7d-remaining-states`, cut from the 3B-line tip `2136d7b` (7C merged). Owner decisions (2026-10-04), recorded before work started:
+- **One version-badge bump for the whole PR** (US V99 -> V100, in the first user-facing commit), not one per data commit; this deviates from the per-commit rule in CLAUDE.md on the owner's instruction.
+- **State tax ignored additional income** (income streams and one-time income): `taxFor` fed the state `wages` from the wage fields only, while the federal side reads `profile.otherA`, which includes them. Fixed in its own commit (intended number change, before/after below).
+- **Scheduled changes (mechanism 1):** a variant's amounts are the statutory amounts for its `fromYear`; an indexed family grows from that year on, `amount x F(i) / F(fromYear - currentYear)`. Only unconditional enacted schedules are modeled; revenue-triggered cuts (SC and others) are left out and named in the row's notes (the model then overstates later-year tax if the triggers fire: the safe side).
+- **Federal income tax deducted by a state (mechanism 7):** the year's federal income tax liability, i.e. ordinary tax plus long-term-gain tax minus the nonrefundable child credits, floored at zero; not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC; this year's liability (not withholding or prior-year payments); from one lagged pass (the federal itemizing test run with state tax zero); each separate return deducts its own; a survivor uses the single return; the row applies its own cap or phase-out.
+- **Circuit-breaker and income-tested property-tax / renter credits are excluded** (mechanism 11 dropped, so 14 mechanisms remain): they pay low-income households, and a FIRE household living on Roth, cash and basis can look low-income on paper, but the planner has no nontaxable-income input to apply the real income definitions, so the credit would go to households the forms would refuse. Each affected row's notes name the gap; listed under Open items. No home-value or assessed-value input is added. The existing CA, NY, PA and CT credits stay.
+- **Also not modeled** (documented in the rows): blind and disabled status, military versus civilian and public versus private pension distinctions, short-term gains, state itemized deductions, local taxes other than MD and IN.
+- **Local tax for MD and IN only:** one statewide rate per state (MD: the most common county rate; IN: the population-weighted average county rate), no county input; it feeds the federal SALT deduction. Every other local tax stays out of scope.
+- **Selector tip from the table:** the tip is built at runtime from the selected row (a shared sentence, the row's notes, source and as-of year).
+- **Research is inline** (no subagents).
+
+**Commit 1: per-person Social Security on `sources` (mechanism 15; no behavior change).** `ssBenefitsA/B` and the taxable Social Security split in proportion to benefits (`taxableSSA/B`) join `ssBenefits` in all three `taxFor` branches; a one-person return and each separate return read slot A. Snapshots exact (518 US, 359 Canada), UI snapshots unchanged. The end-to-end test arrives with mechanism 5, the first reader.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 

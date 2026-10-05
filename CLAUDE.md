@@ -239,7 +239,7 @@ Each planner is one big IIFE. Core shape:
   can take the state tax negative, as the ACTC can). Step tables are `[[lowerBound, value], ...]` per column. The state
   inputs come from `taxFor`'s `sources`: besides the household sums it carries per-person pensions and traditional draws
   (`pensionA/B`, `retirementA/B`; the discretionary draw is split by `profile.ownerShareA`, the account-ledger share, 0.5 if
-  absent), `ssBenefits`, `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
+  absent), `ssBenefits` (plus per-person `ssBenefitsA/B` and the taxable part split in proportion, `taxableSSA/B`; a one-person return reads slot A), `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
   `sources` at all for a no-tax state (`stateTaxActive()`): that path stays as fast as before. Each
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
