@@ -2065,6 +2065,17 @@ Tests: `tests/state_mechanisms.js` (about 60 more hand-computed cases: each Soci
 the local tax including its effect on the federal itemized deduction; the federal tax paid for a single filer, a joint couple with and without a child, two
 separate returns, a cap, a phase and both placements), `tests/state_rules.js` (the new schema).
 
+**Commit 5: G1, the states with no individual income tax (AK FL NV SD WY NH TN; US V100).** Seven rows become `researched` with indexing off. Sources: Tennessee's
+Department of Revenue notice HIT-3 (the Hall tax repealed for periods beginning January 1, 2021; primary, an official page read through search excerpts); New Hampshire's
+Interest and Dividends Tax repealed for periods beginning on or after January 1, 2025 (HB 2 of 2023; a law-firm summary quoting the Department of Revenue Administration,
+secondary); Alaska, Florida, Nevada, South Dakota and Wyoming from a no-income-tax roundup (secondary, no state page opened; backlog). Also in this commit:
+- **The state field's info bubble is built from the selected row** (`stateTaxTipText`, refreshed in `render()`): a common sentence on what no state models, then the
+  row's notes, as-of year and source (a migrated row says it is still a simplified estimate). The static markup carries a short fallback; the small caption under the
+  label changed too. A researched no-tax row now shows its own notes in the callout under the selector.
+- UI snapshot: only the rendered-text hashes of the three surfaces changed (the caption and the state note text); projection and row hashes, and `histSuccess`, are
+  identical. 0 of 518 US and 0 of 359 Canada scenarios moved.
+- Test: `tests/state_7d_households.js` (the two shared households; every no-tax state owes 0). The file grows with each group.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -2127,6 +2138,7 @@ reading (itself secondary).
 | CT: Table A exemption (the PDF text is misaligned; formula $1,000 per $1,000 over $30,000 / $48,000 / $38,000 matches the printed joint column and stated ends), property tax credit steps (15% per $10,000), 2026 table revisions, IRA deduction 100% from 2026 | 7C | P (Form CT-1040 TCS Rev. 12/25; OLR 2025-R-0152) for tables and thresholds; S for the property tax credit | CT-1040 instructions 2025 and 2026, CGS sec. 12-701(a)(20) |
 | WA: $278,000 standard deduction for 2025 (P, DOR), 2026 amount, whether the $1 million tier indexes, 9.9% (P, DOR) | 7C | P / U | RCW 82.87.040 as amended by ESSB 5813 |
 | TX: no individual income tax | 7C | S (Comptroller tax list) | Tex. Const. art. VIII sec. 24-a |
+| 7D G1: AK, FL, NV, SD, WY have no individual income tax (a no-income-tax roundup, taxact.com; no state page opened); NH Interest and Dividends Tax repealed from 2025 (a law-firm summary quoting the DRA); TN Hall tax repealed from 2021 (revenue.support.tn.gov, search excerpt) | 7D | S (TN: official page via excerpt) | each state's revenue department page, NH DRA notice, RSA 77, Tenn. Code 67-2-102 repeal |
 | State indexing by family: NY, PA and CT nothing indexed; CA all indexed except the $1 million surcharge; WA deduction indexed, $1 million tier not; the 17-state list of bracket-indexing states and each state's measure (owner's table) | 7C / 7D | O (owner's table, secondary) | each state's statute and revenue department notices |
 
 ## Open items

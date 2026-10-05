@@ -339,7 +339,7 @@
         </details>
         <details class="group" data-cat="profile" open>
           <summary>State income tax</summary>
-          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Covers every state with an individual-income tax, Washington&#x27;s capital-gains tax and DC. Not modeled: local income taxes, state credits, state itemized deductions, pension and retirement-income exclusions beyond the broad ones the inputs can identify, after-tax IRA basis, some state capital-gain rules, and income phase-outs. California, New York, Pennsylvania, Connecticut, Washington and Texas use researched rules (credits, pension and Social Security rules, recapture); every other state is still the simplified estimate described above, and a later update will replace it with that state&#x27;s actual rules. Treat any state figure as a rough estimate.">i</button></span><small>Simplified 2026 estimate; (i) lists what it leaves out</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
+          <div class="field"><label for="stateTax">Resident <span class="info-nw">state<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="2026 planning estimate of state income tax only. Select a state to see what its estimate includes and leaves out.">i</button></span><small>2026 estimate; (i) shows what this state includes</small></label><select id="stateTax"><option value="al">Alabama</option><option value="ak">Alaska — no income tax</option><option value="az">Arizona</option><option value="ar">Arkansas</option><option value="ca">California</option><option value="co">Colorado</option><option value="ct">Connecticut</option><option value="de">Delaware</option><option value="fl">Florida — no income tax</option><option value="ga">Georgia</option><option value="hi">Hawaii</option><option value="id">Idaho</option><option value="il">Illinois</option><option value="in">Indiana</option><option value="ia">Iowa</option><option value="ks">Kansas</option><option value="ky">Kentucky</option><option value="la">Louisiana</option><option value="me">Maine</option><option value="md">Maryland (state only)</option><option value="ma">Massachusetts</option><option value="mi">Michigan</option><option value="mn">Minnesota</option><option value="ms">Mississippi</option><option value="mo">Missouri</option><option value="mt">Montana</option><option value="ne">Nebraska</option><option value="nv">Nevada — no income tax</option><option value="nh">New Hampshire — no income tax</option><option value="nj">New Jersey</option><option value="nm">New Mexico</option><option value="ny">New York (state only)</option><option value="nc">North Carolina</option><option value="nd">North Dakota</option><option value="oh">Ohio (state only)</option><option value="ok">Oklahoma</option><option value="or">Oregon (state only)</option><option value="pa">Pennsylvania</option><option value="ri">Rhode Island</option><option value="sc">South Carolina</option><option value="sd">South Dakota — no income tax</option><option value="tn">Tennessee — no income tax</option><option value="tx">Texas — no income tax</option><option value="ut">Utah</option><option value="vt">Vermont</option><option value="va">Virginia</option><option value="wa">Washington — capital gains only</option><option value="wv">West Virginia</option><option value="wi">Wisconsin</option><option value="wy">Wyoming — no income tax</option><option value="dc">Washington, DC</option></select></div>
     <!-- @@shared:html-timelineGroupState begin -->
         </details>
         <details class="group" data-cat="timeline" open>
@@ -2820,17 +2820,17 @@
     },
     ak: {
       name: 'Alaska',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -2848,7 +2848,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Alaska levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
     },
     az: {
       name: 'Arizona',
@@ -3199,17 +3199,17 @@
     },
     fl: {
       name: 'Florida',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -3227,7 +3227,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Florida levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
     },
     ga: {
       name: 'Georgia',
@@ -3851,17 +3851,17 @@
     },
     nv: {
       name: 'Nevada',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -3879,21 +3879,21 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Nevada levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
     },
     nh: {
       name: 'New Hampshire',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://www.mclane.com/insights/nh-interest-and-dividends-tax-repealed-as-of-january-1/',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -3911,7 +3911,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'New Hampshire repealed its Interest and Dividends Tax (3%) for tax periods beginning on or after January 1, 2025 (HB 2, 2023), and has no tax on wages, pensions or gains, so no state income tax is modeled. Its business taxes are outside this planner.',
     },
     nj: {
       name: 'New Jersey',
@@ -4352,17 +4352,17 @@
     },
     sd: {
       name: 'South Dakota',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -4380,21 +4380,21 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'South Dakota levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
     },
     tn: {
       name: 'Tennessee',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'primary',
+      source: 'https://revenue.support.tn.gov/hc/en-us/articles/360057828631-HIT-3-Hall-Income-Tax-Repealed-Beginning-January-1-2021',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -4412,7 +4412,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Tennessee repealed the Hall income tax on interest and dividends for tax periods beginning on or after January 1, 2021 (Department of Revenue notice HIT-3), and has no tax on wages, pensions or gains, so no state income tax is modeled.',
     },
     tx: {
       name: 'Texas',
@@ -4664,17 +4664,17 @@
     },
     wy: {
       name: 'Wyoming',
-      status: 'migrated',
-      sourceKind: 'none',
-      source: null,
-      asOf: null,
+      status: 'researched',
+      sourceKind: 'secondary',
+      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      asOf: 2026,
       indexing: {
-        bracketsIndexed: true,
-        standardDeductionIndexed: true,
-        personalExemptionIndexed: true,
-        creditAmountsIndexed: true,
-        creditThresholdsIndexed: true,
-        retirementExclusionIndexed: true,
+        bracketsIndexed: false,
+        standardDeductionIndexed: false,
+        personalExemptionIndexed: false,
+        creditAmountsIndexed: false,
+        creditThresholdsIndexed: false,
+        retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
       tax: { kind: 'none' },
@@ -4692,7 +4692,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '',
+      notes: 'Wyoming levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
     },
     dc: {
       name: 'Washington, DC',
@@ -5081,6 +5081,8 @@
     const gainText =
       'Brokerage withdrawals are represented only by their modeled long-term capital-gain portion; returned cost basis is not treated as income.';
     const rule = STATE_RULES[code];
+    if (rule && rule.tax.kind === 'none' && rule.status === 'researched')
+      return `<b>${stateName} state-tax treatment.</b> ${rule.notes} ${gainText}`;
     if (!rule || rule.tax.kind === 'none')
       return `<b>${stateName} state-tax treatment.</b> No individual state income tax is modeled. Wages, Social Security, pension income, traditional withdrawals/RMDs, and brokerage gains are not assessed a state income tax here. ${gainText}`;
     if (!rule.base.ordinary)
@@ -5108,6 +5110,17 @@
         ? "Taxable Social Security is included in the state-tax estimate, subject to the planner's simplified state treatment."
         : 'Social Security is excluded from the state-tax estimate.';
     return `<b>${stateName} state-tax treatment.</b> ${notes[code] || `${base} ${ssText} The planner then applies the selected state\'s configured 2026 brackets or flat rate and standard deduction.`} ${gainText}`;
+  }
+  // The text of the state field's info bubble, built from the selected row: what every state's estimate leaves out, then
+  // this state's own notes (or a pointer, for a row not yet researched) and its source.
+  const STATE_TIP_COMMON =
+    '2026 planning estimate of state income tax only. Not modeled for any state: local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, income-tested property-tax and renter credits, earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains.';
+  function stateTaxTipText() {
+    const rule = STATE_RULES[state.stateTax];
+    if (!rule) return STATE_TIP_COMMON;
+    if (rule.status !== 'researched')
+      return `${STATE_TIP_COMMON} ${rule.name} is still a simplified estimate until its rules are researched.`;
+    return `${STATE_TIP_COMMON} ${rule.name} (figures as of ${rule.asOf}): ${rule.notes} Source: ${rule.source}`;
   }
   function stateRuleFor(code) {
     let rule = stateRuleCache[code];
@@ -8582,6 +8595,8 @@
     document.getElementById('fiRetireAgeSub').textContent = crossing
       ? 'first age liquid assets reach your retirement nest egg, at current savings rate'
       : 'Retirement nest egg not reached by your plan’s life expectancy at this savings rate';
+    const stateTip = document.querySelector('label[for="stateTax"] .info-tip');
+    if (stateTip) stateTip.dataset.tip = stateTaxTipText();
     document.getElementById('stateTaxNote').innerHTML =
       stateTaxTreatmentNote() +
       ' ' +
