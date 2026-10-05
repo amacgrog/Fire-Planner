@@ -22,11 +22,15 @@ symmetry holds; `npm test` passes at every commit.
    disability programs, social assistance.
 3. **Timing.** GIS, Allowance, CCB, CGEB and the provincial benefits use same-year income. This is an engine
    convention, stated as such; the legal tests use the prior-year return.
-4. **OAS pension by age band.** Replaces the `oasMonthlyA/B` inputs (retired; `normalizeState` deletes the keys, no
-   migration, like other retired fields). Bands: 65 to 74 up to 762.50 a month, 75 and over up to 838.75 (ESDC,
-   October to December 2026). **These amounts are indexed every quarter and must be revisited when tax figures are
-   next updated for 2027** (and each year after): the table row carries `asOf` and a code comment says so, in the same
-   way as the senior deduction note. Deferral and partial residency are not modeled.
+4. **OAS: the inputs stay, the 75-plus step and the default change (revised 2026-10-05).** The `oasMonthlyA/B`
+   inputs are kept (enter 0 for no OAS) and are entered in today's dollars, so they scale with plan inflation as
+   before. The planner applies the statutory 10 percent increase from age 75 automatically (ESDC maximums 762.50 at
+   65 to 74 and 838.75 at 75 and over, October to December 2026: the ratio is exactly 1.10 in every quarter checked
+   since July 2022, 1.00 before). The default becomes the 2026 maximum, 762.50. Deferral increases (0.6 percent a
+   month, up to 36 percent at 70) stay manual: the tooltip tells the user to raise the figure. **The default and the
+   75-plus factor are quarterly-indexed ESDC figures and must be updated when tax figures are next updated for 2027**
+   (comment in the `BENEFIT_RULES.oas` row and a note in `docs/next-batches-plan.md`). Partial residence and the
+   timing of the 75-plus step within the year are not modeled.
 5. **OAS recovery tax unchanged.** Same-year, pre-withdrawal, no discretionary-draw feedback (measured effect: none
    under about 2 million of registered money, +7.6% to +13% of end assets at 3 to 5 million).
 6. **Net-tax design (approved).** Canada `taxFor` returns `incomeTaxCA(...) - benefitsFor(...)`. Benefits are tax-free
@@ -77,7 +81,7 @@ coverage test (every program present, every field typed, thresholds increasing, 
 - Profile gains: wages (work income), OAS received, ages, the 7A children (`dependentsInYear`, survivor remapped:
   children stay with the survivor), couple or single, province. `buildTaxProfile` carries them; profiles built
   elsewhere read as none.
-- `oasPensionFor(age)` replaces the OAS input in `cppAndOasIncome`. The survivor swap (greater of the two OAS
+- `oasAgeFactor(age)` (1.10 from age 75) multiplies the OAS input in `cppAndOasIncome`. The survivor swap (greater of the two OAS
   amounts) is unchanged.
 - Year rows: `benefits` (total) and one field per benefit; `tax` stays gross. The cash flow adds benefits as
   inflows; the Sankey shows each as its own line; the projection table and export gain the columns.

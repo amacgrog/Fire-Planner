@@ -4,7 +4,7 @@
 
 **Goal:** Model Canada's income-tested cash benefits (GIS and Allowances, CCB, Canada Groceries and Essentials Benefit, and the provincial benefits for ON, BC, AB, QC) as tax-free payments with their own output lines, priced into every withdrawal decision.
 
-**Architecture:** A pure-literal data table `BENEFIT_RULES` (one row per program, generic evaluators per row kind) in `Planner_Canada.html`, a generated review doc and coverage test in the `PROVINCE_RULES` pattern. `benefitsFor(profile, gains, traditionalExtra)` fills a module-level scratch object. Canada `taxFor` becomes `incomeTaxCA(...) - benefitsFor(...)` so the shared withdrawal solvers see lost benefits; rows report gross tax and each benefit separately. OAS follows ESDC age bands.
+**Architecture:** A pure-literal data table `BENEFIT_RULES` (one row per program, generic evaluators per row kind) in `Planner_Canada.html`, a generated review doc and coverage test in the `PROVINCE_RULES` pattern. `benefitsFor(profile, gains, traditionalExtra)` fills a module-level scratch object. Canada `taxFor` becomes `incomeTaxCA(...) - benefitsFor(...)` so the shared withdrawal solvers see lost benefits; rows report gross tax and each benefit separately. OAS gets the statutory 10 percent increase from age 75 (the inputs stay).
 
 **Tech Stack:** Single-file HTML/JS planner, Node test scripts with Playwright (`npm test`), Python 3.7 stdlib (one-off table extraction).
 
@@ -23,7 +23,7 @@
 - Hand-computed literals in tests carry the arithmetic in comments and cite the page, table row or statute section.
 - Do not merge or enable auto-merge. Bump the Canada version badge once, in the last task (V41 to V42).
 - Commit trailer: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
-- OAS band amounts (762.50 at 65 to 74, 838.75 at 75 and over) are quarterly-indexed ESDC figures for October to December 2026 and must be updated for 2027 (comment in the table row and in `docs/next-batches-plan.md`).
+- The OAS recommended amount (762.50 a month at 65 to 74, ESDC October to December 2026) and the 75-plus factor of 1.10 are quarterly-indexed ESDC figures: update the default and the `BENEFIT_RULES.oas` row for 2027 (comment in the row and in `docs/next-batches-plan.md`).
 
 **Edit helper** (save once as `<scratchpad>/edit.js`; every code step below says "apply with the helper"):
 
@@ -43,11 +43,11 @@ module.exports = function edit(file, oldStr, newStr) {
 
 Failure modes the spec implies but the happy-path tests would not exercise, most likely first:
 
-1. **Deferred or absent OAS.** A 66-year-old with `oasStartAge` 70 gets no OAS and no GIS; the spouse is then "spouse without OAS" (table 3). `oasStartAge` 99 means no OAS at all. Task 4 pins both.
+1. **Deferred or absent OAS.** A 66-year-old with `oasStartAge` 70 gets no OAS and no GIS; the spouse is then "spouse without OAS" (table 3). An OAS input of 0 means no OAS at all, and the 75-plus factor applies by actual age. Task 3 and Task 4 pin these.
 2. **Survivor transitions.** Survivor aged 60 to 64 gets the Allowance for the Survivor (table 5), at 65 the single GIS; A-dies must equal B-dies. Task 4 extends `tests/survivor_symmetry.js`.
 3. **Cliffs and zero income.** Table 4's GIS spouse amount drops from 3,155.04 to 0 at 42,768; zero, negative-offset and very large incomes must give 0 (not NaN, not negative benefits). The withdrawal solve must still return net at least the need through a cliff. Task 4 pins these.
 4. **Children boundaries.** Age 17 vs 18 vs 19 (CCB under 18, CGEB under 19), a child born after the year, four or more children (rates cap at the fourth), a single parent. Task 5 pins them.
-5. **Old saves.** A saved state carrying `oasMonthlyA/B` loads (keys deleted) and a state with a high `oasStartAge` is accepted. Task 3 pins both in `tests/legacy_state.js`.
+5. **Old saves.** A saved state with the old default `oasMonthlyA: 742` keeps its value (only the default for new and partial saves changes to 762.50) and one with `oasMonthlyA: 0` still means no OAS; the legacy-state corpus hashes change only because the default changed. Task 3 pins this with `tests/legacy_state.js`.
 
 ---
 
@@ -62,7 +62,7 @@ Failure modes the spec implies but the happy-path tests would not exercise, most
 | `tests/gis_tables.js` (new) | Every row of ESDC tables 1 to 5 against the GIS knots |
 | `tests/benefits.js` (new) | Hand-computed engine and evaluator cases |
 | `docs/sources/gis-tables-2026q4.json` (new) + `docs/sources/extract_gis_tables.py` (new) | Compact JSON of the five ESDC tables and the script that produced it from the xlsx |
-| `tests/tax_brackets.js`, `tests/survivor_symmetry.js`, `tests/golden.js` and others | Updated for `incomeTax` export and retired OAS input |
+| `tests/tax_brackets.js`, `tests/survivor_symmetry.js`, `tests/golden.js` and others | Updated for the `incomeTax` export (Task 4) |
 | `package.json` | New scripts and test wiring |
 | `CLAUDE.md`, `README.md`, `docs/next-batches-plan.md` | Docs |
 
@@ -131,8 +131,8 @@ const ROW_KEYS = ['name', 'kind', 'scope', 'source', 'asOf', 'retrieved', 'verif
           }
         }
         if (r.kind === 'oasPension') {
-          const b = r.bands;
-          if (!(b.length === 2 && b[0].from === 65 && b[1].from === 75 && b[1].monthly > b[0].monthly)) fails.push(`${id}: bad OAS bands`);
+          const f = r.ageFactors;
+          if (!(f.length === 1 && f[0].from === 75 && f[0].factor === 1.1 && r.recommendedMonthly > 700)) fails.push(`${id}: bad OAS age factor`);
         }
         if (r.kind === 'seniorSupplement' && !r.dependsOn.includes('oas')) fails.push(`${id}: a senior supplement must depend on oas`);
         if (r.scope !== 'federal' && !['childSchedule', 'familyCredit', 'seniorSupplement'].includes(r.kind)) fails.push(`${id}: provincial row has a federal-only kind`);
@@ -188,18 +188,19 @@ Apply with the helper to `Planner_Canada.html`: replace the single line `  // PR
       notes: 'Fitted to ESDC tables 1 to 5 for October to December 2026 (docs/sources). Income is annual net income less OAS and the employment exemption, combined for couples. Amounts and income cutoffs scale together with the plan inflation factor (quarterly CPI approximated by annual plan inflation). A single filer aged 60 to 64 who is not a survivor gets no Allowance.',
     },
     oas: {
-      name: 'Old Age Security pension by age band',
+      name: 'Old Age Security pension: 75 plus step and recommended amount',
       kind: 'oasPension',
       scope: 'federal',
       source: 'https://www.canada.ca/en/services/benefits/publicpensions/old-age-security/payments.html',
       asOf: '2026-10-01',
       retrieved: '2026-10-05',
-      verified: { amounts: 'primary' },
+      verified: { amounts: 'primary', ageFactor: 'primary' },
       indexing: { quarterlyCpi: true },
       dependsOn: [],
-      // UPDATE FOR 2027: these are the October to December 2026 maximums and change every quarter.
-      bands: [{ from: 65, monthly: 762.5 }, { from: 75, monthly: 838.75 }],
-      notes: 'Maximum pension for 40 years of residence. Partial residence, deferral increases and the 75 plus top-up timing within the year are not modeled; the amount changes at the age band, not at a birthday month.',
+      // UPDATE FOR 2027: the recommended amount is the October to December 2026 maximum and changes every quarter.
+      recommendedMonthly: 762.5,
+      ageFactors: [{ from: 75, factor: 1.1 }],
+      notes: 'The OAS inputs stay: enter the 65 to 74 amount in todays dollars (2026 maximum 762.50 a month, recommended default; prorate for partial residence; raise it yourself for a deferral, 0.6 percent per month up to 36 percent at 70). The planner applies the 10 percent increase from age 75 (ESDC maximum 838.75; the ratio 75 plus to 65 to 74 is exactly 1.10 in every quarter checked since July 2022 and 1.00 before). Quarterly CPI indexation is approximated by annual plan inflation.',
     },
     cgeb: {
       name: 'Canada Groceries and Essentials Benefit (formerly the GST/HST credit)',
@@ -338,17 +339,19 @@ Apply with the helper to `Planner_Canada.html`: replace the single line `  // PR
       name: 'Quebec Family Allowance',
       kind: 'childSchedule',
       scope: 'qc',
-      source: 'https://www.retraitequebec.gouv.qc.ca/en/enfants/allocation-famille/Pages/allocation-famille.aspx',
+      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
       asOf: '2026-01-01',
       retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'secondary' },
+      verified: { amounts: 'primary', thresholds: 'primary', reductionEnd: 'secondary' },
       indexing: { amountsAndThresholds: true },
       dependsOn: [],
       style: 'qcfa',
       maxAge: 17,
-      twoParent: { max: 3068, min: 1221, from: 60000, to: 107000 },
-      oneParent: { max: 4145, min: 1651, from: 44000, to: 107000 },
-      notes: 'Per child, from the Retraite Quebec 2026 table (owner screenshot). The reduction between the two published thresholds is assumed linear (secondary, on the verification backlog); the single-parent amount is read as per child. The school supplies and handicapped children supplements are not modeled.',
+      perChild: { max: 3068, min: 1221 },
+      singleParentSupplement: { max: 1077, min: 430 },
+      from: { twoParent: 60398, oneParent: 44032 },
+      to: 107000,
+      notes: 'Finance Quebec Table 3 (2026): 3,068 maximum and 1,221 minimum for each child, plus 1,077 maximum and 430 minimum once per single-parent family; reduction thresholds 60,398 for a couple and 44,032 for a single parent. The income where the minimum is reached (107,000, from the Retraite Quebec table) and the linear shape in between are secondary and on the verification backlog. The school supplies and handicapped children supplements are not modeled.',
     },
   };
   // BENEFIT_RULES:end
@@ -658,17 +661,16 @@ git commit -m "7L: GIS evaluator, checked against every row of the ESDC tables"
 
 ---
 
-### Task 3: OAS by age band; retire the oasMonthly inputs
+### Task 3: OAS 75-plus step and the 2026 default (the `oasMonthly` inputs stay)
 
-**Decision to confirm at plan review:** retiring the monthly inputs removes the only way to model a household with no OAS (for example under 10 years of residence). This task keeps the existing `oasStartAge` input and widens its range: **a value of 99 means no OAS**. No new input; the valid range text becomes "65 to 70, or 99 for none". If the owner prefers a different way to switch OAS off, change this task before executing.
+**Decision (owner, 2026-10-05):** the `oasMonthlyA/B` inputs are kept (set one to 0 for no OAS). The planner now applies the statutory 10 percent increase from age 75 automatically, and the 2026 maximum becomes the default. The input is entered in today's dollars and already scales with the plan's inflation factor, so it keeps up with quarterly CPI indexation as annual plan inflation. The OAS deferral increase (0.6 percent per month, up to 36 percent at 70) stays manual, as today: the tooltip tells the user to raise the figure. Historical check of the 75-plus ratio (ESDC and secondary quarterly figures): 1.1000 in July 2023 (756.32 / 687.56), January 2025 (800.44 / 727.67) and October 2026 (838.75 / 762.50), and 1.000 before July 2022 when the increase began.
 
 **Files:**
-- Modify: `Planner_Canada.html` (markup lines for `oasMonthlyA/B`; `defaults`; `FIELDS`; the `ids` list; `normalizeState`; `cppAndOasIncome`; the tornado `ss` lever; `oasStartAge` markup and tooltips; `__test_tax`)
-- Modify: `tests/golden.js`, `tests/dividend_income.js`, `tests/historical_bond_yield.js`, `tests/historical_tax_indexing.js`, `tests/medical_inflation.js`, `tests/snapshot_scenarios.js`, `tests/survivor_symmetry.js`, `tests/legacy_state.js`
+- Modify: `Planner_Canada.html` (`defaults`, the `oasMonthly` and `oasStartAge` markup text, `cppAndOasIncome`, `__test_tax`)
 - Test: `tests/benefits.js` (new, created here; later tasks append)
 
 **Interfaces:**
-- Produces: `oasPensionFor(age)` returns the monthly OAS maximum for an age (0 under 65), reading `BENEFIT_RULES.oas.bands`. `cppAndOasIncome` uses it. `oasStartAge` of 99 yields zero OAS. `state.oasMonthlyA/B` no longer exist.
+- Produces: `oasAgeFactor(age)` returns `BENEFIT_RULES.oas.ageFactors` applied by age (1.1 at 75 and over, else 1). `cppAndOasIncome` computes each partner's OAS as `oasMonthly * 12 * oasAgeFactor(age)` times the inflation factor, from `oasStartAge`. Both are on `window.__test_tax`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -691,30 +693,35 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   await page.waitForTimeout(300);
   const t = (fn, ...args) => page.evaluate(({ fn, args }) => window.__test_tax[fn](...args), { fn, args });
 
-  // --- OAS by age band (ESDC, October to December 2026: 762.50 at 65 to 74, 838.75 at 75 and over) ---
-  near(await t('oasPensionFor', 64), 0, 0, 'OAS at 64');
-  near(await t('oasPensionFor', 65), 762.5, 1e-9, 'OAS at 65');
-  near(await t('oasPensionFor', 74), 762.5, 1e-9, 'OAS at 74');
-  near(await t('oasPensionFor', 75), 838.75, 1e-9, 'OAS at 75');
-  near(await t('oasPensionFor', 95), 838.75, 1e-9, 'OAS at 95');
+  // --- OAS: the 75-plus step (ESDC: 838.75 / 762.50 = 1.10 since July 2022) ---
+  near(await t('oasAgeFactor', 64), 1, 0, 'factor at 64');
+  near(await t('oasAgeFactor', 74), 1, 0, 'factor at 74');
+  near(await t('oasAgeFactor', 75), 1.1, 1e-12, 'factor at 75');
+  near(await t('oasAgeFactor', 95), 1.1, 1e-12, 'factor at 95');
+  // The default is the 2026 maximum, 762.50 a month at 65 to 74.
+  const def = await page.evaluate(() => [window.__test_getState().oasMonthlyA, window.__test_getState().oasMonthlyB]);
+  near(def[0], 762.5, 0, 'default OAS A');
+  near(def[1], 762.5, 0, 'default OAS B');
 
-  // --- cppAndOasIncome: bands by actual age, start age gate, 99 means none ---
+  // cppAndOasIncome: by actual age, gated by the start age, scaled by the inflation factor, 0 means none.
   const oas = (over) => page.evaluate((over) => {
     const s = window.__test_getState();
-    const saved = { oasStartAgeA: s.oasStartAgeA, oasStartAgeB: s.oasStartAgeB };
+    const saved = { oasMonthlyA: s.oasMonthlyA, oasMonthlyB: s.oasMonthlyB, oasStartAgeA: s.oasStartAgeA, oasStartAgeB: s.oasStartAgeB };
     Object.assign(s, over.state);
-    const r = window.__test_tax.cppAndOasIncome({ age: over.age, ageB: over.ageB, singlePerson: false, factor: 1, isSurvivorPeriod: false, deceasedIsA: false });
+    const r = window.__test_tax.cppAndOasIncome({ age: over.age, ageB: over.ageB, singlePerson: false, factor: over.factor || 1, isSurvivorPeriod: false, deceasedIsA: false });
     Object.assign(s, saved);
     return r;
   }, over);
-  let r = await oas({ age: 66, ageB: 76, state: { oasStartAgeA: 65, oasStartAgeB: 65 } });
-  near(r.oasGrossA, 762.5 * 12, 1e-9, 'A at 66 gets the 65 to 74 band');
-  near(r.oasGrossB, 838.75 * 12, 1e-9, 'B at 76 gets the 75 plus band');
-  r = await oas({ age: 66, ageB: 66, state: { oasStartAgeA: 70, oasStartAgeB: 65 } });
+  let r = await oas({ age: 66, ageB: 76, state: { oasMonthlyA: 762.5, oasMonthlyB: 762.5, oasStartAgeA: 65, oasStartAgeB: 65 } });
+  near(r.oasGrossA, 762.5 * 12, 1e-9, 'A at 66: 762.50 x 12 = 9,150');
+  near(r.oasGrossB, 762.5 * 12 * 1.1, 1e-9, 'B at 76: 9,150 x 1.10 = 10,065');
+  r = await oas({ age: 66, ageB: 66, state: { oasMonthlyA: 762.5, oasMonthlyB: 762.5, oasStartAgeA: 70, oasStartAgeB: 65 } });
   near(r.oasGrossA, 0, 0, 'A deferring to 70 gets nothing at 66');
-  near(r.oasGrossB, 762.5 * 12, 1e-9, 'B at 66 starting at 65');
-  r = await oas({ age: 80, ageB: 80, state: { oasStartAgeA: 99, oasStartAgeB: 99 } });
-  near(r.oasGrossA + r.oasGrossB, 0, 0, 'start age 99 means no OAS');
+  near(r.oasGrossB, 9150, 1e-9, 'B starting at 65 gets 9,150 at 66');
+  r = await oas({ age: 80, ageB: 80, state: { oasMonthlyA: 0, oasMonthlyB: 0, oasStartAgeA: 65, oasStartAgeB: 65 } });
+  near(r.oasGrossA + r.oasGrossB, 0, 0, 'an OAS input of 0 means no OAS');
+  r = await oas({ age: 80, ageB: 80, factor: 1.5, state: { oasMonthlyA: 700, oasMonthlyB: 0, oasStartAgeA: 65, oasStartAgeB: 65 } });
+  near(r.oasGrossA, 700 * 12 * 1.1 * 1.5, 1e-9, 'inflation factor and 75-plus step compose');
 
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
@@ -725,93 +732,52 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `node tests/benefits.js`
-Expected: FAIL (`window.__test_tax.oasPensionFor` is not a function).
+Expected: FAIL (`window.__test_tax.oasAgeFactor` is not a function).
 
-- [ ] **Step 3: Implement the bands and retire the inputs**
+- [ ] **Step 3: Implement**
 
 All edits to `Planner_Canada.html` with the helper:
 
 1. Add before `function cppAndOasIncome`:
 
 ```js
-  // OAS pension by age: the ESDC maximum for the band the person is in (762.50 a month at 65 to 74,
-  // 838.75 at 75 and over, October to December 2026; BENEFIT_RULES.oas). Quarterly-indexed: update the
-  // table for 2027. Zero under 65.
-  function oasPensionFor(age) {
-    const b = BENEFIT_RULES.oas.bands;
-    return age >= b[1].from ? b[1].monthly : age >= b[0].from ? b[0].monthly : 0;
+  // OAS 75-plus step: the pension is increased 10 percent from age 75 (permanent since July 2022; the ESDC
+  // maximums are 762.50 a month at 65 to 74 and 838.75 at 75 and over, a ratio of exactly 1.10). The OAS
+  // input is the 65 to 74 amount in today's dollars; this factor is applied by the partner's actual age.
+  // Deferral increases (0.6 percent a month, up to 36 percent at 70) are not applied: raise the input.
+  function oasAgeFactor(age) {
+    const f = BENEFIT_RULES.oas.ageFactors;
+    return age >= f[0].from ? f[0].factor : 1;
   }
 ```
 
-2. In `cppAndOasIncome`, replace
-   `let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 : 0) * factor,` with
-   `let oasGrossA = (age >= state.oasStartAgeA ? oasPensionFor(age) * 12 : 0) * factor,`
-   and replace
-   `: (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 : 0) * factor;` with
-   `: (ageB >= state.oasStartAgeB ? oasPensionFor(ageB) * 12 : 0) * factor;`
+2. In `cppAndOasIncome` replace `let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 : 0) * factor,` with `let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 * oasAgeFactor(age) : 0) * factor,` and replace `: (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 : 0) * factor;` with `: (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 * oasAgeFactor(ageB) : 0) * factor;`.
 
-3. Markup: delete the two `<div ... class="field"> ... id="oasMonthlyA" ...</div>` and `id="oasMonthlyB"` field lines (one in Partner A's block, one `data-partner-b`). In both `oasStartAge` fields change `max="70"` to `max="99"`, the small text `Valid ages 65–70` to `Valid ages 65–70 (99 = no OAS)`, and the tooltip `data-tip` text to: `The pension follows the 2026 maximum for your age (65 to 74, or 75 and over). Real OAS rises about 0.6% for each month you defer past 65, which the planner does not apply. Enter 99 if this partner will not receive OAS (for example under 10 years of Canadian residence).` (avoid apostrophes; the file stores entities as `&#x27;`).
+3. `defaults`: replace `oasMonthlyA: 742,` with `oasMonthlyA: 762.5,` and `oasMonthlyB: 742,` with `oasMonthlyB: 762.5,`. (`FIELDS`, `ids`, the markup ids and the tornado lever are unchanged.)
 
-4. `defaults`: delete `oasMonthlyA: 742,` and `oasMonthlyB: 742,`.
+4. Markup text: in the `oasMonthlyA` field replace `<small>Defaults to the 2026 maximum (ages 65–74)</small>` with `<small>2026 maximum 762.50 a month at 65 to 74; the planner adds 10% from age 75. Enter 0 for no OAS.</small>` and give `oasMonthlyB` the same `<small>` (it has none today). In both `oasStartAge` tooltips (the string occurs twice, Partner A and Partner B: replace both) change `The OAS amount above is used as-is from this age on. Real OAS rises about 0.6% for each month you defer past 65, but the planner doesn&#x27;t apply that, so raise the monthly figure yourself if you plan to defer.` to `The OAS amount above is used from this age on, with the 10% increase the planner adds from age 75. Real OAS rises about 0.6% for each month you defer past 65 (up to 36% at 70), but the planner doesn&#x27;t apply that, so raise the monthly figure yourself if you plan to defer. Partial residence in Canada also reduces OAS: enter your own estimate.`
 
-5. `FIELDS`: delete the entries `{ key: 'oasMonthlyA', type: 'number' },` and `{ key: 'oasMonthlyB', type: 'number' },`.
+5. Export: replace `gisEmploymentExemption, cppContribution,` with `gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, cppContribution,` in `__test_tax`.
 
-6. `ids` list: remove `'oasMonthlyA'` and `'oasMonthlyB'` from the line that starts `'oasMonthlyA', 'oasStartAgeA', 'oasMonthlyB', 'oasStartAgeB', 'pensionYearlyA',` (leave `'oasStartAgeA', 'oasStartAgeB', 'pensionYearlyA',`).
-
-7. `normalizeState` (inside `normalizeLists`, next to `delete s.otherIncomeEnabled;`): add `delete s.oasMonthlyA;` and `delete s.oasMonthlyB;` (retired inputs, not migrated).
-
-8. Tornado lever `ss`: replace the whole lever with a CPP-only version:
-
-```js
-    {
-      id: 'ss',
-      label: 'CPP (±10%)',
-      run: (endValue) => {
-        const savedCppA = state.cppMonthlyA,
-          savedCppB = state.cppMonthlyB;
-        state.cppMonthlyA = savedCppA * 0.9;
-        state.cppMonthlyB = savedCppB * 0.9;
-        const decrease = endValue(simulate());
-        state.cppMonthlyA = savedCppA * 1.1;
-        state.cppMonthlyB = savedCppB * 1.1;
-        const increase = endValue(simulate());
-        state.cppMonthlyA = savedCppA;
-        state.cppMonthlyB = savedCppB;
-        return { decrease, increase };
-      },
-    },
-```
-
-9. Export: replace `gisEmploymentExemption, cppContribution,` with `gisEmploymentExemption, oasPensionFor, cppAndOasIncome, cppContribution,` in `__test_tax`.
-
-10. Search the file for any remaining `oasMonthly` (`grep -n oasMonthly Planner_Canada.html`): expected none. Also search the tornado checkbox markup for the label text `CPP + OAS` and change it to `CPP` if it exists (`grep -n "CPP + OAS" Planner_Canada.html`).
-
-- [ ] **Step 4: Update the existing tests that set the retired inputs**
-
-- `tests/golden.js` lines 336 and 340, `tests/dividend_income.js` line 53, `tests/historical_bond_yield.js` line 49, `tests/historical_tax_indexing.js` line 149, `tests/medical_inflation.js` line 43: replace `['oasMonthlyA', 0]` with `['oasStartAgeA', 99]` (same position, same file style).
-- `tests/survivor_symmetry.js` lines 67 to 68: delete the two `['oasMonthlyA', 800]`, `['oasMonthlyB', 800]` lines (OAS now follows the band for both identical partners).
-- `tests/snapshot_scenarios.js` line 135: remove `oasMonthlyA: 742, ` from the `R oasClawback` scenario (the household now gets the band amount).
-- `tests/legacy_state.js`: add two corpus cases next to the other retired-key cases, in the file's existing format: a saved state `{ oasMonthlyA: 800, oasMonthlyB: 800, oasStartAgeA: 67 }` (expected: the two keys are gone, `oasStartAgeA` is 67) and `{ oasStartAgeA: 99 }` (expected: 99 kept). Update `tests/snapshots/legacy_state.json` with `node tests/legacy_state.js --update` only after reading the diff: only `oasMonthly*` keys may disappear.
-
-- [ ] **Step 5: Run the new test, then see what moved**
+- [ ] **Step 4: Run the new test, then the suite**
 
 Run: `node tests/benefits.js`
 Expected: `benefits tests ok`.
 
 Run: `npm test`
-Expected: FAIL only in the snapshot tests (`tests/snapshot.js` Canada baseline and `tests/snapshot_ui.js` canada, `tests/field_registry.js` if it lists retired fields) and nothing else. If anything else fails, fix that first.
+Expected: FAIL only in the Canada snapshot tests (`tests/snapshot.js` Canada baseline, `tests/legacy_state.js` Canada saves (the new default flows into every save without an OAS value), `tests/snapshot_ui.js` Canada: the new default 762.50 instead of 742 and the 75-plus step change every Canada scenario with OAS at 75 or older, and the field text changes). If anything else fails, fix that first.
 
-- [ ] **Step 6: Update the baselines for the intended change**
+- [ ] **Step 5: Update the baselines for the intended change**
 
-Run: `git diff --stat tests/snapshots/` (should be empty), then `npm run snapshot:update`, then `git diff --stat tests/snapshots/`.
-Expected: only `canada.json` and `ui_canada.json` changed (the OAS amount is now 762.50 not 742, with the 75 plus band; the retired fields leave the UI snapshot). `us.json` and `ui_us.json` must not appear. Run `npm test` again.
+Run: `git diff --stat tests/snapshots/` (should be empty), `node tests/legacy_state.js --update` (read the diff: only Canada entries may change, because the default changed), `npm run snapshot:update`, `git diff --stat tests/snapshots/`.
+Expected: only `canada.json`, `ui_canada.json` and `legacy_state.json` changed. `us.json` and `ui_us.json` must not appear. Run `npm test` again.
 Expected: all pass.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A tests Planner_Canada.html
-git commit -m "7L: OAS pension by ESDC age band; retire the oasMonthly inputs (oasStartAge 99 = no OAS)"
+git commit -m "7L: OAS 75-plus step (x1.10) and the 2026 maximum as the default; oasMonthly inputs kept"
 ```
 
 ---
@@ -824,7 +790,7 @@ git commit -m "7L: OAS pension by ESDC age band; retire the oasMonthly inputs (o
 - Test: `tests/benefits.js`
 
 **Interfaces:**
-- Consumes: Task 2's `gisAnnual`, `gisEmploymentExemption`; Task 3's `oasPensionFor`.
+- Consumes: Task 2's `gisAnnual`, `gisEmploymentExemption`; Task 3's `oasAgeFactor`.
 - Produces: `incomeTaxCA(profile, gains, traditionalExtra)` (the old pure tax); `taxFor(profile, gains, traditionalExtra)` = `incomeTaxCA(...) - benefitsFor(...)`; `benefitsFor(profile, gains, traditionalExtra)` returns the benefit total and fills the module-level object `BEN` with `{ gis, allowance, ccb, cgeb, provChild, provSenior, provCredit, total }` (annual dollars, tax-free). Profile gains fields: `oasA, oasB` (OAS received), `earnedA, earnedB` (wages net of contributions), `survivor` (boolean), `dependents` (from `dependentsInYear`, used from Task 5). Row fields: `benefits`, `benefitGis`, `benefitAllowance`, `benefitCcb`, `benefitCgeb`, `benefitProvChild`, `benefitProvSenior`, `benefitProvCredit`; `row.tax` stays gross (income tax plus payroll tax). `window.__test_tax` exports `incomeTax`, `benefitsFor`, `getBenefits` (returns a copy of `BEN`).
 
 - [ ] **Step 1: Write the failing tests**
@@ -948,7 +914,7 @@ Apply with the helper to `Planner_Canada.html`. Replace the line `  function tax
   }
 ```
 
-Export: replace `oasPensionFor, cppAndOasIncome, cppContribution,` with `oasPensionFor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, cppContribution,`.
+Export: replace `oasAgeFactor, cppAndOasIncome, cppContribution,` with `oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, cppContribution,`.
 
 - [ ] **Step 4: Plumb the profile and the year row**
 
@@ -1262,15 +1228,17 @@ Append to `tests/benefits.js` before `await browser.close();`. A helper switches
   o = await withProv('ab', prof({ otherA: 20000, oasA: 9150, ageA: 70 }));
   near(o.provSenior, 3946 - 0.1714 * (20000 - 9150), 1e-6, 'Alberta Seniors Benefit single');
 
-  // Quebec Family Allowance (Retraite Quebec 2026 table): two parents, 1 child, family income 83,500 = midway between
-  // 60,000 and 107,000: 3,068 - (3,068 - 1,221) x 0.5 = 2,144.50 (linear between the published ends: secondary).
-  o = await withProv('qc', prof({ otherA: 41750, otherB: 41750, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5)] }));
+  // Quebec Family Allowance (Finance Quebec Table 3, 2026): per child 3,068 down to 1,221; a single-parent family also gets
+  // 1,077 down to 430 once. Reduction starts at 60,398 (couple) or 44,032 (single parent) and ends at 107,000 (secondary).
+  // Two parents, 1 child, family income 83,699 = midway between 60,398 and 107,000: 3,068 - (3,068 - 1,221) x 0.5 = 2,144.50.
+  o = await withProv('qc', prof({ otherA: 41849.5, otherB: 41849.5, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5)] }));
   near(o.provChild, 3068 - (3068 - 1221) * 0.5, 1e-6, 'Quebec family allowance two parents midway');
-  // Single parent at or below 44,000: 4,145 per child, 2 children = 8,290; at or above 107,000 the minimum 1,651 each.
+  // Single parent, 2 children, income 40,000 (at or under 44,032): 2 x 3,068 + 1,077 = 7,213.
   o = await withProv('qc', prof({ otherA: 40000, ageA: 40, dependents: [kid(5), kid(8)] }));
-  near(o.provChild, 8290, 1e-6, 'Quebec family allowance single parent maximum');
+  near(o.provChild, 2 * 3068 + 1077, 1e-6, 'Quebec family allowance single parent maximum');
+  // At or above 107,000: 2 x 1,221 + 430 = 2,872.
   o = await withProv('qc', prof({ otherA: 120000, ageA: 40, dependents: [kid(5), kid(8)] }));
-  near(o.provChild, 2 * 1651, 1e-6, 'Quebec family allowance single parent minimum');
+  near(o.provChild, 2 * 1221 + 430, 1e-6, 'Quebec family allowance single parent minimum');
   // Children over 17 are not counted.
   o = await withProv('qc', prof({ otherA: 40000, ageA: 40, dependents: [kid(18)] }));
   near(o.provChild, 0, 0, 'Quebec: an 18-year-old gets no family allowance');
@@ -1351,16 +1319,18 @@ Apply with the helper to `Planner_Canada.html`: in `benefitsFor`, replace the li
         break;
       }
       case 'qc': {
-        // Quebec Family Allowance: per child, linear between the published maximum and minimum income ends.
+        // Quebec Family Allowance: per child (plus a single-parent supplement once), linear between the reduction
+        // threshold and the income where the minimum is reached.
         const R = BENEFIT_RULES.qcfa;
         let m = 0;
         for (let i = 0; i < kids.length; i++) if (kids[i].age <= R.maxAge) m++;
         if (m > 0) {
-          const P = couple ? R.twoParent : R.oneParent,
-            from = P.from * f,
-            to = P.to * f;
-          const per = (fam <= from ? P.max : fam >= to ? P.min : P.max - ((P.max - P.min) * (fam - from)) / (to - from)) * f;
-          BEN.provChild = per * m;
+          const from = (couple ? R.from.twoParent : R.from.oneParent) * f,
+            to = R.to * f,
+            share = fam <= from ? 0 : fam >= to ? 1 : (fam - from) / (to - from); // 0 = maximum, 1 = minimum
+          let v = m * (R.perChild.max - (R.perChild.max - R.perChild.min) * share);
+          if (!couple) v += R.singleParentSupplement.max - (R.singleParentSupplement.max - R.singleParentSupplement.min) * share;
+          BEN.provChild = v * f;
         }
         break;
       }
@@ -1386,13 +1356,290 @@ git commit -m "7L: provincial benefits for ON, BC, AB and QC (OSTC, OCB, BC Fami
 
 ---
 
-### Task 7: GATED. Ontario Energy and Property Tax Credit (occupancy part), Ontario senior homeowners' grant, Quebec solidarity credit and work premium
+### Task 7: Ontario Energy and Property Tax Credit, Ontario senior homeowners' grant, Quebec solidarity credit and work premium
 
-**This task cannot be written to the no-placeholder standard yet.** The calculation rules are not in hand: Ontario's occupancy-cost formula and age-band reduction (the CRA OEPTC calculation sheet), the senior homeowners' grant reduction, Revenu Quebec's 2026 solidarity credit component tables (the page text loads but the tables do not), and the work premium's rates, thresholds and work-income rules (only the 2026 maximums are known: 1,207.33 / 1,882.45 / 3,122.40 / 4,057.00, adapted 2,294.59 / 3,559.12 / 4,218.00 / 5,234.00, supplement 200 a month for up to 12 months).
+Figures are the CRA 2026 OEPTC calculation sheets (primary, read 2026-10-05: the sheets for married or common-law individuals, married seniors, single individuals with no children or sole care of a child, single seniors with no children or sole care of a child), Finance Quebec "Parameters of the Personal Income Tax System for 2026" Tables 3 and 4 (primary, November 2025), and, as interim values awaiting the owner's source check, the Ontario senior homeowners' grant thresholds (from the ontario.ca grant page as quoted by a search summary) and the work premium phase-in rates (derived below). All interim values are marked `secondary` in the table and are on the verification backlog.
 
-**Gate:** do not execute until the owner supplies (screenshots or PDFs) these sources, or confirms the programs are to be dropped from 7L and recorded as named gaps. When the figures arrive, extend this plan with a full task in the same pattern as Task 6 (rows added to `BENEFIT_RULES` and the coverage test's id list, evaluators, hand-computed cases citing the sheet, snapshot update, commit). The evaluator hooks are already in place: `benefitsFor`'s province switch, `BEN.provCredit` and `BEN.provSenior`, `profile.earnedA/B` for work income, and `housingForYear` for rent and property tax (the engine variables `rent` and the property-tax figure are not on the profile today; the extension must add `profile.rentYear` and `profile.propertyTaxYear` in `buildTaxProfile` from `housingForYear`).
+**The energy component is computed, not skipped:** line 7 of every CRA sheet adds the occupancy cost (20 percent of rent plus property tax) into the energy component, which is capped at 290. Only the long-term-care and on-reserve energy parts (lines 5 and 6) are not modeled.
 
-If the gate is dropped: record the four programs as named gaps in the 7L notes, `CLAUDE.md` and `README.md` (Task 8) and skip this task.
+**Derivations recorded in the rows (arithmetic checks):**
+- Work premium reduction rate 10 percent: the zero point of each premium is its reduction threshold plus its maximum divided by 0.10: 12,808 + 31,224 = 44,032 and 19,828 + 40,570 = 60,398, which equal the family allowance reduction thresholds in the same table (the document says they coincide).
+- Phase-in rates: each maximum equals rate x (threshold - exclusion): 1,207.33 / (12,808 - 2,400) = 0.1160 (living alone), 1,882.45 / (19,828 - 3,600) = 0.1160 (couple), 3,122.40 / 10,408 = 0.3000 (single parent), 4,057.00 / 16,228 = 0.2500 (couple with children). A search summary independently gives 11.6 percent. Marked `secondary`.
+- Solidarity credit: 363 + 172 + 746 = 1,281 for a person living alone (the published maximum for a single person) and 363 + 363 + 906 + 2 x 158 = 1,948 for a couple with two children, with a 6 percent reduction over 43,195: 43,195 + 1,281 / 0.06 = 64,545 and 43,195 + 1,632 / 0.06 = 70,395, the published ceilings. The 6 percent rate (3 percent when only one component applies) is from a search summary; the arithmetic matches the published ceilings. Marked `secondary`.
+
+**Files:**
+- Modify: `Planner_Canada.html` (`BENEFIT_RULES` rows; `housingForYear` return objects; `buildTaxProfile` and its call; `benefitsFor`; `__test_tax`)
+- Modify: `tests/benefit_rules.js` (ids and kinds), `tests/benefits.js`
+- Modify: `docs/benefits-rules.md` (regenerate), `docs/next-batches-plan.md` (backlog rows)
+
+**Interfaces:**
+- Consumes: `benefitsFor`'s `switch (state.province)`, `kids`, `fam`, `f`, `couple`, `ageA`, `ageB` (Task 6).
+- Produces: `housingForYear` results gain `rentPaid` and `propertyTaxPaid` (annual nominal dollars, zero when not applicable); profile fields `rentPaid`, `propertyTaxPaid`; rows `oshptg`, `oeptc`, `qcsol`, `qcwp` in `BENEFIT_RULES`; new kinds `occupancyCredit` and `quebecCredit`. `BEN.provCredit` now includes the Ontario Energy and Property Tax Credit and the Quebec credits; `BEN.provSenior` includes the Ontario grant.
+
+- [ ] **Step 1: Add the table rows and update the coverage test (failing first)**
+
+In `tests/benefit_rules.js` change the lists to `const IDS = ['gis', 'oas', 'cgeb', 'ccb', 'ocb', 'ostc', 'bcfb', 'acfb', 'absb', 'qcfa', 'oeptc', 'oshptg', 'qcsol', 'qcwp'];` and `const KINDS = ['gisAllowance', 'oasPension', 'familyCredit', 'childSchedule', 'seniorSupplement', 'occupancyCredit', 'quebecCredit'];`; in the loop change the provincial-kind check to `['childSchedule', 'familyCredit', 'seniorSupplement', 'occupancyCredit', 'quebecCredit']`, and add `if (r.kind === 'occupancyCredit' && r.scope !== 'on') fails.push(...)` and `if (r.kind === 'quebecCredit' && r.scope !== 'qc') fails.push(...)` (use the file's `fails.push(\`${id}: ...\`)` form).
+
+Run: `node tests/benefit_rules.js`. Expected: FAIL (`oeptc: missing` and the other three).
+
+Insert these rows before the closing `};` of `BENEFIT_RULES` (after `qcfa`), with the helper:
+
+```js
+    oshptg: {
+      name: 'Ontario Senior Homeowners Property Tax Grant',
+      kind: 'occupancyCredit',
+      scope: 'on',
+      source: 'https://www.ontario.ca/page/senior-homeowners-property-tax-grant',
+      asOf: '2026-01-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'secondary', thresholds: 'secondary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: [],
+      style: 'oshptg',
+      seniorAge: 64,
+      max: 500,
+      singleFrom: 35000,
+      coupleFrom: 45000,
+      rate: 0.0333,
+      notes: 'Up to 500 a year for a homeowner aged 64 or older who pays property tax: full at family net income of 35,000 or less (45,000 for a couple), reduced by 3.33 percent of the excess, nil at 50,000 (60,000). Figures are from a summary of the ontario.ca page and are on the verification backlog. Not indexed (500 since 2010).',
+    },
+    oeptc: {
+      name: 'Ontario Energy and Property Tax Credit',
+      kind: 'occupancyCredit',
+      scope: 'on',
+      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/ontario-energy-property-tax-credit-oeptc-calculation-sheets/2026-ontario-energy-property-tax-credit-calculation-sheets.html',
+      asOf: '2026-07-01',
+      retrieved: '2026-10-05',
+      verified: { formula: 'primary', amounts: 'primary' },
+      indexing: { amountsAndThresholds: true },
+      dependsOn: ['oshptg'],
+      style: 'oeptc',
+      seniorAge: 64,
+      rentRate: 0.2,
+      propertyTaxRate: 0.1,
+      reductionRate: 0.02,
+      nonSenior: { propertyTaxCap: 944, propertyTaxAdd: 73, energyCap: 290, fromSingle: 29047, fromCouple: 36309, fromSingleParent: 36309 },
+      senior: { propertyTaxCap: 581, propertyTaxAdd: 617, energyCap: 290, fromSingle: 36309, fromCouple: 43571, fromSingleParent: 43571 },
+      notes: 'CRA 2026 calculation sheets. Occupancy cost is 20 percent of rent plus property tax. Energy component is the lesser of the occupancy cost and 290; property tax component is the lesser of the occupancy cost and (10 percent of it, capped, plus a fixed add-on); less 2 percent of family net income over the threshold. Seniors (either spouse 64 or older) use the senior figures and, with a senior homeowners grant, the credit plus the grant cannot exceed the energy component plus the occupancy cost. The long-term-care and on-reserve energy lines and the student residence 25 dollars are not modeled. Children matter only for a single filer (the sole-care sheet).',
+    },
+    qcsol: {
+      name: 'Quebec Solidarity Tax Credit (QST and housing components)',
+      kind: 'quebecCredit',
+      scope: 'qc',
+      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
+      asOf: '2026-07-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'primary', reduction: 'secondary' },
+      indexing: { amountsAndThresholds: true },
+      dependsOn: [],
+      style: 'solidarity',
+      childMaxAge: 17,
+      qst: { basic: 363, spouse: 363, livingAlone: 172 },
+      housing: { couple: 906, singleOrParent: 746, child: 158 },
+      reductionFrom: 43195,
+      reductionRate: 0.06,
+      notes: 'Finance Quebec Table 4, July 2026 to June 2027. A single person or single parent gets the basic and living-alone QST amounts; a couple gets the basic and spouse amounts; housing is the couple or single amount plus 158 per dependent child, for owners and tenants alike. Reduced by 6 percent of family income over 43,195 (3 percent applies when only one component is received: not modeled). The northern village component is not modeled.',
+    },
+    qcwp: {
+      name: 'Quebec Work Premium (general)',
+      kind: 'quebecCredit',
+      scope: 'qc',
+      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
+      asOf: '2026-01-01',
+      retrieved: '2026-10-05',
+      verified: { maxima: 'primary', thresholds: 'primary', rates: 'secondary' },
+      indexing: { amountsAndThresholds: true },
+      dependsOn: [],
+      style: 'workPremium',
+      childMaxAge: 17,
+      exclusion: { single: 2400, couple: 3600 },
+      reductionRate: 0.1,
+      situations: {
+        alone: { rate: 0.116, threshold: 12808 },
+        coupleNoKids: { rate: 0.116, threshold: 19828 },
+        singleParent: { rate: 0.3, threshold: 12808 },
+        coupleKids: { rate: 0.25, threshold: 19828 },
+      },
+      notes: 'Finance Quebec Table 3 (2026 maxima 1,207.33 / 1,882.45 / 3,122.40 / 4,057.00 and the two reduction thresholds) and the work income exclusions of 2,400 and 3,600. Premium = rate x (the lesser of work income and the threshold, less the exclusion) less 10 percent of family income over the threshold. The rates are derived from the table maxima (maximum / (threshold - exclusion)); 11.6 percent is also in a search summary. Work income is wages. The adapted work premium and the supplement are not modeled; full-time student and other eligibility exclusions are not modeled.',
+    },
+```
+
+Regenerate the doc: `node scripts/gen-benefit-rules.js`. Run `node tests/benefit_rules.js`. Expected: `benefit rules coverage ok`.
+
+- [ ] **Step 2: Write the failing evaluator tests**
+
+Append to `tests/benefits.js` before `await browser.close();` (uses `prof`, `kid`, `near` and `withProv` from earlier tasks; `prof` spreads overrides so `rentPaid` and `propertyTaxPaid` pass through):
+
+```js
+  // --- Ontario Energy and Property Tax Credit (CRA 2026 sheets) and senior homeowners grant ---
+  // (a) Couple, both under 64, renting 18,000, family income 50,000, no children.
+  //     Occupancy 0.20 x 18,000 = 3,600; energy min(3,600, 290) = 290; property tax component min(10% x 3,600 = 360, 944) + 73
+  //     = 433, capped at 3,600 -> 433; credit 723 (the CRA example: a 1,500 a month renter gets 723) less 2% x (50,000 - 36,309)
+  //     = 273.82 -> 449.18. Sales tax credit: 2 adults 756 less 4% x 13,691 = 547.64 -> 208.36. provCredit = 657.54.
+  let o = await withProv('on', prof({ otherA: 25000, otherB: 25000, ageA: 40, ageB: 40, singlePerson: false, rentPaid: 18000 }));
+  near(o.provCredit, 723 - 0.02 * (50000 - 36309) + (756 - 0.04 * (50000 - 36309)), 1e-6, 'OEPTC and OSTC, couple renting');
+  near(o.provSenior, 0, 0, 'no grant for a renter');
+  // (b) Single, 40, owner paying 3,000 property tax, income 20,000: occupancy 3,000; energy 290; property tax min(300, 944) + 73
+  //     = 373 -> credit 663 (income under 29,047, no reduction); OSTC 378 (income under 29,047). provCredit 1,041.
+  o = await withProv('on', prof({ otherA: 20000, ageA: 40, propertyTaxPaid: 3000 }));
+  near(o.provCredit, 663 + 378, 1e-6, 'OEPTC and OSTC, single owner');
+  // (c) Single senior 70, owner paying 500 property tax, family income 30,000 (senior figures: 581 cap, 617 add-on, 36,309).
+  //     Occupancy 500; energy min(500, 290) = 290; property tax min(min(50, 581) + 617 = 667, 500) = 500; step 4 = 790.
+  //     Grant: income 30,000 under 35,000 -> 500. Step 5: A = 500 + 790 = 1,290; B = 1,290 - 290 = 1,000; C = 1,000 - 500 = 500;
+  //     OEPTC = 790 - 500 = 290. OSTC: 378 - 4% x (30,000 - 29,047) = 339.88. provCredit = 629.88, provSenior (grant) = 500.
+  o = await withProv('on', prof({ otherA: 30000, ageA: 70, propertyTaxPaid: 500 }));
+  near(o.provCredit, 290 + (378 - 0.04 * (30000 - 29047)), 1e-6, 'OEPTC with the grant interaction, OSTC');
+  near(o.provSenior, 500, 1e-9, 'grant 500 at income 30,000');
+  // (d) Senior couple (66 and 66), renting 12,000, family income 50,000: occupancy 2,400; energy 290; property tax
+  //     min(240, 581) + 617 = 857 -> 857; 1,147 less 2% x (50,000 - 43,571) = 128.58 -> 1,018.42. OSTC 208.36.
+  o = await withProv('on', prof({ otherA: 25000, otherB: 25000, ageA: 66, ageB: 66, singlePerson: false, rentPaid: 12000 }));
+  near(o.provCredit, 1147 - 0.02 * (50000 - 43571) + (756 - 0.04 * (50000 - 36309)), 1e-6, 'OEPTC senior couple renting');
+  // (e) The grant: single at 42,500 gets 500 - 3.33% x 7,500 = 250.25; a couple at 60,000 or more gets nothing; a tenant never does.
+  o = await withProv('on', prof({ otherA: 42500, ageA: 70, propertyTaxPaid: 4000 }));
+  near(o.provSenior, 500 - 0.0333 * 7500, 1e-6, 'grant single at 42,500');
+  o = await withProv('on', prof({ otherA: 30000, otherB: 30000, ageA: 70, ageB: 70, singlePerson: false, propertyTaxPaid: 4000 }));
+  near(o.provSenior, 0, 1e-9, 'grant couple at 60,000');
+  // (f) No rent and no property tax: no energy and property tax credit (the sales tax credit still applies).
+  o = await withProv('on', prof({ otherA: 20000, ageA: 40 }));
+  near(o.provCredit, 378, 1e-9, 'only the sales tax credit without housing costs');
+  // (g) A single parent of a child under 18 uses the sole-care threshold 36,309 (not 29,047): income 33,000, rent 12,000.
+  //     Occupancy 2,400; energy 290; property tax min(240, 944) + 73 = 313; credit 603 less 2% x 0 = 603 (33,000 < 36,309);
+  //     with the 29,047 threshold it would be reduced by 79.06.
+  o = await withProv('on', prof({ otherA: 33000, ageA: 40, rentPaid: 12000, dependents: [kid(5)] }));
+  near(o.provCredit - (378 * 2 - 0.04 * Math.max(0, 33000 - 36309)), 603, 1e-6, 'OEPTC single parent uses the sole-care threshold');
+
+  // Plumbing: housingForYear reports the rent and the property tax paid (annual, nominal).
+  const hy = await page.evaluate(() => {
+    const s = window.__test_getState();
+    const saved = { tenure: s.tenure, rent: s.rent, rentGrowth: s.rentGrowth, propertyTax: s.propertyTax, propertyTaxGrowth: s.propertyTaxGrowth };
+    const sched = { payments: [0, 0], balances: [0, 0] },
+      fb = { buyYear: 99 };
+    s.tenure = 'rent'; s.rent = 2000; s.rentGrowth = 0; s.propertyTax = 4800; s.propertyTaxGrowth = 0;
+    const renter = window.__test_tax.housingForYear(1, 1, sched, fb);
+    s.tenure = 'own';
+    const owner = window.__test_tax.housingForYear(1, 1, sched, fb);
+    Object.assign(s, saved);
+    return { renter, owner };
+  });
+  near(hy.renter.rentPaid, 24000, 1e-9, 'renter pays 2,000 x 12');
+  near(hy.renter.propertyTaxPaid, 0, 0, 'renter pays no property tax');
+  near(hy.owner.propertyTaxPaid, 4800, 1e-9, 'owner pays the property tax');
+  near(hy.owner.rentPaid, 0, 0, 'owner pays no rent');
+
+  // --- Quebec solidarity credit and work premium (Finance Quebec Tables 3 and 4, July 2026 to June 2027) ---
+  // Single living alone, family income 30,000: QST 363 + 172 + housing 746 = 1,281; under 43,195, no reduction.
+  o = await withProv('qc', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 1281, 1e-6, 'solidarity credit, single living alone');
+  // Same, income 50,000: 1,281 - 6% x (50,000 - 43,195) = 872.70.
+  o = await withProv('qc', prof({ otherA: 50000, ageA: 40 }));
+  near(o.provCredit, 1281 - 0.06 * (50000 - 43195), 1e-6, 'solidarity credit reduced');
+  // Couple with 2 children, income 60,000: 363 + 363 + 906 + 2 x 158 = 1,948; less 6% x 16,805 = 1,008.30 -> 939.70.
+  o = await withProv('qc', prof({ otherA: 30000, otherB: 30000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provCredit, 1948 - 0.06 * (60000 - 43195), 1e-6, 'solidarity credit, couple with two children');
+  // Work premium, person living alone, work income 8,000 (family 8,000): 11.6% x (8,000 - 2,400) = 649.60, plus the solidarity credit 1,281.
+  o = await withProv('qc', prof({ otherA: 8000, earnedA: 8000, ageA: 40 }));
+  near(o.provCredit, 1281 + 0.116 * (8000 - 2400), 1e-6, 'work premium phase-in, living alone');
+  // Work income 15,000: 11.6% x (12,808 - 2,400) = 1,207.33 (the 2026 maximum) less 10% x (15,000 - 12,808) = 219.20 -> 988.13.
+  o = await withProv('qc', prof({ otherA: 15000, earnedA: 15000, ageA: 40 }));
+  near(o.provCredit, 1281 + 0.116 * (12808 - 2400) - 0.1 * (15000 - 12808), 1e-6, 'work premium reduction, living alone');
+  near(0.116 * (12808 - 2400), 1207.33, 0.005, 'the phase-in rate reproduces the published 2026 maximum');
+  // Couple with children, combined work income 30,000: 25% x (19,828 - 3,600) = 4,057.00 less 10% x (30,000 - 19,828) = 1,017.20 -> 3,039.80; + 1,948.
+  o = await withProv('qc', prof({ otherA: 15000, otherB: 15000, earnedA: 15000, earnedB: 15000, ageA: 40, ageB: 40, singlePerson: false, dependents: [kid(5), kid(10)] }));
+  near(o.provCredit, 1948 + 0.25 * (19828 - 3600) - 0.1 * (30000 - 19828), 1e-6, 'work premium, couple with children');
+  // Work income at or below the exclusion: nothing. Single parent maximum 3,122.40 reached at the threshold 12,808, nil at 44,032.
+  o = await withProv('qc', prof({ otherA: 2400, earnedA: 2400, ageA: 40 }));
+  near(o.provCredit, 1281, 1e-6, 'no work premium at the exclusion');
+  o = await withProv('qc', prof({ otherA: 44032, earnedA: 44032, ageA: 40, dependents: [kid(5)] }));
+  near(o.provCredit - (363 + 172 + 746 + 158 - 0.06 * (44032 - 43195)), 0, 1e-6, 'single parent work premium is nil at 44,032');
+```
+
+Run: `node tests/benefits.js`. Expected: FAIL (`housingForYear` is not exported; the Ontario and Quebec credits are 0).
+
+- [ ] **Step 3: Plumb rent and property tax**
+
+Apply with the helper to `Planner_Canada.html`:
+
+1. `housingForYear`: after `const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);` add `const propertyTaxPaid = ownsHome ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) : 0;`. Add `rentPaid: 0, propertyTaxPaid,` to the object returned in the `state.tenure === 'own'` branch; `rentPaid: rent, propertyTaxPaid: 0,` to the `state.tenure === 'rent' || year < futureBuy.buyYear` return; and `rentPaid: 0, propertyTaxPaid,` to the final return.
+2. In `runProjection`, `const housingYear = housingForYear(year, factor, schedule, futureBuy, bal.fhsa);` is already a result object: pass `rentPaid: housingYear.rentPaid, propertyTaxPaid: housingYear.propertyTaxPaid,` into the `buildTaxProfile({ ... })` call (next to `inv`), add `rentPaid, propertyTaxPaid,` to `buildTaxProfile`'s parameter list, and add `rentPaid, propertyTaxPaid,` to both profile literals (after `dependents`). A survivor profile keeps the household's rent and property tax.
+3. Export: replace `benefitsFor, getBenefits,` with `benefitsFor, getBenefits, housingForYear,` in `__test_tax` (keep any other names already there).
+
+- [ ] **Step 4: Implement the evaluators**
+
+Apply with the helper to `Planner_Canada.html`, in `benefitsFor`'s `switch (state.province)`:
+
+1. In `case 'on':` replace the closing `break;` of that case (the one after the Ontario Child Benefit block) with the block below, then the `break;`.
+
+```js
+        // Ontario senior homeowners property tax grant, then the Energy and Property Tax Credit (which reads it).
+        // Occupancy cost is 20 percent of rent plus property tax (CRA 2026 calculation sheets, step 1).
+        {
+          const H = BENEFIT_RULES.oshptg,
+            E = BENEFIT_RULES.oeptc,
+            ptPaid = profile.propertyTaxPaid || 0,
+            occ = E.rentRate * (profile.rentPaid || 0) + ptPaid,
+            senior = ageA >= E.seniorAge || (couple && ageB >= E.seniorAge);
+          let grant = 0;
+          if (senior && ptPaid > 0) grant = Math.max(0, H.max - H.rate * Math.max(0, fam - (couple ? H.coupleFrom : H.singleFrom)));
+          if (occ > 0) {
+            let childUnder18 = false;
+            for (let i = 0; i < kids.length; i++) if (kids[i].age <= 17) childUnder18 = true;
+            const P = senior ? E.senior : E.nonSenior,
+              from = (couple ? P.fromCouple : childUnder18 ? P.fromSingleParent : P.fromSingle) * f,
+              energy = Math.min(P.energyCap * f, occ),
+              propertyTax = Math.min(Math.min(E.propertyTaxRate * occ, P.propertyTaxCap * f) + P.propertyTaxAdd * f, occ);
+            let credit = Math.max(0, energy + propertyTax - E.reductionRate * Math.max(0, fam - from));
+            // Step 5: with a grant, the credit plus the grant cannot exceed the energy component plus the occupancy cost.
+            if (grant > 0) credit = Math.max(0, credit - Math.max(0, Math.max(0, grant + credit - energy) - occ));
+            BEN.provCredit += credit;
+          }
+          BEN.provSenior += grant;
+        }
+```
+
+   Also change the Ontario Sales Tax Credit assignment `BEN.provCredit = Math.max(0, R.adult * f * people - ...)` to start from zero but be an assignment as is (it runs first, so `+=` above is correct).
+
+2. In `case 'qc':` replace the closing `break;` of that case with the block below, then the `break;`.
+
+```js
+        // Quebec Solidarity Tax Credit (QST and housing components), Finance Quebec Table 4.
+        {
+          const S = BENEFIT_RULES.qcsol,
+            W = BENEFIT_RULES.qcwp;
+          let m = 0;
+          for (let i = 0; i < kids.length; i++) if (kids[i].age <= S.childMaxAge) m++;
+          const amount = (S.qst.basic + (couple ? S.qst.spouse + S.housing.couple : S.qst.livingAlone + S.housing.singleOrParent) + S.housing.child * m) * f;
+          BEN.provCredit += Math.max(0, amount - S.reductionRate * Math.max(0, fam - S.reductionFrom * f));
+          // Work premium: needs work income above the exclusion; maximum reached at the threshold, then reduced by family income.
+          const earned = (profile.earnedA || 0) + (couple ? profile.earnedB || 0 : 0),
+            exclusion = (couple ? W.exclusion.couple : W.exclusion.single) * f;
+          if (earned > exclusion) {
+            const sit = couple ? (m > 0 ? W.situations.coupleKids : W.situations.coupleNoKids) : m > 0 ? W.situations.singleParent : W.situations.alone,
+              threshold = sit.threshold * f,
+              premium = sit.rate * (Math.min(earned, threshold) - exclusion) - W.reductionRate * Math.max(0, fam - threshold);
+            if (premium > 0) BEN.provCredit += premium;
+          }
+        }
+```
+
+- [ ] **Step 5: Run the tests**
+
+Run: `node tests/benefits.js`
+Expected: `benefits tests ok`.
+
+Run: `npm test`
+Expected: FAIL only in the Canada snapshots (Ontario and Quebec households with housing costs or children now receive these credits). Update: `git diff --stat tests/snapshots/` (empty), `npm run snapshot:update`, `git diff --stat tests/snapshots/` (only `canada.json` and `ui_canada.json`), `npm test`.
+Expected: all pass.
+
+- [ ] **Step 6: Record the interim values on the verification backlog**
+
+Append rows to the verification backlog table in `docs/next-batches-plan.md` (edit helper, after the last `| 7L:` row): the Ontario grant thresholds and rate (secondary; from a search summary of the ontario.ca page); the Quebec work premium phase-in rates 11.6 / 11.6 / 30 / 25 percent (derived from the primary table maxima, to confirm on Revenu Quebec Schedule P or publication IN-245); the solidarity credit 6 percent reduction (arithmetically consistent with the published ceilings 64,545 and 70,395; confirm on Revenu Quebec); the Quebec family allowance reduction end 107,000 and linear shape (Task 6 row); the OEPTC age-64 test and monthly, same-year approximations; that the OEPTC lines 5 and 6 (long-term care, on-reserve energy) are not modeled; the work premium uses wages as work income (self-employment not modeled).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A tests docs Planner_Canada.html
+git commit -m "7L: Ontario Energy and Property Tax Credit and senior homeowners grant, Quebec solidarity credit and work premium"
+```
 
 ---
 
@@ -1407,11 +1654,11 @@ Apply with the helper: in `Planner_Canada.html` replace the topbar `<span>V41</s
 
 - [ ] **Step 2: Update the callout and wording**
 
-Find the "How the model works" or "Tax treatment" callout (`grep -n "Tax treatment" Planner_Canada.html`) and add a sentence: the planner now models the Guaranteed Income Supplement, Allowance, Canada Child Benefit, Canada Groceries and Essentials Benefit and provincial benefits for Ontario, BC, Alberta and Quebec, paid on the same year's income, and OAS follows the 2026 maximum for your age. Keep it free of apostrophes.
+Find the "How the model works" or "Tax treatment" callout (`grep -n "Tax treatment" Planner_Canada.html`) and add a sentence: the planner now models the Guaranteed Income Supplement, Allowance, Canada Child Benefit, Canada Groceries and Essentials Benefit and provincial benefits for Ontario, BC, Alberta and Quebec, paid on the same year's income, and OAS gets the 10% increase from age 75 (enter the 65 to 74 amount). Keep it free of apostrophes.
 
 - [ ] **Step 3: CLAUDE.md and README.md**
 
-In `CLAUDE.md`, add a bullet to the "US vs. Canada" section describing, in the style of the 7K bullet: `BENEFIT_RULES` and its kinds, the generated `docs/benefits-rules.md` and `npm run gen:benefits`, `benefitsFor` and `BEN`, the net-tax `taxFor` / `incomeTaxCA` split (shared `drawTaxable` unchanged), the profile fields (`oasA/B`, `earnedA/B`, `survivor`, `dependents`), same-year convention, OAS by age band (update for 2027; `oasStartAge` 99 = none; `oasMonthly` retired), the evaluation order (GIS first), and the tests `tests/benefit_rules.js`, `tests/gis_tables.js`, `tests/benefits.js`. In the Files list add the three tests and `docs/sources/`. In `README.md`'s Canada feature list add: GIS and Allowances, Canada Child Benefit, Canada Groceries and Essentials Benefit, provincial benefits (ON, BC, AB, QC), and OAS by age.
+In `CLAUDE.md`, add a bullet to the "US vs. Canada" section describing, in the style of the 7K bullet: `BENEFIT_RULES` and its kinds, the generated `docs/benefits-rules.md` and `npm run gen:benefits`, `benefitsFor` and `BEN`, the net-tax `taxFor` / `incomeTaxCA` split (shared `drawTaxable` unchanged), the profile fields (`oasA/B`, `earnedA/B`, `survivor`, `dependents`), same-year convention, the OAS 75-plus step and the 2026 default (update for 2027; the `oasMonthly` inputs stay), the evaluation order (GIS first), and the tests `tests/benefit_rules.js`, `tests/gis_tables.js`, `tests/benefits.js`. In the Files list add the three tests and `docs/sources/`. In `README.md`'s Canada feature list add: GIS and Allowances, Canada Child Benefit, Canada Groceries and Essentials Benefit, provincial benefits (ON, BC, AB, QC), and OAS by age.
 
 - [ ] **Step 4: 7L notes**
 
@@ -1438,10 +1685,10 @@ Then use the ccd_pr tools (`get_status`, `bind_pr` if needed). Do not merge or e
 
 ## Self-Review
 
-**Spec coverage.** Data model and generated doc: Task 1. GIS and Allowances, ESDC tables check: Task 2. OAS bands (with the 2027 update note) and retired inputs: Task 3. Net-tax design, evaluation order, profile plumbing, row fields, cash flow (through `tax` being net), Sankey, table and CSV, optimizer objective: Task 4. CCB and CGEB, children plumbing: Task 5. ON, BC, AB and QC provincial programs: Task 6. Gated programs (OEPTC, OSHPTG, Quebec solidarity and work premium): Task 7, explicitly gated. Docs, version, timing, US untouched: Task 8. Survivor symmetry: Task 4 Step 5. Cliffs register and the 4A income-room hook (`gisIncomeRoom`): Task 4 Step 7.
+**Spec coverage.** Data model and generated doc: Task 1. GIS and Allowances, ESDC tables check: Task 2. OAS 75-plus step, 2026 default and the 2027 update note (inputs kept): Task 3. Net-tax design, evaluation order, profile plumbing, row fields, cash flow (through `tax` being net), Sankey, table and CSV, optimizer objective: Task 4. CCB and CGEB, children plumbing: Task 5. ON, BC, AB and QC provincial programs: Task 6. Ontario Energy and Property Tax Credit, senior homeowners grant, Quebec solidarity credit and work premium (interim values on the backlog): Task 7. Docs, version, timing, US untouched: Task 8. Survivor symmetry: Task 4 Step 5. Cliffs register and the 4A income-room hook (`gisIncomeRoom`): Task 4 Step 7.
 
-**Placeholder scan.** Task 7 is a declared gate, not a hidden placeholder; every other step has its code, commands and expected output. The Task 8 notes step names the content to write; its numbers come from runs.
+**Placeholder scan.** Every step has its code, commands and expected output. Interim figures (marked secondary in the table and on the verification backlog) are named where used. The Task 8 notes step names the content to write; its numbers come from runs.
 
 **Type consistency.** `BEN` field names (`gis, allowance, ccb, cgeb, provChild, provSenior, provCredit, total`) match across Tasks 4 to 6; row fields (`benefitGis`, `benefitAllowance`, `benefitCcb`, `benefitCgeb`, `benefitProvChild`, `benefitProvSenior`, `benefitProvCredit`, `benefits`) match the Sankey, CSV and table steps; `gisAnnual(situation, income, factor)` and `interpKnots` signatures match the tests; `incomeTax` is the export name for `incomeTaxCA` everywhere.
 
-**Review focus mapping.** 1 (deferred OAS): Task 3 and Task 4 tests; 2 (survivor): Task 4; 3 (cliffs and zero): Task 2 edge test, Task 4 tests; 4 (children boundaries): Task 5; 5 (old saves): Task 3 `legacy_state` cases.
+**Review focus mapping.** 1 (deferred OAS): Task 3 and Task 4 tests; 2 (survivor): Task 4; 3 (cliffs and zero): Task 2 edge test, Task 4 tests; 4 (children boundaries): Task 5; 5 (old saves): Task 3 `legacy_state` update.
