@@ -156,24 +156,25 @@ function usChecks() {
   near(stateTax('ma', src({ wages: 100000 }), 'single'), 5000, 0.005, 'MA 5%');
   // MA surtax: 4% above 1,107,750 -> 60,000 + 3,690
   near(stateTax('ma', src({ wages: 1200000 }), 'single'), 63690, 0.005, 'MA surtax');
-  // CA single $100k: 94,460 after the 5,540 deduction
-  //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,021.448 = 5,223.418
-  near(stateTax('ca', src({ wages: 100000 }), 'single'), 5223.418, 0.005, 'CA single $100k');
+  // CA single $100k (2025 figures): 94,294 after the 5,706 deduction
+  //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,006.01 = 5,207.98; less the $153 personal exemption credit = 5,054.98
+  near(stateTax('ca', src({ wages: 100000 }), 'single'), 5054.98, 0.005, 'CA single $100k');
   // NJ single $100k: 280 + 262.50 + 175 + 1,933.75 + 1,592.50 = 4,243.75
   near(stateTax('nj', src({ wages: 100000 }), 'single'), 4243.75, 0.005, 'NJ single $100k');
   // WI single $100k: 85,340 after 13,960 + 700 -> 528.85 + 1,620.96 + 1,769.67 = 3,919.48
   near(stateTax('wi', src({ wages: 100000 }), 'single'), 3919.48, 0.005, 'WI single $100k');
-  // WA capital-gains tax: nothing on wages; 7% above 278,000, 9% above 1M of taxable gain.
+  // WA capital-gains tax: nothing on wages; 7% above 278,000, 9.9% above 1M of taxable gain (ESSB 5813, 2025).
   near(stateTax('wa', src({ wages: 500000 }), 'single'), 0, 1e-9, 'WA wages untaxed');
   near(stateTax('wa', src({ gains: 378000 }), 'single'), 7000, 0.005, 'WA gains 7%');
-  near(stateTax('wa', src({ gains: 1378000 }), 'single'), 79000, 0.005, 'WA gains 9% tier'); // 70,000 + 9,000
+  near(stateTax('wa', src({ gains: 1378000 }), 'single'), 79900, 0.005, 'WA gains 9.9% tier'); // 70,000 + 100,000 x 9.9%
   // CO 4.4% flat.
   near(stateTax('co', src({ wages: 100000 }), 'single'), 4400, 0.005, 'CO flat 4.4%');
   // IL / PA do not tax pension or traditional withdrawals.
   for (const code of ['il', 'pa']) {
-    near(stateTax(code, src({ pension: 50000, retirement: 30000, ages: [70] }), 'single'), 0, 1e-9, `${code.toUpperCase()} retirement income excluded`);
+    // (per-person fields too: PA reads each filer's own pension and traditional income)
+    near(stateTax(code, src({ pension: 50000, retirement: 30000, ages: [70], pensionA: 50000, retirementA: 30000 }), 'single'), 0, 1e-9, `${code.toUpperCase()} retirement income excluded`);
     near(
-      stateTax(code, src({ wages: 40000, pension: 50000, ages: [70] }), 'single'),
+      stateTax(code, src({ wages: 40000, pension: 50000, ages: [70], pensionA: 50000 }), 'single'),
       stateTax(code, src({ wages: 40000 }), 'single'),
       1e-9,
       `${code.toUpperCase()} retirement income adds no tax on top of wages`,
@@ -184,13 +185,16 @@ function usChecks() {
 
   // Every state with a bracket table or flat rate vs. a reference built from
   // its own table (deduction, then per-slice sum from explicit lower bounds).
-  const tableStates = Object.entries(t.stateRules).filter(([, r]) => r.flat !== undefined || r.s || r.m || r.same);
+  // Rows whose tax is just the table (no additions, credits, step-downs or dependent rules): those are checked against the
+  // reference calculation below; the rest are covered by hand-computed cases in state_mechanisms.js and state_reference.js.
+  const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary;
+  const tableStates = Object.entries(t.STATE_RULES).filter(([, r]) => r.tax.kind !== 'none' && plainRow(r));
   if (tableStates.length < 25) fails.push(`expected 25+ table-driven states, found ${tableStates.length}`);
   for (const [code, rule] of tableStates) {
     if (['sc', 'co', 'nc', 'ma', 'wi', 'nj', 'wa'].includes(code)) continue; // hand-written above
     for (const filing of ['single', 'mfj']) {
-      const starts = rule[filing === 'mfj' ? 'm' : 's'] || rule.same;
-      const ded = rule.d?.[filing === 'mfj' ? 1 : 0] || 0;
+      const starts = rule.tax.kind === 'graduated' ? rule.tax.columns[filing] : null;
+      const ded = rule.standardDeduction[filing] + rule.exemption[filing];
       if (starts) {
         if (starts[0][0] !== 0) fails.push(`${code} ${filing}: first bracket must start at 0`);
         for (let i = 1; i < starts.length; i++)
@@ -199,7 +203,7 @@ function usChecks() {
       }
       for (const inc of incomes) {
         const taxable = Math.max(0, inc - ded);
-        const expected = rule.flat !== undefined ? taxable * rule.flat : refTax(taxable, starts);
+        const expected = rule.tax.kind === 'flat' ? taxable * rule.tax.rate : refTax(taxable, starts);
         near(stateTax(code, src({ wages: inc }), filing), expected, 0.01, `${code} ${filing} wages ${inc}`);
       }
     }
@@ -209,15 +213,17 @@ function usChecks() {
   // negative, never falls as income rises, no jumps, marginal rate under 15%,
   // married never owes more than single on the same single-earner income,
   // and the whole schedule scales with inflation indexing.
-  const allCodes = Object.keys(t.stateRules).concat(['ma', 'co', 'nc', 'nj', 'wi', 'sc'].filter((c) => !t.stateRules[c]));
-  for (const code of new Set(allCodes)) {
+  for (const code of Object.keys(t.STATE_RULES)) {
+    const recaptures = t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture');
     for (const filing of ['single', 'mfj']) {
       let prev = 0;
       for (let inc = 0; inc <= 1500000; inc += 2500) {
         const tax = stateTax(code, src({ wages: inc }), filing);
         if (tax < -1e-9) fails.push(`${code} ${filing} ${inc}: negative tax ${tax}`);
         if (tax < prev - 1e-6) fails.push(`${code} ${filing} ${inc}: tax fell from ${prev} to ${tax}`);
-        if (tax - prev > 2500 * 0.15 + 1e-6) fails.push(`${code} ${filing} ${inc}: jump of ${tax - prev} in one $2,500 step`);
+        // New York's recapture phases the benefit of the lower brackets back in over $50,000 of AGI with the band chosen by taxable
+        // income, so its tax has real steps (and marginal rates well above the top rate inside a phase-in); the rest must not jump.
+        if (!recaptures && tax - prev > 2500 * 0.15 + 1e-6) fails.push(`${code} ${filing} ${inc}: jump of ${tax - prev} in one $2,500 step`);
         prev = tax;
       }
     }
@@ -227,11 +233,18 @@ function usChecks() {
       if (mfj > single + 0.01) fails.push(`${code} wages ${inc}: MFJ tax ${mfj} exceeds single tax ${single}`);
     }
     st.inflation = 3;
+    // Indexing is per family; only a row that indexes everything (or nothing) is held to the plain scaling check below. Mixed rows
+    // (Washington: deduction indexed, its $1 million tier not) are covered in state_mechanisms.js.
+    const flags = Object.values(t.STATE_RULES[code].indexing);
+    if (!flags.every(Boolean) && flags.some(Boolean)) continue;
+    const indexed = flags.every(Boolean);
     for (const filing of ['single', 'mfj']) {
       for (const inc of [30000, 90000, 250000]) {
         const base = stateTax(code, src({ wages: inc, gains: inc / 5 }), filing, 0);
-        const later = stateTax(code, src({ wages: inc * f, gains: (inc / 5) * f }), filing, yi);
-        near(later, base * f, 1e-6 * f * inc, `${code} ${filing} indexing at wages ${inc}`);
+        // An indexed state's schedule scales with the plan's inflation factor; one that does not index holds still, so the same
+        // nominal income owes the same tax whatever the year.
+        const later = stateTax(code, src({ wages: indexed ? inc * f : inc, gains: indexed ? (inc / 5) * f : inc / 5 }), filing, yi);
+        near(later, indexed ? base * f : base, 1e-6 * f * inc, `${code} ${filing} indexing at wages ${inc}`);
       }
     }
     st.inflation = 0;

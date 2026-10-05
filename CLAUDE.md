@@ -26,6 +26,11 @@ feature list.
   `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
   schedule (federal, each state/province, NIIT, OAS clawback) via
   `window.__test_tax`; run it whenever a bracket or tax function changes.
+- `tests/state_rules.js` — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
+  `tests/state_mechanisms.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
+  every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
+  `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
+  state); not in `npm test`; compare a worktree of the previous commit with the working tree (+5% allowed).
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
   senior deduction through 2028, SALT cap schedule, simplified itemizing, the
   $750,000 mortgage-debt limit), hand-computed, plus engine-level cases with the
@@ -202,7 +207,7 @@ Each planner is one big IIFE. Core shape:
   `html-propertyTaxGrowth` starts after it) so each planner can word its label
   differently; keep it outside the shared regions.
 - **Filing-status table (US, `FILING`, just above `standardDeduction`).** Each status row names, per
-  parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, state), which
+  parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, ctc), which
   data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
   `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
   `taxFor`/`solveRothConversion`. Read through `filingKey(filing, family)` / `filingRow(filing)`; an unknown
@@ -214,6 +219,38 @@ Each planner is one big IIFE. Core shape:
   senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
   status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
   branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
+- **State income tax (US, `STATE_RULES`, just above `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
+  50 states and DC, matching the `#stateTax` options) and one generic evaluator, `stateIncomeTax(sources, filing,
+  yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/state_rules.js` fails on
+  a missing field or a state missing from the table): `status` (`migrated` = carried over unverified, `source` null;
+  `researched` = `source` URL + `asOf` year), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
+  `creditThresholdsIndexed`, `retirementExclusionIndexed`, never one switch for the whole state: CA indexes its brackets, deduction and credits but not
+  its $1 million surcharge, NY indexes nothing, WA indexes the deduction but not its $1 million tier; each `additions` entry has its own `indexed`;
+  a true flag scales that family by `taxIndexFactor`; all migrated rows are fully indexed), `statusAs` (which column `mfj`/`single`/`hoh`/`qss` read: HoH falls back to the
+  single column and QSS to the joint one unless the row has its own `hoh` column; the old `FILING.state` family is gone),
+  `tax` (`none`, `flat`, or `graduated` with `[start, rate]` columns), `surtax`, `base` (ordinary income yes/no, share
+  of gains included, Social Security `exempt`/`taxed`/subtraction), `standardDeduction`, `exemption`, `retirementExclusion`
+  (kinds in `stateRetirementExclusion`; the migrated kinds are household-level quirks that per-person kinds replace),
+  `credits`, `federalTaxSubtraction`, `localTax` (local income taxes are an accepted, documented gap) and `notes`. Mechanisms
+  (all data, evaluator in `stateIncomeTax`): `additions` (a threshold surtax, an AGI step table, NY's `benefitRecapture`),
+  `exemptionPhaseOut` and `dependentExemption`, the AGI-tested Social Security kind, per-person retirement kinds
+  (`perPerson`, `agiPhasedShare`), and `credits` of kind `exemptionCredits`, `renterCredit`, `childCredit`,
+  `propertyTaxCredit`, `taxForgiveness`, `agiStepFraction` (a nonrefundable credit is capped by the tax; a `refundable` one
+  can take the state tax negative, as the ACTC can). Step tables are `[[lowerBound, value], ...]` per column. The state
+  inputs come from `taxFor`'s `sources`: besides the household sums it carries per-person pensions and traditional draws
+  (`pensionA/B`, `retirementA/B`; the discretionary draw is split by `profile.ownerShareA`, the account-ledger share, 0.5 if
+  absent), `ssBenefits`, `dependents`, `propertyTax` and `rent` (`housingForYear` now returns `rent`). `taxFor` does not build
+  `sources` at all for a no-tax state (`stateTaxActive()`): that path stays as fast as before. Each
+  row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
+  `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
+  tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
+  deducts federal tax gets one lagged pass, 7D). The block between the `STATE_RULES:begin` / `end` comments is pure
+  literals so `scripts/gen-state-rules.js` can evaluate it. Six rows are `researched` (CA, NY, PA, CT, WA, TX; tests in
+  `tests/state_reference.js`); the other 45 are `migrated` simplified rows until 7D researches them. Researched rows follow the
+  state's real indexing (`none` for NY, PA and CT; `cpi` for CA and WA), HoH and QSS columns, and income tests; their `notes` text is what the
+  planner shows under the selector. The generator also lists every parameter of the researched rows. Evaluating it: that script writes `docs/state-tax-rules.md` (the owner's review
+  artifact: one row per jurisdiction with every rule and its source; `npm run gen:states`), and `npm test` fails if the file is
+  stale. After changing a row, regenerate and commit the file. Not shared with Canada (US only).
 - **Child credits (US, `childCredits`, just above `taxFor`).** `childCredits(dependents, filing, yearIndex, magi,
   federalTax, earnedIncome)` returns `{ nonrefundable, refundable }`: the Credit for Other Dependents ($500, a qualifying
   child with `age >= 17`, nonrefundable, not indexed, shares the phase-out; the reduction comes off the CTC part first and

@@ -841,6 +841,41 @@ sped up, the research can be fanned out to subagents (one per group, output as
 a sourced data file for review). That uses far more compute, so it is only done
 if the owner asks for it.
 
+### 7D schema mechanisms (to add, with tests, before the data lands)
+
+Written 2026-10-04 from the verified review worklist (see "External review of the migrated rows" in the 7C notes) plus the shapes the remaining
+states are known to use. Mechanisms taken from the worklist are marked **W** (the state and rule were verified there); the others are **K** (known
+from general knowledge of state tax law, to be confirmed during that state's research, with the state list a starting point, not a finding).
+The rule for all of them is the 7C one: add the field to the schema and `tests/state_rules.js` (every row declares it, an explicit none where it does
+not apply), add the evaluator branch, add a hand-computed case on the synthetic jurisdiction in `tests/state_mechanisms.js`, and only then write data
+rows that use it. The first 7D commit is the mechanisms; the data commits follow in the groups above. Each mechanism's indexing flag follows the
+7C per-family rule (a new family gets its own flag in `indexing`, never reuse an existing one by accident).
+
+| # | Mechanism | Needed by | Proposed schema | Evaluator and plumbing | Test (hand-computed) |
+|---|---|---|---|---|---|
+| 1 | **Year-effective rule sets** (scheduled statutory changes) | **W** HI (Act 46 widens brackets in 2027 and 2029; Act 24 adds a 13% rate from 2027 at $500,000 single / $750,000 HoH / $1,000,000 joint), SC (automatic rate cuts, only if triggered: not scheduled, leave out); **K** states with enacted phase-downs (several flat-rate states, MS, GA, IN, KY, NE, IA and others) | `schedule`: a list of `{ fromYear, ...overrides }` where an override replaces `tax`, `standardDeduction`, `exemption` or any other whole field from that tax year; the base row is the first year | the compiled row keeps one compiled variant per `fromYear`; `stateIncomeTax` picks the variant by the tax year (`taxYearOf(yearIndex)`, the same clock the federal rules use), a lookup done once per call, no allocation. The nominal-dollar thresholds in a later variant are statutory amounts for that year, so indexing applies from that variant's own base year (a `baseYear` field per variant) | a synthetic row whose rate and deduction change in year 3; a variant with its own indexing base year |
+| 2 | **Standard deduction that steps down or phases out with AGI** | **W** AL (2025 table: single $3,000 falling $25 per $500 of AGI over $25,999 to a $2,500 floor at $35,500; joint $8,500 to $5,000; HoH $5,200 to $2,500), SC (the new SCIAD: $15,000 / $22,500 / $30,000 reduced across $40,000-$95,000 single, $60,000-$142,500 HoH, joint from $80,000, upper end to read); **K** MD, others | `standardDeductionPhase`: `{ kind: 'stepDown', start, width, step, floor }` or `{ kind: 'linear', start, end, floor }`, per column; the base `standardDeduction` stays the maximum | after the state AGI is known, reduce the column's standard deduction; `start`, `end` and `width` index with `creditThresholdsIndexed` unless a new `standardDeductionThresholdsIndexed` flag is added (decide when the first row needs it) | AL-style steps and an SC-style linear case, at, below and above each bound |
+| 3 | **Age-tiered per-person retirement caps** | **W** CO (pension and annuity subtraction $20,000 at 55-64 and $24,000 at 65+, per person), DE ($2,000 under 60, $12,500 at 60+, pension and eligible retirement income combined, per person); **K** GA ($35,000 at 62-64, $65,000 at 65+), SC's old tier, others | replace the single `minAge` and `cap` of `perPerson` by `tiers: [[minAge, cap], ...]` (the highest tier a filer has reached applies; a filer under the first tier gets nothing) | the same per-filer loop as `perPerson` with a tier lookup | a couple with ages in two tiers; a filer just under the first tier |
+| 4 | **Which income bucket qualifies** (`applies`) | **W** AL-type rules; **K** states that exclude defined-benefit pensions but not IRA or 401(k) withdrawals (AL, LA, IL's reverse), public-sector pensions only (several), PA's split (already modeled by two minimum ages) | `applies: { pension, traditional }` booleans on every per-person kind, in addition to (not instead of) the per-bucket minimum ages | the loop already reads `pensionA/B` and `retirementA/B` separately; add the two flags. Military and public-employee pension rules cannot be told apart (the engine has one `pension` stream): the row's `notes` says which way the simplification leans | a pension-only and a traditional-only row |
+| 5 | **Pension cap shared with Social Security (a per-person bucket)** | **W** CO (the $24,000 / $20,000 bucket shared by the person's Social Security subtraction and pension and IRA subtraction, working reading above), ME ($48,216 per person for 2025, reduced dollar for dollar by Social Security and railroad retirement benefits, with an AGI phase-out from 2025) | `retirementExclusion` kind `perPersonSharedCap`: `{ tiers: [[minAge, cap]], reducedBy: 'socialSecuritySubtracted' | 'benefitsReceived', phase?: stepTable }` (CO reduces by the Social Security amount that person subtracted, ME by all benefits received, taxable or not) | needs **each partner's own Social Security benefits** (`ssBenefitsA/B`) on `sources` (today only the total `ssBenefits`; `profile.ssA/ssB` already exist); excluded = max(0, min(income, cap - benefits)) per filer, times the AGI share | benefits 0, partial, above the cap; with the AGI phase-out |
+| 6 | **Cap and AGI share together** | **K** NJ (a per-status exclusion amount that is zero once income passes a limit, with a cliff near $100,000 and a lower band), GA, MD | allow `perPerson` to carry `share: stepTable` as well as `cap`, multiplied | the per-person total times the AGI step value | at each step edge |
+| 7 | **Federal income tax paid as a state deduction** | **W** AL (full), MO (partly); **K** OR (capped, phased out by income), MT, ND-style variants (to confirm each) | `federalTaxSubtraction` becomes `{ kind: 'lagged', cap?, phase? }` (the 7C `'none'` stays valid) | **one lagged pass, not an iteration**: `taxFor` first computes the federal tax with a state tax of zero (the federal itemizing test can only change if itemized deductions beat the standard one), passes it to `sources.federalTax`, then computes the state tax, then the real federal tax with the state tax as SALT, as today. Only a row with `kind: 'lagged'` pays for the extra federal pass (`stateNeedsFederalTax`). Document the small inconsistency (the deducted federal tax ignores the SALT feedback) in the row | a synthetic row at an income where the answer is hand-computed; assert no loop and the extra pass count |
+| 8 | **Starting point is federal taxable income** (conforming states) | **K** CO, ID, ND, OR, UT (credit based), VT, NM (to confirm each), and SC before 2026 | `federalConformity: { standardDeduction: true, seniorDeduction: bool, ageAdditional: bool }` (an explicit none elsewhere) | add the federal standard deduction for the status (`standardDeduction(filing, yearIndex, ages)`, which depends on no state tax, so no circularity) and optionally the federal senior deduction (`seniorDeduction`, 2025-2028 only) to the state deduction. A state that conforms at a fixed date (static) versus rolling is recorded in `notes` | a conforming row with and without a 65+ filer, checked against the federal helper |
+| 9 | **Social Security rules beyond the AGI cliff** | **W** CO (65+ all; 55-64 all under $75,000 / $95,000 AGI, otherwise capped at $20,000 together with pension income; under 55 nothing: confirm); **K** MN, UT (a credit), WV, MT, NM, VT, KS, MO, RI, NE (AGI tests, phase-outs, a credit that falls with AGI) | extend `base.socialSecurity`: `{ kind: 'ageAgiTiered', tiers: [[minAge, ...]] }`, `{ kind: 'agiPhaseOut', start, rate, floor }` (the subtraction falls by `rate` per dollar of AGI over `start`), and the credit form through the credits list (`ssCredit`) | per-person ages already on `sources.ages`; the AGI used is the federal AGI proxy as for CT; `ssBenefitsA/B` (mechanism 5) | each tier and a phase-out end point |
+| 10 | **Exemption extras** | **W** MA ($4,400 / $8,800 / $6,800 HoH plus $1,000 per dependent; more at 65+ and blind), MS ($6,000 / $12,000 / $8,000 head of family plus $1,500 per dependent), AL ($1,500 / $3,000, dependent amount unsettled); **K** NJ and others with a 65+ extra | `exemption` (per column, exists), `dependentExemption` (exists), add `seniorExemption: { age, amount }` (per qualifying filer at or over `age`), and allow `dependentExemption` to be `{ amount, phaseDown? }` for the AL-style income tiers | senior count from `sources.ages`; no new inputs (blind is not modeled: documented) | a senior couple and a family |
+| 11 | **Circuit-breaker credit** | **K** MI, MN, WI, VT, MD, IA, KS, CT-like variants, NY's RPTC (not built in 7C), and the renter forms | new credit kind `circuitBreaker`: `{ rentShare, minAge?, incomeBasis, thresholdPct, max, pctOfExcess, refundable }`: relief = min(max, pctOfExcess x max(0, propertyTax + rentShare x rent - thresholdPct x income)) with an income cap | `sources.propertyTax` and `sources.rent` already exist; the income basis is the household income proxy (state AGI plus the Social Security the state counts: say so in the row); refundable ones can take the tax negative as in 7C | a renter and an owner, below, at and above the cap |
+| 12 | **Flat personal and senior credits** | **W** DE (a $110 personal credit and a 65+ one, to confirm amounts), **K** OR, NJ, IL-type credits | reuse `exemptionCredits` (CA shape: `personal`, `senior`, `dependent`, a `phaseOut`) where it fits; add an `incomeTestedCredit` kind (a flat amount that stops above an income, or falls by steps) where it does not | the 7C credit loop | per kind |
+| 13 | **Capital gains shapes beyond a fixed share** | **K** MT (two rates on gains), MA (5% general, a higher rate on short-term gains, which the engine's long-term gains never hit), AR, ND, NM, SC (percentage exclusions, covered by `gainsIncluded`), NH and TN (tax on interest and dividends only, repealed or phasing out: check), WA (done) | `base.gains`: today `gainsIncluded` (a share); add an optional `gainsRate` (a flat rate on gains instead of the bracket rates) and `gainsDeduction` (a dollar exclusion) | gains separated from the ordinary base before the bracket tax | a row with a rate on gains and a dollar exclusion |
+| 14 | **Additions with per-column thresholds** | **W** HI's 13% rate arrives as a bracket (so mechanism 1), but a surtax-style addition can differ by status elsewhere (`threshold` is one number today) | allow `threshold` to be a number or `{ single, mfj, hoh }` | one lookup by column | a surtax with two thresholds |
+| 15 | **Per-person Social Security on `sources`** | prerequisite of 5 and 9 | add `ssBenefitsA` and `ssBenefitsB` next to `ssBenefits` in all three `taxFor` branches (two-filer: each partner's own return reads its slot A) | plumbing only, bit-identical for every row that does not read it | the existing `taxFor` plumbing test, extended |
+
+Not planned (documented gaps, listed so a row's `notes` can say so): state itemized deductions, military-versus-civilian and public-versus-private
+pension distinctions, blind exemptions, earned-income credits that follow the federal EITC, nonresident rules, and any local tax.
+
+Sequencing inside 7D: (1) a plumbing commit (15), (2) a mechanisms commit for 1, 2, 3, 4, 5, 6, 8, 10, 14 with tests, (3) a second mechanisms commit for 7, 9, 11, 12, 13
+with tests, (4) the data commits by group. A mechanism that the data of its own group does not need yet may slip to the group that does, but never after
+its data: the rule from 7C holds that a row is not written before the mechanism and its test exist.
+
 ### 7J: Canadian federal age amount and pension income credit
 
 Moved here from Batch 4 (owner decision). Verify the current amounts and the
@@ -1596,7 +1631,13 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Child Tax Credit and ODC phase-out ($50 per $1,000 over $200k / $400k, not indexed); the credit ends when the youngest child turns 17 | `childCredits`, `CTC_PHASE_START` | MAGI, filing status (`ctc` family), child ages | 7B step 4 |
 | ACTC phase-in (15% of earned income over $2,500) and the tax limit on the nonrefundable part: more income changes the credit, not just the tax | `childCredits` | earned wages, federal income tax | 7B step 4 |
 | Filing status (HoH / QSS) switches: QSS two-year window ends (MFJ brackets and deduction -> single or HoH), HoH starts and ends with the last qualifying child | `filingStatusFor`, `FILING` | year, children, survivor timeline | 7B step 3 |
-| State circuit-breaker and income-tested credits | (7C / 7D) `STATE_RULES` | AGI / income | 7C, 7D |
+| State circuit-breaker and income-tested credits (generic) | `STATE_RULES` `credits`, `additions`, `exemptionPhaseOut`, AGI-tested `base`/`retirementExclusion` | state AGI, federal AGI, filing column | 7C (reference rows), 7D (the rest) |
+| NY tax benefit recapture: phased in over $50,000 of AGI from $107,650 and from each band start; band by taxable income, so band crossings step; marginal rates well above the top rate inside phase-ins | `stateBenefitRecapture`, NY row | NY AGI, taxable income | 7C |
+| NY Empire State child credit: $16.50 per $1,000 of federal AGI over $75,000 / $110,000, off the household total | NY `credits` | federal AGI, child ages | 7C |
+| CT: Social Security exempt under $75,000 / $100,000 AGI, then 25% of benefits taxed; pension/IRA share steps 100% to 0% across $75,000-$100,000 ($100,000-$150,000 joint); exemption step-down from $30,000 / $48,000 / $38,000; add-back, recapture and personal-credit step tables; property tax credit 15% per $10,000 | CT row (`agiTested`, `agiPhasedShare`, `agiStep`, `agiStepFraction`, `propertyTaxCredit`) | CT AGI, filing column | 7C |
+| PA Tax Forgiveness: 10% per $250 of eligibility income over $6,500 / $13,000 plus $9,500 per child | PA `credits` | PA base, children | 7C |
+| CA exemption credits: $6 per credit per $2,500 of federal AGI over $252,203 / $504,411 / $378,310; renter's credit lost over AGI $53,954 / $107,987 | CA `credits` | federal AGI, state AGI | 7C |
+| PA / NY / CT / CA pension and IRA age tests (59 and a half per filer) | `retirementExclusion` `perPerson` | each filer's age | 7C |
 | Canada: age amount clawback, pension credit | (7J) `personTaxCA` | net income | 7J |
 | Canada: provincial credits and clawbacks | (7K) `PROVINCE_RULES` | net income | 7K |
 | Canada: GIS / Allowance, CCB, GST/HST credit | (7L) | net family income | 7L |
@@ -1727,6 +1768,238 @@ switches (QSS window end, HoH start/end), the child-credit phase-out and the ACT
 Not modeled (owner): child and dependent-care credit and FSA, education credits, adoption credit, coverage on a
 parent's plan to 26. Open items: EITC and Social Security child benefits.
 
+#### 7C: state-tax framework plus reference states (US only; Canada untouched)
+
+Branch `claude/batch-7c-state-framework`, cut from the 3B-line tip `fb03255` (7A and 7B merged). Owner decisions
+(2026-10-04), recorded before work started:
+- **Migrate all 51 jurisdictions now**, at today's simplified figures, in the first commit, so the coverage test
+  ("every state declares every field") can be real. The reference states (CA, NY, PA, TX, WA, plus **CT** as the sixth,
+  added to cover income-tested Social Security and pension rules) follow as researched rows.
+- Migrated rows keep "index everything with inflation" (`indexing: 'cpi'`); the flag exists for 7D to set per state.
+- NY's high-income tax-benefit recapture is a schema mechanism in the NY reference row.
+- **Circular reference (state tax feeds the federal SALT deduction):** the order is state first, federal second. A state
+  never reads a federal deduction or federal tax; conforming states use the federal standard deduction (independent of state
+  tax); `federalTaxSubtraction` is a required field, `'none'` for every row in 7C. States that deduct federal income tax
+  paid (AL, OR, MT, partly MO; 7D) get one lagged pass, not an iteration. A refundable credit never takes the SALT-deductible
+  state tax below zero.
+- **Per-person amounts:** the partner split of discretionary traditional withdrawals uses the year's account-ledger share
+  (`accountsOwnerShareA(accts.trad)`, carried on the tax profile as `ownerShareA`; absent = 50%). It replaces the two-filer
+  branch's 50/50 split of `traditionalExtra`. No new inputs.
+- Local income taxes (NYC, parts of PA, OH, MD, IN) stay out of scope, listed as a documented gap (the `localTax` field is
+  `'notModeled'` on every row).
+- WA's top tier goes to 9.9% (owner OK), and CA figures are refreshed to the latest published (reference-state commit).
+
+**Commit 1: schema and migration of all 51 rows (no behavior change).** `STATE_RULES` replaces `stateRules`, `noTaxStates`,
+`massachusettsTax`, `progressiveTax`, `bracketsFromStarts` and the hand-coded CO / MA / NC / NJ / SC / WI / WA branches. The schema
+is described in `CLAUDE.md`. `FILING.state` is removed: each row's `statusAs` maps a federal status to a column (migrated rows
+keep the 7B interim mapping, HoH as single, QSS as joint). DC was already a jurisdiction (the plan called it new).
+Migration notes:
+- NJ's table keeps its redundant top row (a 5,000,000 start at the same 10.75% rate as the 1,000,000 row) so the float arithmetic
+  is identical to the old code; remove it when 7D refreshes NJ.
+- NC is modeled as Social Security `exempt` (the old code taxed it then subtracted it back out); the result is identical.
+- The migrated retirement-exclusion kinds (`shareByAge`, `perEligibleCap`, `perEligibleCapSeniorTier`, `seniorCap`, `full`)
+  reproduce the old household-level quirks (SC's tier counts `max(eligible, senior)` filers at the senior cap, for example).
+  They are replaced by per-person kinds in the reference rows and 7D, as intended changes.
+- Unknown state codes owe nothing (the legacy `'none'` value is not in the selector).
+
+**Verification of "no behavior change".** (1) `npm test`: US 518 and Canada 359 snapshot scenarios exact, UI snapshots unchanged.
+(2) A one-time differential against a worktree of `fb03255`: 51 states x 2 inflation settings x 6 filing statuses (single, mfj, hoh,
+qss, an unknown string, undefined) x 3 year indexes (0, 7, 13.5) x grids of wages, pension, retirement, gains, taxable Social Security
+and age lists (including null ages), 1,367,820 values, **0 mismatches, exact equality**. (3) `tests/tax_brackets.js` now reads
+`STATE_RULES` (its independent reference calculation is unchanged).
+
+**Timing gate.** The Phase 2 benchmark was a one-off measurement, never committed; `tests/bench_runs.js` is the committed
+version (400 `simulate()` + 120 `simulateHistorical()`, median of 3, per state). Before (`fb03255`) vs commit 1, ms:
+
+| State | simulate before -> after | historical before -> after |
+|---|---|---|
+| tx | 319 -> 309 | 67 -> 77 |
+| ca | 564 -> 361 | 111 -> 72 |
+| ny | 617 -> 374 | 116 -> 76 |
+| pa | 444 -> 346 | 84 -> 68 |
+| ct | 601 -> 344 | 113 -> 68 |
+| wa | 337 -> 301 | 70 -> 61 |
+
+(Run-to-run noise is about 5-10%; the old code rebuilt the bracket arrays on every call. A per-(state, year) cache would not
+have helped: the index factor differs per historical or Monte Carlo path, so the row is resolved once per state code and the
+factor is applied inside the loop.)
+
+**Commit 2: generated review artifact.** `scripts/gen-state-rules.js` evaluates the `STATE_RULES:begin/end` block of
+`Planner_US.html` in a `vm` (no browser) and writes `docs/state-tax-rules.md`: a rules table (status and source, tax, indexing,
+HoH/QSS columns, base, deductions, retirement exclusion, surtax, credits), a notes list and the full bracket list, plus the
+local-tax gap. `npm test` runs it with `--check` (stale or missing file fails; CRLF is ignored). It is outside `sync-shared`
+because the table is US-only.
+
+**Commit 3: mechanisms and plumbing (no behavior change for any migrated row).** Schema v2: `surtax` becomes the
+`additions` list (MA's surtax is the one migrated entry), and rows gain `sourceKind` (`none` | `secondary` | `primary`),
+`exemptionPhaseOut`, `dependentExemption`; Social Security can be `agiTested` and the retirement exclusion `perPerson` or
+`agiPhasedShare`; `credits` is a typed list. The evaluator order is: base (ordinary income, gains share, Social Security),
+state AGI after the state's own subtractions, deduction, exemption (with its step-down), dependent exemption, graduated or flat
+tax, additions, credits. Verified: the same 1,367,820-value differential against `fb03255` (0 mismatches), snapshots exact, and
+`tests/state_mechanisms.js` (hand-computed cases for every mechanism on a synthetic row, plus the `taxFor` plumbing).
+- NY's recapture is modeled from its structure, not its constants: for taxable income in band k above band start s with rate r and
+  the previous band's rate q, tax = T(income) + (q*s - T(s)) + (r - q)*s*ratio. Checked against the 2024 IT-201-I worksheets
+  (single, base 568 and incremental 1,831 at 215,400; MFJ base 333 and incremental 807 at 161,550, 1,140 and 2,747 at 323,200),
+  so the 2026 rates (3.9 / 4.4 / 5.15 / 5.4 / 5.9) produce the right constants without retyping them. The ratio is rounded to four
+  decimals as the worksheets do.
+- A no-tax state skips building the state inputs in `taxFor` (`stateTaxActive`). Without it the larger `sources` object made the
+  no-tax path about 10% slower on the historical runs (measured at `--scale 6`: 720 runs, 403 ms vs 355 ms); with it Texas is at or
+  below the `fb03255` baseline.
+- Timing, ms, `tests/bench_runs.js --scale 6` (2,400 simulate + 720 historical), `fb03255` -> commit 3: tx 1651/341 -> 1570/344,
+  ca 3313/669 -> 2093/455.
+
+**Commit 4: two separate returns split the discretionary draw by account ownership (US V97 -> V98; intended number change).**
+The two-filer branch of `taxFor` (a couple before the `marryLater` marriage age, or `filingStatus: single` with two partners) taxed
+`traditionalExtra` half on each return. It now uses `profile.ownerShareA` (Partner A's share of the traditional pool in the year, from the
+account ledger; 0.5 when a profile carries none, which is bit-identical to the old half). Gains and dividends still split evenly (the taxable
+account has no per-partner ledger). One of 518 US scenarios moved ("std R filing single": first changed year index 9, tax 18,239 -> 18,853,
+depleted age 88 -> 89); Canada and every joint or one-person scenario are unchanged. The default scenario and the historical and Monte Carlo
+success rates in `tests/historical_rates.js` do not use separate returns, so they are unchanged. Test: `tests/state_mechanisms.js` (two
+separate returns, state and federal parts).
+
+**Commit 5: the researched reference states (US V98 -> V99; intended number changes for CA, NY, PA, CT and WA).** Rows for
+California, New York, Pennsylvania, Connecticut (the sixth reference state, owner decision, for income-tested Social Security and pension
+rules), Washington and Texas. Each row's `notes` (shown under the selector in the planner) and `docs/state-tax-rules.md` list what is and is
+not modeled and the source. Source status is S (secondary) unless marked P (primary: an official document opened and read):
+- **California (S, 2025 figures; the FTB's 2026 indexed schedules were not yet published, so 2025 stands for plan year 0 and the
+  index factor takes it from there).** CalCPA Fast Tax Facts, Dec. 2025: brackets for single and joint (the old table already held the
+  2025 bracket thresholds; the old standard deduction was the 2024 one), standard deduction $5,706 / $11,412 (HoH the same as joint),
+  exemption credits $153 (single, HoH) / $307 (joint) / $153 per filer 65+ / $475 per dependent, each cut by $6 per $2,500 of federal AGI over
+  $252,203 / $504,411 / $378,310, renter's credit $60 / $120 under AGI $53,954 / $107,987. HoH brackets from a 2025 Schedule Z listing
+  (22,173 / 52,530 / 67,716 / 83,805 / 98,990 / 505,208 / 606,251 / 1,010,417), with the 1% mental-health surcharge folded into the top two
+  brackets as before. HoH and QSS now read their own columns (QSS: joint). Not modeled: CalEITC, Young Child Tax Credit, senior HoH credit.
+- **New York (thresholds P, 2026 rates and amounts S).** Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, read);
+  2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent (the five-bracket cut, from secondary sources), standard deduction $8,000 / $16,050 / $11,200,
+  $1,000 per dependent. **Tax benefit recapture** is implemented from the IT-201-I worksheet structure and checked against its 2024 constants
+  (see commit 3). It has real steps: the phase-in is by AGI over $50,000 starting at $107,650 (or at the band start), the band is chosen by taxable
+  income, so crossing a band start with an AGI a deduction above it jumps by the incremental benefit times the ratio already reached
+  (single at taxable $215,400 with AGI $223,400: +$293), and inside a phase-in the marginal rate is high (about 70% across $1,077,550 to $1,127,550
+  for a single filer). That is the law's shape, not a bug; the invariants test exempts recapturing rows from its no-jump check. Pension and annuity
+  exclusion $20,000 per filer from 59 and a half (traditional withdrawals included, S). Empire State child credit $1,000 under 4 and $500 at
+  4-16 for 2026, refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint); the reduction comes off the household's total credit
+  once, not off each child (owner, 2026-10-04: two children aged 5 at AGI 120,000 owe 1,000 - 165 = 835). A qualifying surviving spouse reads the joint column even for the child credit (the credit's own threshold is $75,000).
+  Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.
+- **Pennsylvania (rate, no deductions and the forgiveness tables P; retirement rules S).** Flat 3.07%, gains as ordinary income, Social Security
+  exempt, pensions excluded, **traditional withdrawals excluded only from 59 and a half per filer** (secondary sources: IRA distributions before
+  59 and a half are taxable with cost recovery). This fixes the old row, which excluded every traditional withdrawal at any age, so an early
+  retiree drawing from an IRA at 52 owed nothing; it now owes 3.07%. The 401(k)-after-retirement exception (an employer-plan distribution after
+  retiring is excluded at any age) and Roth cost recovery are not modeled: conservative. Tax Forgiveness: 100% at or under $6,500 of eligibility
+  income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (the no-dependent tables were read; the per-dependent structure
+  and the 10-step width are taken to hold for all rows); eligibility income is taken as the PA base (qualified retirement payments and Social
+  Security are excluded from it).
+- **Connecticut (tables P: Form CT-1040 TCS Rev. 12/25, tax year 2025; retirement rules P: OLR report 2025-R-0152, Sept. 2025).** Brackets, the
+  personal exemption ($15,000 / $24,000 / $19,000, less $1,000 per $1,000 of AGI over $30,000 / $48,000 / $38,000), Table C (2% add-back), Table D
+  (recapture) and Table E (personal tax credit decimals) are encoded as AGI step tables (C and D generated from their regular ramps and checked
+  against the printed endpoints; the PDF text of Table A is misaligned, so the exemption follows the rule that matches the joint column and the
+  stated phase-out ends). Social Security: exempt under $75,000 AGI ($100,000 joint or HoH), above that 25% of benefits received is the most
+  taxed. Pension, annuity and IRA income: share 100% under $75,000 ($100,000 joint) falling in steps to 0% at $100,000 ($150,000 joint); the IRA
+  deduction is 100% from 2026 (75% in 2025), so the 2026 share applies to all traditional income. Property tax credit up to $300 for the home,
+  15% less per $10,000 over $49,500 / $70,500 / $54,500 (S). Nothing is indexed. Not modeled: the CT EITC, the vehicle part of the property tax
+  credit, any 2026 table revisions.
+- **Washington (P, DOR).** 7% to $1 million of taxable gains, **9.9% above** (ESSB 5813, owner decision), standard deduction $278,000 (the same for a couple;
+  2025), assumed to index with inflation (DOR says the exemption adjusts; the $1 million tier is assumed to index too, to confirm).
+- **Texas.** No individual income tax (the Comptroller's tax list has none; the constitutional text was not opened).
+
+Before / after (state tax in plan year 0, `fb03255`'s rules vs commit 5, dollars):
+
+| Household | Change |
+|---|---|
+| Working couple 45/43, wages 200,000, children 6 and 9, owner (property tax 9,000) | CA 10,447 -> 9,159; NY 9,713 -> 10,548; PA 6,140 -> 6,140; CT 9,500 -> 10,000 |
+| Retired couple 66/64: pension 40,000, IRA draws 40,000, Social Security 40,000 (25,000 taxable), gains 10,000 | CA 1,885 -> 1,411; NY 1,501 -> 1,501; PA 307 -> 0; CT 4,825 -> 2,142 |
+| Early retiree, single, 55: traditional draws 50,000, gains 20,000 | CA 2,541 -> 2,375; NY 3,183 -> 3,183; PA 614 -> 2,149; CT 3,100 -> 40 |
+| Single, wages 100,000, renter (rent 18,000) | CA 5,223 -> 5,055; NY 4,860 -> 4,860; PA 3,070 -> 3,070; CT 4,750 -> 4,975 |
+| Single, wages 1,300,000 | CA 143,000 -> 142,978; NY 91,892 -> 124,678 (the recapture) |
+| Single, gains 400,000 | WA 8,540 -> 8,540 (the 9.9% tier starts above 1,000,000 of taxable gains) |
+
+Snapshots: 2 of 518 US scenarios moved, both explained by the new rows: "std R state ca" (first changed year index 0: tax 1,504 -> 1,177,
+the exemption credit and the new standard deduction; depleted age 87 -> 88) and "std R state ny" (first changed year index 1: tax 3,277 -> 3,308;
+depleted age 86 -> 86). Canada and every other scenario are byte-identical. UI snapshots (`ui_us.json`) changed only in the rendered-text
+hashes (the selector tip and the state note lines). Default scenario: unchanged (its state is the old default, Massachusetts, which is
+still a migrated row).
+
+Timing (`tests/bench_runs.js --scale 3`, 1,200 simulate + 360 historical, ms), `fb03255` -> commit 5: tx 760/159 -> 731/161, ca 1,580/310 ->
+1,145/235, ny 1,705/324 -> 1,146/250, pa 1,245/231 -> 1,056/222, ct 1,672/316 -> 1,403/315, wa 921/197 -> 887/193. Within the +5% gate everywhere.
+
+Tests: `tests/state_reference.js` (about 45 hand-computed households across the six rows, including QSS and HoH columns and the indexing
+choice), the updated literals in `tests/tax_brackets.js` (CA single $100k, WA 9.9%), and the invariants test now allows NY's recapture steps and
+checks that a non-indexing state stays put.
+
+**Follow-up to commit 5 (owner, 2026-10-04): indexing per family, NY QSS threshold, confirmations.**
+- **Indexing is declared per family of parameters, not as one switch** (owner): `bracketsIndexed`, `standardDeductionIndexed`,
+  `personalExemptionIndexed` (exemptions, dependent exemption, exemption credits), `creditAmountsIndexed`, `creditThresholdsIndexed` (credit
+  income limits, phase-out starts and widths, the exemption step-down) and `retirementExclusionIndexed` (exclusion caps, the Social Security and
+  pension AGI tests), plus an `indexed` flag on each `additions` entry. Migrated rows are fully indexed (bit-identical to before). CA: everything
+  indexed except the 1% mental-health surcharge, now its own fixed-threshold addition at $1,000,000 instead of merged top brackets (so the surcharge
+  threshold no longer drifts past the indexed 12.3% bracket start). NY, PA, CT: nothing indexed. WA: deduction indexed, the $1,000,000 tier not.
+- **NY Empire State child credit for a qualifying surviving spouse** uses the $75,000 threshold (the credit's own per-status override; the brackets
+  still read the joint column). The phase-out comes off the household total (see the earlier correction).
+- **Owner-confirmed 2026 points** (from the owner's own table; treat as S+O until opened at the primary source): NY rates and thresholds, NY standard
+  deductions, NY pension exclusion is for qualifying pension and annuity income from 59 and a half per person; CT property tax credit 15% per $10,000 over
+  $49,500 / $70,500 / $54,500 with no enacted 2026 change found; WA standard deduction indexed ($278,000 for 2025), WA $1 million tier not indexed; CA
+  has no published 2026 schedule yet (the row stays 2025, never labeled 2026). PA: IRA distributions are generally exempt after retirement age with
+  early distributions taxable; 401(k) distributions are generally exempt after retirement (see the open item: not yet modeled).
+- **The 17 states that index their brackets (owner's table; input for 7D, not yet applied to any migrated row):** AZ (Phoenix CPI), AR (CPI), CA (California CPI), ID (CPI,
+  cumulative), IA (GDP deflator), ME (chained CPI), MN (CPI / statutory federal reference), MO (CPI, cumulative), MT (CPI), NE (CPI), ND (chained
+  CPI), OH (GDP deflator), OR (CPI), RI (CPI), SC (chained CPI), VT (CPI), WI (CPI). The other states' rows have bracket indexing off in 7D unless
+  the row research says otherwise; the per-family flags let 7D set standard deduction, exemption and credit indexing separately for each state. The
+  planner uses one index factor (the plan's tax-index factor) for every state; the measures differ (Phoenix CPI, chained CPI, GDP deflator) and that
+  difference is not modeled.
+
+**External review of the migrated rows (2026-10-04): verified 7D worklist.** An outside review of `docs/state-tax-rules.md` flagged
+12 items. Every flagged row is a `migrated` row (labeled unverified, scheduled for 7D), so none was a deliberate simplification except the
+retirement-exclusion shapes and the empty credits, which the file already disclosed. Each claim was re-searched; P = an official document opened and
+read (or an official site's own page), S = secondary.
+
+| State | Claim | Verdict | Evidence | 7D action |
+|---|---|---|---|---|
+| MO | 2026 brackets are $1,313 / $2,626 / ... / $9,191 and the standard deduction does not match | **False.** Our brackets ($1,348 ... $9,436, 0% / 2% / 2.5% / 3% / 3.5% / 4% / 4.5% / 4.7%) and standard deduction ($16,100 single, $32,200 joint, $24,150 HoH) match the official figures | P: MO DOR 2026 Withholding Tax Formula PDF (annual rate table 0 to 1,348 ... over 9,436; deduction $16,100 / $32,200 / $24,150) | none for these figures; MO's federal-tax deduction and pension rules are still 7D |
+| NC | 3.99% | Correct (reviewer agrees) | | confirm in 7D |
+| UT | 4.5% | **Error.** 4.45% for 2026 (SB 60, 2026 session, retroactive to Jan. 1, 2026) | S: Utah legislature enrolled bill SB0060, EY summary | rate 4.45%; also the Social Security credit |
+| WV | 2.22% - 4.82% | **Error.** 2026 rates are 2.11 / 2.81 / 3.16 / 4.22 / 4.58 percent (SB 392, signed March 31, 2026, retroactive) | S: WV tax department page and EY summary (tax.wv.gov page listed, not opened) | new rates |
+| HI | standard deduction $4,400 / $8,800 | **Error (stale).** 2026: $8,000 single / $16,000 joint / $12,000 HoH; 2026 brackets equal the 2025 ones (ours match) | P: Hawaii Dept. of Taxation Announcement 2024-03 (Act 46), read | deduction; new item: Act 24 (2026) adds a 13% rate from Jan. 1, 2027 on taxable income over $500,000 single / $750,000 HoH / $1,000,000 joint (S: EY, Bloomberg Tax, CPA Practice Advisor) and the 2027 bracket widening in Act 46 (P, same announcement): the plan years after 2026 need them |
+| MA | deduction 0, no exemptions | **Error (omission).** Personal exemption $4,400 single / $8,800 joint / $6,800 HoH plus $1,000 per dependent for 2026 (more for 65+ and blind) | P: mass.gov "Massachusetts Personal Income Tax Exemptions" (search result; page not opened) | add exemptions and dependent exemption |
+| MS | personal exemption missing; retirement shown as a share scaled by the share of filers 59 and a half | **Error (omission), and the shape is wrong.** Exemptions: $6,000 single, $12,000 joint, $8,000 head of family (with a dependent), $1,500 per dependent (standard deduction $2,300 / $4,600 is right). Qualified retirement income is exempt per person when the plan's retirement requirements are met; early distributions are taxable | P: MS DOR forms (search result); S: retirement rule | per-person retirement kind, exemptions |
+| AL | no exemptions | **Error (omission).** Personal exemption $1,500 single / $3,000 joint and head of family; dependent exemption amount unresolved ($300 in one source, $1,000 falling to $500 above $100,000 in another). The standard deduction in the row is the top of an AGI-phased schedule (2025 official table: single $3,000 falling to $2,500 by $35,500 of AGI; joint $8,500 to $5,000; HoH $5,200 to $2,500) | P: Alabama DOR standard deduction table (tax year 2025), read; S: exemptions | exemptions, phase-down (a step-down on AGI), federal-tax deduction (the lagged pass) |
+| DE | no retirement exclusion | **Error (omission).** $12,500 per person age 60+ (pension and eligible retirement income combined, including IRA, 401(k) and a capped share of other eligible income); under 60, $2,000 of qualifying pension income. Social Security is exempt. | S: Delaware Division of Revenue and Delaware Code title 30, ch. 11 listings | new retirement kind with an age tier |
+| CO | Social Security: all at 65+, else up to $24,000 | **Partly right, partly error.** 65+: the full federally taxable amount is subtractable (ours is right). 55-64 (from tax year 2025): the full amount if AGI is under $75,000 single / $95,000 joint, otherwise the reviewer's $20,000 cap. The $24,000 in our row is the *pension* cap, conflated. **The row also has no pension and annuity subtraction at all**: $24,000 per person at 65+, $20,000 at 55-64 (includes IRA and 401(k) distributions). **The cap-increase bills did not become law** (resolved, see below): the enacted 2026 rule stays $20,000 / $24,000 | P: Colorado General Assembly bill pages (read) for the bills; tax.colorado.gov 2025 Form 104 instructions (excerpts via search, pages return 403) for the caps | per-person pension kind with age tiers, SS rule by age and AGI |
+| ME | standard deduction $8,350 / $16,700 and no retirement exclusion | **Error (stale), correct value unsettled.** Pension income deduction exists: $48,216 per person for 2025, reduced dollar for dollar by Social Security and railroad retirement benefits, with a phase-out by AGI from 2025. Standard deduction 2026: secondary sources say $15,700 / $31,400 (the reviewer too); Maine's own 2025 instructions state a "basic standard deduction" of $12,000 single / $18,000 HoH / $24,000 joint for 2026 and later (indexing not read). Brackets 2026 $27,400 / $64,850 (ours $27,399 / $64,849, a 2025 rounding) | P: Maine Revenue Services 2025 instructions (search result); S: others | read the 2026 Maine instructions; pension deduction as a per-person kind reduced by benefits |
+| SC | 0-6%, federal-style deduction | **Error.** H.4216 (Act 110, signed March 30, 2026) for tax years from 2026: 1.99% under $30,000 of taxable income, 5.21% minus $966 at or over $30,000; the base is federal AGI; the federal standard deduction is replaced by the SCIAD of $15,000 single / $22,500 HoH / $30,000 joint, reduced by income (single $40,000-$95,000, HoH $60,000-$142,500, joint from $80,000, upper end not read); EITC capped at $200; later automatic rate cuts. The DOR page is silent on retirement and Social Security under the new law | P: SC DOR "Information about H. 4216" (read); S: others | rebuild the row; read the act for the retirement deduction |
+| WA | possible new income tax in 2026 | Not an error (reviewer agrees): the new tax on income over $1 million starts January 1, 2028; the 7% / 9.9% capital-gains tax is the 2026 tax | | track 2028 |
+
+**Colorado cap-increase: resolved (2026-10-04).** The General Assembly's own bill pages (leg.colorado.gov, read) settle it:
+- **HB24-1142** (enacted): signed June 6, 2024, effective August 7, 2024, for tax years from January 1, 2025: ages 55-64 may subtract their full federally taxable
+  Social Security when AGI is at most $75,000 single / $95,000 joint (65+ already could). It does not touch the pension and annuity caps.
+- **SB25-136** (would have removed the pension and annuity caps from 2026): lost; the Senate State, Veterans and Military Affairs Committee postponed it
+  indefinitely on February 27, 2025 (3-2).
+- **HB26-1062** (would have let anyone 55 or older subtract all pension and annuity income): lost; the House Finance Committee postponed it indefinitely on
+  February 9, 2026 (7-4).
+- The $40,000 (55-64) / $50,000 (65+) caps with an AGI cutoff above $100,000 appear only in a September 2024 interim-committee draft ("Bill 7", fiscal note); that draft was a
+  proposal and never enacted. An outside suggestion that it was bill SB24-777 could not be confirmed: leg.colorado.gov has no such page (404).
+- **The 2026 rule to model** (Colorado Department of Revenue 2025 Form 104 instructions, excerpts): pension and annuity subtraction is the smaller of the taxable
+  pension and annuity income or $24,000 at 65+ / $20,000 at 55-64 (nothing under 55 except military and similar, not modeled), per taxpayer; Social Security: the
+  full federally taxable amount at 65+, and at 55-64 when AGI is within $75,000 / $95,000 (HB24-1142). The instruction wording subtracts "any amount entered on line 3" from the cap;
+  line 3 is a prior subtraction on the same schedule, probably the capped Social Security subtraction of a 55-64 filer above the AGI limits, so that capped Social Security amount
+  would use up part of the same cap (to confirm in the Form 104 booklet when reachable; tax.colorado.gov returned 403 to the fetch tool). Our migrated row's $24,000 under-65 Social
+  Security cap is therefore wrong in both directions (it is the 65+ pension cap, and a 55-64 filer above the AGI limit is capped at $20,000 together with pension income).
+The 2025 Colorado schedule DR 0104AD (the subtractions schedule, supplied by the owner, read) confirms the structure but not the line 3 wording: the Social Security and the
+pension, annuity and IRA subtractions are separate lines **per person** (line 3 primary taxpayer's Social Security, line 4 primary's pension, annuity and IRA income, lines 5 and 6 the spouse's),
+so the per-person kinds are the right shape and "minus line 3" in the instructions refers to that same person's Social Security subtraction. Whether a 65+ filer's full Social Security subtraction
+reduces the $24,000 pension cap is not stated on the form (the instruction booklet's wording for lines 3 and 4 is still needed; the form is not the instructions). It also lists the
+subtractions the planner does not model: military retirement under 55 (lines 7 and 8), railroad benefits, PERA, and others.
+**Working reading of the shared bucket (outside analysis, consistent with the instruction wording, not yet confirmed in the booklet):** per person, the Social Security subtraction
+(line 3 / 5) and the pension, annuity and IRA subtraction (line 4 / 6) share one bucket of $24,000 (65+) or $20,000 (55-64). Pension subtraction = min(that person's taxable pension and IRA income,
+max(0, cap - that person's Social Security subtraction)). A 65+ filer's Social Security subtraction is itself unlimited (the 2022 rule: all federally taxable benefits when they exceed the cap), so
+taxable Social Security of $24,000 or more leaves no pension subtraction, and the two never add to more than the cap except through that Social Security exception. Worked rows (65+, $20,000
+taxable pension): Social Security $10,000 -> pension subtraction $14,000 (min of $20,000 and $24,000 less $10,000), $20,000 -> $4,000, $24,000 -> $0, $30,000 -> $0. For 55-64 the Social Security part follows the HB24-1142 AGI test, and above the AGI limits it uses the
+$20,000 bucket. Needs each person's own taxable Social Security (the household figure split in proportion to each partner's benefits; mechanism 15).
+Backlog: confirm the shared bucket and the line 3 reading against the Form 104 booklet, and the HB24-1142 thresholds' indexing (none stated), as open.
+
+Findings that are disclosed simplifications, not errors: credits shown as `none` (every migrated row), the household-level retirement kinds (MS share,
+SC tier, IA, AR, GA), the CA / CT / NY 2025 labels. The migrated rows were never validated; 7D replaces them. One more consequence of the list above:
+several rows need a mechanism the schema does not have yet (a combined cap reduced by benefits received, ME; an AGI step-down of the standard deduction,
+AL and SC's SCIAD; a pension cap by age tier with a younger tier, CO and DE; a tax deduction for federal tax paid, AL / MO / OR / MT), to be added with
+tests before the data lands.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -1783,6 +2056,13 @@ reading (itself secondary).
 | HoH needs a qualifying child (or other qualifying person), paying over half the home cost; a student 19-23 counts | 7B | O | IRC 2(b), Pub. 501 |
 | State tax: HoH read as single, QSS as joint, until 7C/7D | 7B | n/a (interim) | each state's forms |
 | Survivor files jointly for the year of death (code: step 2, V94); the deceased's own age counts for the 65+ deductions | 7B | U | IRC 6013(a)(3), Pub. 501 |
+| State tax table: CA 2025 brackets, HoH schedule, standard deduction, exemption credits and phase-out, renter's credit (CalCPA Fast Tax Facts Dec. 2025, a 2025 Schedule Z listing); 2026 figures when the FTB publishes | 7C | S | FTB 2025 540 instructions and tax rate schedules (blocked: 403), later the 2026 schedules |
+| NY: 2026 rates (3.9 / 4.4 / 5.15 / 5.4 / 5.9), 2026 standard deductions, $1,000 dependent exemption, pension exclusion includes IRA distributions from 59 and a half, Empire State child credit $1,000 / $500 for 2026 and its $16.50 phase-out on the household total (owner's reading), QSS threshold | 7C | S (thresholds and recapture worksheets P: IT-201-I 2024 and 2025 read) | Tax Law sec. 601, IT-201-I 2026, IT-213 instructions |
+| PA: 59 and a half rule for IRA and 401(k) withdrawals, 401(k)-after-retirement exception, Roth cost recovery, forgiveness per-dependent rows and the 10% per $250 step for every row, eligibility income definition | 7C | S (rate, no deductions and the no-dependent forgiveness tables P: pa.gov) | PA-40 instructions, Schedule SP, 61 Pa. Code sec. 101.6 |
+| CT: Table A exemption (the PDF text is misaligned; formula $1,000 per $1,000 over $30,000 / $48,000 / $38,000 matches the printed joint column and stated ends), property tax credit steps (15% per $10,000), 2026 table revisions, IRA deduction 100% from 2026 | 7C | P (Form CT-1040 TCS Rev. 12/25; OLR 2025-R-0152) for tables and thresholds; S for the property tax credit | CT-1040 instructions 2025 and 2026, CGS sec. 12-701(a)(20) |
+| WA: $278,000 standard deduction for 2025 (P, DOR), 2026 amount, whether the $1 million tier indexes, 9.9% (P, DOR) | 7C | P / U | RCW 82.87.040 as amended by ESSB 5813 |
+| TX: no individual income tax | 7C | S (Comptroller tax list) | Tex. Const. art. VIII sec. 24-a |
+| State indexing by family: NY, PA and CT nothing indexed; CA all indexed except the $1 million surcharge; WA deduction indexed, $1 million tier not; the 17-state list of bracket-indexing states and each state's measure (owner's table) | 7C / 7D | O (owner's table, secondary) | each state's statute and revenue department notices |
 
 ## Open items
 
@@ -1855,6 +2135,17 @@ remains is detail to settle when the relevant batch is scoped:
 - HoH and QSS in state tax (raised in 7A): until 7C reconsiders them, the state-tax calls get
   the nearest `mfj` / `single` mapping (QSS as `mfj`, HoH as `single`); each state's own rules
   go in `STATE_RULES`.
+- **Bracket-creep patches for the non-indexing states (owner request):** NY, PA and CT (and any other state whose row has bracket indexing off) hold their thresholds still, so a long
+  projection pushes more income into higher brackets than legislatures have historically allowed. Estimate how often and by how much each state has actually raised its
+  thresholds and deductions relative to inflation (a periodic adjustment, or a rate cut in place of one), and decide whether to add an optional assumed catch-up (for
+  example a periodic reset of the thresholds toward the indexed path) to the unindexed rows. Needs the historical series per state, a before/after on a long-horizon
+  scenario for NY, PA and CT, and a switch or default decision. Not built.
+- PA 401(k) after retirement (owner-confirmed rule: a 401(k) distribution after retirement is generally exempt at any age, while IRA distributions before 59 and a half are taxable):
+  the row taxes every traditional draw before 59 and a half, which overstates PA tax for an early retiree drawing a 401(k). Modeling it needs the 401(k) and IRA split of each
+  partner's traditional draw in the tax profile (the account ledger already tracks it) and a `retired` condition. Not built.
+- State EITCs and other refundable earned-income credits (CalEITC, NY EITC, CT EITC) are not modeled in 7C; decide them with the federal EITC (above).
+- CA 2026 figures: replace the 2025 figures when the FTB publishes the 2026 schedules (the row is `asOf: 2025`).
+- NY real property tax credit and household credit, CA Young Child Tax Credit, and local income taxes are documented gaps.
 - 7A birth-year clamp: the bounds are fixed 1950-2100; a typed partial year is saved transiently
   (see the 7A gotchas).
 - Batch 8: grid ranges and the default objective are confirmed when it is
