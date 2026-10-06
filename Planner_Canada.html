@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V47</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V48</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -629,12 +629,12 @@
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute to RRSP and TFSA while employed, subject to earned income; in single-person mode, only Partner A's limits and income are used. RRSP contribution room is approximated as 18% of current-year wages up to the 2026 dollar maximum ($33,810); unused room is not tracked or carried forward, a simplification versus real CRA room accumulation. TFSA room is a flat $7,000/year per person (2026), also not tracked cumulatively. Employer RRSP matches are calculated as the selected percentage of each working person's salary and added to the RRSP without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and don't add extra RRSP/TFSA room. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded first from any FHSA balance, then by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. In this mode, each partner can also contribute a percentage of wages to an FHSA (First Home Savings Account) up until the purchase year, subject to the real $8,000/year and (non-indexed) $40,000 lifetime per-person caps; contributions are deducted from taxable income like an RRSP contribution, the balance grows tax-free, and at the purchase year it's applied tax-free toward the down payment and closing costs — any leftover rolls tax-free into the TFSA balance (a simplification of the CRA rule that also allows a tax-free RRSP rollover instead). The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The bond reserve is built one projected expense-year at a time over the years before retirement, moved from RRSP first, then TFSA, then taxable only as a last resort (moves inside RRSP and TFSA create no income; selling taxable stock realizes a capital gain that counts in that year's tax). An optional RRSP meltdown ladder withdraws from RRSP each year within a chosen age window, solving for the amount that fills Partner A's taxable income up to the top of a selected federal bracket (after any required RRIF minimum), and moves the net proceeds to TFSA (sufficient TFSA room is assumed). CPP, OAS, and pension income offset expenses first; withdrawals then use taxable, RRSP, TFSA, cash, the protected bond reserve, and finally home equity.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
-            <div class="callout"><b>Tax treatment.</b> Canada requires each spouse to file an individual return, so this model always computes federal + provincial tax per person rather than jointly; pooled taxable and RRSP withdrawals are split 50/50 between partners for tax purposes unless pension splitting reallocates income between them. Capital gains use the standard 50% inclusion rate — half of each modeled brokerage gain is added to ordinary taxable income and taxed at that person's marginal rate, with no separate preferential bracket. CPP and OAS are fully taxable ordinary income for whoever receives them (OAS is also subject to the separate clawback described below). The planner also models the Guaranteed Income Supplement and Allowances, the Canada Child Benefit, the Canada Groceries and Essentials Benefit and the provincial benefits for Ontario, BC, Alberta and Quebec: tax-free payments worked out from the same year income, shown on their own lines and counted when the planner decides what to withdraw. OAS gets the 10% increase from age 75 (enter the 65 to 74 amount). Federal non-refundable credits are applied per person at 14%: the basic personal amount (with its high-income phase-down), the age amount at 65+ (reduced by 15% of net income over about $46,400) and the pension income amount (first $2,000 of eligible pension and, at 65+, RRIF/RRSP income). Provincial tax uses the same credit form: each province's basic personal amount (Manitoba's phases down at high income), age amount (reduced by 15% of net income over its threshold) and pension income amount are credits at that province's lowest rate, and eligible Canadian dividends get the federal and provincial dividend tax credits (Ontario's surtax is worked out before its dividend credit, as on the Ontario return). This is still a planning estimate: low-income tax reductions, other provinces' property-tax and rent credits, non-eligible Canadian dividends (taxed like interest) and the Quebec health contributions are not modeled. RRSP funds are assumed split 50/50 between partners, and RRIF minimum withdrawals begin at each partner's own age 71 using the CRA's prescribed factor table. Brokerage withdrawals use the selected cost-basis ratio to estimate the taxable gain portion.</div>
+            <div class="callout"><b>Tax treatment.</b> Canada requires each spouse to file an individual return, so this model always computes federal + provincial tax per person rather than jointly; pooled taxable and RRSP withdrawals are split 50/50 between partners for tax purposes unless pension splitting reallocates income between them. Capital gains use the standard 50% inclusion rate — half of each modeled brokerage gain is added to ordinary taxable income and taxed at that person's marginal rate, with no separate preferential bracket. CPP and OAS are fully taxable ordinary income for whoever receives them (OAS is also subject to the separate clawback described below). The planner also models the Guaranteed Income Supplement and Allowances, the Canada Child Benefit, the Canada Groceries and Essentials Benefit and the provincial benefits for Ontario, BC, Alberta and Quebec: tax-free payments worked out from the same year income, shown on their own lines and counted when the planner decides what to withdraw. OAS gets the 10% increase from age 75 (enter the 65 to 74 amount). Federal non-refundable credits are applied per person at 14%: the basic personal amount (with its high-income phase-down), the age amount at 65+ (reduced by 15% of net income over about $46,400) and the pension income amount (first $2,000 of eligible pension and, at 65+, RRIF/RRSP income). Provincial tax uses the same credit form: each province's basic personal amount (Manitoba's phases down at high income), age amount (reduced by 15% of net income over its threshold) and pension income amount are credits at that province's lowest rate, and eligible Canadian dividends get the federal and provincial dividend tax credits (Ontario's surtax is worked out before its dividend credit, as on the Ontario return). This is still a planning estimate: other provinces' property-tax and rent credits, non-eligible Canadian dividends (taxed like interest) and the Quebec health contributions are not modeled. RRSP funds are assumed split 50/50 between partners, and RRIF minimum withdrawals begin at each partner's own age 71 using the CRA's prescribed factor table. Brokerage withdrawals use the selected cost-basis ratio to estimate the taxable gain portion.</div>
             <div class="callout full"><b>CPP, OAS clawback & healthcare.</b> CPP and OAS each start whenever selected (CPP 60–70, OAS 65–70) and are added in full to that person's taxable income. OAS is separately subject to the federal recovery tax ("clawback"): 15% of net income (including OAS itself) above the 2026 threshold ($95,323), up to the full OAS amount. It is charged on each person's full income for the year, including RRSP/RRIF withdrawals, the RRSP meltdown and taxable gains (so a withdrawal that crosses the threshold costs 15% more), the repayment is deducted from net income as on the tax return, and the model uses the same year's income rather than CRA's actual one-year lookback. Since Canada has universal provincial healthcare (OHIP in Ontario, MSP in BC), the "extra health/dental insurance" figure only represents supplemental private coverage many retirees carry — there's no premium-subsidy or income-tested surcharge system to model the way the US does with ACA/Medicare. Ontario's own health premium (up to $900/year, income-tested) is folded into the Ontario provincial tax estimate instead, since it's collected through the tax return. The supplemental healthcare premium and the whole long-term-care cost count as medical expenses for the medical expense credit (3% of net income floor), which the model claims on one return; the LTC amount is treated as nursing-home care, fully eligible.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation — no equivalent Canadian long-run series is substituted), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the market fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (RRSP/RRIF first, then TFSA, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and net income, and the moves inside RRSP and TFSA create no income). The stock accounts follow your withdrawal setting (the default taxable → RRSP → TFSA order, or smooth withdrawals); cash and the bond reserve keep their own place in the order. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → RRSP → TFSA → home equity to avoid a false failure. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RRIF minimums, OAS clawback, pension splitting, the meltdown ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
-        <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal/provincial tax parameters are held constant in real terms and increase with inflation in nominal projections. Medical expenses (the private health premium and the whole long-term-care cost, treated as nursing-home care) earn the federal and provincial medical expense credit, and in Ontario the refundable Seniors Care at Home credit. Working-year EI premiums, the CPP/QPP and EI credits, the enhanced CPP/QPP deduction and the Canada employment amount are modeled. Sources: TaxTips.ca 2026 federal brackets, TaxTips.ca 2026 Ontario brackets &amp; health premium, TaxTips.ca 2026 BC brackets, CRA 2026 CPP/OAS amounts, CRA OAS recovery tax rules, CRA 2026 RRSP/TFSA limits, CRA FHSA rules &amp; limits, CRA RRIF minimum withdrawal factors, CRA pension income splitting rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
+        <p class="footer-note">Planning estimate only—not tax, investment, or legal advice. Contribution limits and 2026 federal/provincial tax parameters are held constant in real terms and increase with inflation in nominal projections. The low-income provincial tax reductions of Ontario, British Columbia, New Brunswick, Newfoundland and Labrador, Nova Scotia and Prince Edward Island are modeled. Medical expenses (the private health premium and the whole long-term-care cost, treated as nursing-home care) earn the federal and provincial medical expense credit, and in Ontario the refundable Seniors Care at Home credit. Working-year EI premiums, the CPP/QPP and EI credits, the enhanced CPP/QPP deduction and the Canada employment amount are modeled. Sources: TaxTips.ca 2026 federal brackets, TaxTips.ca 2026 Ontario brackets &amp; health premium, TaxTips.ca 2026 BC brackets, CRA 2026 CPP/OAS amounts, CRA OAS recovery tax rules, CRA 2026 RRSP/TFSA limits, CRA FHSA rules &amp; limits, CRA RRIF minimum withdrawal factors, CRA pension income splitting rules, and the Damodaran/NYU Stern historical S&amp;P 500 &amp; inflation dataset.</p>
       </section>
     </div>
   </main>
@@ -2386,7 +2386,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.0505,
       brackets: [[53891, 0.0505], [107785, 0.0915], [150000, 0.1116], [220000, 0.1216], [Infinity, 0.1316]],
       bpa: { amount: 12989, phase: null },
@@ -2399,6 +2399,7 @@
       homeBuyer: null,
       medical: { threshold: 2940, familyIncome: false },
       careAtHome: { age: 70, rate: 0.25, maxExpenses: 6000, startIncome: 35000, reductionRate: 0.05 },
+      lowIncomeReduction: { kind: "perReturn", basic: 294, spouse: 0, dependant: 0, child: 544, age: 0, multiplier: 2, rate: 0, base: 0, baseWithDependants: null, eligibility: null, ageTaxCredit: null },
       dividend: { eligible: 0.1 },
       surtax: { first: 5818, firstRate: 0.2, second: 7446, secondRate: 0.36 },
       healthPremium: true,
@@ -2411,7 +2412,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.056,
       brackets: [[50363, 0.056], [100728, 0.077], [115648, 0.105], [140430, 0.1229], [190405, 0.147], [265545, 0.168], [Infinity, 0.205]],
       bpa: { amount: 13216, phase: null },
@@ -2424,6 +2425,7 @@
       homeBuyer: null,
       medical: { threshold: 2748, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: { kind: "income", basic: 575, spouse: 0, dependant: 0, child: 0, age: 0, multiplier: 1, rate: 0.0356, base: 25570, baseWithDependants: null, eligibility: null, ageTaxCredit: null },
       dividend: { eligible: 0.12 },
       surtax: null,
       healthPremium: false,
@@ -2436,7 +2438,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.08,
       brackets: [[61200, 0.08], [154259, 0.1], [185111, 0.12], [246813, 0.13], [370220, 0.14], [Infinity, 0.15]],
       bpa: { amount: 22769, phase: null },
@@ -2449,6 +2451,7 @@
       homeBuyer: null,
       medical: { threshold: 2942, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: null,
       dividend: { eligible: 0.0812 },
       surtax: null,
       healthPremium: false,
@@ -2461,7 +2464,7 @@
       amountsSource: 'https://www.saskatchewan.ca/residents/taxes-and-investments/personal-income-tax/2026-personal-income-tax-structure',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.105,
       brackets: [[54532, 0.105], [155805, 0.125], [Infinity, 0.145]],
       bpa: { amount: 20381, phase: null },
@@ -2474,6 +2477,7 @@
       homeBuyer: { amount: 15000 },
       medical: { threshold: 2736, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: null,
       dividend: { eligible: 0.11 },
       surtax: null,
       healthPremium: false,
@@ -2486,7 +2490,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.108,
       brackets: [[47000, 0.108], [100000, 0.1275], [Infinity, 0.174]],
       bpa: { amount: 15780, phase: { start: 200000, end: 400000, floor: 0 } },
@@ -2499,6 +2503,7 @@
       homeBuyer: null,
       medical: { threshold: 1728, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: null,
       dividend: { eligible: 0.08 },
       surtax: null,
       healthPremium: false,
@@ -2511,7 +2516,7 @@
       amountsSource: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'primary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'primary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.14,
       brackets: [[54345, 0.14], [108680, 0.19], [132245, 0.24], [Infinity, 0.2575]],
       bpa: { amount: 18952, phase: null },
@@ -2524,6 +2529,7 @@
       homeBuyer: { amount: 10000 },
       medical: { threshold: null, familyIncome: true },
       careAtHome: null,
+      lowIncomeReduction: null,
       dividend: { eligible: 0.117 },
       surtax: null,
       healthPremium: false,
@@ -2536,7 +2542,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.094,
       brackets: [[52333, 0.094], [104666, 0.14], [193861, 0.16], [Infinity, 0.195]],
       bpa: { amount: 13664, phase: null },
@@ -2549,6 +2555,7 @@
       homeBuyer: null,
       medical: { threshold: 2854, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: { kind: "family", basic: 802, spouse: 802, dependant: 802, child: 0, age: 0, multiplier: 1, rate: 0.03, base: 21920, baseWithDependants: null, eligibility: { singleBelow: 48653, familyBelow: 75387 }, ageTaxCredit: null },
       dividend: { eligible: 0.14 },
       surtax: null,
       healthPremium: false,
@@ -2561,7 +2568,7 @@
       amountsSource: 'https://www.novascotia.ca/personal-income-tax-rates-and-indexation',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.0879,
       brackets: [[30995, 0.0879], [61991, 0.1495], [97417, 0.1667], [157124, 0.175], [Infinity, 0.21]],
       bpa: { amount: 11932, phase: null },
@@ -2574,6 +2581,7 @@
       homeBuyer: null,
       medical: { threshold: 1637, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: { kind: "family", basic: 300, spouse: 300, dependant: 300, child: 165, age: 0, multiplier: 1, rate: 0.05, base: 15000, baseWithDependants: null, eligibility: null, ageTaxCredit: { amount: 1000, incomeBelow: 24000, age: 65 } },
       dividend: { eligible: 0.0885 },
       surtax: null,
       healthPremium: false,
@@ -2586,7 +2594,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.095,
       brackets: [[33928, 0.095], [65820, 0.1347], [106890, 0.166], [142520, 0.1762], [200000, 0.19], [Infinity, 0.2]],
       bpa: { amount: 15000, phase: null },
@@ -2599,6 +2607,7 @@
       homeBuyer: null,
       medical: { threshold: 1678, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: { kind: "family", basic: 350, spouse: 350, dependant: 350, child: 300, age: 250, multiplier: 1, rate: 0.05, base: 22650, baseWithDependants: null, eligibility: null, ageTaxCredit: null },
       dividend: { eligible: 0.105 },
       surtax: null,
       healthPremium: false,
@@ -2611,7 +2620,7 @@
       amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
       asOf: '2026',
       retrieved: '2026-10-05',
-      verified: { medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
+      verified: { lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
       creditRate: 0.087,
       brackets: [[44678, 0.087], [89354, 0.145], [159528, 0.158], [223340, 0.178], [285319, 0.198], [570638, 0.208], [1141275, 0.213], [Infinity, 0.218]],
       bpa: { amount: 13094, phase: null },
@@ -2624,6 +2633,7 @@
       homeBuyer: null,
       medical: { threshold: 2437, familyIncome: false },
       careAtHome: null,
+      lowIncomeReduction: { kind: "family", basic: 997, spouse: 557, dependant: 557, child: 0, age: 0, multiplier: 1, rate: 0.16, base: 23928, baseWithDependants: 40460, eligibility: null, ageTaxCredit: null },
       dividend: { eligible: 0.063 },
       surtax: null,
       healthPremium: false,
@@ -3353,7 +3363,7 @@
   // dividend credit (against the provincial tax only, floored at zero; Ontario takes it
   // after the surtax, as form ON428 does); then Ontario's Health Premium, which is not
   // reduced by credits and is based on taxable income.
-  function provincialTaxCA(income, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, spouseNet = -1, depKids = 0, childKids = 0, extraCredit = 0, medical = 0) {
+  function provincialTaxCA(income, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, spouseNet = -1, depKids = 0, childKids = 0, extraCredit = 0, medical = 0, redKids = 0) {
     const c = currentProvince(),
       rule = c.rule,
       ix = rule.indexing,
@@ -3419,7 +3429,22 @@
       tax += Math.max(0, tax - s.first * sf) * s.firstRate + Math.max(0, tax - s.second * sf) * s.secondRate;
     }
     if (dtcBase > 0) tax = Math.max(0, tax - dtcBase * rule.dividend.eligible);
+    // Low-income tax reduction (after the dividend credit, before Ontario's health premium).
+    const li = rule.lowIncomeReduction;
+    if (li) {
+      const fb = ix.bpaIndexed ? f : 1;
+      if (li.kind === 'perReturn') {
+        const r = li.multiplier * (li.basic + li.child * redKids) * fb - tax;
+        if (r > 0) tax = Math.max(0, tax - r);
+      } else if (li.kind === 'income') {
+        const r = li.basic * fb - li.rate * Math.max(0, ni - li.base * fb);
+        if (r > 0) tax = Math.max(0, tax - r);
+      }
+      const ac = li.ageTaxCredit;
+      if (ac && age >= ac.age && ni < ac.incomeBelow * fb) tax = Math.max(0, tax - ac.amount * fb);
+    }
     if (rule.healthPremium) tax += ontarioHealthPremium(ni, f);
+    PROV_TAX.last = tax;
     return tax;
   }
   function provinceTaxTreatmentNote() {
@@ -3553,7 +3578,7 @@
   // lower figure) and added to the tax payable (line 42200); it is not reduced by credits and the Quebec
   // abatement does not touch it. The amount is left in OAS_RECOVERY.last for the caller to read.
   const OAS_RECOVERY = { last: 0, a: 0, b: 0 };
-  function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, oas = 0, spouseNet = -1, depKids = 0, childKids = 0, fedCredit = 0, provCredit = 0, provDeduction = 0, medical = 0) {
+  function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, oas = 0, spouseNet = -1, depKids = 0, childKids = 0, fedCredit = 0, provCredit = 0, provDeduction = 0, medical = 0, redKids = 0) {
     let taxableIncome = Math.max(0, ordinaryIncome + Math.max(0, gains) * 0.5),
       recovery = 0;
     if (oas > 0) {
@@ -3575,7 +3600,7 @@
     );
     if (dtcBase > 0) fedTax = Math.max(0, fedTax - dtcBase * FEDERAL_ELIGIBLE_DTC);
     if (state.province === 'qc') fedTax *= 0.835;
-    return fedTax + provincialTaxCA(provDeduction > 0 ? taxableIncome - provDeduction : taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool, spouseNet, depKids, childKids, provCredit, medical) + recovery;
+    return fedTax + provincialTaxCA(provDeduction > 0 ? taxableIncome - provDeduction : taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool, spouseNet, depKids, childKids, provCredit, medical, redKids) + recovery;
   }
   // The planner converts the RRSP to a RRIF at 71 (see rrifMinPct). CRA counts RRIF payments as
   // pension income from 65, but a withdrawal from an RRSP that is not an annuity or RRIF payment
@@ -3620,7 +3645,9 @@
       oasB = profile.oasB || 0;
     // Children under 18 (the eligible-dependant and child amounts); none on the common path.
     const deps = profile.dependents,
-      kids = deps && deps.length ? countKids(deps, 0, 17) : 0;
+      kids = deps && deps.length ? countKids(deps, 0, 17) : 0,
+      kids18 = kids > 0 ? countKids(deps, 0, 18) : deps && deps.length ? countKids(deps, 0, 18) : 0;
+    const li = currentProvince().rule.lowIncomeReduction;
     // The household's eligible medical expenses (health premium and long-term care), claimed on one return.
     const med = profile.medical || 0;
     OAS_RECOVERY.a = OAS_RECOVERY.b = 0;
@@ -3642,8 +3669,14 @@
         profile.provCreditA || 0,
         profile.provDedA || 0,
         med,
+        kids18,
       );
+      const pSingle = PROV_TAX.last;
       if (oasA > 0) OAS_RECOVERY.a = OAS_RECOVERY.last;
+      if (li && li.kind === 'family') {
+        const netS = Math.max(0, profile.otherA + traditionalExtra + gains * 0.5);
+        return single - lowIncomeFamilyReduction(li, ageA, 0, false, kids, kids18, netS, 0, pSingle, profile.year, currentProvince().rule.indexing.bpaIndexed);
+      }
       if (med > 0 && state.province === 'on') {
         const net = Math.max(0, profile.otherA + traditionalExtra + gains * 0.5);
         return single - careAtHomeCredit(med, net, net, profile.year, ageA, 0);
@@ -3667,12 +3700,16 @@
     const pensionA = ageA >= RRIF_PENSION_AGE ? penA + tradA : penA,
       pensionB = ageB >= RRIF_PENSION_AGE ? penB + tradB : penB;
     const medToB = med > 0 && medicalClaimToB(netA, netB, profile.year);
-    const taxA = personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, pensionA, family, quebecPoolAmount(ageB, pensionB, profile.year), oasA, spouseA, 0, kidsA, profile.fedCreditA || 0, profile.provCreditA || 0, profile.provDedA || 0, medToB ? 0 : med);
+    const taxA = personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, pensionA, family, quebecPoolAmount(ageB, pensionB, profile.year), oasA, spouseA, 0, kidsA, profile.fedCreditA || 0, profile.provCreditA || 0, profile.provDedA || 0, medToB ? 0 : med, netA >= netB ? kids18 : 0);
+    const pA = PROV_TAX.last;
     if (oasA > 0) OAS_RECOVERY.a = OAS_RECOVERY.last;
-    const taxB = personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, pensionB, family, quebecPoolAmount(ageA, pensionA, profile.year), oasB, spouseB, 0, kidsB, profile.fedCreditB || 0, profile.provCreditB || 0, profile.provDedB || 0, medToB ? med : 0);
+    const taxB = personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, pensionB, family, quebecPoolAmount(ageA, pensionA, profile.year), oasB, spouseB, 0, kidsB, profile.fedCreditB || 0, profile.provCreditB || 0, profile.provDedB || 0, medToB ? med : 0, netB > netA ? kids18 : 0);
+    const pB = PROV_TAX.last;
     if (oasB > 0) OAS_RECOVERY.b = OAS_RECOVERY.last;
+    let reduction = 0;
+    if (li && li.kind === 'family') reduction = lowIncomeFamilyReduction(li, ageA, ageB, true, kids, kids18, netA, netB, pA + pB, profile.year, currentProvince().rule.indexing.bpaIndexed);
     if (med > 0 && state.province === 'on') return taxA + taxB - careAtHomeCredit(med, medToB ? netB : netA, family, profile.year, ageA, ageB);
-    return taxA + taxB;
+    return taxA + taxB - reduction;
   }
   // Canada taxFor is the household's net cost of income: income tax minus the income-tested benefits it
   // triggers. The shared withdrawal solvers (drawTaxable and the Canada solvers) price a withdrawal as the change
@@ -4174,8 +4211,8 @@
         nB = otherB + x,
         medToB = pay && pay.med > 0 && medicalClaimToB(nA, nB, yearIndex);
       return (
-        personTaxCA(nA, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ageB, eligibleB + x, yearIndex), oasA, nA >= nB ? Math.max(0, nB) : -1, 0, nA <= nB ? kids : 0, pay ? pay.fedA : 0, pay ? pay.provA : 0, pay ? pay.dedA : 0, pay && pay.med > 0 && !medToB ? pay.med : 0) +
-        personTaxCA(nB, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ageA, eligibleA - x, yearIndex), oasB, nB > nA ? Math.max(0, nA) : -1, 0, nB < nA ? kids : 0, pay ? pay.fedB : 0, pay ? pay.provB : 0, pay ? pay.dedB : 0, pay && pay.med > 0 && medToB ? pay.med : 0)
+        personTaxCA(nA, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ageB, eligibleB + x, yearIndex), oasA, nA >= nB ? Math.max(0, nB) : -1, 0, nA <= nB ? kids : 0, pay ? pay.fedA : 0, pay ? pay.provA : 0, pay ? pay.dedA : 0, pay && pay.med > 0 && !medToB ? pay.med : 0, pay && nA >= nB ? pay.rk : 0) +
+        personTaxCA(nB, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ageA, eligibleA - x, yearIndex), oasB, nB > nA ? Math.max(0, nA) : -1, 0, nB < nA ? kids : 0, pay ? pay.fedB : 0, pay ? pay.provB : 0, pay ? pay.dedB : 0, pay && pay.med > 0 && medToB ? pay.med : 0, pay && nB > nA ? pay.rk : 0)
       );
     };
     // The age-amount clawback makes combined tax non-convex for a 65+ filer
@@ -4255,6 +4292,30 @@
       claimable = med - Math.min(0.03 * netClaimant, rule.medical.threshold * fb);
     if (!(claimable > 0)) return 0;
     return Math.max(0, c.rate * Math.min(c.maxExpenses, claimable) - c.reductionRate * Math.max(0, famNet - c.startIncome));
+  }
+  // Low-income provincial tax reductions (7N N6), read on the CRA 2025 provincial forms (British Columbia: the 2026 figures of CRA T4127,
+  // which are the 2025 form figures indexed). Ontario and British Columbia work per return inside provincialTaxCA (Ontario: 2 x the
+  // basic reduction and the child amounts, less the tax, off the tax; British Columbia: a maximum less a rate on net income over a base).
+  // New Brunswick, Newfoundland and Labrador, Nova Scotia and Prince Edward Island have ONE family reduction (basic, spouse or eligible
+  // dependant, children, PEI age amounts, less a rate on adjusted family income over a base), limited to the family's provincial tax (an
+  // unused part passes to the spouse), worked out in incomeTaxCA from the provincial tax each return reports in PROV_TAX. Nova Scotia
+  // also gives an age tax credit (65 and over, taxable income under 24,000), taken per return. Alberta, Saskatchewan, Manitoba and Quebec
+  // have none (their forms were read). Not built: Ontario's dependants with an impairment, the LIFT credit (Schedule ON428-A), and the
+  // reduction passing between spouses when the household's income is split unevenly beyond the family limit.
+  const PROV_TAX = { last: 0 };
+  function lowIncomeFamilyReduction(li, ageA, ageB, couple, kidsU18, kids18, netA, netB, pTotal, yearIndex, indexed) {
+    const fb = indexed ? taxIndexFactor(yearIndex) : 1,
+      afi = netA + netB;
+    const eligibility = li.eligibility;
+    if (eligibility) {
+      if (couple || kidsU18 > 0 ? !(afi < eligibility.familyBelow * fb) : !(afi < eligibility.singleBelow * fb)) return 0;
+    }
+    const dependant = !couple && kidsU18 > 0;
+    let items = li.basic + (couple ? li.spouse : dependant ? li.dependant : 0) + li.child * (dependant ? Math.max(0, kids18 - 1) : kids18);
+    if (li.age > 0) items += li.age * ((ageA >= 65 ? 1 : 0) + (couple && ageB >= 65 ? 1 : 0));
+    const baseIncome = li.baseWithDependants !== null && (couple || dependant) ? li.baseWithDependants : li.base,
+      r = items * fb - li.rate * Math.max(0, afi - baseIncome * fb);
+    return r > 0 ? (r < pTotal ? r : pTotal) : 0;
   }
   // Working-year payroll items for one earner (7N N4), per CRA and Revenu Quebec 2026 figures. cash is the employee cost
   // (CPP or QPP, CPP2, EI, QPIP). The tax return treats the pieces differently: the base CPP/QPP contribution (CPP 4.95%,
@@ -4926,6 +4987,7 @@
       provB: payB.provCredit + (hbToB ? hb[1] : 0),
       dedB: payB.provDeduction,
       med: medical,
+      rk: countKids(dependentsInYear(CURRENT_YEAR + year), 0, 18),
     };
     const dtcA = inv.eligGrossed * shareA,
       dtcB = inv.eligGrossed * shareB;

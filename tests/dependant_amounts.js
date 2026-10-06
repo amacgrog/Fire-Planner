@@ -1,6 +1,6 @@
 // Spouse, eligible-dependant and child amounts in the engine (Batch 7N, N3).
 //
-// Year-0 row tax of a working single parent with one child under 18 against the same person without the child:
+// Year-0 row tax (at 90,000 of wages, above the range of Ontario's low-income tax reduction) of a working single parent with one child under 18 against the same person without the child:
 // the federal eligible-dependant amount (the BPA variant, 16,452 below the 29% bracket, less the child's income of 0)
 // at 14% and Ontario's 11,029 at 5.05% (CRA TD1ON 2026). The couple claims (spouse amount, child amount) are pinned at
 // function level in tests/tax_brackets.js and the survivor case in tests/survivor_symmetry.js.
@@ -29,7 +29,7 @@ const path = require('path');
       return row;
     };
     const year = new Date().getFullYear();
-    const single = { singlePerson: true, incomeA: 50000 };
+    const single = { singlePerson: true, incomeA: 90000 };
     const kid = [{ birthYear: year - 5, student: false }];
     return {
       noKid: run(single).tax,

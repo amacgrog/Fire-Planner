@@ -131,32 +131,32 @@
     "B"
    ]
   },
-  "executeProjectionHash": "fc7337626409c42a",
+  "executeProjectionHash": "a43073a489083248",
   "executeStateHash": "e2e7efa813718cbe",
   "readMatchesExecute": true
  },
  "surfaces": {
   "std default": {
-   "textHash": "27ab863c7f254002",
-   "textLength": 21268,
-   "projectionHash": "9a5dbfe3dcf2ab20",
-   "rowsHash": "f6529e24c7088c7d",
+   "textHash": "9bf57faced2da821",
+   "textLength": 21406,
+   "projectionHash": "64706f1a27ce518a",
+   "rowsHash": "a4ad1ef80c95759b",
    "histSuccess": "—",
    "errors": []
   },
   "std R": {
-   "textHash": "0e191ac5aa5b2ab7",
-   "textLength": 21211,
-   "projectionHash": "46df8a78b7357ec4",
-   "rowsHash": "ee9ea19a3c36d94f",
+   "textHash": "0a131a838b241d16",
+   "textLength": 21345,
+   "projectionHash": "0b1d23ff55891a23",
+   "rowsHash": "0ef0eafbcf1f24bd",
    "histSuccess": "—",
    "errors": []
   },
   "std R everything": {
-   "textHash": "f011f3009dafaa73",
-   "textLength": 22146,
-   "projectionHash": "9fb52d975d1fd420",
-   "rowsHash": "2e496c9c730c0f0d",
+   "textHash": "91167754cfe342b6",
+   "textLength": 22280,
+   "projectionHash": "6ee3570ca47c6f0c",
+   "rowsHash": "91b4ad63a5e980f4",
    "histSuccess": "—",
    "errors": []
   }

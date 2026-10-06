@@ -391,7 +391,8 @@ function caChecks() {
     };
     // BC, age 66, $40k (under the 44,119 age threshold): tax 40,000 * 5.6% = 2,240; credits at 5.6% of
     // 13,216 + 5,927 = 19,143 (1,072.008) -> 1,167.992
-    near(prov('bc', 40000, 0, 0, 66, 0), 1167.992, 0.005, 'BC age amount at $40k');
+    // 7N N6: British Columbia's low-income tax reduction takes 575 - 3.56% x (40,000 - 25,570) = 61.292 off.
+    near(prov('bc', 40000, 0, 0, 66, 0), 1167.992 - (575 - 0.0356 * (40000 - 25570)), 0.005, 'BC age amount at $40k');
     // AB, age 70, $60k, $5k pension: 4,800 less 8% of 22,769 + age amount (6,345 - 15% * (60,000 - 47,234)
     // = 4,430.1) + pension 1,753 = 28,952.1 (2,316.168) -> 2,483.832
     near(prov('ab', 60000, 0, 0, 70, 5000), 2483.832, 0.005, 'AB age and pension amounts');
@@ -433,9 +434,12 @@ function caChecks() {
       const ph = table.bpa.phase,
         bpa = ph ? table.bpa.amount * Math.min(1, Math.max(0, (ph.end - inc) / (ph.end - ph.start))) : table.bpa.amount,
         living = table.pooled ? Math.max(0, table.pooled.livingAlone - table.pooled.reductionRate * Math.max(0, inc - table.pooled.reductionThreshold)) : 0, // Quebec single filers live alone
-        base = Math.max(0, refTax(inc, table.brackets) - table.creditRate * (bpa + living));
+        base0 = Math.max(0, refTax(inc, table.brackets) - table.creditRate * (bpa + living));
+      let base = base0;
+      // British Columbia's low-income reduction (7N N6) comes off its tax; Ontario's is checked as a floor below.
+      if (code === 'bc') base = Math.max(0, base - Math.max(0, 575 - 0.0356 * Math.max(0, inc - 25570)));
       if (code !== 'on') near(t.provincialTaxCA(inc, 0), base, 0.005, `${code} provincial ${inc}`);
-      else if (t.provincialTaxCA(inc, 0) < base - 0.005) fails.push(`on ${inc}: provincial tax below credited bracket tax`);
+      else if (t.provincialTaxCA(inc, 0) < 0) fails.push(`on ${inc}: negative provincial tax`);
     }
     // Monotone and continuous (no jumps larger than the top marginal rate allows).
     let prev = 0;
@@ -663,9 +667,9 @@ function caChecks() {
     );
     near(
       t.incomeTax(pr3({ singlePerson: true, otherA: 50000, dependents: [kid(5), kid(30)] }), 0, 0),
-      t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 1, 0),
+      t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 1, 0, 0, 0, 0, 0, 1),
       1e-9,
-      'single parent: one child under 18 (an adult child does not count)',
+      'single parent: one child under 18 (an adult child does not count); Ontario also gives the child-based tax reduction',
     );
     st.province = 'sk';
     near(
@@ -844,6 +848,74 @@ function caChecks() {
       }
       if (worstMed > 3) fails.push('pension split regret with a medical claim $' + worstMed.toFixed(2));
     }
+  }
+  // --- Low-income provincial tax reductions (7N N6) --------------------------------
+  // Read on the CRA 2025 provincial forms (ON428 p.3, BC428 p.3, NB428/NL428/NS428/PE428 Part C). Ontario: per return, 2 x (294 + 544
+  // per dependent child) less the Ontario tax, taken off the tax (so it clears tax up to the basic reduction and halves the rest);
+  // British Columbia: 575 (2026, CRA T4127; 562 on the 2025 form) less 3.56% of net income over 25,570; New Brunswick, Newfoundland
+  // and Labrador, Nova Scotia and PEI: one family reduction (basic + spouse or eligible dependant + children + PEI age amounts) less a rate on
+  // adjusted family income over a base, limited to the family's provincial tax (an unused part passes to the spouse); Nova Scotia
+  // also a 1,000 age tax credit under 24,000 of taxable income. Alberta, Saskatchewan, Manitoba and Quebec have none (forms read).
+  {
+    const R = t.PROVINCE_RULES;
+    const kid = (age) => ({ age, student: false, qualifyingChild: true });
+    const pr6 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    // The same call with the province's reduction removed from the table, to isolate its effect.
+    const without = (code, fn) => {
+      const keep = R[code].lowIncomeReduction;
+      R[code].lowIncomeReduction = null;
+      try {
+        return fn();
+      } finally {
+        R[code].lowIncomeReduction = keep;
+      }
+    };
+    const effect = (code, fn) => without(code, fn) - fn();
+    // Ontario at 20,000: tax 354.0555; 2 x 294 = 588; reduction 588 - 354.0555 = 233.9445.
+    st.province = 'on';
+    near(effect('on', () => t.provincialTaxCA(20000, 0)), 233.9445, 1e-4, 'ON tax reduction at 20,000');
+    near(t.provincialTaxCA(15000, 0), 0, 1e-9, 'ON tax is cleared at 15,000');
+    near(effect('on', () => t.provincialTaxCA(20000, 0, 0, 0, 0, null, 0, -1, 0, 0, 0, 0, 1)) - 233.9445, 354.0555 - 233.9445, 1e-4, 'ON: a dependent child clears the whole tax (effect = the tax)');
+    near(effect('on', () => t.provincialTaxCA(80000, 0)), 0, 1e-9, 'no Ontario reduction at 80,000');
+    // British Columbia: net 30,000: 575 - 3.56% x 4,430 = 417.292 (tax 522.6 after credits); 20,000: capped at the tax 379.9.
+    st.province = 'bc';
+    near(effect('bc', () => t.provincialTaxCA(30000, 0)), 575 - 0.0356 * (30000 - 25570), 1e-6, 'BC tax reduction at 30,000');
+    near(effect('bc', () => t.provincialTaxCA(20000, 0)), 20000 * 0.056 - 0.056 * 13216, 1e-6, 'BC reduction is limited to the tax');
+    near(effect('bc', () => t.provincialTaxCA(41722, 0)), 0, 1e-9, 'BC reduction is nil at 41,722');
+    // New Brunswick: single 25,000: 802 - 3% x 3,080 = 709.6, below the 1,065.6 of tax; single over 48,653 gets none.
+    st.province = 'nb';
+    near(effect('nb', () => t.incomeTax(pr6({ singlePerson: true, otherA: 25000 }), 0, 0)), 802 - 0.03 * (25000 - 21920), 1e-6, 'NB family reduction, single');
+    near(effect('nb', () => t.incomeTax(pr6({ singlePerson: true, otherA: 50000 }), 0, 0)), 0, 1e-9, 'NB: single at 50,000 is not eligible');
+    // Newfoundland and Labrador: a couple 30,000 + 5,000: basic 997 + spouse 557 = 1,554; base 40,460 (spouse claimed) so no income
+    // reduction; limited to the family's provincial tax; the rest passes to the spouse.
+    st.province = 'nl';
+    {
+      const pA = t.provincialTaxCA(30000, 0, 0, 0, 0, null, 0, 5000, 0, 0),
+        pB = t.provincialTaxCA(5000, 0, 0, 0, 0, null, 0, -1, 0, 0);
+      near(effect('nl', () => t.incomeTax(pr6({ singlePerson: false, otherA: 30000, otherB: 5000 }), 0, 0)), Math.min(1554, pA + pB), 1e-6, 'NL family reduction, limited to the family tax');
+    }
+    // A single NL filer at 30,000: 997 - 16% x (30,000 - 23,928) = 25.48.
+    near(effect('nl', () => t.incomeTax(pr6({ singlePerson: true, otherA: 30000 }), 0, 0)), 997 - 0.16 * (30000 - 23928), 1e-6, 'NL family reduction, single over the 23,928 base');
+    // Nova Scotia single 66 at 20,000: reduction 300 - 5% x 5,000 = 50 and the age tax credit (1,000) limited to the tax.
+    st.province = 'ns';
+    {
+      const tax = without('ns', () => t.provincialTaxCA(20000, 0, 0, 66, 0, null, 0));
+      near(tax - t.provincialTaxCA(20000, 0, 0, 66, 0, null, 0), Math.min(tax, 1000), 1e-6, 'NS age tax credit under 24,000 (limited to the tax)');
+      near(effect('ns', () => t.incomeTax(pr6({ singlePerson: true, otherA: 28000, ageA: 40 }), 0, 0)), 0, 1e-9, 'NS single at 28,000: reduction 300 - 650 is nil');
+    }
+    // Prince Edward Island couple, both 67, 23,000 each: AFI 46,000: 350 + 350 + 250 + 250 = 1,200 less 5% x 23,350 = 32.5.
+    st.province = 'pe';
+    {
+      const e = effect('pe', () => t.incomeTax(pr6({ singlePerson: false, otherA: 23000, otherB: 23000, ageA: 67, ageB: 67 }), 0, 0));
+      near(e, 1200 - 0.05 * (46000 - 22650), 1e-6, 'PEI family reduction with both age amounts');
+    }
+    // Quebec, Alberta, Saskatchewan and Manitoba have none.
+    for (const c of ['qc', 'ab', 'sk', 'mb']) if (R[c].lowIncomeReduction !== null) fails.push(c + ': should have no low-income reduction');
+    // Indexing: the Ontario amounts scale with the plan factor.
+    st.province = 'on';
+    const g10 = t.taxIndexFactor(10);
+    const T10 = without('on', () => t.provincialTaxCA(20000 * g10, 10));
+    near(effect('on', () => t.provincialTaxCA(20000 * g10, 10)), Math.max(0, Math.min(T10, 2 * 294 * g10 - T10)), 1e-6, 'ON reduction indexes');
   }
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);

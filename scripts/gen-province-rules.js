@@ -44,6 +44,16 @@ function spouseText(r) {
   const s = r.spouse;
   return money(s.amount) + (s.threshold ? `, nil at net income ${money(s.amount + s.threshold)} (free to ${money(s.threshold)})` : `, less the net income (nil at ${money(s.amount)})`) + (r.childAmount ? `; child amount ${money(r.childAmount.amount)} each (under ${r.childAmount.maxAge + 1})` : '');
 }
+// 7N N6: the low-income tax reduction, as the form states it.
+function liText(l) {
+  if (!l) return 'none';
+  if (l.kind === 'perReturn') return `per return: ${l.multiplier} x (${money(l.basic)} + ${money(l.child)} per dependent child) less the tax, off the tax`;
+  if (l.kind === 'income') return `${money(l.basic)} less ${pct(l.rate)} of net income over ${money(l.base)}, off the tax`;
+  const parts = [`basic ${money(l.basic)}`, `spouse ${money(l.spouse)}`, `eligible dependant ${money(l.dependant)}`];
+  if (l.child) parts.push(`${money(l.child)} per dependent child`);
+  if (l.age) parts.push(`${money(l.age)} each at 65+`);
+  return `family: ${parts.join(', ')} less ${pct(l.rate)} of adjusted family income over ${money(l.base)}${l.baseWithDependants ? ` (${money(l.baseWithDependants)} with a spouse or dependant)` : ''}, limited to the family's tax${l.eligibility ? `; only if single income under ${money(l.eligibility.singleBelow)} or family income under ${money(l.eligibility.familyBelow)}` : ''}${l.ageTaxCredit ? `; plus a ${money(l.ageTaxCredit.amount)} age tax credit at 65+ under ${money(l.ageTaxCredit.incomeBelow)}` : ''}`;
+}
 function ageText(a, pooled) {
   if (!a && pooled) return 'pooled with the retirement-income and living-alone amounts (see Quebec below)';
   if (!a) return 'not modeled';
@@ -66,12 +76,12 @@ function generate(rules) {
   L.push('');
   L.push('**Credits.** Every non-refundable amount is worth the province\'s lowest bracket rate (`creditRate`) and comes off the tax, floored at zero.');
   L.push('Provincial credits never reduce federal tax and the reverse. **Not modeled (documented gaps):** non-eligible Canadian dividends (taxed like interest),');
-  L.push('the transfer of a spouse unused amounts (the spouse and eligible-dependant amounts are modeled since 7N), paid benefits (7L), and territorial taxes.');
+  L.push('the transfer of a spouse unused amounts (the spouse and eligible-dependant amounts and the low-income tax reductions are modeled since 7N), paid benefits (7L), and territorial taxes.');
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Indexing | Sources |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Low-income tax reduction | Indexing | Sources |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
     const extra = [r.surtax ? `surtax ${pct(r.surtax.firstRate)} over ${money(r.surtax.first)}, ${pct(r.surtax.secondRate)} over ${money(r.surtax.second)}` : '', r.healthPremium ? 'income-tested health premium (up to $900)' : ''].filter(Boolean).join('; ') || 'none';
@@ -91,6 +101,7 @@ function generate(rules) {
           pct(r.payroll.eiRate) + ' to $68,900 (a credit; Quebec: federal credit only)',
           r.homeBuyer ? money(r.homeBuyer.amount) + ' (first-time buyer, purchase year)' : 'none',
           r.medical.familyIncome ? 'expenses over 3% of family income (no dollar floor)' : 'expenses over the lesser of 3% of net income and ' + money(r.medical.threshold) + (r.careAtHome ? '; refundable Seniors Care at Home credit: ' + pct(r.careAtHome.rate) + ' of up to ' + money(r.careAtHome.maxExpenses) + ' (age ' + r.careAtHome.age + '+), less ' + pct(r.careAtHome.reductionRate) + ' of family net income over ' + money(r.careAtHome.startIncome) : ''),
+          liText(r.lowIncomeReduction),
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]

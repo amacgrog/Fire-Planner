@@ -6,7 +6,7 @@ const path = require('path');
 
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
 const INDEX_KEYS = ['bracketsIndexed', 'bpaIndexed', 'ageAmountIndexed', 'pensionAmountIndexed', 'surtaxIndexed'];
-const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'homeBuyer', 'medical', 'careAtHome', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
+const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'homeBuyer', 'medical', 'careAtHome', 'lowIncomeReduction', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
 
 (async () => {
   const browser = await chromium.launch();
@@ -62,6 +62,14 @@ const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verif
         if (!r.medical || (c === 'qc') !== (r.medical.threshold === null) || (c === 'qc') !== r.medical.familyIncome) fails.push(`${c}: medical expense rule wrong`);
         if (r.medical && r.medical.threshold !== null && !(r.medical.threshold > 1000 && r.medical.threshold < 4000)) fails.push(`${c}: medical threshold out of range`);
         if ((c === 'on') !== !!r.careAtHome) fails.push(`${c}: only Ontario has the Seniors Care at Home credit`);
+        // 7N N6: low-income tax reductions exist in ON, BC, NB, NL, NS and PE only (the AB, SK, MB and QC forms were read: none).
+        const liCodes = ['on', 'bc', 'nb', 'nl', 'ns', 'pe'];
+        if (liCodes.includes(c) !== !!r.lowIncomeReduction) fails.push(`${c}: low-income reduction presence wrong`);
+        if (r.lowIncomeReduction) {
+          const l = r.lowIncomeReduction;
+          if (!['perReturn', 'income', 'family'].includes(l.kind) || !(l.basic > 200 && l.basic < 1200)) fails.push(`${c}: bad low-income reduction`);
+          if ((c === 'on') !== (l.kind === 'perReturn') || (c === 'bc') !== (l.kind === 'income')) fails.push(`${c}: low-income reduction kind wrong`);
+        }
         if (r.homeBuyer && !(c === 'sk' || c === 'qc')) fails.push(`${c}: only Saskatchewan and Quebec have a home buyers amount`);
         if ((c === 'sk' || c === 'qc') !== !!r.homeBuyer) fails.push(`${c}: home buyers amount missing or unexpected`);
         if (c === 'qc' && !(r.pooled.reductionRate === 0.1875 && r.pooled.reductionThreshold > 0 && r.pooled.retirementMultiplier === 1.25)) fails.push('qc: bad pooled reduction');
