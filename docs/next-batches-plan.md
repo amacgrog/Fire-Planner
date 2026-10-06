@@ -3221,8 +3221,8 @@ Medicaid in an expansion state and the full premium in a non-expansion state. Me
 (`acaEnabled` and an eligible partner), so `healthcareCost` and the 400% guard still read the same function.
 `conversionMagiCeiling` is unchanged: O1 prices the new cliffs, 3C decides the policy (note for 3C: a Roth
 conversion or gain harvest that lifts MAGI over the Medicaid line, or to 100% of FPL in a non-expansion state, can
-be worth more than its tax; in the work-requirement years the iteration shows two consistent answers for a
-household near the line, a low-MAGI year with the full premium or a MAGI just over the line with the credit).
+be worth more than its tax; in the work-requirement years and at the 100% line a household near the line has no
+consistent answer: the cost steps down as MAGI rises; follow-up fix F5 finishes such years, filling to the line is 3C).
 New field `medicaidWhenEligible` (default true, `trueUnlessFalse`, MCP, shown with the ACA checkbox), info tip written
 from the code. Data: pure-literal `MEDICAID_RULES` (`MEDICAID_RULES:begin/end`), not a STATE_RULES column.
 
@@ -3627,7 +3627,15 @@ NJ); record the run in the commit message. Tests are hand-computed in the commen
   5,553.925; less the credit 610 = **4,943.925** (was 4,238.425). Retiree unchanged. The O4 table's Maine row rises by about 2 x 5,300 x
   the marginal rate (5.8% or 6.75%: 614.80 to 715.50) a year in the taxed years. Snapshots: no Maine household with children in the corpus (confirm).
 
-**F5. O1: the MAGI iteration at the Medicaid and 100% cliffs (owner decision; US V110 if built now).** See the analysis below.
+**F5. O1: the MAGI iteration at the Medicaid and 100% cliffs (US V110). Built (V110): design A.** See the analysis below.
+Result (2026-10-06): the sweep (WA, TX, CA, WI; spending 8,000 to 30,000 in steps of 1,000; standard and historical engine; single 60, IRA 1,000,000,
+premium 12,000) had 356 of 920 rows charging a cost that is not the cost at their own MAGI; after the forced pass none is more than 5 off
+(four smooth years at 30,000 of spending end the loop a couple of dollars off, identically before and after: old slow convergence, not a cliff).
+`magiStats` counts the forced years and the unresolved cliff years (0 in the sweep). Snapshots: 19 of 518 US scenarios moved, all ACA-on (`aca`,
+`acaEnhanced`, `rothConv+aca`, `everything`); every non-ACA scenario identical; `npm run snapshot:update` in the commit. Seeded rates (2,000 paths,
+seed 7), before to after: low-MAGI early retiree CA Monte Carlo 99.4% to 99.5%; everything else unchanged (default 85.4% / 86.1%). Timing
+(400 `simulate()`, interleaved, median of 7): default couple 371 to 374 ms (1.008), ACA on near the line (TX 60, spending 12,000) 269 to 273 (1.015),
+ACA on away from it (CA 60, 30,000) 405 to 417 (1.030).
 
 **F6. O3: the Roth-conversion share of the Pennsylvania 401(k) exemption (owner decision; US V111 if built).** See below.
 

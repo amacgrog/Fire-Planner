@@ -190,6 +190,53 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
     assert.deepStrictEqual(bad, [], 'row cost equals acaNetCost of its own MAGI: ' + bad.join('; '));
   }
 
+  // 7O follow-up F5: at the cliffs that step the cost DOWN as MAGI rises (the full premium below a line, the credit above it) the
+  // MAGI iteration has no fixed point. Every row before 65 must still charge exactly acaNetCost of its own MAGI, in the standard
+  // and the historical engine, across a sweep of spending, and the cap must never be left unresolved. (Tolerance 5, not 1.5: a few smooth,
+  // non-cliff years at 30,000 of spending end the iteration at the cap a couple of dollars off, identically before and after F5.)
+  const sweep = await page.evaluate(() => {
+    const t = window.__test_tax;
+    const s = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(s));
+    const base = {
+      singlePerson: true, ageA: 60, retireAgeA: 60, lifeExpectancyA: 64, returnRate: 0, bondReturn: 0, inflation: 0, hysaRate: 0,
+      dividendYield: 0, medicalInflation: 0, medicareYearly: 0, ltcEnabled: false, ssMonthlyA: 0, tenure: 'rent', rent: 0, rentGrowth: 0,
+      incomeA: 0, taxable: 0, cash: 0, cashReserve: 0, bondYears: 0, tradIraA: 1000000, trad401kA: 0, rothIraA: 0, roth401kA: 0,
+      tradIraB: 0, trad401kB: 0, rothIraB: 0, roth401kB: 0, acaEnabled: true, acaEnhanced: false, healthcare: 12000,
+      medicaidWhenEligible: true, children: [], rothConvEnabled: false, incomeSources: [],
+    };
+    const out = { bad: [], rows: 0, stats: null };
+    const before = { ...window.__test_magiStats };
+    try {
+      for (const code of ['wa', 'tx', 'ca', 'wi']) {
+        for (let spending = 8000; spending <= 30000; spending += 1000) {
+          Object.assign(s, base, { stateTax: code, spending });
+          for (const [label, rows] of [
+            ['std', window.__test_simulate().rows],
+            ['hist', window.__test_simulateHistorical((y) => [1970 + y, 0, 0, 0]).rows],
+          ]) {
+            for (const r of rows) {
+              if (r.age >= 65) continue;
+              out.rows++;
+              const want = t.acaNetCost(r.magiProxy, 1, 12000, r.year);
+              if (r.cash < -0.01) out.bad.push(`${label} ${code} spending ${spending} year ${r.year}: cash ${r.cash.toFixed(2)} is negative`);
+              if (Math.abs(r.healthcare - want) > 5) out.bad.push(`${label} ${code} spending ${spending} year ${r.year}: charged ${r.healthcare.toFixed(2)}, acaNetCost(MAGI ${r.magiProxy.toFixed(2)}) = ${want.toFixed(2)}`);
+            }
+          }
+        }
+      }
+    } finally {
+      for (const k of Object.keys(s)) delete s[k];
+      Object.assign(s, saved);
+    }
+    const after = window.__test_magiStats;
+    out.stats = { forced: after.forced - before.forced, unresolved: after.unresolved - before.unresolved };
+    return out;
+  });
+  assert.deepStrictEqual(sweep.bad.slice(0, 5), [], `rows whose cost is not the cost at their own MAGI (${sweep.bad.length} of ${sweep.rows}): ${sweep.bad.slice(0, 5).join('; ')}`);
+  assert(sweep.stats.forced > 0, 'the sweep reaches non-converging years, so the forced pass runs');
+  assert.strictEqual(sweep.stats.unresolved, 0, 'no year is left at the cap with no overpaying pass');
+
   assert.deepStrictEqual(errors, []);
   await browser.close();
   console.log('[US] Medicaid and credit-floor tests passed');

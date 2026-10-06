@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V109</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V110</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -7008,6 +7008,9 @@
   // with what the withdrawals actually realized (within MAGI_ITER_TOL dollars).
   const MAGI_ITER_MAX = 8,
     MAGI_ITER_TOL = 1;
+  // Years that ended the MAGI iteration through the forced pass (7O follow-up F5), and years that hit the cap on a cost step with no
+  // pass to force.
+  const magiStats = { forced: 0, unresolved: 0 };
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
     const ratio = magi > 0 ? magi / fplForHousehold(householdSize, yearIndex) : 0;
@@ -9436,6 +9439,10 @@
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
+        // Passes of this year that priced the premium off an estimate: what each estimated, what it was charged and what the
+        // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
+        const passLog = [];
+        let forcedPass = false;
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
@@ -9496,7 +9503,7 @@
           (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
         // acaEligibleA/B (computed above, before the Roth-conversion guard) say
         // which partners are on the individual market this year.
-        const { healthcare, ltc, usesMagiEstimate } = healthcareCost({
+        const hcArgs = {
           acaEligibleA,
           acaEligibleB,
           singlePerson,
@@ -9512,7 +9519,18 @@
           magiProxy,
           magiHistory,
           filing,
-        });
+        };
+        const hcOut = healthcareCost(hcArgs);
+        let healthcare = hcOut.healthcare;
+        const ltc = hcOut.ltc,
+          usesMagiEstimate = hcOut.usesMagiEstimate;
+        // The cost at some other MAGI (the forced pass below prices the realized one).
+        const costAtMagi = (m) => {
+          hcArgs.magiProxy = m;
+          const c = healthcareCost(hcArgs).healthcare;
+          hcArgs.magiProxy = magiProxy;
+          return c;
+        };
         if (usesMagiEstimate) estUsed = true;
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
         // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
@@ -9527,7 +9545,7 @@
         // generate; it's `tax` unchanged in a no-withdrawal (contributing)
         // year.
         let totalTax = tax;
-        const expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
+        let expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       const bondTarget = mode.bucketStrategy ? (expenses - lumpExpense) * bondYears : null;
         // Cash flow after spending, tax and contributions. The two modes sum the same terms in a
         // different order. The results differ only by rounding, but the withdrawal bisection can
@@ -9622,17 +9640,48 @@
         const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
         const resolvedMixCandidate = wd.mixCandidate;
         const realizedTrad = traditionalGross - conversionAmount;
-        if (
-          estUsed &&
-          iter < MAGI_ITER_MAX - 1 &&
-          Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL
-        ) {
+        const unconverged =
+          estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;
+        if (usesMagiEstimate && !forcedPass)
+          passLog.push({ estTrad, estGain, charged: healthcare, realized: costAtMagi(magiBase + traditionalGross + taxableGainGross) });
+        if (unconverged && !forcedPass && iter < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
           const w = iter >= 3 ? 0.5 : 1;
           estTrad += w * (realizedTrad - estTrad);
           estGain += w * (taxableGainGross - estGain);
           continue;
+        }
+        if (unconverged && !forcedPass && usesMagiEstimate) {
+          // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
+          // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
+          // repeats exactly; the realized cost is charged below and the refund goes to cash.
+          let pick = null;
+          for (const p of passLog)
+            if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized)) pick = p;
+          if (pick !== null) {
+            estTrad = pick.estTrad;
+            estGain = pick.estGain;
+            forcedPass = true;
+            continue;
+          }
+          // Only a real step (the last pass charged more than 5 off its own MAGI) counts as unresolved: a smooth year that
+          // ends at the cap a couple of dollars off is the old slow convergence, not a cliff.
+          const last = passLog[passLog.length - 1];
+          if (last && Math.abs(last.charged - last.realized) > 5) magiStats.unresolved++;
+        }
+        if (forcedPass && flow < 0) {
+          // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
+          // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds.
+          const realizedCost = costAtMagi(magiBase + traditionalGross + taxableGainGross),
+            refund = healthcare - realizedCost;
+          healthcare = realizedCost;
+          expenses -= refund;
+          profile.medicalExpense = healthcare + ltc;
+          const taxAfter = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+          bal.cash += refund + (totalTax - taxAfter);
+          totalTax = taxAfter;
+          magiStats.forced++;
         }
         prevDiscTraditional = realizedTrad;
         prevTaxableGainGross = taxableGainGross;
@@ -15027,6 +15076,7 @@
   window.__test_setCurrentYear = (y) => { currentYear = y; };
   // For tests/tax_caches.js: the compiled state rules, so a test can force the per-person inputs on for every row.
   window.__test_stateRuleFor = stateRuleFor;
+  window.__test_magiStats = magiStats;
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };
