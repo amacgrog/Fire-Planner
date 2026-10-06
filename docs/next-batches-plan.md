@@ -84,6 +84,12 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
     after 7J-7M go in one batch, 7N, with **no new inputs** (every item reads fields that already
     exist). Anything found wrong in 7J-7M is fixed in 7N, not by reopening those batches. CPP/OAS
     claim-age adjustments stay in Batch 6 (the per-partner basis switch), not 7N.
+21. **Batch 7O (owner, 2026-10-06):** the US gaps from the 2026-10-06 credit and benefit
+    assessment go in one batch, 7O, after 7N and before 3C (3C prices the Medicaid floor O1
+    adds). No new inputs except the `medicaidWhenEligible` checkbox (O1). Items that need new
+    fields (HSA, pension type) are deferred; EITC, Saver's Credit and Match, circuit breakers and
+    the low-relevance programs are left out with reasons (O6). To confirm when scoped: the
+    checkbox default (O1) and the medical-deduction reversal of the Batch 2 scope line (O2).
 
 ## Execution order
 
@@ -92,7 +98,8 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 -> 7B (federal credits) -> 7C (state framework + reference states) -> 7D (all
 remaining states and DC, one PR) -> 7D part 2 (state-tax performance, one small PR) -> 7J (Canada federal credits) -> 7K (all
 provinces, one PR) -> 7L (income-tested benefits) -> 7M (paid benefits of the other six
-provinces) -> 7N (remaining Canadian credits and fixes) -> 3C (safe-MAGI room; moved
+provinces) -> 7N (remaining Canadian credits and fixes) -> 7O (remaining US credits,
+benefits and fixes) -> 3C (safe-MAGI room; moved
 here, owner decision) -> 4A -> 4B -> 5 -> 6 -> 8 (survivor-benefit claim
 optimizer).
 
@@ -1115,6 +1122,174 @@ round) within +5% of the 7M merge, since N1, N3 and N5 add work to every `taxFor
 no-OAS, no-children, no-medical paths allocation-free and early-exiting); survivor symmetry; a
 390x844 check for the new estate figure; `docs/province-tax-rules.md` regenerated; 7N notes with
 sources, before/after tables and the cliffs-register rows.
+
+### 7O: remaining US credits, benefits and fixes (US only)
+
+Written 2026-10-06 from a gap assessment of the US planner (at `claude/batch-3b-penalty-rules`, after
+the 7D merge) against an external catalog of federal and state credits and benefits (ChatGPT), each
+claim checked. **No new inputs except one checkbox** (decision 21, item O1): every other item reads
+`state` fields that already exist (`stateTax`, ages, retirement ages, the children list,
+`ltcEnabled`/`ltcYearlyA/B`/`ltcAgeA/B`, `medicareYearly`, `healthcare`, the eight account balances and
+the account ledger). One commit per item, in this order (O1 first: it moves the most numbers and 3C
+has to price its floor). Each item is an intended number change unless it says otherwise:
+before/after table (default scenario plus a scenario that exercises the item), seeded historical and
+Monte Carlo success rates, `npm run snapshot:update` in the same commit, the US badge bump, README
+feature list and the 7O notes. Every figure is re-confirmed on a primary source at implementation
+(decision 15); the figures below are working values from secondary pages unless marked. Canada
+untouched.
+
+Already modeled (checked, not repeated here): the ACA premium tax credit with the 2026 cliff at 400%
+of FPL and the "enhanced subsidies return" toggle (the enhanced credits expired 12/31/2025; the House
+passed a three-year extension in January 2026, stalled in the Senate, so the toggle stays off by
+default), IRMAA with the two-year lookback, Medicare from `max(65, retirement age)`, the CTC, ODC and
+ACTC (7B), the federal deductions (Batch 2), and Social Security taxation, retirement exclusions and
+credits in all 51 state rows (7C/7D).
+
+Corrections to the external catalog (recorded so they are not re-raised): the Saver's Match replaces
+the Saver's Credit from tax year 2027 and is a federal deposit into the account, not a tax credit
+(CRS IF11159); WEP/GPO are repealed (decision 17); the Credit for the Elderly or Disabled has
+unindexed limits (about $17,500 / $25,000 AGI, and $5,000 / $7,500 of nontaxable Social Security
+removes it) and pays nothing to a planner household; NCSL's state child credit list (May 29, 2026) is
+17 states plus DC, without VA or WI and with DC, GA, ID, IL and MA; the WA "EITC" is the Working
+Families Tax Credit, a sales-tax refund outside the income tax; cost-sharing reductions change
+deductibles, not the premium the planner models; Medicare Part A is premium-free with 40 credits.
+
+**O1. Medicaid and the ACA subsidy below 138% of FPL (fix; one new checkbox).** Today
+`acaNetCost` charges about 2.10% of income to a household under 133% of FPL in every state
+(the 7B notes record "no PTC floor at 100% of FPL ... no Medicaid eligibility"). The law: no premium
+tax credit for anyone eligible for Medicaid, and none below 100% of FPL.
+- Expansion states (40 plus DC): MAGI at or under 138% of FPL (133% plus the 5% disregard) is
+  Medicaid, $0 premium, no asset test for MAGI Medicaid.
+- Non-expansion states (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY; healthinsurance.org, 2026): under
+  100% gets no subsidy, so the full premium; from 100% the normal credit. WI covers adults to 100%
+  through BadgerCare without expansion ($0 under 100%). GA Pathways (limited, with its own work rule)
+  is treated as non-expansion.
+- OBBBA community engagement: from January 1, 2027 expansion adults 19-64 must show 80 hours a month
+  of work, community service or school (exempt: a parent or caregiver of a child 13 or younger,
+  pregnancy, medical frailty; CMS interim final rule, June 2026), and a person denied Medicaid for
+  the requirement is also barred from the premium tax credit (Health Management Associates). Model:
+  a retired partner with no child 13 or younger (children list) fails it from 2027, so pays the full
+  premium; a parent of a young child keeps Medicaid. States may get good-faith extensions to 2028:
+  not modeled (the safe side).
+- New checkbox `medicaidWhenEligible` ("Enroll in Medicaid when eligible"): on, an eligible
+  household pays $0; off, it pays the full unsubsidized premium (it cannot take the credit instead).
+  Some households decline Medicaid (provider networks, estate recovery from 55). Default to decide
+  when scoped (proposed: on, with an info tip on estate recovery). Registry entry, `normalizeState`
+  guard, MCP, `tests/legacy_state.js` case.
+- Data: a small pure-literal `MEDICAID_RULES` table (non-expansion list, WI's 100% coverage, the
+  work-requirement start year and exempt child age), not a `STATE_RULES` column, so the state-tax
+  coverage test and generator stay unchanged. Logic in `acaNetCost` (household-level: the MAGI and
+  household size are already the household's), shared by `healthcareCost` and the 400% guard in
+  `conversionMagiCeiling`, so cost and guard cannot drift apart. Medicaid uses current monthly
+  income; the annual MAGI stands in (an engine convention).
+- Cliffs register: the 100% floor (non-expansion), the 138% Medicaid line (expansion; a cliff up to
+  the full premium when Medicaid is declined or the work requirement fails), the 2027 start. Note
+  for 3C: the safe-MAGI room gains a floor, since a Roth conversion or gain harvest that lifts MAGI to
+  100% (non-expansion) or past 138% (expansion, failing the work requirement) can be worth more than
+  the tax it costs. 3C decides the policy; O1 only prices it.
+- Effect: in the years it applies, the full couple premium (often $15,000-25,000 near 60) or $0
+  instead of a few hundred dollars, in the low-MAGI years FIRE plans aim for.
+- Tests: new `tests/aca_medicaid.js` (hand-computed: expansion and non-expansion at 90%, 120%, 140%
+  of FPL; WI under 100%; 2026 versus 2027 with and without a child 13 or younger; checkbox off;
+  survivor and single-person households), plus `tests/aca_magi_iteration.js` still converging at
+  the new cliffs.
+
+**O2. Medical expense deduction in long-term-care years.** `itemizedDeduction` adds medical expenses
+over 7.5% of AGI (IRC 213; permanent floor): the year's LTC cost (`ltcYearlyA/B` from `ltcAgeA/B`,
+treated as qualified long-term care services for a chronically ill person under a plan of care,
+stated in the tip), Medicare premiums and supplement (`medicareYearly`, IRMAA included) and the net
+pre-65 premium after the credit. Payroll-deducted premiums (`healthPremiumA/B`) are already pre-tax
+and excluded. `buildTaxProfile` carries `medicalExpense`; `taxFor` already has AGI. Federal only
+(state itemized deductions are not modeled). `solveRothConversion` keeps its conservative lower
+bound (no medical term). Only binds when itemizing beats the standard deduction, which in practice
+means LTC years. Example: $100,000 of care on $80,000 of AGI is a deduction of about $94,000.
+Reverses the "charity, QCD and medical out of scope" decision for medical only (decision 21);
+charity and QCDs stay out. Hot path: the no-LTC, no-medical case must stay allocation-free and
+give the same doubles (`tests/tax_caches.js`). Tests: hand-computed itemizing with and without LTC,
+the 7.5% floor, the standard-deduction crossover, survivor.
+
+**O3. Pennsylvania: employer-plan distributions after retirement (fix; the open item).** The PA row
+taxes every traditional draw before 59 and a half, but a distribution from an employer plan (401(k))
+after retirement is generally exempt at any age (owner-confirmed rule), while an IRA draw before
+59 and a half stays taxable. The account ledger already tracks each partner's 401(k) and IRA shares
+and draws are pro rata within a partner, so the 401(k) fraction of a partner's traditional draw is
+that partner's 401(k) share over their total traditional share. Add per-person `retirement401kA/B`
+to the state sources (written only when `needsPerPerson`), an `applies: 'employerPlanAfterRetirement'`
+option on the `perPerson` retirement kind (retired means that partner is no longer working), set the
+row's flag, regenerate `docs/state-tax-rules.md`. Check the RMD and 72(t) draws (`accountsDraw`) feed
+the same split. Tests: `tests/state_mechanisms.js` case on `zz`, a PA household retiring at 52
+drawing a 401(k) and an IRA, `tests/tax_caches.js` flag pin.
+
+**O4. State child credits (data rows).** Existing `childCredit` / `childStepCredit` kinds, ages from
+the children list; each credit applies its own age cutoff. Most are low-income credits that pay
+nothing in working years and matter in low-AGI retirement years with children. Working figures
+(NCSL, May 2026, plus the pages named; confirm each, including phase-out shape and refundability):
+- MN: $1,750 per child under 18, refundable, indexed; phase-out from about $37,910 joint / $31,950
+  other (MN DOR 2026 sheet; the rate, about 12%, and the income measure are to confirm; pending bills
+  to raise the thresholds not modeled unless enacted).
+- OR: $1,000 per child under 5 (NCSL; the Oregon Kids Credit's own age wording and its low income
+  range to confirm), refundable.
+- VT: $1,000 per child 5 or under, refundable, reduced over a higher AGI (to confirm).
+- UT: $1,000 per child under 6, nonrefundable, phased out over an AGI threshold (to confirm).
+- NJ: $100 to $500 per child under 6 by income tier, refundable.
+- ME: $300 per dependent, refundable, high-income phase-out (to confirm).
+- CA Young Child Tax Credit: $1,000 under $25,000 of income, reduced to $30,000, refundable; it
+  follows CalEITC eligibility (including its investment-income limit), so if that ties it to an
+  EITC-style test it is left out with the EITC (decide at implementation).
+Skipped, too small or needing an input we lack: GA ($250 per child under 6, nonrefundable), ID
+($205), OK (5% of the federal credit, nonrefundable), IL (40% of the state EITC, follows the EITC
+decision), MD (child with a disability). CO's Family Affordability Tax Credit is switched off for
+2026 and likely the next two years (KUNC, June 2026): named in the CO row's notes, rechecked yearly.
+Regenerate `docs/state-tax-rules.md`; hand-computed households in `tests/state_7d_households.js`
+(or a new `tests/state_child_credits.js`).
+
+**O5. Social Security before retirement: warning (no number change).** The earnings test stays
+unmodeled (decision 17), so a partner whose Social Security start age is before both their
+retirement age and full retirement age gets the full benefit while wages continue. Add an
+unusual-assumption warning for that case (the existing `unusualAssumptionsBanner` list) saying the
+benefit would be withheld in part. Snapshots unchanged; `tests/snapshot_ui.js` rendered text may
+move. Test: a root `test_*.js` toggle check.
+
+**O6. Record the left-out items (docs only).** In the 7O notes and the README "not modeled" text:
+federal EITC and the 31 state EITCs plus DC (no earned income in retirement; investment income over
+$12,200 in 2026, Rev. Proc. 2025-32, cancels the credit, and gains from taxable sales count); the
+Saver's Credit (only the 2026 plan year remains) and Saver's Match (phases out between about
+$41,000 and $71,000 joint AGI while contributing; rare for planner households); state circuit
+breakers and property-tax / rent credits (7D decision stands; the reason, no nontaxable-income input,
+is weaker now that the engine knows nontaxable Social Security, Roth and basis amounts per year, and
+`homeValue` exists for value tests: the MA Senior Circuit Breaker would be the first case if
+revisited); local income taxes other than MD and IN; the Credit for the Elderly or Disabled;
+Medicare Savings Programs, Extra Help, SSI, SNAP, LIHEAP, TANF, WIC, Lifeline and housing aid (asset
+tests, e.g. SSI $2,000); the foreign tax credit; education, adoption, dependent-care and energy/EV
+credits. Closes the EITC, state EITC, PA 401(k) and CA Young Child Tax Credit open items.
+
+**Deferred (need new fields, not 7O):**
+- **HSA.** 2026 limits $4,400 self-only, $8,750 family, $1,000 catch-up from 55 (Rev. Proc.
+  2025-19); bronze and catastrophic marketplace plans are HSA-eligible from 2026. Needs a balance,
+  per-partner or household contribution, employer contribution, HDHP flag, a new `bal` pool and
+  ledger slot, a withdrawal order (tax-free against medical costs) and a wizard field. Effect about
+  $1,000-3,000 a year of tax plus tax-free growth. Until then an info tip can suggest entering an HSA
+  balance as a Roth IRA. Revisit after 3C.
+- **Pension type** (private / government / military) per partner plus a column in every state row:
+  most states exempt military retirement pay, NC (Bailey) and KS exempt government pensions, others
+  partly. Worth it if military or public-sector retirees become a target.
+
+| Item | Effect | Cost per `taxFor` / year |
+|---|---|---|
+| O1 Medicaid and the low-income ACA fix | Full couple premium ($15,000-25,000) or $0 instead of a few hundred dollars, in low-MAGI years | O(1) in `acaNetCost`; more MAGI-iteration passes near the new cliffs |
+| O2 medical deduction | Large in LTC years (a deduction near the whole LTC cost above 7.5% of AGI); zero otherwise | O(1) in `itemizedDeduction` |
+| O3 PA 401(k) after retirement | PA tax (3.07%) on an early retiree's 401(k) draws, e.g. about $1,500 a year on $50,000 | Per-person field, PA only |
+| O4 state child credits | Up to $1,750 a child (MN) in low-AGI years with children; usually zero while working | O(children), only in the seven rows |
+| O5 earnings-test warning | Copy only | None |
+| O6 documentation | None | None |
+
+**Exit criteria.** `npm test` green with the snapshots updated only in the commits listed as number
+changes; the timing gate (`tests/bench_runs.js`, previous commit versus working tree) within +5%,
+since O1 and O2 add work to every year and every `taxFor` call (keep the no-LTC, no-children and
+above-138% paths early-exiting); `tests/tax_caches.js` identical doubles; survivor symmetry;
+`docs/state-tax-rules.md` regenerated; a 390x844 check for the new checkbox; `tests/field_registry.js`
+and `tests/legacy_state.js` updated for `medicaidWhenEligible`; 7O notes with sources, before/after
+tables and the cliffs-register rows.
 
 ### Remaining scope assumption (Batch 7)
 
@@ -3022,6 +3197,8 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
+### 7O notes: remaining US credits, benefits and fixes (not started)
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -3193,7 +3370,8 @@ remains is detail to settle when the relevant batch is scoped:
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - EITC (raised in 7A, deliberately not modeled in 7B): a qualifying child plus earned income and
   an investment-income cap. It could matter to a coast-FIRE household with children in low-MAGI
-  years, and it interacts with the safe-MAGI policy, so decide it with 3C.
+  years, and it interacts with the safe-MAGI policy, so decide it with 3C. **Proposed in 7O (O6): left out**
+  (no earned income in retirement; the $12,200 investment-income limit for 2026 cancels it).
 - Social Security child benefits (raised in 7A, for Batch 6): a retired or disabled parent's
   child under 18 (19 if still in high school) can add up to about 50% of the parent's benefit per
   child, up to a family maximum. Real money for an early claimer with young children; it needs
@@ -3208,75 +3386,14 @@ remains is detail to settle when the relevant batch is scoped:
   scenario for NY, PA and CT, and a switch or default decision. Not built.
 - PA 401(k) after retirement (owner-confirmed rule: a 401(k) distribution after retirement is generally exempt at any age, while IRA distributions before 59 and a half are taxable):
   the row taxes every traditional draw before 59 and a half, which overstates PA tax for an early retiree drawing a 401(k). Modeling it needs the 401(k) and IRA split of each
-  partner's traditional draw in the tax profile (the account ledger already tracks it) and a `retired` condition. Not built.
+  partner's traditional draw in the tax profile (the account ledger already tracks it) and a `retired` condition. Not built; scheduled as 7O O3.
 - Lagged federal-tax pass cost (7D): Alabama, Missouri (and Oregon, Montana when written) run an extra federal tax computation inside every `taxFor` call; measured +44% (AL) and +87% (MO) on the 1,200 + 360 run benchmark. Decide whether to cache the liability (keyed on the profile and the draw) if the optimizer feels it.
-- State EITCs and other refundable earned-income credits (CalEITC, NY EITC, CT EITC) are not modeled in 7C; decide them with the federal EITC (above).
+- State EITCs and other refundable earned-income credits (CalEITC, NY EITC, CT EITC) are not modeled in 7C; decide them with the federal EITC (above). 7O O6 proposes leaving them out with it.
 - CA 2026 figures: replace the 2025 figures when the FTB publishes the 2026 schedules (the row is `asOf: 2025`).
-- NY real property tax credit and household credit, CA Young Child Tax Credit, and local income taxes are documented gaps.
+- NY real property tax credit and household credit, CA Young Child Tax Credit, and local income taxes are documented gaps (the CA Young Child Tax Credit is in 7O O4).
 - 7A birth-year clamp: the bounds are fixed 1950-2100; a typed partial year is saved transiently
   (see the 7A gotchas).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.
-- **US tax, credit and benefit gap assessment (2026-10-06, against an external ChatGPT catalog, checked).** The catalog's
-  "core" items are mostly already modeled (ACA premium tax credit with the 2026 400% cliff and the enhanced-subsidy toggle,
-  IRMAA with the lookback, Medicare from `max(65, retirement age)`, CTC/ODC/ACTC, Social Security taxation by state, 51
-  researched state rows). Corrections to the catalog: the Saver's Match replaces the Saver's Credit from tax year 2027 and is
-  a deposit into the account, not a credit; WEP/GPO are repealed (decision 17); the Credit for the Elderly or Disabled is
-  unindexed (about $17,500 / $25,000 AGI; $5,000 / $7,500 of nontaxable Social Security removes it) and pays nothing to a
-  planner household; NCSL's state child credit list (May 29, 2026) is 17 states plus DC, not VA or WI, and includes DC, GA,
-  ID, IL and MA; the WA "EITC" is the Working Families Tax Credit, a sales-tax refund; cost-sharing reductions change
-  deductibles, not the premium the planner models. Proposals below are pending owner decisions; figures are secondary
-  unless noted and get confirmed against primary sources at implementation (decided for all batches).
-  - *Build, no new field:*
-    1. **Medicaid and the ACA subsidy below 138% of FPL** (largest gap). Today a household under 100% of FPL, or 100-138%
-       in an expansion state, is charged about 2.10% of income; the law gives no premium tax credit to anyone eligible for
-       Medicaid, and none below 100% of FPL. Expansion states (40 plus DC): under 138% is Medicaid ($0 premium, no asset
-       test for MAGI Medicaid). Non-expansion (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY): under 100% gets no subsidy (WI
-       covers adults to 100% through Medicaid without expansion; GA Pathways is limited). OBBBA: from January 1, 2027
-       expansion adults 19-64 must show 80 hours a month of work, community service or school (exempt: parents of a child
-       13 or younger, pregnancy, medical frailty), and a person denied Medicaid for the requirement is also barred from the
-       premium tax credit; a retired adult without a young child is treated as failing it. Inputs all exist (`stateTax`,
-       MAGI, household size, the children list); a 10-state list goes in code. Optional one checkbox "Enroll in Medicaid
-       when eligible" (off means the full unsubsidized premium), since networks and estate recovery after 55 make some
-       households decline it. One rule in `acaNetCost`, shared with the 400% guard in `conversionMagiCeiling`, and the
-       safe-MAGI room in 3C must see the new floor. Effect: the full couple premium (often $15,000-25,000 near 60) or $0
-       instead of a few hundred dollars, in exactly the low-MAGI years FIRE plans aim for.
-    2. **Medical expense deduction for long-term-care years.** `ltcYearlyA/B`, `medicareYearly` and the net ACA premium
-       exist; add medical expenses over 7.5% of AGI to `itemizedDeduction`. Example: $100,000 of care on $80,000 of AGI is
-       a deduction of about $94,000. Reverses part of the "charity, QCD and medical out of scope" decision for LTC only
-       (charity and QCDs stay out); needs the owner's yes.
-    3. **PA 401(k) after retirement** (the existing item above): no new field, the account ledger has the 401(k) and IRA
-       split; fits the 3B account work.
-    4. **State child credits as data rows** (existing `childCredit` / `childStepCredit` kinds, ages from the children list):
-       MN ($1,750 per child under 18, refundable, phase-out from about $37,910 joint / $31,950 other; MN DOR 2026 sheet),
-       OR and VT ($1,000 per child under 5), UT ($1,000 per child under 6, nonrefundable), NJ ($100-500 per child under 6,
-       income-tiered), ME ($300 per dependent, refundable), CA Young Child Tax Credit (closes the CA item above). Most are
-       low-income credits that pay nothing in working years and matter in low-AGI retirement years with children.
-       Skip, too small or needing an input we lack: GA ($250 under 6, nonrefundable), ID ($205), OK (5% of the federal
-       credit), IL (40% of the state EITC, follows the EITC decision), MD (child with a disability). CO's Family
-       Affordability Tax Credit is switched off for 2026 and likely the next two years (KUNC, June 2026): name it in the
-       row's notes and recheck yearly.
-  - *Keep as planned:* Social Security claim-age, spousal and survivor rules (Batch 6). The earnings test stays unmodeled
-    (decision 17); add an unusual-assumption warning when a Social Security start age is before both that partner's
-    retirement age and full retirement age, since the planner pays the full benefit while wages continue.
-  - *Defer (needs new fields):* **HSA** (2026: $4,400 self-only, $8,750 family, $1,000 catch-up at 55; Rev. Proc. 2025-19):
-    a balance, per-partner or household contribution, employer contribution, HDHP flag, a new `bal` pool, ledger slot,
-    withdrawal order and wizard step; effect about $1,000-3,000 a year of tax plus tax-free growth. Until then an info tip
-    can suggest entering an HSA balance as a Roth IRA. **Pension type** (private / government / military) per partner plus
-    a column in every state row: most states exempt military retirement, NC (Bailey) and KS exempt government pensions;
-    worth it if military retirees become a target.
-  - *Leave out, reason recorded:* federal EITC and the 31 state EITCs plus DC (closes the two EITC items above: no earned
-    income in retirement, and investment income over $12,200 in 2026, Rev. Proc. 2025-32, cancels the credit; capital gains
-    from taxable sales count); Saver's Credit (only the 2026 plan year remains) and Saver's Match (phases out between about
-    $41,000 and $71,000 joint AGI while contributing, rare for planner households; 2026 credit tiers to $80,500 joint);
-    state circuit breakers and property-tax / rent credits (7D owner decision stands; note the reason, no nontaxable-income
-    input, is weaker now that the engine knows nontaxable Social Security, Roth and basis amounts per year; MA Senior
-    Circuit Breaker would be the first case if revisited, and `homeValue` exists for its value test); local income taxes
-    other than MD and IN; Credit for the Elderly or Disabled; Medicare Savings Programs, Extra Help, SSI, SNAP, LIHEAP,
-    TANF, WIC, Lifeline and housing aid (asset tests, e.g. SSI $2,000); foreign tax credit; education, adoption, dependent
-    care and energy/EV credits.
-  - Sources checked: NCSL state CTC and EITC overviews (May 2026); CRS IF11159 (Saver's Credit and Match); IRS credit for
-    the elderly or disabled page; Ballotpedia and ASTHO on the enhanced-PTC extension (expired 12/31/2025; House passed a
-    three-year extension in January 2026, stalled in the Senate); healthinsurance.org Medicaid expansion map; Ballotpedia on
-    the CMS interim final rule and Health Management Associates on the OBBBA work requirement and the PTC bar; MN DOR
-    child tax credit 2026 sheet; KUNC on the Colorado credit.
+- US tax, credit and benefit gap assessment (2026-10-06): moved into Batch 7O (decision 21), which keeps the
+  corrections to the external catalog, the items to build, the deferred ones (HSA, pension type) and the left-out list.
