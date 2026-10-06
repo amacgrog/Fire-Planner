@@ -65,6 +65,13 @@ function checks() {
   near(run('vt', 150000, [kid(6)], 'mfj'), mnTax(150000) - 500, 'VT 150,000: 25 steps x 20 = 500 off');
   near(run('vt', 175000, [kid(6)], 'single'), mnTax(175000), 'VT 175,000: gone');
   near(run('vt', 125000, [kid(1), kid(5), kid(6)], 'mfj'), mnTax(125000) - 3000, 'VT three young children');
+  // Per child (32 V.S.A. 5830f(b), the IN-112 table is per child): each child's 1,000 loses 20 per 1,000 or fraction over 125,000.
+  near(run('vt', 150000, [kid(6), kid(2)], 'mfj'), mnTax(150000) - 1000, 'VT 150,000, two children: each 1,000 - 25 x 20 = 500, total 1,000');
+  near(run('vt', 170000, [kid(6), kid(2)], 'mfj'), mnTax(170000) - 200, 'VT 170,000, two children: each 1,000 - 45 x 20 = 100, total 200');
+  near(run('vt', 174001, [kid(6), kid(2)], 'mfj'), mnTax(174001), 'VT 174,001: 49,001 over = 50 steps, 1,000 off each: nothing');
+  near(run('vt', 125001, [kid(1), kid(5), kid(6)], 'mfj'), mnTax(125001) - 2940, 'VT 125,001, three children: 3 x 980');
+  near(run('vt', 190000, [kid(0), kid(1), kid(2), kid(3)], 'mfj'), mnTax(190000), 'VT 190,000, four children: gone for every child count');
+  near(run('vt', 150000, [kid(7), kid(6)], 'single'), mnTax(150000) - 500, 'VT 150,000: the child of 7 never counts, the child of 6 gets 500');
   st.inflation = 3;
   near(run('vt', 125000, [kid(6)], 'single', 10), mnTax(125000) - 1000, 'VT: not indexed');
   st.inflation = 0;

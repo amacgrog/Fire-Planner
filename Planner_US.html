@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V106</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V107</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -5610,12 +5610,12 @@
           label: 'Child Tax Credit',
           refundable: true,
           tiers: [[6, 1000]],
-          phaseOut: { start: { single: 125000, mfj: 125000, hoh: 125000, qss: 125000 }, width: 1000, per: 20 },
+          phaseOut: { start: { single: 125000, mfj: 125000, hoh: 125000, qss: 125000 }, width: 1000, per: 20, perChild: true },
         },
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the renter credit is not modeled. Child Tax Credit (32 V.S.A. 5830f, primary): $1,000 per child six or younger at the end of the year, refundable, reduced by $20 for each $1,000 or fraction of AGI over $125,000 (not indexed).',
+      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the renter credit is not modeled. Child Tax Credit (32 V.S.A. 5830f, primary): $1,000 per child six or younger at the end of the year, refundable, reduced by $20 for each $1,000 or fraction of AGI over $125,000, taken off each child (the statute reduces the amount per child; gone at $175,000 for any number of children; not indexed).',
     },
     va: {
       name: 'Virginia',
@@ -6159,7 +6159,7 @@
         // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here). Options (7O O4):
         // `phaseOut.measure` ('stateAgi' or 'income'; default the federal AGI), `phaseOut.rate` (a straight line, credit
         // dollars lost per dollar over the start, scaled with the amounts; else `per` per `width`; `phaseOut.share` { width, round }: a
-        // percentage of the whole credit, Oregon), `maxChildren` (a cap on
+        // percentage of the whole credit, Oregon; `phaseOut.perChild`: the cut comes off each child, Vermont), `maxChildren` (a cap on
         // the children counted) and `fixed` (the statute does not index this credit, whatever the row's flags say).
         const ca = cr.fixed === true ? 1 : fCa,
           ct = cr.fixed === true ? 1 : fCt,
@@ -6174,7 +6174,7 @@
           if (!deps[i].qualifyingChild) continue;
           for (let t = 0; t < cr.tiers.length; t++)
             if (deps[i].age <= cr.tiers[t][0]) {
-              if (cr.maxChildren === undefined || counted < cr.maxChildren) total += cr.tiers[t][1] * ca;
+              if (cr.maxChildren === undefined || counted < cr.maxChildren) total += po.perChild === true ? Math.max(0, cr.tiers[t][1] * ca - cut) : cr.tiers[t][1] * ca;
               counted++;
               break;
             }
@@ -6187,7 +6187,7 @@
             f = po.share.round === undefined ? 0 : Math.pow(10, po.share.round);
           return total * (1 - Math.min(1, f ? Math.round(raw * f) / f : raw));
         }
-        return Math.max(0, total - cut);
+        return po.perChild === true ? total : Math.max(0, total - cut);
       }
       case 'propertyTaxCredit': {
         const over = c.agi - cr.limit[colKey] * fCt,

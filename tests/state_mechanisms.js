@@ -279,6 +279,13 @@ function checks() {
   near(run(shareRow(2), { wages: 21000, dependents: [kid(3), kid(3), kid(3)] }), 2100 - 2250, 'share: three children, 3,000 x 0.75 = 2,250');
   near(run({ credits: [{ kind: 'childCredit', label: 'c', refundable: true, tiers: [[5, 1000]], maxChildren: 2, phaseOut: { start: cols(20000), share: { width: 4000, round: 2 } } }] }, { wages: 21000, dependents: [kid(3), kid(3), kid(3)] }), 2100 - 1500, 'share with maxChildren 2: the cap comes first, 2,000 x 0.75');
 
+  // --- Mechanism 4d (7O follow-up F2): the cut comes off each child, floored at zero --------------------------------
+  // Tiers 1,000 (age 5 or younger) and 500 (age 6 to 10); a cut of 600 (60 steps of 10 over the start of 20,000, width 1,000).
+  const perKid = (extra) => ({ credits: [{ kind: 'childCredit', label: 'c', refundable: true, tiers: [[5, 1000], [10, 500]], phaseOut: Object.assign({ start: cols(20000), width: 1000, per: 10, perChild: true }, extra) }] });
+  near(run(perKid(), { wages: 80000, dependents: [kid(3), kid(8)] }), 8000 - 400, 'perChild: the cut of 600 takes 600 off the 1,000 child (400) and all of the 500 child (0)');
+  near(run({ credits: [{ kind: 'childCredit', label: 'c', refundable: true, tiers: [[5, 1000], [10, 500]], phaseOut: { start: cols(20000), width: 1000, per: 10 } }] }, { wages: 80000, dependents: [kid(3), kid(8)] }), 8000 - 900, 'without perChild the same cut is taken once from the total (1,500 - 600 = 900)');
+  near(run(perKid({ width: undefined, per: undefined, rate: 0.1 }), { wages: 28000, dependents: [kid(3), kid(8)] }), 2800 - 200, 'perChild with a straight line: 0.1 x 8,000 = 800 cut: 200 + 0');
+
 
   // --- Mechanism 5: a cap shared with Social Security (a per-person bucket) ----------------------------------------------
   const co = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 20000 } }, retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]], reducedBy: 'socialSecuritySubtracted' }) };

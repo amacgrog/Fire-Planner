@@ -3366,7 +3366,7 @@ not index this credit, whatever the row's flags say: Utah). `childStepCredit` ga
 | State | Credit | Source |
 |---|---|---|
 | MN | 1,750 per qualifying child under 18, refundable; reduced by 12% of the federal AGI over 37,910 joint and 31,950 every other status (thresholds indexed, the amount is not: the row's `creditThresholdsIndexed` is now true, it has no other credit) | 2025 Schedule M1CWFC (lines 8 to 14), Department of Revenue Child Tax Credit page. The working family credit part (earned income) and the 9% rate for the older-children credit are not modeled |
-| VT | 1,000 per child six or younger, refundable; 20 per 1,000 or fraction of AGI over 125,000, gone at 175,000; not indexed | 32 V.S.A. 5830f (amended 2025, effective 1/1/2025) |
+| VT | 1,000 per child six or younger, refundable; 20 per 1,000 or fraction of AGI over 125,000 taken off each child, gone at 175,000 for any number of children; not indexed | 32 V.S.A. 5830f (amended 2025, effective 1/1/2025); the 2025 IN-112 table is per child |
 | ME | 300 per dependent from 2026 (2025: doubled under six), refundable; 20 per 500 or fraction of Maine AGI over 100,000 single, 125,000 head of household, 150,000 joint; not indexed | 36 M.R.S. 5219-SS |
 | NJ | up to 1,000 per child five or younger by NJ taxable income: 1,000 to 30,000, then 800, 600, 400, 200 per further 10,000, nothing over 80,000; refundable | Division of Taxation, Child Tax Credit (2025) |
 | OR | 1,050 per dependent under six, at most five, refundable; the whole credit is cut by (Oregon AGI - 26,550) / 5,000, rounded to two decimals, nothing at 31,550 for any number of children | ORS 315.273 and the 2025 Form OR-40 worksheet: 1,000 and 25,000 indexed (CPI, rounded down to 50), the divisor fixed; applies to tax years before 2029 (not modeled, owner decision); the 2025 values stand for 2026 |
@@ -3593,7 +3593,7 @@ NJ); record the run in the commit message. Tests are hand-computed in the commen
   Credit still applies (no sunset modeled). Synthetic `zz` cases in `tests/state_mechanisms.js` for `share` with and without `round`, and
   with `maxChildren`.
 
-**F2. Vermont: the phase-out per child (US V107).**
+**F2. Vermont: the phase-out per child (US V107). Built (V107).**
 - Evaluator: new optional `phaseOut.perChild: true`: the cut (`ceil(over / width) x per`, or `rate x over`) comes off each counted child's
   tier amount, each floored at zero, and the credit is the sum. VT row: `phaseOut: { start: {...125000}, width: 1000, per: 20, perChild: true }`.
 - Before/after (credit only): 2 children at 150,000: 1,500 -> 1,000; 2 at 170,000: 2,000 - 900 = 1,100 -> 2 x 100 = 200; 2 at 174,001:
