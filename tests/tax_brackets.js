@@ -807,6 +807,28 @@ function caChecks() {
       1e-9,
       'couple: the lower net income claims when it can use the credit',
     );
+    // A 65+ partner owes no tax up to about 27,700 (basic + age + pension amounts), so the lower return may have nothing for the credit to
+    // reduce even above the basic personal amount: both claimants are priced and the cheaper kept (BC, both 70, 20,000 and 80,000,
+    // 30,000 of expenses; claiming on the 20,000 return saved nothing).
+    {
+      const onLow = no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 0) + no(20000, 0, 0, 0, 70, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 30000);
+      const onHigh = no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 30000) + no(20000, 0, 0, 0, 70, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 0);
+      const noMed = no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 0) + no(20000, 0, 0, 0, 70, 0);
+      near(onLow, noMed, 1e-9, 'claiming on the 20,000 return saves nothing: its tax is already nil');
+      near(onHigh < onLow - 1000 ? 1 : 0, 1, 0, 'claiming on the 80,000 return must save real tax: ' + onHigh + ' vs ' + onLow);
+      near(
+        t.incomeTax(pr5({ singlePerson: false, otherA: 80000, otherB: 20000, ageA: 70, ageB: 70, medical: 30000 }), 0, 0),
+        onHigh,
+        1e-9,
+        'couple: the claim goes to the return that can use it when the lower one owes no tax',
+      );
+      near(
+        t.incomeTax(pr5({ singlePerson: false, otherA: 20000, otherB: 80000, ageA: 70, ageB: 70, medical: 30000 }), 0, 0),
+        no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 30000) + no(20000, 0, 0, 0, 70, 0),
+        1e-9,
+        'the same with the partners swapped',
+      );
+    }
     near(
       t.incomeTax(pr5({ singlePerson: true, otherA: 50000, medical: 6000 }), 0, 0),
       no(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 6000),
@@ -825,7 +847,11 @@ function caChecks() {
     // A couple: A is 72, B is 60, 25,000 each (family net 50,000): 1,500 less 5% x 15,000 = 750; either spouse's age 70+ qualifies.
     near(
       t.incomeTax(pr5({ singlePerson: false, otherA: 25000, otherB: 25000, ageA: 72, ageB: 60, medical: 8000 }), 0, 0),
-      no(25000, 0, 0, 0, 72, 0, null, 0, 0, 25000, 0, 0, 0, 0, 0, 8000) + no(25000, 0, 0, 0, 60, 0) - 750,
+      // either spouse can claim; the cheaper claim stands (here the 60-year-old, who has no age amount to use the tax up first)
+      Math.min(
+        no(25000, 0, 0, 0, 72, 0, null, 0, 0, 25000, 0, 0, 0, 0, 0, 8000) + no(25000, 0, 0, 0, 60, 0),
+        no(25000, 0, 0, 0, 72, 0, null, 0, 0, 25000, 0, 0, 0, 0, 0, 0) + no(25000, 0, 0, 0, 60, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 8000),
+      ) - 750,
       1e-6,
       'Ontario care credit for a couple, family net income 50,000',
     );
