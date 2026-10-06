@@ -844,6 +844,19 @@ function caChecks() {
     near(t.incomeTax(pr5({ singlePerson: true, otherA: 70000, ageA: 72, medical: 8000 }), 0, 0), careBase(70000, 72, 8000), 1e-9, 'the credit is nil from 65,000 of family net income');
     near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 69, medical: 8000 }), 0, 0), careBase(40000, 69, 8000), 1e-9, 'the credit needs age 70');
     near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 72 }), 0, 0), careBase(40000, 72, 0), 1e-12, 'no expenses, no credit');
+    // The claimant also sets the Seniors Care at Home credit (its floor is 3% of the claimant's net income, up to 2,940), so in Ontario
+    // with a 70+ spouse both claimants are priced on tax less the credit: A 83 with 166 and B 76 with 36,103, 5,140 of expenses. B already
+    // owes nothing, the credit shrinks with the claimant's floor, and claiming on A leaves the household better off.
+    {
+      const med = 5140,
+        fam = 166 + 36103,
+        care = (net) => Math.max(0, 0.25 * Math.min(6000, med - Math.min(0.03 * net, 2940)) - 0.05 * Math.max(0, fam - 35000));
+      const onA = no(166, 0, 0, 0, 83, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, med) + no(36103, 0, 0, 0, 76, 0, null, 0, 0, 166, 0, 0, 0, 0, 0, 0) - care(166);
+      const onB = no(166, 0, 0, 0, 83, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 0) + no(36103, 0, 0, 0, 76, 0, null, 0, 0, 166, 0, 0, 0, 0, 0, med) - care(36103);
+      near(onA < onB - 100 ? 1 : 0, 1, 0, 'the scenario must favour claiming on A: ' + onA + ' vs ' + onB);
+      near(t.incomeTax(pr5({ singlePerson: false, otherA: 166, otherB: 36103, ageA: 83, ageB: 76, medical: med }), 0, 0), Math.min(onA, onB), 1e-6, 'Ontario couple: the claimant minimizing tax less the care credit');
+      near(t.incomeTax(pr5({ singlePerson: false, otherA: 36103, otherB: 166, ageA: 76, ageB: 83, medical: med }), 0, 0), Math.min(onA, onB), 1e-6, 'the same with the partners swapped');
+    }
     // A couple: A is 72, B is 60, 25,000 each (family net 50,000): 1,500 less 5% x 15,000 = 750; either spouse's age 70+ qualifies.
     near(
       t.incomeTax(pr5({ singlePerson: false, otherA: 25000, otherB: 25000, ageA: 72, ageB: 60, medical: 8000 }), 0, 0),
