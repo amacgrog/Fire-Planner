@@ -3217,3 +3217,66 @@ remains is detail to settle when the relevant batch is scoped:
   (see the 7A gotchas).
 - Batch 8: grid ranges and the default objective are confirmed when it is
   scoped.
+- **US tax, credit and benefit gap assessment (2026-10-06, against an external ChatGPT catalog, checked).** The catalog's
+  "core" items are mostly already modeled (ACA premium tax credit with the 2026 400% cliff and the enhanced-subsidy toggle,
+  IRMAA with the lookback, Medicare from `max(65, retirement age)`, CTC/ODC/ACTC, Social Security taxation by state, 51
+  researched state rows). Corrections to the catalog: the Saver's Match replaces the Saver's Credit from tax year 2027 and is
+  a deposit into the account, not a credit; WEP/GPO are repealed (decision 17); the Credit for the Elderly or Disabled is
+  unindexed (about $17,500 / $25,000 AGI; $5,000 / $7,500 of nontaxable Social Security removes it) and pays nothing to a
+  planner household; NCSL's state child credit list (May 29, 2026) is 17 states plus DC, not VA or WI, and includes DC, GA,
+  ID, IL and MA; the WA "EITC" is the Working Families Tax Credit, a sales-tax refund; cost-sharing reductions change
+  deductibles, not the premium the planner models. Proposals below are pending owner decisions; figures are secondary
+  unless noted and get confirmed against primary sources at implementation (decided for all batches).
+  - *Build, no new field:*
+    1. **Medicaid and the ACA subsidy below 138% of FPL** (largest gap). Today a household under 100% of FPL, or 100-138%
+       in an expansion state, is charged about 2.10% of income; the law gives no premium tax credit to anyone eligible for
+       Medicaid, and none below 100% of FPL. Expansion states (40 plus DC): under 138% is Medicaid ($0 premium, no asset
+       test for MAGI Medicaid). Non-expansion (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY): under 100% gets no subsidy (WI
+       covers adults to 100% through Medicaid without expansion; GA Pathways is limited). OBBBA: from January 1, 2027
+       expansion adults 19-64 must show 80 hours a month of work, community service or school (exempt: parents of a child
+       13 or younger, pregnancy, medical frailty), and a person denied Medicaid for the requirement is also barred from the
+       premium tax credit; a retired adult without a young child is treated as failing it. Inputs all exist (`stateTax`,
+       MAGI, household size, the children list); a 10-state list goes in code. Optional one checkbox "Enroll in Medicaid
+       when eligible" (off means the full unsubsidized premium), since networks and estate recovery after 55 make some
+       households decline it. One rule in `acaNetCost`, shared with the 400% guard in `conversionMagiCeiling`, and the
+       safe-MAGI room in 3C must see the new floor. Effect: the full couple premium (often $15,000-25,000 near 60) or $0
+       instead of a few hundred dollars, in exactly the low-MAGI years FIRE plans aim for.
+    2. **Medical expense deduction for long-term-care years.** `ltcYearlyA/B`, `medicareYearly` and the net ACA premium
+       exist; add medical expenses over 7.5% of AGI to `itemizedDeduction`. Example: $100,000 of care on $80,000 of AGI is
+       a deduction of about $94,000. Reverses part of the "charity, QCD and medical out of scope" decision for LTC only
+       (charity and QCDs stay out); needs the owner's yes.
+    3. **PA 401(k) after retirement** (the existing item above): no new field, the account ledger has the 401(k) and IRA
+       split; fits the 3B account work.
+    4. **State child credits as data rows** (existing `childCredit` / `childStepCredit` kinds, ages from the children list):
+       MN ($1,750 per child under 18, refundable, phase-out from about $37,910 joint / $31,950 other; MN DOR 2026 sheet),
+       OR and VT ($1,000 per child under 5), UT ($1,000 per child under 6, nonrefundable), NJ ($100-500 per child under 6,
+       income-tiered), ME ($300 per dependent, refundable), CA Young Child Tax Credit (closes the CA item above). Most are
+       low-income credits that pay nothing in working years and matter in low-AGI retirement years with children.
+       Skip, too small or needing an input we lack: GA ($250 under 6, nonrefundable), ID ($205), OK (5% of the federal
+       credit), IL (40% of the state EITC, follows the EITC decision), MD (child with a disability). CO's Family
+       Affordability Tax Credit is switched off for 2026 and likely the next two years (KUNC, June 2026): name it in the
+       row's notes and recheck yearly.
+  - *Keep as planned:* Social Security claim-age, spousal and survivor rules (Batch 6). The earnings test stays unmodeled
+    (decision 17); add an unusual-assumption warning when a Social Security start age is before both that partner's
+    retirement age and full retirement age, since the planner pays the full benefit while wages continue.
+  - *Defer (needs new fields):* **HSA** (2026: $4,400 self-only, $8,750 family, $1,000 catch-up at 55; Rev. Proc. 2025-19):
+    a balance, per-partner or household contribution, employer contribution, HDHP flag, a new `bal` pool, ledger slot,
+    withdrawal order and wizard step; effect about $1,000-3,000 a year of tax plus tax-free growth. Until then an info tip
+    can suggest entering an HSA balance as a Roth IRA. **Pension type** (private / government / military) per partner plus
+    a column in every state row: most states exempt military retirement, NC (Bailey) and KS exempt government pensions;
+    worth it if military retirees become a target.
+  - *Leave out, reason recorded:* federal EITC and the 31 state EITCs plus DC (closes the two EITC items above: no earned
+    income in retirement, and investment income over $12,200 in 2026, Rev. Proc. 2025-32, cancels the credit; capital gains
+    from taxable sales count); Saver's Credit (only the 2026 plan year remains) and Saver's Match (phases out between about
+    $41,000 and $71,000 joint AGI while contributing, rare for planner households; 2026 credit tiers to $80,500 joint);
+    state circuit breakers and property-tax / rent credits (7D owner decision stands; note the reason, no nontaxable-income
+    input, is weaker now that the engine knows nontaxable Social Security, Roth and basis amounts per year; MA Senior
+    Circuit Breaker would be the first case if revisited, and `homeValue` exists for its value test); local income taxes
+    other than MD and IN; Credit for the Elderly or Disabled; Medicare Savings Programs, Extra Help, SSI, SNAP, LIHEAP,
+    TANF, WIC, Lifeline and housing aid (asset tests, e.g. SSI $2,000); foreign tax credit; education, adoption, dependent
+    care and energy/EV credits.
+  - Sources checked: NCSL state CTC and EITC overviews (May 2026); CRS IF11159 (Saver's Credit and Match); IRS credit for
+    the elderly or disabled page; Ballotpedia and ASTHO on the enhanced-PTC extension (expired 12/31/2025; House passed a
+    three-year extension in January 2026, stalled in the Senate); healthinsurance.org Medicaid expansion map; Ballotpedia on
+    the CMS interim final rule and Health Management Associates on the OBBBA work requirement and the PTC bar; MN DOR
+    child tax credit 2026 sheet; KUNC on the Colorado credit.
