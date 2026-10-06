@@ -3637,7 +3637,8 @@ seed 7), before to after: low-MAGI early retiree CA Monte Carlo 99.4% to 99.5%; 
 (400 `simulate()`, interleaved, median of 7): default couple 371 to 374 ms (1.008), ACA on near the line (TX 60, spending 12,000) 269 to 273 (1.015),
 ACA on away from it (CA 60, 30,000) 405 to 417 (1.030).
 
-**F6. O3: the Roth-conversion share of the Pennsylvania 401(k) exemption (owner decision; US V111 if built).** See below.
+**F6. O3: the Roth-conversion share of the Pennsylvania 401(k) exemption. Not built (2026-10-06): the PA guide is silent on a retiree's conversion, so the documented approximation stays (owner rule).** See below.
+Gate result (read 2026-10-06, PA Personal Income Tax Guide, Gross Compensation, the 1099-R reconciliation table, Box 1): "The amount may have been a direct rollover, a transfer, or conversion to a Roth IRA, a recharacterized IRA contribution ..."; "Under PA PIT law, this distribution is taxable for Pennsylvania purposes if: the pension or retirement plan was NOT an eligible plan for PA PIT purposes; or you retired before meeting the age conditions of the plan or years of service conditions of the plan." The rollover exemption is limited to amounts "not includable in income for federal income tax purposes", which a conversion is not. Nothing says whether a retiree's conversion of employer-plan money is exempt, so the 401(k) part of a conversion is not built: approximation (2) of O3 stays (a conversion is exempted at the pro rata 401(k) share, which understates PA tax when the conversion came from IRA money). Revisit if the Department of Revenue publishes guidance on conversions.
 
 **F7. Minor items (one commit, US V112, or folded into F1 if the owner prefers fewer badges).**
 - `tests/roth_accounts.js` case 8: instrumented on 2026-10-06 (a scratch copy logging every MAGI re-run): the case still re-runs (5 re-runs
