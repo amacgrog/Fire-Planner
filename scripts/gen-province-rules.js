@@ -38,6 +38,32 @@ function indexingText(ix) {
 function bpaText(b) {
   return money(b.amount) + (b.phase ? ` (reduced to ${money(b.phase.floor)} between ${money(b.phase.start)} and ${money(b.phase.end)} net income)` : '');
 }
+// 7N N3: the amount, with the spouse (or dependant) income free up to a threshold; Saskatchewan also has a child amount.
+function spouseText(r) {
+  if (!r.spouse) return 'none (Quebec has no spouse amount)';
+  const s = r.spouse;
+  return money(s.amount) + (s.threshold ? `, nil at net income ${money(s.amount + s.threshold)} (free to ${money(s.threshold)})` : `, less the net income (nil at ${money(s.amount)})`) + (r.childAmount ? `; child amount ${money(r.childAmount.amount)} each (under ${r.childAmount.maxAge + 1})` : '');
+}
+// 7N N8: the probate fee schedule (estate value passing through probate).
+function probateText(p) {
+  if (!p.steps.length && !p.bands.length && !p.base) return 'none';
+  const parts = p.steps.map(([limit, fee]) => `${fee ? money(fee) : 'nil'} up to ${money(limit)}`);
+  if (p.bands.length || p.steps.length) {
+    const bands = p.bands.map(([from, rate]) => `${money(rate)} per $1,000 over ${money(from)}`).join(', ');
+    parts.push((p.base ? `${money(p.base)} then ` : '') + (bands || 'flat'));
+  }
+  return parts.join('; ');
+}
+// 7N N6: the low-income tax reduction, as the form states it.
+function liText(l) {
+  if (!l) return 'none';
+  if (l.kind === 'perReturn') return `per return: ${l.multiplier} x (${money(l.basic)} + ${money(l.child)} per dependent child) less the tax, off the tax`;
+  if (l.kind === 'income') return `${money(l.basic)} less ${pct(l.rate)} of net income over ${money(l.base)}, off the tax`;
+  const parts = [`basic ${money(l.basic)}`, `spouse ${money(l.spouse)}`, `eligible dependant ${money(l.dependant)}`];
+  if (l.child) parts.push(`${money(l.child)} per dependent child`);
+  if (l.age) parts.push(`${money(l.age)} each at 65+`);
+  return `family: ${parts.join(', ')} less ${pct(l.rate)} of adjusted family income over ${money(l.base)}${l.baseWithDependants ? ` (${money(l.baseWithDependants)} with a spouse or dependant)` : ''}, limited to the family's tax${l.eligibility ? `; only if single income under ${money(l.eligibility.singleBelow)} or family income under ${money(l.eligibility.familyBelow)}` : ''}${l.ageTaxCredit ? `; plus a ${money(l.ageTaxCredit.amount)} age tax credit at 65+ under ${money(l.ageTaxCredit.incomeBelow)}` : ''}`;
+}
 function ageText(a, pooled) {
   if (!a && pooled) return 'pooled with the retirement-income and living-alone amounts (see Quebec below)';
   if (!a) return 'not modeled';
@@ -60,12 +86,12 @@ function generate(rules) {
   L.push('');
   L.push('**Credits.** Every non-refundable amount is worth the province\'s lowest bracket rate (`creditRate`) and comes off the tax, floored at zero.');
   L.push('Provincial credits never reduce federal tax and the reverse. **Not modeled (documented gaps):** non-eligible Canadian dividends (taxed like interest),');
-  L.push('spouse and eligible-dependant amounts, the transfer of a spouse unused amounts, paid benefits (7L), and territorial taxes.');
+  L.push('the transfer of a spouse unused amounts (the spouse and eligible-dependant amounts and the low-income tax reductions are modeled since 7N), paid benefits (7L), and territorial taxes.');
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | Indexing | Sources |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|---|');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Low-income tax reduction | Health contributions | Probate fee | Indexing | Sources |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
     const extra = [r.surtax ? `surtax ${pct(r.surtax.firstRate)} over ${money(r.surtax.first)}, ${pct(r.surtax.secondRate)} over ${money(r.surtax.second)}` : '', r.healthPremium ? 'income-tested health premium (up to $900)' : ''].filter(Boolean).join('; ') || 'none';
@@ -78,9 +104,16 @@ function generate(rules) {
           bpaText(r.bpa),
           ageText(r.age, r.pooled),
           r.pension ? money(r.pension.amount) : r.pooled ? `retirement income ${money(r.pooled.retirementAmount)} (pooled)` : 'not modeled',
+          spouseText(r),
           pct(r.dividend.eligible) + ' of the grossed-up dividend',
           extra,
           (r.pooled ? 'QPP ' : 'CPP ') + pct(r.payroll.pensionRate) + ' on earnings from $3,500 to $74,600, then 4% to $85,000' + (r.payroll.premium ? `; QPIP ${pct(r.payroll.premium.rate)} on earnings up to ${money(r.payroll.premium.max)} (its own ceiling)` : ''),
+          pct(r.payroll.eiRate) + ' to $68,900 (a credit; Quebec: federal credit only)',
+          r.homeBuyer ? money(r.homeBuyer.amount) + ' (first-time buyer, purchase year)' : 'none',
+          r.medical.familyIncome ? 'expenses over 3% of family income (no dollar floor)' : 'expenses over the lesser of 3% of net income and ' + money(r.medical.threshold) + (r.careAtHome ? '; refundable Seniors Care at Home credit: ' + pct(r.careAtHome.rate) + ' of up to ' + money(r.careAtHome.maxExpenses) + ' (age ' + r.careAtHome.age + '+), less ' + pct(r.careAtHome.reductionRate) + ' of family net income over ' + money(r.careAtHome.startIncome) : ''),
+          liText(r.lowIncomeReduction),
+          r.healthContributions ? `Health Services Fund ${pct(r.healthContributions.hsf.rate)} of non-employment income over ${money(r.healthContributions.hsf.t1)} (to ${money(r.healthContributions.hsf.cap1)}, then over ${money(r.healthContributions.hsf.t2)} to ${money(r.healthContributions.hsf.cap2)}); RAMQ drug premium for each retired adult, up to ${money(r.healthContributions.ramq.max)}` : 'none',
+          probateText(r.probate),
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]

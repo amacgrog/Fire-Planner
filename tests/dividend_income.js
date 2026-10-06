@@ -155,12 +155,12 @@ async function testCanada() {
   const file = path.join(root, 'Planner_Canada.html');
   // Ontario excluded: its Health Premium is based on the grossed-up dividend and is not reduced by the credit.
   const ordinary = await scenario(file, false, [
-    ['dividendYield', 2],
+    ['dividendYield', 4],
     ['qualifiedDivPct', 0],
   ]);
   const eligible = await scenario(file, false, [
     ['province', 'bc'],
-    ['dividendYield', 2],
+    ['dividendYield', 4],
     ['qualifiedDivPct', 100],
   ]);
   const none = await scenario(file, false, [['province', 'bc'], ['dividendYield', 0]]);
@@ -169,12 +169,13 @@ async function testCanada() {
     eligible[0].tax < ordinary[0].tax,
     `Canada: eligible dividends (gross-up + credit) should owe less than ordinary-rate dividends (${eligible[0].tax} vs ${ordinary[0].tax})`,
   );
-  // The grossed-up dividend (1.38x) is what counts as income: $20,000 of
-  // eligible dividends adds $27,600, versus $20,000 of ordinary dividends.
+  // The grossed-up dividend (1.38x) is what counts as income: $40,000 of
+  // eligible dividends adds $55,200, versus $40,000 of ordinary dividends.
+  // (4% on $1M: at $20,000 the 7N provincial low-income tax reductions clear most of the tax.)
   near(
     eligible[0].grossIncome - ordinary[0].grossIncome,
-    7600,
-    80,
+    15200,
+    160,
     'Canada: eligible dividends count grossed-up in income',
   );
   console.log('[Canada] dividend/interest taxation tests passed');

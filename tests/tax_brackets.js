@@ -269,6 +269,8 @@ function usChecks() {
 // Canada
 // ---------------------------------------------------------------------------
 function caChecks() {
+  // Spouse claims as incomeTaxCA and solvePensionSplit make them (7N N3): the higher-income partner claims the spouse amount (A on a tie).
+  const claimNets = (nA, nB) => [nA >= nB ? Math.max(0, nB) : -1, nB > nA ? Math.max(0, nA) : -1];
   const t = window.__test_tax;
   const st = window.__test_getState();
   const fails = [];
@@ -389,7 +391,8 @@ function caChecks() {
     };
     // BC, age 66, $40k (under the 44,119 age threshold): tax 40,000 * 5.6% = 2,240; credits at 5.6% of
     // 13,216 + 5,927 = 19,143 (1,072.008) -> 1,167.992
-    near(prov('bc', 40000, 0, 0, 66, 0), 1167.992, 0.005, 'BC age amount at $40k');
+    // 7N N6: British Columbia's low-income tax reduction takes 575 - 3.56% x (40,000 - 25,570) = 61.292 off.
+    near(prov('bc', 40000, 0, 0, 66, 0), 1167.992 - (575 - 0.0356 * (40000 - 25570)), 0.005, 'BC age amount at $40k');
     // AB, age 70, $60k, $5k pension: 4,800 less 8% of 22,769 + age amount (6,345 - 15% * (60,000 - 47,234)
     // = 4,430.1) + pension 1,753 = 28,952.1 (2,316.168) -> 2,483.832
     near(prov('ab', 60000, 0, 0, 70, 5000), 2483.832, 0.005, 'AB age and pension amounts');
@@ -431,9 +434,12 @@ function caChecks() {
       const ph = table.bpa.phase,
         bpa = ph ? table.bpa.amount * Math.min(1, Math.max(0, (ph.end - inc) / (ph.end - ph.start))) : table.bpa.amount,
         living = table.pooled ? Math.max(0, table.pooled.livingAlone - table.pooled.reductionRate * Math.max(0, inc - table.pooled.reductionThreshold)) : 0, // Quebec single filers live alone
-        base = Math.max(0, refTax(inc, table.brackets) - table.creditRate * (bpa + living));
+        base0 = Math.max(0, refTax(inc, table.brackets) - table.creditRate * (bpa + living));
+      let base = base0;
+      // British Columbia's low-income reduction (7N N6) comes off its tax; Ontario's is checked as a floor below.
+      if (code === 'bc') base = Math.max(0, base - Math.max(0, 575 - 0.0356 * Math.max(0, inc - 25570)));
       if (code !== 'on') near(t.provincialTaxCA(inc, 0), base, 0.005, `${code} provincial ${inc}`);
-      else if (t.provincialTaxCA(inc, 0) < base - 0.005) fails.push(`on ${inc}: provincial tax below credited bracket tax`);
+      else if (t.provincialTaxCA(inc, 0) < 0) fails.push(`on ${inc}: negative provincial tax`);
     }
     // Monotone and continuous (no jumps larger than the top marginal rate allows).
     let prev = 0;
@@ -494,16 +500,17 @@ function caChecks() {
       near(q(50000 * f, yi, 0, 66, 10000 * f), f * q(50000, 0, 0, 66, 10000), 1e-6 * f * 50000, 'Quebec pooled amounts and threshold are indexed');
     }
     st.inflation = 0;
-    // taxFor: a couple reads the family income, a single filer is living alone.
+    // taxFor: a couple reads the family income, a single filer is living alone. (The incomes are marked as wages here so that the
+    // 7N N7 Quebec health contributions, which fall on retirees' non-employment income, stay out of the comparison.)
     {
       const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
       near(
-        t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
+        t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, earnedA: 50000, earnedB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
         2 * t.personTaxCA(50000, 0, 0, 0, 66, 10000, 100000, 7527),
         1e-9,
         'Quebec taxFor couple uses family income',
       );
-      near(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
+      near(t.incomeTax(p({ singlePerson: true, otherA: 50000, earnedA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
       if (!(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2))
         fails.push('Quebec: a single filer should owe less than each spouse of a couple with the same income (living-alone amount)');
     }
@@ -520,9 +527,13 @@ function caChecks() {
       for (const [oa, ob, ea, eb] of [[90000, 20000, 40000, 5000], [60000, 30000, 30000, 0], [45000, 45000, 20000, 20000], [80000, 15000, 50000, 10000]]) {
         const x = t.solvePensionSplit(oa, ob, ea, eb, 0, 68, 66);
         const fam = oa + ob;
-        const cost = (y) =>
-          t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam, t.quebecPoolAmount(66, eb + y, 0)) +
-          t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam, t.quebecPoolAmount(68, ea - y, 0));
+        const cost = (y) => {
+          const [cA, cB] = claimNets(oa - y, ob + y);
+          return (
+            t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam, t.quebecPoolAmount(66, eb + y, 0), 0, cA) +
+            t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam, t.quebecPoolAmount(68, ea - y, 0), 0, cB)
+          );
+        };
         let best = Infinity;
         for (let y = -0.5 * eb; y <= 0.5 * ea; y += 50) best = Math.min(best, cost(y));
         worst = Math.max(worst, cost(x) - best);
@@ -552,7 +563,400 @@ function caChecks() {
   near(t.oasClawback(120000, 8500, 0), 3701.55, 0.005, 'OAS clawback partial'); // 15% of 24,677
   near(t.oasClawback(200000, 8500, 0), 8500, 0.005, 'OAS clawback capped at OAS received');
   near(t.oasClawback(300000, 0, 0), 0, 1e-9, 'no OAS, no clawback');
+  // --- OAS recovery tax inside the return (7N N1) ------------------------------
+  // personTaxCA(..., oas) charges 15% of net income (OAS included) over 95,323 up to the OAS received, and the
+  // repayment is deducted from net income (CRA line 23500, "line 15000 minus lines 20700 to 23500" = line 23600)
+  // before the brackets and the age amount, then added to the tax payable (line 42200).
+  {
+    st.province = 'on';
+    // 110,000 incl. 8,500 OAS: recovery 15% x 14,677 = 2,201.55; tax is on 107,798.45, plus the recovery.
+    near(
+      t.personTaxCA(110000, 0, 0, 0, 66, 0, null, 0, 8500),
+      t.personTaxCA(107798.45, 0, 0, 0, 66, 0) + 2201.55,
+      1e-6,
+      'recovery tax: deducted from net income, added to tax',
+    );
+    // Capped at the OAS received: 200,000 income, 8,500 OAS -> recovery 8,500, taxable 191,500.
+    near(t.personTaxCA(200000, 0, 0, 0, 66, 0, null, 0, 8500), t.personTaxCA(191500, 0, 0, 0, 66, 0) + 8500, 1e-6, 'recovery tax capped at the OAS');
+    // Below the threshold, or no OAS: identical to the old result.
+    near(t.personTaxCA(90000, 0, 0, 0, 66, 0, null, 0, 8500), t.personTaxCA(90000, 0, 0, 0, 66, 0), 1e-12, 'below the threshold: no recovery');
+    near(t.personTaxCA(300000, 0, 0, 0, 66, 0, null, 0, 0), t.personTaxCA(300000, 0, 0, 0, 66, 0), 1e-12, 'no OAS: no recovery');
+    // The plan's example: a 66-year-old with 85,000 base income (OAS 8,500 inside) who draws 30,000 more owes
+    // 15% x (115,000 - 95,323) = 2,951.55 of recovery tax the old model did not charge.
+    const pr = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    near(
+      t.incomeTax(pr({ singlePerson: true, otherA: 85000, ageA: 66, penA: 0, oasA: 8500 }), 0, 30000),
+      t.personTaxCA(115000 - 2951.55, 0, 0, 0, 66, 0) + 2951.55,
+      1e-6,
+      'a discretionary draw that crosses the threshold pays the recovery tax',
+    );
+    // A couple: each return takes its own recovery (A: 110,000 / OAS 8,500; B: 60,000 / OAS 8,500, none due).
+    near(
+      t.incomeTax(pr({ singlePerson: false, otherA: 110000, otherB: 60000, ageA: 66, ageB: 66, penA: 0, penB: 0, oasA: 8500, oasB: 8500 }), 0, 0),
+      t.personTaxCA(107798.45, 0, 0, 0, 66, 0) + 2201.55 + t.personTaxCA(60000, 0, 0, 0, 66, 0),
+      1e-6,
+      'couple: each return has its own recovery tax',
+    );
+    // A profile without OAS fields is unchanged.
+    near(t.incomeTax(pr({ singlePerson: true, otherA: 150000, ageA: 66 }), 0, 0), t.personTaxCA(150000, 0, 0, 0, 66, 0), 1e-12, 'profile without oas');
+    // Gains count at 50%: 100,000 + 20,000 of gains -> 110,000 net income.
+    near(t.personTaxCA(100000, 20000, 0, 0, 66, 0, null, 0, 8500), t.personTaxCA(107798.45, 0, 0, 0, 66, 0) + 2201.55, 1e-6, 'gains count toward the threshold');
+    // Indexed threshold: at factor f the threshold is 95,323 f.
+    const f3 = t.taxIndexFactor(10);
+    near(t.personTaxCA(110000 * f3, 0, 10, 0, 66, 0, null, 0, 8500 * f3), t.personTaxCA(110000 * f3 - 0.15 * (110000 - 95323) * f3, 0, 10, 0, 66, 0) + 0.15 * (110000 - 95323) * f3, 1e-6, 'recovery threshold is indexed');
+  }
 
+  // --- Spouse, eligible-dependant and child amounts (7N N3) -----------------------
+  // personTaxCA(..., oas, spouseNet, depKids, childKids): spouseNet < 0 means no spouse claim; depKids is the
+  // number of children under 18 a single claimant (or survivor) supports (one is the eligible dependant, the rest
+  // are child-amount children where a province has one); childKids is the number of children whose child amount
+  // this return claims. Federal: the amount is the BPA variant for the CLAIMANT's net income (16,452 to 14,829) less
+  // the spouse's net income (a dependant child's is 0), at 14%. Provincial (CRA TD1 forms 2026): the amount, with the
+  // spouse's income free up to a threshold: credit = clamp(amount + threshold - spouse net income, 0, amount).
+  {
+    const R = t.PROVINCE_RULES;
+    const prov = (code, income, ...rest) => {
+      st.province = code;
+      return t.provincialTaxCA(income, 0, 0, 0, 0, null, 0, ...rest);
+    };
+    // Ontario (TD1ON 2026: 11,029, free to 1,103): spouse net 5,000 -> 7,132 of amount, at 5.05%.
+    near(prov('on', 50000) - prov('on', 50000, 5000), 0.0505 * 7132, 1e-6, 'ON spouse amount, partial');
+    near(prov('on', 50000) - prov('on', 50000, 1000), 0.0505 * 11029, 1e-6, 'ON spouse amount, full below the threshold');
+    near(prov('on', 50000) - prov('on', 50000, 12132), 0, 1e-9, 'ON spouse amount, nil at 12,132');
+    near(prov('on', 50000) - prov('on', 50000, -1, 1), 0.0505 * 11029, 1e-6, 'ON eligible dependant (one child)');
+    // Alberta (TD1AB: the amount is the basic personal amount, 22,769, less the spouse net income, no free band).
+    near(prov('ab', 80000) - prov('ab', 80000, 10000), R.ab.creditRate * 12769, 1e-6, 'AB spouse amount = 22,769 - spouse income');
+    // Saskatchewan (TD1SK: 20,381, free to 2,038; child amount 8,358 for each other child under 18): a single parent
+    // of two claims the eligible dependant for one child and the child amount for the other.
+    near(prov('sk', 70000) - prov('sk', 70000, -1, 2), R.sk.creditRate * (20381 + 8358), 1e-6, 'SK single parent of two: dependant plus one child amount');
+    near(prov('sk', 70000) - prov('sk', 70000, -1, 0, 2), R.sk.creditRate * 2 * 8358, 1e-6, 'SK couple: child amount for each child');
+    near(prov('on', 70000) - prov('on', 70000, -1, 0, 2), 0, 1e-9, 'a province without a child amount ignores childKids');
+    // Quebec: no spouse amount, and a single parent of a minor child gets nothing more (the additional amount for a person
+    // living alone, single-parent family, needs a child 18 or over in post-secondary studies and no Family Allowance: not built).
+    near(prov('qc', 30000) - prov('qc', 30000, -1, 1), 0, 1e-9, 'QC: a minor child adds no provincial amount');
+    near(prov('qc', 30000) - prov('qc', 30000, 5000), 0, 1e-9, 'QC has no spouse amount');
+    // Indexing follows the basic personal amount: scaled at year 10 except where the BPA is frozen.
+    st.province = 'on';
+    const f10 = t.taxIndexFactor(10);
+    near(t.provincialTaxCA(50000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0) - t.provincialTaxCA(50000 * f10, 10, 0, 0, 0, null, 0, 5000 * f10, 0, 0), 0.0505 * 7132 * f10, 1e-6, 'ON spouse amount is indexed');
+    st.province = 'mb';
+    near(t.provincialTaxCA(80000, 10, 0, 0, 0, null, 0, -1, 0, 0) - t.provincialTaxCA(80000, 10, 0, 0, 0, null, 0, 1000, 0, 0), R.mb.creditRate * (9134 - 1000), 1e-6, 'MB spouse amount is not indexed (frozen)');
+    // Federal: BPA variant of the claimant. Claimant at 50,000 (BPA 16,452), spouse net 5,000 -> 11,452 at 14%.
+    st.province = 'ab';
+    const fed = (income, ...rest) => t.federalTaxCA(income, 0, 0, ...rest);
+    near(fed(50000) - fed(50000, 5000), 0.14 * 11452, 1e-6, 'federal spouse amount at 50,000');
+    near(fed(50000) - fed(50000, 0), 0.14 * 16452, 1e-6, 'federal eligible dependant amount (child net income 0)');
+    near(fed(300000) - fed(300000, 0), 0.14 * 14829, 1e-6, 'federal spouse amount for a claimant over the 33% threshold is the minimum');
+    const mid = (181440 + 258482) / 2;
+    near(fed(mid) - fed(mid, 0), 0.14 * (14829 + 1623 / 2), 1e-6, 'federal spouse amount phases with the claimant income');
+    near(fed(50000) - fed(50000, 20000), 0, 1e-9, 'no federal spouse amount once the spouse income exceeds it');
+    // incomeTaxCA: the higher-income partner claims for the lower one; children go to the lower-income parent.
+    const pr3 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    const kid = (age) => ({ age, student: false, qualifyingChild: true });
+    st.province = 'on';
+    near(
+      t.incomeTax(pr3({ singlePerson: false, otherA: 50000, otherB: 5000 }), 0, 0),
+      t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, 5000, 0, 0) + t.personTaxCA(5000, 0, 0),
+      1e-9,
+      'couple: the higher-income partner claims the spouse amount',
+    );
+    near(
+      t.incomeTax(pr3({ singlePerson: false, otherA: 5000, otherB: 50000 }), 0, 0),
+      t.personTaxCA(5000, 0, 0) + t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, 5000, 0, 0),
+      1e-9,
+      'couple: B claims when B has the higher income',
+    );
+    near(
+      t.incomeTax(pr3({ singlePerson: true, otherA: 50000, dependents: [kid(5), kid(30)] }), 0, 0),
+      t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 1, 0, 0, 0, 0, 0, 1),
+      1e-9,
+      'single parent: one child under 18 (an adult child does not count); Ontario also gives the child-based tax reduction',
+    );
+    st.province = 'sk';
+    near(
+      t.incomeTax(pr3({ singlePerson: false, otherA: 60000, otherB: 40000, dependents: [kid(5), kid(8)] }), 0, 0),
+      t.personTaxCA(60000, 0, 0) + t.personTaxCA(40000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 2),
+      1e-9,
+      'couple: the lower-income parent claims the child amount',
+    );
+    // A profile with no dependents or spouse claim is unchanged.
+    st.province = 'on';
+    near(t.incomeTax(pr3({ singlePerson: true, otherA: 50000 }), 0, 0), t.personTaxCA(50000, 0, 0), 1e-12, 'no children, no change');
+    // The pension split sees the claims: regret against a $50 scan for a couple with a low-income spouse and a child.
+    {
+      let worstClaim = 0;
+      const deps = [kid(6)];
+      for (const [oA, oB, eA, eB] of [[60000, 3000, 40000, 0], [45000, 12000, 30000, 0], [70000, 20000, 50000, 8000], [38000, 38000, 20000, 20000]]) {
+        const x = t.solvePensionSplit(oA, oB, eA, eB, 0, 68, 66, 0, 0, 1);
+        const fam = oA + oB;
+        const cost = (y) => {
+          const nA = oA - y, nB = oB + y;
+          return (
+            t.personTaxCA(nA, 0, 0, 0, 68, eA - y, fam, 0, 0, nA >= nB ? nB : -1, 0, nA <= nB ? 1 : 0) +
+            t.personTaxCA(nB, 0, 0, 0, 66, eB + y, fam, 0, 0, nB > nA ? nA : -1, 0, nB < nA ? 1 : 0)
+          );
+        };
+        let best = Infinity;
+        for (let y = -0.5 * eB; y <= 0.5 * eA; y += 50) best = Math.min(best, cost(y));
+        worstClaim = Math.max(worstClaim, cost(x) - best);
+      }
+      if (worstClaim > 3) fails.push('pension split regret with a spouse claim and a child $' + worstClaim.toFixed(2));
+    }
+    // With payroll items (7N N4): a working partner A (credit bases and the enhanced deduction already in the income and
+    // credits) and a retired partner B with a pension: the split sees the credit bases too.
+    {
+      const pay = { fedA: 6500, provA: 4800, dedA: 0, fedB: 0, provB: 0, dedB: 0 };
+      let worstPay = 0;
+      for (const [oA, oB, eB] of [[80000, 30000, 30000], [60000, 12000, 12000], [95000, 45000, 40000]]) {
+        const x = t.solvePensionSplit(oA, oB, 0, eB, 0, 50, 66, 0, 0, 0, pay);
+        const fam = oA + oB;
+        const cost = (y) => {
+          const nA = oA - y, nB = oB + y;
+          const [cA, cB] = claimNets(nA, nB);
+          return t.personTaxCA(nA, 0, 0, 0, 50, 0 - y, fam, 0, 0, cA, 0, 0, pay.fedA, pay.provA, pay.dedA) + t.personTaxCA(nB, 0, 0, 0, 66, eB + y, fam, 0, 0, cB, 0, 0, pay.fedB, pay.provB, pay.dedB);
+        };
+        let best = Infinity;
+        for (let y = -0.5 * eB; y <= 0; y += 50) best = Math.min(best, cost(y));
+        worstPay = Math.max(worstPay, cost(x) - best);
+      }
+      if (worstPay > 3) fails.push('pension split regret with payroll credits $' + worstPay.toFixed(2));
+    }
+  }
+  // --- Working-year payroll items and the home buyers' amount (7N N4, N10) --------
+  // payrollItems(wages, yearIndex) -> { cash, fedCredit, provCredit, deduction, provDeduction } (2026 figures, CRA and
+  // Revenu Quebec): CPP 5.95% = 4.95% base (credit) + 1% enhanced (deduction) on 3,500 to 74,600, CPP2 4% to 85,000 (deduction);
+  // QPP 6.30% = 5.30% base + 1% enhanced; EI 1.63% (Quebec 1.30%) to 68,900 and the QPIP premium are credits; the Canada
+  // employment amount 1,501 is a federal credit; Quebec gives a deduction for the enhanced QPP and a workers' deduction
+  // (6% to 1,450) but no credits for them.
+  {
+    const P = (w, y = 0) => t.payrollItems(w, y);
+    st.province = 'on';
+    let p = P(60000);
+    near(p.cash, 3361.75 + 978, 1e-6, 'ON wages 60,000: CPP 56,500 x 5.95% plus EI 1.63%');
+    near(p.deduction, 565, 1e-6, 'enhanced CPP deduction 1% x 56,500');
+    near(p.fedCredit, 56500 * 0.0495 + 978 + 1501, 1e-6, 'federal credit base: base CPP, EI and the employment amount');
+    near(p.provCredit, 56500 * 0.0495 + 978, 1e-6, 'provincial credit base: base CPP and EI');
+    p = P(100000);
+    near(p.cash, 4230.45 + 416 + 1123.07, 1e-6, 'ON wages 100,000: CPP max, CPP2 max and the EI maximum');
+    near(p.deduction, 711 + 416, 1e-6, 'enhanced deduction at the maximum: 711 + 416');
+    near(p.fedCredit, 71100 * 0.0495 + 1123.07 + 1501, 1e-6, 'credits stop growing at the maximums');
+    near(P(1000).fedCredit - 1000 * 0.0163, 1000, 1e-6, 'the employment amount is the lesser of 1,501 and the wages');
+    near(P(0).cash, 0, 1e-12, 'no wages, no payroll items');
+    st.province = 'qc';
+    p = P(100000);
+    near(p.cash, 4479.3 + 416 + 430 + 895.7, 1e-6, 'QC wages 100,000: QPP, QPP2, QPIP and EI at 1.30%');
+    near(p.fedCredit, 71100 * 0.053 + 895.7 + 430 + 1501, 1e-6, 'QC federal credit base: base QPP 5.30%, EI, QPIP, employment amount');
+    near(p.provCredit, 0, 1e-12, 'Quebec has no provincial credit for QPP, EI or QPIP');
+    near(p.provDeduction, 1450, 1e-9, 'QC workers deduction at the 1,450 maximum');
+    near(p.deduction, 711 + 416, 1e-6, 'QC enhanced QPP deduction (first additional 1% and second additional 4%)');
+    near(P(10000).provDeduction, 600, 1e-9, 'QC workers deduction is 6% of the wages below the maximum');
+    // Indexing: the maximums scale with the plan factor.
+    st.province = 'on';
+    const f10 = t.taxIndexFactor(10);
+    near(P(200000 * f10, 10).cash, (4230.45 + 416 + 1123.07) * f10, 1e-6, 'payroll maximums are indexed');
+    // personTaxCA with the three payroll arguments: ON at 50,000, credit bases 5,000 (federal) and 4,000 (provincial) and a
+    // 1,000 provincial deduction: 0.14 x 5,000 + 0.0505 x 4,000 + 0.0505 x 1,000.
+    const base = t.personTaxCA(50000, 0, 0);
+    near(base - t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 5000, 4000, 1000), 700 + 202 + 50.5, 1e-6, 'payroll credits and deduction in personTaxCA');
+    // The home buyers' amount (N10): federal 10,000 at 14%; Saskatchewan 15,000 at 10.5%; Quebec 10,000 at 14% (max 1,400).
+    near(t.homeBuyerAmounts('sk')[0], 10000, 0, 'federal home buyers amount');
+    near(t.homeBuyerAmounts('sk')[1], 15000, 0, 'SK first-time home buyers amount (15,000 from 2025)');
+    near(t.homeBuyerAmounts('qc')[1], 10000, 0, 'QC home buyers credit base (1,400 at 14%)');
+    near(t.homeBuyerAmounts('on')[1], 0, 0, 'no Ontario home buyers amount');
+  }
+  // --- Medical expense credit and the Ontario Seniors Care at Home credit (7N N5) --------
+  // personTaxCA(..., fedCredit, provCredit, provDeduction, medical): `medical` is the household's eligible expenses claimed on
+  // this return (the planner's private health premium plus the whole long-term-care cost). Federal: expenses above the lesser of
+  // 3% of net income and 2,890 (2026) at 14%. Provincial: the same shape with the province's own threshold (ON428 2025 line 36
+  // to 41: 3% or 2,885; the 2026 thresholds are TaxTips), at the lowest rate; Quebec has no dollar floor and takes 3% of
+  // FAMILY income (Revenu Quebec Schedule B part C). Ontario also pays the refundable Seniors Care at Home credit (70+, 25% of up
+  // to 6,000 of the claimable expenses, less 5% of family net income over 35,000).
+  {
+    const R = t.PROVINCE_RULES;
+    const no = (...a) => t.personTaxCA(...a);
+    const medDiff = (code, income, m) => {
+      st.province = code;
+      return no(income, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 0) - no(income, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, m);
+    };
+    near(medDiff('ab', 80000, 10000), 0.14 * 7600 + R.ab.creditRate * 7600, 1e-6, 'medical credit at 80,000: both floors are 3% = 2,400');
+    near(medDiff('bc', 50000, 10000), 0.14 * 8500 + R.bc.creditRate * 8500, 1e-6, 'medical credit at 50,000: floor 1,500');
+    near(medDiff('mb', 120000, 10000), 0.14 * (10000 - 2890) + R.mb.creditRate * (10000 - 1728), 1e-6, 'medical credit at 120,000: dollar floors bind (federal 2,890, Manitoba 1,728)');
+    near(medDiff('ab', 80000, 2000), 0, 1e-9, 'expenses under the floor give nothing');
+    near(medDiff('ab', 0, 10000), 0, 1e-12, 'no tax, no credit (non-refundable)');
+    // Quebec: provincial floor is 3% of family income (no dollar cap); federal as elsewhere (then the 0.835 abatement).
+    const qc = (fam, m) => t.provincialTaxCA(100000, 0, 0, 0, 0, fam, 0, -1, 0, 0, 0, 0) - t.provincialTaxCA(100000, 0, 0, 0, 0, fam, 0, -1, 0, 0, 0, m);
+    st.province = 'qc';
+    near(qc(null, 10000), 0.14 * 7000, 1e-6, 'QC single: floor 3% of own income 100,000');
+    near(qc(150000, 10000), 0.14 * 5500, 1e-6, 'QC couple: floor 3% of family income 150,000');
+    // Indexing: the dollar floors scale with the plan factor (Saskatchewan 2,736).
+    st.province = 'sk';
+    const f10 = t.taxIndexFactor(10);
+    near(t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 0) - t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 10000 * f10), R.sk.creditRate * (10000 - 2736) * f10, 1e-6, 'provincial medical floor is indexed');
+    // incomeTaxCA: one claim a household, on the lower net income unless that partner is under the basic personal amount.
+    const pr5 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    st.province = 'bc';
+    near(
+      t.incomeTax(pr5({ singlePerson: false, otherA: 80000, otherB: 8000, medical: 10000 }), 0, 0),
+      no(80000, 0, 0, 0, 0, 0, null, 0, 0, 8000, 0, 0, 0, 0, 0, 10000) + no(8000, 0, 0),
+      1e-9,
+      'couple: the higher-income partner claims when the other is under the basic personal amount',
+    );
+    near(
+      t.incomeTax(pr5({ singlePerson: false, otherA: 60000, otherB: 40000, medical: 10000 }), 0, 0),
+      no(60000, 0, 0, 0, 0, 0, null, 0, 0, 40000, 0, 0, 0, 0, 0, 0) + no(40000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 10000),
+      1e-9,
+      'couple: the lower net income claims when it can use the credit',
+    );
+    // A 65+ partner owes no tax up to about 27,700 (basic + age + pension amounts), so the lower return may have nothing for the credit to
+    // reduce even above the basic personal amount: both claimants are priced and the cheaper kept (BC, both 70, 20,000 and 80,000,
+    // 30,000 of expenses; claiming on the 20,000 return saved nothing).
+    {
+      const onLow = no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 0) + no(20000, 0, 0, 0, 70, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 30000);
+      const onHigh = no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 30000) + no(20000, 0, 0, 0, 70, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 0);
+      const noMed = no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 0) + no(20000, 0, 0, 0, 70, 0);
+      near(onLow, noMed, 1e-9, 'claiming on the 20,000 return saves nothing: its tax is already nil');
+      near(onHigh < onLow - 1000 ? 1 : 0, 1, 0, 'claiming on the 80,000 return must save real tax: ' + onHigh + ' vs ' + onLow);
+      near(
+        t.incomeTax(pr5({ singlePerson: false, otherA: 80000, otherB: 20000, ageA: 70, ageB: 70, medical: 30000 }), 0, 0),
+        onHigh,
+        1e-9,
+        'couple: the claim goes to the return that can use it when the lower one owes no tax',
+      );
+      near(
+        t.incomeTax(pr5({ singlePerson: false, otherA: 20000, otherB: 80000, ageA: 70, ageB: 70, medical: 30000 }), 0, 0),
+        no(80000, 0, 0, 0, 70, 0, null, 0, 0, 20000, 0, 0, 0, 0, 0, 30000) + no(20000, 0, 0, 0, 70, 0),
+        1e-9,
+        'the same with the partners swapped',
+      );
+    }
+    near(
+      t.incomeTax(pr5({ singlePerson: true, otherA: 50000, medical: 6000 }), 0, 0),
+      no(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 6000),
+      1e-9,
+      'single: the medical claim is on the only return',
+    );
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 50000 }), 0, 0), no(50000, 0, 0), 1e-12, 'no medical expenses, no change');
+    // Ontario Seniors Care at Home credit (refundable): single 72 at 40,000 with 8,000 of expenses: claimable 8,000 - 1,200 = 6,800,
+    // capped at 6,000: 25% = 1,500 less 5% x (40,000 - 35,000) = 1,250.
+    st.province = 'on';
+    const careBase = (net, age, m) => no(net, 0, 0, 0, age, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, m);
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 72, medical: 8000 }), 0, 0), careBase(40000, 72, 8000) - 1250, 1e-6, 'Ontario Seniors Care at Home credit');
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 70000, ageA: 72, medical: 8000 }), 0, 0), careBase(70000, 72, 8000), 1e-9, 'the credit is nil from 65,000 of family net income');
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 69, medical: 8000 }), 0, 0), careBase(40000, 69, 8000), 1e-9, 'the credit needs age 70');
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 72 }), 0, 0), careBase(40000, 72, 0), 1e-12, 'no expenses, no credit');
+    // The claimant also sets the Seniors Care at Home credit (its floor is 3% of the claimant's net income, up to 2,940), so in Ontario
+    // with a 70+ spouse both claimants are priced on tax less the credit: A 83 with 166 and B 76 with 36,103, 5,140 of expenses. B already
+    // owes nothing, the credit shrinks with the claimant's floor, and claiming on A leaves the household better off.
+    {
+      const med = 5140,
+        fam = 166 + 36103,
+        care = (net) => Math.max(0, 0.25 * Math.min(6000, med - Math.min(0.03 * net, 2940)) - 0.05 * Math.max(0, fam - 35000));
+      const onA = no(166, 0, 0, 0, 83, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, med) + no(36103, 0, 0, 0, 76, 0, null, 0, 0, 166, 0, 0, 0, 0, 0, 0) - care(166);
+      const onB = no(166, 0, 0, 0, 83, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 0) + no(36103, 0, 0, 0, 76, 0, null, 0, 0, 166, 0, 0, 0, 0, 0, med) - care(36103);
+      near(onA < onB - 100 ? 1 : 0, 1, 0, 'the scenario must favour claiming on A: ' + onA + ' vs ' + onB);
+      near(t.incomeTax(pr5({ singlePerson: false, otherA: 166, otherB: 36103, ageA: 83, ageB: 76, medical: med }), 0, 0), Math.min(onA, onB), 1e-6, 'Ontario couple: the claimant minimizing tax less the care credit');
+      near(t.incomeTax(pr5({ singlePerson: false, otherA: 36103, otherB: 166, ageA: 76, ageB: 83, medical: med }), 0, 0), Math.min(onA, onB), 1e-6, 'the same with the partners swapped');
+    }
+    // A couple: A is 72, B is 60, 25,000 each (family net 50,000): 1,500 less 5% x 15,000 = 750; either spouse's age 70+ qualifies.
+    near(
+      t.incomeTax(pr5({ singlePerson: false, otherA: 25000, otherB: 25000, ageA: 72, ageB: 60, medical: 8000 }), 0, 0),
+      // either spouse can claim; the cheaper claim stands (here the 60-year-old, who has no age amount to use the tax up first)
+      Math.min(
+        no(25000, 0, 0, 0, 72, 0, null, 0, 0, 25000, 0, 0, 0, 0, 0, 8000) + no(25000, 0, 0, 0, 60, 0),
+        no(25000, 0, 0, 0, 72, 0, null, 0, 0, 25000, 0, 0, 0, 0, 0, 0) + no(25000, 0, 0, 0, 60, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 8000),
+      ) - 750,
+      1e-6,
+      'Ontario care credit for a couple, family net income 50,000',
+    );
+    // The split search sees the medical claim: regret against a $50 scan.
+    {
+      let worstMed = 0;
+      const pay = { fedA: 0, provA: 0, dedA: 0, fedB: 0, provB: 0, dedB: 0, med: 12000 };
+      st.province = 'on';
+      for (const [oA, oB, eA, eB] of [[70000, 20000, 40000, 0], [55000, 30000, 30000, 12000], [90000, 15000, 50000, 0]]) {
+        const x = t.solvePensionSplit(oA, oB, eA, eB, 0, 70, 68, 0, 0, 0, pay);
+        const fam = oA + oB;
+        const cost = (y) => {
+          const nA = oA - y, nB = oB + y;
+          const [cA, cB] = claimNets(nA, nB);
+          const toB = t.medicalClaimToB(nA, nB, 0);
+          return t.personTaxCA(nA, 0, 0, 0, 70, eA - y, fam, 0, 0, cA, 0, 0, 0, 0, 0, toB ? 0 : pay.med) + t.personTaxCA(nB, 0, 0, 0, 68, eB + y, fam, 0, 0, cB, 0, 0, 0, 0, 0, toB ? pay.med : 0);
+        };
+        let best = Infinity;
+        for (let y = -0.5 * eB; y <= 0.5 * eA; y += 50) best = Math.min(best, cost(y));
+        worstMed = Math.max(worstMed, cost(x) - best);
+      }
+      if (worstMed > 3) fails.push('pension split regret with a medical claim $' + worstMed.toFixed(2));
+    }
+  }
+  // --- Low-income provincial tax reductions (7N N6) --------------------------------
+  // Read on the CRA 2025 provincial forms (ON428 p.3, BC428 p.3, NB428/NL428/NS428/PE428 Part C). Ontario: per return, 2 x (294 + 544
+  // per dependent child) less the Ontario tax, taken off the tax (so it clears tax up to the basic reduction and halves the rest);
+  // British Columbia: 575 (2026, CRA T4127; 562 on the 2025 form) less 3.56% of net income over 25,570; New Brunswick, Newfoundland
+  // and Labrador, Nova Scotia and PEI: one family reduction (basic + spouse or eligible dependant + children + PEI age amounts) less a rate on
+  // adjusted family income over a base, limited to the family's provincial tax (an unused part passes to the spouse); Nova Scotia
+  // also a 1,000 age tax credit under 24,000 of taxable income. Alberta, Saskatchewan, Manitoba and Quebec have none (forms read).
+  {
+    const R = t.PROVINCE_RULES;
+    const kid = (age) => ({ age, student: false, qualifyingChild: true });
+    const pr6 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    // The same call with the province's reduction removed from the table, to isolate its effect.
+    const without = (code, fn) => {
+      const keep = R[code].lowIncomeReduction;
+      R[code].lowIncomeReduction = null;
+      try {
+        return fn();
+      } finally {
+        R[code].lowIncomeReduction = keep;
+      }
+    };
+    const effect = (code, fn) => without(code, fn) - fn();
+    // Ontario at 20,000: tax 354.0555; 2 x 294 = 588; reduction 588 - 354.0555 = 233.9445.
+    st.province = 'on';
+    near(effect('on', () => t.provincialTaxCA(20000, 0)), 233.9445, 1e-4, 'ON tax reduction at 20,000');
+    near(t.provincialTaxCA(15000, 0), 0, 1e-9, 'ON tax is cleared at 15,000');
+    near(effect('on', () => t.provincialTaxCA(20000, 0, 0, 0, 0, null, 0, -1, 0, 0, 0, 0, 1)) - 233.9445, 354.0555 - 233.9445, 1e-4, 'ON: a dependent child clears the whole tax (effect = the tax)');
+    near(effect('on', () => t.provincialTaxCA(80000, 0)), 0, 1e-9, 'no Ontario reduction at 80,000');
+    // British Columbia: net 30,000: 575 - 3.56% x 4,430 = 417.292 (tax 522.6 after credits); 20,000: capped at the tax 379.9.
+    st.province = 'bc';
+    near(effect('bc', () => t.provincialTaxCA(30000, 0)), 575 - 0.0356 * (30000 - 25570), 1e-6, 'BC tax reduction at 30,000');
+    near(effect('bc', () => t.provincialTaxCA(20000, 0)), 20000 * 0.056 - 0.056 * 13216, 1e-6, 'BC reduction is limited to the tax');
+    near(effect('bc', () => t.provincialTaxCA(41722, 0)), 0, 1e-9, 'BC reduction is nil at 41,722');
+    // New Brunswick: single 25,000: 802 - 3% x 3,080 = 709.6, below the 1,065.6 of tax; single over 48,653 gets none.
+    st.province = 'nb';
+    near(effect('nb', () => t.incomeTax(pr6({ singlePerson: true, otherA: 25000 }), 0, 0)), 802 - 0.03 * (25000 - 21920), 1e-6, 'NB family reduction, single');
+    near(effect('nb', () => t.incomeTax(pr6({ singlePerson: true, otherA: 50000 }), 0, 0)), 0, 1e-9, 'NB: single at 50,000 is not eligible');
+    // Newfoundland and Labrador: a couple 30,000 + 5,000: basic 997 + spouse 557 = 1,554; base 40,460 (spouse claimed) so no income
+    // reduction; limited to the family's provincial tax; the rest passes to the spouse.
+    st.province = 'nl';
+    {
+      const pA = t.provincialTaxCA(30000, 0, 0, 0, 0, null, 0, 5000, 0, 0),
+        pB = t.provincialTaxCA(5000, 0, 0, 0, 0, null, 0, -1, 0, 0);
+      near(effect('nl', () => t.incomeTax(pr6({ singlePerson: false, otherA: 30000, otherB: 5000 }), 0, 0)), Math.min(1554, pA + pB), 1e-6, 'NL family reduction, limited to the family tax');
+    }
+    // A single NL filer at 30,000: 997 - 16% x (30,000 - 23,928) = 25.48.
+    near(effect('nl', () => t.incomeTax(pr6({ singlePerson: true, otherA: 30000 }), 0, 0)), 997 - 0.16 * (30000 - 23928), 1e-6, 'NL family reduction, single over the 23,928 base');
+    // Nova Scotia single 66 at 20,000: reduction 300 - 5% x 5,000 = 50 and the age tax credit (1,000) limited to the tax.
+    st.province = 'ns';
+    {
+      const tax = without('ns', () => t.provincialTaxCA(20000, 0, 0, 66, 0, null, 0));
+      near(tax - t.provincialTaxCA(20000, 0, 0, 66, 0, null, 0), Math.min(tax, 1000), 1e-6, 'NS age tax credit under 24,000 (limited to the tax)');
+      near(effect('ns', () => t.incomeTax(pr6({ singlePerson: true, otherA: 28000, ageA: 40 }), 0, 0)), 0, 1e-9, 'NS single at 28,000: reduction 300 - 650 is nil');
+    }
+    // Prince Edward Island couple, both 67, 23,000 each: AFI 46,000: 350 + 350 + 250 + 250 = 1,200 less 5% x 23,350 = 32.5.
+    st.province = 'pe';
+    {
+      const e = effect('pe', () => t.incomeTax(pr6({ singlePerson: false, otherA: 23000, otherB: 23000, ageA: 67, ageB: 67 }), 0, 0));
+      near(e, 1200 - 0.05 * (46000 - 22650), 1e-6, 'PEI family reduction with both age amounts');
+    }
+    // Quebec, Alberta, Saskatchewan and Manitoba have none.
+    for (const c of ['qc', 'ab', 'sk', 'mb']) if (R[c].lowIncomeReduction !== null) fails.push(c + ': should have no low-income reduction');
+    // Indexing: the Ontario amounts scale with the plan factor.
+    st.province = 'on';
+    const g10 = t.taxIndexFactor(10);
+    const T10 = without('on', () => t.provincialTaxCA(20000 * g10, 10));
+    near(effect('on', () => t.provincialTaxCA(20000 * g10, 10)), Math.max(0, Math.min(T10, 2 * 294 * g10 - T10)), 1e-6, 'ON reduction indexes');
+  }
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
   const one = t.personTaxCA(50000, 0, 0);
@@ -597,7 +1001,10 @@ function caChecks() {
       [120000, 0, 90000, 0, 75, 75],
     ]) {
       const x = t.solvePensionSplit(oA, oB, eA, eB, 0, ageA, ageB);
-      const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, ageA, eA - y) + t.personTaxCA(oB + y, 0, 0, 0, ageB, eB + y);
+      const combined = (y) => {
+        const [cA, cB] = claimNets(oA - y, oB + y);
+        return t.personTaxCA(oA - y, 0, 0, 0, ageA, eA - y, null, 0, 0, cA) + t.personTaxCA(oB + y, 0, 0, 0, ageB, eB + y, null, 0, 0, cB);
+      };
       if (!(x >= -0.5 * eB - 1e-9 && x <= 0.5 * eA + 1e-9)) fails.push(`split ${oA}/${oB}: transfer ${x} outside the allowed range`);
       for (let y = -0.5 * eB; y <= 0.5 * eA + 1e-9; y += 250)
         if (combined(x) > combined(y) + 1e-6) fails.push(`split ${oA}/${oB}: transfer ${x} costs more than ${y}`);
@@ -613,12 +1020,35 @@ function caChecks() {
             const oA = pa + oa,
               oB = pb + ob;
             const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68);
-            const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y);
+            const combined = (y) => {
+              const [cA, cB] = claimNets(oA - y, oB + y);
+              return t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y, null, 0, 0, cA) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y, null, 0, 0, cB);
+            };
             let best = Infinity;
             for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
             worst = Math.max(worst, combined(x) - best);
           }
     if (!(worst < 3)) fails.push(`pension split regret up to $${worst.toFixed(2)} a year against a brute-force scan`);
+    // 7N N1: the same check with OAS in both returns, so the recovery tax (a 15% kink at the threshold, capped
+    // at the OAS) is inside the search objective. Incomes include the 9,000 OAS each.
+    let worstOas = 0;
+    for (const pa of [0, 20000, 50000, 90000])
+      for (const pb of [0, 15000, 40000])
+        for (const oa of [0, 30000, 60000])
+          for (const ob of [0, 25000, 50000]) {
+            const oas = 9000,
+              oA = pa + oa + oas,
+              oB = pb + ob + oas;
+            const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68, oas, oas);
+            const combined = (y) => {
+              const [cA, cB] = claimNets(oA - y, oB + y);
+              return t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y, null, 0, oas, cA) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y, null, 0, oas, cB);
+            };
+            let best = Infinity;
+            for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
+            worstOas = Math.max(worstOas, combined(x) - best);
+          }
+    if (!(worstOas < 3)) fails.push(`pension split with OAS: regret up to $${worstOas.toFixed(2)} a year against a brute-force scan`);
   }
   return fails;
 }
