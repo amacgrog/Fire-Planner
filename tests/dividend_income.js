@@ -142,11 +142,13 @@ async function testUS() {
     ['acaEnabled', true],
     ['healthcare', 12000],
   ];
-  const noDiv = await scenario(file, true, [...aca, ['dividendYield', 0]]);
-  const withDiv = await scenario(file, true, [...aca, ['dividendYield', 2], ['qualifiedDivPct', 0]]);
+  // Texas is a non-expansion state: below 100% of poverty there is no credit (the full premium), so the
+  // comparison starts from a yield that already clears the floor.
+  const noDiv = await scenario(file, true, [...aca, ['dividendYield', 2], ['qualifiedDivPct', 0]]);
+  const withDiv = await scenario(file, true, [...aca, ['dividendYield', 3], ['qualifiedDivPct', 0]]);
   assert(
     withDiv[0].healthcare > noDiv[0].healthcare + 100,
-    `US ACA: dividends should raise net premium (no dividends ${noDiv[0].healthcare}, with ${withDiv[0].healthcare})`,
+    `US ACA: dividends should raise net premium (2% yield ${noDiv[0].healthcare}, 3% yield ${withDiv[0].healthcare})`,
   );
   console.log('[US] dividend/interest taxation tests passed');
 }

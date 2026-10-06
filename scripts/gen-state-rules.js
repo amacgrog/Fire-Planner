@@ -58,7 +58,7 @@ function exclusionText(e) {
   switch (e.kind) {
     case 'none': return 'none';
     case 'perPerson': {
-      const buckets = [e.applies.pension ? `pension from ${e.pensionMinAge}` : '', e.applies.traditional ? `traditional withdrawals from ${e.traditionalMinAge}` : ''].filter(Boolean).join(', ');
+      const buckets = [e.applies.pension ? `pension from ${e.pensionMinAge}` : '', e.applies.traditional ? `traditional withdrawals from ${e.traditionalMinAge}` : '', e.applies.employerPlanAfterRetirement ? '401(k) money drawn after retirement at any age' : ''].filter(Boolean).join(', ');
       const caps = e.tiers.map(([age, cap]) => (cap === null ? `no limit from ${age}` : `${money(cap)} from ${age}`)).join(', ');
       const extras = [e.reducedBy === 'none' ? '' : `reduced by ${e.reducedBy === 'benefitsReceived' ? 'all benefits received' : 'the Social Security subtraction'}`, e.share ? 'times an AGI share' : ''].filter(Boolean).join(', ');
       return `per filer: ${buckets}; cap ${caps}${extras ? '; ' + extras : ''}`;

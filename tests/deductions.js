@@ -158,6 +158,29 @@ function checks() {
   //   deduction 24,150 covers all of it -> no tax.
   near(t.taxFor(prof({ singlePerson: true, filing: 'single', ageA: 70, otherA: 20000, pensionA: 20000 }), 10000, 0), 0, 'gains sheltered by the larger deduction');
 
+  // --- Medical expenses over 7.5% of AGI (O2) -----------------------------------
+  // Single 70, AGI 80,000: floor 6,000. Medical 100,000 -> itemized 94,000; the senior deduction
+  // (6,000 - 6% x 5,000 = 5,700) goes on top.
+  near(t.itemizedDeduction(0, 80000, 0, 0, 0, 100000), 94000, 'medical over the floor');
+  near(t.itemizedDeduction(0, 100000, 0, 0, 0, 7000), 0, 'medical under the 7.5% floor (7,500)');
+  near(t.itemizedDeduction(0, 100000, 0, 0, 0, 7500), 0, 'medical exactly at the floor');
+  near(t.itemizedDeduction(0, 0, 0, 0, 0, 4000), 4000, 'no income: all of it');
+  near(t.itemizedDeduction(0, 80000, 8000, 6000, 12000, 10000), 26000 + 4000, 'medical adds to SALT and mortgage'); // 14,000 + 12,000 + (10,000 - 6,000)
+  near(t.federalDeduction('single', 0, [70], 80000, 0, 0, 0, 100000), 94000 + 5700, 'medical itemizing plus senior');
+  // Crossover against the 18,150 standard deduction: itemized = medical - 6,000.
+  near(t.federalDeduction('single', 0, [70], 80000, 0, 0, 0, 24150), 18150 + 5700, 'medical 24,150 ties the standard deduction');
+  near(t.federalDeduction('single', 0, [70], 80000, 0, 0, 0, 24200), 18200 + 5700, 'medical 24,200 itemizes');
+  near(t.federalDeduction('single', 0, [70], 80000, 0, 0, 0, 5000), 18150 + 5700, 'small medical: standard deduction');
+  // End to end. Single 70, 80,000 pension, medical 40,000: itemized 34,000 + senior 5,700 = 39,700.
+  //   Taxable 40,300: 10% x 12,400 = 1,240; 12% x 27,900 = 3,348 -> 4,588.
+  near(t.taxFor(prof({ singlePerson: true, filing: 'single', ageA: 70, otherA: 80000, pensionA: 80000, medicalExpense: 40000 }), 0, 0), 4588, 'single 70, medical 40,000');
+  near(t.taxFor(prof({ singlePerson: true, filing: 'single', ageA: 70, otherA: 80000, pensionA: 80000, medicalExpense: 100000 }), 0, 0), 0, 'medical shelters all of it');
+  // MFJ both 70, 120,000 pension, medical 60,000: floor 9,000, itemized 51,000 beats 35,500; senior 2 x 6,000
+  //   (MAGI under 150,000). Taxable 120,000 - 63,000 = 57,000: 10% x 24,800 = 2,480; 12% x 32,200 = 3,864 -> 6,344.
+  near(t.taxFor(prof({ filing: 'mfj', ageA: 70, ageB: 70, otherA: 120000, pensionA: 120000, medicalExpense: 60000 }), 0, 0), 6344, 'MFJ, medical 60,000');
+  // Without the field the answer is the old one (hot path: no medical term).
+  near(t.taxFor(prof({ singlePerson: true, filing: 'single', ageA: 70, otherA: 80000, pensionA: 80000 }), 0, 0), t.taxFor(prof({ singlePerson: true, filing: 'single', ageA: 70, otherA: 80000, pensionA: 80000, medicalExpense: 0 }), 0, 0), 'medicalExpense 0 is the same as absent', 0);
+
   return fails;
 }
 
@@ -265,7 +288,27 @@ async function engineTax(browser, isoDate, income, overrides = {}) {
     'renter takes the standard deduction',
   );
 
-  console.log('[US] deductions test passed (age-based, senior through 2028, SALT schedule, itemizing, mortgage limit, engine)');
+  // Medical expenses (renting, so no property tax itemizes): 30,000 of long-term care (the year's LTC cost, from age 70) on 80,000 of income.
+  //   Floor 6,000; itemized 24,000 beats the standard 18,150; senior 5,700 on top -> deduction 29,700.
+  near(
+    await engineTax(browser, '2026-06-15T12:00:00Z', 80000, { ltcEnabled: true, ltcYearlyA: 30000, ltcAgeA: 70, tenure: 'rent', medicalInflation: 0 }),
+    refTax(80000 - 29700, SINGLE),
+    'engine deducts long-term care over the 7.5% floor',
+  );
+  // Medicare premiums count too: 6,000 of Part B/D plus the 30,000 of care -> 36,000 - 6,000 = 30,000 itemized.
+  near(
+    await engineTax(browser, '2026-06-15T12:00:00Z', 80000, { ltcEnabled: true, ltcYearlyA: 30000, ltcAgeA: 70, tenure: 'rent', medicalInflation: 0, medicareYearly: 6000 }),
+    refTax(80000 - (30000 + 5700), SINGLE),
+    'engine deducts Medicare premiums with the care',
+  );
+  // Care that does not clear the standard deduction changes nothing: 20,000 - 6,000 = 14,000 < 18,150.
+  near(
+    await engineTax(browser, '2026-06-15T12:00:00Z', 80000, { ltcEnabled: true, ltcYearlyA: 20000, ltcAgeA: 70, tenure: 'rent', medicalInflation: 0 }),
+    refTax(80000 - 23850, SINGLE),
+    'engine: medical below the standard deduction',
+  );
+
+  console.log('[US] deductions test passed (age-based, senior through 2028, SALT schedule, itemizing, medical over 7.5%, mortgage limit, engine)');
   await browser.close();
 })().catch((e) => {
   console.error(e);

@@ -45,6 +45,11 @@ feature list.
   `max(65, retirement age)`.
 - `tests/child_dependents.js` — the children list: `normalizeState` cleaning, `dependentsInYear` /
   qualifying-child ages, and the US ACA household size and its effect on the 400%-FPL cliff.
+- `tests/aca_medicaid.js` — Medicaid and the premium-credit floor in `acaNetCost` (hand-computed: expansion, non-expansion and
+  Wisconsin at several shares of the poverty line, the checkbox, 2026 versus 2027, the child-13 exemption, all 51 codes, engine rows).
+  `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
+  including the 10% early-withdrawal penalty). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run
+  through each row's real credit literals on a flat-10% synthetic base.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
@@ -193,12 +198,27 @@ Each planner is one big IIFE. Core shape:
   overwritten with it after convergence; the in-body assignment is
   provisional and only read by the plan's first-year IRMAA stand-in.
   Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
+- **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
+  (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
+  `nonExpansion` (ten states), `adultCoverage` (Wisconsin 1.0), `ptcFloor` (1.0) and `workRequirement` (`fromYear` 2027,
+  `exemptChildMaxAge` 13). `acaNetCost` applies it before the credit schedule, so `healthcareCost` and the 400% guard still share one function:
+  at or under the state's Medicaid line the cost is $0 (checkbox `medicaidWhenEligible`, default on) or the full premium (checkbox off, or from
+  2027 a household with no child 13 or younger fails the work requirement, which also bars the credit); under 100% of FPL there is no credit.
+  A MAGI of 0 is no longer a free pass. `medicaidLimit(code)` is cached per code and `hasChildAtMost` loops the children list in place, so the
+  path allocates nothing. `conversionMagiCeiling` is unchanged: the new cliffs (the floor, the 138% line, the 2027 start) are priced by the cost
+  and listed in the plan's cliffs register; 3C decides the policy. Tests: `tests/aca_medicaid.js`.
 - **US federal deductions** (just above `ordinaryTax`): `standardDeduction(filing,
   yearIndex, ages)` (base + the 65+ additional amount per filer), `seniorDeduction`
   (the temporary $6,000, zero after `SENIOR_DEDUCTION_LAST_YEAR = 2028`; revisit if
   Congress extends it), `saltCap` (explicit year table to 2029, `SALT_CAP_LAST_YEAR`),
   `itemizedDeduction` (min(SALT cap, state tax + property tax) + mortgage interest,
   nothing else) and `federalDeduction` (max of standard and itemized, plus senior).
+  `itemizedDeduction` and `federalDeduction` also take the year's medical expenses (7O O2): the part over 7.5% of AGI
+  (`MEDICAL_FLOOR_PCT`) is added to the itemized total. The engine sets `profile.medicalExpense = healthcare + ltc` each MAGI pass,
+  right after `healthcareCost` (premium after the credit, Medicare, IRMAA and the long-term-care cost); `taxFor` and the lagged
+  federal pass read it (`|| 0`), the two-filer branch splits it 50/50, and the itemizing branch is entered only when `medical` exceeds
+  the floor, so ordinary Medicare years add nothing to the hot path. `solveRothConversion` and the optimizer's profile literals carry no
+  medical term (conservative).
   The tax year is `currentYear + yearIndex` in both engines (historical runs replay
   returns, not tax law). `taxFor()` computes each return's deduction itself from its
   own income (AGI stands in for MAGI), the state tax it just computed, and the
@@ -275,6 +295,13 @@ Each planner is one big IIFE. Core shape:
   planner shows under the selector. The generator also lists every parameter of the researched rows. Evaluating it: that script writes `docs/state-tax-rules.md` (the owner's review
   artifact: one row per jurisdiction with every rule and its source; `npm run gen:states`), and `npm test` fails if the file is
   stale. After changing a row, regenerate and commit the file. Not shared with Canada (US only).
+- **State rows, later additions (7O O3, O4).** The per-person retirement kind's `applies` takes an optional `employerPlanAfterRetirement: true` (Pennsylvania only,
+  7O O3): below the traditional minimum age a retired filer's 401(k) part of their traditional draw is excluded at any age.
+  `buildTaxProfile` puts `k401FracA/B` on the profile (the filer's 401(k) share of their own traditional accounts from the account ledger at the start
+  of the year, zero while they work; a single person or survivor: the pool's 401(k) share) and `taxFor` fills `sources.retirement401kA/B` (draw x fraction,
+  only when `needsPerPerson`); the draw is assumed pro rata, which the penalty-aware draw order and 72(t) payments can depart from. `childCredit` also
+  takes `phaseOut.measure` ('stateAgi' | 'income'), `phaseOut.rate` (a straight line), `maxChildren` and `fixed` (unindexed whatever the row flags say), and
+  `childStepCredit` takes `maxAge` and `measure: 'income'` (7O O4: MN, VT, ME, NJ, OR, UT).
 - **Child credits (US, `childCredits`, just above `taxFor`).** `childCredits(dependents, filing, yearIndex, magi,
   federalTax, earnedIncome)` returns `{ nonrefundable, refundable }`: the Credit for Other Dependents ($500, a qualifying
   child with `age >= 17`, nonrefundable, not indexed, shares the phase-out; the reduction comes off the CTC part first and
@@ -436,6 +463,9 @@ convert the two planners back to CRLF (e.g. `content.replace(/\r\n/g,'\n').repla
 in a one-line node script) and re-run `npm run check:shared`; git normalizes both on commit.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
+
+(Shared warnings: `UNUSUAL_RANGES` lives in the `04-isEstimateCountable` region and accepts an item with `check()` and `message()` instead of a
+range; the US pushes its Social Security-before-retirement items onto it just after the region ends (7O O5), so the region stays identical in both files.)
 
 The two planners share overall structure but diverge in ways that make blind
 copy-paste silently wrong — always read both files' relevant sections side by
