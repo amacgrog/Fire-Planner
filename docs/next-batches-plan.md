@@ -3202,9 +3202,9 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
-### 7O notes: remaining US credits, benefits and fixes (in progress: O1, O2 done)
+### 7O notes: remaining US credits, benefits and fixes (in progress: O1, O2, O3 done)
 
-Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2).
+Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2) -> V103 (O3).
 
 #### O1: Medicaid and the premium-credit floor (US V101)
 
@@ -3312,6 +3312,43 @@ Seeded success rates (2,000 paths, seed 7), before to after: single retired at 6
 
 **Timing** (400 `simulate()`, interleaved, one process, median of 7): default couple 360 to 362 ms (1.006), single with LTC in CA 140 to 143
 (1.021), couple in MA 358 to 362 (1.011); gate +5%.
+
+#### O3: Pennsylvania employer-plan distributions after retirement (US V103)
+
+**Behavior.** The PA `perPerson` retirement exclusion takes an optional third key in `applies`, `employerPlanAfterRetirement: true` (PA only; the
+schema test reads `pension` and `traditional` and ignores extras). For a filer under the traditional minimum age (59.5), the part of their
+traditional draw that is employer-plan money is excluded; from 59.5 everything is excluded as before. `buildTaxProfile` takes `tradShares`
+(`accts.trad`) and `workingA/B` and puts `k401FracA/B` on the profile: the filer's 401(k) share of their own traditional accounts (draws are
+pro rata within a partner), zero while that filer is still working; a single person or the survivor owns the whole pool (the 401(k) share of the
+pool, gated on the survivor's own work). `taxFor` fills `sources.retirement401kA/B` (draw x fraction) in its four per-person blocks, only
+when `needsPerPerson` (PA already had the flag; `tests/tax_caches.js` pins unchanged). RMDs are drawn pro rata from the owner's accounts, so the
+same fraction applies; the state evaluator caps the exempt part at the filer's traditional income. Generator text and the PA notes updated;
+`docs/state-tax-rules.md` regenerated.
+
+**Sources (primary, retrieved 2026-10-06).** PA Personal Income Tax Guide, Gross Compensation (pa.gov): payments commonly recognized as old age or
+retirement benefits paid to persons retired from service after reaching a specific age or after a stated period of employment are not
+compensation; an IRA or other non-employer plan is exempt only when no early-withdrawal penalty is owed; a premature IRA withdrawal is
+taxable to the extent it exceeds previously taxed contributions (cost recovery); 61 Pa. Code 101.6. The model follows the owner-confirmed
+rule (retired from service, any age) and does not test the plan's own age or years-of-service condition.
+
+**Approximations (named in the PA notes).** (1) The 401(k) share of a draw is the pool share, i.e. pro rata. Where the engine picks accounts
+deliberately (the penalty-aware draw order from 55 with the Rule of 55 on, a 72(t) payment from one account) the real mix differs; the pro rata
+mix overstates PA tax slightly when 401(k) money is drawn first. (2) A Roth conversion counts in the traditional draw and so is exempted in the
+same proportion as a draw would be (it comes from IRAs first in the engine). (3) The share is fixed at the start of the year, as the ownership
+share already is. (4) PA cost recovery on IRA draws is not modeled (the whole draw is taxed).
+
+**Tests.** `tests/state_mechanisms.js` (new cases on `zz`: 30,000 of 40,000 exempt at 52 leaves 1,000; no 401(k) money taxes all 4,000; the exempt
+part capped at the draw; 60 excludes everything; a joint return with one filer under 59.5 and one over; both under with one all 401(k); the same
+row without the option; a pension beside a 401(k) draw). New `tests/pa_employer_plan.js` (in `npm test`): the engine, hand-computed, single 52
+retired with a 401(k) only, an IRA only, half and half, a quarter IRA, age 60, and a couple (A 401(k), B IRA, and swapped) with the draw X solved
+including the federal 10% early-withdrawal penalty that every traditional dollar owes at 52; B still working keeps PA tax on B's 401(k).
+Snapshots do not cover Pennsylvania (the default state is MA), so none moved.
+
+**Before / after.** Couple 52 and 50 in PA, 300,000 taxable, 80,000 cash, spending 90,000, A: 300,000 IRA and 500,000 401(k); B: 200,000 IRA and
+500,000 401(k); 100,000 Roth each. Lifetime tax 559,836 to 549,256; tax by age 52-59: 2,102 2,146 1,934 0 19,585 50,494 51,599 52,735 to the same for
+52-55, then 16,997 44,353 45,318 46,311 (the traditional draws start at 56). Seeded success rates (new scenario in `tests/historical_rates.js`):
+historical 50.9% to 50.9%, Monte Carlo 61.2% to 61.8%; every other scenario unchanged.
+
 
 
 ### Batch 4A / 4B notes

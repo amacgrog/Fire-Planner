@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V102</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V103</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -5181,7 +5181,7 @@
       seniorExemption: { kind: 'none' },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
-      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null },
+      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true, employerPlanAfterRetirement: true }, tiers: [[0, null]], reducedBy: 'none', share: null },
       credits: [
         {
           kind: 'taxForgiveness',
@@ -5195,7 +5195,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded; traditional (IRA and 401(k)) withdrawals are excluded only from age 59 and a half per filer, and taxed before it (secondary sources: distributions before 59 and a half are taxable, with cost recovery). Not modeled: the 401(k)-after-retirement exception, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
+      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded. Traditional withdrawals are excluded from age 59 and a half per filer, and taxed before it, except the employer-plan (401(k)) part drawn after that filer has stopped working, which is excluded at any age (PA Personal Income Tax Guide, Gross Compensation: payments to persons retired from service; 61 Pa. Code 101.6): the 401(k) part is the share of the traditional accounts of that filer held in a 401(k), drawn pro rata. An IRA draw before 59 and a half is taxable (the guide: only the part over previously taxed contributions; cost recovery is not modeled, so the whole draw is taxed). Not modeled: the retirement-age or years-of-service condition of the plan itself, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
     },
     ri: {
       name: 'Rhode Island',
@@ -5798,6 +5798,8 @@
       kind: 'perPerson',
       pensionFrom: ex.applies.pension ? ex.pensionMinAge : Infinity,
       tradFrom: ex.applies.traditional ? ex.traditionalMinAge : Infinity,
+      // Employer-plan (401(k)) money drawn after retirement is exempt at any age (Pennsylvania); see sources.retirement401kA/B.
+      employerPlan: ex.applies.employerPlanAfterRetirement === true,
       tierAges: ex.tiers.map((t) => t[0]),
       tierCaps: ex.tiers.map((t) => (t[1] === null ? Infinity : t[1])), // a number or { single, mfj, hoh }
       reducedBy: ex.reducedBy === 'benefitsReceived' ? 1 : ex.reducedBy === 'socialSecuritySubtracted' ? 2 : 0,
@@ -5955,7 +5957,8 @@
           if (age >= ex.tierAges[t]) cap = (typeof ex.tierCaps[t] === 'number' ? ex.tierCaps[t] : ex.tierCaps[t][colKey]) * factor;
         if (cap < 0) continue;
         const pension = age >= ex.pensionFrom ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
-          traditional = age >= ex.tradFrom ? Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0) : 0;
+          retirement = Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0),
+          traditional = age >= ex.tradFrom ? retirement : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
         let room = cap;
         if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));
         else if (ex.reducedBy === 2) room = Math.max(0, cap - (ssSplit ? ssSplit[i] : 0));
@@ -6486,7 +6489,7 @@
   function newStateSources(agesCount) {
     return {
       wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: new Array(agesCount).fill(0),
-      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, federalTax: 0,
+      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, retirement401kA: 0, retirement401kB: 0, federalTax: 0,
       ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0, taxableSSA: 0, taxableSSB: 0,
       dependents: NO_DEPENDENTS, propertyTax: 0, rent: 0,
     };
@@ -6538,6 +6541,8 @@
           sources.pensionB = profile.pensionB;
           sources.retirementA = profile.rmdA + traditionalExtra * shareA;
           sources.retirementB = profile.rmdB + traditionalExtra * (1 - shareA);
+          sources.retirement401kA = sources.retirementA * (profile.k401FracA || 0);
+          sources.retirement401kB = sources.retirementB * (profile.k401FracB || 0);
           sources.ssBenefitsA = profile.ssA;
           sources.ssBenefitsB = profile.ssB;
           // Per-person Social Security: each partner's benefits, and the taxable part split in proportion.
@@ -6595,6 +6600,8 @@
           sources.pensionB = 0;
           sources.retirementA = profile.rmdA + traditionalExtra;
           sources.retirementB = 0;
+          sources.retirement401kA = sources.retirementA * (profile.k401FracA || 0);
+          sources.retirement401kB = 0;
           sources.ssBenefitsA = profile.ssA;
           sources.ssBenefitsB = 0;
           sources.taxableSSA = taxableSS;
@@ -6669,6 +6676,8 @@
         sourcesA.pensionB = 0;
         sourcesA.retirementA = profile.rmdA + tradA;
         sourcesA.retirementB = 0;
+        sourcesA.retirement401kA = sourcesA.retirementA * (profile.k401FracA || 0);
+        sourcesA.retirement401kB = 0;
         sourcesA.ssBenefitsA = profile.ssA;
         sourcesA.ssBenefitsB = 0;
         sourcesA.taxableSSA = taxableSSA;
@@ -6692,6 +6701,8 @@
         sourcesB.pensionB = 0;
         sourcesB.retirementA = profile.rmdB + tradB;
         sourcesB.retirementB = 0;
+        sourcesB.retirement401kA = sourcesB.retirementA * (profile.k401FracB || 0);
+        sourcesB.retirement401kB = 0;
         sourcesB.ssBenefitsA = profile.ssB;
         sourcesB.ssBenefitsB = 0;
         sourcesB.taxableSSA = taxableSSB;
@@ -8164,6 +8175,9 @@
     rent = 0,
     ownerShareA = 0.5,
     mortgageInterest = 0,
+    tradShares = null,
+    workingA = false,
+    workingB = false,
   }) {
     const otherA =
         Math.max(0, wageA - traditionalContribA - healthPremiumA) +
@@ -8172,6 +8186,22 @@
         extraIncome,
       otherB =
         Math.max(0, wageB - traditionalContribB - healthPremiumB) + pensionB + rmdB;
+    // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
+    // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
+    // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
+    let k401FracA = 0,
+      k401FracB = 0;
+    if (tradShares) {
+      const ownA = tradShares[0] + tradShares[1],
+        ownB = tradShares[2] + tradShares[3];
+      if (singlePerson || isSurvivorPeriod) {
+        const stopped = isSurvivorPeriod && deceasedIsA ? !workingB : !workingA;
+        k401FracA = stopped ? tradShares[1] + tradShares[3] : 0;
+      } else {
+        k401FracA = !workingA && ownA > 0 ? tradShares[1] / ownA : 0;
+        k401FracB = !workingB && ownB > 0 ? tradShares[3] / ownB : 0;
+      }
+    }
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
     const profile =
@@ -8203,6 +8233,8 @@
             propertyTax,
             rent,
             ownerShareA: 1,
+            k401FracA,
+            k401FracB: 0,
             mortgageInterest,
             year,
             // Children stay with the surviving parent.
@@ -8231,6 +8263,8 @@
             // Partner A's share of the traditional pool (the account ledger); a one-person
             // return holds everything in the A slot.
             ownerShareA: singlePerson || isSurvivorPeriod ? 1 : ownerShareA,
+            k401FracA,
+            k401FracB,
             mortgageInterest,
             year,
             dependents: dependentsInYear(taxYearOf(year)),
@@ -9250,6 +9284,9 @@
         rent: housingYear.rent,
         ownerShareA: accountsOwnerShareA(accts.trad),
         mortgageInterest: housingYear.mortgageInterest,
+        tradShares: accts.trad,
+        workingA,
+        workingB,
       });
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
