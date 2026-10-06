@@ -2961,6 +2961,14 @@ The plan's example (a 65+ partner with 85,000 of base income who draws 30,000 mo
 
 **Considered and left out (named gaps):** Ontario Health Premium freeze (N2, dropped by the owner); Quebec single-parent supplement (primary rule needs a child 18+ in post-secondary studies); transfer of a spouse's unused amounts; federal medical top-up credit and Quebec's refundable medical credit; Quebec access-to-homeownership credit; Ontario LIFT credit and dependants with an impairment; CPP survivor pension, death benefit and children's benefit (Batch 6); Dental Care Plan co-payment tiers (copy note only). Secondary figures are on the verification backlog table above.
 
+**Why the three credits are left out (appropriate simplifications, not oversights):**
+
+- *Quebec single-parent supplement:* not applicable rather than simplified. The primary rule (Revenu Quebec guide, line 361) pays the additional amount only to someone living with a child aged 18 or over in post-secondary studies who is not entitled to the Family Allowance. A parent of a minor child already receives the living-alone amount, so adding the supplement for any child under 18 would overstate the credit. The planner's children list (birth year and a student flag) cannot test the Family Allowance condition, and the 2026 figure (2,681) is from a secondary source.
+- *Federal top-up tax credit (line 34990):* small and unverified. It keeps the 15% rate on non-refundable credit amounts above the first bracket threshold (58,523 for 2026), so its value is at most 1% of the excess, under about 200 dollars in the largest plans, and only for households whose credits exceed that threshold. The CRA worksheet was not readable, so the mechanics could not be confirmed on a primary source; an unverified formula would add false precision to a figure well inside the model's other approximations.
+- *Ontario LIFT credit (ON428-A):* a working-years credit on employment income, so it does not touch the retiree years the planner mostly projects, and for a working household it is small and phases out at low income. It needs the schedule and phase-out confirmed on a primary page, which was out of scope for N6 (low-income tax reductions) and is on the backlog.
+
+Each can be added later as one more row family or credit term without changing the engine shape.
+
 **Exit criteria:** every figure cited with retrieval date; hand-computed tests per item in `npm test`; seeded success rates and before/after tables per item; `docs/province-tax-rules.md` regenerated; 390x844 check done (no horizontal overflow); `npm run check:shared` clean; badge bumped each commit; README and CLAUDE.md updated per item.
 
 ### Batch 4A / 4B notes
