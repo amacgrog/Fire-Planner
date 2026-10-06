@@ -255,19 +255,6 @@ function checks() {
   near(run({ retirementExclusion: perP({ applies: { pension: true, traditional: false } }) }, mix), 600, 'applies: pension only excludes 10,000 of 16,000');
   near(run({ retirementExclusion: perP({ applies: { pension: false, traditional: true } }) }, mix), 1000, 'applies: traditional only excludes 6,000 of 16,000');
   near(run({ retirementExclusion: perP({ pensionMinAge: 60, traditionalMinAge: 65 }) }, { ...mix, ages: [62] }), 600, 'applies: bucket minimum ages still gate each bucket (62: pension yes, traditional no)');
-  // --- Mechanism 4b (7O O3): employer-plan money drawn after retirement is excluded at any age ---------------------------
-  // Flat 10%, traditional from 59.5. retirement401kA is the part of A's traditional draw that came from a 401(k) of a filer who has stopped working.
-  const emp = { retirementExclusion: perP({ traditionalMinAge: 59.5, applies: { pension: true, traditional: true, employerPlanAfterRetirement: true } }) };
-  const trad = (a, a401, b = 0, b401 = 0) => ({ retirement: a + b, retirementA: a, retirementB: b, retirement401kA: a401, retirement401kB: b401, pension: 0, pensionA: 0, pensionB: 0 });
-  near(run(emp, { ...trad(40000, 30000), ages: [52] }), 1000, 'employer plan: 30,000 of 40,000 is 401(k) at 52, the other 10,000 is taxed');
-  near(run(emp, { ...trad(40000, 0), ages: [52] }), 4000, 'employer plan: no 401(k) money, an IRA draw at 52 is all taxed');
-  near(run(emp, { ...trad(20000, 30000), ages: [52] }), 0, 'employer plan: the 401(k) part is capped at the draw');
-  near(run(emp, { ...trad(40000, 0), ages: [60] }), 0, 'employer plan: from 59.5 everything is excluded as before');
-  near(run(emp, { ...trad(20000, 10000, 20000, 0), ages: [52, 61] }, 'mfj'), 1000, 'employer plan, joint: A (52) taxed on 10,000 of IRA money, B (61) all excluded');
-  near(run(emp, { ...trad(20000, 10000, 20000, 20000), ages: [52, 50] }, 'mfj'), 1000, 'employer plan, joint: both under 59.5, B all 401(k): only 10,000 of A is taxed');
-  near(run({ retirementExclusion: perP({ traditionalMinAge: 59.5 }) }, { ...trad(40000, 30000), ages: [52] }), 4000, 'without the option the 401(k) part is taxed like any traditional draw at 52');
-  near(run(emp, { ...trad(40000, 40000), pension: 5000, pensionA: 5000, ages: [52] }), 0, 'employer plan: a pension is excluded and so is the 401(k) draw');
-
 
   // --- Mechanism 5: a cap shared with Social Security (a per-person bucket) ----------------------------------------------
   const co = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 20000 } }, retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]], reducedBy: 'socialSecuritySubtracted' }) };

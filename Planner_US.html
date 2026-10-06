@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V105</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V100</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -500,9 +500,8 @@
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
           <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
-          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare. Federal tax: your health premiums (the ACA premium after the credit, Medicare and IRMAA) and the long-term-care cost, which is assumed to be qualified care for a chronically ill person under a plan of care, count as medical expenses over 7.5% of AGI when itemizing beats the standard deduction, which in practice means the care years. State itemized deductions are not modeled.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
-          <div class="field" id="medicaidWhenEligibleField"><label for="medicaidWhenEligible"><input id="medicaidWhenEligible" type="checkbox"> Enroll in Medicaid when <span class="info-nw">eligible<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="In the 41 states with Medicaid expansion (and Wisconsin, to 100% of poverty), an adult under 65 with income at or below 138% of the poverty line (100% in Wisconsin) is eligible for Medicaid: a $0 premium and no premium tax credit. Checked, the plan charges $0 in those years; unchecked, it charges the full unsubsidized premium (you cannot take the credit instead). Medicaid pays back from the estate of anyone 55 or older (estate recovery), and its provider networks are narrower, so some households decline it. In the ten states that did not expand (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY), income below 100% of poverty gets no credit and pays the full premium. From 2027, expansion adults 19 to 64 must show 80 hours a month of work, service or school (a parent or caregiver of a child 13 or younger is exempt); a retired adult with no such child fails the test, loses Medicaid, and is also barred from the premium credit, so pays the full premium. Not modeled: other exemptions (medical frailty, disability, SNAP or TANF compliance), the income route to the requirement, state delays of up to the end of 2028, and Medicaid&#x27;s use of monthly rather than annual income.">i</button></span><small>$0 premium when income is low enough; full premium otherwise</small></label></div>
           <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
           <div id="irmaaPriorFields">
             <div class="field"><label for="irmaaMagiPrior2">MAGI two tax years ago<small>Sets this year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior2" type="number" class="money" min="0" step="1000"></div>
@@ -895,7 +894,6 @@
     irmaaMagiPrior1: 0,
     acaEnabled: false,
     acaEnhanced: false,
-    medicaidWhenEligible: true,
     ltcEnabled: false,
     ltcYearlyA: 50000,
     ltcAgeA: 82,
@@ -1228,8 +1226,7 @@
     { key: 'singlePerson', type: 'bool', sync: 'controls', resync: ['controls', 'contrib'], mirrors: ['wizardSinglePerson'], mcp: true },
     { key: 'megaBackdoor', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'megaAField', hidden: (s) => !s.megaBackdoor }, { id: 'megaBField', hidden: (s) => !s.megaBackdoor || s.singlePerson }], mirrors: ['wizardMegaBackdoor'], mcp: true },
     { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'], mcp: true },
-    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }, { id: 'medicaidWhenEligibleField', hidden: (s) => !s.acaEnabled }], mirrors: ['wizardAcaEnabled'], mcp: true },
-    { key: 'medicaidWhenEligible', type: 'bool', sync: 'contrib', resync: [], trueUnlessFalse: true, mcp: true },
+    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }], mirrors: ['wizardAcaEnabled'], mcp: true },
     { key: 'irmaaPriorKnown', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'irmaaPriorFields', hidden: (s) => !s.irmaaPriorKnown }], mcp: true },
     { key: 'employerCoversSpouseA', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
     { key: 'employerCoversSpouseB', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
@@ -2030,16 +2027,9 @@
   function computeUnusualAssumptions() {
     return UNUSUAL_RANGES.filter((r) => {
       if (r.applicable && !r.applicable()) return false;
-      // A condition-based item (a planner adds one with `check` and `message` instead of a range): flagged while
-      // `check()` is true, dismissal cleared as soon as it is not, like a value that returns to its range.
-      const v = r.check ? (r.check() ? 1 : NaN) : Number(state[r.id]);
-      if (r.check && !Number.isFinite(v)) {
-        const at = state.dismissedUnusualAssumptions.indexOf(r.id);
-        if (at !== -1) state.dismissedUnusualAssumptions.splice(at, 1);
-        return false;
-      }
+      const v = Number(state[r.id]);
       if (!Number.isFinite(v)) return false;
-      const out = r.check ? true : v < r.min || v > r.max;
+      const out = v < r.min || v > r.max;
       if (!out) {
         const idx = state.dismissedUnusualAssumptions.indexOf(r.id);
         if (idx !== -1) state.dismissedUnusualAssumptions.splice(idx, 1);
@@ -2211,8 +2201,6 @@
     banner.hidden = false;
     listEl.innerHTML = flagged
       .map((item) => {
-        if (item.check)
-          return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b></button> — ${item.message()}<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
         const v = state[item.id];
         const impact = unusualAssumptionImpact(item, selected);
         return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b>: ${v}${item.unit}</button> <span style="color:var(--hint)">(typical ${item.min}–${item.max}${item.unit})</span> — using a typical value ${impact}.<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
@@ -2221,44 +2209,6 @@
     syncUnusualToast(flagged);
   }
   // @@shared:04-isEstimateCountable end
-  // Social Security before retirement (7O O5; US only). The earnings test is not modeled (see the Social Security
-  // notes), so a partner whose benefit starts before both their retirement age and their full retirement age gets
-  // the whole benefit while wages continue. SSA: the benefit is withheld at $1 for every $2 of earnings over
-  // $24,480 in 2026 ($1 for every $3 over $65,160 in the year full retirement age is reached) until that age,
-  // and a permanently higher benefit from then on returns the months withheld. A condition-based item of the
-  // "Worth a second look" list (see `check` and `message` in computeUnusualAssumptions).
-  const SS_EARNINGS_TEST_2026 = { lower: 24480, higher: 65160 };
-  // Full retirement age in months by birth year (SSA, Normal Retirement Age table).
-  function fullRetirementAgeMonths(birthYear) {
-    if (birthYear <= 1954) return 66 * 12;
-    if (birthYear >= 1960) return 67 * 12;
-    return 66 * 12 + 2 * (birthYear - 1954);
-  }
-  function ssBeforeRetirementCase(p) {
-    if (p === 'B' && state.singlePerson) return null;
-    const start = state['ssStartAge' + p],
-      retire = state['retireAge' + p],
-      fra = fullRetirementAgeMonths(currentYear - state['age' + p]) / 12;
-    if (!(state['ssMonthly' + p] > 0) || !(state['income' + p] > 0)) return null;
-    return start < retire && start < fra ? { start, retire, fra } : null;
-  }
-  function fraText(fra) {
-    const years = Math.floor(fra),
-      months = Math.round((fra - years) * 12);
-    return months ? years + ' and ' + months + ' months' : String(years);
-  }
-  ['A', 'B'].forEach((p) =>
-    UNUSUAL_RANGES.push({
-      id: 'ssStartAge' + p,
-      label: 'Partner ' + p + ' Social Security starts while working',
-      check: () => !!ssBeforeRetirementCase(p),
-      message: () => {
-        const c = ssBeforeRetirementCase(p);
-        if (!c) return '';
-        return 'the benefit starts at ' + c.start + ', before retirement at ' + c.retire + ' and before full retirement age (' + fraText(c.fra) + '). Social Security would withhold $1 of benefit for every $2 of wages over $' + SS_EARNINGS_TEST_2026.lower.toLocaleString('en-US') + ' (2026 figure; $1 for every $3 over $' + SS_EARNINGS_TEST_2026.higher.toLocaleString('en-US') + ' in the year full retirement age is reached) until that age; the planner does not model the earnings test, so it pays the full benefit while wages continue. The months withheld come back as a higher monthly benefit from full retirement age.';
-      },
-    }),
-  );
   // Cheap, string-only sidebar group summaries — no simulate() calls, just
   // formatting already-live `state`. Called from the top of render(),
   // alongside markDefaultFields(). "Always-on" groups always get plain
@@ -2747,25 +2697,22 @@
   }
   // Deliberately simple itemizing: state income tax + property tax under the SALT
   // cap, plus mortgage interest (already limited to the $750,000 debt cap by the
-  // caller), plus the medical expenses over 7.5% of AGI (IRC 213(a), a permanent
-  // floor; `magi` stands in for AGI). Charitable gifts and QCDs are not modeled.
-  const MEDICAL_FLOOR_PCT = 0.075;
-  function itemizedDeduction(yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
+  // caller). Charitable gifts, QCDs and medical expenses are not modeled.
+  function itemizedDeduction(yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest) {
     return (
       Math.min(saltCap(yearIndex, magi), Math.max(0, stateTaxPaid) + Math.max(0, propertyTax)) +
-      Math.max(0, mortgageInterest) +
-      Math.max(0, medical - MEDICAL_FLOOR_PCT * Math.max(0, magi))
+      Math.max(0, mortgageInterest)
     );
   }
   // What one return deducts: the larger of the (age-adjusted) standard deduction
   // and the itemized total, plus the senior deduction on top of either. `agi` is
   // the return's income before the deduction (it stands in for MAGI).
-  function federalDeduction(filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
+  function federalDeduction(filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest) {
     let deduction = standardDeduction(filing, yearIndex, ages);
-    if (stateTaxPaid > 0 || propertyTax > 0 || mortgageInterest > 0 || (medical > 0 && medical > MEDICAL_FLOOR_PCT * agi))
+    if (stateTaxPaid > 0 || propertyTax > 0 || mortgageInterest > 0)
       deduction = Math.max(
         deduction,
-        itemizedDeduction(yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest, medical),
+        itemizedDeduction(yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest),
       );
     return deduction + seniorDeduction(filing, yearIndex, ages, agi);
   }
@@ -3108,7 +3055,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
+      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit, the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
     },
     co: {
       name: 'Colorado',
@@ -3160,7 +3107,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado subtractions for military retirement under 55, railroad benefits and PERA are not modeled. The Family Affordability Tax Credit is switched off for tax year 2026 (Department of Revenue: the December 2025 forecast fell under the revenue trigger) and is not modeled; recheck each year.",
+      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado's subtractions for military retirement under 55, railroad benefits and PERA are not modeled.",
     },
     ct: {
       name: 'Connecticut',
@@ -4032,18 +3979,10 @@
         reducedBy: 'benefitsReceived',
         share: null
       },
-      credits: [
-        {
-          kind: 'childCredit',
-          label: 'Dependent exemption tax credit',
-          refundable: true,
-          tiers: [[200, 300]],
-          phaseOut: { start: { single: 100000, mfj: 150000, hoh: 125000, qss: 150000 }, measure: 'stateAgi', width: 500, per: 20 },
-        },
-      ],
+      credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and dependent, and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit is not modeled. Dependent exemption tax credit (36 M.R.S. 5219-SS, primary): $300 for each dependent from 2026 (2025 was doubled for a child under six), refundable, reduced by $20 for each $500 or fraction of Maine AGI over $100,000 single, $125,000 head of household and $150,000 joint (not indexed); the planner counts the children in its list, not other dependents.",
+      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and dependent, and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit is not modeled.",
     },
     md: {
       name: 'Maryland',
@@ -4221,7 +4160,7 @@
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
         creditAmountsIndexed: false,
-        creditThresholdsIndexed: true,
+        creditThresholdsIndexed: false,
         retirementExclusionIndexed: true,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
@@ -4294,18 +4233,10 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
-      credits: [
-        {
-          kind: 'childCredit',
-          label: 'Child Tax Credit (Schedule M1CWFC)',
-          refundable: true,
-          tiers: [[17, 1750]],
-          phaseOut: { start: { single: 31950, mfj: 37910, hoh: 31950, qss: 31950 }, width: 1, per: 0, rate: 0.12 },
-        },
-      ],
+      credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. Child Tax Credit (2025 Schedule M1CWFC, primary): $1,750 per qualifying child under 18, refundable, reduced by 12% of the federal AGI over $37,910 joint and $31,950 for every other status (the thresholds are indexed, the amount is not); the working family credit part (earned income) and the 9% rate for the older-children credit are not modeled. The public pension subtraction, the property tax refund and the dependent exemption high-income phase-out are not modeled.",
+      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. The public pension subtraction, the property tax refund and the dependent exemption's high-income phase-out are not modeled.",
     },
     ms: {
       name: 'Mississippi',
@@ -4757,23 +4688,10 @@
           }
         }
       },
-      credits: [
-        {
-          kind: 'childStepCredit',
-          label: 'Child Tax Credit',
-          refundable: true,
-          maxAge: 5,
-          measure: 'income',
-          tables: {
-            single: [[0, 1000], [30000, 800], [40000, 600], [50000, 400], [60000, 200], [80000, 0]],
-            mfj: [[0, 1000], [30000, 800], [40000, 600], [50000, 400], [60000, 200], [80000, 0]],
-            hoh: [[0, 1000], [30000, 800], [40000, 600], [50000, 400], [60000, 200], [80000, 0]],
-          },
-        },
-      ],
+      credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets (eight joint) from 1.4% to 10.75% (NJ-1040 2025 schedules, search excerpts; unchanged for 2026; head of household uses the joint table). No standard deduction: exemption $1,000 per filer, $1,000 more at 65, $1,500 per dependent (secondary). Social Security is exempt. The pension, annuity and IRA exclusion (Division of Taxation, read): a filer 62 or older excludes up to $75,000 single or head of household and $100,000 joint when total income is $100,000 or less, 37.5% / 18.75% of that single (50% / 25% joint) between $100,000 and $125,000 and $125,000 and $150,000, nothing above; the planner applies the joint cap per eligible filer, so two large pensions can be over-excluded. Child Tax Credit (Division of Taxation, 2025, primary): $1,000 for each child five or younger at the end of the year while NJ taxable income is $30,000 or less, then $800, $600, $400 and $200 for each further $10,000 to $80,000, nothing above; refundable (the planner reads the model taxable income after exemptions and deductions). The property tax deduction (up to $15,000) and credit, and the blind and veteran exemptions, are not modeled.',
+      notes: 'Seven brackets (eight joint) from 1.4% to 10.75% (NJ-1040 2025 schedules, search excerpts; unchanged for 2026; head of household uses the joint table). No standard deduction: exemption $1,000 per filer, $1,000 more at 65, $1,500 per dependent (secondary). Social Security is exempt. The pension, annuity and IRA exclusion (Division of Taxation, read): a filer 62 or older excludes up to $75,000 single or head of household and $100,000 joint when total income is $100,000 or less, 37.5% / 18.75% of that single (50% / 25% joint) between $100,000 and $125,000 and $125,000 and $150,000, nothing above; the planner applies the joint cap per eligible filer, so two large pensions can be over-excluded. The property tax deduction (up to $15,000) and credit, and the blind and veteran exemptions, are not modeled.',
     },
     nm: {
       name: 'New Mexico',
@@ -5213,14 +5131,6 @@
           senior: { age: 65, amount: 0 },
           dependent: 256,
           phaseOut: { start: { single: 100000, mfj: 200000, hoh: 200000 }, width: 1, reduction: 1000000 }
-        },
-        {
-          kind: 'childCredit',
-          label: 'Oregon Kids Credit',
-          refundable: true,
-          tiers: [[5, 1050]],
-          maxChildren: 5,
-          phaseOut: { start: { single: 26550, mfj: 26550, hoh: 26550, qss: 26550 }, measure: 'stateAgi', width: 1, per: 0, rate: 0.21 },
         }
       ],
       federalTaxSubtraction: {
@@ -5237,7 +5147,7 @@
         }
       },
       localTax: 'notModeled',
-      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the Department of Revenue 2025 amounts, primary): $1,050 for each dependent under six (at most five), refundable, full at Oregon AGI up to $26,550 and reduced in a straight line to nothing at $31,550 (the statute: $1,000 and $25,000 with a $5,000 phase-out, the amounts and the start indexed to inflation with the width fixed; the 2025 values stand for 2026 here).',
+      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled.',
     },
     pa: {
       name: 'Pennsylvania',
@@ -5265,7 +5175,7 @@
       seniorExemption: { kind: 'none' },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
-      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true, employerPlanAfterRetirement: true }, tiers: [[0, null]], reducedBy: 'none', share: null },
+      retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null },
       credits: [
         {
           kind: 'taxForgiveness',
@@ -5279,7 +5189,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded. Traditional withdrawals are excluded from age 59 and a half per filer, and taxed before it, except the employer-plan (401(k)) part drawn after that filer has stopped working, which is excluded at any age (PA Personal Income Tax Guide, Gross Compensation: payments to persons retired from service; 61 Pa. Code 101.6): the 401(k) part is the share of the traditional accounts of that filer held in a 401(k), drawn pro rata. An IRA draw before 59 and a half is taxable (the guide: only the part over previously taxed contributions; cost recovery is not modeled, so the whole draw is taxed). Not modeled: the retirement-age or years-of-service condition of the plan itself, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
+      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded; traditional (IRA and 401(k)) withdrawals are excluded only from age 59 and a half per filer, and taxed before it (secondary sources: distributions before 59 and a half are taxable, with cost recovery). Not modeled: the 401(k)-after-retirement exception, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
     },
     ri: {
       name: 'Rhode Island',
@@ -5538,19 +5448,11 @@
           refundable: false,
           rate: 0.0445,
           phase: { start: { single: 54000, mfj: 90000, hoh: 90000 }, rate: 0.025 }
-        },
-        {
-          kind: 'childCredit',
-          label: 'Child Tax Credit',
-          refundable: false,
-          fixed: true,
-          tiers: [[5, 1000]],
-          phaseOut: { start: { single: 49000, mfj: 61000, hoh: 49000, qss: 61000 }, width: 1, per: 0, rate: 0.1 },
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.45% from 2026 (SB 60, retroactive to January 1; secondary source). No standard deduction: Utah gives a taxpayer tax credit of 6% of the federal standard deduction (2026: $16,100 single, $32,200 joint, $24,150 head of household) plus $2,111 per dependent, reduced by 1.3 cents per dollar of income over $18,213 single, $36,426 joint, $27,320 head of household (Tax Commission, 2025 thresholds; the 65-plus add-on is approximated at 6% of $2,050, and an itemizer's credit is not modeled). Taxable Social Security is included, then a credit of 4.45% of it, reduced by 2.5 cents per dollar of income over $54,000 single and $90,000 joint (Tax Commission). The separate retirement credit is only for people born in 1952 or earlier and is not modeled. Child Tax Credit (Utah Code 59-10-1047, effective 1/1/2026, primary): $1,000 nonrefundable for each child under six who is a federal Child Tax Credit child, reduced by 10 cents per dollar of modified AGI over $49,000 single or head of household and $61,000 joint (the statute does not index it).",
+      notes: "Flat 4.45% from 2026 (SB 60, retroactive to January 1; secondary source). No standard deduction: Utah gives a taxpayer tax credit of 6% of the federal standard deduction (2026: $16,100 single, $32,200 joint, $24,150 head of household) plus $2,111 per dependent, reduced by 1.3 cents per dollar of income over $18,213 single, $36,426 joint, $27,320 head of household (Tax Commission, 2025 thresholds; the 65-plus add-on is approximated at 6% of $2,050, and an itemizer's credit is not modeled). Taxable Social Security is included, then a credit of 4.45% of it, reduced by 2.5 cents per dollar of income over $54,000 single and $90,000 joint (Tax Commission). The separate retirement credit is only for people born in 1952 or earlier and is not modeled.",
     },
     vt: {
       name: 'Vermont',
@@ -5604,18 +5506,10 @@
         reducedBy: 'none',
         share: null
       },
-      credits: [
-        {
-          kind: 'childCredit',
-          label: 'Child Tax Credit',
-          refundable: true,
-          tiers: [[6, 1000]],
-          phaseOut: { start: { single: 125000, mfj: 125000, hoh: 125000, qss: 125000 }, width: 1000, per: 20 },
-        },
-      ],
+      credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the renter credit is not modeled. Child Tax Credit (32 V.S.A. 5830f, primary): $1,000 per child six or younger at the end of the year, refundable, reduced by $20 for each $1,000 or fraction of AGI over $125,000 (not indexed).',
+      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the child credit and the renter credit are not modeled.',
     },
     va: {
       name: 'Virginia',
@@ -5898,8 +5792,6 @@
       kind: 'perPerson',
       pensionFrom: ex.applies.pension ? ex.pensionMinAge : Infinity,
       tradFrom: ex.applies.traditional ? ex.traditionalMinAge : Infinity,
-      // Employer-plan (401(k)) money drawn after retirement is exempt at any age (Pennsylvania); see sources.retirement401kA/B.
-      employerPlan: ex.applies.employerPlanAfterRetirement === true,
       tierAges: ex.tiers.map((t) => t[0]),
       tierCaps: ex.tiers.map((t) => (t[1] === null ? Infinity : t[1])), // a number or { single, mfj, hoh }
       reducedBy: ex.reducedBy === 'benefitsReceived' ? 1 : ex.reducedBy === 'socialSecuritySubtracted' ? 2 : 0,
@@ -6057,8 +5949,7 @@
           if (age >= ex.tierAges[t]) cap = (typeof ex.tierCaps[t] === 'number' ? ex.tierCaps[t] : ex.tierCaps[t][colKey]) * factor;
         if (cap < 0) continue;
         const pension = age >= ex.pensionFrom ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
-          retirement = Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0),
-          traditional = age >= ex.tradFrom ? retirement : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
+          traditional = age >= ex.tradFrom ? Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0) : 0;
         let room = cap;
         if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));
         else if (ex.reducedBy === 2) room = Math.max(0, cap - (ssSplit ? ssSplit[i] : 0));
@@ -6128,7 +6019,6 @@
   //   'renterCredit'       a flat amount by column for a renter whose state AGI is at or under a limit
   //   'childCredit'        per qualifying child by age (`tiers`: [maxAge, amount], first match), the total
   //                        reduced by `phaseOut.per` per `phaseOut.width` of federal AGI over `phaseOut.start`
-  //                        (or `phaseOut.rate` per dollar; `measure`, `maxChildren`, `fixed`: see the case)
   //   'propertyTaxCredit'  min(property tax paid, max), cut by `stepPct` per `stepWidth` of state AGI
   //                        over a limit by column
   //   'taxForgiveness'     a share of the tax: all of it while the base is at or under a limit (by column
@@ -6156,25 +6046,16 @@
         return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * fCt ? cr.amount[colKey] * fCa : 0;
       case 'childCredit': {
         // The phase-out comes off the household's total, not off each child's amount. A status can have its own
-        // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here). Options (7O O4):
-        // `phaseOut.measure` ('stateAgi' or 'income'; default the federal AGI), `phaseOut.rate` (a straight line, credit
-        // dollars lost per dollar over the start, scaled with the amounts; else `per` per `width`), `maxChildren` (a cap on
-        // the children counted) and `fixed` (the statute does not index this credit, whatever the row's flags say).
-        const ca = cr.fixed === true ? 1 : fCa,
-          ct = cr.fixed === true ? 1 : fCt,
-          po = cr.phaseOut,
-          measure = po.measure === 'stateAgi' ? c.agi : po.measure === 'income' ? c.income : c.fedAgi,
-          start = po.start[c.filing] !== undefined ? po.start[c.filing] : po.start[colKey],
-          over = measure - start * ct,
-          cut = over > 0 ? (po.rate !== undefined ? po.rate * ca * over : Math.ceil(over / (po.width * ct)) * po.per * ca) : 0;
-        let total = 0,
-          counted = 0;
+        // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here).
+        const start = cr.phaseOut.start[c.filing] !== undefined ? cr.phaseOut.start[c.filing] : cr.phaseOut.start[colKey],
+          over = c.fedAgi - start * fCt,
+          cut = over > 0 ? Math.ceil(over / (cr.phaseOut.width * fCt)) * cr.phaseOut.per * fCa : 0;
+        let total = 0;
         for (let i = 0; i < deps.length; i++) {
           if (!deps[i].qualifyingChild) continue;
           for (let t = 0; t < cr.tiers.length; t++)
             if (deps[i].age <= cr.tiers[t][0]) {
-              if (cr.maxChildren === undefined || counted < cr.maxChildren) total += cr.tiers[t][1] * ca;
-              counted++;
+              total += cr.tiers[t][1] * fCa;
               break;
             }
         }
@@ -6210,12 +6091,8 @@
       }
       case 'childStepCredit': {
         // An amount per qualifying child from a step table of the federal AGI (New Mexico's Child Income Tax Credit).
-        // Options: `maxAge` (only children up to that age count: New Jersey's under six) and `measure` ('income': the state
-        // taxable income, not the federal AGI).
-        let kids = 0;
-        if (cr.maxAge === undefined) kids = countQualifyingChildren(deps);
-        else for (let i = 0; i < deps.length; i++) if (deps[i].qualifyingChild && deps[i].age <= cr.maxAge) kids++;
-        return kids ? kids * stateStepValue(cr.tables[colKey], cr.measure === 'income' ? c.income : c.fedAgi, false, fCt) * fCa : 0;
+        const kids = countQualifyingChildren(deps);
+        return kids ? kids * stateStepValue(cr.tables[colKey], c.fedAgi, false, fCt) * fCa : 0;
       }
       case 'propertyTaxShareCredit':
         // A share of the property tax paid (Illinois: 5%), lost above an AGI limit by column.
@@ -6590,8 +6467,8 @@
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
-  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0) {
-    const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
+  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned) {
+    const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest),
       federal = ordinaryTax(ordinary, year, status, deduction) + longTermGainTax(gains, ordinary, year, status, deduction),
       credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
@@ -6603,7 +6480,7 @@
   function newStateSources(agesCount) {
     return {
       wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: new Array(agesCount).fill(0),
-      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, retirement401kA: 0, retirement401kB: 0, federalTax: 0,
+      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, federalTax: 0,
       ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0, taxableSSA: 0, taxableSSB: 0,
       dependents: NO_DEPENDENTS, propertyTax: 0, rent: 0,
     };
@@ -6655,15 +6532,13 @@
           sources.pensionB = profile.pensionB;
           sources.retirementA = profile.rmdA + traditionalExtra * shareA;
           sources.retirementB = profile.rmdB + traditionalExtra * (1 - shareA);
-          sources.retirement401kA = sources.retirementA * (profile.k401FracA || 0);
-          sources.retirement401kB = sources.retirementB * (profile.k401FracB || 0);
           sources.ssBenefitsA = profile.ssA;
           sources.ssBenefitsB = profile.ssB;
           // Per-person Social Security: each partner's benefits, and the taxable part split in proportion.
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6678,7 +6553,6 @@
           stateTaxPaid,
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
-          profile.medicalExpense || 0,
         );
       const federal =
         ordinaryTax(ordinary, profile.year, 'mfj', deduction) +
@@ -6714,14 +6588,12 @@
           sources.pensionB = 0;
           sources.retirementA = profile.rmdA + traditionalExtra;
           sources.retirementB = 0;
-          sources.retirement401kA = sources.retirementA * (profile.k401FracA || 0);
-          sources.retirement401kB = 0;
           sources.ssBenefitsA = profile.ssA;
           sources.ssBenefitsB = 0;
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6736,7 +6608,6 @@
           stateTaxPaid,
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
-          profile.medicalExpense || 0,
         );
       const federal =
         ordinaryTax(ordinary, profile.year, status, deduction) +
@@ -6790,14 +6661,12 @@
         sourcesA.pensionB = 0;
         sourcesA.retirementA = profile.rmdA + tradA;
         sourcesA.retirementB = 0;
-        sourcesA.retirement401kA = sourcesA.retirementA * (profile.k401FracA || 0);
-        sourcesA.retirement401kB = 0;
         sourcesA.ssBenefitsA = profile.ssA;
         sourcesA.ssBenefitsB = 0;
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA, (profile.medicalExpense || 0) / 2);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
@@ -6815,14 +6684,12 @@
         sourcesB.pensionB = 0;
         sourcesB.retirementA = profile.rmdB + tradB;
         sourcesB.retirementB = 0;
-        sourcesB.retirement401kA = sourcesB.retirementA * (profile.k401FracB || 0);
-        sourcesB.retirement401kB = 0;
         sourcesB.ssBenefitsA = profile.ssB;
         sourcesB.ssBenefitsB = 0;
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB, (profile.medicalExpense || 0) / 2);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -6834,9 +6701,8 @@
     const stateTaxA = stateIncomeTax(sourcesA, statusA, profile.year),
       stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
       halfInterest = (profile.mortgageInterest || 0) / 2,
-      halfMedical = (profile.medicalExpense || 0) / 2,
-      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
-      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
+      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest),
+      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest);
     // The child credits go on Partner A's return (A claims the children). Computed only when
     // there are children, and subtracted last, so the no-children sum keeps its exact order.
     let creditA = 0;
@@ -6891,47 +6757,6 @@
   // poverty line (IRS Rev. Proc. 2025-25), then a hard cliff above 400%.
   // "Assume enhanced subsidies return" models the 2021-2025 ARPA/IRA structure
   // instead (no cliff, capped at 8.5% of income), in case Congress extends it.
-  // Medicaid for adults under 65 and the premium-credit floor (Batch 7O, O1). Pure literals (read by
-  // nothing else; the state-tax generator and coverage test do not see this table).
-  // `expansionLimit`: Medicaid for an adult at or below this share of the poverty line (42 CFR 435.119:
-  // 133%, plus the 5-point disregard of 435.603(d)(4)). `nonExpansion`: the ten states with no
-  // adult group (KFF, Aug 2026). `adultCoverage`: a non-expansion state that covers adults anyway,
-  // to that share (Wisconsin's BadgerCare waiver, 100% through 2029). `ptcFloor`: no premium tax
-  // credit below this share (IRC 36B(c)(1)(A)). `workRequirement`: from `fromYear` an adult 19 to 64
-  // in the adult group (or a waiver covering the same people) must show community engagement, unless
-  // a parent or caregiver of a child `exemptChildMaxAge` or younger (SSA 1902(xx), CMCS Informational
-  // Bulletin 12/8/2025); one denied for failing it is barred from the premium credit (1902(xx)(7)(B)).
-  // MEDICAID_RULES:begin
-  const MEDICAID_RULES = {
-    expansionLimit: 1.38,
-    nonExpansion: ['al', 'fl', 'ga', 'ks', 'ms', 'sc', 'tn', 'tx', 'wi', 'wy'],
-    adultCoverage: { wi: 1.0 },
-    ptcFloor: 1.0,
-    workRequirement: { fromYear: 2027, exemptChildMaxAge: 13 },
-    asOf: 2026,
-  };
-  // MEDICAID_RULES:end
-  // Highest share of the poverty line at which an adult is on Medicaid in this state (0: none).
-  const medicaidLimitCache = {};
-  function medicaidLimit(code) {
-    let v = medicaidLimitCache[code];
-    if (v === undefined) {
-      const R = MEDICAID_RULES;
-      v = R.nonExpansion.indexOf(code) < 0 ? R.expansionLimit : R.adultCoverage[code] || 0;
-      medicaidLimitCache[code] = v;
-    }
-    return v;
-  }
-  // True when the household has a child aged `maxAge` or younger in that calendar year (no allocation).
-  function hasChildAtMost(taxYear, maxAge) {
-    const kids = state.children;
-    if (!kids) return false;
-    for (let i = 0; i < kids.length; i++) {
-      const age = taxYear - kids[i].birthYear;
-      if (age >= 0 && age <= maxAge) return true;
-    }
-    return false;
-  }
   function fplForHousehold(size, yearIndex) {
     const factor = taxIndexFactor(yearIndex);
     return (15650 + (Math.max(1, size) - 1) * 5500) * factor;
@@ -7001,20 +6826,8 @@
     MAGI_ITER_TOL = 1;
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
-    const ratio = magi > 0 ? magi / fplForHousehold(householdSize, yearIndex) : 0;
-    // Medicaid and the credit floor (O1). An adult under 65 at or below the state's Medicaid line is
-    // eligible for Medicaid and cannot take the credit: $0 when enrolled, else the full premium (which
-    // is also the price of failing the 2027 work requirement, a retired adult with no child 13 or
-    // younger, who is barred from the credit as well). Below 100% there is no credit in any state.
-    // The same 1e-9 tolerance as the 400% line below.
-    const mcdLimit = medicaidLimit(state.stateTax);
-    if (mcdLimit > 0 && ratio <= mcdLimit + 1e-9) {
-      const R = MEDICAID_RULES.workRequirement,
-        taxYear = taxYearOf(yearIndex);
-      if (state.medicaidWhenEligible && (taxYear < R.fromYear || hasChildAtMost(taxYear, R.exemptChildMaxAge))) return 0;
-      return grossPremium;
-    }
-    if (ratio < MEDICAID_RULES.ptcFloor - 1e-9) return grossPremium;
+    if (magi <= 0) return 0;
+    const ratio = magi / fplForHousehold(householdSize, yearIndex);
     // A conversion is sized to land exactly on the 400% line, so the comparison needs a tolerance
     // or a last-bit rounding difference between the two engines would decide the whole premium.
     if (!state.acaEnhanced && ratio > 4 + 1e-9) return grossPremium;
@@ -8289,9 +8102,6 @@
     rent = 0,
     ownerShareA = 0.5,
     mortgageInterest = 0,
-    tradShares = null,
-    workingA = false,
-    workingB = false,
   }) {
     const otherA =
         Math.max(0, wageA - traditionalContribA - healthPremiumA) +
@@ -8300,22 +8110,6 @@
         extraIncome,
       otherB =
         Math.max(0, wageB - traditionalContribB - healthPremiumB) + pensionB + rmdB;
-    // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
-    // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
-    // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
-    let k401FracA = 0,
-      k401FracB = 0;
-    if (tradShares) {
-      const ownA = tradShares[0] + tradShares[1],
-        ownB = tradShares[2] + tradShares[3];
-      if (singlePerson || isSurvivorPeriod) {
-        const stopped = isSurvivorPeriod && deceasedIsA ? !workingB : !workingA;
-        k401FracA = stopped ? tradShares[1] + tradShares[3] : 0;
-      } else {
-        k401FracA = !workingA && ownA > 0 ? tradShares[1] / ownA : 0;
-        k401FracB = !workingB && ownB > 0 ? tradShares[3] / ownB : 0;
-      }
-    }
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
     const profile =
@@ -8347,8 +8141,6 @@
             propertyTax,
             rent,
             ownerShareA: 1,
-            k401FracA,
-            k401FracB: 0,
             mortgageInterest,
             year,
             // Children stay with the surviving parent.
@@ -8377,8 +8169,6 @@
             // Partner A's share of the traditional pool (the account ledger); a one-person
             // return holds everything in the A slot.
             ownerShareA: singlePerson || isSurvivorPeriod ? 1 : ownerShareA,
-            k401FracA,
-            k401FracB,
             mortgageInterest,
             year,
             dependents: dependentsInYear(taxYearOf(year)),
@@ -9398,9 +9188,6 @@
         rent: housingYear.rent,
         ownerShareA: accountsOwnerShareA(accts.trad),
         mortgageInterest: housingYear.mortgageInterest,
-        tradShares: accts.trad,
-        workingA,
-        workingB,
       });
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
@@ -9505,9 +9292,6 @@
           filing,
         });
         if (usesMagiEstimate) estUsed = true;
-        // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
-        // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
-        profile.medicalExpense = healthcare + ltc;
         const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and

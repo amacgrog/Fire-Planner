@@ -41,9 +41,6 @@ const US = {
   ...COMMON,
   'us invalid enums': { filingStatus: 'y', stateTax: 'zz', k401Type: 'bogus', iraType: 'bogus', pensionCoverage: 'weird' },
   'employer flags': { employerCoversSpouseA: false, employerCoversSpouseB: 0 },
-  // Batch 7O O1: a default-true flag (missing or junk reads as on, only a literal false turns it off).
-  'medicaid flag false': { medicaidWhenEligible: false },
-  'medicaid flag junk': { medicaidWhenEligible: 0 },
   'employer flags absent': { acaEnabled: true },
   'legacy sepp72t both': { sepp72tEnabled: true },
   'sepp72t already split': { sepp72tEnabled: true, sepp72tEnabledA: true, sepp72tEnabledB: false },

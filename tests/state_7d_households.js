@@ -188,8 +188,7 @@ const CASES = [
   // (A 24,000 -> 25,824 of A's 55,000; B 12,000 -> 37,824 of B's 25,000); 5.8% to 54,850, 6.75% to 129,750.
   //   retiree: 90,000 - 25,824 - 25,000 = 39,176 - 31,400 - 10,600 - 1,650 < 0: 0
   //   family:  132,000 - 31,400 - 10,600 - 10,600 = 79,400: 54,850 x 5.8% (3,181.30) + 24,550 x 6.75% (1,657.125) = 4,838.425
-  // O4 (7O): the dependent exemption credit, 2 x 300 = 600 (AGI 132,000 is under the 150,000 joint start): 4,838.425 - 600
-  { code: 'me', retiree: 0, family: 4238.425, why: 'pension deduction reduced by benefits received; dependent credit 600' },
+  { code: 'me', retiree: 0, family: 4838.425, why: 'pension deduction reduced by benefits received' },
   // MS (joint). 4% above 10,000 (3.75% in 2027 ... 3% in 2030); std 4,600; exemptions 12,000 + 1,500 for one filer 65+ + 1,500 per child; retirement income exempt.
   //   retiree: 90,000 - 80,000 = 10,000 - 4,600 - 13,500 < 0: 0
   //   family:  132,000 - 4,600 - 12,000 - 3,000 = 112,400: 102,400 x 4% = 4,096; 2027: x 3.75% = 3,840; 2030: x 3% = 3,072
@@ -241,8 +240,7 @@ const CASES = [
   // std 15,300; exemptions 10,600 + 1,250 (65+) + 5,300 per child; 3.35% to 82,500, 6.6% above.
   //   retiree: 112,000 - 20,000 = 92,000 - 15,300 - 10,600 - 1,250 = 64,850 x 3.35% = 2,172.475
   //   family:  132,000 - 15,300 - 10,600 - 10,600 = 95,500: 2,763.75 + 13,000 x 6.6% (858) = 3,621.75
-  // O4 (7O): the Child Tax Credit for the child of 6 only (the child of 9 is too old): 1,000 less 7 steps x 20 for the 7,000 of AGI over 125,000 = 860: 3,621.75 - 860
-  { code: 'vt', retiree: 2172.475, family: 2761.75, why: 'Social Security phase-out, pension exclusion; child credit 860' },
+  { code: 'vt', retiree: 2172.475, family: 3621.75, why: 'Social Security phase-out, pension exclusion' },
   // WI (joint, 2025 amounts). 70% of gains; nobody is 67, so no retirement subtraction; standard deduction on the straight-line approximation 25,110 x (1 - (income - 35,600) / 131,200);
   // exemptions 1,400 + 250 (one filer 65+) + 700 per child; 3.5% to 19,580, 4.4% to 67,300, 5.3% above.
   //   retiree: 40,000 + 40,000 + 7,000 = 87,000; std 15,272.70; taxable 70,077.30: 685.30 + 2,099.68 + 2,777.30 x 5.3% (147.19) = 2,932.177
