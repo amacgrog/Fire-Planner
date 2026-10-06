@@ -567,7 +567,7 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   o = await withProv('sk', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
   near(o.provCredit, 460 + 460 + 181, 1e-9, 'SLITC: a single parent gets the eligible dependant amount and the child amount');
 
-  // --- Saskatchewan Income Plan (saskatchewan.ca, April 2026): 360 a month for a single recipient (4,320 a year) falling to nil at
+  // --- Saskatchewan Seniors Income Plan (saskatchewan.ca, April 2026): 360 a month for a single recipient (4,320 a year) falling to nil at
   // 4,560 of income excluding OAS and GIS; both spouses on OAS and GIS 325 each (7,800) nil at 7,440; one spouse under 60 360
   // (4,320) nil at 11,568; spouse on the Allowance 360 nil at 9,120. The straight line between the maximum at no income and the
   // published nil point is a reading (secondary).
@@ -582,8 +582,8 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await sip(par({ otherA: 9150 + 4560, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4320 * (1 - 4560 / 9120), 1e-6, 'SIP: spouse on the Allowance, halfway');
 
   // --- Manitoba Child Benefit (gov.mb.ca mcb pages): 420 a child under 18, full at 15,000 or less; one to three children nil at
-  // 20,435, six children nil at 25,864. The straight line with a rate of 420 / 5,435 for each of the first three children
-  // reproduces both (derived, secondary): four children are nil at 22,246.67.
+  // 20,435, four children 22,242, five 24,052 and six 25,864 (all published). The benefit falls in a straight line from the full
+  // amount at 15,000 to nil at the published point (the shape between is a reading, secondary).
   const mcbRate = 420 / (20435 - 15000);
   o = await withProv('mb', par({ otherA: 7500, otherB: 7500, dependents: kidsAt(5, 10) }));
   near(o.provChild, 840, 1e-9, 'MCB: two children at 15,000');
@@ -592,9 +592,13 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   o = await withProv('mb', par({ otherA: 10217.5, otherB: 10217.5, dependents: kidsAt(5, 10) }));
   near(o.provChild, 0, 1e-9, 'MCB: nil at 20,435');
   o = await withProv('mb', par({ otherA: 9000, otherB: 9000, dependents: kidsAt(1, 3, 5, 10) }));
-  near(o.provChild, 1680 - 3 * mcbRate * (18000 - 15000), 1e-9, 'MCB: four children at 18,000');
+  near(o.provChild, 1680 * (1 - (18000 - 15000) / (22242 - 15000)), 1e-9, 'MCB: four children at 18,000 (nil at 22,242)');
+  o = await withProv('mb', par({ otherA: 11121, otherB: 11121, dependents: kidsAt(1, 3, 5, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: four children are nil at 22,242');
+  o = await withProv('mb', par({ otherA: 12026, otherB: 12026, dependents: kidsAt(1, 3, 5, 8, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: five children are nil at 24,052');
   o = await withProv('mb', par({ otherA: 12932, otherB: 12932, dependents: kidsAt(1, 2, 3, 5, 8, 10) }));
-  near(o.provChild, 0, 2, 'MCB: six children are about nil at 25,864');
+  near(o.provChild, 0, 1e-9, 'MCB: six children are nil at 25,864');
   o = await withProv('mb', par({ otherA: 7500, otherB: 7500, dependents: kidsAt(18) }));
   near(o.provChild, 0, 0, 'MCB: an 18-year-old does not count');
 
@@ -610,7 +614,8 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await jr(prof({ otherA: 9746.4, ageA: 60 })), 55.6, 1e-9, 'junior 55 PLUS: last band');
   near(await jr(prof({ otherA: 9746.41, ageA: 60 })), 0, 0, 'junior 55 PLUS: nil above 9,746.40');
   near(await jr(prof({ otherA: 5000, ageA: 54 })), 0, 0, 'junior 55 PLUS: not at 54');
-  near(await jr(prof({ otherA: 5000, ageA: 65, oasA: 9150 })), 0, 0, 'junior 55 PLUS: not for an OAS recipient');
+  // An OAS recipient is not eligible for the junior component; the senior component (income excluding OAS is 0) pays 4 x 161.80.
+  near(await jr(prof({ otherA: 5000, ageA: 65, oasA: 9150 })), 4 * 161.8, 1e-9, 'junior 55 PLUS: an OAS recipient gets only the senior component');
   near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 60 })), 2 * 695.6, 1e-9, 'junior 55 PLUS: couple at 14,000, each person');
   near(await jr(par({ otherA: 7250, otherB: 7250, ageA: 60, ageB: 60 })), 2 * 678.4, 1e-9, 'junior 55 PLUS: couple first band (14,479.21 to 14,527.20)');
   near(await jr(par({ otherA: 8127.6, otherB: 8127.6, ageA: 60, ageB: 60 })), 2 * 52.0, 1e-9, 'junior 55 PLUS: couple last band');
@@ -689,7 +694,7 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   o = await withProv('nl', prof({ otherA: 29295, ageA: 40, dependents: kidsAt(5, 8) }));
   near(o.provChild, nlcb(2) * (1 - (29295 - 20397) / (38193 - 20397)), 1e-9, 'NLCB: two children partway');
   o = await withProv('nl', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(1, 3, 5, 8) }));
-  near(o.provChild, nlcb(4), 1e-9, 'NLCB: four children at 20,000 (8,349.84)');
+  near(o.provChild, nlcb(4) + 2 * 1800, 1e-9, 'NLCB: four children at 20,000 (8,349.84) plus the nutrition supplement for the two under five');
   o = await withProv('nl', prof({ otherA: 38193, ageA: 40, dependents: kidsAt(5) }));
   near(o.provChild, 0, 1e-9, 'NLCB: nil at 38,193');
   // Income Supplement (gov.nl.ca, 2025 benefit year, the same maxima as the CRA 2026-27 page): basic 254, plus 266 phased in at 5.32
@@ -749,7 +754,9 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   // so they get no junior component.
   o = await withProv('mb', par({ otherA: 9150 + 2000, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 }));
   assert(o.allowance > 0, 'the 62-year-old spouse receives the Allowance (test set-up)');
-  near(o.provSenior, 0, 0, 'junior 55 PLUS: nothing for an Allowance recipient (spouse of a pensioner)');
+  // The Allowance recipient gets no junior component; the pensioner gets the senior component (Regulation 65/90 s. 2(4): income 2,000 is
+  // band 41 (1,968 to 2,015.99), 84.70 a quarter).
+  near(o.provSenior, 4 * 84.7, 1e-9, 'junior 55 PLUS: nothing for an Allowance recipient (only the pensioner senior component)');
   o = await withProv('mb', prof({ otherA: 5000, ageA: 61, survivor: true }));
   assert(o.allowance > 0, 'the 61-year-old survivor receives the Allowance for the Survivor (test set-up)');
   near(o.provSenior, 0, 0, 'junior 55 PLUS: nothing for a survivor on the Allowance for the Survivor');
@@ -779,6 +786,40 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     near(r.b.provCredit, r.a.provCredit * f5, 1e-6, 'NL Income Supplement scales with the inflation factor');
     near(r.b.provSenior, r.a.provSenior * f5, 1e-6, 'NL Seniors Benefit scales with the inflation factor');
   }
+
+  // --- NL Prenatal-Early Childhood Nutrition Supplement (gov.nl.ca nutrition supplement page): 150 a month (1,800 a year) for each child
+  // under five, paid with the NL Child Benefit to families eligible for it (income below 38,193). Pregnancy and the birth payment are not modeled.
+  o = await withProv('nl', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(3) }));
+  near(o.provChild, 157.33 * 12 + 1800, 1e-9, 'PECNS: one child aged 3 at 20,000 (child benefit plus 1,800)');
+  o = await withProv('nl', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 157.33 * 12, 1e-9, 'PECNS: a 5-year-old gets no supplement');
+  o = await withProv('nl', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(0, 4) }));
+  near(o.provChild, (157.33 + 166.83) * 12 + 2 * 1800, 1e-9, 'PECNS: two children under five');
+  o = await withProv('nl', prof({ otherA: 38193, ageA: 40, dependents: kidsAt(3) }));
+  near(o.provChild, 0, 1e-9, 'PECNS: not paid once the NL Child Benefit is nil (38,193)');
+
+  // --- Manitoba 55 PLUS, senior component (Regulation 65/90 s. 2, current at 5 October 2026): quarterly amounts by total annual income
+  // declared (income excluding OAS and GIS), for a pensioner (OAS recipient). Single (24 dollar bands): 161.80 at 0 to 23.99 down to
+  // 13.90 at 816 to 839.99. Both spouses pensioners (48 dollar bands), each: 173.90 down to 13.00 at 1,776 to 1,823.99. A pensioner whose
+  // spouse is not a pensioner and gets no Allowance (bands start 47.99 above the OAS): 161.80 down to 18.30 at 528 to 575.99. A pensioner
+  // whose spouse is 60 to 64 on the Allowance: 173.90 down to 10.70 at 3,600 to 3,647.99. A survivor 60 to 64 on the Allowance for the
+  // Survivor: as the both-pensioners table. The amounts below are annual (4 x the quarterly amount).
+  const seniorMb = (pp) => withProv('mb', pp).then((x) => x.provSenior);
+  near(await seniorMb(prof({ otherA: 9150, oasA: 9150, ageA: 70 })), 4 * 161.8, 1e-9, 'senior 55 PLUS: single at no income');
+  near(await seniorMb(prof({ otherA: 9150 + 24, oasA: 9150, ageA: 70 })), 4 * 157.5, 1e-9, 'senior 55 PLUS: single, second band (24 to 47.99)');
+  near(await seniorMb(prof({ otherA: 9150 + 839.99, oasA: 9150, ageA: 70 })), 4 * 13.9, 1e-9, 'senior 55 PLUS: single, last band');
+  near(await seniorMb(prof({ otherA: 9150 + 840, oasA: 9150, ageA: 70 })), 0, 0, 'senior 55 PLUS: single, nil at 840');
+  near(await seniorMb(par({ otherA: 9150, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 2 * 4 * 173.9, 1e-9, 'senior 55 PLUS: couple both pensioners, each 173.90');
+  near(await seniorMb(par({ otherA: 9150 + 1823.99, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 2 * 4 * 13.0, 1e-9, 'senior 55 PLUS: couple, last band');
+  near(await seniorMb(par({ otherA: 9150 + 1824, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 0, 0, 'senior 55 PLUS: couple, nil at 1,824');
+  near(await seniorMb(par({ otherA: 9150, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4 * 161.8, 1e-9, 'senior 55 PLUS: spouse not a pensioner, at no income');
+  near(await seniorMb(par({ otherA: 9150 + 623.98, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4 * 18.3, 1e-9, 'senior 55 PLUS: spouse not a pensioner, last band (47.99 above 575.99)');
+  near(await seniorMb(par({ otherA: 9150 + 623.99, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 0, 0, 'senior 55 PLUS: spouse not a pensioner, nil above');
+  near(await seniorMb(par({ otherA: 9150, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4 * 173.9, 1e-9, 'senior 55 PLUS: spouse on the Allowance, at no income');
+  near(await seniorMb(par({ otherA: 9150 + 3647.99, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4 * 10.7, 1e-9, 'senior 55 PLUS: spouse on the Allowance, last band');
+  near(await seniorMb(par({ otherA: 9150 + 3648, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 0, 0, 'senior 55 PLUS: spouse on the Allowance, nil at 3,648');
+  near(await seniorMb(prof({ otherA: 20, ageA: 61, survivor: true })), 4 * 173.9, 1e-9, 'senior 55 PLUS: a survivor on the Allowance for the Survivor');
+  near(await seniorMb(prof({ otherA: 5000, oasA: 0, ageA: 70 })), 0, 0, 'senior 55 PLUS: nothing without OAS');
 
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);

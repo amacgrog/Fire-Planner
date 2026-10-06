@@ -2918,7 +2918,7 @@
       notes: 'CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 for a spouse or eligible dependant, 181 a child for two children at most, family maximum 1,282; reduced from family net income 39,345 to nil at 81,668. The reduction rate is derived: 1,282 divided by the 42,323 dollar span is 3.029 percent (the saskatchewan.ca page states 2.88 percent for the 2025 to 2026 year only; the 2025 rate is not carried). Children under 18 is a reading. A single parent gets the eligible dependant amount and the child amounts (up to two children), a reading: the GST-style alternative (the first child counts as the dependant) would be 181 lower. Indexed annually, with 5 percent yearly increases announced under the Affordability Act (not modeled beyond inflation).',
     },
     sksip: {
-      name: 'Saskatchewan Income Plan',
+      name: 'Saskatchewan Seniors Income Plan',
       kind: 'seniorSupplement',
       scope: 'sk',
       source: 'https://www.saskatchewan.ca/residents/family-and-social-support/seniors-services/seniors-income-plan',
@@ -2948,9 +2948,8 @@
       maxAge: 17,
       perChild: 420,
       fullTo: 15000,
-      span: 5435,
-      rateKids: 3,
-      notes: 'gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less; partial up to 20,435 for one to three children and 25,864 for six. A straight line with a rate of 420 divided by the 5,435 dollar span for each of the first three children (more children add nothing to the rate) reproduces the published nil points (20,435 for one to three children, 22,242, 24,052 and 25,864 for four to six) within 6 dollars of income (derived, secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.',
+      zero: [20435, 20435, 20435, 22242, 24052, 25864],
+      notes: 'gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less and nil above 20,435 for one to three children, 22,242 for four, 24,052 for five and 25,864 for six (all published; more than six children use the six-child nil point). The table gives the endpoints only, so the benefit falls in a straight line between the full amount at 15,000 and the nil point (secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.',
     },
     mb55j: {
       name: 'Manitoba 55 PLUS, junior component',
@@ -2968,6 +2967,24 @@
       single: { from: 8930.4, width: 24, max: 647.2, values: [630.00, 612.40, 595.20, 577.60, 560.40, 542.80, 525.60, 508.00, 490.80, 473.20, 456.00, 438.40, 421.20, 403.60, 386.40, 368.80, 351.60, 334.00, 316.80, 299.20, 282.00, 264.40, 247.20, 229.60, 212.40, 194.80, 177.60, 160.00, 142.80, 125.20, 108.00, 90.40, 73.20, 55.60] },
       couple: { from: 14479.2, width: 48, max: 695.6, values: [678.40, 660.80, 643.60, 626.00, 608.80, 591.20, 574.00, 556.40, 539.20, 521.60, 504.40, 486.80, 469.60, 452.00, 434.80, 417.20, 400.00, 382.40, 365.20, 347.60, 330.40, 312.80, 295.60, 278.00, 260.80, 243.20, 226.00, 208.40, 191.20, 173.60, 156.40, 138.80, 121.60, 104.00, 86.80, 69.20, 52.00] },
       notes: 'Regulation 64/90 (55 PLUS), section 4 tables, current at 5 October 2026: a person aged 55 or older who is not eligible for OAS gets 647.20 a year (161.80 a quarter) at net family income up to 8,930.40, then a step down in 24 dollar bands to 55.60 in the last band (to 9,746.40) and nil above; in a couple each eligible person gets 695.60 up to 14,479.20, then 48 dollar bands to 52.00 (to 16,255.20). Modeled for ages 55 to 64 (not yet eligible for OAS); a couple with one eligible partner pays that partner the couple amount (a reading, secondary). Not paid to someone who receives the Allowance or the Allowance for the Survivor (an OAS Act benefit, section 2(3)(a)). Net family income is taken as the planner family income (the CPP and EI premium and employment expense deductions are not modeled). The senior component for OAS recipients is a separate scheme and is not modeled. Not indexed.',
+    },
+    mb55s: {
+      name: 'Manitoba 55 PLUS, senior component',
+      kind: 'seniorSupplement',
+      scope: 'mb',
+      source: 'https://web2.gov.mb.ca/laws/regs/current/_pdf-regs.php?reg=65/90',
+      asOf: '2026-10-05',
+      retrieved: '2026-10-05',
+      verified: { tables: 'primary', eligibility: 'primary', incomeBasis: 'secondary', lastRowsOfCoupleTable: 'secondary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: ['oas', 'gis'],
+      style: 'mb55s',
+      single: { width: 24, shift: 0, values: [161.80, 157.50, 153.10, 148.80, 144.40, 140.10, 135.70, 131.40, 127.00, 122.70, 118.30, 114.00, 109.60, 105.30, 100.90, 96.60, 92.20, 87.90, 83.50, 79.20, 74.80, 70.50, 66.10, 61.80, 57.40, 53.10, 48.70, 44.40, 40.00, 35.70, 31.30, 27.00, 22.60, 18.30, 13.90] },
+      bothPensioners: { width: 48, shift: 0, values: [173.90, 169.60, 165.20, 160.90, 156.50, 152.20, 147.80, 143.50, 139.10, 134.80, 130.40, 126.10, 121.70, 117.40, 113.00, 108.70, 104.30, 100.00, 95.60, 91.30, 86.90, 82.60, 78.20, 73.90, 69.50, 65.20, 60.80, 56.50, 52.10, 47.80, 43.40, 39.10, 34.70, 30.40, 26.00, 21.70, 17.30, 13.00] },
+      spouseNeither: { width: 48, shift: 47.99, values: [161.80, 148.80, 135.70, 122.70, 109.60, 96.60, 83.50, 70.50, 57.40, 44.40, 31.30, 18.30] },
+      spouseAllowance: { width: 48, shift: 0, values: [173.90, 171.70, 169.50, 167.30, 165.20, 163.00, 160.80, 158.60, 156.50, 154.30, 152.10, 149.90, 147.80, 145.60, 143.40, 141.20, 139.10, 136.90, 134.70, 132.50, 130.40, 128.20, 126.00, 123.80, 121.70, 119.50, 117.30, 115.10, 113.00, 110.80, 108.60, 106.40, 104.30, 102.10, 99.90, 97.70, 95.60, 93.40, 91.20, 89.00, 86.90, 84.70, 82.50, 80.30, 78.20, 76.00, 73.80, 71.60, 69.50, 67.30, 65.10, 62.90, 60.80, 58.60, 56.40, 54.20, 52.10, 49.90, 47.70, 45.50, 43.40, 41.20, 39.00, 36.80, 34.70, 32.50, 30.30, 28.10, 26.00, 23.80, 21.60, 19.40, 17.30, 15.10, 12.90, 10.70] },
+      survivorAllowance: { width: 48, shift: 0, values: [173.90, 169.60, 165.20, 160.90, 156.50, 152.20, 147.80, 143.50, 139.10, 134.80, 130.40, 126.10, 121.70, 117.40, 113.00, 108.70, 104.30, 100.00, 95.60, 91.30, 86.90, 82.60, 78.20, 73.90, 69.50, 65.20, 60.80, 56.50, 52.10, 47.80, 43.40, 39.10, 34.70, 30.40, 26.00, 21.70, 17.30, 13.00] },
+      notes: 'Regulation 65/90 (55 PLUS for persons eligible for OAS), section 2, current at 5 October 2026: quarterly amounts by total annual income declared in the GIS application (taken as family income excluding OAS and GIS; the application income is not otherwise modeled). Single pensioner: 161.80 at 0 to 23.99 in 24 dollar bands to 13.90 at 816 to 839.99. Both spouses pensioners, each: 173.90 in 48 dollar bands to 13.00 at 1,776 to 1,823.99. A pensioner whose spouse is not a pensioner and gets no Allowance (spouse under 60): 161.80 down to 18.30 at 528 to 575.99 on income less 47.99 (a reading of the table heading). A pensioner whose spouse is 60 to 64 on the Allowance: 173.90 to 10.70 at 3,600 to 3,647.99. A survivor 60 to 64 on the Allowance for the Survivor: the both-pensioners table (its visible rows are identical; the rest of that table was not read). The last six rows of the both-pensioners table are reconstructed from the regular 4.30 and 4.40 step pattern that ends at the 13.00 quoted for 1,776 to 1,823.99 (secondary). Annual amount is 4 times the quarterly amount. Not indexed.',
     },
     nsncb: {
       name: 'Nova Scotia Child Benefit',
@@ -3110,7 +3127,8 @@
       monthlyLater: 192.5,
       from: 20397,
       zero: 38193,
-      notes: 'gov.nl.ca, July 2026 to June 2027: 157.33, 166.83 and 179.16 a month for the first three children under 18 and 192.50 for each later child (yearly totals 1,888, 3,890, 6,040 and 8,350), full below family net income 20,397 and nil at 38,193. A straight line between the two reproduces the regulation reduction rates (10.61, 21.86 and 33.94 percent, plus 12.98 for each child over three), so the shape is consistent with the regulation although its text was not read. The Early Childhood Nutrition Supplement (150 a month for a child under 5) is not modeled: the rule that reduces it is not on a page read. Indexed each July.',
+      nutrition: { monthly: 150, maxAge: 4 },
+      notes: 'gov.nl.ca, July 2026 to June 2027: 157.33, 166.83 and 179.16 a month for the first three children under 18 and 192.50 for each later child (yearly totals 1,888, 3,890, 6,040 and 8,350), full below family net income 20,397 and nil at 38,193. A straight line between the two reproduces the regulation reduction rates (10.61, 21.86 and 33.94 percent, plus 12.98 for each child over three), so the shape is consistent with the regulation although its text was not read. The Prenatal-Early Childhood Nutrition Supplement (gov.nl.ca nutrition supplement page) is added: 150 a month for each child under five, paid to a family eligible for the Child Benefit (income below the nil point); the page states no income reduction; pregnancy and the one-time birth payment are not modeled, and a child counts as under five by tax-year age (0 to 4). Indexed each July.',
     },
     nlis: {
       name: 'Newfoundland and Labrador Income Supplement',
@@ -3183,7 +3201,7 @@
       fullTo: 95000,
       singleZero: 108500,
       coupleZero: 114000,
-      notes: 'PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. The CRA PEI page says the new minimum payment starts in November 2026; the planner applies the new shape for the whole of 2026 and later. Not indexed.',
+      notes: 'PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. The province pages say the benefit begins in July 2026 and the 175 minimum is paid in November (the CRA page describes the renaming from November 2026); the planner applies the annual entitlement from 2026. Not indexed.',
     },
     qcsol: {
       name: 'Quebec Solidarity Tax Credit (QST and housing components)',
@@ -3567,6 +3585,12 @@
     else if (m > 0) a += (R.eligibleDependant + R.child * (R.dependantReplacesChild ? m - 1 : m)) * fx;
     return Math.max(0, a - R.reduction.rate * Math.max(0, fam - R.reduction.from * fx));
   }
+  // A band table keyed by income: bands of equal width starting at `shift`; income below the first band gets the first value, income past
+  // the last band gets nothing (Manitoba 55 PLUS senior component).
+  function bandValue(T, x) {
+    const k = Math.floor((x - T.shift) / T.width + 1e-9);
+    return k < 0 ? T.values[0] : k >= T.values.length ? 0 : T.values[k];
+  }
   // Provinces whose programs pay at any income (no income test), so benefitsFor must not take the high-income early exit.
   const BEN_NO_EXIT = { mb: true, pe: true };
   const BEN = { gis: 0, allowance: 0, ccb: 0, cgeb: 0, provChild: 0, provSenior: 0, provCredit: 0, total: 0 };
@@ -3834,7 +3858,10 @@
           // Child Benefit: a straight line from the full amount to nil, steeper for up to three children.
           const M = BENEFIT_RULES.mbmcb,
             n = countKids(kids, 0, M.maxAge);
-          if (n > 0) BEN.provChild += Math.max(0, M.perChild * n - ((M.perChild * (n > M.rateKids ? M.rateKids : n)) / M.span) * Math.max(0, fam - M.fullTo));
+          if (n > 0 && fam < M.zero[n > M.zero.length ? M.zero.length - 1 : n - 1]) {
+            const zero = M.zero[n > M.zero.length ? M.zero.length - 1 : n - 1];
+            BEN.provChild += fam <= M.fullTo ? M.perChild * n : M.perChild * n * (1 - (fam - M.fullTo) / (zero - M.fullTo));
+          }
           // 55 PLUS junior component (Regulation 64/90): each eligible person aged 55 to 64 gets the table amount at family income.
           const J = BENEFIT_RULES.mb55j,
             eA = ageA >= J.minAge && ageA <= J.maxAge,
@@ -3851,6 +3878,24 @@
             }
             BEN.provSenior += v * ((eA ? 1 : 0) + (eB ? 1 : 0));
           }
+          // 55 PLUS senior component (Regulation 65/90): a pensioner (OAS recipient) gets the quarterly table amount for the household
+          // type at income excluding OAS; a survivor 60 to 64 on the Allowance for the Survivor gets the survivor table.
+          const Q = BENEFIT_RULES.mb55s;
+          if (pA || pB) {
+            const used = Math.max(0, fam - oasA - oasB);
+            let T = Q.single,
+              people = 1;
+            if (couple) {
+              if (pA && pB) {
+                T = Q.bothPensioners;
+                people = 2;
+              } else {
+                const otherAge = pA ? ageB : ageA;
+                T = BEN.allowance > 0 && otherAge >= 60 && otherAge < 65 ? Q.spouseAllowance : Q.spouseNeither;
+              }
+            }
+            BEN.provSenior += people * 4 * bandValue(T, used);
+          } else if (!couple && profile.survivor && BEN.allowance > 0) BEN.provSenior += 4 * bandValue(Q.survivorAllowance, Math.max(0, fam));
         }
         break;
       }
@@ -3884,6 +3929,8 @@
           for (let i = 0; i < n; i++) total += (i < 3 ? C.monthly[i] : C.monthlyLater) * 12;
           total *= f;
           BEN.provChild += fam <= C.from * f ? total : Math.max(0, total * (1 - (fam - C.from * f) / ((C.zero - C.from) * f)));
+          // Nutrition supplement: flat 150 a month for each child under five while the family is eligible for the Child Benefit.
+          BEN.provChild += C.nutrition.monthly * 12 * countKids(kids, 0, C.nutrition.maxAge);
         }
         const k = countKids(kids, 0, I.childMaxAge),
           a = I.basic * f + Math.min(I.phaseInAdd * f, I.phaseInRate * Math.max(0, fam - I.phaseInFrom * f)) + (couple ? I.spouse * f : 0) + I.child * f * k;
