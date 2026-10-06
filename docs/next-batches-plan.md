@@ -3202,7 +3202,7 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
-### 7O notes: remaining US credits, benefits and fixes (in progress: O1-O5 done)
+### 7O notes: remaining US credits, benefits and fixes (O1-O6 done)
 
 Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2) -> V103 (O3) -> V104 (O4) -> V105 (O5).
 
@@ -3430,6 +3430,27 @@ default scenario does not trigger it (retirement 55, start 62), so none moved. (
 on two reruns; unrelated.)
 
 **Before / after.** No number changes, so no table or success rates: the projection hash of every snapshot scenario is identical.
+
+
+#### O6: items left out, with reasons (docs only; no code, no number change)
+
+Recorded so they are not re-raised. Closes the open items for the federal EITC, the state EITCs, the Pennsylvania 401(k) exception (built in O3) and the California Young
+Child Tax Credit (left out in O4). Figures re-confirmed on primary sources 2026-10-06 where noted; the rest are named as the reason, not modeled.
+
+| Item | Why it is left out | Source |
+|---|---|---|
+| Federal EITC and the state EITCs (about 31 states plus DC, most as a share of the federal credit) | Needs earned income, which a retired household lacks; and the credit is lost when investment income exceeds the limit (12,200 in 2026), which counts interest, dividends and the gains from selling taxable shares: a household funding spending from a brokerage account fails it. The state counts are from NCSL and ITEP lists (secondary) | IRS, Rev. Proc. 2025-32 (2026: 12,200; 2025: 11,950) |
+| Saver's Credit | Only the 2026 plan year remains; it is replaced from tax year 2027 | CRS IF11159; IRS Saver's Match page |
+| Saver's Match (from 2027) | A federal deposit into the retirement account, not a tax credit; full 50% match at income up to 20,500 single, 30,750 head of household and 41,000 joint, phased out to 35,499, 53,249 and 70,999; only while contributing, so rare for a planner household; the thresholds are indexed after 2027 | IRS Saver's Match page (SECURE 2.0 section 103, IRC 6433) |
+| State circuit breakers and property-tax or rent credits | The 7D decision stands (owner). The stated reason, no nontaxable-income input, is weaker now: the engine knows nontaxable Social Security, Roth draws and basis per year, and `homeValue` exists for value tests. The Massachusetts Senior Circuit Breaker would be the first case if revisited: tax year 2025 maximum 2,820, refundable, total Massachusetts income up to 75,000 single, 94,000 head of household and 112,000 joint, home assessed at 1,298,000 or less, property tax plus half of water and sewer (or 25% of rent) over 10% of income | Mass.gov Senior Circuit Breaker Tax Credit (updated 3/3/2026) |
+| Credit for the Elderly or Disabled (Schedule R) | Pays nothing to a planner household: AGI must be under 17,500 single, 20,000 joint with one qualifier or 25,000 with two (limits unindexed), and nontaxable Social Security and pensions under 5,000 or 7,500, so a few thousand dollars of Social Security removes it | IRS Publication 524, Table 1 |
+| Local income taxes other than Maryland and Indiana (a flat average county rate) | Too many jurisdictions, no city or county input (accepted gap, named in each state note) | 7D |
+| Medicare Savings Programs, Extra Help, SSI, SNAP, LIHEAP, TANF, WIC, Lifeline and housing aid | Asset tests (SSI 2,000) and income rules the planner has no input for | Out of scope |
+| Foreign tax credit | No foreign income input | Out of scope |
+| Education, adoption, dependent-care and energy or EV credits | No matching input; the owner left them out in Batch 2 and 7B | Out of scope |
+
+Also not built in 7O: cost-sharing reductions (they change deductibles, not the premium the planner models); the Medicare Part A premium (free with 40 credits). The README
+"US-specific" list carries a short version of this table.
 
 
 ### Batch 4A / 4B notes
