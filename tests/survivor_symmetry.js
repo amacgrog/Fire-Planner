@@ -125,7 +125,7 @@ async function run(browser, planner, isUS, low = false, province = null) {
   await run(browser, 'Planner_US.html', true);
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);
-  for (const prov of ['ns', 'mb', 'nb']) await run(browser, 'Planner_Canada.html', false, true, prov);
+  for (const prov of ['ns', 'mb', 'nb', 'sk', 'nl', 'pe']) await run(browser, 'Planner_Canada.html', false, true, prov);
   await browser.close();
 })().catch((e) => {
   console.error(e.message || e);

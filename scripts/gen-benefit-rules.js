@@ -35,7 +35,7 @@ function generate(rules) {
   L.push('whether its figures were read on a primary government page or only on a secondary one; see the 7L notes in docs/next-batches-plan.md.');
   L.push('Same-year income stands in for the prior-year return the programs really use (an engine convention).');
   L.push('');
-  L.push(`${ids.length} programs. Provinces not listed here are filled in a later batch (7M).`);
+  L.push(`${ids.length} programs. All ten provinces have rows (the territories are not modeled); each province gap is named in its notes and in docs/next-batches-plan.md.`);
   L.push('');
   L.push('| Id | Program | Kind | Scope | Source | As of | Verified | Indexing | Depends on |');
   L.push('|---|---|---|---|---|---|---|---|---|');

@@ -16,3 +16,28 @@ provinces not covered in 7L. Plan: `docs/superpowers/plans/2026-10-05-7m-housing
 | Rent or property-tax programs | SK, NL | none | none found | Searches and the CRA NL page found only credits unrelated to rent or property tax (SK Home Renovation credit is not income-tested housing cost) | CRA NL page; searches | not found (absence not proved on a primary page) | Exclude; backlog row |
 
 Backlog (secondary or unconfirmed): the MB school-tax share of a property tax bill (proxy), the NB tier edges (whole dollars), the 2026 and 2027 Manitoba figures (the 2025 form is used until the 2026 form is published, around the end of 2026), absence of SK and NL programs. The earlier reading of the MB seniors top-up (0.75% of income, ending at 47,600) was replaced by the form: 0.8214%, ending at 40,000.
+
+## Child benefits, credits and seniors programs (second part of 7M; retrieved 2026-10-05)
+
+Pages: the CRA 2026-27 provincial pages (child-family-benefits/provincial-territorial-programs/province-*.html) for amounts and thresholds; the province pages named in each row for formulas. P = primary, S = secondary or derived.
+
+| Program | Province | Kind | Figures and rule | Source | Status | Decision |
+|---|---|---|---|---|---|---|
+| Low-Income Tax Credit | SK | familyCredit | 460 adult, 460 spouse or eligible dependant, 181 a child (max 2), family max 1,282; reduced from 39,345, nil at 81,668 | CRA SK page | amounts P; rate 3.029% derived (S): the saskatchewan.ca page states 2.88% for 2025-26 only | Build |
+| Income Plan | SK | seniorSupplement | 360 a month single (nil at 4,560), couple both OAS and GIS 325 each (nil 7,440), spouse under 60 360 (nil 11,568), spouse on Allowance 360 (nil 9,120) | saskatchewan.ca SIP page | maxima and nil points P; straight-line shape S (the page gives no rate) | Build |
+| Child Benefit | MB | childSchedule | 420 a child under 18, full to 15,000, nil at 20,435 (1 to 3 children) and 25,864 (6) | gov.mb.ca mcb pages and benefit levels table | P figures; line with 420/5,435 per child (max 3) derived (S) | Build |
+| 55 PLUS, junior component | MB | seniorSupplement | Tables of Regulation 64/90 s. 4: single 647.20 to 8,930.40, 24 dollar bands to 55.60 at 9,746.40; couple 695.60 each to 14,479.20, 48 dollar bands to 52.00 at 16,255.20; ages 55 and over not eligible for OAS | web2.gov.mb.ca regulation 64/90 (current 5 Oct 2026) | P (the section 2(1) limit text 9,722.40 is older than the table, which runs to 9,746.40) | Build |
+| 55 PLUS, senior component | MB | none | Keyed to GIS and Allowance levels; a separate scheme | MB 55 PLUS page | formula not found | Exclude (named gap) |
+| Child Benefit | NS | childSchedule | 127.08 a month a child under 18 below 26,000; 26,000 to 33,999 first child full, later children half; nil from 34,000 | novascotia.ca childbenefit; CRA NS page | P | Build |
+| Affordable Living Tax Credit | NS | familyCredit | 255 individual or couple, 60 a child, less 5% over 30,000 | CRA NS page | P (child age S) | Build |
+| Child Tax Benefit | NB | childSchedule | 250 a child under 18, less 2.5% (one child) or 5% (more) of income over 20,000 | gnb.ca child_tax_benefit | P | Build |
+| Working Income Supplement | NB | childSchedule | The lesser of 250 and 4% of earned income over 3,750, less 5% of income over 20,921 | gnb.ca child_tax_benefit | P (phases in) | Build |
+| School Supplement | NB | childSchedule | 100 a child aged 8 to 17 when income is 20,000 or less | CRA NB page | P | Build |
+| HST credit | NB | familyCredit | 300 individual, 300 spouse, 100 a child under 19 (300 first child of a single parent), less 2% over 35,000 | CRA NB page | P | Build |
+| Low-Income Seniors Benefit | NB | seniorSupplement | 629; needs GIS, the Allowance or the Allowance for the Survivor; once per household | gnb.ca LISB page | P | Build |
+| Child Benefit | NL | childSchedule | 157.33 / 166.83 / 179.16 a month for children 1 to 3, 192.50 each later child; full to 20,397, nil at 38,193 | gov.nl.ca child page | P; straight line reproduces the regulation rates (consistency check) | Build |
+| Early Childhood Nutrition Supplement | NL | none | 150 a month a child under 5 | gov.nl.ca child page | reduction rule not found | Exclude (named gap) |
+| Income Supplement | NL | familyCredit | Basic 254, +266 phased in at 5.32% over 15,000, spouse 69, 231 a child under 19, reduced 9% over 40,000 | gov.nl.ca income-supplement page (2025 benefit year; maxima match CRA 2026-27) | P (2026 year S) | Build |
+| Seniors Benefit | NL | seniorSupplement | 1,882 to 30,409, 11.66% reduction, age 64 or older | gov.nl.ca income-supplement page | P | Build |
+| Child Benefit | PE | childSchedule | 34.16 a month a child under 18 below 45,000, 24.16 to 80,000, nil above | CRA PEI page | P | Build |
+| Island Essentials Benefit | PE | familyCredit | 310 single, 365 couple or single parent to 95,000; prorated to 175 at 108,500 / 114,000; 175 above; age 19 or older | princeedwardisland.ca IEB FAQ (2026-04-23) | P | Build; PEI skips the early exit |

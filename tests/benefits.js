@@ -545,6 +545,198 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   d = await cliffRun('drawTaxable', '[100000, 0, 1000, { ...p, otherA: 60000 }, 0, 0]');
   near(d.net, 1000, 0.01, 'drawTaxable away from a cliff nets the need');
 
+  // ===== 7M: child benefits, credits and seniors programs of SK, MB, NS, NB, NL and PEI (2026-27). =====
+  // Each case cites its page. Lines: provChild (child benefits), provCredit (credits), provSenior (seniors programs).
+  const par = (o) => prof({ ageA: 40, ageB: 40, singlePerson: false, ...o }); // a couple
+  const kidsAt = (...ages) => ages.map(kid);
+
+  // --- Saskatchewan Low-Income Tax Credit (CRA Saskatchewan page 2026-27): 460 individual, 460 spouse or eligible dependant,
+  // 181 a child (two children at most), family maximum 1,282, reduced above 39,345 and nil at 81,668. The reduction rate
+  // 1,282 / (81,668 - 39,345) = 3.029 percent is derived (secondary).
+  const slitcRate = 1282 / (81668 - 39345);
+  o = await withProv('sk', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 460, 1e-9, 'SLITC: a single person at 30,000');
+  o = await withProv('sk', par({ otherA: 20000, otherB: 19345, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 460 + 460 + 2 * 181, 1e-9, 'SLITC: couple with two children at 39,345 gets the 1,282 maximum');
+  o = await withProv('sk', par({ otherA: 30000, otherB: 30000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 1282 - slitcRate * (60000 - 39345), 1e-9, 'SLITC: reduced above 39,345');
+  o = await withProv('sk', par({ otherA: 45000, otherB: 45000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 0, 1e-6, 'SLITC: nil at 81,668 and above (90,000 here)');
+  o = await withProv('sk', par({ otherA: 0, otherB: 0, dependents: kidsAt(1, 5, 10) }));
+  near(o.provCredit, 1282, 1e-9, 'SLITC: only two children count');
+  o = await withProv('sk', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provCredit, 460 + 460 + 181, 1e-9, 'SLITC: a single parent gets the eligible dependant amount and the child amount');
+
+  // --- Saskatchewan Income Plan (saskatchewan.ca, April 2026): 360 a month for a single recipient (4,320 a year) falling to nil at
+  // 4,560 of income excluding OAS and GIS; both spouses on OAS and GIS 325 each (7,800) nil at 7,440; one spouse under 60 360
+  // (4,320) nil at 11,568; spouse on the Allowance 360 nil at 9,120. The straight line between the maximum at no income and the
+  // published nil point is a reading (secondary).
+  const sip = (pp) => withProv('sk', pp).then((x) => x.provSenior);
+  near(await sip(prof({ otherA: 9150, oasA: 9150, ageA: 70 })), 4320, 1e-9, 'SIP: single, no other income');
+  near(await sip(prof({ otherA: 9150 + 2280, oasA: 9150, ageA: 70 })), 4320 * (1 - 2280 / 4560), 1e-9, 'SIP: single, halfway');
+  near(await sip(prof({ otherA: 9150 + 4560, oasA: 9150, ageA: 70 })), 0, 1e-9, 'SIP: single, nil at 4,560');
+  near(await sip(prof({ otherA: 9150 + 30000, oasA: 9150, ageA: 70 })), 0, 0, 'SIP: nothing once the GIS has ended');
+  near(await sip(prof({ otherA: 5000, ageA: 62 })), 0, 0, 'SIP: nothing for a 62-year-old without OAS');
+  near(await sip(par({ otherA: 9150 + 3720, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 7800 * (1 - 3720 / 7440), 1e-6, 'SIP: couple both on OAS, halfway');
+  near(await sip(par({ otherA: 9150 + 5784, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4320 * (1 - 5784 / 11568), 1e-6, 'SIP: spouse under 60, halfway');
+  near(await sip(par({ otherA: 9150 + 4560, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4320 * (1 - 4560 / 9120), 1e-6, 'SIP: spouse on the Allowance, halfway');
+
+  // --- Manitoba Child Benefit (gov.mb.ca mcb pages): 420 a child under 18, full at 15,000 or less; one to three children nil at
+  // 20,435, six children nil at 25,864. The straight line with a rate of 420 / 5,435 for each of the first three children
+  // reproduces both (derived, secondary): four children are nil at 22,246.67.
+  const mcbRate = 420 / (20435 - 15000);
+  o = await withProv('mb', par({ otherA: 7500, otherB: 7500, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 840, 1e-9, 'MCB: two children at 15,000');
+  o = await withProv('mb', par({ otherA: 8858.75, otherB: 8858.75, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 840 * 0.5, 1e-9, 'MCB: two children halfway to 20,435 (17,717.50)');
+  o = await withProv('mb', par({ otherA: 10217.5, otherB: 10217.5, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: nil at 20,435');
+  o = await withProv('mb', par({ otherA: 9000, otherB: 9000, dependents: kidsAt(1, 3, 5, 10) }));
+  near(o.provChild, 1680 - 3 * mcbRate * (18000 - 15000), 1e-9, 'MCB: four children at 18,000');
+  o = await withProv('mb', par({ otherA: 12932, otherB: 12932, dependents: kidsAt(1, 2, 3, 5, 8, 10) }));
+  near(o.provChild, 0, 2, 'MCB: six children are about nil at 25,864');
+  o = await withProv('mb', par({ otherA: 7500, otherB: 7500, dependents: kidsAt(18) }));
+  near(o.provChild, 0, 0, 'MCB: an 18-year-old does not count');
+
+  // --- Manitoba 55 PLUS, junior component (Regulation 64/90 s. 4, the tables): a person 55 or older who is not eligible for OAS gets
+  // 647.20 a year (single, 161.80 a quarter) up to 8,930.40, then falling in 24 dollar bands to 55.60 in the last band
+  // (9,722.41 to 9,746.40) and nil above; a couple 695.60 each up to 14,479.20, then 48 dollar bands to 52.00 (16,207.21 to
+  // 16,255.20). The senior component (for OAS recipients) is not modeled.
+  const jr = (pp) => withProv('mb', pp).then((x) => x.provSenior);
+  near(await jr(prof({ otherA: 5000, ageA: 60 })), 647.2, 1e-9, 'junior 55 PLUS: single at 5,000');
+  near(await jr(prof({ otherA: 8930.4, ageA: 60 })), 647.2, 1e-9, 'junior 55 PLUS: single at 8,930.40');
+  near(await jr(prof({ otherA: 8940, ageA: 60 })), 630.0, 1e-9, 'junior 55 PLUS: first band (8,930.41 to 8,954.40)');
+  near(await jr(prof({ otherA: 9000, ageA: 60 })), 595.2, 1e-9, 'junior 55 PLUS: third band (8,978.41 to 9,002.40)');
+  near(await jr(prof({ otherA: 9746.4, ageA: 60 })), 55.6, 1e-9, 'junior 55 PLUS: last band');
+  near(await jr(prof({ otherA: 9746.41, ageA: 60 })), 0, 0, 'junior 55 PLUS: nil above 9,746.40');
+  near(await jr(prof({ otherA: 5000, ageA: 54 })), 0, 0, 'junior 55 PLUS: not at 54');
+  near(await jr(prof({ otherA: 5000, ageA: 65, oasA: 9150 })), 0, 0, 'junior 55 PLUS: not for an OAS recipient');
+  near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 60 })), 2 * 695.6, 1e-9, 'junior 55 PLUS: couple at 14,000, each person');
+  near(await jr(par({ otherA: 7250, otherB: 7250, ageA: 60, ageB: 60 })), 2 * 678.4, 1e-9, 'junior 55 PLUS: couple first band (14,479.21 to 14,527.20)');
+  near(await jr(par({ otherA: 8127.6, otherB: 8127.6, ageA: 60, ageB: 60 })), 2 * 52.0, 1e-9, 'junior 55 PLUS: couple last band');
+  near(await jr(par({ otherA: 8200, otherB: 8200, ageA: 60, ageB: 60 })), 0, 0, 'junior 55 PLUS: couple nil above 16,255.20');
+  near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 66, oasB: 9150 })), 695.6, 1e-9, 'junior 55 PLUS: only the eligible partner is paid');
+
+  // --- Nova Scotia Child Benefit (CRA Nova Scotia page; novascotia.ca childbenefit): 127.08 a month (1,524.96 a year) a child under
+  // 18 below 26,000; from 26,000 to 33,999 the first child is full and later children half (762.48); nil from 34,000.
+  o = await withProv('ns', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 1524.96, 1e-9, 'NSCB: two children below 26,000');
+  o = await withProv('ns', par({ otherA: 15000, otherB: 15000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 1524.96 + 762.48, 1e-9, 'NSCB: later children half at 30,000');
+  o = await withProv('ns', par({ otherA: 17000, otherB: 17000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 0, 0, 'NSCB: nil at 34,000');
+  // Affordable Living Tax Credit (CRA Nova Scotia page): 255 an individual or couple, 60 a child, less 5 percent of income over 30,000.
+  o = await withProv('ns', prof({ otherA: 25000, ageA: 40 }));
+  near(o.provCredit, 255, 1e-9, 'NSALTC: single');
+  o = await withProv('ns', par({ otherA: 12500, otherB: 12500, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 255 + 120, 1e-9, 'NSALTC: couple with two children');
+  o = await withProv('ns', par({ otherA: 16500, otherB: 16500, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 375 - 0.05 * (33000 - 30000), 1e-9, 'NSALTC: reduced above 30,000');
+  o = await withProv('ns', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provCredit, 255 + 60, 1e-9, 'NSALTC: a single parent');
+  o = await withProv('ns', prof({ otherA: 35100, ageA: 40 }));
+  near(o.provCredit, 0, 1e-9, 'NSALTC: nil at 35,100 for a single person');
+
+  // --- New Brunswick (gnb.ca child tax benefit page; CRA New Brunswick page 2026-27).
+  // Child Tax Benefit: 250 a child under 18 less 2.5 percent (one child) or 5 percent (more) of income over 20,000.
+  o = await withProv('nb', prof({ otherA: 25000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 250 - 0.025 * 5000, 1e-9, 'NBCTB: one child at 25,000');
+  o = await withProv('nb', par({ otherA: 11000, otherB: 11000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 500 - 0.05 * 2000 + 0, 1e-9, 'NBCTB: two children at 22,000 (earned income 0, no supplement, children under 8 gets no school supplement)');
+  // Working Income Supplement: the lesser of 250 and 4 percent of earned income over 3,750, less 5 percent of income over 20,921.
+  o = await withProv('nb', prof({ otherA: 10000, earnedA: 10000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 250 + 250, 1e-9, 'NBWIS: full 250 at earned income 10,000 (plus the child tax benefit 250)');
+  o = await withProv('nb', prof({ otherA: 5000, earnedA: 5000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 250 + 0.04 * (5000 - 3750), 1e-9, 'NBWIS: phase-in at earned income 5,000');
+  o = await withProv('nb', prof({ otherA: 23000, earnedA: 23000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, (250 - 0.025 * 3000) + (250 - 0.05 * (23000 - 20921)), 1e-9, 'NBWIS: reduced above 20,921');
+  // School Supplement: 100 a child aged 8 to 17 when income is 20,000 or less.
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(9, 12) }));
+  near(o.provChild, 500 + 200, 1e-9, 'NBSS: two children aged 9 and 12 at 10,000 (plus the child tax benefit 500)');
+  o = await withProv('nb', par({ otherA: 10000.5, otherB: 10000.5, dependents: kidsAt(9, 12) }));
+  near(o.provChild, 500 - 0.05 * 1, 1e-9, 'NBSS: nothing above 20,000');
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(7) }));
+  near(o.provChild, 250, 1e-9, 'NBSS: a 7-year-old gets no school supplement');
+  // HST credit: 300 an individual, 300 a spouse, 100 a child under 19 (300 for the first child of a single parent), less 2 percent over 35,000.
+  o = await withProv('nb', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 300, 1e-9, 'NBHSTC: single');
+  o = await withProv('nb', prof({ otherA: 45000, ageA: 40 }));
+  near(o.provCredit, 300 - 0.02 * 10000, 1e-9, 'NBHSTC: single reduced');
+  o = await withProv('nb', prof({ otherA: 30000, ageA: 40, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 300 + 300 + 100, 1e-9, 'NBHSTC: single parent, first child 300');
+  o = await withProv('nb', par({ otherA: 30000, otherB: 30000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 300 + 300 + 200 - 0.02 * 25000, 1e-9, 'NBHSTC: couple with two children at 60,000');
+  // Low-Income Seniors Benefit: 629 for a household that receives GIS or an Allowance (once per household).
+  o = await withProv('nb', prof({ otherA: 9150 + 3000, oasA: 9150, ageA: 70 }));
+  near(o.provSenior, 629, 1e-9, 'NBLISB: a GIS recipient');
+  o = await withProv('nb', prof({ otherA: 9150 + 40000, oasA: 9150, ageA: 70 }));
+  near(o.provSenior, 0, 0, 'NBLISB: nothing without GIS');
+  o = await withProv('nb', par({ otherA: 9150 + 3000, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 }));
+  near(o.provSenior, 629, 1e-9, 'NBLISB: one benefit for a couple');
+
+  // --- Newfoundland and Labrador (gov.nl.ca child benefit and income supplement pages).
+  // Child Benefit: 157.33, 166.83, 179.16 and 192.50 a month for the first, second, third and each later child under 18, full below
+  // 20,397 and nil at 38,193; the straight line reproduces the regulation rates (10.61, 21.86 and 33.94 percent).
+  const nlcb = (n) => [157.33, 166.83, 179.16].slice(0, n).reduce((a, b) => a + b, 0) * 12 + Math.max(0, n - 3) * 192.5 * 12;
+  o = await withProv('nl', prof({ otherA: 20397, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 157.33 * 12, 1e-9, 'NLCB: one child at 20,397');
+  o = await withProv('nl', prof({ otherA: 29295, ageA: 40, dependents: kidsAt(5, 8) }));
+  near(o.provChild, nlcb(2) * (1 - (29295 - 20397) / (38193 - 20397)), 1e-9, 'NLCB: two children partway');
+  o = await withProv('nl', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(1, 3, 5, 8) }));
+  near(o.provChild, nlcb(4), 1e-9, 'NLCB: four children at 20,000 (8,349.84)');
+  o = await withProv('nl', prof({ otherA: 38193, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 0, 1e-9, 'NLCB: nil at 38,193');
+  // Income Supplement (gov.nl.ca, 2025 benefit year, the same maxima as the CRA 2026-27 page): basic 254, plus 266 phased in at 5.32
+  // percent above 15,000 (so 520 at 20,000), spouse 69, 231 a child under 19, reduced at 9 percent above 40,000.
+  o = await withProv('nl', prof({ otherA: 10000, ageA: 40 }));
+  near(o.provCredit, 254, 1e-9, 'NLIS: single at 10,000 (basic only)');
+  o = await withProv('nl', prof({ otherA: 17500, ageA: 40 }));
+  near(o.provCredit, 254 + 0.0532 * 2500, 1e-9, 'NLIS: phase-in at 17,500');
+  o = await withProv('nl', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 520, 1e-9, 'NLIS: single maximum');
+  o = await withProv('nl', par({ otherA: 15000, otherB: 15000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 520 + 69 + 462, 1e-9, 'NLIS: couple with two children at 30,000');
+  o = await withProv('nl', prof({ otherA: 45000, ageA: 40 }));
+  near(o.provCredit, 520 - 0.09 * 5000, 1e-9, 'NLIS: reduced above 40,000');
+  o = await withProv('nl', prof({ otherA: 60000, ageA: 40 }));
+  near(o.provCredit, 0, 0, 'NLIS: nil at 60,000');
+  // Seniors Benefit (gov.nl.ca): 1,882 up to 30,409, less 11.66 percent above, for someone 64 or older (either spouse).
+  o = await withProv('nl', prof({ otherA: 30409, ageA: 64 }));
+  near(o.provSenior, 1882, 1e-9, 'NL Seniors Benefit: maximum at 30,409');
+  o = await withProv('nl', prof({ otherA: 40000, ageA: 64 }));
+  near(o.provSenior, 1882 - 0.1166 * (40000 - 30409), 1e-9, 'NL Seniors Benefit: reduced');
+  o = await withProv('nl', prof({ otherA: 47000, ageA: 64 }));
+  near(o.provSenior, 0, 1e-9, 'NL Seniors Benefit: nil above 46,550');
+  o = await withProv('nl', prof({ otherA: 20000, ageA: 63 }));
+  near(o.provSenior, 0, 0, 'NL Seniors Benefit: not at 63');
+  o = await withProv('nl', par({ otherA: 10000, otherB: 10000, ageA: 64, ageB: 50 }));
+  near(o.provSenior, 1882, 1e-9, 'NL Seniors Benefit: a couple with one person 64');
+
+  // --- Prince Edward Island (CRA PEI page 2026-27; princeedwardisland.ca Island Essentials Benefit FAQ, 2026-04-23).
+  // Child Benefit: 34.16 a month a child under 18 below 45,000, 24.16 from 45,000 to 80,000, nil above.
+  o = await withProv('pe', par({ otherA: 20000, otherB: 24999, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 34.16 * 12, 1e-9, 'PEICB: two children at 44,999');
+  o = await withProv('pe', par({ otherA: 20000, otherB: 25000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 24.16 * 12, 1e-9, 'PEICB: two children at 45,000');
+  o = await withProv('pe', par({ otherA: 40000, otherB: 40000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 24.16 * 12, 1e-9, 'PEICB: two children at 80,000');
+  o = await withProv('pe', par({ otherA: 40000.5, otherB: 40000.5, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 0, 0, 'PEICB: nil above 80,000');
+  // Island Essentials Benefit: 310 a single, 365 a couple or single parent, to 95,000; prorated to the minimum 175 at 108,500
+  // (single) or 114,000 (couple, single parent); 175 above. It has no upper income limit.
+  o = await withProv('pe', prof({ otherA: 50000, ageA: 40 }));
+  near(o.provCredit, 310, 1e-9, 'IEB: single at 50,000');
+  o = await withProv('pe', prof({ otherA: 101750, ageA: 40 }));
+  near(o.provCredit, 310 - 135 * 0.5, 1e-9, 'IEB: single halfway to 108,500');
+  o = await withProv('pe', prof({ otherA: 108500, ageA: 40 }));
+  near(o.provCredit, 175, 1e-9, 'IEB: single at 108,500');
+  o = await withProv('pe', prof({ otherA: 300000, ageA: 40 }));
+  near(o.provCredit, 175, 1e-9, 'IEB: still 175 at 300,000 (no income limit, so the early exit must not apply)');
+  o = await withProv('pe', par({ otherA: 52250, otherB: 52250 }));
+  near(o.provCredit, 365 - 190 * 0.5, 1e-9, 'IEB: couple halfway between 95,000 and 114,000 (104,500)');
+  o = await withProv('pe', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provCredit, 365, 1e-9, 'IEB: a single parent gets 365');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
