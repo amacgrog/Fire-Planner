@@ -93,6 +93,8 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
     **Confirmed 2026-10-06:** O1 `medicaidWhenEligible` defaults to ON, with an info tip on estate
     recovery from 55 and provider networks; O2 reverses the Batch 2 out-of-scope line for medical
     expenses only (charity and QCDs stay out).
+    **Follow-up (2026-10-06):** the 7O review fixes ("7O follow-up fixes" in the batch notes: the Oregon, Vermont and
+    Maine child credits, plus the O1 MAGI-iteration and O3 conversion items once the owner decides them) come first, before 3C.
 
 ## Execution order
 
@@ -102,7 +104,8 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 remaining states and DC, one PR) -> 7D part 2 (state-tax performance, one small PR) -> 7J (Canada federal credits) -> 7K (all
 provinces, one PR) -> 7L (income-tested benefits) -> 7M (paid benefits of the other six
 provinces) -> 7N (remaining Canadian credits and fixes) -> 7O (remaining US credits,
-benefits and fixes) -> 3C (safe-MAGI room; moved
+benefits and fixes) -> 7O follow-up (review fixes: the OR, VT and ME child credits, then the
+O1 and O3 items the owner decides; see "7O follow-up fixes" in the batch notes) -> 3C (safe-MAGI room; moved
 here, owner decision) -> 4A -> 4B -> 5 -> 6 -> 8 (survivor-benefit claim
 optimizer).
 
@@ -3452,6 +3455,271 @@ Child Tax Credit (left out in O4). Figures re-confirmed on primary sources 2026-
 Also not built in 7O: cost-sharing reductions (they change deductibles, not the premium the planner models); the Medicare Part A premium (free with 40 credits). The README
 "US-specific" list carries a short version of this table.
 
+
+#### 7O follow-up fixes (review findings, 2026-10-06)
+
+**Status: planned, not built. This is the first thing to do after 7O and before 3C** (decision 21). A code review of 7O reported
+three child-credit bugs (OR, VT, ME); all three were checked against the primary text on 2026-10-06 and all three are right. Checking
+them turned up four more items (the Oregon credit's 2029 sunset, which is recorded but not modeled, Maine's indexing of the credit, Maine's dependent exemption, and the
+Oregon worksheet's rounding). The review's two other findings (the O1 MAGI iteration at the new cliffs, the O3 Roth-conversion share)
+are planned below with options; **both need the owner's decision** before they are built.
+
+**Owner decisions (2026-10-06).** (1) Do **not** model the Oregon Kids Credit's 2029 sunset: the row keeps the credit in every year (the
+statute's end date is recorded in the notes and the finding below; the legislature is likely to extend it; recheck yearly with the rows).
+(2) The Maine row note about the personal-exemption phase-out is corrected in F7. (3) F5: build design A now (a failing test first), design B
+(filling to the line) goes to 3C. (4) F6: the Roth-conversion split is an internal profile field set each pass (not a sidebar input or a
+`FIELDS` entry); build it only after the PA guide is read (see F6).
+
+##### Verified findings (primary sources, retrieved 2026-10-06)
+
+**(a) Oregon Kids Credit, ORS 315.273: the review is right.** The reduction is a percentage of the whole credit, so the credit
+reaches zero at the same income for any number of children. The code takes 0.21 per dollar (1,050 / 5,000, one child's slope)
+off the household total, so a household with two or more children keeps part of the credit above 31,550.
+- (2): "...with an amount allowed for each dependent of the taxpayer who is a qualifying child with respect to the taxpayer, not to
+  exceed five properly claimed dependents per tax return."
+- (3)(a): "Shall be in an amount of $1,000 per dependent of the taxpayer, but, if the taxpayer has a qualifying income limit in excess
+  of $25,000, regardless of the type of income tax return filed by the taxpayer, the total amount of the credit shall be reduced as
+  provided in subsection (4) of this section." (3)(b): "May not be claimed if the percentage calculated in subsection (4) of this section
+  is greater than or equal to 100 percent."
+- (4): "If a reduction under subsection (3) of this section is required, the amount by which the credit shall be reduced is computed by
+  multiplying the amount otherwise available under subsection (3) of this section by a percentage. The percentage is computed by
+  dividing, by 5,000, the amount by which the taxpayer's qualifying income limit exceeds $25,000."
+- (5)(a): "...the Department of Revenue shall adjust the dollar amounts of the credit and of the income threshold set forth in
+  subsections (3) and (4) of this section by multiplying each dollar amount by the cost-of-living adjustment for the calendar year."
+  (5)(d): increases round to the next lower multiple of $50. The divisor 5,000 is not a dollar amount and stays fixed (the 2025 worksheet
+  still divides by $5,000).
+- **Sunset (new finding):** the note printed under ORS 315.279: "Sec. 11. Section 2 of this 2023 Act [315.273] applies to tax years
+  beginning on or after January 1, 2023, and before January 1, 2029. [2023 c.538 §11]". The 2026 amended-and-repealed table
+  (2026OrLawAR.pdf) lists no change to 315.273 (the only ch. 315 change near it is 315.266). The row has no sunset today.
+- Department of Revenue, "Tax benefits for families" page: "For 2025, if your ... modified AGI is $26,550 or less, the full credit is
+  $1,050 per child for up to five dependent children ages 0 to 5 ... Above a modified AGI of $26,550 the credit is reduced and is $0 at a
+  modified AGI of $31,550." 2025 Form OR-40 instructions (updated January 29, 2026), Oregon Kids Credit Worksheet: line 4 "Is line 4
+  $31,550 or more? If yes, STOP"; line 5 "$26,550"; line 7 "Line 6 divided by $5,000. Round to two decimal places."; line 8a "Number of
+  dependent children age five or younger at the end of 2025. Don't enter more than 5."; line 8b "$1,050"; line 9 "Credit reduction. Line 7
+  multiplied by line 8."; line 10 "Line 8 minus line 9." So the cap of five comes first and the percentage applies to the capped total;
+  the worksheet rounds the percentage to two decimals (the statute does not; follow the worksheet, it is how the credit is filed).
+- Example: two children at 28,000: 1,450 / 5,000 = 0.29; 2,100 x (1 - 0.29) = **1,491** (the code gives 2,100 - 0.21 x 1,450 = 1,795.50).
+  One child is unchanged (1,050 x 0.71 = 745.50 both ways).
+
+**(b) Vermont Child Tax Credit, 32 V.S.A. 5830f: the review is right.** The phase-out is per child.
+- (a): "The total credit per taxable year shall be in the amount of $1,000.00 per qualifying child, as defined under 26 U.S.C. § 152(c)
+  ..., who is six years of age or younger as of the close of the calendar year in which the taxable year of the taxpayer begins."
+- (b): "Notwithstanding subsection (a) of this section, the amount of the credit per child under this section shall be reduced, but not
+  below zero, by $20.00 for each $1,000.00, or fraction thereof, by which the individual's adjusted gross income exceeds $125,000.00,
+  irrespective of the individual's filing status. For purposes of this subsection, spouses filing jointly shall be considered an individual."
+  (History: 2025, No. 71, § 1, eff. January 1, 2025.)
+- Department of Taxes, 2025 Schedule IN-112 instructions, Line 3: "Qualifying children are those born between 2019 and 2025." Line 4:
+  "Multiply Line 3 by $1,000 or if your AGI is greater than $125,000, use the table to find the credit amount per qualifying child to use on
+  Line 4." The Child Tax Credit Table gives the per-child amount (125,001-126,000: 980 ... 150,001-151,000: 480 ... 171,001-172,000: 60).
+- So two children at 150,000 get 2 x 500 = **1,000** (the code: 2,000 - 500 = 1,500), and the credit is gone at 175,000 for any count.
+  The age rule (six or younger, our `tiers: [[6, 1000]]`) and the 125,000 start for every status are right. Not indexed (the statute has
+  no adjustment). A single child is unchanged, so the `state_7d_households.js` Vermont family (one child of 6) does not move.
+
+**(c) Maine dependent exemption tax credit, 36 M.R.S. 5219-SS: the review is right**, and the credit is also indexed, which the row
+says it is not.
+- 1: "For tax years beginning on or after January 1, 2018 and before January 1, 2026, a resident individual is allowed a credit against the
+  tax otherwise due under this Part equal to $300 for each qualifying child and dependent of the taxpayer for whom the taxpayer was eligible
+  to claim the federal child tax credit pursuant to the Code, Section 24 for the same taxable year, subject to the phase-out provisions under
+  subsection 4."
+- 1-A: "For tax years beginning on or after January 1, 2026, a resident individual is allowed a credit against the tax otherwise due under
+  this Part equal to $300 for each dependent of the taxpayer for whom the taxpayer was eligible to claim the federal personal exemption
+  pursuant to the Code, Section 151 in an amount greater than $0 for the same taxable year, subject to the phase-out provisions under
+  subsection 4."
+- 3 and 3-A: the same credits for a part-year resident, multiplied by the Maine-income fraction (before 2026 and from 2026, same split as
+  1 and 1-A). Not relevant to the planner (residents only).
+- 4: "For tax years beginning on or after January 1, 2024, the credit allowed under subsections 1, 1-A, 3 and 3-A, as increased by
+  subsection 5 for tax years beginning on or after January 1, 2025, is refundable. ... For tax years beginning on or after January 1, 2025,
+  the amount of the credit allowed by this section, as increased by subsection 5, must be reduced, but not below zero, by $20 for each $500
+  or fraction thereof by which the taxpayer's Maine adjusted gross income exceeds: A. For a single individual, $100,000; B. For an individual
+  filing as a head of household, $125,000; C. For individuals filing married joint returns or surviving spouses, $150,000; and D. For a
+  married individual filing a separate return, 1/2 of the applicable amount under paragraph C." (The reduction is on the household's
+  credit, so the code's total-based phase-out is right for Maine.)
+- 5: "For tax years beginning on or after January 1, 2025, the credit amount allowed in subsections 1, 1-A, 2, 2-A, 3 and 3-A for each
+  qualifying child and dependent who has not attained 6 years of age before the end of the taxable year is multiplied by 2." (PL 2025,
+  c. 388, Pt. Q, §2.) No end date: a child under six gets twice the amount in 2026 and later. Our 7O note ("2025: doubled under six") is wrong.
+- **Indexing (new finding), 36 M.R.S. 5403:** sub-9: "Beginning in 2024 and each year thereafter, by the dollar amount of the dependent
+  exemption tax credit under section 5219-SS ... the 'cost-of-living adjustment' is the Chained Consumer Price Index for the 12-month period
+  ending June 30th of the preceding calendar year divided by the Chained Consumer Price Index for the 12-month period ending June 30, 2023.
+  If the credit amount, adjusted ..., is not a multiple of $5, any increase must be rounded to the next lowest multiple of $5"; sub-10:
+  "Beginning in 2025 and each year thereafter, by the dollar amount of the applicable amounts specified in section 5219-SS, subsection 4,
+  paragraphs A, B and C" (base: June 2024; rounded down to $50 by the closing paragraph). The row has `creditAmountsIndexed: false` and
+  `creditThresholdsIndexed: false`.
+- Maine Revenue Services, Dependent Exemption Tax Credit Worksheet for Tax Year 2025 (revised December 2025): line 2 "Multiply line 1 by
+  $305" (dependents at least 6), line 4 "Multiply line 3 by $610" (under 6), line 7 "Enter $100,000 if single, $125,000 if head of household,
+  $150,000 if married filing jointly or surviving spouse, or $75,000 if married filing separately", line 8 rounds the excess up to the next
+  $500, line 10 "Multiply line 9 by $20", line 11 "Subtract line 10 from line 5". 2025 Form 1040ME general instructions: refundable "up to $305
+  for each qualifying child or dependent that is at least six years of age, or $610 for each qualifying child or dependent that is under six
+  years of age"; "For tax years beginning after 2025, the income phaseout thresholds are adjusted for inflation." The 2026 amounts were not
+  published on the 2026 forms page on 2026-10-06 (only the 1040ES, the two phase-out worksheets and the rate schedule).
+- **Maine's dependent personal exemption (new finding).** The row has `dependentExemption: 5300`, but 36 M.R.S. 5126-A(1) gives the
+  personal exemption deduction to the filer ("unless the individual may be claimed as a dependent on another return") and "an additional
+  personal exemption deduction ... if the individual is married filing a joint return"; nothing for dependents (since 2018 dependents get the
+  5219-SS credit instead). The 2026 1040ES-ME line 6b: "Exemptions - enter $5,300 ($10,600, if married filing jointly)". So each child
+  currently lowers Maine taxable income by 5,300 that the law does not allow (about 307 to 379 of tax per child).
+- **Watch item (unclear, not acted on):** from 2026 the credit is for a dependent "for whom the taxpayer was eligible to claim the federal
+  personal exemption pursuant to the Code, Section 151 in an amount greater than $0". Maine's Code is the IRC "as of December 31, 2024"
+  (36 M.R.S. 111(1-A), PL 2025 c. 432), under which the federal exemption is suspended only through 2025, so dependents qualify in 2026.
+  If Maine later conforms to Public Law 119-21 (which makes the suspension permanent) without amending 1-A, the credit could stop applying.
+  The 2026 conformity bill, LD 2010, is reported as having died at adjournment on April 29, 2026 (LegiScan, secondary; the Revisor's statute
+  pages were extracted 10/20/2025). Recheck yearly with the rows.
+
+##### Implementation plan (one commit each; `npm test` green at every commit)
+
+Common to F1-F4: the evaluator change in `stateCreditAmount` ('childCredit') keeps every existing row's numbers bit-identical (MN, UT,
+NY, NM, AL, MA and the rest use none of the new keys; `tests/tax_caches.js` and the snapshots prove it). After each row change run
+`npm run gen:states` and commit `docs/state-tax-rules.md`; update the generator's text for any new key (`scripts/gen-state-rules.js`
+describes the credit options). Update the row's `notes`, the README "State child credits" sentence, the O4 table in these notes and
+`CLAUDE.md`'s `childCredit` options line. Bump the US badge once per commit (V105 -> V106 ...). Expected snapshot result: **no movement**
+(the US corpus states are the default, CA, NY and MA, with no Oregon, Vermont or Maine household with children; confirm with
+`node tests/snapshot.js`, and if anything moves, dump and compare against a worktree of the previous commit before updating). Seeded
+success rates (`tests/historical_rates.js`, 2,000 paths, seed 7): expected unchanged for every scenario (the two O4 scenarios are MN and
+NJ); record the run in the commit message. Tests are hand-computed in the comment beside each case, never read back from the evaluator.
+
+**F1. Oregon Kids Credit: a share-of-total phase-out and the worksheet rounding (US V106).**
+- Evaluator: new optional `phaseOut.share: { width, round }`. When present, `pct = (measure - start x ct) / (width)` (width NOT scaled:
+  the statute's 5,000 is fixed), rounded to `round` decimal places when given (Oregon: 2, `Math.round(pct * 100) / 100`), clamped to
+  [0, 1]; the credit is `total x (1 - pct)` where `total` is the capped sum of the tiers (`maxChildren` applies first). `rate` and
+  `per`/`width` keep their meaning (MN, UT unchanged). The OR row: `phaseOut: { start: {...26550}, measure: 'stateAgi', share: { width: 5000,
+  round: 2 } }` (drop `rate: 0.21`, `width: 1`, `per: 0`; keep the schema's required keys if the coverage test asks for them).
+- Sunset: **not modeled (owner decision, 2026-10-06)**: no `schedule` entry. Notes: "the statute applies the Kids Credit to tax years before 2029
+  (2023 c.538 section 11); it is modeled in every year, recheck yearly".
+- Before/after (credit only, 2026, inflation 0): 2 children at 28,000: 1,795.50 -> 1,491.00; 3 children at 30,000: 3,150 - 0.21 x 3,450 =
+  2,425.50 -> 3,150 x (1 - 0.69) = 976.50; 2 children at 31,000: 2,100 - 934.50 = 1,165.50 -> 2,100 x 0.11 = 231.00; 1 child: unchanged. The O4
+  household table (Oregon row) stays unchanged (state AGI over 31,550).
+- Tests (`tests/state_child_credits.js`, replace the 28,000 case and add): 2 children at 28,000 = 1,491; 3 at 30,000 = 976.50; 1 at 28,000
+  = 745.50 (unchanged); 6 at 27,000 = 5,250 x (1 - 0.09) = 4,777.50 (cap first); rounding: 2 at 28,123: 1,573 / 5,000 = 0.3146 -> 0.31,
+  2,100 x 0.69 = 1,449.00 (unrounded 1,439.34); 2 at 31,549: 0.9998 -> 1.00, credit 0; 2 at 31,550: 0; indexed (3% inflation, year 10, factor f):
+  1 child at 26,550 f + 2,500 = 1,050 f x 0.5 (width fixed); 2 children at 26,550 f + 2,500 = 2,100 f x 0.5; year index 3 (2029): the Kids
+  Credit still applies (no sunset modeled). Synthetic `zz` cases in `tests/state_mechanisms.js` for `share` with and without `round`, and
+  with `maxChildren`.
+
+**F2. Vermont: the phase-out per child (US V107).**
+- Evaluator: new optional `phaseOut.perChild: true`: the cut (`ceil(over / width) x per`, or `rate x over`) comes off each counted child's
+  tier amount, each floored at zero, and the credit is the sum. VT row: `phaseOut: { start: {...125000}, width: 1000, per: 20, perChild: true }`.
+- Before/after (credit only): 2 children at 150,000: 1,500 -> 1,000; 2 at 170,000: 2,000 - 900 = 1,100 -> 2 x 100 = 200; 2 at 174,001:
+  1,000 -> 0 (50 steps); 3 at 125,001: 2,980 -> 3 x 980 = 2,940; 1 child: unchanged. O4 household table: unchanged (AGI under 125,000).
+- Tests: the four cases above, the existing one-child boundaries (125,000 / 125,001 / 150,000 / 175,000) unchanged, a child of 7 never
+  counted, not indexed under 3% inflation. A `zz` case for `perChild` with a `rate` line and with tiers of different amounts (a 1,000
+  child and a 500 child at a cut of 600: 400 + 0 = 400, not 900).
+
+**F3. Maine: under-six doubling every year, indexed amount and thresholds (US V108).**
+- No evaluator change: `tiers` already take the first matching age, so `tiers: [[5, 610], [200, 305]]` (age is `taxYear - birthYear`, so
+  5 or under at the end of the year is "has not attained 6 years of age before the end of the taxable year"). Use the latest published
+  figures as the 2026 stand-ins (the 2025 MRS worksheet: 305 and 610; thresholds 100,000 / 125,000 / 150,000), the same convention as
+  Oregon. If MRS publishes the 2026 worksheet before this is built, use its figures instead and cite it. Set the ME row's
+  `creditAmountsIndexed: true` and `creditThresholdsIndexed: true` (it has no other credit). The $5 and $50 round-downs are not modeled
+  (named in the notes). Notes: drop "(2025 was doubled for a child under six)" and "(not indexed)"; state the doubling with no end date
+  and the C-CPI indexing (36 M.R.S. 5403(9) and (10)).
+- Before/after (credit, 2026, inflation 0): one child of 3 at 90,000 single: 300 -> 610; children of 3 and 10: 600 -> 915; at 110,000
+  single: 200 -> 915 - 400 = 515. The O4 household (children born 2023 and 2025, joint, AGI under 150,000): the credit rises from 600 to
+  1,220 a year while both are under six (2026-2028), 915 in 2029-2030 (the 2023 child is 6 from 2029), 610 from 2031 (both 6 or over), before
+  F4's change; regenerate the table.
+- Tests (replace the ME block): 1 child of 5 at 0 single: -610; of 6: -305; children of 5 and 10 at 90,000 single: 915; at 100,001: 915 - 20
+  = 895; at 110,000: 915 - 400 = 515; at 125,000 single: 915 - 1,000 -> 0; head of household at 130,000 with one child of 3: 610 - 200 = 410;
+  joint at 160,000 with children of 2 and 4: 1,220 - 400 = 820; a student of 21 counts at 305; indexed under 3% inflation (year 10): amount
+  and start both scaled (305 f, 610 f, 100,000 f). `state_7d_households.js`: the Maine family has children of 6 and 9, so 2 x 305 = 610
+  (was 600): family 4,838.425 - 610 = 4,228.425 (before F4).
+
+**F4. Maine: no personal exemption for dependents (US V109).**
+- Row: `dependentExemption: 0` (36 M.R.S. 5126-A(1): filer and spouse only). Notes: "personal exemption $5,300 per filer (none for
+  dependents: they get the dependent exemption tax credit)".
+- `state_7d_households.js` Maine family: 132,000 - 31,400 - 10,600 = 90,000; 54,850 x 5.8% = 3,181.30 + 35,150 x 6.75% = 2,372.625 =
+  5,553.925; less the credit 610 = **4,943.925** (was 4,238.425). Retiree unchanged. The O4 table's Maine row rises by about 2 x 5,300 x
+  the marginal rate (5.8% or 6.75%: 614.80 to 715.50) a year in the taxed years. Snapshots: no Maine household with children in the corpus (confirm).
+
+**F5. O1: the MAGI iteration at the Medicaid and 100% cliffs (owner decision; US V110 if built now).** See the analysis below.
+
+**F6. O3: the Roth-conversion share of the Pennsylvania 401(k) exemption (owner decision; US V111 if built).** See below.
+
+**F7. Minor items (one commit, US V112, or folded into F1 if the owner prefers fewer badges).**
+- `tests/roth_accounts.js` case 8: instrumented on 2026-10-06 (a scratch copy logging every MAGI re-run): the case still re-runs (5 re-runs
+  over the run; year 0 re-runs once because the 3,000 gain differs from the 0 seed, year 1 once because the seed is last year's 3,000), so the
+  ledger rewind is still exercised. Only its comment is stale ("ACA makes each year iterate (the premium depends on the realized MAGI)": the
+  household is on Medicaid and the premium is 0; the re-run comes from the estimate). Fix the comment; optionally add a test hook
+  (`window.__test_magiPasses`) so the test can assert at least one re-run instead of relying on it.
+- O5: the "Unusual value" field note (the delegated `focusout` listener) fires only when the person leaves an `UNUSUAL_RANGES` field, i.e. the
+  `ssStartAgeA/B` fields for the O5 item. Changing retirement age or wages can raise the O5 item without the field note; the list item and the
+  marker do appear. Decide whether that is enough (it is consistent with the range items) or whether the O5 item should name its trigger
+  fields (`retireAgeA/B`, `incomeA/B`) for the note; document either way in the O5 notes.
+- Corrections to the 7O notes: O1 "the iteration shows two consistent answers for a household near the line" -> in the probe below there is
+  no consistent answer at all (see F5); O4 table rows for VT, ME and OR (the per-child and share rules, the doubling with no end date, the
+  indexing), "Maine: not indexed".
+- Maine row note: it says the personal-exemption phase-out starts above $125,000 single / $250,000 joint of AGI; 36 M.R.S. 5126-A(2) gives applicable
+  amounts of $266,700 single, $293,350 head of household and $320,000 joint (indexed under 5403(8)) with a denominator of $125,000 (62,500 separate). Re-read
+  the statute and the 2025 1040ME instructions, correct the note, and say whether the phase-out is worth modeling (it only matters above about $267,000).
+- Check while there (no change expected): Minnesota (Schedule M1CWFC line 13: 12% of the excess off the total credit) and Utah (59-10-1047:
+  the reduction is off the total) keep the household-total phase-out; re-read both texts and record the quote.
+
+##### F5: O1 MAGI iteration at the new cliffs (needs the owner's decision)
+
+**Reproduced 2026-10-06** (scratch Playwright probe; clock pinned to 2026-06-15; single person 60, retired, traditional IRA 1,000,000 only,
+inflation 0, medical inflation 0, premium 12,000, ACA on, enhanced off, Medicaid checkbox on, no children; spending 8,000 to 30,000 in steps
+of 250; rows before 65): rows whose `healthcare` differs from `acaNetCost(row.magiProxy, 1, 12000, year)` by more than 1.50: WA 183 of 445,
+TX 192, CA 185, WI 124 (684 of 1,780; the review's sweep found about 705; before 7O: 0). Examples: WA spending 9,250, 2027: charged 12,000 at
+MAGI 21,822.23, `acaNetCost` 772.01; TX spending 12,000, 2026: charged 408.41 at MAGI 12,408.41, `acaNetCost` 12,000; CA 9,000 in 2027: 12,000
+at 21,604.65 (745.76); WI 8,000 in 2027: 353.72 at 8,353.72 (12,000).
+
+**Mechanism (instrumented pass log).** These are not two fixed points: there is **none**. The cost steps DOWN as MAGI crosses the line
+(work-requirement years, or Medicaid declined: full premium below 138% of FPL, the credit above; non-expansion states: full premium below 100%,
+the credit above). A pass that assumes the low MAGI is charged the full premium, so it draws more and lands above the line (cheap); a pass that
+assumes the high MAGI is charged the credit cost, draws less and lands below (dear). WA 9,250 in 2027: realized traditional 21,822 (charged
+12,000) / 10,022 (charged 772) alternating; the damping after pass 3 does not help because the map jumps over the line; the year ends at
+`MAGI_ITER_MAX` on whichever pass came last. TX 12,000 in 2026: 24,878 / 13,150, then damped 12,399 and 12,330, then 24,878 again. Costs at
+the lines (2027 single, inflation 0): WA 21,597 -> 12,000, 21,598 -> 744.96; TX 2026: 15,000 -> 12,000, 15,650 -> 328.65. The only
+consistent outcomes have MAGI at or above the line with cash left over; the cheapest is MAGI just over the line (WA 2027: draw about 21,600,
+cost about 745, about 11,000 left in cash; TX 2026: draw about 15,651, cost about 329, about 3,300 left).
+
+**Candidate designs.**
+- **A. Deterministic overdraw fallback (correctness only, no policy).** Record each pass's estimate and its two costs (charged, and
+  `healthcareCost` at the pass's realized MAGI). If the loop reaches `MAGI_ITER_MAX` unconverged, re-run (one extra pass) the recorded pass
+  whose realized cost is at or below its charge with the smallest difference, skip the convergence check, then charge the realized cost,
+  set `profile.medicalExpense` to it, recompute `totalTax`, and put the difference (charge - realized cost - extra tax) into `bal.cash`.
+  Every row then satisfies `healthcare === acaNetCost(row MAGI)`. Pros: small, local to the year loop (both engines, same code), only
+  non-converging years pay one more pass, no new behavior anywhere else. Cons: it overdraws more than a planner would (TX: 24,878 rather than
+  15,651, about 900 more federal tax), and `firstWithdrawal` and the guardrail record see the overdraw; still the conservative side.
+- **B. Fill to the line (the household's best consistent answer; a policy).** A helper beside `conversionMagiCeiling`, `acaMagiFloor(...)`,
+  returns the line L when the cost below L exceeds the cost just above (the work-requirement years or Medicaid declined: 138%; non-expansion
+  states: 100%) and the household is under it. The withdrawal then takes extra traditional money (or harvests gains, or converts when
+  conversions are on) to reach MAGI L + 1 and keeps the excess as cash, when that is cheaper than the full premium after the extra tax and any
+  10% penalty (a 55-year-old with only IRA money pays the penalty on the extra). Pros: the realistic, cheapest consistent result. Cons: it is
+  the 3C question (3C's `stayUnder` policy prices exactly these cliffs; this is its "lift over" twin), more code in both withdrawal strategies,
+  bigger number changes, and needs its own measurement.
+- **C. Bracketing / bisection on the estimate.** Detect the two-cycle and bisect between the two estimates. It converges to the line but the
+  map still has no fixed point there, so it must end in A or B anyway; useful only as a faster route to B. Not recommended alone.
+- **D. Extend the MAGI ceilings to the new lines.** A ceiling keeps MAGI under a line: right for the opposite cliff (Medicaid available, 138%
+  in an expansion state, where staying under keeps a cost of 0 and the iteration is already self-consistent), wrong for the step-down cliffs
+  above, which need a floor. Belongs to 3C.
+
+**Decision (owner, 2026-10-06): A now, in this follow-up, as a correctness fix, with the probe as a failing test first; B in 3C** as the policy (with `stayUnder`, measured
+there). A is a stopgap that makes every row consistent (the overdraw lands in cash), not a policy; record it as such in the notes. If the owner prefers to go straight to B, skip A and move B into 3C's first commit. Either way, extend `tests/aca_medicaid.js` with the
+probe above as an assertion (WA, TX, WI, CA; spending 8,000 to 30,000 in steps of 1,000; every row before 65 consistent within 1.50), and add a
+pass-count hook so the test can show the fallback ran. Expected changes for A: only years that hit the cap move (all `aca` snapshot scenarios
+must be checked: count the years at the cap with an instrumented copy first; rows move toward a consistent cost, more cash, more tax);
+seeded rates for the two low-MAGI scenarios in `tests/historical_rates.js` (CA, TX) recorded before and after; timing gate unchanged for
+ACA-off households (the code path is not entered) and within +5% for an ACA-on household near the line.
+
+##### F6: O3 Roth conversions and the Pennsylvania 401(k) exemption (needs the owner's decision)
+
+**What happens now.** `taxFor` puts the whole `traditionalExtra` (discretionary draw plus the year's conversion) into each partner's
+`retirementA/B` by the ownership share, then `retirement401kA/B = retirementA/B x k401FracA/B`. A conversion is taken from the IRAs first
+(`accountsConvert`: both partners' IRAs pro rata, then the 401(k)s), so for a PA filer under 59.5 with both IRA and 401(k) money, the part of
+the conversion that came from the IRA is treated as partly 401(k) money and exempted; PA tax is understated by 3.07% x the conversion x
+the 401(k) fraction. It only
+matters in Pennsylvania, for a retired filer under 59.5 who converts and has 401(k) money.
+
+**Recommended small fix (US V111).** Put the pass's conversion on the profile (`profile.conversionA/B`, the per-partner split that
+`accountsConvert` would take, from a pure helper `accountsConvertSplit(accts.trad, pool, amount)` returning the IRA and 401(k) parts per
+partner, set right after `solveRothConversion`, the same way `profile.medicalExpense` is set each pass). In the four per-person blocks of
+`taxFor` (they run only when `needsPerPerson`): `retirement401kX = max(0, retirementX - convX) x k401FracX + conv401kX`, where `conv401kX` is
+the 401(k) part of the conversion (zero unless the IRAs were exhausted). Whether a 401(k)-to-Roth conversion by a retiree is exempt in
+Pennsylvania must be read in the PA Personal Income Tax Guide before building (if it is taxable, drop the `+ conv401kX` term). The conversion
+solver's own probes keep the pro rata treatment (it is a lower bound already). Tests: `tests/pa_employer_plan.js`, hand-computed: single 52 in
+PA, IRA 200,000 and 401(k) 300,000, conversion 30,000, no other draw: PA tax 3.07% x 30,000 = 921 (today 3.07% x 30,000 x 0.4 = 368.40); the
+same with a 20,000 draw: 921 + 3.07% x 20,000 x 0.4 (the draw's IRA part) = 1,166.60 (the 401(k) fraction of the remaining accounts is stated
+at the start of the year, approximation 3). Snapshots: none (no PA scenario in the corpus); `tests/tax_caches.js` must stay green (the new
+fields are written only when `needsPerPerson`). The alternative is to leave it and keep approximation (2) in the PA notes as it stands. **Owner (2026-10-06): read the PA guide first; if a retiree's
+401(k)-to-Roth conversion is not clearly exempt (or the guide is silent), keep the documented approximation and skip the code.** The new profile fields
+(`conversionA/B` and the 401(k) parts) are internal: no `FIELDS` entry, no MCP property, nothing saved.
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
