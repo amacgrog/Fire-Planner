@@ -2849,6 +2849,37 @@
       share: 0.5,
       notes: 'Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba) and 7: the greater of 15 and 50 percent of the actual municipal residential property tax paid, to a maximum of 800, for an owner who lives in the property and receives (or is eligible for) the Guaranteed Income Supplement, the spouse allowance or the survivor allowance. Modeled as that amount when the household receives any GIS or Allowance (the Allowance for the Survivor is inside the Allowance line). The planner property tax is the whole bill, taken as municipal. Not indexed. The 2026 amounts are also on the news release of 2026-07-02.',
     },
+    mbhatc: {
+      name: 'Manitoba Homeowners Affordability Tax Credit',
+      kind: 'occupancyCredit',
+      scope: 'mb',
+      source: 'https://www.gov.mb.ca/finance/taxation/pubs/bulletins/2026budget.pdf',
+      asOf: '2026-03-24',
+      retrieved: '2026-10-05',
+      verified: { maximum: 'primary', schoolTaxProxy: 'secondary' },
+      indexing: { amounts: true },
+      dependsOn: [],
+      style: 'mbhatc',
+      max: 1600,
+      notes: 'The lesser of the maximum and the gross school taxes on the principal residence; 1,600 for 2026 and 1,700 for 2027 (Information Bulletin 126, Budget 2026; the 2027 credit is also reduced by 3.40 per 1,000 of assessed value over 1,000,000, not modeled). No income test. The planner has only total property tax, so school taxes are proxied by the property tax paid, an upper bound. The maximum scales with plan inflation; the enacted 2027 step to 1,700 is not separately modeled.',
+    },
+    mbsstr: {
+      name: 'Manitoba Seniors School Tax Rebate',
+      kind: 'occupancyCredit',
+      scope: 'mb',
+      source: 'https://www.gov.mb.ca/finance/personal/pcredits.html',
+      asOf: '2024-01-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'primary', incomeTest: 'primary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: [],
+      style: 'mbsstr',
+      seniorAge: 65,
+      max: 235,
+      from: 40000,
+      rate: 0.01,
+      notes: 'For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The school-tax limit (the rebate is based on school taxes less the credit received) is not modeled; the maximum is small against any school tax bill. Not indexed.',
+    },
     qcsol: {
       name: 'Quebec Solidarity Tax Credit (QST and housing components)',
       kind: 'quebecCredit',
@@ -3426,6 +3457,17 @@
         const R = BENEFIT_RULES.nsptr,
           pt = profile.propertyTaxPaid || 0;
         if (pt > 0 && BEN.gis + BEN.allowance > 0) BEN.provSenior += Math.max(R.min, Math.min(R.max, R.share * pt));
+        break;
+      }
+      case 'mb': {
+        // Homeowners Affordability Tax Credit (school-tax proxy: the property tax) and the Seniors School Tax Rebate.
+        const pt = profile.propertyTaxPaid || 0;
+        if (pt > 0) {
+          const H = BENEFIT_RULES.mbhatc,
+            S = BENEFIT_RULES.mbsstr;
+          BEN.provCredit += Math.min(H.max * f, pt);
+          if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.max(0, S.max - S.rate * Math.max(0, fam - S.from));
+        }
         break;
       }
     }

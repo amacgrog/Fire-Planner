@@ -419,6 +419,29 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     500, 1e-9, 'NS rebate: couple, one pensioner, one household rebate',
   );
 
+  // Manitoba Homeowners Affordability Tax Credit (Information Bulletin 126; gov.mb.ca pcredits page): the lesser of the
+  // maximum (1,600 for 2026) and school taxes; the planner proxies school taxes by the property tax paid. No income test.
+  const mbc = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'propertyTaxPaid', pt, 'provCredit');
+  near(await mbc(50000, 3000), 1600, 1e-9, 'MB homeowners credit: capped at 1,600');
+  near(await mbc(50000, 1000), 1000, 1e-9, 'MB homeowners credit: the property tax when smaller');
+  near(await mbc(100000, 3000), 1600, 1e-9, 'MB homeowners credit has no income test');
+  near(await mbc(50000, 0), 0, 0, 'MB renter: no homeowners credit');
+  // Seniors School Tax Rebate (gov.mb.ca pcredits page): age 65 or older, 235 less 1.0 percent of family net income over
+  // 40,000, nil at 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
+  const mbs = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 70, ...extra }), 'propertyTaxPaid', pt, 'provSenior');
+  near(await mbs(50000, 3000), 135, 1e-9, 'MB seniors rebate at 50,000');
+  near(await mbs(40000, 3000), 235, 1e-9, 'MB seniors rebate: maximum at 40,000');
+  near(await mbs(30000, 3000), 235, 1e-9, 'MB seniors rebate: maximum below 40,000');
+  near(await mbs(63500, 3000), 0, 1e-9, 'MB seniors rebate: nil at 63,500');
+  near(await mbs(80000, 3000), 0, 0, 'MB seniors rebate: nil above 63,500');
+  near(await mbs(50000, 0), 0, 0, 'MB seniors rebate: a renter gets none');
+  near(await housing('mb', prof({ otherA: 50000, ageA: 64 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'MB seniors rebate: not at 64');
+  // Couple, B is 65: the household qualifies; combined income 50,000 -> 135.
+  near(
+    await housing('mb', prof({ otherA: 25000, otherB: 25000, ageA: 60, ageB: 65, singlePerson: false }), 'propertyTaxPaid', 3000, 'provSenior'),
+    135, 1e-9, 'MB seniors rebate: couple with one 65-year-old',
+  );
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
