@@ -2971,6 +2971,47 @@ Each can be added later as one more row family or credit term without changing t
 
 **Exit criteria:** every figure cited with retrieval date; hand-computed tests per item in `npm test`; seeded success rates and before/after tables per item; `docs/province-tax-rules.md` regenerated; 390x844 check done (no horizontal overflow); `npm run check:shared` clean; badge bumped each commit; README and CLAUDE.md updated per item.
 
+#### Open items: Canada simplifications in credits, benefits and taxes (after 7N)
+
+One place to see what the Canada model does not do, and why that is acceptable. Detail and sources sit in the item notes above; the verification backlog table lists figures still to confirm. Sizes are rough and from the notes.
+
+**Taxes and credits**
+| Simplification | Why acceptable | Source |
+|---|---|---|
+| Spouse's unused age, pension and pooled amounts are not transferred | Needs the partner's unused credit solved jointly; effect is small once the split and the recovery are priced | 7K, N3 |
+| Quebec single-parent supplement | Does not apply to a parent of a minor child (needs a child 18+ in post-secondary studies, no Family Allowance) | N3 |
+| Federal top-up tax credit (line 34990) | At most 1% of credits above 58,523, under about 200 dollars; worksheet not readable on a primary page | N5 |
+| Quebec refundable medical credit (work income) | Needs work income and a separate schedule; retiree plans mostly do not qualify | N5 |
+| Medical claim window and choice of period; attendant-care categories; the whole LTC input counted as nursing-home care | Owner decision (N5); one calendar-year claim is the model's period | N5 |
+| Ontario LIFT credit; Ontario dependants with an impairment | Working-years or disability inputs the planner does not have; small | N6 |
+| Quebec access-to-homeownership credit (up to 5,875) | Needs inputs not modeled; the 10,000 home-buyer amount is built | N10 |
+| Non-eligible Canadian dividends taxed like interest | The planner has one dividend yield; eligible dividends are modeled | 7K |
+| Territories; local or municipal taxes | Not in scope (ten provinces only) | 7K |
+| Couple assumed to live together all year; a spouse's net income is the pre-recovery figure | Keeps the claim rules deterministic | N3 |
+| 2025 forms used as 2026 amounts for N6 reductions and several medical thresholds (about 2% low) | 2026 forms not yet published or not read; on the backlog | N5, N6 |
+| EI/CPP effects of working past 70; CPP survivor pension, death benefit, children's benefit | CPP survivor keeps a greater-of simplification; the rest is Batch 6 | N4, N9 |
+
+**Benefits**
+| Simplification | Why acceptable | Source |
+|---|---|---|
+| Same-year income stands in for the prior-year return | Engine convention for every benefit | 7L |
+| No benefit columns in the CSV export | The export is a shared region | 7L |
+| PEI property tax credit, Manitoba Rent Assist, Nova Scotia heating rebate | Need inputs (assessed value, rent detail) the planner does not have | 7M |
+| Disability benefits; NL pregnancy and birth parts of the Nutrition Supplement | Out of scope | 7M |
+| Phase-in benefits (CGEB single supplement, NL Income Supplement) can make a taxable sale over-sell by the phase-in amount | Known limit of the shared drawTaxable bisection; amounts small | 7M |
+| Several shapes are readings, marked secondary (Saskatchewan Seniors Income Plan, Manitoba Child Benefit, Saskatchewan single-parent amount) | Primary page gives endpoints, not the full formula | 7M |
+| Flat statutory amounts are unindexed; OAS amounts update quarterly | Matches the statutes; refresh each year (the 2027 OAS update is flagged) | 7L |
+
+**Estate and health costs**
+| Simplification | Why acceptable | Source |
+|---|---|---|
+| After-tax estate is display only; registered accounts and TFSA assumed to pass by beneficiary (outside probate); one final return stacked on the last year's income | Gives a ranking signal for the meltdown table, not a tax filing | N8 |
+| Some probate lower steps (PEI, Nova Scotia) and the New Brunswick 2026 change are from secondary sources | On the backlog | N8 |
+| Every retired adult pays the RAMQ premium; the premium table is the 2025 Schedule K scaled to 2026 | Owner decision (N7); 2026 schedule to be confirmed | N7 |
+| Dental Care Plan not modeled (copy note only) | Eligibility depends on having no dental insurance; the model has one health cost line | N11 |
+
+**Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
