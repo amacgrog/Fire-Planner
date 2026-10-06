@@ -396,6 +396,29 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   // Provinces do not leak: the same household in Ontario gets no 300 step from the NB row.
   assert(Math.abs((await housing('on', prof({ otherA: 20000, ageA: 50 }), 'propertyTaxPaid', 3000, 'provCredit')) - 300) > 1, 'the NB allowance does not apply in Ontario');
 
+  // Nova Scotia Property Tax Rebate for Seniors (Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba), 7): the
+  // greater of 15 and half of the property tax, to a maximum of 800, for someone receiving GIS or an Allowance. Single 70,
+  // OAS 9,150, other income 5,000 -> GIS income 5,000 (single table, positive).
+  const ns = (inc, pt, extra = {}) => housing('ns', prof({ otherA: inc, oasA: 9150, ageA: 70, ...extra }), 'propertyTaxPaid', pt, 'provSenior');
+  near(await ns(9150 + 5000, 3000), 800, 1e-9, 'NS rebate: 0.5 x 3,000 = 1,500, capped at 800');
+  near(await ns(9150 + 5000, 1200), 600, 1e-9, 'NS rebate: half of 1,200');
+  near(await ns(9150 + 5000, 0), 0, 0, 'NS renter: no rebate');
+  // Regulation s. 7: the greater of 15 and 50 percent of the tax: a 20 dollar bill gives 15.
+  near(await ns(9150 + 5000, 20), 15, 1e-9, 'NS rebate: the 15 dollar floor');
+  // Income so high that GIS is 0 (single table ends at 23,112 of GIS income): no rebate.
+  near(await ns(9150 + 30000, 3000), 0, 0, 'NS rebate needs GIS: none at GIS income 30,000');
+  // Just under the cutoff GIS is still positive (single table: 5.88 at 23,088): the rebate is paid.
+  near(await ns(9150 + 23088, 3000), 800, 1e-9, 'NS rebate while the GIS is still positive');
+  // Not a pensioner (age 50): no GIS, no rebate.
+  near(await housing('ns', prof({ otherA: 5000, ageA: 50 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'NS rebate: no GIS at 50');
+  // Allowance only: a survivor aged 61 with income 5,000 gets the Allowance for the Survivor (table 5): s. 3(b) counts it.
+  near(await housing('ns', prof({ otherA: 5000, ageA: 61, survivor: true }), 'propertyTaxPaid', 3000, 'provSenior'), 800, 1e-9, 'NS rebate: Allowance for the Survivor counts');
+  // Couple, A 66 with OAS and B 62 (Allowance, table 4): eligible; one household rebate, 0.5 x 1,000 = 500.
+  near(
+    await housing('ns', prof({ otherA: 9150 + 3000, otherB: 0, oasA: 9150, ageA: 66, ageB: 62, singlePerson: false }), 'propertyTaxPaid', 1000, 'provSenior'),
+    500, 1e-9, 'NS rebate: couple, one pensioner, one household rebate',
+  );
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');

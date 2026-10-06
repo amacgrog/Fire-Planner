@@ -2833,6 +2833,22 @@
       tiers: [[22001, 300], [25001, 200], [30001, 100]],
       notes: 'Up to 300 for household income below 22,000, 200 from 22,001 to 25,000 and 100 from 25,001 to 30,000, never more than the property tax paid; for an owner who lives in the property and receives the residential property tax credit. The page is undated; the allowance is tested on the prior-year return (same-year income stands in). The whole-dollar tier edges are a reading of the page. Not indexed.',
     },
+    nsptr: {
+      name: 'Nova Scotia Property Tax Rebate for Seniors',
+      kind: 'occupancyCredit',
+      scope: 'ns',
+      source: 'https://novascotia.ca/just/Regulations/regs/scproptaxrebate.htm',
+      asOf: '2026-07-02',
+      retrieved: '2026-10-05',
+      verified: { amount: 'primary', gisTest: 'primary', survivorAllowance: 'primary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: ['gis'],
+      style: 'nsptr',
+      max: 800,
+      min: 15,
+      share: 0.5,
+      notes: 'Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba) and 7: the greater of 15 and 50 percent of the actual municipal residential property tax paid, to a maximum of 800, for an owner who lives in the property and receives (or is eligible for) the Guaranteed Income Supplement, the spouse allowance or the survivor allowance. Modeled as that amount when the household receives any GIS or Allowance (the Allowance for the Survivor is inside the Allowance line). The planner property tax is the whole bill, taken as municipal. Not indexed. The 2026 amounts are also on the news release of 2026-07-02.',
+    },
     qcsol: {
       name: 'Quebec Solidarity Tax Credit (QST and housing components)',
       kind: 'quebecCredit',
@@ -3403,6 +3419,13 @@
             }
           BEN.provCredit += Math.min(a, pt);
         }
+        break;
+      }
+      case 'ns': {
+        // Property Tax Rebate for Seniors: half of the property tax (15 to 800) for a household that receives GIS or an Allowance.
+        const R = BENEFIT_RULES.nsptr,
+          pt = profile.propertyTaxPaid || 0;
+        if (pt > 0 && BEN.gis + BEN.allowance > 0) BEN.provSenior += Math.max(R.min, Math.min(R.max, R.share * pt));
         break;
       }
     }
