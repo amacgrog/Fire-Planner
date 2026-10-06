@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V100</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V101</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -502,6 +502,7 @@
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
           <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
+          <div class="field" id="medicaidWhenEligibleField"><label for="medicaidWhenEligible"><input id="medicaidWhenEligible" type="checkbox"> Enroll in Medicaid when <span class="info-nw">eligible<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="In the 41 states with Medicaid expansion (and Wisconsin, to 100% of poverty), an adult under 65 with income at or below 138% of the poverty line (100% in Wisconsin) is eligible for Medicaid: a $0 premium and no premium tax credit. Checked, the plan charges $0 in those years; unchecked, it charges the full unsubsidized premium (you cannot take the credit instead). Medicaid pays back from the estate of anyone 55 or older (estate recovery), and its provider networks are narrower, so some households decline it. In the ten states that did not expand (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY), income below 100% of poverty gets no credit and pays the full premium. From 2027, expansion adults 19 to 64 must show 80 hours a month of work, service or school (a parent or caregiver of a child 13 or younger is exempt); a retired adult with no such child fails the test, loses Medicaid, and is also barred from the premium credit, so pays the full premium. Not modeled: other exemptions (medical frailty, disability, SNAP or TANF compliance), the income route to the requirement, state delays of up to the end of 2028, and Medicaid&#x27;s use of monthly rather than annual income.">i</button></span><small>$0 premium when income is low enough; full premium otherwise</small></label></div>
           <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
           <div id="irmaaPriorFields">
             <div class="field"><label for="irmaaMagiPrior2">MAGI two tax years ago<small>Sets this year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior2" type="number" class="money" min="0" step="1000"></div>
@@ -894,6 +895,7 @@
     irmaaMagiPrior1: 0,
     acaEnabled: false,
     acaEnhanced: false,
+    medicaidWhenEligible: true,
     ltcEnabled: false,
     ltcYearlyA: 50000,
     ltcAgeA: 82,
@@ -1226,7 +1228,8 @@
     { key: 'singlePerson', type: 'bool', sync: 'controls', resync: ['controls', 'contrib'], mirrors: ['wizardSinglePerson'], mcp: true },
     { key: 'megaBackdoor', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'megaAField', hidden: (s) => !s.megaBackdoor }, { id: 'megaBField', hidden: (s) => !s.megaBackdoor || s.singlePerson }], mirrors: ['wizardMegaBackdoor'], mcp: true },
     { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'], mcp: true },
-    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }], mirrors: ['wizardAcaEnabled'], mcp: true },
+    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }, { id: 'medicaidWhenEligibleField', hidden: (s) => !s.acaEnabled }], mirrors: ['wizardAcaEnabled'], mcp: true },
+    { key: 'medicaidWhenEligible', type: 'bool', sync: 'contrib', resync: [], trueUnlessFalse: true, mcp: true },
     { key: 'irmaaPriorKnown', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'irmaaPriorFields', hidden: (s) => !s.irmaaPriorKnown }], mcp: true },
     { key: 'employerCoversSpouseA', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
     { key: 'employerCoversSpouseB', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
@@ -6757,6 +6760,47 @@
   // poverty line (IRS Rev. Proc. 2025-25), then a hard cliff above 400%.
   // "Assume enhanced subsidies return" models the 2021-2025 ARPA/IRA structure
   // instead (no cliff, capped at 8.5% of income), in case Congress extends it.
+  // Medicaid for adults under 65 and the premium-credit floor (Batch 7O, O1). Pure literals (read by
+  // nothing else; the state-tax generator and coverage test do not see this table).
+  // `expansionLimit`: Medicaid for an adult at or below this share of the poverty line (42 CFR 435.119:
+  // 133%, plus the 5-point disregard of 435.603(d)(4)). `nonExpansion`: the ten states with no
+  // adult group (KFF, Aug 2026). `adultCoverage`: a non-expansion state that covers adults anyway,
+  // to that share (Wisconsin's BadgerCare waiver, 100% through 2029). `ptcFloor`: no premium tax
+  // credit below this share (IRC 36B(c)(1)(A)). `workRequirement`: from `fromYear` an adult 19 to 64
+  // in the adult group (or a waiver covering the same people) must show community engagement, unless
+  // a parent or caregiver of a child `exemptChildMaxAge` or younger (SSA 1902(xx), CMCS Informational
+  // Bulletin 12/8/2025); one denied for failing it is barred from the premium credit (1902(xx)(7)(B)).
+  // MEDICAID_RULES:begin
+  const MEDICAID_RULES = {
+    expansionLimit: 1.38,
+    nonExpansion: ['al', 'fl', 'ga', 'ks', 'ms', 'sc', 'tn', 'tx', 'wi', 'wy'],
+    adultCoverage: { wi: 1.0 },
+    ptcFloor: 1.0,
+    workRequirement: { fromYear: 2027, exemptChildMaxAge: 13 },
+    asOf: 2026,
+  };
+  // MEDICAID_RULES:end
+  // Highest share of the poverty line at which an adult is on Medicaid in this state (0: none).
+  const medicaidLimitCache = {};
+  function medicaidLimit(code) {
+    let v = medicaidLimitCache[code];
+    if (v === undefined) {
+      const R = MEDICAID_RULES;
+      v = R.nonExpansion.indexOf(code) < 0 ? R.expansionLimit : R.adultCoverage[code] || 0;
+      medicaidLimitCache[code] = v;
+    }
+    return v;
+  }
+  // True when the household has a child aged `maxAge` or younger in that calendar year (no allocation).
+  function hasChildAtMost(taxYear, maxAge) {
+    const kids = state.children;
+    if (!kids) return false;
+    for (let i = 0; i < kids.length; i++) {
+      const age = taxYear - kids[i].birthYear;
+      if (age >= 0 && age <= maxAge) return true;
+    }
+    return false;
+  }
   function fplForHousehold(size, yearIndex) {
     const factor = taxIndexFactor(yearIndex);
     return (15650 + (Math.max(1, size) - 1) * 5500) * factor;
@@ -6826,8 +6870,20 @@
     MAGI_ITER_TOL = 1;
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
-    if (magi <= 0) return 0;
-    const ratio = magi / fplForHousehold(householdSize, yearIndex);
+    const ratio = magi > 0 ? magi / fplForHousehold(householdSize, yearIndex) : 0;
+    // Medicaid and the credit floor (O1). An adult under 65 at or below the state's Medicaid line is
+    // eligible for Medicaid and cannot take the credit: $0 when enrolled, else the full premium (which
+    // is also the price of failing the 2027 work requirement, a retired adult with no child 13 or
+    // younger, who is barred from the credit as well). Below 100% there is no credit in any state.
+    // The same 1e-9 tolerance as the 400% line below.
+    const mcdLimit = medicaidLimit(state.stateTax);
+    if (mcdLimit > 0 && ratio <= mcdLimit + 1e-9) {
+      const R = MEDICAID_RULES.workRequirement,
+        taxYear = taxYearOf(yearIndex);
+      if (state.medicaidWhenEligible && (taxYear < R.fromYear || hasChildAtMost(taxYear, R.exemptChildMaxAge))) return 0;
+      return grossPremium;
+    }
+    if (ratio < MEDICAID_RULES.ptcFloor - 1e-9) return grossPremium;
     // A conversion is sized to land exactly on the 400% line, so the comparison needs a tolerance
     // or a last-bit rounding difference between the two engines would decide the whole premium.
     if (!state.acaEnhanced && ratio > 4 + 1e-9) return grossPremium;

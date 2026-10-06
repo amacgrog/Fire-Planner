@@ -135,12 +135,13 @@ const BASE = {
   //    estimate, so the year re-runs) and the rest of the need comes from a Roth IRA with 40,000 of basis.
   //    If the ledger were not rewound, the repeated passes would consume the basis several times.
   {
-    const aca = { acaEnabled: true, acaEnhanced: false, healthcare: 12000, ageA: 50, retireAgeA: 50, lifeExpectancyA: 58, taxable: 3000, basisRatio: 0, rothIraA: 100000, rothIraBasisA: 40000, spending: 8000 };
+    const aca = { acaEnabled: true, acaEnhanced: false, stateTax: 'wa', children: [{ birthYear: 2020 }], healthcare: 12000, ageA: 50, retireAgeA: 50, lifeExpectancyA: 58, taxable: 3000, basisRatio: 0, rothIraA: 100000, rothIraBasisA: 40000, spending: 8000 };
     const r = await rows(aca);
-    // Year 0 takes 5,063 from the Roth IRA (the taxable sale covers the rest), then 8,000 a year: 37,063 through
-    // age 54, inside the 40,000 basis. At age 55 only 2,937 of basis is left, the rest is earnings.
+    // Washington (expansion, no income tax) with a child 12 or younger (exempt from the 2027 work requirement): the
+    // household is on Medicaid, so no premium. Year 0 takes 5,000 from the Roth IRA (the taxable sale covers the rest), then 8,000 a year: 37,000 through
+    // age 54, inside the 40,000 basis. At age 55 only 3,000 of basis is left, the rest is earnings.
     const through54 = r.filter((x) => x.age <= 54).reduce((sum, x) => sum + x.rothWithdrawn, 0);
-    near(through54, 37063, 1, 'draws through age 54');
+    near(through54, 37000, 1, 'draws through age 54');
     for (const x of r.filter((x) => x.age <= 54)) near(x.earlyPenalty, 0, 0.01, `age ${x.age}: inside the basis`);
     const at55 = r.find((x) => x.age === 55);
     near(at55.earlyPenalty, 0.1 * (at55.rothWithdrawn - (40000 - through54)), 1, 'age 55: the 10% applies to the part past the basis');

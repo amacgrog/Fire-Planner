@@ -90,6 +90,9 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
     fields (HSA, pension type) are deferred; EITC, Saver's Credit and Match, circuit breakers and
     the low-relevance programs are left out with reasons (O6). To confirm when scoped: the
     checkbox default (O1) and the medical-deduction reversal of the Batch 2 scope line (O2).
+    **Confirmed 2026-10-06:** O1 `medicaidWhenEligible` defaults to ON, with an info tip on estate
+    recovery from 55 and provider networks; O2 reverses the Batch 2 out-of-scope line for medical
+    expenses only (charity and QCDs stay out).
 
 ## Execution order
 
@@ -2004,6 +2007,8 @@ it moves one: the ACA 400% line now keys on household size including qualifying 
 | Canada: GIS and Allowances (BENEFIT_RULES.gis knots: 50 percent and 25 percent reductions of income, top-up reductions; table 4 ends at 42,768 where the spouse Allowance ends and the pensioner continues on table 3) | net income less OAS and the employment exemption, combined for couples | each household situation, OAS in payment | 7L |
 | Canada: Canada Groceries and Essentials Benefit (5 percent over 46,432, single supplement 2 percent over 11,564) | BENEFIT_RULES.cgeb | family net income, children under 19 | 7L |
 | Canada: Canada Child Benefit (reduction from 38,237 and 82,847 by child count) | BENEFIT_RULES.ccb | family net income, children under 18 | 7L |
+| US: no premium credit below 100% of FPL (non-expansion states), and the Medicaid line at 138% (expansion states; Wisconsin 100%). At or under the line: Medicaid, $0, or the full premium when declined or when the work requirement fails; just over it the credit schedule starts (about 3.1% of income) | `MEDICAID_RULES`, `medicaidLimit`, `acaNetCost` | MAGI / FPL ratio, `acaHouseholdSize`, state | 7O O1 |
+| US: Medicaid work requirement starts January 1, 2027 (retired adult 19-64 with no child 13 or younger fails: full premium in the Medicaid band, and no credit) | `MEDICAID_RULES.workRequirement`, `hasChildAtMost`, `acaNetCost` | calendar year, the children list | 7O O1 |
 
 #### 7B: US federal credits (US V93 -> V97; Canada untouched)
 
@@ -3197,7 +3202,77 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
-### 7O notes: remaining US credits, benefits and fixes (not started)
+### 7O notes: remaining US credits, benefits and fixes (in progress: O1 done)
+
+Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 with O1.
+
+#### O1: Medicaid and the premium-credit floor (US V101)
+
+**Behavior.** `acaNetCost` now applies, before the credit schedule: (1) if the household's MAGI is at or under
+the state's Medicaid line (`medicaidLimit`: 138% of FPL in the 41 expansion jurisdictions, Wisconsin 100%, 0 in the
+other nine non-expansion states) the cost is $0 when `medicaidWhenEligible` is on and, in calendar years before 2027
+or with a child aged 13 or younger in the household, otherwise the full gross premium (declined, or failed the
+work requirement, which also bars the credit); (2) below 100% of FPL (non-expansion states) the full premium.
+Above the line nothing changed (schedule, 400% cliff). A MAGI of zero no longer returns $0 up front: it is
+Medicaid in an expansion state and the full premium in a non-expansion state. Medicaid applies only inside the ACA path
+(`acaEnabled` and an eligible partner), so `healthcareCost` and the 400% guard still read the same function.
+`conversionMagiCeiling` is unchanged: O1 prices the new cliffs, 3C decides the policy (note for 3C: a Roth
+conversion or gain harvest that lifts MAGI over the Medicaid line, or to 100% of FPL in a non-expansion state, can
+be worth more than its tax; in the work-requirement years the iteration shows two consistent answers for a
+household near the line, a low-MAGI year with the full premium or a MAGI just over the line with the credit).
+New field `medicaidWhenEligible` (default true, `trueUnlessFalse`, MCP, shown with the ACA checkbox), info tip written
+from the code. Data: pure-literal `MEDICAID_RULES` (`MEDICAID_RULES:begin/end`), not a STATE_RULES column.
+
+**Sources (primary, retrieved 2026-10-06).** Adult group income 133% FPL: 42 CFR 435.119; the 5-point disregard to
+138% and current monthly income: 42 CFR 435.603(d)(4) and (h)(1); no credit below 100%: IRC 36B(c)(1)(A); eligible for
+Medicaid is not eligible for the credit: IRC 36B(c)(2)(B); work requirement (SSA 1902(xx), from OBBBA section 71119):
+CMCS Informational Bulletin, 12/8/2025 (start January 1, 2027; 80 hours a month of work, service, a work program or
+school, or monthly income of 80 x the federal minimum wage; exempt: a parent, guardian, caretaker relative or family
+caregiver of a child 13 or younger or of a disabled individual, medically frail, SNAP or TANF compliant, and others;
+a person denied for failing it is deemed eligible for coverage and barred from the credit, 1902(xx)(7)(B); good-faith
+delays end no later than December 31, 2028) and the CMS fact sheet of June 1, 2026 (interim final rule, ages 19-64).
+Non-expansion list: KFF, "Status of State Action on the Medicaid Expansion Decision" (10 states: AL, FL, GA, KS, MS,
+SC, TN, TX, WI, WY; 41 including DC adopted). Wisconsin: DHS BadgerCare waiver, adults to and including 100% of FPL through December 31,
+2029 (the limit already includes the disregard).
+
+**Not modeled (named in the info tip and README).** The other work-requirement exemptions (medical frailty, disability,
+SNAP or TANF compliance), the monthly-income route to the requirement ($580 a month; the statute says income and
+whether investment income counts is unclear, so the safe side is assumed), state good-faith delays to 2028, Medicaid's
+use of current monthly income (the annual MAGI stands in), the Georgia Pathways waiver (treated as non-expansion),
+estate recovery's cost, lawfully present immigrants under 100% of FPL. The poverty line stays the model's own 2025
+guideline indexed (it is also used for the 400% line); Medicaid uses the current-year guideline in practice.
+
+**Tests.** New `tests/aca_medicaid.js` (hand-computed: CA, TX and WI at 0, 90%, 100%, 120%, 138%, 140%; checkbox off;
+enhanced mode; 2026 versus 2027 and 2028; a child of 13 versus 14; all 51 jurisdictions classified; engine rows for
+WA, TX and WI equal `acaNetCost` of their own MAGI, so the iteration converges at the new cliffs). Existing tests
+that relied on the old behavior were corrected, not loosened: `dividend_income.js` (TX with no income now pays the full
+premium, so the comparison starts at a 2% yield), `roth_accounts.js` ledger-rewind case (now Washington with a child 12
+or younger: no premium, so draws are 37,000 rather than 37,063). `legacy_state.js` has two new cases and the US
+baseline moved only for the new default field. Snapshots: 17 of 518 US scenarios moved (all the `aca` ones: the 2027
+work requirement and the floor); the default scenario has ACA off and is unchanged; Canada untouched.
+
+**Before / after** (retired couple 52 and 50, Roth-heavy, 150,000 taxable, spending 60,000, premium 18,000 entered, ACA on;
+healthcare by age of Partner A, today's dollars with no inflation; before = the 7N tip):
+
+| Case | Before | After |
+|---|---|---|
+| CA, no child, ages 52-61 | 1,225 587 1,054 1,289 1,156 22 0 0 0 0 | 1,225 18,635 1,065 1,249 20,675 21,404 22,159 22,940 23,748 24,586 |
+| CA, child born 2018 | 647 587 641 691 699 24 0 0 0 0 | 0 0 0 0 0 0 (to age 57) then 22,159 22,940 23,748 24,586 (child is 14 from 2032) |
+| TX, no child | 1,225 587 1,054 1,289 1,156 22 0 0 0 0 | 1,225 587 1,054 1,289 1,156 21,404 22,159 22,940 23,748 24,586 |
+
+(The after column is the gross premium inflated at the plan's medical growth.) Success rates, seeded (2,000 paths,
+seed 7), before to after: default 85.4% / 86.1% unchanged (ACA off); early retiree, working-then-retires, survivor
+scenarios unchanged (ACA off); low-MAGI early retiree, expansion state (CA): historical 100.0% to 100.0%, Monte Carlo
+99.8% to 99.4%; non-expansion state (TX): 100.0% to 100.0%, 99.8% to 99.3%. Both low-MAGI scenarios were added to
+`tests/historical_rates.js`.
+
+**Timing.** `tests/bench_runs.js` (ACA off in the stock scenario) tx 212 -> 188 ms, ca 274 -> 262 ms, wa 201 -> 198 ms
+for 400 `simulate()`; an ACA-on household with a child (CA), 400 runs, interleaved in one process, median of 7:
+7,751 -> 7,946 ms (+2.5%, inside the +5% gate). The no-ACA path is untouched; the ACA path adds one cached lookup and
+no allocation (`hasChildAtMost` loops the children list in place).
+
+**Gotchas.** `medicaidLimit` is 0 for a non-expansion state, so the Medicaid branch needs `limit > 0`
+(a MAGI of 0 would otherwise match). The 138% test uses the same 1e-9 tolerance as the 400% line.
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
