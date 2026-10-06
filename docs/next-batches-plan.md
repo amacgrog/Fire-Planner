@@ -80,6 +80,10 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
     B), with no 50/50 split and no assumed traditional IRA. It became three steps
     (basics, balances, optional questions) and carries a prominent note to set the
     Roth basis. Legacy saves are not migrated (owner: they do not matter).
+20. **Batch 7N (owner, 2026-10-06):** the Canadian credits, benefits and fixes still missing
+    after 7J-7M go in one batch, 7N, with **no new inputs** (every item reads fields that already
+    exist). Anything found wrong in 7J-7M is fixed in 7N, not by reopening those batches. CPP/OAS
+    claim-age adjustments stay in Batch 6 (the per-partner basis switch), not 7N.
 
 ## Execution order
 
@@ -87,7 +91,8 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
 (penalty-aware rules, 72(t), Rule of 55) -> 7A (children)
 -> 7B (federal credits) -> 7C (state framework + reference states) -> 7D (all
 remaining states and DC, one PR) -> 7D part 2 (state-tax performance, one small PR) -> 7J (Canada federal credits) -> 7K (all
-provinces, one PR) -> 7L (income-tested benefits) -> 3C (safe-MAGI room; moved
+provinces, one PR) -> 7L (income-tested benefits) -> 7M (paid benefits of the other six
+provinces) -> 7N (remaining Canadian credits and fixes) -> 3C (safe-MAGI room; moved
 here, owner decision) -> 4A -> 4B -> 5 -> 6 -> 8 (survivor-benefit claim
 optimizer).
 
@@ -945,6 +950,171 @@ against tax, so each needs its own income test and its own output line.
 - Each benefit shows as its own line in the cash-flow outputs so users can see
   income-tested amounts, and survivor symmetry is re-checked
   (`tests/survivor_symmetry.js`).
+
+### 7N: remaining Canadian credits, benefits and fixes (Canada only)
+
+Written 2026-10-06 from a gap assessment of the Canada planner at the 7M merge (V43) against the
+federal return (Schedule 1), the provincial 428 forms and the federal and provincial benefit
+programs. **No new inputs** (decision 20): every item reads `state` fields that already exist (ages,
+wages, `healthcare`, `ltcEnabled`/`ltcYearlyA/B`/`ltcAgeA/B`, the children list, tenure and
+purchase year, province, balances). One commit per item, in this order (fixes first, because the
+credits after them are priced through the same `taxFor`). Each item is an intended number change
+unless it says otherwise: before/after table (default scenario plus a scenario that exercises the
+item), seeded historical and Monte Carlo success rates, `npm run snapshot:update` in the same commit,
+the Canada badge bump, README feature list and the 7N notes. Every figure is re-confirmed on a
+primary source at implementation (decision 15); the figures below are working values, mostly 2025
+amounts or 2026 amounts read on secondary pages, and are marked as such. US untouched.
+
+Already done in 7J-7M (checked, not repeated here): the basic personal amount as a credit with its
+high-income phase-down, the federal and provincial age and pension amounts, Quebec's pooled amounts,
+the Ontario surtax order and the Health Premium on taxable income, the OAS 75-plus step, GIS and
+the Allowance, the CCB and the CGEB, and the provincial paid benefits of all ten provinces.
+
+**N1. OAS recovery tax on the full year's income (fix).** Today `oasClawback` runs once, in the year
+loop, on `splitA`/`splitB` before the RRSP meltdown, the discretionary RRSP/RRIF draw and realized
+gains are known (`Planner_Canada.html`, the `clawbackA/B` lines), so it misses the income that most
+often crosses the threshold, and the withdrawal solvers do not see the 15% at all. Example: a 65+
+partner with $85,000 of base income who draws $30,000 more pays about $2,900 of recovery tax the
+model does not charge. Fix: move the recovery tax into `incomeTaxCA` (per return, on that return's
+net income after the split, including its share of the meltdown, the discretionary draw and the
+50% gains inclusion), with `oasA`/`oasB` carried on the profile (the survivor remap moves the
+survivor's OAS into slot A, like the other fields). Because Canada `taxFor` is the net cost, the
+draw solvers then price the clawback automatically. The row keeps reporting the clawback as its own
+amount and `ss` net of it, computed from the final income; the cash flow uses gross OAS plus the
+tax. GIS keeps reading income without OAS (unchanged). Check the pension-split search still
+converges (its objective gains a kink at the threshold; compare against the brute-force scan in
+`tests/tax_brackets.js`). Add a row to the cliffs register. Tests: hand-computed clawback with a
+draw that crosses the threshold, the cap at the full OAS, survivor symmetry.
+
+**N2. Dropped (assessed 2026-10-06).** Ontario Health Premium thresholds are fixed in dollars in
+law while the model indexes them, but the premium amounts are fixed too, so freezing both would
+lower the long-run real premium, not raise it; the effect is a few hundred dollars either way and
+it would contradict the planner's rule that tax parameters are held constant in real terms. Left
+as a named gap (same family as the BC indexation-pause open item). The number is kept so the
+items below keep their names.
+
+**N3. Spouse and eligible-dependant amounts (7K named gaps).**
+- Federal spouse or common-law partner amount: the basic personal amount (with its phase-down
+  maximum) less the spouse's net income, at 14%. The provincial equivalents come from each
+  `PROVINCE_RULES` row (new `spouse` family: amount, the income the reduction starts at, per row).
+  For a couple both returns are computed already, so each return needs the other spouse's net
+  income: pass it from `incomeTaxCA` (it already builds `family`) and from the pension-split
+  search's `combinedTax`, where the transfer moves both incomes.
+- Eligible dependant amount (federal, same size as the spouse amount, about $2,300 a year at 14%;
+  provincial equivalents per row): a single person, or the survivor, with a child under 18 in the
+  `dependentsInYear` list. One claim per household.
+- The spouse amount is rarely non-zero for this planner's couples (investment income and RRSP
+  draws are split 50/50, so a spouse seldom has income under the basic personal amount), but it
+  costs only arithmetic; the eligible dependant amount is about $2,300 a year federal (plus the
+  provincial amount) for every single-parent and survivor-with-children year.
+- Not built: the transfer of a spouse's unused age, pension and (Quebec) pooled amounts
+  (Schedule 2). Rarely non-zero here for the same 50/50 reason, and it forces the two returns to
+  be evaluated in sequence inside the split search. Tests: hand-computed per mechanism, the
+  split-search regret check, survivor symmetry.
+
+**N4. Working-year payroll items.** EI premiums are not modeled (about $1,100 a year per earner;
+2025: 1.64% up to $65,700 of insurable earnings, Quebec 1.31% because QPIP replaces part of EI) and
+no credit is given for the contributions that are modeled. Add: EI premiums to `cppContribution` /
+`payrollTax` (Quebec rate from the row), the base CPP/QPP contribution and EI/QPIP premiums as
+non-refundable credits, the enhanced CPP/QPP contributions (first-tier enhancement and CPP2) as a
+deduction from income (so it lowers net income for the benefits too), and the Canada employment
+amount (2025: $1,471) on wages, at 14% (Quebec has its own deduction for employment income: check).
+Wages are `wageA/B` net of the pre-tax health premium, as today. Working years only; the net effect
+is small (EI is a cost, the credits partly offset it).
+
+**N5. Medical expense credit, from the costs the planner already models.** Post-retirement private
+health and dental premiums (`healthcare`) qualify as medical expenses, and long-term care costs
+(`ltcYearlyA/B`) qualify, in full for a nursing home and only the attendant-care part for a
+retirement home. Credit: 14% federal, the lowest provincial rate provincially, on expenses over the
+lesser of 3% of net income or the indexed floor (2025: $2,834). Claimed on one return (the lower
+net income gives the larger credit; a couple's expenses are pooled on it). Includes the federal
+temporary top-up credit (2025-2030: credits above the first-bracket income keep the 15% rate), which
+only matters at large claims. Ontario Seniors Care at Home Tax Credit (70+, refundable, 25% of up to
+$6,000 of the same expenses, income-tested) goes in the Ontario row. **Owner decision at
+implementation:** treat the whole LTC input as eligible (nursing home, recommended, with a line in
+the LTC info bubble) or a fixed share. Impact: large in LTC years (about $10,000 a year on $50,000
+of care); a few hundred dollars a year on premiums. The pre-retirement health premium is already
+taken off wages before tax, so it is not claimed again.
+
+**N6. Low-income provincial tax reductions (7K named gaps, deferred for unreliable figures).**
+Ontario tax reduction (form ON428 part C; it removes Ontario tax for many incomes under about
+$20,000 and reduces it up to about $40,000) and the BC tax reduction credit (BC428), plus whichever
+of the NB, NL, NS and PEI low-income tax reductions on the 428 forms are not already covered by the
+7M rows (check each against the 7M list first). Read the amounts from the forms or statutes, not a
+CRA payroll summary (7K gotcha). They matter for TFSA-heavy plans with low taxable income, the same
+households GIS reaches. New data family `lowIncomeReduction` per row; regenerate the rules doc;
+cliffs register rows.
+
+**N7. Quebec health contributions.** Two income-tested amounts collected on the Quebec return that
+the model does not charge: the Health Services Fund contribution on income other than employment
+income (pension, RRIF, investment income, gains: 7K named gap; verify the band and the $1,000
+maximum on form TP-1 schedule F) and the RAMQ public prescription drug insurance premium (up to
+about $750 per adult, reduced at low family income; verify on schedule H). **Owner decision at
+implementation:** who pays the RAMQ premium with no coverage input; recommended assumption: every
+retired adult (the working partner is assumed to be on a group plan), stated in the Quebec note.
+Up to about $1,700 a person a year for a Quebec retiree.
+
+**N8. After-tax estate (display only).** "End assets" counts an RRSP/RRIF dollar the same as a TFSA
+dollar. At the last death the RRSP/RRIF is income on the final return and unrealized gains in the
+taxable accounts are deemed realized (50% inclusion); the TFSA and the principal residence are not
+taxed. Provincial probate fees apply to the estate (new `probate` family per row: ON 1.5% over
+$50,000, BC about 1.4%, AB capped at about $525, QC nominal, MB none, others to read; registered
+accounts and the TFSA with a named beneficiary assumed outside the estate, the home inside). Add an
+"after-tax estate" figure next to end assets (results and table), computed from the final row with
+the final return run through `personTaxCA` (one return, survivor). It changes no projection or
+success rate, so the snapshot grid stays byte-identical; the UI baseline moves. Also show it in the
+meltdown-bracket table, which today ranks by pre-tax end assets and so undervalues melting down.
+**Owner decision at implementation:** rank that table by the after-tax figure (recommended) or only
+show it.
+
+**N9. OAS in the survivor period (fix).** From 65 `cppAndOasIncome` gives the survivor the greater
+of the two OAS amounts; OAS is never inherited, so the survivor keeps their own (`oasMonthly` of the
+survivor, with the 75-plus step). Moves only scenarios where the two OAS inputs differ. The CPP
+survivor's pension, death benefit and children's benefit stay with the Batch 6 CPP work.
+
+**N10. Home buyers' amount (small; same commit as N4).** $10,000 at 14% ($1,500) federal, and
+Saskatchewan's own first-time home buyers' amount, once, in the `rentThenBuy` purchase year
+(first-time buyer assumed, as the FHSA already assumes).
+
+**N11. Canada Dental Care Plan note (copy only, no number change).** The plan covers dental care for
+families under $90,000 of adjusted net income without dental insurance, which a retiree would
+otherwise pay out of the `healthcare` amount. Add a sentence to that field's info bubble; not
+modeled.
+
+**Feasibility assessment (2026-10-06).** Every kept item reads existing inputs without changing
+what any of them means (N5 and N7 add a stated assumption, not a field). Cost: `taxFor` runs inside
+the 24- to 50-step solvers in every year of every run, so nothing may add a loop or an allocation
+there; N1, N3, N5 and N6 each add O(1) arithmetic per call, N4's EI is computed once a year outside
+the solvers, N8 runs once per displayed run after the year loop, N9 and N10 are once-a-year or
+once-a-plan values.
+
+| Item | Significance | Cost |
+|---|---|---|
+| N1 OAS recovery tax on full income | High for 65+ households with RRIF draws, meltdown or gains near the threshold (up to the full OAS, about $9,000-10,000 a person a year) | O(1) in `taxFor`; no new iteration because Canada `taxFor` is already the net cost the solvers price. The clawback's cap makes the pension-split objective non-convex: keep the equal-split fallback and the brute-force regret test |
+| N3 spouse and eligible-dependant amounts | Eligible dependant: about $2,300 federal plus provincial a year for single parents and survivors with minors; spouse amount: usually zero here | O(1) |
+| N4 EI and payroll credits (with N10) | Working years: EI about $1,100 an earner a year less about $300-600 of credits | Once a year |
+| N5 medical expense credit | About $10,000 a year in LTC years; a few hundred dollars a year on premiums | O(1) |
+| N6 low-income tax reductions | Up to about $300-600 a person at low taxable income (the households GIS reaches) | O(1); research risk (7K could not confirm figures) |
+| N7 Quebec health contributions | Up to about $1,700 a person a year, Quebec only | O(1) |
+| N8 after-tax estate | No effect on success rates; tax on an RRSP/RRIF left at death is about 40-50%, which is what makes RRSP-versus-TFSA comparisons meaningful | Once per displayed run |
+| N9 survivor OAS | Only when the two OAS inputs differ | None |
+| N11 dental plan note | Copy only | None |
+
+**Considered and left out (named gaps for the 7N notes):** the Ontario Health Premium freeze (N2),
+the transfer of a spouse's unused amounts (N3), CPP sharing between spouses (small next to
+pension splitting, and it would change what the pension-split toggle means), alternative minimum
+tax (needs a large one-year gain; recoverable over seven years), the disability amount and benefit,
+donations, tuition transfers, the Canada Workers Benefit and refundable medical expense supplement
+(low earned income, rare here), non-eligible dividends (owner decision, 7K), the prior-year income
+lookback for the clawback and benefits, the territories, and CPP/OAS claim-age adjustments
+(decision 20: Batch 6).
+
+**Exit criteria.** `npm test` green with the snapshots updated only in the commits listed as number
+changes; the timing gate (`tests/bench_runs.js`-style comparison for Canada, 300 `simulate()` per
+round) within +5% of the 7M merge, since N1, N3 and N5 add work to every `taxFor` call (keep the
+no-OAS, no-children, no-medical paths allocation-free and early-exiting); survivor symmetry; a
+390x844 check for the new estate figure; `docs/province-tax-rules.md` regenerated; 7N notes with
+sources, before/after tables and the cliffs-register rows.
 
 ### Remaining scope assumption (Batch 7)
 
