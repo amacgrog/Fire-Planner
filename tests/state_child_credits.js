@@ -134,6 +134,15 @@ function checks() {
   }
   st.inflation = 0;
 
+  // 7O follow-up F4: Maine gives no personal exemption for a dependent (36 M.R.S. 5126-A(1)), only the credit. One child of 5 on
+  // a single return at 80,000 (AGI under 100,000, so the full 610): the household with the child pays exactly 610 less.
+  st.stateTax = 'me';
+  {
+    const kids = [kid(5)],
+      base = { wages: 80000, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40], propertyTax: 0, rent: 0 };
+    near(t.stateIncomeTax({ ...base, dependents: kids }, 'single', 0) - t.stateIncomeTax({ ...base, dependents: [] }, 'single', 0), -610, 'ME real row: a child changes the tax only by the 610 credit, no 5,300 exemption');
+  }
+
   // --- New Jersey: 1,000 per child five or younger by NJ taxable income steps (30,000 / 40,000 / 50,000 / 60,000 / 80,000) ---
   const nj = (w, kids, f = 'single') => run('nj', w, kids, f, 0);
   near(nj(25000, [kid(4), kid(5), kid(6)]), mnTax(25000) - 2000, 'NJ 25,000: two children five or younger at 1,000');

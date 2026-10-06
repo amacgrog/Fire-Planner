@@ -188,8 +188,8 @@ const CASES = [
   // (A 24,000 -> 25,824 of A's 55,000; B 12,000 -> 37,824 of B's 25,000); 5.8% to 54,850, 6.75% to 129,750.
   //   retiree: 90,000 - 25,824 - 25,000 = 39,176 - 31,400 - 10,600 - 1,650 < 0: 0
   //   family:  132,000 - 31,400 - 10,600 - 10,600 = 79,400: 54,850 x 5.8% (3,181.30) + 24,550 x 6.75% (1,657.125) = 4,838.425
-  // 7O fix F3 (and O4): the dependent exemption credit for two children of 6 and 9 is 2 x 305 = 610 (AGI 132,000 is under the 150,000 joint start): 4,838.425 - 610
-  { code: 'me', retiree: 0, family: 4228.425, why: 'pension deduction reduced by benefits received; dependent credit 610' },
+  // 7O fix F4: no personal exemption for dependents: taxable 132,000 - 31,400 - 10,600 = 90,000; 54,850 x 5.8% = 3,181.30 + 35,150 x 6.75% = 2,372.625 = 5,553.925; less the 610 credit
+  { code: 'me', retiree: 0, family: 4943.925, why: 'pension deduction reduced by benefits received; dependent credit 610, no dependent exemption' },
   // MS (joint). 4% above 10,000 (3.75% in 2027 ... 3% in 2030); std 4,600; exemptions 12,000 + 1,500 for one filer 65+ + 1,500 per child; retirement income exempt.
   //   retiree: 90,000 - 80,000 = 10,000 - 4,600 - 13,500 < 0: 0
   //   family:  132,000 - 4,600 - 12,000 - 3,000 = 112,400: 102,400 x 4% = 4,096; 2027: x 3.75% = 3,840; 2030: x 3% = 3,072

@@ -3398,7 +3398,7 @@ years 0 to 5):
 | NJ | 953 970 1,028 1,081 744 0 | 144 161 219 879 174 0 |
 | OR | 3,272 3,282 3,438 3,573 1,597 0 | unchanged (state AGI over 31,550) |
 | UT | 847 821 888 942 47 0 | 0 0 0 429 0 0 |
-| ME | 477 441 499 544 0 0 | -139 -176 -117 -72 -600 -600 |
+| ME | 477 441 499 544 0 0 | -144 -196 -154 213 -550 -690 (after fixes F3 and F4: the credit is 1,220 while both children are under six, 915 in 2029 and 2030, 610 from 2031, and no dependent exemption) |
 
 Seeded success rates (2,000 paths, seed 7; two scenarios added to `tests/historical_rates.js`): MN historical 68.3% to 68.3%, Monte Carlo 75.5% to 76.6%; NJ
 68.3% to 68.3%, 75.5% to 75.8%; every other scenario unchanged.
@@ -3620,7 +3620,7 @@ NJ); record the run in the commit message. Tests are hand-computed in the commen
   and start both scaled (305 f, 610 f, 100,000 f). `state_7d_households.js`: the Maine family has children of 6 and 9, so 2 x 305 = 610
   (was 600): family 4,838.425 - 610 = 4,228.425 (before F4).
 
-**F4. Maine: no personal exemption for dependents (US V109).**
+**F4. Maine: no personal exemption for dependents (US V109). Built (V109).**
 - Row: `dependentExemption: 0` (36 M.R.S. 5126-A(1): filer and spouse only). Notes: "personal exemption $5,300 per filer (none for
   dependents: they get the dependent exemption tax credit)".
 - `state_7d_households.js` Maine family: 132,000 - 31,400 - 10,600 = 90,000; 54,850 x 5.8% = 3,181.30 + 35,150 x 6.75% = 2,372.625 =
