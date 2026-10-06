@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V103</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V104</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -3061,7 +3061,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit, the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
+      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
     },
     co: {
       name: 'Colorado',
@@ -3113,7 +3113,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado's subtractions for military retirement under 55, railroad benefits and PERA are not modeled.",
+      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado subtractions for military retirement under 55, railroad benefits and PERA are not modeled. The Family Affordability Tax Credit is switched off for tax year 2026 (Department of Revenue: the December 2025 forecast fell under the revenue trigger) and is not modeled; recheck each year.",
     },
     ct: {
       name: 'Connecticut',
@@ -3985,10 +3985,18 @@
         reducedBy: 'benefitsReceived',
         share: null
       },
-      credits: [],
+      credits: [
+        {
+          kind: 'childCredit',
+          label: 'Dependent exemption tax credit',
+          refundable: true,
+          tiers: [[200, 300]],
+          phaseOut: { start: { single: 100000, mfj: 150000, hoh: 125000, qss: 150000 }, measure: 'stateAgi', width: 500, per: 20 },
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and dependent, and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit is not modeled.",
+      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and dependent, and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit is not modeled. Dependent exemption tax credit (36 M.R.S. 5219-SS, primary): $300 for each dependent from 2026 (2025 was doubled for a child under six), refundable, reduced by $20 for each $500 or fraction of Maine AGI over $100,000 single, $125,000 head of household and $150,000 joint (not indexed); the planner counts the children in its list, not other dependents.",
     },
     md: {
       name: 'Maryland',
@@ -4166,7 +4174,7 @@
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
         creditAmountsIndexed: false,
-        creditThresholdsIndexed: false,
+        creditThresholdsIndexed: true,
         retirementExclusionIndexed: true,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
@@ -4239,10 +4247,18 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
-      credits: [],
+      credits: [
+        {
+          kind: 'childCredit',
+          label: 'Child Tax Credit (Schedule M1CWFC)',
+          refundable: true,
+          tiers: [[17, 1750]],
+          phaseOut: { start: { single: 31950, mfj: 37910, hoh: 31950, qss: 31950 }, width: 1, per: 0, rate: 0.12 },
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. The public pension subtraction, the property tax refund and the dependent exemption's high-income phase-out are not modeled.",
+      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. Child Tax Credit (2025 Schedule M1CWFC, primary): $1,750 per qualifying child under 18, refundable, reduced by 12% of the federal AGI over $37,910 joint and $31,950 for every other status (the thresholds are indexed, the amount is not); the working family credit part (earned income) and the 9% rate for the older-children credit are not modeled. The public pension subtraction, the property tax refund and the dependent exemption high-income phase-out are not modeled.",
     },
     ms: {
       name: 'Mississippi',
@@ -4694,10 +4710,23 @@
           }
         }
       },
-      credits: [],
+      credits: [
+        {
+          kind: 'childStepCredit',
+          label: 'Child Tax Credit',
+          refundable: true,
+          maxAge: 5,
+          measure: 'income',
+          tables: {
+            single: [[0, 1000], [30000, 800], [40000, 600], [50000, 400], [60000, 200], [80000, 0]],
+            mfj: [[0, 1000], [30000, 800], [40000, 600], [50000, 400], [60000, 200], [80000, 0]],
+            hoh: [[0, 1000], [30000, 800], [40000, 600], [50000, 400], [60000, 200], [80000, 0]],
+          },
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets (eight joint) from 1.4% to 10.75% (NJ-1040 2025 schedules, search excerpts; unchanged for 2026; head of household uses the joint table). No standard deduction: exemption $1,000 per filer, $1,000 more at 65, $1,500 per dependent (secondary). Social Security is exempt. The pension, annuity and IRA exclusion (Division of Taxation, read): a filer 62 or older excludes up to $75,000 single or head of household and $100,000 joint when total income is $100,000 or less, 37.5% / 18.75% of that single (50% / 25% joint) between $100,000 and $125,000 and $125,000 and $150,000, nothing above; the planner applies the joint cap per eligible filer, so two large pensions can be over-excluded. The property tax deduction (up to $15,000) and credit, and the blind and veteran exemptions, are not modeled.',
+      notes: 'Seven brackets (eight joint) from 1.4% to 10.75% (NJ-1040 2025 schedules, search excerpts; unchanged for 2026; head of household uses the joint table). No standard deduction: exemption $1,000 per filer, $1,000 more at 65, $1,500 per dependent (secondary). Social Security is exempt. The pension, annuity and IRA exclusion (Division of Taxation, read): a filer 62 or older excludes up to $75,000 single or head of household and $100,000 joint when total income is $100,000 or less, 37.5% / 18.75% of that single (50% / 25% joint) between $100,000 and $125,000 and $125,000 and $150,000, nothing above; the planner applies the joint cap per eligible filer, so two large pensions can be over-excluded. Child Tax Credit (Division of Taxation, 2025, primary): $1,000 for each child five or younger at the end of the year while NJ taxable income is $30,000 or less, then $800, $600, $400 and $200 for each further $10,000 to $80,000, nothing above; refundable (the planner reads the model taxable income after exemptions and deductions). The property tax deduction (up to $15,000) and credit, and the blind and veteran exemptions, are not modeled.',
     },
     nm: {
       name: 'New Mexico',
@@ -5137,6 +5166,14 @@
           senior: { age: 65, amount: 0 },
           dependent: 256,
           phaseOut: { start: { single: 100000, mfj: 200000, hoh: 200000 }, width: 1, reduction: 1000000 }
+        },
+        {
+          kind: 'childCredit',
+          label: 'Oregon Kids Credit',
+          refundable: true,
+          tiers: [[5, 1050]],
+          maxChildren: 5,
+          phaseOut: { start: { single: 26550, mfj: 26550, hoh: 26550, qss: 26550 }, measure: 'stateAgi', width: 1, per: 0, rate: 0.21 },
         }
       ],
       federalTaxSubtraction: {
@@ -5153,7 +5190,7 @@
         }
       },
       localTax: 'notModeled',
-      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled.',
+      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the Department of Revenue 2025 amounts, primary): $1,050 for each dependent under six (at most five), refundable, full at Oregon AGI up to $26,550 and reduced in a straight line to nothing at $31,550 (the statute: $1,000 and $25,000 with a $5,000 phase-out, the amounts and the start indexed to inflation with the width fixed; the 2025 values stand for 2026 here).',
     },
     pa: {
       name: 'Pennsylvania',
@@ -5454,11 +5491,19 @@
           refundable: false,
           rate: 0.0445,
           phase: { start: { single: 54000, mfj: 90000, hoh: 90000 }, rate: 0.025 }
+        },
+        {
+          kind: 'childCredit',
+          label: 'Child Tax Credit',
+          refundable: false,
+          fixed: true,
+          tiers: [[5, 1000]],
+          phaseOut: { start: { single: 49000, mfj: 61000, hoh: 49000, qss: 61000 }, width: 1, per: 0, rate: 0.1 },
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.45% from 2026 (SB 60, retroactive to January 1; secondary source). No standard deduction: Utah gives a taxpayer tax credit of 6% of the federal standard deduction (2026: $16,100 single, $32,200 joint, $24,150 head of household) plus $2,111 per dependent, reduced by 1.3 cents per dollar of income over $18,213 single, $36,426 joint, $27,320 head of household (Tax Commission, 2025 thresholds; the 65-plus add-on is approximated at 6% of $2,050, and an itemizer's credit is not modeled). Taxable Social Security is included, then a credit of 4.45% of it, reduced by 2.5 cents per dollar of income over $54,000 single and $90,000 joint (Tax Commission). The separate retirement credit is only for people born in 1952 or earlier and is not modeled.",
+      notes: "Flat 4.45% from 2026 (SB 60, retroactive to January 1; secondary source). No standard deduction: Utah gives a taxpayer tax credit of 6% of the federal standard deduction (2026: $16,100 single, $32,200 joint, $24,150 head of household) plus $2,111 per dependent, reduced by 1.3 cents per dollar of income over $18,213 single, $36,426 joint, $27,320 head of household (Tax Commission, 2025 thresholds; the 65-plus add-on is approximated at 6% of $2,050, and an itemizer's credit is not modeled). Taxable Social Security is included, then a credit of 4.45% of it, reduced by 2.5 cents per dollar of income over $54,000 single and $90,000 joint (Tax Commission). The separate retirement credit is only for people born in 1952 or earlier and is not modeled. Child Tax Credit (Utah Code 59-10-1047, effective 1/1/2026, primary): $1,000 nonrefundable for each child under six who is a federal Child Tax Credit child, reduced by 10 cents per dollar of modified AGI over $49,000 single or head of household and $61,000 joint (the statute does not index it).",
     },
     vt: {
       name: 'Vermont',
@@ -5512,10 +5557,18 @@
         reducedBy: 'none',
         share: null
       },
-      credits: [],
+      credits: [
+        {
+          kind: 'childCredit',
+          label: 'Child Tax Credit',
+          refundable: true,
+          tiers: [[6, 1000]],
+          phaseOut: { start: { single: 125000, mfj: 125000, hoh: 125000, qss: 125000 }, width: 1000, per: 20 },
+        },
+      ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the child credit and the renter credit are not modeled.',
+      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the renter credit is not modeled. Child Tax Credit (32 V.S.A. 5830f, primary): $1,000 per child six or younger at the end of the year, refundable, reduced by $20 for each $1,000 or fraction of AGI over $125,000 (not indexed).',
     },
     va: {
       name: 'Virginia',
@@ -6028,6 +6081,7 @@
   //   'renterCredit'       a flat amount by column for a renter whose state AGI is at or under a limit
   //   'childCredit'        per qualifying child by age (`tiers`: [maxAge, amount], first match), the total
   //                        reduced by `phaseOut.per` per `phaseOut.width` of federal AGI over `phaseOut.start`
+  //                        (or `phaseOut.rate` per dollar; `measure`, `maxChildren`, `fixed`: see the case)
   //   'propertyTaxCredit'  min(property tax paid, max), cut by `stepPct` per `stepWidth` of state AGI
   //                        over a limit by column
   //   'taxForgiveness'     a share of the tax: all of it while the base is at or under a limit (by column
@@ -6055,16 +6109,25 @@
         return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * fCt ? cr.amount[colKey] * fCa : 0;
       case 'childCredit': {
         // The phase-out comes off the household's total, not off each child's amount. A status can have its own
-        // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here).
-        const start = cr.phaseOut.start[c.filing] !== undefined ? cr.phaseOut.start[c.filing] : cr.phaseOut.start[colKey],
-          over = c.fedAgi - start * fCt,
-          cut = over > 0 ? Math.ceil(over / (cr.phaseOut.width * fCt)) * cr.phaseOut.per * fCa : 0;
-        let total = 0;
+        // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here). Options (7O O4):
+        // `phaseOut.measure` ('stateAgi' or 'income'; default the federal AGI), `phaseOut.rate` (a straight line, credit
+        // dollars lost per dollar over the start, scaled with the amounts; else `per` per `width`), `maxChildren` (a cap on
+        // the children counted) and `fixed` (the statute does not index this credit, whatever the row's flags say).
+        const ca = cr.fixed === true ? 1 : fCa,
+          ct = cr.fixed === true ? 1 : fCt,
+          po = cr.phaseOut,
+          measure = po.measure === 'stateAgi' ? c.agi : po.measure === 'income' ? c.income : c.fedAgi,
+          start = po.start[c.filing] !== undefined ? po.start[c.filing] : po.start[colKey],
+          over = measure - start * ct,
+          cut = over > 0 ? (po.rate !== undefined ? po.rate * ca * over : Math.ceil(over / (po.width * ct)) * po.per * ca) : 0;
+        let total = 0,
+          counted = 0;
         for (let i = 0; i < deps.length; i++) {
           if (!deps[i].qualifyingChild) continue;
           for (let t = 0; t < cr.tiers.length; t++)
             if (deps[i].age <= cr.tiers[t][0]) {
-              total += cr.tiers[t][1] * fCa;
+              if (cr.maxChildren === undefined || counted < cr.maxChildren) total += cr.tiers[t][1] * ca;
+              counted++;
               break;
             }
         }
@@ -6100,8 +6163,12 @@
       }
       case 'childStepCredit': {
         // An amount per qualifying child from a step table of the federal AGI (New Mexico's Child Income Tax Credit).
-        const kids = countQualifyingChildren(deps);
-        return kids ? kids * stateStepValue(cr.tables[colKey], c.fedAgi, false, fCt) * fCa : 0;
+        // Options: `maxAge` (only children up to that age count: New Jersey's under six) and `measure` ('income': the state
+        // taxable income, not the federal AGI).
+        let kids = 0;
+        if (cr.maxAge === undefined) kids = countQualifyingChildren(deps);
+        else for (let i = 0; i < deps.length; i++) if (deps[i].qualifyingChild && deps[i].age <= cr.maxAge) kids++;
+        return kids ? kids * stateStepValue(cr.tables[colKey], cr.measure === 'income' ? c.income : c.fedAgi, false, fCt) * fCa : 0;
       }
       case 'propertyTaxShareCredit':
         // A share of the property tax paid (Illinois: 5%), lost above an AGI limit by column.

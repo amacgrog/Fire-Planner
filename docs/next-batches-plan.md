@@ -3202,9 +3202,9 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
-### 7O notes: remaining US credits, benefits and fixes (in progress: O1, O2, O3 done)
+### 7O notes: remaining US credits, benefits and fixes (in progress: O1-O4 done)
 
-Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2) -> V103 (O3).
+Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2) -> V103 (O3) -> V104 (O4).
 
 #### O1: Medicaid and the premium-credit floor (US V101)
 
@@ -3349,6 +3349,60 @@ Snapshots do not cover Pennsylvania (the default state is MA), so none moved.
 52-55, then 16,997 44,353 45,318 46,311 (the traditional draws start at 56). Seeded success rates (new scenario in `tests/historical_rates.js`):
 historical 50.9% to 50.9%, Monte Carlo 61.2% to 61.8%; every other scenario unchanged.
 
+
+
+#### O4: state child credits (US V104)
+
+**Mechanisms.** `childCredit` gains optional `phaseOut.measure` ('stateAgi' or 'income'; default the federal AGI), `phaseOut.rate` (a straight line:
+credit dollars lost per dollar over the start, scaled with the amounts; otherwise `per` per `width` as before), `maxChildren` and `fixed` (the statute does
+not index this credit, whatever the row's flags say: Utah). `childStepCredit` gains `maxAge` and `measure: 'income'` (the state taxable income). Existing rows
+(NY, NM and the others) are unchanged, and the schema test passes untouched (the new keys are optional).
+
+**Rows (primary sources, retrieved 2026-10-06).**
+
+| State | Credit | Source |
+|---|---|---|
+| MN | 1,750 per qualifying child under 18, refundable; reduced by 12% of the federal AGI over 37,910 joint and 31,950 every other status (thresholds indexed, the amount is not: the row's `creditThresholdsIndexed` is now true, it has no other credit) | 2025 Schedule M1CWFC (lines 8 to 14), Department of Revenue Child Tax Credit page. The working family credit part (earned income) and the 9% rate for the older-children credit are not modeled |
+| VT | 1,000 per child six or younger, refundable; 20 per 1,000 or fraction of AGI over 125,000, gone at 175,000; not indexed | 32 V.S.A. 5830f (amended 2025, effective 1/1/2025) |
+| ME | 300 per dependent from 2026 (2025: doubled under six), refundable; 20 per 500 or fraction of Maine AGI over 100,000 single, 125,000 head of household, 150,000 joint; not indexed | 36 M.R.S. 5219-SS |
+| NJ | up to 1,000 per child five or younger by NJ taxable income: 1,000 to 30,000, then 800, 600, 400, 200 per further 10,000, nothing over 80,000; refundable | Division of Taxation, Child Tax Credit (2025) |
+| OR | 1,050 per dependent under six, at most five, refundable; full at Oregon AGI up to 26,550, a straight line to nothing at 31,550 | ORS 315.273: 1,000 and 25,000 with a 5,000 phase-out, the amounts and the start indexed (CPI, rounded down to 50), the width fixed; the 2025 Department of Revenue values stand for 2026 |
+| UT | 1,000 per child under six (a federal CTC child), nonrefundable; 10 cents per dollar of modified AGI over 49,000 single or head of household and 61,000 joint; not indexed | Utah Code 59-10-1047, effective 1/1/2026 (Chapter 360, 2026 General Session), read from le.utah.gov |
+
+The rows' `notes` carry these figures and what is not modeled. **Left out, with reasons.** California Young Child Tax Credit: it requires CalEITC eligibility
+(earned income of 32,900 or less, or a small net loss, and the CalEITC investment-income limit that taxable-account gains would break), the EITC-style test the
+owner left out (FTB page, updated 4/16/2026). Colorado Family Affordability Tax Credit: off for tax year 2026 (Department of Revenue); named in the CO notes, recheck
+yearly. Georgia (250 per child under six, nonrefundable), Idaho (205), Oklahoma (5% of the federal credit), Illinois (40% of the state EITC) and Maryland (child
+with a disability): too small or needing an input the planner lacks. Approximations: Maine's credit counts the children in the list (a dependent of any age is
+eligible by statute); Maine AGI and Oregon AGI are the planner's state AGI; Utah's modified AGI is the federal AGI; Minnesota's measure is the greater of AGI and
+earned income by statute, the federal AGI here (a retiree has no earned income to exceed it).
+
+**Tests.** New `tests/state_child_credits.js` (in `npm test`): each row's real credit literals on a flat-10% synthetic base, hand-computed, covering the boundaries
+(MN 60,000 joint: 3,500 - 12% x 22,090 = 849.20; VT 125,000 / 125,001 / 150,000 / 175,000; UT 30,000 / 55,000 / 60,000, the nonrefundable cap, not indexed under
+inflation; OR full, the line, 31,550, the cap of five, indexing with the width fixed; ME all three columns and the student and age-19 cases; NJ every step edge) and
+the age edges. `tests/state_7d_households.js`: the two family households in Maine and Vermont moved by exactly the new credit (ME 4,838.425 to 4,238.425, the 600
+for two dependents; VT 3,621.75 to 2,761.75, the 860 for the child of 6 after seven steps of 20); the comments show the arithmetic. Snapshots did not move (no
+corpus scenario has one of these states with children).
+
+**Before / after** (couple 40 and 38 retired with two children born 2023 and 2025, 400,000 taxable, 100,000 cash, 1,500,000 in Roth, spending 70,000; total tax,
+years 0 to 5):
+
+| State | Before | After |
+|---|---|---|
+| MA (control) | 1,647 1,683 1,803 1,912 1,061 -880 | unchanged |
+| MN | 1,064 1,046 1,116 1,174 312 0 | 284 234 486 696 -1,752 -3,500 |
+| VT | 820 813 860 900 390 0 | -1,210 -1,218 -1,170 -1,131 -436 -1,000 |
+| NJ | 953 970 1,028 1,081 744 0 | 144 161 219 879 174 0 |
+| OR | 3,272 3,282 3,438 3,573 1,597 0 | unchanged (state AGI over 31,550) |
+| UT | 847 821 888 942 47 0 | 0 0 0 429 0 0 |
+| ME | 477 441 499 544 0 0 | -139 -176 -117 -72 -600 -600 |
+
+Seeded success rates (2,000 paths, seed 7; two scenarios added to `tests/historical_rates.js`): MN historical 68.3% to 68.3%, Monte Carlo 75.5% to 76.6%; NJ
+68.3% to 68.3%, 75.5% to 75.8%; every other scenario unchanged.
+
+**Timing** (400 `simulate()`, interleaved, one process, median of 7): default (no children, MA) 370 to 381 ms (1.030, noise: the path is untouched), PA couple
+retired 185 to 182 (0.984), Minnesota with two young children 419 to 473 (1.129), Maine 454 to 489 (1.077). The last two are over the +5% line because they now
+evaluate a credit that did not exist (and its lower tax moves the withdrawal solvers); the hot paths in the plan (no children, no credit row) are unchanged.
 
 
 ### Batch 4A / 4B notes
