@@ -2937,6 +2937,18 @@ The plan's example (a 65+ partner with 85,000 of base income who draws 30,000 mo
 
 **Named gaps.** The year-of-death income is not modeled beyond the stacking on the last survivor's share; a couple who die together are one return; a spousal rollover at the first death is not modeled (the first death defers the tax, the plan ends at the last death); executor and legal fees; the marginal rate on the estate beyond the last return (for example the tax on a US-situs asset).
 
+#### N9: OAS in the survivor period (Canada V50 -> V51)
+
+**Rule (statute, not re-read here):** OAS is a personal benefit and is not inherited; a surviving spouse keeps their own pension (the survivor's Allowance for the Survivor is the 7L program). The 7L fix already stopped a survivor under 65 from receiving the deceased's OAS; this item removes the remaining greater-of swap from 65 on.
+
+**What changed.** `cppAndOasIncome` no longer swaps the OAS: the survivor's `oasGross` is the amount computed from their own `oasMonthly` input, their own start age and their own 75-plus step (nothing before their start age). CPP keeps the greater-of simplification (the CPP survivor's pension, death benefit and children's benefit stay with Batch 6). The survivor info bubble, the README survivor line and the code comment say so. Only plans whose two OAS inputs (or start ages) differ can move.
+
+**Before / after.** One of the 375 Canada scenarios moves (`std R survivor+loans`, the only survivor scenario with unequal OAS ages): at 75 (the death year) CPP plus net OAS 43,171 -> 41,557, tax 12,378 -> 11,949, final total assets 467,135 -> 461,572. A survivor whose own OAS is smaller loses the difference; with equal inputs nothing changes (checked). Seeded success rates unchanged (the standard scenarios have equal inputs). US byte-identical.
+
+**Timing.** No change (a simpler branch).
+
+**Tests.** `tests/survivor_oas.js` (new, in `npm test`): unequal inputs with either partner surviving (own OAS 700 or 400 a month, never the other's), the survivor's own 75-plus step, a survivor before their own start age gets none, equal inputs give the old amount, CPP greater-of unchanged. `tests/survivor_symmetry.js` (identical partners) is unchanged and passes.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
