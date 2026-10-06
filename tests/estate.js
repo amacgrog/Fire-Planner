@@ -60,6 +60,11 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
     res.coupleTax = t.personTaxCA(50000 + 150000, 0, 0, 0, 90, 0) - t.personTaxCA(50000, 0, 0, 0, 90, 0);
     st.province = 'on';
     st.singlePerson = true;
+    // The last year's realized gains count at 50% in the final-return base (grossIncome carries them in full): Ontario, age 85, 100,000
+    // of last-year income of which 40,000 is gains, 300,000 of RRIF left.
+    const grow = { year: 0, age: 85, ageB: null, grossIncome: 100000, total: 300000 };
+    res.gainsYear = t.afterTaxEstate({ rows: [grow], estate: { ...base, traditional: 300000, lastGains: 40000 } });
+    res.gainsYearTax = t.personTaxCA(80000 + 300000, 0, 0, 0, 85, 0) - t.personTaxCA(80000, 0, 0, 0, 85, 0);
     // The projection itself is untouched: the estate field does not enumerate.
     const sim = window.__test_simulate();
     res.keys = Object.keys(sim).includes('estate');
@@ -109,8 +114,9 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
   assert(out.survivorTax > out.coupleTax + 5000, 'the survivor case must cost more tax than the half-income reading');
   assert(out.life.clawback > 1000, 'the scenario must pay OAS recovery tax, got ' + out.life.clawback);
   near(out.life.table, out.life.expected, 1e-6, 'lifetime tax in the meltdown table includes the OAS recovery tax');
+  near(out.gainsYear, 300000 - out.gainsYearTax, 1e-6, 'the last year\'s gains enter the final-return base at 50%');
   assert(!out.keys, 'the estate must not be an enumerable result field');
-  assert.deepStrictEqual(out.estateKeys.sort(), ['cash', 'homeEquity', 'roth', 'survivor', 'taxable', 'taxableBasis', 'traditional'], 'estate fields');
+  assert.deepStrictEqual(out.estateKeys.sort(), ['cash', 'homeEquity', 'lastGains', 'roth', 'survivor', 'taxable', 'taxableBasis', 'traditional'], 'estate fields');
   assert(out.opt.hasField && out.opt.n >= 4, 'the optimizer rows carry the after-tax estate');
   near(out.opt.best, out.opt.maxPool, 1e-6, 'the recommended bracket has the highest after-tax estate among the plans that do not shorten the portfolio');
   assert(out.opt.spread > 1000, 'the brackets must differ in after-tax estate');
