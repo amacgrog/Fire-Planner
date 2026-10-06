@@ -155,6 +155,13 @@ function caStd() {
     ['R province bc', { ...R, province: 'bc' }],
     ['R province qc', { ...R, province: 'qc' }],
     ['R province ab', { ...R, province: 'ab' }],
+    // 7M: provinces with property-tax and rent programs (owner with 4,000 property tax; Manitoba renter; low-income retired owners).
+    ['R province mb owner', { ...R, province: 'mb', propertyTax: 4000 }],
+    ['R province mb renter', { ...R, province: 'mb', tenure: 'rent', rent: 2000 }],
+    ['R province ns owner', { ...R, province: 'ns', propertyTax: 4000 }],
+    ['R province nb owner', { ...R, province: 'nb', propertyTax: 4000 }],
+    ['R province ns low-income retirees', { ...R, province: 'ns', ageA: 68, ageB: 66, retireAgeA: 68, retireAgeB: 66, taxable: 0, traditional: 150000, roth: 100000, cash: 20000, spending: 30000, propertyTax: 3000 }],
+    ['R province nb low-income retirees', { ...R, province: 'nb', ageA: 68, ageB: 66, retireAgeA: 68, retireAgeB: 66, taxable: 0, traditional: 150000, roth: 100000, cash: 20000, spending: 30000, propertyTax: 3000 }],
     ['R zero growth', { ...R, returnRate: 0, bondReturn: 0, inflation: 0, hysaRate: 0 }],
     ['R high dividends', { ...R, dividendYield: 4, qualifiedDivPct: 60 }],
     ['R fhsa', { ...R, fhsa: 40000 }],

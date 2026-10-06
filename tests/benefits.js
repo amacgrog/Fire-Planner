@@ -460,6 +460,43 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     625 + 357 - 0.0075 * 40000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
   );
 
+  // Engine: a single 70, retired, CPP 6,000 + OAS 9,150, owning with 3,000 property tax, inflation 0 (factor 1). The row
+  // fields move by exactly the program amount compared with the same plan with no property tax.
+  const engine = (prov, pt) => page.evaluate(({ prov, pt }) => {
+    const s = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(s));
+    Object.assign(s, { province: prov, singlePerson: true, ageA: 70, retireAgeA: 70, lifeExpectancyA: 95, incomeA: 0, pensionCoverage: 'none', inflation: 0, cppMonthlyA: 500, cppStartAgeA: 65, oasMonthlyA: 762.5, oasStartAgeA: 65, taxable: 0, traditional: 0, roth: 400000, cash: 50000, spending: 20000, healthcare: 0, dividendYield: 0, tenure: 'own', propertyTax: pt, propertyTaxGrowth: 0 });
+    const row = window.__test_simulate().rows.find((x) => x.age === 71);
+    Object.keys(saved).forEach((k) => { s[k] = saved[k]; });
+    return { credit: row.benefitProvCredit, senior: row.benefitProvSenior };
+  }, { prov, pt });
+  // Income 15,150 (GIS income 6,000 > 0): NB allowance 300 (income under 22,001); NS rebate min(800, 1,500) = 800;
+  // MB: homeowners credit 1,600 and seniors rebate 235 (income under 40,000).
+  let e1 = await engine('nb', 3000), e0 = await engine('nb', 0);
+  near(e1.credit - e0.credit, 300, 1e-6, 'engine, NB: allowance in the row');
+  e1 = await engine('ns', 3000); e0 = await engine('ns', 0);
+  near(e1.senior - e0.senior, 800, 1e-6, 'engine, NS: rebate in the row');
+  e1 = await engine('mb', 3000); e0 = await engine('mb', 0);
+  near(e1.credit - e0.credit, 1600, 1e-6, 'engine, MB: homeowners credit in the row');
+  near(e1.senior - e0.senior, 235, 1e-6, 'engine, MB: seniors rebate in the row');
+
+  // No phase-in: every new program is non-increasing in income (a rise would meet the known drawTaxable over-sell limitation
+  // and break the gisIncomeRoom bisection). Scan 9,150 to 150,000 in 500 steps, single 70 owner and couple 66 renter.
+  for (const [code, mk] of [
+    ['nb', (y) => prof({ otherA: y, ageA: 70, oasA: 9150, propertyTaxPaid: 3000 })],
+    ['ns', (y) => prof({ otherA: y, ageA: 70, oasA: 9150, propertyTaxPaid: 3000 })],
+    ['mb', (y) => prof({ otherA: y, ageA: 70, oasA: 9150, propertyTaxPaid: 3000 })],
+    ['mb', (y) => prof({ otherA: y / 2, otherB: y / 2, ageA: 66, ageB: 66, singlePerson: false, oasA: 9150, oasB: 9150, rentPaid: 12000 })],
+  ]) {
+    let prev = Infinity;
+    for (let y = 9150; y <= 150000; y += 500) {
+      const b = await withProv(code, mk(y));
+      const v = b.provCredit + b.provSenior;
+      assert(v <= prev + 1e-9, code + ': housing programs rise with income at ' + y + ' (' + prev + ' -> ' + v + ')');
+      prev = v;
+    }
+  }
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
