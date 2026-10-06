@@ -2562,6 +2562,18 @@ Gross tax is unchanged by benefits (checked: with no children the rows are ident
 
 **Not built (named gaps):** other provinces' programs (7M); the Allowance for the Survivor beyond the survivor remap; disability benefits; the Ontario energy component for long-term care and reserves, the Northern Ontario Energy Credit and the shared-care sheets; low-income tax reductions; the prior-year lookback; the CSV columns; OAS deferral and partial residence (the input stays manual).
 
+### 7M notes: property-tax and rent programs (NB, NS, MB; in progress)
+
+Branch `claude/batch-7m-benefits` (base `origin/claude/batch-3b-penalty-rules` at 0a1050c, the 7L merge). Plan: `docs/superpowers/plans/2026-10-05-7m-housing-benefits.md`; research table: `docs/7m-housing-research.md`. This section covers the housing part of 7M; the child, low-income-credit and seniors programs are added by the closing 7M commits.
+
+**Built (rows in `BENEFIT_RULES`, kind `occupancyCredit`, scope `nb`, `ns` or `mb`):** `nbpta` (NB Residential Property Tax Allowance: 300 / 200 / 100 by income, capped at the property tax; primary), `nsptr` (NS Property Tax Rebate for Seniors: the greater of 15 and half of the tax, to 800, when the household receives GIS or an Allowance; primary, regulation s. 3(b), 3(ba), 7), `mbhatc` (MB Homeowners Affordability Tax Credit: lesser of 1,600 and school taxes; school taxes proxied by the whole property tax), `mbsstr` (MB Seniors School Tax Rebate: 235 less 1% of income over 40,000), `mbratc` (MB Renters Affordability Tax Credit: 625 plus a seniors top-up of 357 less 0.75% of family income). Credits add to `provCredit`, the seniors programs to `provSenior`.
+
+**Excluded, with reasons:** PEI Provincial Tax Credit (0.70 per 100 of assessed value: no assessment input), Manitoba Rent Assist (income support; needs a regional market-rent ceiling), NS Heating Assistance Rebate (needs the heating cost), Saskatchewan and Newfoundland and Labrador (no rent or property-tax program found; absence not proved on a primary page).
+
+**Rulings:** owner approved the property-tax and rent scope (no new inputs); the NB tier edges are read as whole dollars (below 22,001 / 25,001 / 30,001); the NS survivor Allowance counts (regulation s. 3(b)); statutory flat amounts are not indexed, the Manitoba maxima scale with plan inflation (the enacted 2027 steps to 1,700 / 675 / 385.71 are not separately modeled); one Manitoba renters credit and one top-up per household, a full year of rent assumed whenever rent is above zero. **Manitoba skips the 125,000 early exit** in `benefitsFor`: its homeowners and renters credits have no income test (the test at 300,000 failed without it).
+
+**Verification:** every new test is a hand-computed case with the page or regulation cited (`tests/benefits.js`); a scan test pins that no new program rises with income (so the known `drawTaxable` over-sell limitation is not hit); engine rows move by exactly the program amount; survivor symmetry runs for NS, MB and NB; six scenarios were added to the Canada snapshot (42 lines added, none changed, US untouched). Timing (interleaved, same process, 300 `simulate()` per round, median of 7, against the 7L merge base): Ontario 1.01, Manitoba 1.07, New Brunswick 1.01, Nova Scotia 1.04.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -2641,6 +2653,10 @@ reading (itself secondary).
 | 7L: Quebec solidarity credit component tables (housing, QST, northern; 2026) and the work premium formula (rates, thresholds, work-income rules); thresholds 64,545 / 70,395 and 2,634 per child are secondary | 7L | S | Revenu Quebec pages (tables hidden from the text reader; owner screenshot) |
 | 7L: provincial seniors programs still open: BC Senior Supplement (BC pages blocked by an election banner; 99.30 / 220.50 / 99.83 are secondary), Ontario GAINS rate tables (eight pages by age and marital status; only the 92 maximum and the 4,416 / 8,832 limits are read), Manitoba 55 PLUS senior-component formula | 7L / 7M | P for SK, NB, AB; S for BC | BC rate table; Ontario GAINS tables; Manitoba regulation 64/90 |
 | 7L: Ontario Energy and Property Tax Credit occupancy-cost calculation (the 20% of rent / 100% of property tax shape is a search summary) and the OSTC seniors income threshold | 7L | S | CRA OEPTC calculation sheet |
+| 7M: Manitoba homeowners credit uses the whole property tax in place of school taxes (an upper bound) | 7M | S | Manitoba Finance (school share of a bill) |
+| 7M: Manitoba renters seniors top-up rate 0.75% (stated for the older 300 maximum; assumed for 357), one top-up per household, age 65 | 7M | S | MB479 instructions / Manitoba Finance |
+| 7M: NB property tax allowance whole-dollar tier edges; the page is undated | 7M | S | Service New Brunswick |
+| 7M: Saskatchewan and Newfoundland and Labrador have no rent or property-tax program (absence) | 7M | U | provincial finance pages |
 | 7L: OAS recovery tax threshold: ESDC page shows 93,454 for 2025; the code uses 95,323 for 2026 | 7L | S | ESDC / CRA 2026 threshold |
 | 7L: GIS employment exemption (first 5,000 exempt, half of the next 10,000) and GIS income definition (net income less OAS, capital gains at 50%, TFSA excluded); GIS tables 4 and 5 exact fits | 7L | S / P (tables) | OAS Act schedule and the ESDC tables |
 | 7L Ontario senior homeowners property tax grant: 500 maximum, full to 35,000 (single) or 45,000 (couple), 3.33 percent reduction, nil at 50,000 / 60,000, owners 64 or older (a search summary of the ontario.ca page; not read directly) | 7L | S | https://www.ontario.ca/page/senior-homeowners-property-tax-grant and the CRA OSHPTG questions and answers |
