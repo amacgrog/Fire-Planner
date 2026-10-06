@@ -2750,7 +2750,7 @@ Branch `claude/batch-7m-benefits` (base `origin/claude/batch-3b-penalty-rules` a
 
 **Final whole-branch review (fresh Opus reviewer) of the housing part and fixes.** Fixed: the Manitoba seniors school tax rebate is now limited to the property tax left after the homeowners credit (credit plus rebate could exceed the tax paid; test `MB seniors rebate: nothing left after the homeowners credit on a 1,000 bill` RED then GREEN). Not fixed, rulings: (1) step cliffs (NB tiers, NS rebate when GIS ends) made the shared `drawTaxable` return a negative net on a small draw at the step (measured -563): fixed on the owner approval (2026-10-05) by widening the bracket only when the net at its top is short of the need, in `drawTaxable` (shared region, both planners, text identical) and the two Canada RRSP solvers; US and Canada snapshots unchanged; cost +3 to +7 percent (interleaved, against the commit before). (2) Manitoba timing 1.07 in one noisy interleaved run against a 5 percent target: the bypass of the 125,000 early exit runs the GIS, CGEB and CCB evaluators for Manitoba plans above that income only; accepted as in 7L. A cheaper path (add only the two no-income-test credits and return) is the next step if needed. Deferred minors: the NS 15 dollar floor applies even to a bill under 15 (the regulation reads this way; not capped by the tax paid); the tests all run at inflation factor 1 (no case pins the indexed Manitoba maxima or the top-up at a factor above 1); the Ontario no-leak assertion is weak; the scan test checks monotonicity only, not jump size; the Province info bubble still says provincial credits beyond the basic personal amount are excluded (stale since 7L).
 
-### 7N notes: remaining Canadian credits, benefits and fixes (Canada, in progress)
+### 7N notes: remaining Canadian credits, benefits and fixes (Canada, complete)
 
 Branch `claude/batch-7n-canada-credits`, base `origin/claude/batch-3b-penalty-rules` at `ac5beab` (the 7M merge, Canada V43). Spec and plan: `docs/superpowers/plans/2026-10-06-7n-canada-credits.md`. One commit per item in the order N1, N3, N4+N10, N5, N6, N7, N8, N9, N11 (N2 dropped).
 
@@ -2952,6 +2952,16 @@ The plan's example (a 65+ partner with 85,000 of base income who draws 30,000 mo
 #### N11: Canada Dental Care Plan note (Canada V51 -> V52; copy only)
 
 **Verified** (canada.ca Canadian Dental Care Plan eligibility page, primary, retrieved 2026-10-06): the adjusted family net income must be less than **$90,000**, and the person must have no access to private dental insurance or coverage (including health spending accounts that cover dental costs). The page read does not state the co-payment tiers by income, so none are described. **What changed:** one sentence in the info bubble of the extra health/dental insurance field (a Canada-only field, outside the shared markup regions); README feature list; badge. No number changes: the snapshot grid is byte-identical and only the UI baseline's rendered-text hashes move.
+
+#### 7N summary (Canada V43 -> V52)
+
+**Commits:** N1, N3, N4+N10, N5, N6, N7, N8, N9, N11 (N2 dropped). US planner byte-identical throughout (US snapshots and UI baseline untouched).
+
+**Timing vs the 7M merge (ac5beab), final run, 300 simulate() a round, median of 7, interleaved:** stock plan ON 0.88, BC 0.90, QC 0.91; retired 66 with OAS ON 0.96, BC 0.98, QC 0.98 (all inside the +5% target). Known miss, recorded in N7: the Quebec retired heavy-draw stress case ran 1.65x (call volume from the extra yearly need, not per-call overhead).
+
+**Considered and left out (named gaps):** Ontario Health Premium freeze (N2, dropped by the owner); Quebec single-parent supplement (primary rule needs a child 18+ in post-secondary studies); transfer of a spouse's unused amounts; federal medical top-up credit and Quebec's refundable medical credit; Quebec access-to-homeownership credit; Ontario LIFT credit and dependants with an impairment; CPP survivor pension, death benefit and children's benefit (Batch 6); Dental Care Plan co-payment tiers (copy note only). Secondary figures are on the verification backlog table above.
+
+**Exit criteria:** every figure cited with retrieval date; hand-computed tests per item in `npm test`; seeded success rates and before/after tables per item; `docs/province-tax-rules.md` regenerated; 390x844 check done (no horizontal overflow); `npm run check:shared` clean; badge bumped each commit; README and CLAUDE.md updated per item.
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
