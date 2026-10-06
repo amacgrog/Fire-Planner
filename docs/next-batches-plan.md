@@ -2750,6 +2750,48 @@ Branch `claude/batch-7m-benefits` (base `origin/claude/batch-3b-penalty-rules` a
 
 **Final whole-branch review (fresh Opus reviewer) of the housing part and fixes.** Fixed: the Manitoba seniors school tax rebate is now limited to the property tax left after the homeowners credit (credit plus rebate could exceed the tax paid; test `MB seniors rebate: nothing left after the homeowners credit on a 1,000 bill` RED then GREEN). Not fixed, rulings: (1) step cliffs (NB tiers, NS rebate when GIS ends) made the shared `drawTaxable` return a negative net on a small draw at the step (measured -563): fixed on the owner approval (2026-10-05) by widening the bracket only when the net at its top is short of the need, in `drawTaxable` (shared region, both planners, text identical) and the two Canada RRSP solvers; US and Canada snapshots unchanged; cost +3 to +7 percent (interleaved, against the commit before). (2) Manitoba timing 1.07 in one noisy interleaved run against a 5 percent target: the bypass of the 125,000 early exit runs the GIS, CGEB and CCB evaluators for Manitoba plans above that income only; accepted as in 7L. A cheaper path (add only the two no-income-test credits and return) is the next step if needed. Deferred minors: the NS 15 dollar floor applies even to a bill under 15 (the regulation reads this way; not capped by the tax paid); the tests all run at inflation factor 1 (no case pins the indexed Manitoba maxima or the top-up at a factor above 1); the Ontario no-leak assertion is weak; the scan test checks monotonicity only, not jump size; the Province info bubble still says provincial credits beyond the basic personal amount are excluded (stale since 7L).
 
+### 7N notes: remaining Canadian credits, benefits and fixes (Canada, in progress)
+
+Branch `claude/batch-7n-canada-credits`, base `origin/claude/batch-3b-penalty-rules` at `ac5beab` (the 7M merge, Canada V43). Spec and plan: `docs/superpowers/plans/2026-10-06-7n-canada-credits.md`. One commit per item in the order N1, N3, N4+N10, N5, N6, N7, N8, N9, N11 (N2 dropped).
+
+**Owner decisions (2026-10-06):** N5 the whole LTC input counts as a nursing-home medical expense; N7 every retired adult pays the RAMQ premium; N8 the meltdown table is ranked by the after-tax estate; N1 the recovery tax is deducted from net income (line 23500); N6 builds every province whose figures are read on a primary page and leaves the others null (backlog row).
+
+**Timing gate.** `tests/bench_canada.js --base <worktree of the previous commit>` (interleaved in one process, 300 or 600 `simulate()` per round, median of 7 to 11, ON / BC / QC, a stock household and a retired 66-year-old couple with OAS). Noise is about 10 percent; the harness against itself reads 0.98 to 1.01.
+
+#### N1: OAS recovery tax on the full year's income (Canada V43 -> V44)
+
+**Verified figures** (retrieved 2026-10-06)
+- 2026 threshold **$95,323**, rate 15%, repayment capped at the OAS received: https://www.canada.ca/en/services/benefits/publicpensions/old-age-security/recovery-tax.html (primary; the 2025 threshold of $93,454 is on the same page, so the 7L backlog row about 93,454 against 95,323 is closed).
+- The repayment is **deducted** at line 23500 and **added to the tax payable** at line 42200: https://www.canada.ca/en/services/benefits/publicpensions/cpp/old-age-security/repayment.html ("enter this repayment amount on lines 23500 and 42200"); net income at line 23600 is "line 15000, minus total of lines 20700 to 23500" (CRA line 23600 page, read through a search excerpt). The CRA line 23500 page, read through a summarising fetch, garbled this into "increases your total payable", which is only the line 42200 half of the rule, so it was not used. The threshold tests net income before adjustments (line 23400, before the repayment), which is what the code does.
+- Not modeled: the CRA one-year lookback (the same year's income stands in, an engine convention). Quebec's own deduction for the repayment is treated like the federal one (the same taxable income feeds both); not read on a Revenu Quebec page.
+
+**What changed.** The recovery tax moved from the year loop (where it was charged on income before the discretionary RRSP/RRIF draw, the meltdown and gains were known, and was invisible to the withdrawal solvers) into `personTaxCA`, on the return's full net income: `personTaxCA(..., partnerPool, oas)`. It is deducted from net income first (so the brackets and the age amount see the lower figure), then added to the tax; credits do not reduce it and Quebec's abatement does not touch it. `incomeTaxCA` passes `profile.oasA/oasB` and leaves the per-return amounts in `OAS_RECOVERY.a/.b`; `solvePensionSplit` gets `oasA, oasB` so the 15% kink is inside its objective. The year loop's cash flow starts from gross OAS and `tax` includes the recovery; the row keeps `ss` net of the recovery (the field name is inherited from the US planner and holds CPP plus OAS), adds `oasClawback`, and reports `tax` without it, so tables and the Sankey show each amount once. The inlined threshold test, and reading the recovery from the last `taxFor` call instead of one extra tax evaluation a year, kept the cost down.
+
+**Before / after** (one filer, Ontario, age 66, OAS 9,150 inside the income, no pension; "extra" is the new tax less the old tax on the same income, the old model charging nothing for income it could not see before the draw):
+
+| Income incl. OAS | Old tax | New tax (recovery included) | Extra |
+|---|---|---|---|
+| 90,000 | 18,088 | 18,088 | 0 |
+| 100,000 | 21,356 | 21,822 | +466 |
+| 115,000 | 26,545 | 28,377 | +1,833 |
+| 130,000 | 32,944 | 35,887 | +2,944 |
+| 160,000 | 46,123 | 51,158 | +5,035 |
+| 200,000 | 64,776 | 69,483 | +4,707 |
+
+The plan's example (a 65+ partner with 85,000 of base income who draws 30,000 more) owes 2,951.55 of recovery tax, less the tax saved on the deduction (+1,833 net at 115,000). Engine level, scenario `R oasClawback` (Ontario couple, 2,000,000 RRSP, 90,000 pension): at 66 the recovery is 6,931 against 4,444 before (the draw is now counted); the total cost at 66 is 48,780 against 49,447; the end total over the plan is 27,923,505 against 26,777,199, because the line-23500 deduction is worth more than the extra recovery. The stock plan's rows are unchanged (its incomes never cross the threshold).
+
+**Seeded success rates** (`tests/historical_rates.js`, 2,000 paths, seed 7), Canada, before and after: identical in every scenario (default 82.9% historical / 82.5% Monte Carlo, early retiree 92.5 / 88.9, smooth 90.6 / 88.6, bondYears 4 82.9 / 84.5, survivor A 100 / 100, survivor B 94.3 / 90.3). The stock scenarios stay under the threshold.
+
+**Snapshots.** Every Canada scenario moves by one new row field (`oasClawback`); with that field ignored, 191 of 375 scenarios change numerically (the households whose income, draws included, crosses the threshold). US byte-identical. `npm run snapshot:update` is run in this commit only.
+
+**Timing** (interleaved, 600 `simulate()` per round, median of 11, previous commit against this one): stock ON 1.02, BC 1.06, QC 1.06; retired 66 with OAS ON 1.04, BC 1.05, QC 1.12. At the 5 percent line on the noise floor; the retired households do more real work (the recovery now moves their draws). The first version, with an extra tax evaluation per year, read up to 1.22 before that was removed.
+
+**Tests.** `tests/tax_brackets.js` Canada section: hand-computed recovery with the deduction (110,000 gives 2,201.55, taxable 107,798.45), the cap, below the threshold, no OAS, gains at 50%, the indexed threshold, a draw that crosses the threshold (the plan example), a couple, a profile without OAS; and a 108-household pension-split regret check with OAS in both returns (under 3 dollars a year against a 50 dollar scan). `tests/oas_recovery.js` (new, in `npm test`): engine rows against 15% x (income - 95,323) per person, the `ss` identity, and a household under the threshold. `tests/survivor_symmetry.js`: a high-income scenario (both partners owe the recovery, before and after the death year), with `oasClawback` and `ss` added to the compared fields.
+
+**Cliffs register (Canada, 7N).** The OAS recovery tax is a 15 percent kink, not a cliff: from the indexed 95,323 of net income each extra dollar costs 15 cents more, until the recovery reaches the OAS received (9,150 at 65 to 74, 10,065 from 75), where the slope returns to normal; the deduction offsets part of it. Combined tax of two 65+ spouses is non-convex through it, which `solvePensionSplit` handles with its grid, refine and equal-income candidates.
+
+**Gotchas.** The money-field converter strips the decimal point: `oasMonthly` typed as `762.5` becomes 7,625, so a test that sets it through the DOM must use a whole number. A summarising fetch of a CRA page can garble a deduction into an addition (see the line 23500 note): read the formula from the line 23600 page. A `taxFor` call overwrites `OAS_RECOVERY`, so read it straight after the call whose income you want (the year loop does this after each place `totalTax` is set).
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
@@ -2841,7 +2883,7 @@ reading (itself secondary).
 | 7M: New Brunswick and Nova Scotia amounts are modeled unindexed (statutory flat amounts); NS Affordable Living Tax Credit child age (under 18) and NB School Supplement age as of which date | 7M | S | CRA NS and NB pages |
 | 7M: Saskatchewan Low-Income Tax Credit single-parent structure (eligible dependant 460 plus child amounts, up to two children) is a reading; the GST-style alternative is 181 lower | 7M | S | Saskatchewan Income Tax Act / CRA SLITC calculation |
 | 7M: PEI Island Essentials Benefit age 19 or older and the prior-year tax return are not modeled | 7M | S | PEI FAQ |
-| 7L: OAS recovery tax threshold: ESDC page shows 93,454 for 2025; the code uses 95,323 for 2026 | 7L | S | ESDC / CRA 2026 threshold |
+| 7L: OAS recovery tax threshold: ESDC page shows 93,454 for 2025; the code uses 95,323 for 2026 **7N: closed, 95,323 for 2026 on the canada.ca recovery tax page (retrieved 2026-10-06).** | 7L | P | canada.ca OAS recovery tax page |
 | 7L: GIS employment exemption (first 5,000 exempt, half of the next 10,000) and GIS income definition (net income less OAS, capital gains at 50%, TFSA excluded); GIS tables 4 and 5 exact fits | 7L | S / P (tables) | OAS Act schedule and the ESDC tables |
 | 7L Ontario senior homeowners property tax grant: 500 maximum, full to 35,000 (single) or 45,000 (couple), 3.33 percent reduction, nil at 50,000 / 60,000, owners 64 or older (a search summary of the ontario.ca page; not read directly) | 7L | S | https://www.ontario.ca/page/senior-homeowners-property-tax-grant and the CRA OSHPTG questions and answers |
 | 7L Quebec work premium phase-in rates 11.6 percent (living alone, couple without children), 30 percent (single parent), 25 percent (couple with children): derived from maximum / (threshold - exclusion) using the primary Finance Quebec Table 3 maxima and thresholds and the 2,400 / 3,600 exclusions (11.6 percent also appears in a search summary) | 7L | S (derived) | Revenu Quebec Schedule P or publication IN-245 |

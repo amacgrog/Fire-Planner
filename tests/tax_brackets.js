@@ -552,6 +552,48 @@ function caChecks() {
   near(t.oasClawback(120000, 8500, 0), 3701.55, 0.005, 'OAS clawback partial'); // 15% of 24,677
   near(t.oasClawback(200000, 8500, 0), 8500, 0.005, 'OAS clawback capped at OAS received');
   near(t.oasClawback(300000, 0, 0), 0, 1e-9, 'no OAS, no clawback');
+  // --- OAS recovery tax inside the return (7N N1) ------------------------------
+  // personTaxCA(..., oas) charges 15% of net income (OAS included) over 95,323 up to the OAS received, and the
+  // repayment is deducted from net income (CRA line 23500, "line 15000 minus lines 20700 to 23500" = line 23600)
+  // before the brackets and the age amount, then added to the tax payable (line 42200).
+  {
+    st.province = 'on';
+    // 110,000 incl. 8,500 OAS: recovery 15% x 14,677 = 2,201.55; tax is on 107,798.45, plus the recovery.
+    near(
+      t.personTaxCA(110000, 0, 0, 0, 66, 0, null, 0, 8500),
+      t.personTaxCA(107798.45, 0, 0, 0, 66, 0) + 2201.55,
+      1e-6,
+      'recovery tax: deducted from net income, added to tax',
+    );
+    // Capped at the OAS received: 200,000 income, 8,500 OAS -> recovery 8,500, taxable 191,500.
+    near(t.personTaxCA(200000, 0, 0, 0, 66, 0, null, 0, 8500), t.personTaxCA(191500, 0, 0, 0, 66, 0) + 8500, 1e-6, 'recovery tax capped at the OAS');
+    // Below the threshold, or no OAS: identical to the old result.
+    near(t.personTaxCA(90000, 0, 0, 0, 66, 0, null, 0, 8500), t.personTaxCA(90000, 0, 0, 0, 66, 0), 1e-12, 'below the threshold: no recovery');
+    near(t.personTaxCA(300000, 0, 0, 0, 66, 0, null, 0, 0), t.personTaxCA(300000, 0, 0, 0, 66, 0), 1e-12, 'no OAS: no recovery');
+    // The plan's example: a 66-year-old with 85,000 base income (OAS 8,500 inside) who draws 30,000 more owes
+    // 15% x (115,000 - 95,323) = 2,951.55 of recovery tax the old model did not charge.
+    const pr = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    near(
+      t.incomeTax(pr({ singlePerson: true, otherA: 85000, ageA: 66, penA: 0, oasA: 8500 }), 0, 30000),
+      t.personTaxCA(115000 - 2951.55, 0, 0, 0, 66, 0) + 2951.55,
+      1e-6,
+      'a discretionary draw that crosses the threshold pays the recovery tax',
+    );
+    // A couple: each return takes its own recovery (A: 110,000 / OAS 8,500; B: 60,000 / OAS 8,500, none due).
+    near(
+      t.incomeTax(pr({ singlePerson: false, otherA: 110000, otherB: 60000, ageA: 66, ageB: 66, penA: 0, penB: 0, oasA: 8500, oasB: 8500 }), 0, 0),
+      t.personTaxCA(107798.45, 0, 0, 0, 66, 0) + 2201.55 + t.personTaxCA(60000, 0, 0, 0, 66, 0),
+      1e-6,
+      'couple: each return has its own recovery tax',
+    );
+    // A profile without OAS fields is unchanged.
+    near(t.incomeTax(pr({ singlePerson: true, otherA: 150000, ageA: 66 }), 0, 0), t.personTaxCA(150000, 0, 0, 0, 66, 0), 1e-12, 'profile without oas');
+    // Gains count at 50%: 100,000 + 20,000 of gains -> 110,000 net income.
+    near(t.personTaxCA(100000, 20000, 0, 0, 66, 0, null, 0, 8500), t.personTaxCA(107798.45, 0, 0, 0, 66, 0) + 2201.55, 1e-6, 'gains count toward the threshold');
+    // Indexed threshold: at factor f the threshold is 95,323 f.
+    const f3 = t.taxIndexFactor(10);
+    near(t.personTaxCA(110000 * f3, 0, 10, 0, 66, 0, null, 0, 8500 * f3), t.personTaxCA(110000 * f3 - 0.15 * (110000 - 95323) * f3, 0, 10, 0, 66, 0) + 0.15 * (110000 - 95323) * f3, 1e-6, 'recovery threshold is indexed');
+  }
 
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
@@ -619,6 +661,23 @@ function caChecks() {
             worst = Math.max(worst, combined(x) - best);
           }
     if (!(worst < 3)) fails.push(`pension split regret up to $${worst.toFixed(2)} a year against a brute-force scan`);
+    // 7N N1: the same check with OAS in both returns, so the recovery tax (a 15% kink at the threshold, capped
+    // at the OAS) is inside the search objective. Incomes include the 9,000 OAS each.
+    let worstOas = 0;
+    for (const pa of [0, 20000, 50000, 90000])
+      for (const pb of [0, 15000, 40000])
+        for (const oa of [0, 30000, 60000])
+          for (const ob of [0, 25000, 50000]) {
+            const oas = 9000,
+              oA = pa + oa + oas,
+              oB = pb + ob + oas;
+            const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68, oas, oas);
+            const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y, null, 0, oas) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y, null, 0, oas);
+            let best = Infinity;
+            for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
+            worstOas = Math.max(worstOas, combined(x) - best);
+          }
+    if (!(worstOas < 3)) fails.push(`pension split with OAS: regret up to $${worstOas.toFixed(2)} a year against a brute-force scan`);
   }
   return fails;
 }
