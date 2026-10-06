@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V101</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V102</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -500,7 +500,7 @@
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
           <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
           <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
-          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare. Federal tax: your health premiums (the ACA premium after the credit, Medicare and IRMAA) and the long-term-care cost, which is assumed to be qualified care for a chronically ill person under a plan of care, count as medical expenses over 7.5% of AGI when itemizing beats the standard deduction, which in practice means the care years. State itemized deductions are not modeled.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
           <div class="field" id="medicaidWhenEligibleField"><label for="medicaidWhenEligible"><input id="medicaidWhenEligible" type="checkbox"> Enroll in Medicaid when <span class="info-nw">eligible<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="In the 41 states with Medicaid expansion (and Wisconsin, to 100% of poverty), an adult under 65 with income at or below 138% of the poverty line (100% in Wisconsin) is eligible for Medicaid: a $0 premium and no premium tax credit. Checked, the plan charges $0 in those years; unchecked, it charges the full unsubsidized premium (you cannot take the credit instead). Medicaid pays back from the estate of anyone 55 or older (estate recovery), and its provider networks are narrower, so some households decline it. In the ten states that did not expand (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY), income below 100% of poverty gets no credit and pays the full premium. From 2027, expansion adults 19 to 64 must show 80 hours a month of work, service or school (a parent or caregiver of a child 13 or younger is exempt); a retired adult with no such child fails the test, loses Medicaid, and is also barred from the premium credit, so pays the full premium. Not modeled: other exemptions (medical frailty, disability, SNAP or TANF compliance), the income route to the requirement, state delays of up to the end of 2028, and Medicaid&#x27;s use of monthly rather than annual income.">i</button></span><small>$0 premium when income is low enough; full premium otherwise</small></label></div>
           <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
@@ -2700,22 +2700,25 @@
   }
   // Deliberately simple itemizing: state income tax + property tax under the SALT
   // cap, plus mortgage interest (already limited to the $750,000 debt cap by the
-  // caller). Charitable gifts, QCDs and medical expenses are not modeled.
-  function itemizedDeduction(yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest) {
+  // caller), plus the medical expenses over 7.5% of AGI (IRC 213(a), a permanent
+  // floor; `magi` stands in for AGI). Charitable gifts and QCDs are not modeled.
+  const MEDICAL_FLOOR_PCT = 0.075;
+  function itemizedDeduction(yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
     return (
       Math.min(saltCap(yearIndex, magi), Math.max(0, stateTaxPaid) + Math.max(0, propertyTax)) +
-      Math.max(0, mortgageInterest)
+      Math.max(0, mortgageInterest) +
+      Math.max(0, medical - MEDICAL_FLOOR_PCT * Math.max(0, magi))
     );
   }
   // What one return deducts: the larger of the (age-adjusted) standard deduction
   // and the itemized total, plus the senior deduction on top of either. `agi` is
   // the return's income before the deduction (it stands in for MAGI).
-  function federalDeduction(filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest) {
+  function federalDeduction(filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
     let deduction = standardDeduction(filing, yearIndex, ages);
-    if (stateTaxPaid > 0 || propertyTax > 0 || mortgageInterest > 0)
+    if (stateTaxPaid > 0 || propertyTax > 0 || mortgageInterest > 0 || (medical > 0 && medical > MEDICAL_FLOOR_PCT * agi))
       deduction = Math.max(
         deduction,
-        itemizedDeduction(yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest),
+        itemizedDeduction(yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest, medical),
       );
     return deduction + seniorDeduction(filing, yearIndex, ages, agi);
   }
@@ -6470,8 +6473,8 @@
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
-  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned) {
-    const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest),
+  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0) {
+    const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
       federal = ordinaryTax(ordinary, year, status, deduction) + longTermGainTax(gains, ordinary, year, status, deduction),
       credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
@@ -6541,7 +6544,7 @@
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB, profile.medicalExpense || 0);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6556,6 +6559,7 @@
           stateTaxPaid,
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
+          profile.medicalExpense || 0,
         );
       const federal =
         ordinaryTax(ordinary, profile.year, 'mfj', deduction) +
@@ -6596,7 +6600,7 @@
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA, profile.medicalExpense || 0);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6611,6 +6615,7 @@
           stateTaxPaid,
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
+          profile.medicalExpense || 0,
         );
       const federal =
         ordinaryTax(ordinary, profile.year, status, deduction) +
@@ -6669,7 +6674,7 @@
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA, (profile.medicalExpense || 0) / 2);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
@@ -6692,7 +6697,7 @@
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB, (profile.medicalExpense || 0) / 2);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -6704,8 +6709,9 @@
     const stateTaxA = stateIncomeTax(sourcesA, statusA, profile.year),
       stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
       halfInterest = (profile.mortgageInterest || 0) / 2,
-      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest),
-      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest);
+      halfMedical = (profile.medicalExpense || 0) / 2,
+      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
+      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
     // The child credits go on Partner A's return (A claims the children). Computed only when
     // there are children, and subtracted last, so the no-children sum keeps its exact order.
     let creditA = 0;
@@ -9348,6 +9354,9 @@
           filing,
         });
         if (usesMagiEstimate) estUsed = true;
+        // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
+        // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
+        profile.medicalExpense = healthcare + ltc;
         const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and

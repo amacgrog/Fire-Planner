@@ -3202,9 +3202,9 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
-### 7O notes: remaining US credits, benefits and fixes (in progress: O1 done)
+### 7O notes: remaining US credits, benefits and fixes (in progress: O1, O2 done)
 
-Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 with O1.
+Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2).
 
 #### O1: Medicaid and the premium-credit floor (US V101)
 
@@ -3273,6 +3273,46 @@ no allocation (`hasChildAtMost` loops the children list in place).
 
 **Gotchas.** `medicaidLimit` is 0 for a non-expansion state, so the Medicaid branch needs `limit > 0`
 (a MAGI of 0 would otherwise match). The 138% test uses the same 1e-9 tolerance as the 400% line.
+#### O2: medical expenses in itemized deductions (US V102)
+
+**Behavior.** `itemizedDeduction(yearIndex, magi, stateTax, propertyTax, mortgageInterest, medical = 0)` adds
+`max(0, medical - 7.5% x max(0, magi))` (`MEDICAL_FLOOR_PCT`; IRC 213(a), a permanent floor; the return's pre-deduction income
+stands in for AGI, as it already does for the SALT phase-down). `federalDeduction` and `federalLiabilityForState` (the lagged
+state pass) take the same last argument. The engine sets `profile.medicalExpense = healthcare + ltc` every MAGI-iteration pass,
+right after `healthcareCost` (the premium follows the pass's MAGI estimate; `profile` is a per-year object): the ACA premium
+after the credit (or the flat pre-65 premium with ACA off), Medicare Part B/D and supplement, IRMAA, and the year's long-term-care
+cost. Payroll-deducted premiums (`healthPremiumA/B`) are already pre-tax and are not in it. `taxFor` reads `profile.medicalExpense || 0`;
+the two-separate-filers branch splits it 50/50 like the property tax. `solveRothConversion` keeps its conservative lower bound (no medical
+term) and the Roth optimizer's profile literals carry none. The deduction only binds when itemizing beats the standard deduction, which in
+practice means the long-term-care years. State itemized deductions are not modeled. The LTC premium age limits of IRC 213(d)(10) do not
+apply (there is no LTC premium input: the field is the cost of care itself).
+
+**Sources (primary, retrieved 2026-10-06).** IRC 213(a) (7.5% of AGI), 213(d)(1) and (d)(1)(D) (medical care includes qualified long-term
+care services and insurance), 213(d)(2) with 7702B(c) (qualified long-term care services: a chronically ill individual, a plan of care by
+a licensed health care practitioner), and IRS Publication 502 (2025): Medicare Parts B and D and supplemental premiums are medical
+expenses; marketplace premiums count net of the premium tax credit; claimed on Schedule A only when itemizing. The care is assumed to be
+qualified services (nursing home or other care under a plan of care; stated in the Medicare field's tip).
+
+**Hot path.** The itemizing branch is entered only when `medical > 7.5% x AGI`, so a household with ordinary Medicare premiums (always
+under the floor) never calls `itemizedDeduction` for them; `medical = 0` adds an exact 0 (identical doubles, `tests/tax_caches.js` green).
+
+**Tests.** `tests/deductions.js`: unit cases (over the floor 94,000 on 80,000 of AGI, under and exactly at the floor, no income, stacking
+with SALT and mortgage interest, the senior deduction on top, the standard-deduction crossover at 24,150 / 24,200, small medical ignored),
+`taxFor` end to end single (4,588 and fully sheltered) and MFJ (6,344), medical 0 equals absent, and the engine (30,000 of care on
+80,000 of income, with Medicare premiums added, and 20,000 of care below the standard deduction). Existing tests moved only through the
+snapshots. Snapshots: 58 of 518 US scenarios moved, all single-person or LTC-heavy (the default couple has no LTC years; the default single
+moved); Canada untouched. Survivor symmetry (`tests/survivor_symmetry.js`) pass: the survivor reads the
+same household expense, and the care of the deceased drops out in `healthcareCost`.
+
+**Before / after.** Single, retired at 62, 600,000 taxable, 1,200,000 traditional, 200,000 Roth, spending 60,000, LTC on (50,000 a year
+from the default start age): lifetime tax 1,202,092 to 837,321, ending investable 2,710,791 to 3,416,815, tax in the first LTC years
+(ages 82-87) 42,451 61,660 73,240 76,107 79,047 81,353 to 21,861 23,841 39,163 43,353 44,900 46,332. Default couple: unchanged (no LTC years).
+Seeded success rates (2,000 paths, seed 7), before to after: single retired at 62 with LTC years (new scenario in
+`tests/historical_rates.js`): historical 84.6% to 87.7%, Monte Carlo 84.2% to 85.7%; every other scenario unchanged.
+
+**Timing** (400 `simulate()`, interleaved, one process, median of 7): default couple 360 to 362 ms (1.006), single with LTC in CA 140 to 143
+(1.021), couple in MA 358 to 362 (1.011); gate +5%.
+
 
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
