@@ -523,7 +523,7 @@ The lesser of the maximum and the gross school taxes on the principal residence;
 
 ### mbsstr: Manitoba Seniors School Tax Rebate
 
-For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The school-tax limit (the rebate is based on school taxes less the credit received) is not modeled; the maximum is small against any school tax bill. Not indexed.
+For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The page says the rebate is based on school taxes less the credit received, so it is limited to the property tax left after the homeowners credit (the whole property tax stands in for school taxes). Not indexed.
 
 ```json
 {

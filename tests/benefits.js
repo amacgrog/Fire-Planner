@@ -437,6 +437,17 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await mbs(80000, 3000), 0, 0, 'MB seniors rebate: nil above 63,500');
   near(await mbs(50000, 0), 0, 0, 'MB seniors rebate: a renter gets none');
   near(await housing('mb', prof({ otherA: 50000, ageA: 64 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'MB seniors rebate: not at 64');
+  // The page says the rebate is based on school taxes less the credit received: with the whole property tax as the proxy,
+  // the rebate cannot exceed what is left after the homeowners credit. Tax 1,000: credit 1,000, nothing left -> 0.
+  // Tax 1,700: credit 1,600, 100 left -> 100 (below 235). Tax 1,835: 235 left -> the full 235.
+  near(await mbs(20000, 1000), 0, 1e-9, 'MB seniors rebate: nothing left after the homeowners credit on a 1,000 bill');
+  near(await mbs(20000, 1700), 100, 1e-9, 'MB seniors rebate: limited to the 100 left on a 1,700 bill');
+  near(await mbs(20000, 1835), 235, 1e-9, 'MB seniors rebate: the full 235 on a 1,835 bill');
+  // Credit plus rebate never exceed the tax paid.
+  {
+    const o2 = await withProv('mb', prof({ otherA: 20000, ageA: 70, propertyTaxPaid: 1000 }));
+    assert(o2.provCredit + o2.provSenior <= 1000 + 1e-9, 'MB credit plus rebate must not exceed the property tax paid');
+  }
   // Couple, B is 65: the household qualifies; combined income 50,000 -> 135.
   near(
     await housing('mb', prof({ otherA: 25000, otherB: 25000, ageA: 60, ageB: 65, singlePerson: false }), 'propertyTaxPaid', 3000, 'provSenior'),

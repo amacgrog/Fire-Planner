@@ -2878,7 +2878,7 @@
       max: 235,
       from: 40000,
       rate: 0.01,
-      notes: 'For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The school-tax limit (the rebate is based on school taxes less the credit received) is not modeled; the maximum is small against any school tax bill. Not indexed.',
+      notes: 'For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The page says the rebate is based on school taxes less the credit received, so it is limited to the property tax left after the homeowners credit (the whole property tax stands in for school taxes). Not indexed.',
     },
     mbratc: {
       name: 'Manitoba Renters Affordability Tax Credit',
@@ -3483,8 +3483,10 @@
         if (pt > 0) {
           const H = BENEFIT_RULES.mbhatc,
             S = BENEFIT_RULES.mbsstr;
-          BEN.provCredit += Math.min(H.max * f, pt);
-          if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.max(0, S.max - S.rate * Math.max(0, fam - S.from));
+          const credit = Math.min(H.max * f, pt);
+          BEN.provCredit += credit;
+          // The rebate is based on school taxes less the credit received: with the whole property tax as the proxy it is limited to what is left.
+          if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.min(pt - credit, Math.max(0, S.max - S.rate * Math.max(0, fam - S.from)));
         }
         if ((profile.rentPaid || 0) > 0) {
           // Renters Affordability Tax Credit: one credit per household, plus the seniors top-up reduced by family income.
