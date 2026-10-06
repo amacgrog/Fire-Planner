@@ -366,9 +366,16 @@
   function computeUnusualAssumptions() {
     return UNUSUAL_RANGES.filter((r) => {
       if (r.applicable && !r.applicable()) return false;
-      const v = Number(state[r.id]);
+      // A condition-based item (a planner adds one with `check` and `message` instead of a range): flagged while
+      // `check()` is true, dismissal cleared as soon as it is not, like a value that returns to its range.
+      const v = r.check ? (r.check() ? 1 : NaN) : Number(state[r.id]);
+      if (r.check && !Number.isFinite(v)) {
+        const at = state.dismissedUnusualAssumptions.indexOf(r.id);
+        if (at !== -1) state.dismissedUnusualAssumptions.splice(at, 1);
+        return false;
+      }
       if (!Number.isFinite(v)) return false;
-      const out = v < r.min || v > r.max;
+      const out = r.check ? true : v < r.min || v > r.max;
       if (!out) {
         const idx = state.dismissedUnusualAssumptions.indexOf(r.id);
         if (idx !== -1) state.dismissedUnusualAssumptions.splice(idx, 1);
@@ -540,6 +547,8 @@
     banner.hidden = false;
     listEl.innerHTML = flagged
       .map((item) => {
+        if (item.check)
+          return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b></button> — ${item.message()}<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
         const v = state[item.id];
         const impact = unusualAssumptionImpact(item, selected);
         return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b>: ${v}${item.unit}</button> <span style="color:var(--hint)">(typical ${item.min}–${item.max}${item.unit})</span> — using a typical value ${impact}.<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;

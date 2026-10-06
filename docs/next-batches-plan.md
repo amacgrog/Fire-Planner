@@ -3202,9 +3202,9 @@ One place to see what the Canada model does not do, and why that is acceptable. 
 
 **Performance:** Quebec retired heavy-draw stress case is 1.65x the 7M timing (call volume from the extra yearly need, N7); all other measured Canada cases are at or below 1.0.
 
-### 7O notes: remaining US credits, benefits and fixes (in progress: O1-O4 done)
+### 7O notes: remaining US credits, benefits and fixes (in progress: O1-O5 done)
 
-Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2) -> V103 (O3) -> V104 (O4).
+Branch `claude/batch-7o`, cut from `origin/claude/batch-3b-penalty-rules` (includes 7N). US V100 -> V101 (O1) -> V102 (O2) -> V103 (O3) -> V104 (O4) -> V105 (O5).
 
 #### O1: Medicaid and the premium-credit floor (US V101)
 
@@ -3403,6 +3403,33 @@ Seeded success rates (2,000 paths, seed 7; two scenarios added to `tests/histori
 **Timing** (400 `simulate()`, interleaved, one process, median of 7): default (no children, MA) 370 to 381 ms (1.030, noise: the path is untouched), PA couple
 retired 185 to 182 (0.984), Minnesota with two young children 419 to 473 (1.129), Maine 454 to 489 (1.077). The last two are over the +5% line because they now
 evaluate a credit that did not exist (and its lower tax moves the withdrawal solvers); the hot paths in the plan (no children, no credit row) are unchanged.
+
+
+#### O5: Social Security before retirement, a warning (US V105; no number change)
+
+**Behavior.** The earnings test stays unmodeled (decision 17). The "Worth a second look" list now flags a partner whose benefit starts (`ssStartAge`) before both
+their retirement age and their full retirement age while they have wages (`income` over 0 and a monthly benefit entered): the message gives the SSA figures and
+says the planner pays the full benefit while wages continue. Each partner has their own item (Partner B only when not single), marked on the start-age field
+like the range items, dismissible, and cleared when the condition goes away. Full retirement age is by birth year from `currentYear - age` (SSA table: 66 to
+1954, plus two months a year to 1959, 67 from 1960). Nothing in the projection changes.
+
+**Shared code.** `UNUSUAL_RANGES` lives in the `04-isEstimateCountable` shared region (both planners). `computeUnusualAssumptions` and `renderUnusualAssumptions`
+now also accept an item with `check()` and `message()` instead of a range (flagged while `check()` is true; the dismissal clears when it is not); Canada has no
+such item, so its output is unchanged. The US entries (`ssBeforeRetirementCase`, `fullRetirementAgeMonths`, `SS_EARNINGS_TEST_2026`) are pushed onto the list just after
+the shared region ends, so the region stays byte-identical in both files (`npm run sync`, then the planners back to CRLF).
+
+**Sources (primary, retrieved 2026-10-06).** SSA, Exempt Amounts Under the Earnings Test: 2026 lower amount 24,480 (people attaining full retirement age after 2026,
+$1 withheld for every $2 over), 65,160 in the year full retirement age is reached ($1 for every $3 over, months before the month of attainment); withheld
+benefits are not lost, the monthly benefit rises permanently at full retirement age. SSA, Normal Retirement Age table. The 2026 amounts are the figures quoted in
+the message (they are not indexed forward).
+
+**Tests.** New root `test_ss_before_retirement_warning.js` (not in CI, like the other root scripts): default and retire-at-start cases are quiet; start 62 with retirement at
+66 flags Partner A with the figures and the field marker; start at 67 or retirement first or no wages clears it; born 1955 (age 71 in 2026) has a full retirement age of
+66 and 2 months; a single person has no Partner B item; dismissal stays until the condition clears and returns; the projection rows are untouched. Snapshots: the
+default scenario does not trigger it (retirement 55, start 62), so none moved. (The UI snapshot's historical-success tile raced once under load in a full run and passed
+on two reruns; unrelated.)
+
+**Before / after.** No number changes, so no table or success rates: the projection hash of every snapshot scenario is identical.
 
 
 ### Batch 4A / 4B notes

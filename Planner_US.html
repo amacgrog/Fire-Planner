@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V104</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V105</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -2030,9 +2030,16 @@
   function computeUnusualAssumptions() {
     return UNUSUAL_RANGES.filter((r) => {
       if (r.applicable && !r.applicable()) return false;
-      const v = Number(state[r.id]);
+      // A condition-based item (a planner adds one with `check` and `message` instead of a range): flagged while
+      // `check()` is true, dismissal cleared as soon as it is not, like a value that returns to its range.
+      const v = r.check ? (r.check() ? 1 : NaN) : Number(state[r.id]);
+      if (r.check && !Number.isFinite(v)) {
+        const at = state.dismissedUnusualAssumptions.indexOf(r.id);
+        if (at !== -1) state.dismissedUnusualAssumptions.splice(at, 1);
+        return false;
+      }
       if (!Number.isFinite(v)) return false;
-      const out = v < r.min || v > r.max;
+      const out = r.check ? true : v < r.min || v > r.max;
       if (!out) {
         const idx = state.dismissedUnusualAssumptions.indexOf(r.id);
         if (idx !== -1) state.dismissedUnusualAssumptions.splice(idx, 1);
@@ -2204,6 +2211,8 @@
     banner.hidden = false;
     listEl.innerHTML = flagged
       .map((item) => {
+        if (item.check)
+          return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b></button> — ${item.message()}<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
         const v = state[item.id];
         const impact = unusualAssumptionImpact(item, selected);
         return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b>: ${v}${item.unit}</button> <span style="color:var(--hint)">(typical ${item.min}–${item.max}${item.unit})</span> — using a typical value ${impact}.<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
@@ -2212,6 +2221,44 @@
     syncUnusualToast(flagged);
   }
   // @@shared:04-isEstimateCountable end
+  // Social Security before retirement (7O O5; US only). The earnings test is not modeled (see the Social Security
+  // notes), so a partner whose benefit starts before both their retirement age and their full retirement age gets
+  // the whole benefit while wages continue. SSA: the benefit is withheld at $1 for every $2 of earnings over
+  // $24,480 in 2026 ($1 for every $3 over $65,160 in the year full retirement age is reached) until that age,
+  // and a permanently higher benefit from then on returns the months withheld. A condition-based item of the
+  // "Worth a second look" list (see `check` and `message` in computeUnusualAssumptions).
+  const SS_EARNINGS_TEST_2026 = { lower: 24480, higher: 65160 };
+  // Full retirement age in months by birth year (SSA, Normal Retirement Age table).
+  function fullRetirementAgeMonths(birthYear) {
+    if (birthYear <= 1954) return 66 * 12;
+    if (birthYear >= 1960) return 67 * 12;
+    return 66 * 12 + 2 * (birthYear - 1954);
+  }
+  function ssBeforeRetirementCase(p) {
+    if (p === 'B' && state.singlePerson) return null;
+    const start = state['ssStartAge' + p],
+      retire = state['retireAge' + p],
+      fra = fullRetirementAgeMonths(currentYear - state['age' + p]) / 12;
+    if (!(state['ssMonthly' + p] > 0) || !(state['income' + p] > 0)) return null;
+    return start < retire && start < fra ? { start, retire, fra } : null;
+  }
+  function fraText(fra) {
+    const years = Math.floor(fra),
+      months = Math.round((fra - years) * 12);
+    return months ? years + ' and ' + months + ' months' : String(years);
+  }
+  ['A', 'B'].forEach((p) =>
+    UNUSUAL_RANGES.push({
+      id: 'ssStartAge' + p,
+      label: 'Partner ' + p + ' Social Security starts while working',
+      check: () => !!ssBeforeRetirementCase(p),
+      message: () => {
+        const c = ssBeforeRetirementCase(p);
+        if (!c) return '';
+        return 'the benefit starts at ' + c.start + ', before retirement at ' + c.retire + ' and before full retirement age (' + fraText(c.fra) + '). Social Security would withhold $1 of benefit for every $2 of wages over $' + SS_EARNINGS_TEST_2026.lower.toLocaleString('en-US') + ' (2026 figure; $1 for every $3 over $' + SS_EARNINGS_TEST_2026.higher.toLocaleString('en-US') + ' in the year full retirement age is reached) until that age; the planner does not model the earnings test, so it pays the full benefit while wages continue. The months withheld come back as a higher monthly benefit from full retirement age.';
+      },
+    }),
+  );
   // Cheap, string-only sidebar group summaries — no simulate() calls, just
   // formatting already-live `state`. Called from the top of render(),
   // alongside markDefaultFields(). "Always-on" groups always get plain
