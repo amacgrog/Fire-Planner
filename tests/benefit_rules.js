@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 
-const IDS = ['gis', 'oas', 'cgeb', 'ccb', 'ocb', 'ostc', 'bcfb', 'acfb', 'absb', 'qcfa', 'oeptc', 'oshptg', 'qcsol', 'qcwp'];
+const IDS = ['gis', 'oas', 'cgeb', 'ccb', 'ocb', 'ostc', 'bcfb', 'acfb', 'absb', 'qcfa', 'oeptc', 'oshptg', 'qcsol', 'qcwp', 'nbpta', 'nsptr', 'mbhatc', 'mbsstr', 'mbratc', 'sklitc', 'sksip', 'mbmcb', 'mb55j', 'nsncb', 'nsaltc', 'nbctb', 'nbwis', 'nbss', 'nbhst', 'nblisb', 'nlcb', 'nlis', 'nlsb', 'peicb', 'peieb', 'mb55s'];
 const KINDS = ['gisAllowance', 'oasPension', 'familyCredit', 'childSchedule', 'seniorSupplement', 'occupancyCredit', 'quebecCredit'];
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
 const ROW_KEYS = ['name', 'kind', 'scope', 'source', 'asOf', 'retrieved', 'verified', 'indexing', 'dependsOn', 'notes'];
@@ -50,7 +50,7 @@ const ROW_KEYS = ['name', 'kind', 'scope', 'source', 'asOf', 'retrieved', 'verif
         }
         if (r.kind === 'seniorSupplement' && !r.dependsOn.includes('oas')) fails.push(`${id}: a senior supplement must depend on oas`);
         if (r.scope !== 'federal' && !['childSchedule', 'familyCredit', 'seniorSupplement', 'occupancyCredit', 'quebecCredit'].includes(r.kind)) fails.push(`${id}: provincial row has a federal-only kind`);
-        if (r.kind === 'occupancyCredit' && r.scope !== 'on') fails.push(`${id}: an occupancy credit must be an Ontario row`);
+        if (r.kind === 'occupancyCredit' && !['on', 'mb', 'ns', 'nb'].includes(r.scope)) fails.push(`${id}: an occupancy credit must be an Ontario, Manitoba, Nova Scotia or New Brunswick row`);
         if (r.kind === 'quebecCredit' && r.scope !== 'qc') fails.push(`${id}: a Quebec credit must be a Quebec row`);
       }
       return fails;

@@ -11,7 +11,7 @@ const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
 
 // `low` (Canada only): a low-income retired couple, so the income-tested benefits (GIS) are in play.
-async function run(browser, planner, isUS, low = false) {
+async function run(browser, planner, isUS, low = false, province = null) {
   const file = path.resolve(__dirname, '..', planner);
   const rowsFor = async (deceased) => {
     const page = await browser.newPage();
@@ -79,6 +79,8 @@ async function run(browser, planner, isUS, low = false) {
         if (i < 0) throw new Error('low-income override for unknown field ' + id);
         fields[i][1] = v;
       }
+    // 7M: a province with property-tax programs (the household owns and pays 3,000 a year).
+    if (province) fields.push(['province', province], ['propertyTax', 3000]);
     for (const [id, v] of translateFieldList(fields, isUS)) await set(id, v);
     await page.click('#pensionBothBtn');
     await set('survivorPartner', deceased);
@@ -106,7 +108,7 @@ async function run(browser, planner, isUS, low = false) {
       if (Math.abs(a[i].tax - b[i].tax) > 0.01) diffs.push(`age ${a[i].age} (pre-death): tax ${a[i].tax} vs ${b[i].tax}`);
       continue;
     }
-    for (const key of ['tax', 'income', 'investable', 'benefits', 'benefitGis', 'benefitAllowance']) {
+    for (const key of ['tax', 'income', 'investable', 'benefits', 'benefitGis', 'benefitAllowance', 'benefitProvCredit', 'benefitProvSenior', 'benefitProvChild']) {
       if (a[i][key] === undefined && b[i][key] === undefined) continue; // US rows carry no benefit fields
       if (Math.abs(a[i][key] - b[i][key]) > 0.01)
         diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key].toFixed(2)}, when B dies = ${b[i][key].toFixed(2)}`);
@@ -114,7 +116,8 @@ async function run(browser, planner, isUS, low = false) {
   }
   assert.deepStrictEqual(diffs.slice(0, 6), [], `${planner}: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
   if (low) assert(a.some((r) => r.benefits > 0) && a.some((r) => r.age >= 75 && r.benefitGis > 0), 'the low-income scenario must receive GIS, before and after the survivor transition');
-  console.log(`[${isUS ? 'US' : 'Canada'}${low ? ' low-income' : ''}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
+  if (province) assert(a.some((r) => r.age >= 75 && r.benefitProvCredit + r.benefitProvSenior > 0), province + ': the housing programs must be paid after the survivor transition');
+  console.log(`[${isUS ? 'US' : 'Canada'}${low ? ' low-income' : ''}${province ? ' ' + province : ''}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
 }
 
 (async () => {
@@ -122,6 +125,7 @@ async function run(browser, planner, isUS, low = false) {
   await run(browser, 'Planner_US.html', true);
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);
+  for (const prov of ['ns', 'mb', 'nb', 'sk', 'nl', 'pe']) await run(browser, 'Planner_Canada.html', false, true, prov);
   await browser.close();
 })().catch((e) => {
   console.error(e.message || e);

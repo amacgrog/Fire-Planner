@@ -367,6 +367,466 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   assert(sr.allowance > 0 && sr.allowance < 20714.16, 'survivor aged 63 receives the Allowance for the Survivor, within the table-5 maximum (got ' + sr.allowance + ')');
   near(sr.gis, 0, 0, 'a survivor under 65 receives no GIS');
 
+  // --- 7M: rent and property-tax programs of NB, NS and MB. housing() isolates one program from the other programs of the
+  // province (credits, child benefits) by differencing the same household with and without the housing input.
+  const housing = async (code, p, field, amount, line) => {
+    const a = await withProv(code, { ...p, [field]: amount }),
+      z = await withProv(code, { ...p, [field]: 0 });
+    return a[line] - z[line];
+  };
+  // New Brunswick Residential Property Tax Allowance (gnb.ca property tax allowance page): income below 22,001: 300;
+  // below 25,001: 200; below 30,001: 100; never more than the property tax; nothing at 30,001 or more.
+  const nb = (inc, pt, extra = {}) => housing('nb', prof({ otherA: inc, ageA: 50, ...extra }), 'propertyTaxPaid', pt, 'provCredit');
+  near(await nb(20000, 3000), 300, 1e-9, 'NB allowance, income 20,000');
+  near(await nb(22000, 3000), 300, 1e-9, 'NB allowance, income 22,000 (the 300 tier runs to 22,001)');
+  near(await nb(22001, 3000), 200, 1e-9, 'NB allowance, income 22,001');
+  near(await nb(25000, 3000), 200, 1e-9, 'NB allowance, income 25,000');
+  near(await nb(25001, 3000), 100, 1e-9, 'NB allowance, income 25,001');
+  near(await nb(30000, 3000), 100, 1e-9, 'NB allowance, income 30,000');
+  near(await nb(30001, 3000), 0, 0, 'NB allowance, income 30,001');
+  // Capped at the property tax paid: a 150 bill returns 150, not 300.
+  near(await nb(10000, 150), 150, 1e-9, 'NB allowance never exceeds the property tax paid');
+  // Renters pay no property tax: nothing.
+  near(await nb(10000, 0), 0, 0, 'NB renter gets no property tax allowance');
+  // A couple counts combined income: 12,000 + 12,000 = 24,000 -> the 200 tier.
+  near(
+    await housing('nb', prof({ otherA: 12000, otherB: 12000, ageA: 50, ageB: 50, singlePerson: false }), 'propertyTaxPaid', 3000, 'provCredit'),
+    200, 1e-9, 'NB allowance, couple on combined income',
+  );
+  // Provinces do not leak: in a province with no property-tax program of its own (BC, AB, SK, QC, PE, NL: the Ontario credit
+  // and the NS rebate need other conditions) a 50-year-old owner on 20,000 gets nothing from property tax paid.
+  for (const code of ['bc', 'ab', 'sk', 'qc', 'pe', 'nl', 'ns']) {
+    const p0 = prof({ otherA: 20000, ageA: 50 });
+    near(await housing(code, p0, 'propertyTaxPaid', 3000, 'provCredit'), 0, 0, code + ': no property-tax credit leaks from the NB row');
+    near(await housing(code, p0, 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, code + ': no property-tax seniors benefit leaks from the NB row');
+  }
+
+  // Nova Scotia Property Tax Rebate for Seniors (Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba), 7): the
+  // greater of 15 and half of the property tax, to a maximum of 800, for someone receiving GIS or an Allowance. Single 70,
+  // OAS 9,150, other income 5,000 -> GIS income 5,000 (single table, positive).
+  const ns = (inc, pt, extra = {}) => housing('ns', prof({ otherA: inc, oasA: 9150, ageA: 70, ...extra }), 'propertyTaxPaid', pt, 'provSenior');
+  near(await ns(9150 + 5000, 3000), 800, 1e-9, 'NS rebate: 0.5 x 3,000 = 1,500, capped at 800');
+  near(await ns(9150 + 5000, 1200), 600, 1e-9, 'NS rebate: half of 1,200');
+  near(await ns(9150 + 5000, 0), 0, 0, 'NS renter: no rebate');
+  // Regulation s. 7: the greater of 15 and 50 percent of the tax: a 20 dollar bill gives 15.
+  near(await ns(9150 + 5000, 20), 15, 1e-9, 'NS rebate: the 15 dollar floor');
+  // Income so high that GIS is 0 (single table ends at 23,112 of GIS income): no rebate.
+  near(await ns(9150 + 30000, 3000), 0, 0, 'NS rebate needs GIS: none at GIS income 30,000');
+  // Just under the cutoff GIS is still positive (single table: 5.88 at 23,088): the rebate is paid.
+  near(await ns(9150 + 23088, 3000), 800, 1e-9, 'NS rebate while the GIS is still positive');
+  // Not a pensioner (age 50): no GIS, no rebate.
+  near(await housing('ns', prof({ otherA: 5000, ageA: 50 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'NS rebate: no GIS at 50');
+  // Allowance only: a survivor aged 61 with income 5,000 gets the Allowance for the Survivor (table 5): s. 3(b) counts it.
+  near(await housing('ns', prof({ otherA: 5000, ageA: 61, survivor: true }), 'propertyTaxPaid', 3000, 'provSenior'), 800, 1e-9, 'NS rebate: Allowance for the Survivor counts');
+  // Couple, A 66 with OAS and B 62 (Allowance, table 4): eligible; one household rebate, 0.5 x 1,000 = 500.
+  near(
+    await housing('ns', prof({ otherA: 9150 + 3000, otherB: 0, oasA: 9150, ageA: 66, ageB: 62, singlePerson: false }), 'propertyTaxPaid', 1000, 'provSenior'),
+    500, 1e-9, 'NS rebate: couple, one pensioner, one household rebate',
+  );
+
+  // Manitoba Homeowners Affordability Tax Credit (2025 Form MB479, page 2, lines 22 to 28): the lesser of the base amount
+  // (1,500) and school taxes; the planner proxies school taxes by the property tax paid. No income test.
+  const mbc = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'propertyTaxPaid', pt, 'provCredit');
+  near(await mbc(50000, 3000), 1500, 1e-9, 'MB homeowners credit: capped at 1,500');
+  near(await mbc(50000, 1000), 1000, 1e-9, 'MB homeowners credit: the property tax when smaller');
+  near(await mbc(100000, 3000), 1500, 1e-9, 'MB homeowners credit has no income test');
+  near(await mbc(300000, 3000), 1500, 1e-9, 'MB homeowners credit is paid above the 125,000 early-exit income');
+  near(await mbc(50000, 0), 0, 0, 'MB renter: no homeowners credit');
+  // Seniors School Tax Rebate (2025 Form MB479, page 4, lines 42 to 52): age 65 or older, school taxes less the homeowners
+  // credit (maximum 235), less 1.0 percent of family income over 40,000; family income under 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
+  const mbs = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 70, ...extra }), 'propertyTaxPaid', pt, 'provSenior');
+  near(await mbs(50000, 3000), 135, 1e-9, 'MB seniors rebate at 50,000');
+  near(await mbs(40000, 3000), 235, 1e-9, 'MB seniors rebate: maximum at 40,000');
+  near(await mbs(30000, 3000), 235, 1e-9, 'MB seniors rebate: maximum below 40,000');
+  near(await mbs(63500, 3000), 0, 1e-9, 'MB seniors rebate: nil at 63,500');
+  near(await mbs(80000, 3000), 0, 0, 'MB seniors rebate: nil above 63,500');
+  near(await mbs(50000, 0), 0, 0, 'MB seniors rebate: a renter gets none');
+  near(await housing('mb', prof({ otherA: 50000, ageA: 64 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'MB seniors rebate: not at 64');
+  // The page says the rebate is based on school taxes less the credit received: with the whole property tax as the proxy,
+  // the rebate cannot exceed what is left after the homeowners credit. Tax 1,000: credit 1,000, nothing left -> 0.
+  // Tax 1,700: credit 1,500, 200 left -> 200 (below 235). Tax 1,735: 235 left -> the full 235.
+  near(await mbs(20000, 1000), 0, 1e-9, 'MB seniors rebate: nothing left after the homeowners credit on a 1,000 bill');
+  near(await mbs(20000, 1700), 200, 1e-9, 'MB seniors rebate: limited to the 200 left on a 1,700 bill');
+  near(await mbs(20000, 1735), 235, 1e-9, 'MB seniors rebate: the full 235 on a 1,735 bill');
+  // Credit plus rebate never exceed the tax paid.
+  {
+    const o2 = await withProv('mb', prof({ otherA: 20000, ageA: 70, propertyTaxPaid: 1000 }));
+    assert(o2.provCredit + o2.provSenior <= 1000 + 1e-9, 'MB credit plus rebate must not exceed the property tax paid');
+  }
+  // Couple, B is 65: the household qualifies; combined income 50,000 -> 135.
+  near(
+    await housing('mb', prof({ otherA: 25000, otherB: 25000, ageA: 60, ageB: 65, singlePerson: false }), 'propertyTaxPaid', 3000, 'provSenior'),
+    135, 1e-9, 'MB seniors rebate: couple with one 65-year-old',
+  );
+
+  // Manitoba Renters Affordability Tax Credit (2025 Form MB479, page 3, lines 29 to 40): 575 a year (47.91 a month) to a
+  // renter, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income (the
+  // reduction capped at 328.57), i.e. 575 + max(0, 328.57 - 0.008214 x income); the credit is the lesser of the rent paid
+  // and that amount.
+  const mbr = (inc, rent, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'rentPaid', rent, 'provCredit');
+  near(await mbr(20000, 12000), 575, 1e-9, 'MB renters credit: 575 at low income');
+  near(await mbr(150000, 12000), 575, 1e-9, 'MB renters credit has no income test');
+  near(await mbr(20000, 0), 0, 0, 'MB owner (no rent): no renters credit');
+  // Line 39: the lesser of the rent paid and the computed amount: 300 of rent gives 300.
+  near(await mbr(20000, 300), 300, 1e-9, 'MB renters credit is limited by the rent paid');
+  // Single 70, income 20,000: 575 + (328.57 - 0.008214 x 20,000 = 164.29) = 739.29.
+  near(await mbr(20000, 12000, { ageA: 70 }), 575 + 328.57 - 0.008214 * 20000, 1e-9, 'MB renters credit with the seniors top-up');
+  // Income 0: 903.57 (line 31); rent 800 limits it to 800.
+  near(await mbr(0, 12000, { ageA: 70 }), 903.57, 1e-9, 'MB renters credit, senior at no income: 903.57');
+  near(await mbr(0, 800, { ageA: 70 }), 800, 1e-9, 'MB renters credit, senior, limited by 800 of rent');
+  // Income 60,000: the reduction is capped at 328.57 so the credit is the 575 floor (line 36: whichever is more of 47.91).
+  near(await mbr(60000, 12000, { ageA: 70 }), 575, 1e-9, 'MB seniors top-up is floored at 0');
+  // Couple, B is 65, combined income 30,000: one credit 575 + (328.57 - 0.008214 x 30,000 = 82.15) = 657.15.
+  near(
+    await housing('mb', prof({ otherA: 15000, otherB: 15000, ageA: 60, ageB: 65, singlePerson: false }), 'rentPaid', 12000, 'provCredit'),
+    575 + 328.57 - 0.008214 * 30000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
+  );
+
+  // Engine: a single 70, retired, CPP 6,000 + OAS 9,150, owning with 3,000 property tax, inflation 0 (factor 1). The row
+  // fields move by exactly the program amount compared with the same plan with no property tax.
+  const engine = (prov, pt) => page.evaluate(({ prov, pt }) => {
+    const s = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(s));
+    Object.assign(s, { province: prov, singlePerson: true, ageA: 70, retireAgeA: 70, lifeExpectancyA: 95, incomeA: 0, pensionCoverage: 'none', inflation: 0, cppMonthlyA: 500, cppStartAgeA: 65, oasMonthlyA: 762.5, oasStartAgeA: 65, taxable: 0, traditional: 0, roth: 400000, cash: 50000, spending: 20000, healthcare: 0, dividendYield: 0, tenure: 'own', propertyTax: pt, propertyTaxGrowth: 0 });
+    const row = window.__test_simulate().rows.find((x) => x.age === 71);
+    Object.keys(saved).forEach((k) => { s[k] = saved[k]; });
+    return { credit: row.benefitProvCredit, senior: row.benefitProvSenior };
+  }, { prov, pt });
+  // Income 15,150 (GIS income 6,000 > 0): NB allowance 300 (income under 22,001); NS rebate min(800, 1,500) = 800;
+  // MB: homeowners credit 1,500 and seniors rebate 235 (income under 40,000).
+  let e1 = await engine('nb', 3000), e0 = await engine('nb', 0);
+  near(e1.credit - e0.credit, 300, 1e-6, 'engine, NB: allowance in the row');
+  e1 = await engine('ns', 3000); e0 = await engine('ns', 0);
+  near(e1.senior - e0.senior, 800, 1e-6, 'engine, NS: rebate in the row');
+  e1 = await engine('mb', 3000); e0 = await engine('mb', 0);
+  near(e1.credit - e0.credit, 1500, 1e-6, 'engine, MB: homeowners credit in the row');
+  near(e1.senior - e0.senior, 235, 1e-6, 'engine, MB: seniors rebate in the row');
+
+  // No phase-in: every new program is non-increasing in income (a rise would meet the known drawTaxable over-sell limitation
+  // and break the gisIncomeRoom bisection). Scan 9,150 to 150,000 in 500 steps, single 70 owner and couple 66 renter.
+  for (const [code, mk] of [
+    ['nb', (y) => prof({ otherA: y, ageA: 70, oasA: 9150, propertyTaxPaid: 3000 })],
+    ['ns', (y) => prof({ otherA: y, ageA: 70, oasA: 9150, propertyTaxPaid: 3000 })],
+    ['mb', (y) => prof({ otherA: y, ageA: 70, oasA: 9150, propertyTaxPaid: 3000 })],
+    ['mb', (y) => prof({ otherA: y / 2, otherB: y / 2, ageA: 66, ageB: 66, singlePerson: false, oasA: 9150, oasB: 9150, rentPaid: 12000 })],
+  ]) {
+    let prev = Infinity;
+    for (let y = 9150; y <= 150000; y += 500) {
+      const b = await withProv(code, mk(y));
+      const v = b.provCredit + b.provSenior;
+      assert(v <= prev + 1e-9, code + ': housing programs rise with income at ' + y + ' (' + prev + ' -> ' + v + ')');
+      prev = v;
+    }
+  }
+
+  // --- Step cliffs and the withdrawal solvers (7M review finding): the Nova Scotia rebate (800) ends the moment GIS ends, so a
+  // small draw that crosses that income loses 800 of benefit. The solvers bracket the draw at 3 x need + 1 (6 x need + 1); the
+  // net at the top of that bracket can then be below the need, and the bisection used to return the top with a negative net
+  // (measured: single 70, OAS 9,150, property tax 3,000, other income 32,212, need 100: taken 301, net -563). They now widen the
+  // bracket when, and only when, the net at its top is short of the need.
+  const cliffRun = (fn, argsSrc) => page.evaluate(({ fn, argsSrc }) => {
+    const s = window.__test_getState();
+    const saved = s.province;
+    s.province = 'ns';
+    const p = { otherA: 32212, otherB: 0, dtcA: 0, dtcB: 0, penA: 0, penB: 0, ageA: 70, ageB: null, singlePerson: true, year: 0, oasA: 9150, oasB: 0, earnedA: 0, earnedB: 0, survivor: false, dependents: [], propertyTaxPaid: 3000 };
+    const r = window.__test_tax[fn](...new Function('p', 'return ' + argsSrc)(p));
+    s.province = saved;
+    return r;
+  }, { fn, argsSrc });
+  // Before the cliff GIS is positive (it ends near other income 32,262), after it the rebate and the last GIS dollars are gone.
+  let d = await cliffRun('drawTaxable', '[100000, 0, 100, p, 0, 0]');
+  assert(d.net >= 100 - 1e-6, 'drawTaxable across the NS cliff: net ' + d.net + ' must cover the need of 100');
+  assert(d.net < 100 + 1500, 'drawTaxable across the NS cliff: net ' + d.net + ' must not be absurdly above the need');
+  let t1 = await cliffRun('solveTraditionalForNet', '[100000, 100, 0, 0, p]');
+  assert(t1.tradNet >= 100 - 1e-6, 'solveTraditionalForNet across the NS cliff: net ' + t1.tradNet + ' must cover the need of 100');
+  let t2 = await cliffRun('solveTraditionalForNetFromNeed', '[100000, 100, 0, 0, p]');
+  assert(t2.tradNet >= 100 - 1e-6, 'solveTraditionalForNetFromNeed across the NS cliff: net ' + t2.tradNet + ' must cover the need of 100');
+  // Away from any cliff nothing changes: the draw nets the need to within the bisection tolerance.
+  d = await cliffRun('drawTaxable', '[100000, 0, 1000, { ...p, otherA: 60000 }, 0, 0]');
+  near(d.net, 1000, 0.01, 'drawTaxable away from a cliff nets the need');
+
+  // ===== 7M: child benefits, credits and seniors programs of SK, MB, NS, NB, NL and PEI (2026-27). =====
+  // Each case cites its page. Lines: provChild (child benefits), provCredit (credits), provSenior (seniors programs).
+  const par = (o) => prof({ ageA: 40, ageB: 40, singlePerson: false, ...o }); // a couple
+  const kidsAt = (...ages) => ages.map(kid);
+
+  // --- Saskatchewan Low-Income Tax Credit (CRA Saskatchewan page 2026-27): 460 individual, 460 spouse or eligible dependant,
+  // 181 a child (two children at most), family maximum 1,282, reduced above 39,345 and nil at 81,668. The reduction rate
+  // 1,282 / (81,668 - 39,345) = 3.029 percent is derived (secondary).
+  const slitcRate = 1282 / (81668 - 39345);
+  o = await withProv('sk', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 460, 1e-9, 'SLITC: a single person at 30,000');
+  o = await withProv('sk', par({ otherA: 20000, otherB: 19345, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 460 + 460 + 2 * 181, 1e-9, 'SLITC: couple with two children at 39,345 gets the 1,282 maximum');
+  o = await withProv('sk', par({ otherA: 30000, otherB: 30000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 1282 - slitcRate * (60000 - 39345), 1e-9, 'SLITC: reduced above 39,345');
+  o = await withProv('sk', par({ otherA: 45000, otherB: 45000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 0, 1e-6, 'SLITC: nil at 81,668 and above (90,000 here)');
+  o = await withProv('sk', par({ otherA: 0, otherB: 0, dependents: kidsAt(1, 5, 10) }));
+  near(o.provCredit, 1282, 1e-9, 'SLITC: only two children count');
+  o = await withProv('sk', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provCredit, 460 + 460 + 181, 1e-9, 'SLITC: a single parent gets the eligible dependant amount and the child amount');
+
+  // --- Saskatchewan Seniors Income Plan (saskatchewan.ca, April 2026): 360 a month for a single recipient (4,320 a year) falling to nil at
+  // 4,560 of income excluding OAS and GIS; both spouses on OAS and GIS 325 each (7,800) nil at 7,440; one spouse under 60 360
+  // (4,320) nil at 11,568; spouse on the Allowance 360 nil at 9,120. The straight line between the maximum at no income and the
+  // published nil point is a reading (secondary).
+  const sip = (pp) => withProv('sk', pp).then((x) => x.provSenior);
+  near(await sip(prof({ otherA: 9150, oasA: 9150, ageA: 70 })), 4320, 1e-9, 'SIP: single, no other income');
+  near(await sip(prof({ otherA: 9150 + 2280, oasA: 9150, ageA: 70 })), 4320 * (1 - 2280 / 4560), 1e-9, 'SIP: single, halfway');
+  near(await sip(prof({ otherA: 9150 + 4560, oasA: 9150, ageA: 70 })), 0, 1e-9, 'SIP: single, nil at 4,560');
+  near(await sip(prof({ otherA: 9150 + 30000, oasA: 9150, ageA: 70 })), 0, 0, 'SIP: nothing once the GIS has ended');
+  near(await sip(prof({ otherA: 5000, ageA: 62 })), 0, 0, 'SIP: nothing for a 62-year-old without OAS');
+  near(await sip(par({ otherA: 9150 + 3720, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 7800 * (1 - 3720 / 7440), 1e-6, 'SIP: couple both on OAS, halfway');
+  // Seniors Income Plan Regulations s. 5(2): the maximum falls by 6.55 dollars for every dollar of reduction in the GIS. For a pensioner
+  // whose spouse is not a pensioner (ESDC table 3) the base GIS is flat until income 9,184, so the benefit stays at the maximum, then
+  // falls to nil at the published 11,568 (a straight line between).
+  near(await sip(par({ otherA: 9150 + 5784, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4320, 1e-9, 'SIP: spouse under 60, still the maximum at 5,784');
+  near(await sip(par({ otherA: 9150 + 9184, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4320, 1e-9, 'SIP: spouse under 60, the maximum up to 9,184');
+  near(await sip(par({ otherA: 9150 + 10376, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 2160, 1e-6, 'SIP: spouse under 60, halfway between 9,184 and 11,568');
+  near(await sip(par({ otherA: 9150 + 11568, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 0, 1e-6, 'SIP: spouse under 60, nil at 11,568');
+  near(await sip(par({ otherA: 9150 + 4560, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4320 * (1 - 4560 / 9120), 1e-6, 'SIP: spouse on the Allowance, halfway');
+
+  // --- Manitoba Child Benefit (gov.mb.ca mcb pages): 420 a child under 18, full at 15,000 or less; one to three children nil at
+  // 20,435, four children 22,242, five 24,052 and six 25,864 (all published). The benefit falls in a straight line from the full
+  // amount at 15,000 to nil at the published point (the shape between is a reading, secondary).
+  const mcbRate = 420 / (20435 - 15000);
+  o = await withProv('mb', par({ otherA: 7500, otherB: 7500, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 840, 1e-9, 'MCB: two children at 15,000');
+  o = await withProv('mb', par({ otherA: 8858.75, otherB: 8858.75, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 840 * 0.5, 1e-9, 'MCB: two children halfway to 20,435 (17,717.50)');
+  o = await withProv('mb', par({ otherA: 10217.5, otherB: 10217.5, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: nil at 20,435');
+  o = await withProv('mb', par({ otherA: 9000, otherB: 9000, dependents: kidsAt(1, 3, 5, 10) }));
+  near(o.provChild, 1680 * (1 - (18000 - 15000) / (22242 - 15000)), 1e-9, 'MCB: four children at 18,000 (nil at 22,242)');
+  o = await withProv('mb', par({ otherA: 11121, otherB: 11121, dependents: kidsAt(1, 3, 5, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: four children are nil at 22,242');
+  o = await withProv('mb', par({ otherA: 12026, otherB: 12026, dependents: kidsAt(1, 3, 5, 8, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: five children are nil at 24,052');
+  o = await withProv('mb', par({ otherA: 12932, otherB: 12932, dependents: kidsAt(1, 2, 3, 5, 8, 10) }));
+  near(o.provChild, 0, 1e-9, 'MCB: six children are nil at 25,864');
+  o = await withProv('mb', par({ otherA: 7500, otherB: 7500, dependents: kidsAt(18) }));
+  near(o.provChild, 0, 0, 'MCB: an 18-year-old does not count');
+
+  // --- Manitoba 55 PLUS, junior component (Regulation 64/90 s. 4, the tables): a person 55 or older who is not eligible for OAS gets
+  // 647.20 a year (single, 161.80 a quarter) up to 8,930.40, then falling in 24 dollar bands to 55.60 in the last band
+  // (9,722.41 to 9,746.40) and nil above; a couple 695.60 each up to 14,479.20, then 48 dollar bands to 52.00 (16,207.21 to
+  // 16,255.20). The senior component (for OAS recipients) is not modeled.
+  const jr = (pp) => withProv('mb', pp).then((x) => x.provSenior);
+  near(await jr(prof({ otherA: 5000, ageA: 60 })), 647.2, 1e-9, 'junior 55 PLUS: single at 5,000');
+  near(await jr(prof({ otherA: 8930.4, ageA: 60 })), 647.2, 1e-9, 'junior 55 PLUS: single at 8,930.40');
+  near(await jr(prof({ otherA: 8940, ageA: 60 })), 630.0, 1e-9, 'junior 55 PLUS: first band (8,930.41 to 8,954.40)');
+  near(await jr(prof({ otherA: 9000, ageA: 60 })), 595.2, 1e-9, 'junior 55 PLUS: third band (8,978.41 to 9,002.40)');
+  near(await jr(prof({ otherA: 9746.4, ageA: 60 })), 55.6, 1e-9, 'junior 55 PLUS: last band');
+  near(await jr(prof({ otherA: 9746.41, ageA: 60 })), 0, 0, 'junior 55 PLUS: nil above 9,746.40');
+  near(await jr(prof({ otherA: 5000, ageA: 54 })), 0, 0, 'junior 55 PLUS: not at 54');
+  // An OAS recipient is not eligible for the junior component; the senior component (income excluding OAS is 0) pays 4 x 161.80.
+  near(await jr(prof({ otherA: 5000, ageA: 65, oasA: 9150 })), 4 * 161.8, 1e-9, 'junior 55 PLUS: an OAS recipient gets only the senior component');
+  near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 60 })), 2 * 695.6, 1e-9, 'junior 55 PLUS: couple at 14,000, each person');
+  near(await jr(par({ otherA: 7250, otherB: 7250, ageA: 60, ageB: 60 })), 2 * 678.4, 1e-9, 'junior 55 PLUS: couple first band (14,479.21 to 14,527.20)');
+  near(await jr(par({ otherA: 8127.6, otherB: 8127.6, ageA: 60, ageB: 60 })), 2 * 52.0, 1e-9, 'junior 55 PLUS: couple last band');
+  near(await jr(par({ otherA: 8200, otherB: 8200, ageA: 60, ageB: 60 })), 0, 0, 'junior 55 PLUS: couple nil above 16,255.20');
+  // The partner is 65 but not receiving OAS (deferring), so there is no Allowance and only the 60-year-old is paid.
+  near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 66, oasB: 0 })), 695.6, 1e-9, 'junior 55 PLUS: only the eligible partner is paid');
+
+  // --- Nova Scotia Child Benefit (CRA Nova Scotia page; novascotia.ca childbenefit): 127.08 a month (1,524.96 a year) a child under
+  // 18 below 26,000; from 26,000 to 33,999 the first child is full and later children half (762.48); nil from 34,000.
+  o = await withProv('ns', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 1524.96, 1e-9, 'NSCB: two children below 26,000');
+  o = await withProv('ns', par({ otherA: 15000, otherB: 15000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 1524.96 + 762.48, 1e-9, 'NSCB: later children half at 30,000');
+  o = await withProv('ns', par({ otherA: 17000, otherB: 17000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 0, 0, 'NSCB: nil at 34,000');
+  // Affordable Living Tax Credit (CRA Nova Scotia page): 255 an individual or couple, 60 a child, less 5 percent of income over 30,000.
+  o = await withProv('ns', prof({ otherA: 25000, ageA: 40 }));
+  near(o.provCredit, 255, 1e-9, 'NSALTC: single');
+  o = await withProv('ns', par({ otherA: 12500, otherB: 12500, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 255 + 120, 1e-9, 'NSALTC: couple with two children');
+  o = await withProv('ns', par({ otherA: 16500, otherB: 16500, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 375 - 0.05 * (33000 - 30000), 1e-9, 'NSALTC: reduced above 30,000');
+  o = await withProv('ns', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provCredit, 255 + 60, 1e-9, 'NSALTC: a single parent');
+  o = await withProv('ns', prof({ otherA: 35100, ageA: 40 }));
+  near(o.provCredit, 0, 1e-9, 'NSALTC: nil at 35,100 for a single person');
+
+  // --- New Brunswick (gnb.ca child tax benefit page; CRA New Brunswick page 2026-27).
+  // Child Tax Benefit: 250 a child under 18 less 2.5 percent (one child) or 5 percent (more) of income over 20,000.
+  o = await withProv('nb', prof({ otherA: 25000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 250 - 0.025 * 5000, 1e-9, 'NBCTB: one child at 25,000');
+  o = await withProv('nb', par({ otherA: 11000, otherB: 11000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 500 - 0.05 * 2000 + 0, 1e-9, 'NBCTB: two children at 22,000 (earned income 0, no supplement, children under 8 gets no school supplement)');
+  // Working Income Supplement: the lesser of 250 and 4 percent of earned income over 3,750, less 5 percent of income over 20,921.
+  o = await withProv('nb', prof({ otherA: 10000, earnedA: 10000, ageA: 40, dependents: kidsAt(4) }));
+  near(o.provChild, 250 + 250, 1e-9, 'NBWIS: full 250 at earned income 10,000 (plus the child tax benefit 250)');
+  o = await withProv('nb', prof({ otherA: 5000, earnedA: 5000, ageA: 40, dependents: kidsAt(4) }));
+  near(o.provChild, 250 + 0.04 * (5000 - 3750), 1e-9, 'NBWIS: phase-in at earned income 5,000');
+  o = await withProv('nb', prof({ otherA: 23000, earnedA: 23000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, (250 - 0.025 * 3000) + (250 - 0.05 * (23000 - 20921)), 1e-9, 'NBWIS: reduced above 20,921');
+  // School Supplement: 100 a child aged 8 to 17 when income is 20,000 or less.
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(9, 12) }));
+  near(o.provChild, 500 + 200, 1e-9, 'NBSS: two children aged 9 and 12 at 10,000 (plus the child tax benefit 500)');
+  o = await withProv('nb', par({ otherA: 10000.5, otherB: 10000.5, dependents: kidsAt(9, 12) }));
+  near(o.provChild, 500 - 0.05 * 1, 1e-9, 'NBSS: nothing above 20,000');
+  // CRA NB page: 100 for each child born between January 1 2009 and December 31 2021 (July 2026 payment): ages 5 to 17 in 2026.
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(4) }));
+  near(o.provChild, 250, 1e-9, 'NBSS: a 4-year-old (born 2022) gets no school supplement');
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(5) }));
+  near(o.provChild, 250 + 100, 1e-9, 'NBSS: a 5-year-old (born 2021) gets the school supplement');
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(6) }));
+  near(o.provChild, 250 + 100, 1e-9, 'NBSS: a 6-year-old gets the school supplement');
+  // HST credit: 300 an individual, 300 a spouse, 100 a child under 19 (300 for the first child of a single parent), less 2 percent over 35,000.
+  o = await withProv('nb', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 300, 1e-9, 'NBHSTC: single');
+  o = await withProv('nb', prof({ otherA: 45000, ageA: 40 }));
+  near(o.provCredit, 300 - 0.02 * 10000, 1e-9, 'NBHSTC: single reduced');
+  o = await withProv('nb', prof({ otherA: 30000, ageA: 40, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 300 + 300 + 100, 1e-9, 'NBHSTC: single parent, first child 300');
+  o = await withProv('nb', par({ otherA: 30000, otherB: 30000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 300 + 300 + 200 - 0.02 * 25000, 1e-9, 'NBHSTC: couple with two children at 60,000');
+  // Low-Income Seniors Benefit: 629 for a household that receives GIS or an Allowance (once per household).
+  o = await withProv('nb', prof({ otherA: 9150 + 3000, oasA: 9150, ageA: 70 }));
+  near(o.provSenior, 629, 1e-9, 'NBLISB: a GIS recipient');
+  o = await withProv('nb', prof({ otherA: 9150 + 40000, oasA: 9150, ageA: 70 }));
+  near(o.provSenior, 0, 0, 'NBLISB: nothing without GIS');
+  o = await withProv('nb', par({ otherA: 9150 + 3000, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 }));
+  near(o.provSenior, 629, 1e-9, 'NBLISB: one benefit for a couple');
+
+  // --- Newfoundland and Labrador (gov.nl.ca child benefit and income supplement pages).
+  // Child Benefit: 157.33, 166.83, 179.16 and 192.50 a month for the first, second, third and each later child under 18, full below
+  // 20,397 and nil at 38,193; the straight line reproduces the regulation rates (10.61, 21.86 and 33.94 percent).
+  const nlcb = (n) => [157.33, 166.83, 179.16].slice(0, n).reduce((a, b) => a + b, 0) * 12 + Math.max(0, n - 3) * 192.5 * 12;
+  o = await withProv('nl', prof({ otherA: 20397, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 157.33 * 12, 1e-9, 'NLCB: one child at 20,397');
+  o = await withProv('nl', prof({ otherA: 29295, ageA: 40, dependents: kidsAt(5, 8) }));
+  near(o.provChild, nlcb(2) * (1 - (29295 - 20397) / (38193 - 20397)), 1e-9, 'NLCB: two children partway');
+  o = await withProv('nl', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(1, 3, 5, 8) }));
+  near(o.provChild, nlcb(4) + 2 * 1800, 1e-9, 'NLCB: four children at 20,000 (8,349.84) plus the nutrition supplement for the two under five');
+  o = await withProv('nl', prof({ otherA: 38193, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 0, 1e-9, 'NLCB: nil at 38,193');
+  // Income Supplement (gov.nl.ca, 2025 benefit year, the same maxima as the CRA 2026-27 page): basic 254, plus 266 phased in at 5.32
+  // percent above 15,000 (so 520 at 20,000), spouse 69, 231 a child under 19, reduced at 9 percent above 40,000.
+  o = await withProv('nl', prof({ otherA: 10000, ageA: 40 }));
+  near(o.provCredit, 254, 1e-9, 'NLIS: single at 10,000 (basic only)');
+  o = await withProv('nl', prof({ otherA: 17500, ageA: 40 }));
+  near(o.provCredit, 254 + 0.0532 * 2500, 1e-9, 'NLIS: phase-in at 17,500');
+  o = await withProv('nl', prof({ otherA: 30000, ageA: 40 }));
+  near(o.provCredit, 520, 1e-9, 'NLIS: single maximum');
+  o = await withProv('nl', par({ otherA: 15000, otherB: 15000, dependents: kidsAt(5, 10) }));
+  near(o.provCredit, 520 + 69 + 462, 1e-9, 'NLIS: couple with two children at 30,000');
+  o = await withProv('nl', prof({ otherA: 45000, ageA: 40 }));
+  near(o.provCredit, 520 - 0.09 * 5000, 1e-9, 'NLIS: reduced above 40,000');
+  o = await withProv('nl', prof({ otherA: 60000, ageA: 40 }));
+  near(o.provCredit, 0, 0, 'NLIS: nil at 60,000');
+  // Seniors Benefit (gov.nl.ca): 1,882 up to 30,409, less 11.66 percent above, for someone 64 or older (either spouse).
+  o = await withProv('nl', prof({ otherA: 30409, ageA: 64 }));
+  near(o.provSenior, 1882, 1e-9, 'NL Seniors Benefit: maximum at 30,409');
+  o = await withProv('nl', prof({ otherA: 40000, ageA: 64 }));
+  near(o.provSenior, 1882 - 0.1166 * (40000 - 30409), 1e-9, 'NL Seniors Benefit: reduced');
+  o = await withProv('nl', prof({ otherA: 47000, ageA: 64 }));
+  near(o.provSenior, 0, 1e-9, 'NL Seniors Benefit: nil above 46,550');
+  o = await withProv('nl', prof({ otherA: 20000, ageA: 63 }));
+  near(o.provSenior, 0, 0, 'NL Seniors Benefit: not at 63');
+  o = await withProv('nl', par({ otherA: 10000, otherB: 10000, ageA: 64, ageB: 50 }));
+  near(o.provSenior, 1882, 1e-9, 'NL Seniors Benefit: a couple with one person 64');
+
+  // --- Prince Edward Island (CRA PEI page 2026-27; princeedwardisland.ca Island Essentials Benefit FAQ, 2026-04-23).
+  // Child Benefit: 34.16 a month a child under 18 below 45,000, 24.16 from 45,000 to 80,000, nil above.
+  o = await withProv('pe', par({ otherA: 20000, otherB: 24999, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 34.16 * 12, 1e-9, 'PEICB: two children at 44,999');
+  o = await withProv('pe', par({ otherA: 20000, otherB: 25000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 24.16 * 12, 1e-9, 'PEICB: two children at 45,000');
+  o = await withProv('pe', par({ otherA: 40000, otherB: 40000, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 2 * 24.16 * 12, 1e-9, 'PEICB: two children at 80,000');
+  o = await withProv('pe', par({ otherA: 40000.5, otherB: 40000.5, dependents: kidsAt(5, 10) }));
+  near(o.provChild, 0, 0, 'PEICB: nil above 80,000');
+  // Island Essentials Benefit: 310 a single, 365 a couple or single parent, to 95,000; prorated to the minimum 175 at 108,500
+  // (single) or 114,000 (couple, single parent); 175 above. It has no upper income limit.
+  o = await withProv('pe', prof({ otherA: 50000, ageA: 40 }));
+  near(o.provCredit, 310, 1e-9, 'IEB: single at 50,000');
+  o = await withProv('pe', prof({ otherA: 101750, ageA: 40 }));
+  near(o.provCredit, 310 - 135 * 0.5, 1e-9, 'IEB: single halfway to 108,500');
+  o = await withProv('pe', prof({ otherA: 108500, ageA: 40 }));
+  near(o.provCredit, 175, 1e-9, 'IEB: single at 108,500');
+  o = await withProv('pe', prof({ otherA: 300000, ageA: 40 }));
+  near(o.provCredit, 175, 1e-9, 'IEB: still 175 at 300,000 (no income limit, so the early exit must not apply)');
+  o = await withProv('pe', par({ otherA: 52250, otherB: 52250 }));
+  near(o.provCredit, 365 - 190 * 0.5, 1e-9, 'IEB: couple halfway between 95,000 and 114,000 (104,500)');
+  o = await withProv('pe', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provCredit, 365, 1e-9, 'IEB: a single parent gets 365');
+
+  // --- 7M review fixes ---
+  // Manitoba 55 PLUS (Regulation 64/90 s. 2(3)(a)): not paid to a person who is eligible for OAS Act benefits, and the Allowance and the
+  // Allowance for the Survivor are OAS Act benefits. A 62-year-old spouse of a pensioner and a 61-year-old survivor receive the Allowance,
+  // so they get no junior component.
+  o = await withProv('mb', par({ otherA: 9150 + 2000, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 }));
+  assert(o.allowance > 0, 'the 62-year-old spouse receives the Allowance (test set-up)');
+  // The Allowance recipient gets no junior component; the pensioner gets the senior component (Regulation 65/90 s. 2(4): income 2,000 is
+  // band 41 (1,968 to 2,015.99), 84.70 a quarter).
+  near(o.provSenior, 4 * 84.7, 1e-9, 'junior 55 PLUS: nothing for an Allowance recipient (only the pensioner senior component)');
+  o = await withProv('mb', prof({ otherA: 5000, ageA: 61, survivor: true }));
+  assert(o.allowance > 0, 'the 61-year-old survivor receives the Allowance for the Survivor (test set-up)');
+  near(o.provSenior, 0, 0, 'junior 55 PLUS: nothing for a survivor on the Allowance for the Survivor');
+  // A float sum just above the first threshold must stay in the first band (it was NaN: the band index came out 0).
+  o = await withProv('mb', prof({ otherA: 8930.400000000001, ageA: 60 }));
+  assert(Number.isFinite(o.provSenior) && Number.isFinite(o.total), 'junior 55 PLUS at 8930.400000000001 must be finite (got ' + o.provSenior + ')');
+  near(o.provSenior, 630.0, 1e-9, 'junior 55 PLUS: just above 8,930.40 is the first band');
+  o = await withProv('mb', par({ otherA: 7239.600000000001, otherB: 7239.6, ageA: 60, ageB: 60 }));
+  assert(Number.isFinite(o.provSenior), 'couple junior 55 PLUS just above 14,479.20 must be finite');
+
+  // Indexing: every row flagged amountsAndThresholds scales amounts and thresholds together, so a household whose income and
+  // children are the same in real terms gets the benefit times the inflation factor (Saskatchewan, NL; MB, NB, NS, PEI rows are flat).
+  {
+    const f5 = await t('taxIndexFactor', 5);
+    assert(f5 > 1.05, 'the inflation factor at year 5 should exceed 1 (got ' + f5 + ')');
+    const scaled = async (code, base) => {
+      const a = await withProv(code, { ...base, year: 0 });
+      const b = await withProv(code, { ...base, year: 5, otherA: base.otherA * f5, otherB: (base.otherB || 0) * f5, oasA: (base.oasA || 0) * f5, oasB: (base.oasB || 0) * f5 });
+      return { a, b };
+    };
+    let r = await scaled('sk', par({ otherA: 30000, otherB: 25000, dependents: kidsAt(5, 10) }));
+    near(r.b.provCredit, r.a.provCredit * f5, 1e-6, 'SLITC scales with the inflation factor');
+    r = await scaled('sk', prof({ otherA: 9150 + 2280, oasA: 9150, ageA: 70 }));
+    near(r.b.provSenior, r.a.provSenior * f5, 1e-6, 'SK Income Plan scales with the inflation factor');
+    r = await scaled('nl', par({ otherA: 15000, otherB: 14000, ageA: 65, ageB: 60, dependents: kidsAt(5, 8) }));
+    near(r.b.provChild, r.a.provChild * f5, 1e-6, 'NL Child Benefit scales with the inflation factor');
+    near(r.b.provCredit, r.a.provCredit * f5, 1e-6, 'NL Income Supplement scales with the inflation factor');
+    near(r.b.provSenior, r.a.provSenior * f5, 1e-6, 'NL Seniors Benefit scales with the inflation factor');
+  }
+
+  // --- NL Prenatal-Early Childhood Nutrition Supplement (gov.nl.ca nutrition supplement page): 150 a month (1,800 a year) for each child
+  // under five, paid with the NL Child Benefit to families eligible for it (income below 38,193). Pregnancy and the birth payment are not modeled.
+  o = await withProv('nl', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(3) }));
+  near(o.provChild, 157.33 * 12 + 1800, 1e-9, 'PECNS: one child aged 3 at 20,000 (child benefit plus 1,800)');
+  o = await withProv('nl', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
+  near(o.provChild, 157.33 * 12, 1e-9, 'PECNS: a 5-year-old gets no supplement');
+  o = await withProv('nl', par({ otherA: 10000, otherB: 10000, dependents: kidsAt(0, 4) }));
+  near(o.provChild, (157.33 + 166.83) * 12 + 2 * 1800, 1e-9, 'PECNS: two children under five');
+  o = await withProv('nl', prof({ otherA: 38193, ageA: 40, dependents: kidsAt(3) }));
+  near(o.provChild, 0, 1e-9, 'PECNS: not paid once the NL Child Benefit is nil (38,193)');
+
+  // --- Manitoba 55 PLUS, senior component (Regulation 65/90 s. 2, current at 5 October 2026): quarterly amounts by total annual income
+  // declared (income excluding OAS and GIS), for a pensioner (OAS recipient). Single (24 dollar bands): 161.80 at 0 to 23.99 down to
+  // 13.90 at 816 to 839.99. Both spouses pensioners (48 dollar bands), each: 173.90 down to 13.00 at 1,776 to 1,823.99. A pensioner whose
+  // spouse is not a pensioner and gets no Allowance (bands start 47.99 above the OAS): 161.80 down to 18.30 at 528 to 575.99. A pensioner
+  // whose spouse is 60 to 64 on the Allowance: 173.90 down to 10.70 at 3,600 to 3,647.99. A survivor 60 to 64 on the Allowance for the
+  // Survivor: as the both-pensioners table. The amounts below are annual (4 x the quarterly amount).
+  const seniorMb = (pp) => withProv('mb', pp).then((x) => x.provSenior);
+  near(await seniorMb(prof({ otherA: 9150, oasA: 9150, ageA: 70 })), 4 * 161.8, 1e-9, 'senior 55 PLUS: single at no income');
+  near(await seniorMb(prof({ otherA: 9150 + 24, oasA: 9150, ageA: 70 })), 4 * 157.5, 1e-9, 'senior 55 PLUS: single, second band (24 to 47.99)');
+  near(await seniorMb(prof({ otherA: 9150 + 839.99, oasA: 9150, ageA: 70 })), 4 * 13.9, 1e-9, 'senior 55 PLUS: single, last band');
+  near(await seniorMb(prof({ otherA: 9150 + 840, oasA: 9150, ageA: 70 })), 0, 0, 'senior 55 PLUS: single, nil at 840');
+  near(await seniorMb(par({ otherA: 9150, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 2 * 4 * 173.9, 1e-9, 'senior 55 PLUS: couple both pensioners, each 173.90');
+  near(await seniorMb(par({ otherA: 9150 + 1823.99, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 2 * 4 * 13.0, 1e-9, 'senior 55 PLUS: couple, last band');
+  near(await seniorMb(par({ otherA: 9150 + 1824, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 0, 0, 'senior 55 PLUS: couple, nil at 1,824');
+  near(await seniorMb(par({ otherA: 9150, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4 * 161.8, 1e-9, 'senior 55 PLUS: spouse not a pensioner, at no income');
+  near(await seniorMb(par({ otherA: 9150 + 623.98, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4 * 18.3, 1e-9, 'senior 55 PLUS: spouse not a pensioner, last band (47.99 above 575.99)');
+  near(await seniorMb(par({ otherA: 9150 + 623.99, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 0, 0, 'senior 55 PLUS: spouse not a pensioner, nil above');
+  near(await seniorMb(par({ otherA: 9150, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4 * 173.9, 1e-9, 'senior 55 PLUS: spouse on the Allowance, at no income');
+  near(await seniorMb(par({ otherA: 9150 + 3647.99, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4 * 10.7, 1e-9, 'senior 55 PLUS: spouse on the Allowance, last band');
+  near(await seniorMb(par({ otherA: 9150 + 3648, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 0, 0, 'senior 55 PLUS: spouse on the Allowance, nil at 3,648');
+  near(await seniorMb(prof({ otherA: 20, ageA: 61, survivor: true })), 4 * 173.9, 1e-9, 'senior 55 PLUS: a survivor on the Allowance for the Survivor');
+  near(await seniorMb(prof({ otherA: 5000, oasA: 0, ageA: 70 })), 0, 0, 'senior 55 PLUS: nothing without OAS');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
