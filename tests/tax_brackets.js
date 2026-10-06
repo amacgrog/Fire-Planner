@@ -697,6 +697,67 @@ function caChecks() {
       }
       if (worstClaim > 3) fails.push('pension split regret with a spouse claim and a child $' + worstClaim.toFixed(2));
     }
+    // With payroll items (7N N4): a working partner A (credit bases and the enhanced deduction already in the income and
+    // credits) and a retired partner B with a pension: the split sees the credit bases too.
+    {
+      const pay = { fedA: 6500, provA: 4800, dedA: 0, fedB: 0, provB: 0, dedB: 0 };
+      let worstPay = 0;
+      for (const [oA, oB, eB] of [[80000, 30000, 30000], [60000, 12000, 12000], [95000, 45000, 40000]]) {
+        const x = t.solvePensionSplit(oA, oB, 0, eB, 0, 50, 66, 0, 0, 0, pay);
+        const fam = oA + oB;
+        const cost = (y) => {
+          const nA = oA - y, nB = oB + y;
+          const [cA, cB] = claimNets(nA, nB);
+          return t.personTaxCA(nA, 0, 0, 0, 50, 0 - y, fam, 0, 0, cA, 0, 0, pay.fedA, pay.provA, pay.dedA) + t.personTaxCA(nB, 0, 0, 0, 66, eB + y, fam, 0, 0, cB, 0, 0, pay.fedB, pay.provB, pay.dedB);
+        };
+        let best = Infinity;
+        for (let y = -0.5 * eB; y <= 0; y += 50) best = Math.min(best, cost(y));
+        worstPay = Math.max(worstPay, cost(x) - best);
+      }
+      if (worstPay > 3) fails.push('pension split regret with payroll credits $' + worstPay.toFixed(2));
+    }
+  }
+  // --- Working-year payroll items and the home buyers' amount (7N N4, N10) --------
+  // payrollItems(wages, yearIndex) -> { cash, fedCredit, provCredit, deduction, provDeduction } (2026 figures, CRA and
+  // Revenu Quebec): CPP 5.95% = 4.95% base (credit) + 1% enhanced (deduction) on 3,500 to 74,600, CPP2 4% to 85,000 (deduction);
+  // QPP 6.30% = 5.30% base + 1% enhanced; EI 1.63% (Quebec 1.30%) to 68,900 and the QPIP premium are credits; the Canada
+  // employment amount 1,501 is a federal credit; Quebec gives a deduction for the enhanced QPP and a workers' deduction
+  // (6% to 1,450) but no credits for them.
+  {
+    const P = (w, y = 0) => t.payrollItems(w, y);
+    st.province = 'on';
+    let p = P(60000);
+    near(p.cash, 3361.75 + 978, 1e-6, 'ON wages 60,000: CPP 56,500 x 5.95% plus EI 1.63%');
+    near(p.deduction, 565, 1e-6, 'enhanced CPP deduction 1% x 56,500');
+    near(p.fedCredit, 56500 * 0.0495 + 978 + 1501, 1e-6, 'federal credit base: base CPP, EI and the employment amount');
+    near(p.provCredit, 56500 * 0.0495 + 978, 1e-6, 'provincial credit base: base CPP and EI');
+    p = P(100000);
+    near(p.cash, 4230.45 + 416 + 1123.07, 1e-6, 'ON wages 100,000: CPP max, CPP2 max and the EI maximum');
+    near(p.deduction, 711 + 416, 1e-6, 'enhanced deduction at the maximum: 711 + 416');
+    near(p.fedCredit, 71100 * 0.0495 + 1123.07 + 1501, 1e-6, 'credits stop growing at the maximums');
+    near(P(1000).fedCredit - 1000 * 0.0163, 1000, 1e-6, 'the employment amount is the lesser of 1,501 and the wages');
+    near(P(0).cash, 0, 1e-12, 'no wages, no payroll items');
+    st.province = 'qc';
+    p = P(100000);
+    near(p.cash, 4479.3 + 416 + 430 + 895.7, 1e-6, 'QC wages 100,000: QPP, QPP2, QPIP and EI at 1.30%');
+    near(p.fedCredit, 71100 * 0.053 + 895.7 + 430 + 1501, 1e-6, 'QC federal credit base: base QPP 5.30%, EI, QPIP, employment amount');
+    near(p.provCredit, 0, 1e-12, 'Quebec has no provincial credit for QPP, EI or QPIP');
+    near(p.provDeduction, 1450, 1e-9, 'QC workers deduction at the 1,450 maximum');
+    near(p.deduction, 711 + 416, 1e-6, 'QC enhanced QPP deduction (first additional 1% and second additional 4%)');
+    near(P(10000).provDeduction, 600, 1e-9, 'QC workers deduction is 6% of the wages below the maximum');
+    // Indexing: the maximums scale with the plan factor.
+    st.province = 'on';
+    const f10 = t.taxIndexFactor(10);
+    near(P(200000 * f10, 10).cash, (4230.45 + 416 + 1123.07) * f10, 1e-6, 'payroll maximums are indexed');
+    // personTaxCA with the three payroll arguments: ON at 50,000, credit bases 5,000 (federal) and 4,000 (provincial) and a
+    // 1,000 provincial deduction: 0.14 x 5,000 + 0.0505 x 4,000 + 0.0505 x 1,000.
+    const base = t.personTaxCA(50000, 0, 0);
+    near(base - t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 5000, 4000, 1000), 700 + 202 + 50.5, 1e-6, 'payroll credits and deduction in personTaxCA');
+    // The home buyers' amount (N10): federal 10,000 at 14%; Saskatchewan 15,000 at 10.5%; Quebec 10,000 at 14% (max 1,400).
+    near(t.homeBuyerAmounts('sk')[0], 10000, 0, 'federal home buyers amount');
+    near(t.homeBuyerAmounts('sk')[1], 15000, 0, 'SK first-time home buyers amount (15,000 from 2025)');
+    near(t.homeBuyerAmounts('qc')[1], 10000, 0, 'QC home buyers credit base (1,400 at 14%)');
+    near(t.homeBuyerAmounts('on')[1], 0, 0, 'no Ontario home buyers amount');
   }
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
