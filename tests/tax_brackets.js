@@ -759,6 +759,92 @@ function caChecks() {
     near(t.homeBuyerAmounts('qc')[1], 10000, 0, 'QC home buyers credit base (1,400 at 14%)');
     near(t.homeBuyerAmounts('on')[1], 0, 0, 'no Ontario home buyers amount');
   }
+  // --- Medical expense credit and the Ontario Seniors Care at Home credit (7N N5) --------
+  // personTaxCA(..., fedCredit, provCredit, provDeduction, medical): `medical` is the household's eligible expenses claimed on
+  // this return (the planner's private health premium plus the whole long-term-care cost). Federal: expenses above the lesser of
+  // 3% of net income and 2,890 (2026) at 14%. Provincial: the same shape with the province's own threshold (ON428 2025 line 36
+  // to 41: 3% or 2,885; the 2026 thresholds are TaxTips), at the lowest rate; Quebec has no dollar floor and takes 3% of
+  // FAMILY income (Revenu Quebec Schedule B part C). Ontario also pays the refundable Seniors Care at Home credit (70+, 25% of up
+  // to 6,000 of the claimable expenses, less 5% of family net income over 35,000).
+  {
+    const R = t.PROVINCE_RULES;
+    const no = (...a) => t.personTaxCA(...a);
+    const medDiff = (code, income, m) => {
+      st.province = code;
+      return no(income, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 0) - no(income, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, m);
+    };
+    near(medDiff('ab', 80000, 10000), 0.14 * 7600 + R.ab.creditRate * 7600, 1e-6, 'medical credit at 80,000: both floors are 3% = 2,400');
+    near(medDiff('bc', 50000, 10000), 0.14 * 8500 + R.bc.creditRate * 8500, 1e-6, 'medical credit at 50,000: floor 1,500');
+    near(medDiff('mb', 120000, 10000), 0.14 * (10000 - 2890) + R.mb.creditRate * (10000 - 1728), 1e-6, 'medical credit at 120,000: dollar floors bind (federal 2,890, Manitoba 1,728)');
+    near(medDiff('ab', 80000, 2000), 0, 1e-9, 'expenses under the floor give nothing');
+    near(medDiff('ab', 0, 10000), 0, 1e-12, 'no tax, no credit (non-refundable)');
+    // Quebec: provincial floor is 3% of family income (no dollar cap); federal as elsewhere (then the 0.835 abatement).
+    const qc = (fam, m) => t.provincialTaxCA(100000, 0, 0, 0, 0, fam, 0, -1, 0, 0, 0, 0) - t.provincialTaxCA(100000, 0, 0, 0, 0, fam, 0, -1, 0, 0, 0, m);
+    st.province = 'qc';
+    near(qc(null, 10000), 0.14 * 7000, 1e-6, 'QC single: floor 3% of own income 100,000');
+    near(qc(150000, 10000), 0.14 * 5500, 1e-6, 'QC couple: floor 3% of family income 150,000');
+    // Indexing: the dollar floors scale with the plan factor (Saskatchewan 2,736).
+    st.province = 'sk';
+    const f10 = t.taxIndexFactor(10);
+    near(t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 0) - t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 10000 * f10), R.sk.creditRate * (10000 - 2736) * f10, 1e-6, 'provincial medical floor is indexed');
+    // incomeTaxCA: one claim a household, on the lower net income unless that partner is under the basic personal amount.
+    const pr5 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    st.province = 'bc';
+    near(
+      t.incomeTax(pr5({ singlePerson: false, otherA: 80000, otherB: 8000, medical: 10000 }), 0, 0),
+      no(80000, 0, 0, 0, 0, 0, null, 0, 0, 8000, 0, 0, 0, 0, 0, 10000) + no(8000, 0, 0),
+      1e-9,
+      'couple: the higher-income partner claims when the other is under the basic personal amount',
+    );
+    near(
+      t.incomeTax(pr5({ singlePerson: false, otherA: 60000, otherB: 40000, medical: 10000 }), 0, 0),
+      no(60000, 0, 0, 0, 0, 0, null, 0, 0, 40000, 0, 0, 0, 0, 0, 0) + no(40000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 10000),
+      1e-9,
+      'couple: the lower net income claims when it can use the credit',
+    );
+    near(
+      t.incomeTax(pr5({ singlePerson: true, otherA: 50000, medical: 6000 }), 0, 0),
+      no(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, 6000),
+      1e-9,
+      'single: the medical claim is on the only return',
+    );
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 50000 }), 0, 0), no(50000, 0, 0), 1e-12, 'no medical expenses, no change');
+    // Ontario Seniors Care at Home credit (refundable): single 72 at 40,000 with 8,000 of expenses: claimable 8,000 - 1,200 = 6,800,
+    // capped at 6,000: 25% = 1,500 less 5% x (40,000 - 35,000) = 1,250.
+    st.province = 'on';
+    const careBase = (net, age, m) => no(net, 0, 0, 0, age, 0, null, 0, 0, -1, 0, 0, 0, 0, 0, m);
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 72, medical: 8000 }), 0, 0), careBase(40000, 72, 8000) - 1250, 1e-6, 'Ontario Seniors Care at Home credit');
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 70000, ageA: 72, medical: 8000 }), 0, 0), careBase(70000, 72, 8000), 1e-9, 'the credit is nil from 65,000 of family net income');
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 69, medical: 8000 }), 0, 0), careBase(40000, 69, 8000), 1e-9, 'the credit needs age 70');
+    near(t.incomeTax(pr5({ singlePerson: true, otherA: 40000, ageA: 72 }), 0, 0), careBase(40000, 72, 0), 1e-12, 'no expenses, no credit');
+    // A couple: A is 72, B is 60, 25,000 each (family net 50,000): 1,500 less 5% x 15,000 = 750; either spouse's age 70+ qualifies.
+    near(
+      t.incomeTax(pr5({ singlePerson: false, otherA: 25000, otherB: 25000, ageA: 72, ageB: 60, medical: 8000 }), 0, 0),
+      no(25000, 0, 0, 0, 72, 0, null, 0, 0, 25000, 0, 0, 0, 0, 0, 8000) + no(25000, 0, 0, 0, 60, 0) - 750,
+      1e-6,
+      'Ontario care credit for a couple, family net income 50,000',
+    );
+    // The split search sees the medical claim: regret against a $50 scan.
+    {
+      let worstMed = 0;
+      const pay = { fedA: 0, provA: 0, dedA: 0, fedB: 0, provB: 0, dedB: 0, med: 12000 };
+      st.province = 'on';
+      for (const [oA, oB, eA, eB] of [[70000, 20000, 40000, 0], [55000, 30000, 30000, 12000], [90000, 15000, 50000, 0]]) {
+        const x = t.solvePensionSplit(oA, oB, eA, eB, 0, 70, 68, 0, 0, 0, pay);
+        const fam = oA + oB;
+        const cost = (y) => {
+          const nA = oA - y, nB = oB + y;
+          const [cA, cB] = claimNets(nA, nB);
+          const toB = t.medicalClaimToB(nA, nB, 0);
+          return t.personTaxCA(nA, 0, 0, 0, 70, eA - y, fam, 0, 0, cA, 0, 0, 0, 0, 0, toB ? 0 : pay.med) + t.personTaxCA(nB, 0, 0, 0, 68, eB + y, fam, 0, 0, cB, 0, 0, 0, 0, 0, toB ? pay.med : 0);
+        };
+        let best = Infinity;
+        for (let y = -0.5 * eB; y <= 0.5 * eA; y += 50) best = Math.min(best, cost(y));
+        worstMed = Math.max(worstMed, cost(x) - best);
+      }
+      if (worstMed > 3) fails.push('pension split regret with a medical claim $' + worstMed.toFixed(2));
+    }
+  }
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
   const one = t.personTaxCA(50000, 0, 0);

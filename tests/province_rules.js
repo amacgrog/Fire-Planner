@@ -6,7 +6,7 @@ const path = require('path');
 
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
 const INDEX_KEYS = ['bracketsIndexed', 'bpaIndexed', 'ageAmountIndexed', 'pensionAmountIndexed', 'surtaxIndexed'];
-const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'homeBuyer', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
+const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'homeBuyer', 'medical', 'careAtHome', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
 
 (async () => {
   const browser = await chromium.launch();
@@ -58,6 +58,10 @@ const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verif
         if (!!r.payroll.premium !== (c === 'qc')) fails.push(`${c}: only Quebec has a parental insurance premium`);
         // 7N N4/N10: the EI premium rate (Quebec's is lower, QPIP replaces part of EI) and the province's own home buyers' amount.
         if (!(r.payroll.eiRate > 0.012 && r.payroll.eiRate < 0.017) || (c === 'qc') !== (r.payroll.eiRate < 0.014)) fails.push(`${c}: EI rate out of range or wrong for Quebec`);
+        // 7N N5: every province has a medical expense threshold (Quebec none: 3% of family income); only Ontario has the care-at-home credit.
+        if (!r.medical || (c === 'qc') !== (r.medical.threshold === null) || (c === 'qc') !== r.medical.familyIncome) fails.push(`${c}: medical expense rule wrong`);
+        if (r.medical && r.medical.threshold !== null && !(r.medical.threshold > 1000 && r.medical.threshold < 4000)) fails.push(`${c}: medical threshold out of range`);
+        if ((c === 'on') !== !!r.careAtHome) fails.push(`${c}: only Ontario has the Seniors Care at Home credit`);
         if (r.homeBuyer && !(c === 'sk' || c === 'qc')) fails.push(`${c}: only Saskatchewan and Quebec have a home buyers amount`);
         if ((c === 'sk' || c === 'qc') !== !!r.homeBuyer) fails.push(`${c}: home buyers amount missing or unexpected`);
         if (c === 'qc' && !(r.pooled.reductionRate === 0.1875 && r.pooled.reductionThreshold > 0 && r.pooled.retirementMultiplier === 1.25)) fails.push('qc: bad pooled reduction');

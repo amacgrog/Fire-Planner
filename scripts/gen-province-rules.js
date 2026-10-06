@@ -70,8 +70,8 @@ function generate(rules) {
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Indexing | Sources |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Indexing | Sources |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
     const extra = [r.surtax ? `surtax ${pct(r.surtax.firstRate)} over ${money(r.surtax.first)}, ${pct(r.surtax.secondRate)} over ${money(r.surtax.second)}` : '', r.healthPremium ? 'income-tested health premium (up to $900)' : ''].filter(Boolean).join('; ') || 'none';
@@ -90,6 +90,7 @@ function generate(rules) {
           (r.pooled ? 'QPP ' : 'CPP ') + pct(r.payroll.pensionRate) + ' on earnings from $3,500 to $74,600, then 4% to $85,000' + (r.payroll.premium ? `; QPIP ${pct(r.payroll.premium.rate)} on earnings up to ${money(r.payroll.premium.max)} (its own ceiling)` : ''),
           pct(r.payroll.eiRate) + ' to $68,900 (a credit; Quebec: federal credit only)',
           r.homeBuyer ? money(r.homeBuyer.amount) + ' (first-time buyer, purchase year)' : 'none',
+          r.medical.familyIncome ? 'expenses over 3% of family income (no dollar floor)' : 'expenses over the lesser of 3% of net income and ' + money(r.medical.threshold) + (r.careAtHome ? '; refundable Seniors Care at Home credit: ' + pct(r.careAtHome.rate) + ' of up to ' + money(r.careAtHome.maxExpenses) + ' (age ' + r.careAtHome.age + '+), less ' + pct(r.careAtHome.reductionRate) + ' of family net income over ' + money(r.careAtHome.startIncome) : ''),
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]
