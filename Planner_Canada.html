@@ -2904,7 +2904,7 @@
       source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-saskatchewan.html',
       asOf: '2026-07-01',
       retrieved: '2026-10-05',
-      verified: { amounts: 'primary', threshold: 'primary', reductionRate: 'secondary', childAge: 'secondary' },
+      verified: { amounts: 'primary', threshold: 'primary', reductionRate: 'secondary', childAge: 'secondary', singleParent: 'secondary' },
       indexing: { amountsAndThresholds: true },
       dependsOn: [],
       childMaxAge: 17,
@@ -2915,7 +2915,7 @@
       child: 181,
       dependantReplacesChild: false,
       reduction: { rate: 0.03029085839850672, from: 39345 },
-      notes: 'CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 for a spouse or eligible dependant, 181 a child for two children at most, family maximum 1,282; reduced from family net income 39,345 to nil at 81,668. The reduction rate is derived: 1,282 divided by the 42,323 dollar span is 3.029 percent (the saskatchewan.ca page states 2.88 percent for the 2025 to 2026 year only; the 2025 rate is not carried). Children under 18 is a reading. Indexed annually, with 5 percent yearly increases announced under the Affordability Act (not modeled beyond inflation).',
+      notes: 'CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 for a spouse or eligible dependant, 181 a child for two children at most, family maximum 1,282; reduced from family net income 39,345 to nil at 81,668. The reduction rate is derived: 1,282 divided by the 42,323 dollar span is 3.029 percent (the saskatchewan.ca page states 2.88 percent for the 2025 to 2026 year only; the 2025 rate is not carried). Children under 18 is a reading. A single parent gets the eligible dependant amount and the child amounts (up to two children), a reading: the GST-style alternative (the first child counts as the dependant) would be 181 lower. Indexed annually, with 5 percent yearly increases announced under the Affordability Act (not modeled beyond inflation).',
     },
     sksip: {
       name: 'Saskatchewan Income Plan',
@@ -2950,7 +2950,7 @@
       fullTo: 15000,
       span: 5435,
       rateKids: 3,
-      notes: 'gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less; partial up to 20,435 for one to three children and 25,864 for six. A straight line with a rate of 420 divided by the 5,435 dollar span for each of the first three children (more children add nothing to the rate) reproduces both published nil points within 7 dollars of income (derived, secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.',
+      notes: 'gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less; partial up to 20,435 for one to three children and 25,864 for six. A straight line with a rate of 420 divided by the 5,435 dollar span for each of the first three children (more children add nothing to the rate) reproduces the published nil points (20,435 for one to three children, 22,242, 24,052 and 25,864 for four to six) within 6 dollars of income (derived, secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.',
     },
     mb55j: {
       name: 'Manitoba 55 PLUS, junior component',
@@ -2967,7 +2967,7 @@
       maxAge: 64,
       single: { from: 8930.4, width: 24, max: 647.2, values: [630.00, 612.40, 595.20, 577.60, 560.40, 542.80, 525.60, 508.00, 490.80, 473.20, 456.00, 438.40, 421.20, 403.60, 386.40, 368.80, 351.60, 334.00, 316.80, 299.20, 282.00, 264.40, 247.20, 229.60, 212.40, 194.80, 177.60, 160.00, 142.80, 125.20, 108.00, 90.40, 73.20, 55.60] },
       couple: { from: 14479.2, width: 48, max: 695.6, values: [678.40, 660.80, 643.60, 626.00, 608.80, 591.20, 574.00, 556.40, 539.20, 521.60, 504.40, 486.80, 469.60, 452.00, 434.80, 417.20, 400.00, 382.40, 365.20, 347.60, 330.40, 312.80, 295.60, 278.00, 260.80, 243.20, 226.00, 208.40, 191.20, 173.60, 156.40, 138.80, 121.60, 104.00, 86.80, 69.20, 52.00] },
-      notes: 'Regulation 64/90 (55 PLUS), section 4 tables, current at 5 October 2026: a person aged 55 or older who is not eligible for OAS gets 647.20 a year (161.80 a quarter) at net family income up to 8,930.40, then a step down in 24 dollar bands to 55.60 in the last band (to 9,746.40) and nil above; in a couple each eligible person gets 695.60 up to 14,479.20, then 48 dollar bands to 52.00 (to 16,255.20). Modeled for ages 55 to 64 (not yet eligible for OAS); a couple with one eligible partner pays that partner the couple amount (a reading, secondary). Net family income is taken as the planner family income (the CPP and EI premium and employment expense deductions are not modeled). The senior component for OAS recipients is a separate scheme and is not modeled. Not indexed.',
+      notes: 'Regulation 64/90 (55 PLUS), section 4 tables, current at 5 October 2026: a person aged 55 or older who is not eligible for OAS gets 647.20 a year (161.80 a quarter) at net family income up to 8,930.40, then a step down in 24 dollar bands to 55.60 in the last band (to 9,746.40) and nil above; in a couple each eligible person gets 695.60 up to 14,479.20, then 48 dollar bands to 52.00 (to 16,255.20). Modeled for ages 55 to 64 (not yet eligible for OAS); a couple with one eligible partner pays that partner the couple amount (a reading, secondary). Not paid to someone who receives the Allowance or the Allowance for the Survivor (an OAS Act benefit, section 2(3)(a)). Net family income is taken as the planner family income (the CPP and EI premium and employment expense deductions are not modeled). The senior component for OAS recipients is a separate scheme and is not modeled. Not indexed.',
     },
     nsncb: {
       name: 'Nova Scotia Child Benefit',
@@ -3041,7 +3041,7 @@
       earnedRate: 0.04,
       incomeFrom: 20921,
       incomeRate: 0.05,
-      notes: 'gnb.ca: for a family with a child under 18, the lesser of 250 and 4 percent of family earned income over 3,750, less 5 percent of family net income over 20,921. This benefit rises with earned income at low incomes (a phase-in), so a taxable sale can net more than its gross there. Earned income is wages. Not indexed.',
+      notes: 'gnb.ca: for a family with a child under 18, the lesser of 250 and 4 percent of family earned income over 3,750, less 5 percent of family net income over 20,921. This benefit rises with earned income at low incomes, which a withdrawal does not change, and falls with family net income, so it does not add to the phase-in limitation. Earned income is wages. Not indexed.',
     },
     nbss: {
       name: 'New Brunswick School Supplement',
@@ -3054,11 +3054,11 @@
       indexing: { amountsAndThresholds: false },
       dependsOn: [],
       style: 'nbss',
-      minAge: 8,
+      minAge: 5,
       maxAge: 17,
       perChild: 100,
       incomeMax: 20000,
-      notes: 'CRA New Brunswick page: an annual payment in July of 100 for each child aged 8 to 17 when family net income is 20,000 or less (paid on the prior-year income; same-year income stands in). A step at 20,000 (no phase-out). Not indexed.',
+      notes: 'CRA New Brunswick page: an annual payment in July of 100 for each child born between January 1 2009 and December 31 2021 (the July 2026 payment: ages 5 to 17 in 2026, a window that moves with the year) when family net income is 20,000 or less (paid on the prior-year income; same-year income stands in). A step at 20,000 (no phase-out). Not indexed.',
     },
     nbhst: {
       name: 'New Brunswick Harmonized Sales Tax Credit',
@@ -3183,7 +3183,7 @@
       fullTo: 95000,
       singleZero: 108500,
       coupleZero: 114000,
-      notes: 'PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. Not indexed.',
+      notes: 'PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. The CRA PEI page says the new minimum payment starts in November 2026; the planner applies the new shape for the whole of 2026 and later. Not indexed.',
     },
     qcsol: {
       name: 'Quebec Solidarity Tax Credit (QST and housing components)',
@@ -3839,12 +3839,14 @@
           const J = BENEFIT_RULES.mb55j,
             eA = ageA >= J.minAge && ageA <= J.maxAge,
             eB = couple && ageB >= J.minAge && ageB <= J.maxAge;
-          if (eA || eB) {
+          // Regulation 64/90 s. 2(3)(a): not paid to a person eligible for OAS Act benefits, and the Allowance is one (the only
+          // 55 to 64 candidate in a household that receives it is the Allowance recipient).
+          if ((eA || eB) && BEN.allowance === 0) {
             const T = couple ? J.couple : J.single;
             let v = 0;
             if (fam <= T.from) v = T.max;
             else {
-              const k = Math.ceil((fam - T.from) / T.width - 1e-9);
+              const k = Math.max(1, Math.ceil((fam - T.from) / T.width - 1e-9));
               if (k <= T.values.length) v = T.values[k - 1];
             }
             BEN.provSenior += v * ((eA ? 1 : 0) + (eB ? 1 : 0));

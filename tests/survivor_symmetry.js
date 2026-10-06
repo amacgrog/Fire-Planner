@@ -108,7 +108,7 @@ async function run(browser, planner, isUS, low = false, province = null) {
       if (Math.abs(a[i].tax - b[i].tax) > 0.01) diffs.push(`age ${a[i].age} (pre-death): tax ${a[i].tax} vs ${b[i].tax}`);
       continue;
     }
-    for (const key of ['tax', 'income', 'investable', 'benefits', 'benefitGis', 'benefitAllowance', 'benefitProvCredit', 'benefitProvSenior']) {
+    for (const key of ['tax', 'income', 'investable', 'benefits', 'benefitGis', 'benefitAllowance', 'benefitProvCredit', 'benefitProvSenior', 'benefitProvChild']) {
       if (a[i][key] === undefined && b[i][key] === undefined) continue; // US rows carry no benefit fields
       if (Math.abs(a[i][key] - b[i][key]) > 0.01)
         diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key].toFixed(2)}, when B dies = ${b[i][key].toFixed(2)}`);

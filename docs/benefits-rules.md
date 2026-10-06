@@ -26,7 +26,7 @@ Same-year income stands in for the prior-year return the programs really use (an
 | mbhatc | Manitoba Homeowners Affordability Tax Credit | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | baseAmount: primary, schoolTaxProxy: secondary | amounts: true | none |
 | mbsstr | Manitoba Seniors School Tax Rebate | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | amounts: primary, incomeTest: primary, schoolTaxLimit: primary | amountsAndThresholds: false | none |
 | mbratc | Manitoba Renters Affordability Tax Credit | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | baseAmount: primary, seniorsTopUp: primary, rentLimit: primary | amountsAndThresholds: true | none |
-| sklitc | Saskatchewan Low-Income Tax Credit | familyCredit | sk | [page](https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-saskatchewan.html), retrieved 2026-10-05 | 2026-07-01 | amounts: primary, threshold: primary, reductionRate: secondary, childAge: secondary | amountsAndThresholds: true | none |
+| sklitc | Saskatchewan Low-Income Tax Credit | familyCredit | sk | [page](https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-saskatchewan.html), retrieved 2026-10-05 | 2026-07-01 | amounts: primary, threshold: primary, reductionRate: secondary, childAge: secondary, singleParent: secondary | amountsAndThresholds: true | none |
 | sksip | Saskatchewan Income Plan | seniorSupplement | sk | [page](https://www.saskatchewan.ca/residents/family-and-social-support/seniors-services/seniors-income-plan), retrieved 2026-10-05 | 2026-04-01 | maxima: primary, zeroPoints: primary, shape: secondary | amountsAndThresholds: true | oas, gis |
 | mbmcb | Manitoba Child Benefit | childSchedule | mb | [page](https://www.gov.mb.ca/fs/eia/mcb_table.html), retrieved 2026-10-05 | 2026-07-01 | amounts: primary, fullIncome: primary, nilPoints: primary, shape: secondary | amountsAndThresholds: false | none |
 | mb55j | Manitoba 55 PLUS, junior component | seniorSupplement | mb | [page](https://web2.gov.mb.ca/laws/regs/current/_pdf-regs.php?reg=64/90), retrieved 2026-10-05 | 2026-10-05 | tables: primary, eligibility: primary | amountsAndThresholds: false | oas |
@@ -567,7 +567,7 @@ Form MB479 for 2025 (page 3, lines 29 to 40): 575 a year (47.91 a month) for a r
 
 ### sklitc: Saskatchewan Low-Income Tax Credit
 
-CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 for a spouse or eligible dependant, 181 a child for two children at most, family maximum 1,282; reduced from family net income 39,345 to nil at 81,668. The reduction rate is derived: 1,282 divided by the 42,323 dollar span is 3.029 percent (the saskatchewan.ca page states 2.88 percent for the 2025 to 2026 year only; the 2025 rate is not carried). Children under 18 is a reading. Indexed annually, with 5 percent yearly increases announced under the Affordability Act (not modeled beyond inflation).
+CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 for a spouse or eligible dependant, 181 a child for two children at most, family maximum 1,282; reduced from family net income 39,345 to nil at 81,668. The reduction rate is derived: 1,282 divided by the 42,323 dollar span is 3.029 percent (the saskatchewan.ca page states 2.88 percent for the 2025 to 2026 year only; the 2025 rate is not carried). Children under 18 is a reading. A single parent gets the eligible dependant amount and the child amounts (up to two children), a reading: the GST-style alternative (the first child counts as the dependant) would be 181 lower. Indexed annually, with 5 percent yearly increases announced under the Affordability Act (not modeled beyond inflation).
 
 ```json
 {
@@ -613,7 +613,7 @@ saskatchewan.ca, income thresholds effective April 1 2026: 360 a month for a sin
 
 ### mbmcb: Manitoba Child Benefit
 
-gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less; partial up to 20,435 for one to three children and 25,864 for six. A straight line with a rate of 420 divided by the 5,435 dollar span for each of the first three children (more children add nothing to the rate) reproduces both published nil points within 7 dollars of income (derived, secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.
+gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less; partial up to 20,435 for one to three children and 25,864 for six. A straight line with a rate of 420 divided by the 5,435 dollar span for each of the first three children (more children add nothing to the rate) reproduces the published nil points (20,435 for one to three children, 22,242, 24,052 and 25,864 for four to six) within 6 dollars of income (derived, secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.
 
 ```json
 {
@@ -628,7 +628,7 @@ gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full
 
 ### mb55j: Manitoba 55 PLUS, junior component
 
-Regulation 64/90 (55 PLUS), section 4 tables, current at 5 October 2026: a person aged 55 or older who is not eligible for OAS gets 647.20 a year (161.80 a quarter) at net family income up to 8,930.40, then a step down in 24 dollar bands to 55.60 in the last band (to 9,746.40) and nil above; in a couple each eligible person gets 695.60 up to 14,479.20, then 48 dollar bands to 52.00 (to 16,255.20). Modeled for ages 55 to 64 (not yet eligible for OAS); a couple with one eligible partner pays that partner the couple amount (a reading, secondary). Net family income is taken as the planner family income (the CPP and EI premium and employment expense deductions are not modeled). The senior component for OAS recipients is a separate scheme and is not modeled. Not indexed.
+Regulation 64/90 (55 PLUS), section 4 tables, current at 5 October 2026: a person aged 55 or older who is not eligible for OAS gets 647.20 a year (161.80 a quarter) at net family income up to 8,930.40, then a step down in 24 dollar bands to 55.60 in the last band (to 9,746.40) and nil above; in a couple each eligible person gets 695.60 up to 14,479.20, then 48 dollar bands to 52.00 (to 16,255.20). Modeled for ages 55 to 64 (not yet eligible for OAS); a couple with one eligible partner pays that partner the couple amount (a reading, secondary). Not paid to someone who receives the Allowance or the Allowance for the Survivor (an OAS Act benefit, section 2(3)(a)). Net family income is taken as the planner family income (the CPP and EI premium and employment expense deductions are not modeled). The senior component for OAS recipients is a separate scheme and is not modeled. Not indexed.
 
 ```json
 {
@@ -774,7 +774,7 @@ gnb.ca: 250 a year for each dependent child under 18, less 2.5 percent (one chil
 
 ### nbwis: New Brunswick Working Income Supplement
 
-gnb.ca: for a family with a child under 18, the lesser of 250 and 4 percent of family earned income over 3,750, less 5 percent of family net income over 20,921. This benefit rises with earned income at low incomes (a phase-in), so a taxable sale can net more than its gross there. Earned income is wages. Not indexed.
+gnb.ca: for a family with a child under 18, the lesser of 250 and 4 percent of family earned income over 3,750, less 5 percent of family net income over 20,921. This benefit rises with earned income at low incomes, which a withdrawal does not change, and falls with family net income, so it does not add to the phase-in limitation. Earned income is wages. Not indexed.
 
 ```json
 {
@@ -790,12 +790,12 @@ gnb.ca: for a family with a child under 18, the lesser of 250 and 4 percent of f
 
 ### nbss: New Brunswick School Supplement
 
-CRA New Brunswick page: an annual payment in July of 100 for each child aged 8 to 17 when family net income is 20,000 or less (paid on the prior-year income; same-year income stands in). A step at 20,000 (no phase-out). Not indexed.
+CRA New Brunswick page: an annual payment in July of 100 for each child born between January 1 2009 and December 31 2021 (the July 2026 payment: ages 5 to 17 in 2026, a window that moves with the year) when family net income is 20,000 or less (paid on the prior-year income; same-year income stands in). A step at 20,000 (no phase-out). Not indexed.
 
 ```json
 {
  "style": "nbss",
- "minAge": 8,
+ "minAge": 5,
  "maxAge": 17,
  "perChild": 100,
  "incomeMax": 20000
@@ -903,7 +903,7 @@ CRA PEI page, July 2026 to June 2027: 34.16 a month for each child under 18 belo
 
 ### peieb: Prince Edward Island Island Essentials Benefit
 
-PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. Not indexed.
+PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. The CRA PEI page says the new minimum payment starts in November 2026; the planner applies the new shape for the whole of 2026 and later. Not indexed.
 
 ```json
 {

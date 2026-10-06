@@ -615,7 +615,8 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await jr(par({ otherA: 7250, otherB: 7250, ageA: 60, ageB: 60 })), 2 * 678.4, 1e-9, 'junior 55 PLUS: couple first band (14,479.21 to 14,527.20)');
   near(await jr(par({ otherA: 8127.6, otherB: 8127.6, ageA: 60, ageB: 60 })), 2 * 52.0, 1e-9, 'junior 55 PLUS: couple last band');
   near(await jr(par({ otherA: 8200, otherB: 8200, ageA: 60, ageB: 60 })), 0, 0, 'junior 55 PLUS: couple nil above 16,255.20');
-  near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 66, oasB: 9150 })), 695.6, 1e-9, 'junior 55 PLUS: only the eligible partner is paid');
+  // The partner is 65 but not receiving OAS (deferring), so there is no Allowance and only the 60-year-old is paid.
+  near(await jr(par({ otherA: 7000, otherB: 7000, ageA: 60, ageB: 66, oasB: 0 })), 695.6, 1e-9, 'junior 55 PLUS: only the eligible partner is paid');
 
   // --- Nova Scotia Child Benefit (CRA Nova Scotia page; novascotia.ca childbenefit): 127.08 a month (1,524.96 a year) a child under
   // 18 below 26,000; from 26,000 to 33,999 the first child is full and later children half (762.48); nil from 34,000.
@@ -644,9 +645,9 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   o = await withProv('nb', par({ otherA: 11000, otherB: 11000, dependents: kidsAt(5, 10) }));
   near(o.provChild, 500 - 0.05 * 2000 + 0, 1e-9, 'NBCTB: two children at 22,000 (earned income 0, no supplement, children under 8 gets no school supplement)');
   // Working Income Supplement: the lesser of 250 and 4 percent of earned income over 3,750, less 5 percent of income over 20,921.
-  o = await withProv('nb', prof({ otherA: 10000, earnedA: 10000, ageA: 40, dependents: kidsAt(5) }));
+  o = await withProv('nb', prof({ otherA: 10000, earnedA: 10000, ageA: 40, dependents: kidsAt(4) }));
   near(o.provChild, 250 + 250, 1e-9, 'NBWIS: full 250 at earned income 10,000 (plus the child tax benefit 250)');
-  o = await withProv('nb', prof({ otherA: 5000, earnedA: 5000, ageA: 40, dependents: kidsAt(5) }));
+  o = await withProv('nb', prof({ otherA: 5000, earnedA: 5000, ageA: 40, dependents: kidsAt(4) }));
   near(o.provChild, 250 + 0.04 * (5000 - 3750), 1e-9, 'NBWIS: phase-in at earned income 5,000');
   o = await withProv('nb', prof({ otherA: 23000, earnedA: 23000, ageA: 40, dependents: kidsAt(5) }));
   near(o.provChild, (250 - 0.025 * 3000) + (250 - 0.05 * (23000 - 20921)), 1e-9, 'NBWIS: reduced above 20,921');
@@ -655,8 +656,13 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(o.provChild, 500 + 200, 1e-9, 'NBSS: two children aged 9 and 12 at 10,000 (plus the child tax benefit 500)');
   o = await withProv('nb', par({ otherA: 10000.5, otherB: 10000.5, dependents: kidsAt(9, 12) }));
   near(o.provChild, 500 - 0.05 * 1, 1e-9, 'NBSS: nothing above 20,000');
-  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(7) }));
-  near(o.provChild, 250, 1e-9, 'NBSS: a 7-year-old gets no school supplement');
+  // CRA NB page: 100 for each child born between January 1 2009 and December 31 2021 (July 2026 payment): ages 5 to 17 in 2026.
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(4) }));
+  near(o.provChild, 250, 1e-9, 'NBSS: a 4-year-old (born 2022) gets no school supplement');
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(5) }));
+  near(o.provChild, 250 + 100, 1e-9, 'NBSS: a 5-year-old (born 2021) gets the school supplement');
+  o = await withProv('nb', par({ otherA: 5000, otherB: 5000, dependents: kidsAt(6) }));
+  near(o.provChild, 250 + 100, 1e-9, 'NBSS: a 6-year-old gets the school supplement');
   // HST credit: 300 an individual, 300 a spouse, 100 a child under 19 (300 for the first child of a single parent), less 2 percent over 35,000.
   o = await withProv('nb', prof({ otherA: 30000, ageA: 40 }));
   near(o.provCredit, 300, 1e-9, 'NBHSTC: single');
@@ -736,6 +742,43 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(o.provCredit, 365 - 190 * 0.5, 1e-9, 'IEB: couple halfway between 95,000 and 114,000 (104,500)');
   o = await withProv('pe', prof({ otherA: 20000, ageA: 40, dependents: kidsAt(5) }));
   near(o.provCredit, 365, 1e-9, 'IEB: a single parent gets 365');
+
+  // --- 7M review fixes ---
+  // Manitoba 55 PLUS (Regulation 64/90 s. 2(3)(a)): not paid to a person who is eligible for OAS Act benefits, and the Allowance and the
+  // Allowance for the Survivor are OAS Act benefits. A 62-year-old spouse of a pensioner and a 61-year-old survivor receive the Allowance,
+  // so they get no junior component.
+  o = await withProv('mb', par({ otherA: 9150 + 2000, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 }));
+  assert(o.allowance > 0, 'the 62-year-old spouse receives the Allowance (test set-up)');
+  near(o.provSenior, 0, 0, 'junior 55 PLUS: nothing for an Allowance recipient (spouse of a pensioner)');
+  o = await withProv('mb', prof({ otherA: 5000, ageA: 61, survivor: true }));
+  assert(o.allowance > 0, 'the 61-year-old survivor receives the Allowance for the Survivor (test set-up)');
+  near(o.provSenior, 0, 0, 'junior 55 PLUS: nothing for a survivor on the Allowance for the Survivor');
+  // A float sum just above the first threshold must stay in the first band (it was NaN: the band index came out 0).
+  o = await withProv('mb', prof({ otherA: 8930.400000000001, ageA: 60 }));
+  assert(Number.isFinite(o.provSenior) && Number.isFinite(o.total), 'junior 55 PLUS at 8930.400000000001 must be finite (got ' + o.provSenior + ')');
+  near(o.provSenior, 630.0, 1e-9, 'junior 55 PLUS: just above 8,930.40 is the first band');
+  o = await withProv('mb', par({ otherA: 7239.600000000001, otherB: 7239.6, ageA: 60, ageB: 60 }));
+  assert(Number.isFinite(o.provSenior), 'couple junior 55 PLUS just above 14,479.20 must be finite');
+
+  // Indexing: every row flagged amountsAndThresholds scales amounts and thresholds together, so a household whose income and
+  // children are the same in real terms gets the benefit times the inflation factor (Saskatchewan, NL; MB, NB, NS, PEI rows are flat).
+  {
+    const f5 = await t('taxIndexFactor', 5);
+    assert(f5 > 1.05, 'the inflation factor at year 5 should exceed 1 (got ' + f5 + ')');
+    const scaled = async (code, base) => {
+      const a = await withProv(code, { ...base, year: 0 });
+      const b = await withProv(code, { ...base, year: 5, otherA: base.otherA * f5, otherB: (base.otherB || 0) * f5, oasA: (base.oasA || 0) * f5, oasB: (base.oasB || 0) * f5 });
+      return { a, b };
+    };
+    let r = await scaled('sk', par({ otherA: 30000, otherB: 25000, dependents: kidsAt(5, 10) }));
+    near(r.b.provCredit, r.a.provCredit * f5, 1e-6, 'SLITC scales with the inflation factor');
+    r = await scaled('sk', prof({ otherA: 9150 + 2280, oasA: 9150, ageA: 70 }));
+    near(r.b.provSenior, r.a.provSenior * f5, 1e-6, 'SK Income Plan scales with the inflation factor');
+    r = await scaled('nl', par({ otherA: 15000, otherB: 14000, ageA: 65, ageB: 60, dependents: kidsAt(5, 8) }));
+    near(r.b.provChild, r.a.provChild * f5, 1e-6, 'NL Child Benefit scales with the inflation factor');
+    near(r.b.provCredit, r.a.provCredit * f5, 1e-6, 'NL Income Supplement scales with the inflation factor');
+    near(r.b.provSenior, r.a.provSenior * f5, 1e-6, 'NL Seniors Benefit scales with the inflation factor');
+  }
 
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
