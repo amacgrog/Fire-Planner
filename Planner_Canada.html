@@ -2880,6 +2880,23 @@
       rate: 0.01,
       notes: 'For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The school-tax limit (the rebate is based on school taxes less the credit received) is not modeled; the maximum is small against any school tax bill. Not indexed.',
     },
+    mbratc: {
+      name: 'Manitoba Renters Affordability Tax Credit',
+      kind: 'occupancyCredit',
+      scope: 'mb',
+      source: 'https://www.gov.mb.ca/finance/personal/pcredits.html',
+      asOf: '2026-03-24',
+      retrieved: '2026-10-05',
+      verified: { maximum: 'primary', monthlyRule: 'primary', topUpRate: 'secondary' },
+      indexing: { amounts: true },
+      dependsOn: [],
+      style: 'mbratc',
+      max: 625,
+      topUp: 357,
+      topUpRate: 0.0075,
+      seniorAge: 65,
+      notes: 'A refundable credit of one twelfth of the maximum for each month rented (625 for 2026, 675 for 2027), no income test; seniors get a top-up of the top-up maximum (357 for 2026, 385.71 for 2027) less 0.75 percent of family net income. The 0.75 percent is stated on the page for the older 300 maximum and is assumed unchanged; one credit and one top-up per household, the top-up when either person is 65 or older (a reading, secondary). A full year of rent is assumed whenever rent is above zero. The maxima scale with plan inflation; the enacted 2027 steps are not separately modeled.',
+    },
     qcsol: {
       name: 'Quebec Solidarity Tax Credit (QST and housing components)',
       kind: 'quebecCredit',
@@ -3256,7 +3273,8 @@
       fam = incA + incB;
     // Hot path: with no children, a family income above 125,000 (indexed) receives nothing from any program here (the
     // largest cutoff is the Ontario credit for a senior couple, nil at about 118,000; tests/benefits.js pins the boundary).
-    if (fam > 125000 * f && !(profile.dependents && profile.dependents.length)) return 0;
+    // Manitoba pays its homeowners and renters credits at any income (no income test), so it never takes the exit.
+    if (fam > 125000 * f && !(profile.dependents && profile.dependents.length) && state.province !== 'mb') return 0;
     const oasA = profile.oasA || 0,
       oasB = couple ? profile.oasB || 0 : 0,
       ageA = profile.ageA || 0,
@@ -3467,6 +3485,13 @@
             S = BENEFIT_RULES.mbsstr;
           BEN.provCredit += Math.min(H.max * f, pt);
           if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.max(0, S.max - S.rate * Math.max(0, fam - S.from));
+        }
+        if ((profile.rentPaid || 0) > 0) {
+          // Renters Affordability Tax Credit: one credit per household, plus the seniors top-up reduced by family income.
+          const T = BENEFIT_RULES.mbratc;
+          let c = T.max * f;
+          if (ageA >= T.seniorAge || (couple && ageB >= T.seniorAge)) c += Math.max(0, T.topUp * f - T.topUpRate * fam);
+          BEN.provCredit += c;
         }
         break;
       }

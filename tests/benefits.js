@@ -425,6 +425,7 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await mbc(50000, 3000), 1600, 1e-9, 'MB homeowners credit: capped at 1,600');
   near(await mbc(50000, 1000), 1000, 1e-9, 'MB homeowners credit: the property tax when smaller');
   near(await mbc(100000, 3000), 1600, 1e-9, 'MB homeowners credit has no income test');
+  near(await mbc(300000, 3000), 1600, 1e-9, 'MB homeowners credit is paid above the 125,000 early-exit income');
   near(await mbc(50000, 0), 0, 0, 'MB renter: no homeowners credit');
   // Seniors School Tax Rebate (gov.mb.ca pcredits page): age 65 or older, 235 less 1.0 percent of family net income over
   // 40,000, nil at 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
@@ -440,6 +441,23 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(
     await housing('mb', prof({ otherA: 25000, otherB: 25000, ageA: 60, ageB: 65, singlePerson: false }), 'propertyTaxPaid', 3000, 'provSenior'),
     135, 1e-9, 'MB seniors rebate: couple with one 65-year-old',
+  );
+
+  // Manitoba Renters Affordability Tax Credit (gov.mb.ca pcredits page; Information Bulletin 126): 625 for 2026 to a renter,
+  // no income test; seniors top-up 357 - 0.75% x family net income, floored at 0.
+  const mbr = (inc, rent, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'rentPaid', rent, 'provCredit');
+  near(await mbr(20000, 12000), 625, 1e-9, 'MB renters credit: 625 at low income');
+  near(await mbr(150000, 12000), 625, 1e-9, 'MB renters credit has no income test');
+  near(await mbr(20000, 0), 0, 0, 'MB owner (no rent): no renters credit');
+  // Single 70, income 20,000: 625 + (357 - 0.0075 x 20,000 = 207) = 832.
+  near(await mbr(20000, 12000, { ageA: 70 }), 625 + 357 - 0.0075 * 20000, 1e-9, 'MB renters credit with the seniors top-up');
+  // Income 47,600 and above: the top-up is gone (357 / 0.0075 = 47,600): 625.
+  near(await mbr(47600, 12000, { ageA: 70 }), 625, 1e-9, 'MB seniors top-up is nil at 47,600');
+  near(await mbr(60000, 12000, { ageA: 70 }), 625, 1e-9, 'MB seniors top-up is floored at 0');
+  // Couple, B is 65, combined income 40,000: one credit 625 + (357 - 300 = 57) = 682.
+  near(
+    await housing('mb', prof({ otherA: 20000, otherB: 20000, ageA: 60, ageB: 65, singlePerson: false }), 'rentPaid', 12000, 'provCredit'),
+    625 + 357 - 0.0075 * 40000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
   );
 
   await browser.close();
