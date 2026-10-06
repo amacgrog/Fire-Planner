@@ -578,7 +578,13 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await sip(prof({ otherA: 9150 + 30000, oasA: 9150, ageA: 70 })), 0, 0, 'SIP: nothing once the GIS has ended');
   near(await sip(prof({ otherA: 5000, ageA: 62 })), 0, 0, 'SIP: nothing for a 62-year-old without OAS');
   near(await sip(par({ otherA: 9150 + 3720, otherB: 9150, oasA: 9150, oasB: 9150, ageA: 66, ageB: 66 })), 7800 * (1 - 3720 / 7440), 1e-6, 'SIP: couple both on OAS, halfway');
-  near(await sip(par({ otherA: 9150 + 5784, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4320 * (1 - 5784 / 11568), 1e-6, 'SIP: spouse under 60, halfway');
+  // Seniors Income Plan Regulations s. 5(2): the maximum falls by 6.55 dollars for every dollar of reduction in the GIS. For a pensioner
+  // whose spouse is not a pensioner (ESDC table 3) the base GIS is flat until income 9,184, so the benefit stays at the maximum, then
+  // falls to nil at the published 11,568 (a straight line between).
+  near(await sip(par({ otherA: 9150 + 5784, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4320, 1e-9, 'SIP: spouse under 60, still the maximum at 5,784');
+  near(await sip(par({ otherA: 9150 + 9184, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 4320, 1e-9, 'SIP: spouse under 60, the maximum up to 9,184');
+  near(await sip(par({ otherA: 9150 + 10376, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 2160, 1e-6, 'SIP: spouse under 60, halfway between 9,184 and 11,568');
+  near(await sip(par({ otherA: 9150 + 11568, otherB: 0, oasA: 9150, ageA: 66, ageB: 50 })), 0, 1e-6, 'SIP: spouse under 60, nil at 11,568');
   near(await sip(par({ otherA: 9150 + 4560, otherB: 0, oasA: 9150, ageA: 66, ageB: 62 })), 4320 * (1 - 4560 / 9120), 1e-6, 'SIP: spouse on the Allowance, halfway');
 
   // --- Manitoba Child Benefit (gov.mb.ca mcb pages): 420 a child under 18, full at 15,000 or less; one to three children nil at

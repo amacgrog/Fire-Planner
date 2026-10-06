@@ -2924,15 +2924,15 @@
       source: 'https://www.saskatchewan.ca/residents/family-and-social-support/seniors-services/seniors-income-plan',
       asOf: '2026-04-01',
       retrieved: '2026-10-05',
-      verified: { maxima: 'primary', zeroPoints: 'primary', shape: 'secondary' },
+      verified: { maxima: 'primary', zeroPoints: 'primary', shape: 'primary', spouseUnder60Endpoint: 'secondary' },
       indexing: { amountsAndThresholds: true },
       dependsOn: ['oas', 'gis'],
       style: 'sksip',
-      single: { max: 4320, zero: 4560 },
-      couple: { max: 7800, zero: 7440 },
-      spouseUnder60: { max: 4320, zero: 11568 },
-      spouseAllowance: { max: 4320, zero: 9120 },
-      notes: 'saskatchewan.ca, income thresholds effective April 1 2026: 360 a month for a single OAS and GIS recipient (4,320 a year), nil at income 4,560 (income excluding OAS and GIS); a couple both on OAS and GIS 325 each (7,800), nil at 7,440; a spouse under 60 360 nil at 11,568; a spouse aged 60 to 64 on the Allowance 360 nil at 9,120. The page says only that more income lowers the benefit, so the reduction is a straight line from the maximum at no income to the published nil point (secondary). Paid while the household receives GIS. Not paid to a 60 to 64 survivor on the Allowance for the Survivor.',
+      single: { max: 4320, zero: 4560, flatTo: 0 },
+      couple: { max: 7800, zero: 7440, flatTo: 0 },
+      spouseUnder60: { max: 4320, zero: 11568, flatTo: 9184 },
+      spouseAllowance: { max: 4320, zero: 9120, flatTo: 0 },
+      notes: 'saskatchewan.ca, income thresholds effective April 1 2026: 360 a month for a single OAS and GIS recipient (4,320 a year), nil at income 4,560 (income excluding OAS and GIS); a couple both on OAS and GIS 325 each (7,800), nil at 7,440; a spouse under 60 360 nil at 11,568; a spouse aged 60 to 64 on the Allowance 360 nil at 9,120. The Seniors Income Plan Regulations (RRS c S-25.1 Reg 3, consolidated to SR 39/2023, section 5(2)) reduce the maximum by 1.90 (single), 2.10 (spouse a pensioner) or 6.55 (spouse not a pensioner) dollars for every dollar the GIS is reduced, and 1.90 for every 3 dollars the spouse Allowance is reduced. The base GIS falls 0.5 (single) or 0.25 (each of a couple) per dollar of income from the first dollar, so the benefit is a straight line from the maximum at no income to nil at about 4,547 and 7,429, which the published nil points 4,560 and 7,440 (190 bands of 24 and 155 bands of 48) confirm; with a spouse on the Allowance the line reaches nil near 9,095 (published 9,120). For a pensioner whose spouse is not a pensioner the base GIS is flat until income 9,184 (ESDC table 3), so the benefit stays at the maximum to there and then falls to nil at the published 11,568 (the regulation formula alone gives about 11,822; the published point is used, secondary). Paid while the household receives GIS. Not paid to a 60 to 64 survivor on the Allowance for the Survivor.',
     },
     mbmcb: {
       name: 'Manitoba Child Benefit',
@@ -3914,7 +3914,7 @@
               row = BEN.allowance > 0 && otherAge >= 60 && otherAge < 65 ? S.spouseAllowance : S.spouseUnder60;
             }
           }
-          BEN.provSenior += Math.max(0, row.max * f - (row.max / row.zero) * used);
+          BEN.provSenior += Math.max(0, row.max * f * (1 - Math.max(0, used - row.flatTo * f) / ((row.zero - row.flatTo) * f)));
         }
         break;
       }

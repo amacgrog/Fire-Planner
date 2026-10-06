@@ -27,7 +27,7 @@ Same-year income stands in for the prior-year return the programs really use (an
 | mbsstr | Manitoba Seniors School Tax Rebate | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | amounts: primary, incomeTest: primary, schoolTaxLimit: primary | amountsAndThresholds: false | none |
 | mbratc | Manitoba Renters Affordability Tax Credit | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | baseAmount: primary, seniorsTopUp: primary, rentLimit: primary | amountsAndThresholds: true | none |
 | sklitc | Saskatchewan Low-Income Tax Credit | familyCredit | sk | [page](https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-saskatchewan.html), retrieved 2026-10-05 | 2026-07-01 | amounts: primary, threshold: primary, reductionRate: secondary, childAge: secondary, singleParent: secondary | amountsAndThresholds: true | none |
-| sksip | Saskatchewan Seniors Income Plan | seniorSupplement | sk | [page](https://www.saskatchewan.ca/residents/family-and-social-support/seniors-services/seniors-income-plan), retrieved 2026-10-05 | 2026-04-01 | maxima: primary, zeroPoints: primary, shape: secondary | amountsAndThresholds: true | oas, gis |
+| sksip | Saskatchewan Seniors Income Plan | seniorSupplement | sk | [page](https://www.saskatchewan.ca/residents/family-and-social-support/seniors-services/seniors-income-plan), retrieved 2026-10-05 | 2026-04-01 | maxima: primary, zeroPoints: primary, shape: primary, spouseUnder60Endpoint: secondary | amountsAndThresholds: true | oas, gis |
 | mbmcb | Manitoba Child Benefit | childSchedule | mb | [page](https://www.gov.mb.ca/fs/eia/mcb_table.html), retrieved 2026-10-05 | 2026-07-01 | amounts: primary, fullIncome: primary, nilPoints: primary, shape: secondary | amountsAndThresholds: false | none |
 | mb55j | Manitoba 55 PLUS, junior component | seniorSupplement | mb | [page](https://web2.gov.mb.ca/laws/regs/current/_pdf-regs.php?reg=64/90), retrieved 2026-10-05 | 2026-10-05 | tables: primary, eligibility: primary | amountsAndThresholds: false | oas |
 | mb55s | Manitoba 55 PLUS, senior component | seniorSupplement | mb | [page](https://web2.gov.mb.ca/laws/regs/current/_pdf-regs.php?reg=65/90), retrieved 2026-10-05 | 2026-10-05 | tables: primary, eligibility: primary, incomeBasis: secondary, lastRowsOfCoupleTable: secondary | amountsAndThresholds: false | oas, gis |
@@ -588,26 +588,30 @@ CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 fo
 
 ### sksip: Saskatchewan Seniors Income Plan
 
-saskatchewan.ca, income thresholds effective April 1 2026: 360 a month for a single OAS and GIS recipient (4,320 a year), nil at income 4,560 (income excluding OAS and GIS); a couple both on OAS and GIS 325 each (7,800), nil at 7,440; a spouse under 60 360 nil at 11,568; a spouse aged 60 to 64 on the Allowance 360 nil at 9,120. The page says only that more income lowers the benefit, so the reduction is a straight line from the maximum at no income to the published nil point (secondary). Paid while the household receives GIS. Not paid to a 60 to 64 survivor on the Allowance for the Survivor.
+saskatchewan.ca, income thresholds effective April 1 2026: 360 a month for a single OAS and GIS recipient (4,320 a year), nil at income 4,560 (income excluding OAS and GIS); a couple both on OAS and GIS 325 each (7,800), nil at 7,440; a spouse under 60 360 nil at 11,568; a spouse aged 60 to 64 on the Allowance 360 nil at 9,120. The Seniors Income Plan Regulations (RRS c S-25.1 Reg 3, consolidated to SR 39/2023, section 5(2)) reduce the maximum by 1.90 (single), 2.10 (spouse a pensioner) or 6.55 (spouse not a pensioner) dollars for every dollar the GIS is reduced, and 1.90 for every 3 dollars the spouse Allowance is reduced. The base GIS falls 0.5 (single) or 0.25 (each of a couple) per dollar of income from the first dollar, so the benefit is a straight line from the maximum at no income to nil at about 4,547 and 7,429, which the published nil points 4,560 and 7,440 (190 bands of 24 and 155 bands of 48) confirm; with a spouse on the Allowance the line reaches nil near 9,095 (published 9,120). For a pensioner whose spouse is not a pensioner the base GIS is flat until income 9,184 (ESDC table 3), so the benefit stays at the maximum to there and then falls to nil at the published 11,568 (the regulation formula alone gives about 11,822; the published point is used, secondary). Paid while the household receives GIS. Not paid to a 60 to 64 survivor on the Allowance for the Survivor.
 
 ```json
 {
  "style": "sksip",
  "single": {
   "max": 4320,
-  "zero": 4560
+  "zero": 4560,
+  "flatTo": 0
  },
  "couple": {
   "max": 7800,
-  "zero": 7440
+  "zero": 7440,
+  "flatTo": 0
  },
  "spouseUnder60": {
   "max": 4320,
-  "zero": 11568
+  "zero": 11568,
+  "flatTo": 9184
  },
  "spouseAllowance": {
   "max": 4320,
-  "zero": 9120
+  "zero": 9120,
+  "flatTo": 0
  }
 }
 ```
