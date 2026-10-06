@@ -2949,6 +2949,10 @@ The plan's example (a 65+ partner with 85,000 of base income who draws 30,000 mo
 
 **Tests.** `tests/survivor_oas.js` (new, in `npm test`): unequal inputs with either partner surviving (own OAS 700 or 400 a month, never the other's), the survivor's own 75-plus step, a survivor before their own start age gets none, equal inputs give the old amount, CPP greater-of unchanged. `tests/survivor_symmetry.js` (identical partners) is unchanged and passes.
 
+#### N11: Canada Dental Care Plan note (Canada V51 -> V52; copy only)
+
+**Verified** (canada.ca Canadian Dental Care Plan eligibility page, primary, retrieved 2026-10-06): the adjusted family net income must be less than **$90,000**, and the person must have no access to private dental insurance or coverage (including health spending accounts that cover dental costs). The page read does not state the co-payment tiers by income, so none are described. **What changed:** one sentence in the info bubble of the extra health/dental insurance field (a Canada-only field, outside the shared markup regions); README feature list; badge. No number changes: the snapshot grid is byte-identical and only the UI baseline's rendered-text hashes move.
+
 ### Batch 4A / 4B notes
 _(to be added by the Batch 4 PRs)_
 
