@@ -237,6 +237,31 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
   assert(sweep.stats.forced > 0, 'the sweep reaches non-converging years, so the forced pass runs');
   assert.strictEqual(sweep.stats.unresolved, 0, 'no year is left at the cap with no overpaying pass');
 
+  // 7O follow-up F5 review: a forced pass must also correct what the guardrails recorded. The forced year's withdrawal need included the
+  // premium that was charged and then refunded to cash; if the guardrail keeps the overcharged need, the next years' spending is cut for no
+  // reason (TX, single 58, IRA 600,000, spending 14,000, premium 12,000, guardrails on: spending fell 14,709 -> 9,827 by 65 before the fix).
+  const guard = await page.evaluate(() => {
+    const s = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(s));
+    Object.assign(s, {
+      singlePerson: true, ageA: 58, retireAgeA: 58, lifeExpectancyA: 90, returnRate: 5, bondReturn: 0, inflation: 2.5, hysaRate: 0, dividendYield: 0,
+      medicalInflation: 0, medicareYearly: 0, ltcEnabled: false, ssMonthlyA: 0, tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, taxable: 0, cash: 0,
+      cashReserve: 0, bondYears: 0, tradIraA: 600000, trad401kA: 0, rothIraA: 0, roth401kA: 0, tradIraB: 0, trad401kB: 0, rothIraB: 0, roth401kB: 0,
+      acaEnabled: true, acaEnhanced: false, healthcare: 12000, medicaidWhenEligible: true, children: [], rothConvEnabled: false, incomeSources: [],
+      stateTax: 'tx', spending: 14000, guardrailsEnabled: true,
+    });
+    const before = window.__test_magiStats.forced;
+    try {
+      const rows = window.__test_simulate().rows;
+      return { forced: window.__test_magiStats.forced - before, base65: rows.find((r) => r.age === 65).baseSpend, base58: rows[0].baseSpend };
+    } finally {
+      for (const k of Object.keys(s)) delete s[k];
+      Object.assign(s, saved);
+    }
+  });
+  assert(guard.forced > 0, 'the guardrail scenario reaches forced years');
+  assert(guard.base65 > 13000, 'guardrails must not cut spending for a premium that was refunded (age 65 base spending ' + guard.base65.toFixed(0) + ', started at ' + guard.base58 + ')');
+
   assert.deepStrictEqual(errors, []);
   await browser.close();
   console.log('[US] Medicaid and credit-floor tests passed');

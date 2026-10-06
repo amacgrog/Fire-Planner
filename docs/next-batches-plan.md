@@ -3636,6 +3636,18 @@ premium 12,000) had 356 of 920 rows charging a cost that is not the cost at thei
 seed 7), before to after: low-MAGI early retiree CA Monte Carlo 99.4% to 99.5%; everything else unchanged (default 85.4% / 86.1%). Timing
 (400 `simulate()`, interleaved, median of 7): default couple 371 to 374 ms (1.008), ACA on near the line (TX 60, spending 12,000) 269 to 273 (1.015),
 ACA on away from it (CA 60, 30,000) 405 to 417 (1.030).
+**Review fix (V112, 2026-10-06).** The whole-branch review found that after a forced pass the guardrail record (`prevNeed`, `initialWR`) and `firstWithdrawal` kept the
+withdrawal need that included the refunded premium, so guardrails cut spending for no reason (TX, single 58, IRA 600,000, spending 14,000, premium 12,000, guardrails on:
+base spending 14,709 at 60 fell to 9,827 by 65). The forced pass now re-records both net of the refund (test in `tests/aca_medicaid.js`: age-65 base spending above 13,000;
+it was 9,827). Six ACA-on snapshot scenarios moved, only in the non-row `firstWithdrawal` field (`npm run snapshot:update`).
+**Known cost of design A (for 3C).** The refund sits in cash, the next year spends that cash first, withdraws less and can land below the 100% line, so it is charged the
+full premium again: in the review's example ages 61 to 64 paid about 355, 13,246, 1,627 and 382 (about 15,600 in all) where a household that stays just over the line
+would pay roughly 0.4k to 1.5k a year. "Conservative" is accurate but the pessimism can be large for households living at the line; design B (filling to the line, 3C) removes it.
+**Deferred minors.** (a) With Roth conversions on, `conversionMagiCeiling` fills to exactly 4 x the poverty line and `MAGI_ITER_TOL = 1` can leave the realized MAGI cents over it, so
+that year is charged the full premium (66 to 92 rows per state in the review's sweep, identical before 7O); the F5 sweep does not turn conversions on. (b) Maine's $20 per $500
+step is scaled with the amount index by the evaluator (the statute indexes the credit and the thresholds, not the step): at most one step (about 20 to 27) off at year 10; the
+"ME indexed" test pins it. (c) `magiStats.unresolved` also counts smooth years that end the loop 6 to 7 dollars off (spending 30,500 to 33,500), which the sweep test does not reach.
+(d) The forced branch does nothing when the forced pass has a surplus (`flow >= 0`); never reached in about 2,700 forced years.
 
 **F6. O3: the Roth-conversion share of the Pennsylvania 401(k) exemption. Not built (2026-10-06): the PA guide is silent on a retiree's conversion, so the documented approximation stays (owner rule).** See below.
 Gate result (read 2026-10-06, PA Personal Income Tax Guide, Gross Compensation, the 1099-R reconciliation table, Box 1): "The amount may have been a direct rollover, a transfer, or conversion to a Roth IRA, a recharacterized IRA contribution ..."; "Under PA PIT law, this distribution is taxable for Pennsylvania purposes if: the pension or retirement plan was NOT an eligible plan for PA PIT purposes; or you retired before meeting the age conditions of the plan or years of service conditions of the plan." The rollover exemption is limited to amounts "not includable in income for federal income tax purposes", which a conversion is not. Nothing says whether a retiree's conversion of employer-plan money is exempt, so the 401(k) part of a conversion is not built: approximation (2) of O3 stays (a conversion is exempted at the pro rata 401(k) share, which understates PA tax when the conversion came from IRA money). Revisit if the Department of Revenue publishes guidance on conversions.

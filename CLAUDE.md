@@ -206,7 +206,7 @@ Each planner is one big IIFE. Core shape:
   2027 a household with no child 13 or younger fails the work requirement, which also bars the credit); under 100% of FPL there is no credit.
   A MAGI of 0 is no longer a free pass. `medicaidLimit(code)` is cached per code and `hasChildAtMost` loops the children list in place, so the
   path allocates nothing. `conversionMagiCeiling` is unchanged: the new cliffs (the floor, the 138% line, the 2027 start) are priced by the cost
-  and listed in the plan's cliffs register; 3C decides the policy. At the step-down cliffs the MAGI iteration has no fixed point: after the cap the pass that overpaid the least is re-run once (`forcedPass`), the cost at the realized MAGI is charged and the refund goes to cash (`magiStats`, 7O follow-up F5; filling to the line is 3C). Tests: `tests/aca_medicaid.js`.
+  and listed in the plan's cliffs register; 3C decides the policy. At the step-down cliffs the MAGI iteration has no fixed point: after the cap the pass that overpaid the least is re-run once (`forcedPass`), the cost at the realized MAGI is charged and the refund goes to cash (`magiStats`, 7O follow-up F5; filling to the line is 3C); the guardrail record and `firstWithdrawal` are re-recorded net of the refund so the guardrails do not cut spending for a premium that was never paid. Tests: `tests/aca_medicaid.js`.
 - **US federal deductions** (just above `ordinaryTax`): `standardDeduction(filing,
   yearIndex, ages)` (base + the 65+ additional amount per filer), `seniorDeduction`
   (the temporary $6,000, zero after `SENIOR_DEDUCTION_LAST_YEAR = 2028`; revisit if
