@@ -48,6 +48,18 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
     res.mixedTax = t.personTaxCA(30000, 200000, 0, 0, 90, 0) - t.personTaxCA(30000, 0, 0, 0, 90, 0);
     res.mixedProbate = fee('on', 300000 + 20000 + 400000);
     res.mixedTotal = mixed.rows[0].total;
+    // A survivor's last year: the whole last-year income is one person's (the review fix), not half of it. BC, age 90, 100,000 of income.
+    st.province = 'bc';
+    st.singlePerson = false;
+    const srow = { year: 0, age: 90, ageB: 88, grossIncome: 100000, total: 150000 };
+    const svEstate = { ...base, traditional: 150000, survivor: true };
+    res.survivor = t.afterTaxEstate({ rows: [srow], estate: svEstate });
+    res.survivorTax = t.personTaxCA(100000 + 150000, 0, 0, 0, 90, 0) - t.personTaxCA(100000, 0, 0, 0, 90, 0);
+    // A couple's last year (both alive): half each, as before.
+    res.couple = t.afterTaxEstate({ rows: [srow], estate: { ...base, traditional: 150000, survivor: false } });
+    res.coupleTax = t.personTaxCA(50000 + 150000, 0, 0, 0, 90, 0) - t.personTaxCA(50000, 0, 0, 0, 90, 0);
+    st.province = 'on';
+    st.singlePerson = true;
     // The projection itself is untouched: the estate field does not enumerate.
     const sim = window.__test_simulate();
     res.keys = Object.keys(sim).includes('estate');
@@ -82,8 +94,11 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
   near(out.rrspAfter, 500000 - out.rrspTax, 1e-6, 'an RRSP/RRIF estate: total less the tax of the final return');
   assert(out.rrspTax > 200000 && out.rrspTax < 260000, 'tax on 500,000 of RRSP at the top of the Ontario brackets, got ' + out.rrspTax);
   near(out.mixedAfter, out.mixedTotal - out.mixedTax - out.mixedProbate, 1e-6, 'mixed estate: gains (200,000 deemed, 50% included), probate on taxable + cash + home, TFSA and the residence untaxed');
+  near(out.survivor, 150000 - out.survivorTax, 1e-6, 'a survivor year: the final-return tax stacks on ALL of the last-year income');
+  near(out.couple, 150000 - out.coupleTax, 1e-6, 'a two-person last year: half the income each');
+  assert(out.survivorTax > out.coupleTax + 5000, 'the survivor case must cost more tax than the half-income reading');
   assert(!out.keys, 'the estate must not be an enumerable result field');
-  assert.deepStrictEqual(out.estateKeys.sort(), ['cash', 'homeEquity', 'roth', 'taxable', 'taxableBasis', 'traditional'], 'estate fields');
+  assert.deepStrictEqual(out.estateKeys.sort(), ['cash', 'homeEquity', 'roth', 'survivor', 'taxable', 'taxableBasis', 'traditional'], 'estate fields');
   assert(out.opt.hasField && out.opt.n >= 4, 'the optimizer rows carry the after-tax estate');
   near(out.opt.best, out.opt.maxPool, 1e-6, 'the recommended bracket has the highest after-tax estate among the plans that do not shorten the portfolio');
   assert(out.opt.spread > 1000, 'the brackets must differ in after-tax estate');
