@@ -519,6 +519,32 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     }
   }
 
+  // --- Step cliffs and the withdrawal solvers (7M review finding): the Nova Scotia rebate (800) ends the moment GIS ends, so a
+  // small draw that crosses that income loses 800 of benefit. The solvers bracket the draw at 3 x need + 1 (6 x need + 1); the
+  // net at the top of that bracket can then be below the need, and the bisection used to return the top with a negative net
+  // (measured: single 70, OAS 9,150, property tax 3,000, other income 32,212, need 100: taken 301, net -563). They now widen the
+  // bracket when, and only when, the net at its top is short of the need.
+  const cliffRun = (fn, argsSrc) => page.evaluate(({ fn, argsSrc }) => {
+    const s = window.__test_getState();
+    const saved = s.province;
+    s.province = 'ns';
+    const p = { otherA: 32212, otherB: 0, dtcA: 0, dtcB: 0, penA: 0, penB: 0, ageA: 70, ageB: null, singlePerson: true, year: 0, oasA: 9150, oasB: 0, earnedA: 0, earnedB: 0, survivor: false, dependents: [], propertyTaxPaid: 3000 };
+    const r = window.__test_tax[fn](...new Function('p', 'return ' + argsSrc)(p));
+    s.province = saved;
+    return r;
+  }, { fn, argsSrc });
+  // Before the cliff GIS is positive (it ends near other income 32,262), after it the rebate and the last GIS dollars are gone.
+  let d = await cliffRun('drawTaxable', '[100000, 0, 100, p, 0, 0]');
+  assert(d.net >= 100 - 1e-6, 'drawTaxable across the NS cliff: net ' + d.net + ' must cover the need of 100');
+  assert(d.net < 100 + 1500, 'drawTaxable across the NS cliff: net ' + d.net + ' must not be absurdly above the need');
+  let t1 = await cliffRun('solveTraditionalForNet', '[100000, 100, 0, 0, p]');
+  assert(t1.tradNet >= 100 - 1e-6, 'solveTraditionalForNet across the NS cliff: net ' + t1.tradNet + ' must cover the need of 100');
+  let t2 = await cliffRun('solveTraditionalForNetFromNeed', '[100000, 100, 0, 0, p]');
+  assert(t2.tradNet >= 100 - 1e-6, 'solveTraditionalForNetFromNeed across the NS cliff: net ' + t2.tradNet + ' must cover the need of 100');
+  // Away from any cliff nothing changes: the draw nets the need to within the bisection tolerance.
+  d = await cliffRun('drawTaxable', '[100000, 0, 1000, { ...p, otherA: 60000 }, 0, 0]');
+  near(d.net, 1000, 0.01, 'drawTaxable away from a cliff nets the need');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
