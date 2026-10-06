@@ -2818,6 +2818,21 @@
       senior: { propertyTaxCap: 581, propertyTaxAdd: 617, energyCap: 290, fromSingle: 36309, fromCouple: 43571, fromSingleParent: 43571 },
       notes: 'CRA 2026 calculation sheets. Occupancy cost is 20 percent of rent plus property tax. Energy component is the lesser of the occupancy cost and 290; property tax component is the lesser of the occupancy cost and (10 percent of it, capped, plus a fixed add-on); less 2 percent of family net income over the threshold. Seniors (either spouse 64 or older) use the senior figures and, with a senior homeowners grant, the credit plus the grant cannot exceed the energy component plus the occupancy cost. The long-term-care and on-reserve energy lines and the student residence 25 dollars are not modeled. Children matter only for a single filer (the sole-care sheet).',
     },
+    nbpta: {
+      name: 'New Brunswick Residential Property Tax Allowance for Low-Income Homeowners',
+      kind: 'occupancyCredit',
+      scope: 'nb',
+      source: 'https://www.gnb.ca/en/topic/family-home-community/housing-property/property-tax/property-tax-allowance.html',
+      asOf: '2026-01-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'primary', incomeTiers: 'primary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: [],
+      style: 'nbpta',
+      // [income below this, allowance]: the page lists less than 22,000, 22,001 to 25,000 and 25,001 to 30,000 (whole dollars).
+      tiers: [[22001, 300], [25001, 200], [30001, 100]],
+      notes: 'Up to 300 for household income below 22,000, 200 from 22,001 to 25,000 and 100 from 25,001 to 30,000, never more than the property tax paid; for an owner who lives in the property and receives the residential property tax credit. The page is undated; the allowance is tested on the prior-year return (same-year income stands in). The whole-dollar tier edges are a reading of the page. Not indexed.',
+    },
     qcsol: {
       name: 'Quebec Solidarity Tax Credit (QST and housing components)',
       kind: 'quebecCredit',
@@ -3372,6 +3387,21 @@
               premium = sit.rate * (Math.min(earned, threshold) - exclusion) - W.reductionRate * Math.max(0, fam - threshold);
             if (premium > 0) BEN.provCredit += premium;
           }
+        }
+        break;
+      }
+      case 'nb': {
+        // Residential Property Tax Allowance: a stepped rebate by household income, never more than the property tax paid.
+        const R = BENEFIT_RULES.nbpta,
+          pt = profile.propertyTaxPaid || 0;
+        if (pt > 0) {
+          let a = 0;
+          for (let i = 0; i < R.tiers.length; i++)
+            if (fam < R.tiers[i][0]) {
+              a = R.tiers[i][1];
+              break;
+            }
+          BEN.provCredit += Math.min(a, pt);
         }
         break;
       }

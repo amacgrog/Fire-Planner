@@ -367,6 +367,35 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   assert(sr.allowance > 0 && sr.allowance < 20714.16, 'survivor aged 63 receives the Allowance for the Survivor, within the table-5 maximum (got ' + sr.allowance + ')');
   near(sr.gis, 0, 0, 'a survivor under 65 receives no GIS');
 
+  // --- 7M: rent and property-tax programs of NB, NS and MB. housing() isolates one program from the other programs of the
+  // province (credits, child benefits) by differencing the same household with and without the housing input.
+  const housing = async (code, p, field, amount, line) => {
+    const a = await withProv(code, { ...p, [field]: amount }),
+      z = await withProv(code, { ...p, [field]: 0 });
+    return a[line] - z[line];
+  };
+  // New Brunswick Residential Property Tax Allowance (gnb.ca property tax allowance page): income below 22,001: 300;
+  // below 25,001: 200; below 30,001: 100; never more than the property tax; nothing at 30,001 or more.
+  const nb = (inc, pt, extra = {}) => housing('nb', prof({ otherA: inc, ageA: 50, ...extra }), 'propertyTaxPaid', pt, 'provCredit');
+  near(await nb(20000, 3000), 300, 1e-9, 'NB allowance, income 20,000');
+  near(await nb(22000, 3000), 300, 1e-9, 'NB allowance, income 22,000 (the 300 tier runs to 22,001)');
+  near(await nb(22001, 3000), 200, 1e-9, 'NB allowance, income 22,001');
+  near(await nb(25000, 3000), 200, 1e-9, 'NB allowance, income 25,000');
+  near(await nb(25001, 3000), 100, 1e-9, 'NB allowance, income 25,001');
+  near(await nb(30000, 3000), 100, 1e-9, 'NB allowance, income 30,000');
+  near(await nb(30001, 3000), 0, 0, 'NB allowance, income 30,001');
+  // Capped at the property tax paid: a 150 bill returns 150, not 300.
+  near(await nb(10000, 150), 150, 1e-9, 'NB allowance never exceeds the property tax paid');
+  // Renters pay no property tax: nothing.
+  near(await nb(10000, 0), 0, 0, 'NB renter gets no property tax allowance');
+  // A couple counts combined income: 12,000 + 12,000 = 24,000 -> the 200 tier.
+  near(
+    await housing('nb', prof({ otherA: 12000, otherB: 12000, ageA: 50, ageB: 50, singlePerson: false }), 'propertyTaxPaid', 3000, 'provCredit'),
+    200, 1e-9, 'NB allowance, couple on combined income',
+  );
+  // Provinces do not leak: the same household in Ontario gets no 300 step from the NB row.
+  assert(Math.abs((await housing('on', prof({ otherA: 20000, ageA: 50 }), 'propertyTaxPaid', 3000, 'provCredit')) - 300) > 1, 'the NB allowance does not apply in Ontario');
+
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('benefits tests ok');
