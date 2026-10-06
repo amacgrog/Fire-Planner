@@ -268,6 +268,17 @@ function checks() {
   near(run({ retirementExclusion: perP({ traditionalMinAge: 59.5 }) }, { ...trad(40000, 30000), ages: [52] }), 4000, 'without the option the 401(k) part is taxed like any traditional draw at 52');
   near(run(emp, { ...trad(40000, 40000), pension: 5000, pensionA: 5000, ages: [52] }), 0, 'employer plan: a pension is excluded and so is the 401(k) draw');
 
+  // --- Mechanism 4c (7O follow-up F1): a phase-out as a share of the whole credit ------------------------------
+  // Flat 10% tax. Credit 1,000 per child of five or younger, refundable; start 20,000; the share is (income - 20,000) / 4,000.
+  const shareRow = (round) => ({ credits: [{ kind: 'childCredit', label: 'c', refundable: true, tiers: [[5, 1000]], phaseOut: { start: cols(20000), share: { width: 4000, round } } }] });
+  near(run(shareRow(2), { wages: 20000, dependents: [kid(3), kid(3)] }), 2000 - 2000, 'share: at the start the credit is whole (tax 2,000 less 2,000)');
+  near(run(shareRow(2), { wages: 21000, dependents: [kid(3), kid(3)] }), 2100 - 1500, 'share: 1,000 / 4,000 = 0.25; 2,000 x 0.75 = 1,500');
+  near(run(shareRow(2), { wages: 21500, dependents: [kid(3), kid(3)] }), 2150 - 1240, 'share rounded: 1,500 / 4,000 = 0.375 rounds to 0.38; 2,000 x 0.62 = 1,240');
+  near(run(shareRow(undefined), { wages: 21500, dependents: [kid(3), kid(3)] }), 2150 - 1250, 'share not rounded: 2,000 x 0.625 = 1,250');
+  near(run(shareRow(2), { wages: 24000, dependents: [kid(3), kid(3)] }), 2400, 'share: 4,000 / 4,000 = 1; nothing left');
+  near(run(shareRow(2), { wages: 21000, dependents: [kid(3), kid(3), kid(3)] }), 2100 - 2250, 'share: three children, 3,000 x 0.75 = 2,250');
+  near(run({ credits: [{ kind: 'childCredit', label: 'c', refundable: true, tiers: [[5, 1000]], maxChildren: 2, phaseOut: { start: cols(20000), share: { width: 4000, round: 2 } } }] }, { wages: 21000, dependents: [kid(3), kid(3), kid(3)] }), 2100 - 1500, 'share with maxChildren 2: the cap comes first, 2,000 x 0.75');
+
 
   // --- Mechanism 5: a cap shared with Social Security (a per-person bucket) ----------------------------------------------
   const co = { base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: { kind: 'subtraction', seniorAge: 65, belowSeniorCap: 20000 } }, retirementExclusion: perP({ tiers: [[55, 20000], [65, 24000]], reducedBy: 'socialSecuritySubtracted' }) };

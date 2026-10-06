@@ -3369,7 +3369,7 @@ not index this credit, whatever the row's flags say: Utah). `childStepCredit` ga
 | VT | 1,000 per child six or younger, refundable; 20 per 1,000 or fraction of AGI over 125,000, gone at 175,000; not indexed | 32 V.S.A. 5830f (amended 2025, effective 1/1/2025) |
 | ME | 300 per dependent from 2026 (2025: doubled under six), refundable; 20 per 500 or fraction of Maine AGI over 100,000 single, 125,000 head of household, 150,000 joint; not indexed | 36 M.R.S. 5219-SS |
 | NJ | up to 1,000 per child five or younger by NJ taxable income: 1,000 to 30,000, then 800, 600, 400, 200 per further 10,000, nothing over 80,000; refundable | Division of Taxation, Child Tax Credit (2025) |
-| OR | 1,050 per dependent under six, at most five, refundable; full at Oregon AGI up to 26,550, a straight line to nothing at 31,550 | ORS 315.273: 1,000 and 25,000 with a 5,000 phase-out, the amounts and the start indexed (CPI, rounded down to 50), the width fixed; the 2025 Department of Revenue values stand for 2026 |
+| OR | 1,050 per dependent under six, at most five, refundable; the whole credit is cut by (Oregon AGI - 26,550) / 5,000, rounded to two decimals, nothing at 31,550 for any number of children | ORS 315.273 and the 2025 Form OR-40 worksheet: 1,000 and 25,000 indexed (CPI, rounded down to 50), the divisor fixed; applies to tax years before 2029 (not modeled, owner decision); the 2025 values stand for 2026 |
 | UT | 1,000 per child under six (a federal CTC child), nonrefundable; 10 cents per dollar of modified AGI over 49,000 single or head of household and 61,000 joint; not indexed | Utah Code 59-10-1047, effective 1/1/2026 (Chapter 360, 2026 General Session), read from le.utah.gov |
 
 The rows' `notes` carry these figures and what is not modeled. **Left out, with reasons.** California Young Child Tax Credit: it requires CalEITC eligibility
@@ -3575,7 +3575,7 @@ describes the credit options). Update the row's `notes`, the README "State child
 success rates (`tests/historical_rates.js`, 2,000 paths, seed 7): expected unchanged for every scenario (the two O4 scenarios are MN and
 NJ); record the run in the commit message. Tests are hand-computed in the comment beside each case, never read back from the evaluator.
 
-**F1. Oregon Kids Credit: a share-of-total phase-out and the worksheet rounding (US V106).**
+**F1. Oregon Kids Credit: a share-of-total phase-out and the worksheet rounding (US V106). Built (V106).**
 - Evaluator: new optional `phaseOut.share: { width, round }`. When present, `pct = (measure - start x ct) / (width)` (width NOT scaled:
   the statute's 5,000 is fixed), rounded to `round` decimal places when given (Oregon: 2, `Math.round(pct * 100) / 100`), clamped to
   [0, 1]; the credit is `total x (1 - pct)` where `total` is the capped sum of the tiers (`maxChildren` applies first). `rate` and

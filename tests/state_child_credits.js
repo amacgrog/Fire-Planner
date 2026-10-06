@@ -80,17 +80,26 @@ function checks() {
   near(run('ut', 55000, [kid(5)], 'single', 10, 'Child Tax Credit'), 5500 - 400, 'UT: the statute does not index it, whatever the row flags say');
   st.inflation = 0;
 
-  // --- Oregon: 1,050 per child under six (at most five), straight line from 26,550 to nothing at 31,550, state AGI ----
-  near(run('or', 0, [kid(2), kid(4), kid(6)], 'mfj', 0, 'Oregon Kids Credit'), -2100, 'OR: two children under six');
-  near(run('or', 28000, [kid(2), kid(4)], 'mfj', 0, 'Oregon Kids Credit'), 2800 - (2100 - 0.21 * 1450), 'OR 28,000: 2,100 - 0.21 x 1,450 = 1,795.50');
-  near(run('or', 31550, [kid(2)], 'single', 0, 'Oregon Kids Credit'), mnTax(31550), 'OR: nothing at 31,550');
-  near(run('or', 0, [kid(0), kid(1), kid(2), kid(3), kid(4), kid(5)], 'mfj', 0, 'Oregon Kids Credit'), -5250, 'OR: capped at five children');
+  // --- Oregon: 1,050 per child under six (at most five); the credit is cut by the share (state AGI - 26,550) / 5,000 of the
+  // WHOLE credit (rounded to two decimals as on the OR-40 worksheet), so it is gone at 31,550 for any number of children ---
+  const orc = (w, kids, f = 'single', yi = 0) => run('or', w, kids, f, yi, 'Oregon Kids Credit');
+  near(orc(0, [kid(2), kid(4), kid(6)], 'mfj'), -2100, 'OR: two children under six (the child of six does not count)');
+  near(orc(28000, [kid(2), kid(4)], 'mfj'), 2800 - 1491, 'OR 28,000, two children: 1,450 / 5,000 = 0.29; 2,100 x 0.71 = 1,491');
+  near(orc(28000, [kid(2)], 'single'), 2800 - 745.5, 'OR 28,000, one child: 1,050 x 0.71 = 745.50 (unchanged from the straight line)');
+  near(orc(30000, [kid(1), kid(2), kid(3)], 'mfj'), 3000 - 976.5, 'OR 30,000, three children: 3,450 / 5,000 = 0.69; 3,150 x 0.31 = 976.50');
+  near(orc(27000, [kid(0), kid(1), kid(2), kid(3), kid(4), kid(5)], 'mfj'), 2700 - 4777.5, 'OR 27,000, six children: capped at five first (5,250), 450 / 5,000 = 0.09; 5,250 x 0.91 = 4,777.50');
+  near(orc(28123, [kid(2), kid(4)], 'mfj'), 2812.3 - 1449, 'OR 28,123: 1,573 / 5,000 = 0.3146 rounds to 0.31; 2,100 x 0.69 = 1,449 (unrounded 1,439.34)');
+  near(orc(31549, [kid(2), kid(4)], 'mfj'), mnTax(31549), 'OR 31,549: 4,999 / 5,000 = 0.9998 rounds to 1.00: nothing');
+  near(orc(31550, [kid(2)], 'single'), mnTax(31550), 'OR: nothing at 31,550');
+  near(orc(26550, [kid(2), kid(4)], 'mfj'), 2655 - 2100, 'OR at 26,550: full');
+  // 2029 and later: the statute ends the credit for tax years from 2029; the planner does NOT model that (owner decision).
+  near(orc(0, [kid(2)], 'single', 3), -1050, 'OR 2029 (year index 3): still paid, no sunset modeled');
   st.inflation = 3;
   {
     const f = t.taxIndexFactor(10);
-    near(run('or', 40000, [kid(2)], 'single', 10, 'Oregon Kids Credit'), mnTax(40000) - Math.max(0, 1050 * f - 0.21 * f * (40000 - 26550 * f)), 'OR indexed amount and start');
-    // The phase-out width (5,000) is not indexed: 2,500 over the indexed start takes half of the indexed credit.
-    near(run('or', 26550 * f + 2500, [kid(2)], 'single', 10, 'Oregon Kids Credit'), mnTax(26550 * f + 2500) - (1050 * f) / 2, 'OR indexed: halfway down the line, half the credit');
+    // The amount and the start index; the 5,000 divisor is a share, not a dollar amount, so it stays fixed.
+    near(orc(26550 * f + 2500, [kid(2)], 'single', 10), mnTax(26550 * f + 2500) - (1050 * f) / 2, 'OR indexed, one child: 2,500 over the indexed start = half the indexed credit');
+    near(orc(26550 * f + 2500, [kid(2), kid(4)], 'mfj', 10), mnTax(26550 * f + 2500) - (2100 * f) / 2, 'OR indexed, two children: still half (0.50 exactly)');
   }
   st.inflation = 0;
 
