@@ -44,6 +44,16 @@ function spouseText(r) {
   const s = r.spouse;
   return money(s.amount) + (s.threshold ? `, nil at net income ${money(s.amount + s.threshold)} (free to ${money(s.threshold)})` : `, less the net income (nil at ${money(s.amount)})`) + (r.childAmount ? `; child amount ${money(r.childAmount.amount)} each (under ${r.childAmount.maxAge + 1})` : '');
 }
+// 7N N8: the probate fee schedule (estate value passing through probate).
+function probateText(p) {
+  if (!p.steps.length && !p.bands.length && !p.base) return 'none';
+  const parts = p.steps.map(([limit, fee]) => `${fee ? money(fee) : 'nil'} up to ${money(limit)}`);
+  if (p.bands.length || p.steps.length) {
+    const bands = p.bands.map(([from, rate]) => `${money(rate)} per $1,000 over ${money(from)}`).join(', ');
+    parts.push((p.base ? `${money(p.base)} then ` : '') + (bands || 'flat'));
+  }
+  return parts.join('; ');
+}
 // 7N N6: the low-income tax reduction, as the form states it.
 function liText(l) {
   if (!l) return 'none';
@@ -80,8 +90,8 @@ function generate(rules) {
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Low-income tax reduction | Health contributions | Indexing | Sources |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Low-income tax reduction | Health contributions | Probate fee | Indexing | Sources |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
     const extra = [r.surtax ? `surtax ${pct(r.surtax.firstRate)} over ${money(r.surtax.first)}, ${pct(r.surtax.secondRate)} over ${money(r.surtax.second)}` : '', r.healthPremium ? 'income-tested health premium (up to $900)' : ''].filter(Boolean).join('; ') || 'none';
@@ -103,6 +113,7 @@ function generate(rules) {
           r.medical.familyIncome ? 'expenses over 3% of family income (no dollar floor)' : 'expenses over the lesser of 3% of net income and ' + money(r.medical.threshold) + (r.careAtHome ? '; refundable Seniors Care at Home credit: ' + pct(r.careAtHome.rate) + ' of up to ' + money(r.careAtHome.maxExpenses) + ' (age ' + r.careAtHome.age + '+), less ' + pct(r.careAtHome.reductionRate) + ' of family net income over ' + money(r.careAtHome.startIncome) : ''),
           liText(r.lowIncomeReduction),
           r.healthContributions ? `Health Services Fund ${pct(r.healthContributions.hsf.rate)} of non-employment income over ${money(r.healthContributions.hsf.t1)} (to ${money(r.healthContributions.hsf.cap1)}, then over ${money(r.healthContributions.hsf.t2)} to ${money(r.healthContributions.hsf.cap2)}); RAMQ drug premium for each retired adult, up to ${money(r.healthContributions.ramq.max)}` : 'none',
+          probateText(r.probate),
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]

@@ -6,7 +6,7 @@ const path = require('path');
 
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
 const INDEX_KEYS = ['bracketsIndexed', 'bpaIndexed', 'ageAmountIndexed', 'pensionAmountIndexed', 'surtaxIndexed'];
-const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'homeBuyer', 'medical', 'careAtHome', 'lowIncomeReduction', 'healthContributions', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
+const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'homeBuyer', 'medical', 'careAtHome', 'lowIncomeReduction', 'healthContributions', 'probate', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
 
 (async () => {
   const browser = await chromium.launch();
@@ -62,6 +62,12 @@ const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verif
         if (!r.medical || (c === 'qc') !== (r.medical.threshold === null) || (c === 'qc') !== r.medical.familyIncome) fails.push(`${c}: medical expense rule wrong`);
         if (r.medical && r.medical.threshold !== null && !(r.medical.threshold > 1000 && r.medical.threshold < 4000)) fails.push(`${c}: medical threshold out of range`);
         if ((c === 'on') !== !!r.careAtHome) fails.push(`${c}: only Ontario has the Seniors Care at Home credit`);
+        // 7N N8: every province has a probate schedule (steps then marginal bands; Manitoba and Quebec none).
+        if (!r.probate || !Array.isArray(r.probate.steps) || !Array.isArray(r.probate.bands)) fails.push(`${c}: probate schedule missing`);
+        else {
+          for (let i = 1; i < r.probate.steps.length; i++) if (!(r.probate.steps[i][0] > r.probate.steps[i - 1][0] && r.probate.steps[i][1] >= r.probate.steps[i - 1][1])) fails.push(`${c}: probate steps not increasing`);
+          if ((c === 'mb' || c === 'qc') !== (r.probate.base === 0 && r.probate.steps.length === 0 && r.probate.bands.length === 0)) fails.push(`${c}: probate none only in Manitoba and Quebec`);
+        }
         // 7N N7: only Quebec has health contributions (the Health Services Fund and the drug premium).
         if ((c === 'qc') !== !!r.healthContributions) fails.push(`${c}: only Quebec has health contributions`);
         if (r.healthContributions && !(r.healthContributions.hsf.t2 > r.healthContributions.hsf.t1 && r.healthContributions.ramq.max > 700)) fails.push(`${c}: bad health contributions`);
