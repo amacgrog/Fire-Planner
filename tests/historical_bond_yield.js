@@ -54,21 +54,17 @@ async function run(file, isUS) {
   if (isUS) for (const [i, v] of translateFieldList([['traditional', 0], ['roth', 0]], true, { single: true })) await set(i, v);
   await page.waitForTimeout(300);
 
-  // Extra tax paid in year 10 (when the reserve first holds the full $300k) because the dataset row
-  // carries `yieldPct` rather than no yield: the year-10 drop in taxable with the yield, minus the
-  // drop without it. Both runs refill the reserve identically, so only the tax differs.
+  // Extra tax paid in year 10 (when the reserve first holds the full $300k at the start of the year) because
+  // the dataset row carries `yieldPct` rather than no yield: the year-10 row's gross tax with the yield, minus
+  // the same row's tax without it. Read from the row's tax field (income tax plus payroll tax, before the
+  // income-tested benefits), which does not depend on which account funds the withdrawal or on how the benefits
+  // shift the reserve refill timing (it used to be read from the drop in the taxable balance).
   const YEAR = 10;
-  const taxableDrop = (r, y) =>
-    page.evaluate(
-      ([r, y, K]) => {
-        const rows = window.__test_simulateHistorical((k) => [1970 + k, 0, 0, r, y]).rows;
-        return rows[K - 1].taxable - rows[K].taxable;
-      },
-      [r, y, YEAR],
-    );
+  const taxAt = (r, y) =>
+    page.evaluate(([r, y, K]) => window.__test_simulateHistorical((k) => [1970 + k, 0, 0, r, y]).rows[K].tax, [r, y, YEAR]);
   const extraTax = async (assumedBondReturn, r, y, yBase) => {
     await set('bondReturn', assumedBondReturn);
-    return (await taxableDrop(r, y)) - (await taxableDrop(r, yBase));
+    return (await taxAt(r, y)) - (await taxAt(r, yBase));
   };
 
   // 10% yield (bond return 0%): tax on $30,000 of interest.

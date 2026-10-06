@@ -498,13 +498,13 @@ function caChecks() {
     {
       const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
       near(
-        t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
+        t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
         2 * t.personTaxCA(50000, 0, 0, 0, 66, 10000, 100000, 7527),
         1e-9,
         'Quebec taxFor couple uses family income',
       );
-      near(t.taxFor(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
-      if (!(t.taxFor(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2))
+      near(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
+      if (!(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2))
         fails.push('Quebec: a single filer should owe less than each spouse of a couple with the same income (living-alone amount)');
     }
     // QPP and QPIP replace CPP for a Quebec resident: (60,000 - 3,500) * 6.30% + 0.43% * 60,000 = 3,817.5;
@@ -556,11 +556,11 @@ function caChecks() {
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
   const one = t.personTaxCA(50000, 0, 0);
-  near(t.taxFor(prof({ singlePerson: true, otherA: 50000 }), 0, 0), one, 1e-9, 'taxFor single');
-  near(t.taxFor(prof({ singlePerson: false, otherA: 50000, otherB: 50000 }), 0, 0), 2 * one, 1e-9, 'taxFor couple = two individual returns');
+  near(t.incomeTax(prof({ singlePerson: true, otherA: 50000 }), 0, 0), one, 1e-9, 'taxFor single');
+  near(t.incomeTax(prof({ singlePerson: false, otherA: 50000, otherB: 50000 }), 0, 0), 2 * one, 1e-9, 'taxFor couple = two individual returns');
   // Gains and RRSP withdrawals split evenly between spouses.
   near(
-    t.taxFor(prof({ singlePerson: false, otherA: 40000, otherB: 40000 }), 20000, 20000),
+    t.incomeTax(prof({ singlePerson: false, otherA: 40000, otherB: 40000 }), 20000, 20000),
     2 * t.personTaxCA(50000, 10000, 0),
     1e-9,
     'taxFor couple splits gains and extra RRSP income',
@@ -569,7 +569,7 @@ function caChecks() {
   {
     const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
     near(
-      t.taxFor(p({ singlePerson: false, otherA: 50000, otherB: 20000, ageA: 66, ageB: 66, penA: 30000, penB: 0 }), 0, 0),
+      t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 20000, ageA: 66, ageB: 66, penA: 30000, penB: 0 }), 0, 0),
       t.personTaxCA(50000, 0, 0, 0, 66, 30000) + t.personTaxCA(20000, 0, 0, 0, 66, 0),
       1e-9,
       "taxFor couple reads each partner's own age and pension",
@@ -577,18 +577,18 @@ function caChecks() {
     // A discretionary RRSP/RRIF draw counts as RRIF income for the pension credit from 71 (when the planner
     // converts the RRSP to a RRIF), not before: an RRSP withdrawal that is not an annuity or RRIF payment is
     // not pension income at any age (7K fix).
-    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 71, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 71, 10000), 1e-9, 'RRSP draw at 71 is pension income');
-    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 0), 1e-9, 'RRSP draw at 66 is not pension income');
-    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 5000 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 5000), 1e-9, 'an employer pension at 66 is, the RRSP draw on top is not');
-    near(t.taxFor(p({ singlePerson: true, otherA: 40000, ageA: 60, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 60, 0), 1e-9, 'RRSP draw at 60 is not pension income');
+    near(t.incomeTax(p({ singlePerson: true, otherA: 40000, ageA: 71, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 71, 10000), 1e-9, 'RRSP draw at 71 is pension income');
+    near(t.incomeTax(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 0), 1e-9, 'RRSP draw at 66 is not pension income');
+    near(t.incomeTax(p({ singlePerson: true, otherA: 40000, ageA: 66, penA: 5000 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 66, 5000), 1e-9, 'an employer pension at 66 is, the RRSP draw on top is not');
+    near(t.incomeTax(p({ singlePerson: true, otherA: 40000, ageA: 60, penA: 0 }), 0, 10000), t.personTaxCA(50000, 0, 0, 0, 60, 0), 1e-9, 'RRSP draw at 60 is not pension income');
     near(
-      t.taxFor(p({ singlePerson: false, otherA: 40000, otherB: 40000, ageA: 72, ageB: 60, penA: 0, penB: 0 }), 0, 20000),
+      t.incomeTax(p({ singlePerson: false, otherA: 40000, otherB: 40000, ageA: 72, ageB: 60, penA: 0, penB: 0 }), 0, 20000),
       t.personTaxCA(50000, 0, 0, 0, 72, 10000) + t.personTaxCA(50000, 0, 0, 0, 60, 0),
       1e-9,
       "RRSP draw: only the RRIF-age partner's half counts",
     );
     // A profile without ages or pension fields reads as under 65.
-    near(t.taxFor(p({ singlePerson: true, otherA: 50000 }), 0, 0), t.personTaxCA(50000, 0, 0), 1e-9, 'profile without ages');
+    near(t.incomeTax(p({ singlePerson: true, otherA: 50000 }), 0, 0), t.personTaxCA(50000, 0, 0), 1e-9, 'profile without ages');
     // Pension splitting sees the credits: the chosen transfer is no worse than any other on a grid.
     for (const [oA, oB, eA, eB, ageA, ageB] of [
       [100000, 20000, 80000, 0, 70, 70],
