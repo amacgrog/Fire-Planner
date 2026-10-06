@@ -269,6 +269,8 @@ function usChecks() {
 // Canada
 // ---------------------------------------------------------------------------
 function caChecks() {
+  // Spouse claims as incomeTaxCA and solvePensionSplit make them (7N N3): the higher-income partner claims the spouse amount (A on a tie).
+  const claimNets = (nA, nB) => [nA >= nB ? Math.max(0, nB) : -1, nB > nA ? Math.max(0, nA) : -1];
   const t = window.__test_tax;
   const st = window.__test_getState();
   const fails = [];
@@ -520,9 +522,13 @@ function caChecks() {
       for (const [oa, ob, ea, eb] of [[90000, 20000, 40000, 5000], [60000, 30000, 30000, 0], [45000, 45000, 20000, 20000], [80000, 15000, 50000, 10000]]) {
         const x = t.solvePensionSplit(oa, ob, ea, eb, 0, 68, 66);
         const fam = oa + ob;
-        const cost = (y) =>
-          t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam, t.quebecPoolAmount(66, eb + y, 0)) +
-          t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam, t.quebecPoolAmount(68, ea - y, 0));
+        const cost = (y) => {
+          const [cA, cB] = claimNets(oa - y, ob + y);
+          return (
+            t.personTaxCA(oa - y, 0, 0, 0, 68, ea - y, fam, t.quebecPoolAmount(66, eb + y, 0), 0, cA) +
+            t.personTaxCA(ob + y, 0, 0, 0, 66, eb + y, fam, t.quebecPoolAmount(68, ea - y, 0), 0, cB)
+          );
+        };
         let best = Infinity;
         for (let y = -0.5 * eb; y <= 0.5 * ea; y += 50) best = Math.min(best, cost(y));
         worst = Math.max(worst, cost(x) - best);
@@ -595,6 +601,103 @@ function caChecks() {
     near(t.personTaxCA(110000 * f3, 0, 10, 0, 66, 0, null, 0, 8500 * f3), t.personTaxCA(110000 * f3 - 0.15 * (110000 - 95323) * f3, 0, 10, 0, 66, 0) + 0.15 * (110000 - 95323) * f3, 1e-6, 'recovery threshold is indexed');
   }
 
+  // --- Spouse, eligible-dependant and child amounts (7N N3) -----------------------
+  // personTaxCA(..., oas, spouseNet, depKids, childKids): spouseNet < 0 means no spouse claim; depKids is the
+  // number of children under 18 a single claimant (or survivor) supports (one is the eligible dependant, the rest
+  // are child-amount children where a province has one); childKids is the number of children whose child amount
+  // this return claims. Federal: the amount is the BPA variant for the CLAIMANT's net income (16,452 to 14,829) less
+  // the spouse's net income (a dependant child's is 0), at 14%. Provincial (CRA TD1 forms 2026): the amount, with the
+  // spouse's income free up to a threshold: credit = clamp(amount + threshold - spouse net income, 0, amount).
+  {
+    const R = t.PROVINCE_RULES;
+    const prov = (code, income, ...rest) => {
+      st.province = code;
+      return t.provincialTaxCA(income, 0, 0, 0, 0, null, 0, ...rest);
+    };
+    // Ontario (TD1ON 2026: 11,029, free to 1,103): spouse net 5,000 -> 7,132 of amount, at 5.05%.
+    near(prov('on', 50000) - prov('on', 50000, 5000), 0.0505 * 7132, 1e-6, 'ON spouse amount, partial');
+    near(prov('on', 50000) - prov('on', 50000, 1000), 0.0505 * 11029, 1e-6, 'ON spouse amount, full below the threshold');
+    near(prov('on', 50000) - prov('on', 50000, 12132), 0, 1e-9, 'ON spouse amount, nil at 12,132');
+    near(prov('on', 50000) - prov('on', 50000, -1, 1), 0.0505 * 11029, 1e-6, 'ON eligible dependant (one child)');
+    // Alberta (TD1AB: the amount is the basic personal amount, 22,769, less the spouse net income, no free band).
+    near(prov('ab', 80000) - prov('ab', 80000, 10000), R.ab.creditRate * 12769, 1e-6, 'AB spouse amount = 22,769 - spouse income');
+    // Saskatchewan (TD1SK: 20,381, free to 2,038; child amount 8,358 for each other child under 18): a single parent
+    // of two claims the eligible dependant for one child and the child amount for the other.
+    near(prov('sk', 70000) - prov('sk', 70000, -1, 2), R.sk.creditRate * (20381 + 8358), 1e-6, 'SK single parent of two: dependant plus one child amount');
+    near(prov('sk', 70000) - prov('sk', 70000, -1, 0, 2), R.sk.creditRate * 2 * 8358, 1e-6, 'SK couple: child amount for each child');
+    near(prov('on', 70000) - prov('on', 70000, -1, 0, 2), 0, 1e-9, 'a province without a child amount ignores childKids');
+    // Quebec: no spouse amount, and a single parent of a minor child gets nothing more (the additional amount for a person
+    // living alone, single-parent family, needs a child 18 or over in post-secondary studies and no Family Allowance: not built).
+    near(prov('qc', 30000) - prov('qc', 30000, -1, 1), 0, 1e-9, 'QC: a minor child adds no provincial amount');
+    near(prov('qc', 30000) - prov('qc', 30000, 5000), 0, 1e-9, 'QC has no spouse amount');
+    // Indexing follows the basic personal amount: scaled at year 10 except where the BPA is frozen.
+    st.province = 'on';
+    const f10 = t.taxIndexFactor(10);
+    near(t.provincialTaxCA(50000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0) - t.provincialTaxCA(50000 * f10, 10, 0, 0, 0, null, 0, 5000 * f10, 0, 0), 0.0505 * 7132 * f10, 1e-6, 'ON spouse amount is indexed');
+    st.province = 'mb';
+    near(t.provincialTaxCA(80000, 10, 0, 0, 0, null, 0, -1, 0, 0) - t.provincialTaxCA(80000, 10, 0, 0, 0, null, 0, 1000, 0, 0), R.mb.creditRate * (9134 - 1000), 1e-6, 'MB spouse amount is not indexed (frozen)');
+    // Federal: BPA variant of the claimant. Claimant at 50,000 (BPA 16,452), spouse net 5,000 -> 11,452 at 14%.
+    st.province = 'ab';
+    const fed = (income, ...rest) => t.federalTaxCA(income, 0, 0, ...rest);
+    near(fed(50000) - fed(50000, 5000), 0.14 * 11452, 1e-6, 'federal spouse amount at 50,000');
+    near(fed(50000) - fed(50000, 0), 0.14 * 16452, 1e-6, 'federal eligible dependant amount (child net income 0)');
+    near(fed(300000) - fed(300000, 0), 0.14 * 14829, 1e-6, 'federal spouse amount for a claimant over the 33% threshold is the minimum');
+    const mid = (181440 + 258482) / 2;
+    near(fed(mid) - fed(mid, 0), 0.14 * (14829 + 1623 / 2), 1e-6, 'federal spouse amount phases with the claimant income');
+    near(fed(50000) - fed(50000, 20000), 0, 1e-9, 'no federal spouse amount once the spouse income exceeds it');
+    // incomeTaxCA: the higher-income partner claims for the lower one; children go to the lower-income parent.
+    const pr3 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
+    const kid = (age) => ({ age, student: false, qualifyingChild: true });
+    st.province = 'on';
+    near(
+      t.incomeTax(pr3({ singlePerson: false, otherA: 50000, otherB: 5000 }), 0, 0),
+      t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, 5000, 0, 0) + t.personTaxCA(5000, 0, 0),
+      1e-9,
+      'couple: the higher-income partner claims the spouse amount',
+    );
+    near(
+      t.incomeTax(pr3({ singlePerson: false, otherA: 5000, otherB: 50000 }), 0, 0),
+      t.personTaxCA(5000, 0, 0) + t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, 5000, 0, 0),
+      1e-9,
+      'couple: B claims when B has the higher income',
+    );
+    near(
+      t.incomeTax(pr3({ singlePerson: true, otherA: 50000, dependents: [kid(5), kid(30)] }), 0, 0),
+      t.personTaxCA(50000, 0, 0, 0, 0, 0, null, 0, 0, -1, 1, 0),
+      1e-9,
+      'single parent: one child under 18 (an adult child does not count)',
+    );
+    st.province = 'sk';
+    near(
+      t.incomeTax(pr3({ singlePerson: false, otherA: 60000, otherB: 40000, dependents: [kid(5), kid(8)] }), 0, 0),
+      t.personTaxCA(60000, 0, 0) + t.personTaxCA(40000, 0, 0, 0, 0, 0, null, 0, 0, -1, 0, 2),
+      1e-9,
+      'couple: the lower-income parent claims the child amount',
+    );
+    // A profile with no dependents or spouse claim is unchanged.
+    st.province = 'on';
+    near(t.incomeTax(pr3({ singlePerson: true, otherA: 50000 }), 0, 0), t.personTaxCA(50000, 0, 0), 1e-12, 'no children, no change');
+    // The pension split sees the claims: regret against a $50 scan for a couple with a low-income spouse and a child.
+    {
+      let worstClaim = 0;
+      const deps = [kid(6)];
+      for (const [oA, oB, eA, eB] of [[60000, 3000, 40000, 0], [45000, 12000, 30000, 0], [70000, 20000, 50000, 8000], [38000, 38000, 20000, 20000]]) {
+        const x = t.solvePensionSplit(oA, oB, eA, eB, 0, 68, 66, 0, 0, 1);
+        const fam = oA + oB;
+        const cost = (y) => {
+          const nA = oA - y, nB = oB + y;
+          return (
+            t.personTaxCA(nA, 0, 0, 0, 68, eA - y, fam, 0, 0, nA >= nB ? nB : -1, 0, nA <= nB ? 1 : 0) +
+            t.personTaxCA(nB, 0, 0, 0, 66, eB + y, fam, 0, 0, nB > nA ? nA : -1, 0, nB < nA ? 1 : 0)
+          );
+        };
+        let best = Infinity;
+        for (let y = -0.5 * eB; y <= 0.5 * eA; y += 50) best = Math.min(best, cost(y));
+        worstClaim = Math.max(worstClaim, cost(x) - best);
+      }
+      if (worstClaim > 3) fails.push('pension split regret with a spouse claim and a child $' + worstClaim.toFixed(2));
+    }
+  }
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
   const one = t.personTaxCA(50000, 0, 0);
@@ -639,7 +742,10 @@ function caChecks() {
       [120000, 0, 90000, 0, 75, 75],
     ]) {
       const x = t.solvePensionSplit(oA, oB, eA, eB, 0, ageA, ageB);
-      const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, ageA, eA - y) + t.personTaxCA(oB + y, 0, 0, 0, ageB, eB + y);
+      const combined = (y) => {
+        const [cA, cB] = claimNets(oA - y, oB + y);
+        return t.personTaxCA(oA - y, 0, 0, 0, ageA, eA - y, null, 0, 0, cA) + t.personTaxCA(oB + y, 0, 0, 0, ageB, eB + y, null, 0, 0, cB);
+      };
       if (!(x >= -0.5 * eB - 1e-9 && x <= 0.5 * eA + 1e-9)) fails.push(`split ${oA}/${oB}: transfer ${x} outside the allowed range`);
       for (let y = -0.5 * eB; y <= 0.5 * eA + 1e-9; y += 250)
         if (combined(x) > combined(y) + 1e-6) fails.push(`split ${oA}/${oB}: transfer ${x} costs more than ${y}`);
@@ -655,7 +761,10 @@ function caChecks() {
             const oA = pa + oa,
               oB = pb + ob;
             const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68);
-            const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y);
+            const combined = (y) => {
+              const [cA, cB] = claimNets(oA - y, oB + y);
+              return t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y, null, 0, 0, cA) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y, null, 0, 0, cB);
+            };
             let best = Infinity;
             for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
             worst = Math.max(worst, combined(x) - best);
@@ -672,7 +781,10 @@ function caChecks() {
               oA = pa + oa + oas,
               oB = pb + ob + oas;
             const x = t.solvePensionSplit(oA, oB, pa, pb, 0, 70, 68, oas, oas);
-            const combined = (y) => t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y, null, 0, oas) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y, null, 0, oas);
+            const combined = (y) => {
+              const [cA, cB] = claimNets(oA - y, oB + y);
+              return t.personTaxCA(oA - y, 0, 0, 0, 70, pa - y, null, 0, oas, cA) + t.personTaxCA(oB + y, 0, 0, 0, 68, pb + y, null, 0, oas, cB);
+            };
             let best = Infinity;
             for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
             worstOas = Math.max(worstOas, combined(x) - best);

@@ -6,7 +6,7 @@ const path = require('path');
 
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];
 const INDEX_KEYS = ['bracketsIndexed', 'bpaIndexed', 'ageAmountIndexed', 'pensionAmountIndexed', 'surtaxIndexed'];
-const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'pooled', 'payroll', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
+const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verified', 'creditRate', 'brackets', 'bpa', 'age', 'pension', 'spouse', 'childAmount', 'pooled', 'payroll', 'dividend', 'surtax', 'healthPremium', 'indexing', 'notes'];
 
 (async () => {
   const browser = await chromium.launch();
@@ -57,6 +57,11 @@ const ROW_KEYS = ['name', 'source', 'amountsSource', 'asOf', 'retrieved', 'verif
         if (!(r.payroll.pensionRate > 0.05 && r.payroll.pensionRate < 0.07)) fails.push(`${c}: pension contribution rate out of range`);
         if (!!r.payroll.premium !== (c === 'qc')) fails.push(`${c}: only Quebec has a parental insurance premium`);
         if (c === 'qc' && !(r.pooled.reductionRate === 0.1875 && r.pooled.reductionThreshold > 0 && r.pooled.retirementMultiplier === 1.25)) fails.push('qc: bad pooled reduction');
+        // 7N N3: the spouse and eligible-dependant amount (CRA TD1 forms) exists in every province but Quebec; only
+        // Saskatchewan has a child amount.
+        if ((c === 'qc') !== !r.spouse) fails.push(`${c}: only Quebec has no spouse amount`);
+        if (r.spouse && !(r.spouse.amount > 5000 && r.spouse.amount < 30000 && r.spouse.threshold >= 0 && r.spouse.threshold < 3000)) fails.push(`${c}: spouse amount out of range`);
+        if ((c === 'sk') !== !!r.childAmount) fails.push(`${c}: only Saskatchewan has a child amount`);
         if (!r.age && c !== 'qc') fails.push(`${c}: age amount missing`);
         if (!r.pension && c !== 'qc') fails.push(`${c}: pension amount missing`);
         if (c !== 'mb' && r.bpa.phase) fails.push(`${c}: only Manitoba has a basic personal amount phase-down in 2026`);

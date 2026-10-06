@@ -12,7 +12,8 @@ const { translateFieldList } = require('./legacy_balances');
 
 // `low` (Canada only): a low-income retired couple, so the income-tested benefits (GIS) are in play.
 // `high` (Canada only, 7N N1): pensions large enough that each return owes the OAS recovery tax.
-async function run(browser, planner, isUS, low = false, province = null, high = false) {
+// `kids` (Canada only, 7N N3): a child born in 2035, a minor when the survivor is alone, so the eligible-dependant claim is in play.
+async function run(browser, planner, isUS, low = false, province = null, high = false, kids = false) {
   const file = path.resolve(__dirname, '..', planner);
   const rowsFor = async (deceased) => {
     const page = await browser.newPage();
@@ -99,6 +100,11 @@ async function run(browser, planner, isUS, low = false, province = null, high = 
       await page.fill('#incSrc0StartAge', '62');
       await page.fill('#incSrc0EndAge', '90');
     }
+    if (kids) {
+      await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
+      await page.click('[data-dyn-add="children"]');
+      await page.fill('#child0BirthYear', '2035');
+    }
     await page.waitForTimeout(400);
     const rows = await page.evaluate(() => window.fireProjectionRows.map((r) => ({ ...r })));
     assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
@@ -124,8 +130,8 @@ async function run(browser, planner, isUS, low = false, province = null, high = 
   assert.deepStrictEqual(diffs.slice(0, 6), [], `${planner}: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
   if (low) assert(a.some((r) => r.benefits > 0) && a.some((r) => r.age >= 75 && r.benefitGis > 0), 'the low-income scenario must receive GIS, before and after the survivor transition');
   if (high) assert(a.some((r) => r.age >= 75 && r.oasClawback > 0) && a.some((r) => r.age < 75 && r.oasClawback > 0), 'the high-income scenario must owe the OAS recovery tax before and after the survivor transition');
-  if (province) assert(a.some((r) => r.age >= 75 && r.benefitProvCredit + r.benefitProvSenior > 0), province + ': the housing programs must be paid after the survivor transition');
-  console.log(`[${isUS ? 'US' : 'Canada'}${low ? ' low-income' : ''}${high ? ' high-income' : ''}${province ? ' ' + province : ''}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
+  if (province && !kids) assert(a.some((r) => r.age >= 75 && r.benefitProvCredit + r.benefitProvSenior > 0), province + ': the housing programs must be paid after the survivor transition');
+  console.log(`[${isUS ? 'US' : 'Canada'}${low ? ' low-income' : ''}${high ? ' high-income' : ''}${kids ? ' child' : ''}${province ? ' ' + province : ''}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
 }
 
 (async () => {
@@ -134,6 +140,8 @@ async function run(browser, planner, isUS, low = false, province = null, high = 
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);
   await run(browser, 'Planner_Canada.html', false, false, null, true);
+  await run(browser, 'Planner_Canada.html', false, false, null, false, true);
+  await run(browser, 'Planner_Canada.html', false, false, 'sk', false, true);
   for (const prov of ['ns', 'mb', 'nb', 'sk', 'nl', 'pe']) await run(browser, 'Planner_Canada.html', false, true, prov);
   await browser.close();
 })().catch((e) => {
