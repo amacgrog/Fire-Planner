@@ -3367,7 +3367,7 @@ not index this credit, whatever the row's flags say: Utah). `childStepCredit` ga
 |---|---|---|
 | MN | 1,750 per qualifying child under 18, refundable; reduced by 12% of the federal AGI over 37,910 joint and 31,950 every other status (thresholds indexed, the amount is not: the row's `creditThresholdsIndexed` is now true, it has no other credit) | 2025 Schedule M1CWFC (lines 8 to 14), Department of Revenue Child Tax Credit page. The working family credit part (earned income) and the 9% rate for the older-children credit are not modeled |
 | VT | 1,000 per child six or younger, refundable; 20 per 1,000 or fraction of AGI over 125,000 taken off each child, gone at 175,000 for any number of children; not indexed | 32 V.S.A. 5830f (amended 2025, effective 1/1/2025); the 2025 IN-112 table is per child |
-| ME | 300 per dependent from 2026 (2025: doubled under six), refundable; 20 per 500 or fraction of Maine AGI over 100,000 single, 125,000 head of household, 150,000 joint; not indexed | 36 M.R.S. 5219-SS |
+| ME | 305 per dependent, 610 for a child under six (doubled from 2025 with no end date), refundable; 20 per 500 or fraction of Maine AGI over 100,000 single, 125,000 head of household, 150,000 joint; amounts and thresholds indexed | 36 M.R.S. 5219-SS (5), 5403(9)-(10); 2025 MRS worksheet ($305 and $610) stands for 2026 |
 | NJ | up to 1,000 per child five or younger by NJ taxable income: 1,000 to 30,000, then 800, 600, 400, 200 per further 10,000, nothing over 80,000; refundable | Division of Taxation, Child Tax Credit (2025) |
 | OR | 1,050 per dependent under six, at most five, refundable; the whole credit is cut by (Oregon AGI - 26,550) / 5,000, rounded to two decimals, nothing at 31,550 for any number of children | ORS 315.273 and the 2025 Form OR-40 worksheet: 1,000 and 25,000 indexed (CPI, rounded down to 50), the divisor fixed; applies to tax years before 2029 (not modeled, owner decision); the 2025 values stand for 2026 |
 | UT | 1,000 per child under six (a federal CTC child), nonrefundable; 10 cents per dollar of modified AGI over 49,000 single or head of household and 61,000 joint; not indexed | Utah Code 59-10-1047, effective 1/1/2026 (Chapter 360, 2026 General Session), read from le.utah.gov |
@@ -3602,7 +3602,7 @@ NJ); record the run in the commit message. Tests are hand-computed in the commen
   counted, not indexed under 3% inflation. A `zz` case for `perChild` with a `rate` line and with tiers of different amounts (a 1,000
   child and a 500 child at a cut of 600: 400 + 0 = 400, not 900).
 
-**F3. Maine: under-six doubling every year, indexed amount and thresholds (US V108).**
+**F3. Maine: under-six doubling every year, indexed amount and thresholds (US V108). Built (V108).**
 - No evaluator change: `tiers` already take the first matching age, so `tiers: [[5, 610], [200, 305]]` (age is `taxYear - birthYear`, so
   5 or under at the end of the year is "has not attained 6 years of age before the end of the taxable year"). Use the latest published
   figures as the 2026 stand-ins (the 2025 MRS worksheet: 305 and 610; thresholds 100,000 / 125,000 / 150,000), the same convention as

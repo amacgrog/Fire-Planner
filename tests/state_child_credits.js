@@ -110,16 +110,29 @@ function checks() {
   }
   st.inflation = 0;
 
-  // --- Maine: 300 per dependent, 20 per 500 (or fraction) of Maine AGI over 100,000 / 125,000 / 150,000 ---------------
-  near(run('me', 90000, [kid(5), kid(10)], 'single', 0, 'Dependent exemption tax credit'), mnTax(90000) - 600, 'ME: two dependents');
-  near(run('me', 100001, [kid(5), kid(10)], 'single', 0, 'Dependent exemption tax credit'), mnTax(100001) - 580, 'ME 100,001: one fraction of 500, 20 off');
-  near(run('me', 110000, [kid(5), kid(10)], 'single', 0, 'Dependent exemption tax credit'), mnTax(110000) - 200, 'ME 110,000: 20 steps = 400 off 600');
-  near(run('me', 160000, [kid(5), kid(10)], 'single', 0, 'Dependent exemption tax credit'), mnTax(160000), 'ME single 160,000: gone');
-  near(run('me', 130000, [kid(5)], 'hoh', 0, 'Dependent exemption tax credit'), mnTax(130000) - (300 - 20 * 10), 'ME head of household: starts at 125,000');
-  near(run('me', 160000, [kid(5), kid(10)], 'mfj', 0, 'Dependent exemption tax credit'), mnTax(160000) - (600 - 20 * 20), 'ME joint: starts at 150,000');
-  near(run('me', 0, [kid(18)], 'single', 0, 'Dependent exemption tax credit'), -300, 'ME: a dependent of 18 counts');
-  near(run('me', 0, [kid(19, { qualifyingChild: false })], 'single', 0, 'Dependent exemption tax credit'), 0, 'ME: 19 and not a student is not a qualifying child here');
-  near(run('me', 0, [kid(21, { student: true })], 'single', 0, 'Dependent exemption tax credit'), -300, 'ME: a student of 21 counts');
+  // --- Maine: 305 per dependent, 610 for a child under six (5219-SS(5), no end date), refundable; 20 per 500 (or fraction)
+  // of Maine AGI over 100,000 single / 125,000 head of household / 150,000 joint, taken off the household total; the
+  // amounts and the thresholds are indexed (5403(9) and (10)); the 2025 worksheet values stand for 2026 -------------------
+  const MECR = 'Dependent exemption tax credit';
+  const mec = (w, kids, f = 'single', yi = 0) => run('me', w, kids, f, yi, MECR);
+  near(mec(0, [kid(5)]), -610, 'ME: a child of 5 has not attained six: 610');
+  near(mec(0, [kid(6)]), -305, 'ME: a child of 6 gets 305');
+  near(mec(90000, [kid(5), kid(10)]), mnTax(90000) - 915, 'ME: 610 + 305');
+  near(mec(100001, [kid(5), kid(10)]), mnTax(100001) - 895, 'ME 100,001: one fraction of 500, 20 off 915');
+  near(mec(110000, [kid(5), kid(10)]), mnTax(110000) - 515, 'ME 110,000: 20 steps = 400 off 915');
+  near(mec(125000, [kid(5), kid(10)]), mnTax(125000), 'ME single 125,000: 50 steps = 1,000 off 915, nothing left');
+  near(mec(130000, [kid(3)], 'hoh'), mnTax(130000) - 410, 'ME head of household 130,000: 610 - 10 x 20');
+  near(mec(160000, [kid(2), kid(4)], 'mfj'), mnTax(160000) - 820, 'ME joint 160,000: 1,220 - 20 x 20 = 820');
+  near(mec(0, [kid(18)]), -305, 'ME: a dependent of 18 counts, 305');
+  near(mec(0, [kid(19, { qualifyingChild: false })]), 0, 'ME: 19 and not a student is not a qualifying child here');
+  near(mec(0, [kid(21, { student: true })]), -305, 'ME: a student of 21 counts, 305');
+  st.inflation = 3;
+  {
+    const f = t.taxIndexFactor(10);
+    near(mec(0, [kid(3)], 'single', 10), -610 * f, 'ME indexed amount: 610 x f');
+    near(mec(100000 * f + 1000, [kid(3)], 'single', 10), mnTax(100000 * f + 1000) - (610 * f - 2 * 20 * f), 'ME indexed: the start 100,000 x f and the 20 per step scale with f (1,000 over = 2 steps)');
+  }
+  st.inflation = 0;
 
   // --- New Jersey: 1,000 per child five or younger by NJ taxable income steps (30,000 / 40,000 / 50,000 / 60,000 / 80,000) ---
   const nj = (w, kids, f = 'single') => run('nj', w, kids, f, 0);

@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V107</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V108</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -3993,8 +3993,8 @@
         bracketsIndexed: true,
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
-        creditAmountsIndexed: false,
-        creditThresholdsIndexed: false,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
         retirementExclusionIndexed: true,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
@@ -4037,13 +4037,13 @@
           kind: 'childCredit',
           label: 'Dependent exemption tax credit',
           refundable: true,
-          tiers: [[200, 300]],
+          tiers: [[5, 610], [200, 305]],
           phaseOut: { start: { single: 100000, mfj: 150000, hoh: 125000, qss: 150000 }, measure: 'stateAgi', width: 500, per: 20 },
         },
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and dependent, and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit is not modeled. Dependent exemption tax credit (36 M.R.S. 5219-SS, primary): $300 for each dependent from 2026 (2025 was doubled for a child under six), refundable, reduced by $20 for each $500 or fraction of Maine AGI over $100,000 single, $125,000 head of household and $150,000 joint (not indexed); the planner counts the children in its list, not other dependents.",
+      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and dependent, and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit is not modeled. Dependent exemption tax credit (36 M.R.S. 5219-SS, primary): $300 for each dependent from 2026, doubled for each child under six for tax years from 2025 on with no end date (subsection 5), refundable, reduced by $20 for each $500 or fraction of Maine AGI over $100,000 single, $125,000 head of household and $150,000 joint; the amounts and the thresholds are indexed (36 M.R.S. 5403, subsections 9 and 10). The row uses the 2025 Maine Revenue Services worksheet figures ($305 and $610) for 2026 until the 2026 worksheet is published; the round-downs to $5 and $50 are not modeled. The planner counts the children in its list, not other dependents.",
     },
     md: {
       name: 'Maryland',
