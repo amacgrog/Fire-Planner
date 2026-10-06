@@ -70,6 +70,16 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
     const opt = t.computeRothOptimizer(sim2);
     const pool = opt.results.filter((r) => (sim2.depletedAge ? !r.depletedAge || r.depletedAge >= sim2.depletedAge : !r.depletedAge));
     res.opt = { best: opt.best.afterTaxEstate, maxPool: Math.max(...(pool.length ? pool : opt.results).map((r) => r.afterTaxEstate)), n: opt.results.length, hasField: opt.results.every((r) => Number.isFinite(r.afterTaxEstate)), spread: Math.max(...opt.results.map((r) => r.afterTaxEstate)) - Math.min(...opt.results.map((r) => r.afterTaxEstate)) };
+    // Lifetime tax in the optimizer table counts the OAS recovery tax (row.tax leaves it out, row.oasClawback carries it).
+    Object.assign(st, { singlePerson: false, province: 'on', ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66, lifeExpectancyA: 80, lifeExpectancyB: 80, incomeA: 0, incomeB: 0, taxable: 0, cash: 0, roth: 0, traditional: 2500000, healthcare: 0, ltcEnabled: false, pensionYearlyA: 60000, pensionYearlyB: 60000, pensionStartAgeA: 60, pensionStartAgeB: 60, cppMonthlyA: 1000, cppMonthlyB: 1000, cppStartAgeA: 65, cppStartAgeB: 65, oasMonthlyA: 760, oasMonthlyB: 760, oasStartAgeA: 65, oasStartAgeB: 65, pensionSplitEnabled: false, spending: 180000, meltdownEnabled: true });
+    const sim3 = window.__test_simulate();
+    const opt3 = t.computeRothOptimizer(sim3);
+    const cur3 = opt3.results.find((r) => r.bracket === opt3.currentBracket);
+    res.life = {
+      table: cur3.lifetimeTax,
+      expected: sim3.rows.reduce((a, r) => a + t.displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0),
+      clawback: sim3.rows.reduce((a, r) => a + (r.oasClawback || 0), 0),
+    };
     return res;
   });
   const f = out.fee;
@@ -97,6 +107,8 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
   near(out.survivor, 150000 - out.survivorTax, 1e-6, 'a survivor year: the final-return tax stacks on ALL of the last-year income');
   near(out.couple, 150000 - out.coupleTax, 1e-6, 'a two-person last year: half the income each');
   assert(out.survivorTax > out.coupleTax + 5000, 'the survivor case must cost more tax than the half-income reading');
+  assert(out.life.clawback > 1000, 'the scenario must pay OAS recovery tax, got ' + out.life.clawback);
+  near(out.life.table, out.life.expected, 1e-6, 'lifetime tax in the meltdown table includes the OAS recovery tax');
   assert(!out.keys, 'the estate must not be an enumerable result field');
   assert.deepStrictEqual(out.estateKeys.sort(), ['cash', 'homeEquity', 'roth', 'survivor', 'taxable', 'taxableBasis', 'traditional'], 'estate fields');
   assert(out.opt.hasField && out.opt.n >= 4, 'the optimizer rows carry the after-tax estate');
