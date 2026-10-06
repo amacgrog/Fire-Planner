@@ -130,8 +130,9 @@ const BASE = {
     const t = await trace({ ...BASE, ageA: 40, retireAgeA: 60, lifeExpectancyA: 45, incomeA: 50000, k401Type: 'roth', k401PctA: 100, taxable: 2000000, spending: 200000 });
     near(t[0].rothBasis[1], 24500 - 0, 0.5, 'deficit year: the Roth 401(k) deferral is still basis');
   }
-  // 8. The MAGI iteration rewinds the ledgers. ACA makes each year iterate (the premium depends on the
-  //    realized MAGI): 3,000 of taxable stock with no basis is sold first (its gain differs from the
+  // 8. The MAGI iteration rewinds the ledgers. With the ACA on, each year iterates while its estimate of the
+  //    discretionary income differs from what the draws realized (the household is on Medicaid here, so the premium
+  //    itself is 0; the re-run comes from the estimate): 3,000 of taxable stock with no basis is sold first (its gain differs from the
   //    estimate, so the year re-runs) and the rest of the need comes from a Roth IRA with 40,000 of basis.
   //    If the ledger were not rewound, the repeated passes would consume the basis several times.
   {
