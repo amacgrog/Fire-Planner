@@ -3643,6 +3643,7 @@ it was 9,827). Six ACA-on snapshot scenarios moved, only in the non-row `firstWi
 **Known cost of design A (for 3C).** The refund sits in cash, the next year spends that cash first, withdraws less and can land below the 100% line, so it is charged the
 full premium again: in the review's example ages 61 to 64 paid about 355, 13,246, 1,627 and 382 (about 15,600 in all) where a household that stays just over the line
 would pay roughly 0.4k to 1.5k a year. "Conservative" is accurate but the pessimism can be large for households living at the line; design B (filling to the line, 3C) removes it.
+**Owner decision (2026-10-06):** design A is accepted as a good approximation of the real mechanism. The cliffs it affects sit at about 100% to 138% of the poverty line, so households this planner is built for rarely reach them (someone living at the poverty line is unlikely to be planning an early retirement with it); the pessimism is a narrow-group cost, not a reason to build design B before 3C.
 **Deferred minors.** (a) With Roth conversions on, `conversionMagiCeiling` fills to exactly 4 x the poverty line and `MAGI_ITER_TOL = 1` can leave the realized MAGI cents over it, so
 that year is charged the full premium (66 to 92 rows per state in the review's sweep, identical before 7O); the F5 sweep does not turn conversions on. (b) Maine's $20 per $500
 step is scaled with the amount index by the evaluator (the statute indexes the credit and the thresholds, not the step): at most one step (about 20 to 27) off at year 10; the
