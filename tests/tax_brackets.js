@@ -500,16 +500,17 @@ function caChecks() {
       near(q(50000 * f, yi, 0, 66, 10000 * f), f * q(50000, 0, 0, 66, 10000), 1e-6 * f * 50000, 'Quebec pooled amounts and threshold are indexed');
     }
     st.inflation = 0;
-    // taxFor: a couple reads the family income, a single filer is living alone.
+    // taxFor: a couple reads the family income, a single filer is living alone. (The incomes are marked as wages here so that the
+    // 7N N7 Quebec health contributions, which fall on retirees' non-employment income, stay out of the comparison.)
     {
       const p = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
       near(
-        t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
+        t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, earnedA: 50000, earnedB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0),
         2 * t.personTaxCA(50000, 0, 0, 0, 66, 10000, 100000, 7527),
         1e-9,
         'Quebec taxFor couple uses family income',
       );
-      near(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
+      near(t.incomeTax(p({ singlePerson: true, otherA: 50000, earnedA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
       if (!(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2))
         fails.push('Quebec: a single filer should owe less than each spouse of a couple with the same income (living-alone amount)');
     }

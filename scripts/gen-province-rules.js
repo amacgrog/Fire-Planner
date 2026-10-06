@@ -80,8 +80,8 @@ function generate(rules) {
   L.push('');
   L.push('## Rules');
   L.push('');
-  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Low-income tax reduction | Indexing | Sources |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  L.push('| Code | Province | Credit rate | Basic personal amount | Age amount | Pension amount | Spouse / eligible dependant amount | Eligible dividend credit | Surtax / premium | Employee pension plan contribution | EI premium | Home buyers amount | Medical expenses | Low-income tax reduction | Health contributions | Indexing | Sources |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of codes) {
     const r = rules[c];
     const extra = [r.surtax ? `surtax ${pct(r.surtax.firstRate)} over ${money(r.surtax.first)}, ${pct(r.surtax.secondRate)} over ${money(r.surtax.second)}` : '', r.healthPremium ? 'income-tested health premium (up to $900)' : ''].filter(Boolean).join('; ') || 'none';
@@ -102,6 +102,7 @@ function generate(rules) {
           r.homeBuyer ? money(r.homeBuyer.amount) + ' (first-time buyer, purchase year)' : 'none',
           r.medical.familyIncome ? 'expenses over 3% of family income (no dollar floor)' : 'expenses over the lesser of 3% of net income and ' + money(r.medical.threshold) + (r.careAtHome ? '; refundable Seniors Care at Home credit: ' + pct(r.careAtHome.rate) + ' of up to ' + money(r.careAtHome.maxExpenses) + ' (age ' + r.careAtHome.age + '+), less ' + pct(r.careAtHome.reductionRate) + ' of family net income over ' + money(r.careAtHome.startIncome) : ''),
           liText(r.lowIncomeReduction),
+          r.healthContributions ? `Health Services Fund ${pct(r.healthContributions.hsf.rate)} of non-employment income over ${money(r.healthContributions.hsf.t1)} (to ${money(r.healthContributions.hsf.cap1)}, then over ${money(r.healthContributions.hsf.t2)} to ${money(r.healthContributions.hsf.cap2)}); RAMQ drug premium for each retired adult, up to ${money(r.healthContributions.ramq.max)}` : 'none',
           indexingText(r.indexing),
           `[${r.asOf}, retrieved ${r.retrieved}](${r.source})${r.amountsSource !== r.source ? `; amounts: [${r.amountsSource}](${r.amountsSource})` : ''}; ${verifiedText(r.verified)}`,
         ]
