@@ -419,16 +419,16 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     500, 1e-9, 'NS rebate: couple, one pensioner, one household rebate',
   );
 
-  // Manitoba Homeowners Affordability Tax Credit (Information Bulletin 126; gov.mb.ca pcredits page): the lesser of the
-  // maximum (1,600 for 2026) and school taxes; the planner proxies school taxes by the property tax paid. No income test.
+  // Manitoba Homeowners Affordability Tax Credit (2025 Form MB479, page 2, lines 22 to 28): the lesser of the base amount
+  // (1,500) and school taxes; the planner proxies school taxes by the property tax paid. No income test.
   const mbc = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'propertyTaxPaid', pt, 'provCredit');
-  near(await mbc(50000, 3000), 1600, 1e-9, 'MB homeowners credit: capped at 1,600');
+  near(await mbc(50000, 3000), 1500, 1e-9, 'MB homeowners credit: capped at 1,500');
   near(await mbc(50000, 1000), 1000, 1e-9, 'MB homeowners credit: the property tax when smaller');
-  near(await mbc(100000, 3000), 1600, 1e-9, 'MB homeowners credit has no income test');
-  near(await mbc(300000, 3000), 1600, 1e-9, 'MB homeowners credit is paid above the 125,000 early-exit income');
+  near(await mbc(100000, 3000), 1500, 1e-9, 'MB homeowners credit has no income test');
+  near(await mbc(300000, 3000), 1500, 1e-9, 'MB homeowners credit is paid above the 125,000 early-exit income');
   near(await mbc(50000, 0), 0, 0, 'MB renter: no homeowners credit');
-  // Seniors School Tax Rebate (gov.mb.ca pcredits page): age 65 or older, 235 less 1.0 percent of family net income over
-  // 40,000, nil at 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
+  // Seniors School Tax Rebate (2025 Form MB479, page 4, lines 42 to 52): age 65 or older, school taxes less the homeowners
+  // credit (maximum 235), less 1.0 percent of family income over 40,000; family income under 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
   const mbs = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 70, ...extra }), 'propertyTaxPaid', pt, 'provSenior');
   near(await mbs(50000, 3000), 135, 1e-9, 'MB seniors rebate at 50,000');
   near(await mbs(40000, 3000), 235, 1e-9, 'MB seniors rebate: maximum at 40,000');
@@ -439,10 +439,10 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
   near(await housing('mb', prof({ otherA: 50000, ageA: 64 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'MB seniors rebate: not at 64');
   // The page says the rebate is based on school taxes less the credit received: with the whole property tax as the proxy,
   // the rebate cannot exceed what is left after the homeowners credit. Tax 1,000: credit 1,000, nothing left -> 0.
-  // Tax 1,700: credit 1,600, 100 left -> 100 (below 235). Tax 1,835: 235 left -> the full 235.
+  // Tax 1,700: credit 1,500, 200 left -> 200 (below 235). Tax 1,735: 235 left -> the full 235.
   near(await mbs(20000, 1000), 0, 1e-9, 'MB seniors rebate: nothing left after the homeowners credit on a 1,000 bill');
-  near(await mbs(20000, 1700), 100, 1e-9, 'MB seniors rebate: limited to the 100 left on a 1,700 bill');
-  near(await mbs(20000, 1835), 235, 1e-9, 'MB seniors rebate: the full 235 on a 1,835 bill');
+  near(await mbs(20000, 1700), 200, 1e-9, 'MB seniors rebate: limited to the 200 left on a 1,700 bill');
+  near(await mbs(20000, 1735), 235, 1e-9, 'MB seniors rebate: the full 235 on a 1,735 bill');
   // Credit plus rebate never exceed the tax paid.
   {
     const o2 = await withProv('mb', prof({ otherA: 20000, ageA: 70, propertyTaxPaid: 1000 }));
@@ -454,21 +454,27 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     135, 1e-9, 'MB seniors rebate: couple with one 65-year-old',
   );
 
-  // Manitoba Renters Affordability Tax Credit (gov.mb.ca pcredits page; Information Bulletin 126): 625 for 2026 to a renter,
-  // no income test; seniors top-up 357 - 0.75% x family net income, floored at 0.
+  // Manitoba Renters Affordability Tax Credit (2025 Form MB479, page 3, lines 29 to 40): 575 a year (47.91 a month) to a
+  // renter, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income (the
+  // reduction capped at 328.57), i.e. 575 + max(0, 328.57 - 0.008214 x income); the credit is the lesser of the rent paid
+  // and that amount.
   const mbr = (inc, rent, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'rentPaid', rent, 'provCredit');
-  near(await mbr(20000, 12000), 625, 1e-9, 'MB renters credit: 625 at low income');
-  near(await mbr(150000, 12000), 625, 1e-9, 'MB renters credit has no income test');
+  near(await mbr(20000, 12000), 575, 1e-9, 'MB renters credit: 575 at low income');
+  near(await mbr(150000, 12000), 575, 1e-9, 'MB renters credit has no income test');
   near(await mbr(20000, 0), 0, 0, 'MB owner (no rent): no renters credit');
-  // Single 70, income 20,000: 625 + (357 - 0.0075 x 20,000 = 207) = 832.
-  near(await mbr(20000, 12000, { ageA: 70 }), 625 + 357 - 0.0075 * 20000, 1e-9, 'MB renters credit with the seniors top-up');
-  // Income 47,600 and above: the top-up is gone (357 / 0.0075 = 47,600): 625.
-  near(await mbr(47600, 12000, { ageA: 70 }), 625, 1e-9, 'MB seniors top-up is nil at 47,600');
-  near(await mbr(60000, 12000, { ageA: 70 }), 625, 1e-9, 'MB seniors top-up is floored at 0');
-  // Couple, B is 65, combined income 40,000: one credit 625 + (357 - 300 = 57) = 682.
+  // Line 39: the lesser of the rent paid and the computed amount: 300 of rent gives 300.
+  near(await mbr(20000, 300), 300, 1e-9, 'MB renters credit is limited by the rent paid');
+  // Single 70, income 20,000: 575 + (328.57 - 0.008214 x 20,000 = 164.29) = 739.29.
+  near(await mbr(20000, 12000, { ageA: 70 }), 575 + 328.57 - 0.008214 * 20000, 1e-9, 'MB renters credit with the seniors top-up');
+  // Income 0: 903.57 (line 31); rent 800 limits it to 800.
+  near(await mbr(0, 12000, { ageA: 70 }), 903.57, 1e-9, 'MB renters credit, senior at no income: 903.57');
+  near(await mbr(0, 800, { ageA: 70 }), 800, 1e-9, 'MB renters credit, senior, limited by 800 of rent');
+  // Income 60,000: the reduction is capped at 328.57 so the credit is the 575 floor (line 36: whichever is more of 47.91).
+  near(await mbr(60000, 12000, { ageA: 70 }), 575, 1e-9, 'MB seniors top-up is floored at 0');
+  // Couple, B is 65, combined income 30,000: one credit 575 + (328.57 - 0.008214 x 30,000 = 82.15) = 657.15.
   near(
-    await housing('mb', prof({ otherA: 20000, otherB: 20000, ageA: 60, ageB: 65, singlePerson: false }), 'rentPaid', 12000, 'provCredit'),
-    625 + 357 - 0.0075 * 40000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
+    await housing('mb', prof({ otherA: 15000, otherB: 15000, ageA: 60, ageB: 65, singlePerson: false }), 'rentPaid', 12000, 'provCredit'),
+    575 + 328.57 - 0.008214 * 30000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
   );
 
   // Engine: a single 70, retired, CPP 6,000 + OAS 9,150, owning with 3,000 property tax, inflation 0 (factor 1). The row
@@ -482,13 +488,13 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     return { credit: row.benefitProvCredit, senior: row.benefitProvSenior };
   }, { prov, pt });
   // Income 15,150 (GIS income 6,000 > 0): NB allowance 300 (income under 22,001); NS rebate min(800, 1,500) = 800;
-  // MB: homeowners credit 1,600 and seniors rebate 235 (income under 40,000).
+  // MB: homeowners credit 1,500 and seniors rebate 235 (income under 40,000).
   let e1 = await engine('nb', 3000), e0 = await engine('nb', 0);
   near(e1.credit - e0.credit, 300, 1e-6, 'engine, NB: allowance in the row');
   e1 = await engine('ns', 3000); e0 = await engine('ns', 0);
   near(e1.senior - e0.senior, 800, 1e-6, 'engine, NS: rebate in the row');
   e1 = await engine('mb', 3000); e0 = await engine('mb', 0);
-  near(e1.credit - e0.credit, 1600, 1e-6, 'engine, MB: homeowners credit in the row');
+  near(e1.credit - e0.credit, 1500, 1e-6, 'engine, MB: homeowners credit in the row');
   near(e1.senior - e0.senior, 235, 1e-6, 'engine, MB: seniors rebate in the row');
 
   // No phase-in: every new program is non-increasing in income (a rise would meet the known drawTaxable over-sell limitation

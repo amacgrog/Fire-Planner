@@ -23,9 +23,9 @@ Same-year income stands in for the prior-year return the programs really use (an
 | oeptc | Ontario Energy and Property Tax Credit | occupancyCredit | on | [page](https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/ontario-energy-property-tax-credit-oeptc-calculation-sheets/2026-ontario-energy-property-tax-credit-calculation-sheets.html), retrieved 2026-10-05 | 2026-07-01 | formula: primary, amounts: primary | amountsAndThresholds: true | oshptg |
 | nbpta | New Brunswick Residential Property Tax Allowance for Low-Income Homeowners | occupancyCredit | nb | [page](https://www.gnb.ca/en/topic/family-home-community/housing-property/property-tax/property-tax-allowance.html), retrieved 2026-10-05 | 2026-01-01 | amounts: primary, incomeTiers: primary | amountsAndThresholds: false | none |
 | nsptr | Nova Scotia Property Tax Rebate for Seniors | occupancyCredit | ns | [page](https://novascotia.ca/just/Regulations/regs/scproptaxrebate.htm), retrieved 2026-10-05 | 2026-07-02 | amount: primary, gisTest: primary, survivorAllowance: primary | amountsAndThresholds: false | gis |
-| mbhatc | Manitoba Homeowners Affordability Tax Credit | occupancyCredit | mb | [page](https://www.gov.mb.ca/finance/taxation/pubs/bulletins/2026budget.pdf), retrieved 2026-10-05 | 2026-03-24 | maximum: primary, schoolTaxProxy: secondary | amounts: true | none |
-| mbsstr | Manitoba Seniors School Tax Rebate | occupancyCredit | mb | [page](https://www.gov.mb.ca/finance/personal/pcredits.html), retrieved 2026-10-05 | 2024-01-01 | amounts: primary, incomeTest: primary | amountsAndThresholds: false | none |
-| mbratc | Manitoba Renters Affordability Tax Credit | occupancyCredit | mb | [page](https://www.gov.mb.ca/finance/personal/pcredits.html), retrieved 2026-10-05 | 2026-03-24 | maximum: primary, monthlyRule: primary, topUpRate: secondary | amounts: true | none |
+| mbhatc | Manitoba Homeowners Affordability Tax Credit | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | baseAmount: primary, schoolTaxProxy: secondary | amounts: true | none |
+| mbsstr | Manitoba Seniors School Tax Rebate | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | amounts: primary, incomeTest: primary, schoolTaxLimit: primary | amountsAndThresholds: false | none |
+| mbratc | Manitoba Renters Affordability Tax Credit | occupancyCredit | mb | [page](https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html), retrieved 2026-10-05 | 2025-01-01 | baseAmount: primary, seniorsTopUp: primary, rentLimit: primary | amountsAndThresholds: true | none |
 | qcsol | Quebec Solidarity Tax Credit (QST and housing components) | quebecCredit | qc | [page](https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf), retrieved 2026-10-05 | 2026-07-01 | amounts: primary, reduction: secondary | amountsAndThresholds: true | none |
 | qcwp | Quebec Work Premium (general) | quebecCredit | qc | [page](https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf), retrieved 2026-10-05 | 2026-01-01 | maxima: primary, thresholds: primary, rates: secondary | amountsAndThresholds: true | none |
 
@@ -512,18 +512,18 @@ Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba) and 7: the greate
 
 ### mbhatc: Manitoba Homeowners Affordability Tax Credit
 
-The lesser of the maximum and the gross school taxes on the principal residence; 1,600 for 2026 and 1,700 for 2027 (Information Bulletin 126, Budget 2026; the 2027 credit is also reduced by 3.40 per 1,000 of assessed value over 1,000,000, not modeled). No income test. The planner has only total property tax, so school taxes are proxied by the property tax paid, an upper bound. The maximum scales with plan inflation; the enacted 2027 step to 1,700 is not separately modeled.
+Form MB479 for 2025 (page 2, lines 22 to 28): the lesser of the base amount, 1,500 for 2025 (Information Bulletin 126 gives 1,600 for 2026 and 1,700 for 2027; the 2025 form is the latest published, owner ruling), and the school taxes on the principal residence. No income test. The planner has only total property tax, so school taxes are proxied by the property tax paid, an upper bound. The maximum scales with plan inflation.
 
 ```json
 {
  "style": "mbhatc",
- "max": 1600
+ "max": 1500
 }
 ```
 
 ### mbsstr: Manitoba Seniors School Tax Rebate
 
-For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2024 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The page says the rebate is based on school taxes less the credit received, so it is limited to the property tax left after the homeowners credit (the whole property tax stands in for school taxes). Not indexed.
+Form MB479 for 2025 (page 4, lines 42 to 52): for a homeowner (either spouse) 65 or older with family income under 63,500, the school taxes less the homeowners affordability credit (maximum 235) less 1 percent of family income over 40,000. Modeled as the lesser of the property tax left after the homeowners credit (the whole property tax stands in for school taxes) and 235 less that reduction. Not indexed.
 
 ```json
 {
@@ -537,14 +537,14 @@ For an owner liable for school taxes on the principal residence, age 65 or older
 
 ### mbratc: Manitoba Renters Affordability Tax Credit
 
-A refundable credit of one twelfth of the maximum for each month rented (625 for 2026, 675 for 2027), no income test; seniors get a top-up of the top-up maximum (357 for 2026, 385.71 for 2027) less 0.75 percent of family net income. The 0.75 percent is stated on the page for the older 300 maximum and is assumed unchanged; one credit and one top-up per household, the top-up when either person is 65 or older (a reading, secondary). A full year of rent is assumed whenever rent is above zero. The maxima scale with plan inflation; the enacted 2027 steps are not separately modeled.
+Form MB479 for 2025 (page 3, lines 29 to 40): 575 a year (47.91 a month) for a renter, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income, the reduction capped at 328.57 (so the credit is 575 plus the larger of zero and 328.57 less 0.008214 times family income); the credit is the lesser of the rent paid and that amount. One credit per household. A full year of rent is assumed. The 2025 form is the latest published (owner ruling); the 2026 maxima of 625 and 357 (Information Bulletin 126) are not used. Amounts and the income point scale with plan inflation.
 
 ```json
 {
  "style": "mbratc",
- "max": 625,
- "topUp": 357,
- "topUpRate": 0.0075,
+ "max": 575,
+ "topUp": 328.57,
+ "topUpRate": 0.008214,
  "seniorAge": 65
 }
 ```
