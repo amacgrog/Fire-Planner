@@ -393,8 +393,13 @@ const near = (a, b, tol, label) => assert(Math.abs(a - b) <= tol, `${label}: exp
     await housing('nb', prof({ otherA: 12000, otherB: 12000, ageA: 50, ageB: 50, singlePerson: false }), 'propertyTaxPaid', 3000, 'provCredit'),
     200, 1e-9, 'NB allowance, couple on combined income',
   );
-  // Provinces do not leak: the same household in Ontario gets no 300 step from the NB row.
-  assert(Math.abs((await housing('on', prof({ otherA: 20000, ageA: 50 }), 'propertyTaxPaid', 3000, 'provCredit')) - 300) > 1, 'the NB allowance does not apply in Ontario');
+  // Provinces do not leak: in a province with no property-tax program of its own (BC, AB, SK, QC, PE, NL: the Ontario credit
+  // and the NS rebate need other conditions) a 50-year-old owner on 20,000 gets nothing from property tax paid.
+  for (const code of ['bc', 'ab', 'sk', 'qc', 'pe', 'nl', 'ns']) {
+    const p0 = prof({ otherA: 20000, ageA: 50 });
+    near(await housing(code, p0, 'propertyTaxPaid', 3000, 'provCredit'), 0, 0, code + ': no property-tax credit leaks from the NB row');
+    near(await housing(code, p0, 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, code + ': no property-tax seniors benefit leaks from the NB row');
+  }
 
   // Nova Scotia Property Tax Rebate for Seniors (Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba), 7): the
   // greater of 15 and half of the property tax, to a maximum of 800, for someone receiving GIS or an Allowance. Single 70,

@@ -26,12 +26,12 @@
 
 ## Rulings made while writing this plan (surface them in the final message)
 
-1. **Included** (income-tested or rent/property-tax-based, all computable from existing inputs): NB Residential Property Tax Allowance; NS Property Tax Rebate for Seniors; MB Homeowners Affordability Tax Credit, Seniors' School Tax Rebate, Renters Affordability Tax Credit (with seniors top-up).
+1. **Included** (income-tested or rent/property-tax-based, all computable from existing inputs): NB Residential Property Tax Allowance; NS Property Tax Rebate for Seniors; MB Homeowners Affordability Tax Credit, Seniors' School Tax Rebate, Renters Affordability Tax Credit (with seniors top-up), all Manitoba figures from the 2025 Form MB479 (owner ruling: 2025 until the 2026 form is published).
 2. **Excluded** (reason recorded in the research table and the 7M notes): PEI Provincial Tax Credit ($0.70 per $100 of assessed value: no assessment input); Manitoba Rent Assist (income support, needs a regional market-rent ceiling and basic-needs budget: no input); NS Heating Assistance Rebate (needs heating cost); SK and NL (no rent or property-tax program found; Task 1 confirms on primary pages).
-3. **School tax proxy (Manitoba).** The Homeowners credit is the lesser of the maximum and *school* taxes; the planner has only total property tax. The credit is `min(max, propertyTaxPaid)`, an upper bound, marked secondary. It is not income-tested, so it adds cash but never changes a withdrawal decision.
+3. **School tax proxy (Manitoba).** The Homeowners credit is the lesser of the maximum and *school* taxes; the planner has only total property tax. The credit is `min(1,500, propertyTaxPaid)` (the 2025 form base amount), an upper bound, marked secondary. It is not income-tested, so it adds cash but never changes a withdrawal decision.
 4. **NB tier edges.** The page lists "less than 22,000", "22,001 to 25,000", "25,001 to 30,000"; the code treats income below 22,001 / 25,001 / 30,001 as the tier (whole-dollar reading). Marked in the row notes.
 5. **NS GIS test.** Counted as `BEN.gis + BEN.allowance > 0` (the Allowance for the Survivor is inside `BEN.allowance`). Confirmed primary: Senior Citizens' Property Tax Rebate Regulations (S.N.S. 2018, c. 27), s. 3(b): GIS, or "the spouse's allowance or survivor's allowance under the Old Age Security Act"; s. 3(ba): GIS recipients 65 or older; s. 7: the greater of 15 and 50 percent of the property tax paid, to a maximum of 800 (https://novascotia.ca/just/Regulations/regs/scproptaxrebate.htm, read 2026-10-05). The rebate therefore has a 15 dollar floor.
-6. **Indexing.** Statutory flat amounts (NB tiers, NS 800 cap and 50%, MB seniors rebate 235 and its thresholds) are not indexed (like the Ontario senior homeowners grant). The MB Homeowners maximum scales with plan inflation (enacted: 1,600 for 2026, 1,700 for 2027; the 2027 step is ignored beyond inflation scaling and named in the notes).
+6. **Indexing.** Statutory flat amounts (NB tiers, NS 800 cap and 50%, MB seniors rebate 235 and its thresholds) are not indexed (like the Ontario senior homeowners grant). The Manitoba amounts (1,500 homeowners base, 575 renters, 328.57 top-up) scale with plan inflation; the 2026 and 2027 maxima in Information Bulletin 126 are not used.
 7. Output lines stay the three existing provincial lines; each program has its own rules row.
 
 ## Review Focus
@@ -87,9 +87,9 @@ Docs only. Nothing is built until this is committed.
 |---|---|---|---|
 | NB Residential Property Tax Allowance | Income (household combined taxable income, prior year) less than 22,000: up to 300; 22,001 to 25,000: up to 200; 25,001 to 30,000: up to 100; never more than the property tax ("you will not be refunded for the difference"); primary-residence owner who receives the Residential Property Tax Credit | https://www.gnb.ca/en/topic/family-home-community/housing-property/property-tax/property-tax-allowance.html | primary |
 | NS Property Tax Rebate for Seniors | Half of the previous year's municipal residential property taxes, up to 800; must have paid them in full, be on the title, and qualify for GIS or GIS-Allowance | https://news.novascotia.ca/en/2026/07/02/applications-open-property-tax-rebate-seniors | primary |
-| MB Homeowners Affordability Tax Credit | Lesser of the maximum and gross school taxes on the principal residence; maximum 1,600 for 2026, 1,700 for 2027 (reduced by 3.40 per 1,000 of assessed value over 1,000,000 from 2027); no income test | https://www.gov.mb.ca/finance/tao/hatc.html and Information Bulletin 126 (https://www.gov.mb.ca/finance/taxation/pubs/bulletins/2026budget.pdf) | primary |
-| MB Seniors School Tax Rebate | Age 65 or older, owner liable for school taxes; maximum 235 for 2023 and later; reduced by 1.0 percent of net family income over 40,000; nil at 63,500; page states it is based on school taxes assessed less the education property tax credit received | https://www.manitoba.ca/seniorsrebate | primary for the figures; **status after the 2025 credit change is not confirmed** |
-| MB Renters Affordability Tax Credit | 2026 maximum 625 and seniors top-up maximum 357 (2027: 675 and 385.71) | Information Bulletin 126 | primary for the maxima only |
+| MB Homeowners Affordability Tax Credit | Lesser of the base amount and the school taxes on the principal residence (2025 Form MB479, page 2, lines 22 to 28): base 1,500 for 2025; Information Bulletin 126 gives 1,600 for 2026 and 1,700 for 2027 (not used, owner ruling: use 2025) | https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html | primary (2025) |
+| MB Seniors School Tax Rebate | Homeowner 65 or older with family income under 63,500: school taxes less the homeowners credit (maximum 235) less 1 percent of family income over 40,000 (2025 Form MB479, page 4, lines 42 to 52) | https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html | primary (2025) |
+| MB Renters Affordability Tax Credit | 575 a year (47.91 a month); household with a person 65 or older: 903.57 less 0.8214 percent of family income, reduction capped at 328.57; the credit is the lesser of the rent paid and that amount (2025 Form MB479, page 3, lines 29 to 40); 2026 maxima 625 and 357 in Information Bulletin 126 are not used (owner ruling) | https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html | primary (2025) |
 
 - [ ] **Step 2: Close the open items on primary pages**
 
@@ -328,7 +328,7 @@ git commit -m "7M: Nova Scotia property tax rebate for seniors"
 
 ---
 
-### Task 4: Manitoba Homeowners Affordability Tax Credit and Seniors School Tax Rebate
+### Task 4: Manitoba Homeowners Affordability Tax Credit and Seniors School Tax Rebate (2025 Form MB479)
 
 **Files:**
 - Modify: `Planner_Canada.html` (rows `mbhatc`, `mbsstr`; `case 'mb'` after `case 'ns'`)
@@ -336,20 +336,23 @@ git commit -m "7M: Nova Scotia property tax rebate for seniors"
 
 **Interfaces:**
 - Consumes: `housing`, `prof`, `withProv` (Task 2).
-- Produces: rows `mbhatc`, `mbsstr`; `case 'mb'` which Task 5 extends with the renters credit. If Task 1 finds the Seniors School Tax Rebate no longer exists, build only `mbhatc`, drop the `mbsstr` row, its tests and the `provSenior` line of the case, and record it.
+- Produces: rows `mbhatc`, `mbsstr`; `case 'mb'` which Task 5 extends with the renters credit.
+
+**Manitoba figures are those of the 2025 Form MB479** (https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html; page 2 lines 22 to 28 for the homeowners credit, page 4 lines 42 to 52 for the seniors rebate). Owner ruling: the 2026 form is not published yet, so the 2025 figures are used; the 2026 and 2027 maxima of Information Bulletin 126 (1,600 / 1,700, 625 / 675, 357 / 385.71) are not used. The rebate is the school taxes less the homeowners credit (so it is limited to the property tax left after the credit, the whole property tax standing in for school taxes), to a maximum of 235, less 1 percent of family income over 40,000.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```js
-  // Manitoba Homeowners Affordability Tax Credit (Information Bulletin 126; gov.mb.ca hatc page): the lesser of the
-  // maximum (1,600 for 2026) and school taxes; the planner proxies school taxes by the property tax paid. No income test.
+  // Manitoba Homeowners Affordability Tax Credit (2025 Form MB479, page 2, lines 22 to 28): the lesser of the base amount
+  // (1,500) and school taxes; the planner proxies school taxes by the property tax paid. No income test.
   const mbc = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'propertyTaxPaid', pt, 'provCredit');
-  near(await mbc(50000, 3000), 1600, 1e-9, 'MB homeowners credit: capped at 1,600');
+  near(await mbc(50000, 3000), 1500, 1e-9, 'MB homeowners credit: capped at 1,500');
   near(await mbc(50000, 1000), 1000, 1e-9, 'MB homeowners credit: the property tax when smaller');
-  near(await mbc(500000 / 5, 3000), 1600, 1e-9, 'MB homeowners credit has no income test');
+  near(await mbc(100000, 3000), 1500, 1e-9, 'MB homeowners credit has no income test');
+  near(await mbc(300000, 3000), 1500, 1e-9, 'MB homeowners credit is paid above the 125,000 early-exit income');
   near(await mbc(50000, 0), 0, 0, 'MB renter: no homeowners credit');
-  // Seniors School Tax Rebate (manitoba.ca/seniorsrebate): age 65 or older, 235 less 1.0 percent of family net income over
-  // 40,000, nil at 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
+  // Seniors School Tax Rebate (2025 Form MB479, page 4, lines 42 to 52): age 65 or older, school taxes less the homeowners
+  // credit (maximum 235), less 1.0 percent of family income over 40,000; family income under 63,500. Single 70 at 50,000: 235 - 0.01 x 10,000 = 135.
   const mbs = (inc, pt, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 70, ...extra }), 'propertyTaxPaid', pt, 'provSenior');
   near(await mbs(50000, 3000), 135, 1e-9, 'MB seniors rebate at 50,000');
   near(await mbs(40000, 3000), 235, 1e-9, 'MB seniors rebate: maximum at 40,000');
@@ -358,6 +361,17 @@ git commit -m "7M: Nova Scotia property tax rebate for seniors"
   near(await mbs(80000, 3000), 0, 0, 'MB seniors rebate: nil above 63,500');
   near(await mbs(50000, 0), 0, 0, 'MB seniors rebate: a renter gets none');
   near(await housing('mb', prof({ otherA: 50000, ageA: 64 }), 'propertyTaxPaid', 3000, 'provSenior'), 0, 0, 'MB seniors rebate: not at 64');
+  // The page says the rebate is based on school taxes less the credit received: with the whole property tax as the proxy,
+  // the rebate cannot exceed what is left after the homeowners credit. Tax 1,000: credit 1,000, nothing left -> 0.
+  // Tax 1,700: credit 1,500, 200 left -> 200 (below 235). Tax 1,735: 235 left -> the full 235.
+  near(await mbs(20000, 1000), 0, 1e-9, 'MB seniors rebate: nothing left after the homeowners credit on a 1,000 bill');
+  near(await mbs(20000, 1700), 200, 1e-9, 'MB seniors rebate: limited to the 200 left on a 1,700 bill');
+  near(await mbs(20000, 1735), 235, 1e-9, 'MB seniors rebate: the full 235 on a 1,735 bill');
+  // Credit plus rebate never exceed the tax paid.
+  {
+    const o2 = await withProv('mb', prof({ otherA: 20000, ageA: 70, propertyTaxPaid: 1000 }));
+    assert(o2.provCredit + o2.provSenior <= 1000 + 1e-9, 'MB credit plus rebate must not exceed the property tax paid');
+  }
   // Couple, B is 65: the household qualifies; combined income 50,000 -> 135.
   near(
     await housing('mb', prof({ otherA: 25000, otherB: 25000, ageA: 60, ageB: 65, singlePerson: false }), 'propertyTaxPaid', 3000, 'provSenior'),
@@ -365,52 +379,16 @@ git commit -m "7M: Nova Scotia property tax rebate for seniors"
   );
 ```
 
-Add `'mbhatc', 'mbsstr'` to `IDS`.
+Add `'mbhatc', 'mbsstr'` to `IDS` in `tests/benefit_rules.js`.
 
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `node tests/benefit_rules.js; node tests/benefits.js`
-Expected: FAIL `mbhatc: missing`; `MB homeowners credit: capped at 1,600` got 0.
+Expected: FAIL `mbhatc: missing`; `MB homeowners credit: capped at 1,500` got 0.
 
-- [ ] **Step 3: Add the rows and the case**
+- [ ] **Step 3: Add the rows and the case** (rows `mbhatc`, `mbsstr` and `mbratc` are shown together in Task 5; add the first two now)
 
-Rows (before `    qcsol: {`):
-
-```js
-    mbhatc: {
-      name: 'Manitoba Homeowners Affordability Tax Credit',
-      kind: 'occupancyCredit',
-      scope: 'mb',
-      source: 'https://www.gov.mb.ca/finance/taxation/pubs/bulletins/2026budget.pdf',
-      asOf: '2026-03-24',
-      retrieved: '2026-10-05',
-      verified: { maximum: 'primary', schoolTaxProxy: 'secondary' },
-      indexing: { amounts: true },
-      dependsOn: [],
-      style: 'mbhatc',
-      max: 1600,
-      notes: 'The lesser of the maximum and the gross school taxes on the principal residence; 1,600 for 2026 and 1,700 for 2027 (Information Bulletin 126, Budget 2026; the 2027 credit is also reduced by 3.40 per 1,000 of assessed value over 1,000,000, not modeled). No income test. The planner has only total property tax, so school taxes are proxied by the property tax paid, an upper bound. The maximum scales with plan inflation; the enacted 2027 step to 1,700 is not separately modeled.',
-    },
-    mbsstr: {
-      name: 'Manitoba Seniors School Tax Rebate',
-      kind: 'occupancyCredit',
-      scope: 'mb',
-      source: 'https://www.manitoba.ca/seniorsrebate',
-      asOf: '2023-01-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', incomeTest: 'primary', status2026: 'secondary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'mbsstr',
-      seniorAge: 65,
-      max: 235,
-      from: 40000,
-      rate: 0.01,
-      notes: 'For an owner liable for school taxes on the principal residence, age 65 or older (either spouse): 235 for 2023 and later, reduced by 1.0 percent of net family income over 40,000, nil at 63,500. The page says the rebate is based on school taxes less the education property tax credit received; the school-tax limit is not modeled (the maximum is small against any school tax bill). Whether the page text is current after the 2025 change to the Homeowners Affordability Tax Credit is on the backlog. Not indexed.',
-    },
-```
-
-Case (after `case 'ns'`):
+The Manitoba case as built (the renters block at its end belongs to Task 5; leave it out in this task):
 
 ```js
       case 'mb': {
@@ -419,8 +397,18 @@ Case (after `case 'ns'`):
         if (pt > 0) {
           const H = BENEFIT_RULES.mbhatc,
             S = BENEFIT_RULES.mbsstr;
-          BEN.provCredit += Math.min(H.max * f, pt);
-          if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.max(0, S.max - S.rate * Math.max(0, fam - S.from));
+          const credit = Math.min(H.max * f, pt);
+          BEN.provCredit += credit;
+          // The rebate is based on school taxes less the credit received: with the whole property tax as the proxy it is limited to what is left.
+          if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.min(pt - credit, Math.max(0, S.max - S.rate * Math.max(0, fam - S.from)));
+        }
+        if ((profile.rentPaid || 0) > 0) {
+          // Renters Affordability Tax Credit (Form MB479 lines 29 to 40): one credit per household, plus the seniors top-up
+          // reduced by family income, never more than the rent paid.
+          const T = BENEFIT_RULES.mbratc;
+          let c = T.max * f;
+          if (ageA >= T.seniorAge || (couple && ageB >= T.seniorAge)) c += Math.max(0, T.topUp * f - T.topUpRate * fam);
+          BEN.provCredit += Math.min(profile.rentPaid, c);
         }
         break;
       }
@@ -428,7 +416,7 @@ Case (after `case 'ns'`):
 
 - [ ] **Step 4: Regenerate and test**
 
-Run: `npm run gen:benefits; node tests/benefit_rules.js; node tests/benefits.js` — expected ok. Note the earlier "provinces do not leak" test (`withProv('mb', ...)` at about line 183 of `tests/benefits.js`) has no property tax and no children Ontario credit, so it must still pass; if it fails, read the assertion before changing anything.
+Run: `npm run gen:benefits; node tests/benefit_rules.js; node tests/benefits.js` - expected ok.
 
 - [ ] **Step 5: Full suite and commit**
 
@@ -441,36 +429,42 @@ git commit -m "7M: Manitoba homeowners credit and seniors school tax rebate"
 
 ---
 
-### Task 5: Manitoba Renters Affordability Tax Credit (gated on Task 1)
+### Task 5: Manitoba Renters Affordability Tax Credit (2025 Form MB479)
 
 **Files:**
 - Modify: `Planner_Canada.html` (row `mbratc`; extend `case 'mb'`)
 - Modify: `tests/benefit_rules.js` (IDS), `tests/benefits.js`, `docs/benefits-rules.md`
 
 **Interfaces:**
-- Consumes: the Renters Affordability Tax Credit row of `docs/7m-housing-research.md` (formula, income test, ages, source status); `housing`, `prof` (Task 2); `case 'mb'` (Task 4).
+- Consumes: `housing`, `prof` (Task 2); `case 'mb'` (Task 4).
 - Produces: row `mbratc`; adds to `BEN.provCredit` (base credit and seniors top-up, one line).
 
-Recorded formula (Task 1, https://www.gov.mb.ca/finance/personal/pcredits.html and Information Bulletin 126): base credit = maximum 625 (2026) for a household that rents, no income test (1/12 of the maximum per month rented; a full year is assumed whenever `rentPaid` > 0); seniors top-up (a person aged 65 or older in the household, once per household) = 357 less 0.75% of family net income, floored at 0, so it ends at family income 47,600.
+Formula (2025 Form MB479, page 3, lines 29 to 40): the base credit is 575 a year (47.91 a month) to a household that rents, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income, the reduction capped at 328.57 (so 575 plus the larger of zero and 328.57 less 0.008214 times family income; zero top-up from 40,000); the credit is the lesser of the rent paid and that amount; one credit per household. A full year of rent is assumed whenever rent is above zero. **Hot-path note:** Manitoba skips the 125,000 early exit in `benefitsFor` because these credits have no income test: change the exit line to `if (fam > 125000 * f && !(profile.dependents && profile.dependents.length) && state.province !== 'mb') return 0;` and add the test line `MB homeowners credit is paid above the 125,000 early-exit income` (income 300,000, expected 1,500) to the homeowners tests (it fails without the change).
 
 - [ ] **Step 1: Write the failing tests**
 
 ```js
-  // Manitoba Renters Affordability Tax Credit (gov.mb.ca pcredits page; Information Bulletin 126): 625 for 2026 to a renter,
-  // no income test; seniors top-up 357 - 0.75% x family net income, floored at 0.
+  // Manitoba Renters Affordability Tax Credit (2025 Form MB479, page 3, lines 29 to 40): 575 a year (47.91 a month) to a
+  // renter, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income (the
+  // reduction capped at 328.57), i.e. 575 + max(0, 328.57 - 0.008214 x income); the credit is the lesser of the rent paid
+  // and that amount.
   const mbr = (inc, rent, extra = {}) => housing('mb', prof({ otherA: inc, ageA: 50, ...extra }), 'rentPaid', rent, 'provCredit');
-  near(await mbr(20000, 12000), 625, 1e-9, 'MB renters credit: 625 at low income');
-  near(await mbr(150000, 12000), 625, 1e-9, 'MB renters credit has no income test');
+  near(await mbr(20000, 12000), 575, 1e-9, 'MB renters credit: 575 at low income');
+  near(await mbr(150000, 12000), 575, 1e-9, 'MB renters credit has no income test');
   near(await mbr(20000, 0), 0, 0, 'MB owner (no rent): no renters credit');
-  // Single 70, income 20,000: 625 + (357 - 0.0075 x 20,000 = 207) = 832.
-  near(await mbr(20000, 12000, { ageA: 70 }), 625 + 357 - 0.0075 * 20000, 1e-9, 'MB renters credit with the seniors top-up');
-  // Income 47,600 and above: the top-up is gone (357 / 0.0075 = 47,600): 625.
-  near(await mbr(47600, 12000, { ageA: 70 }), 625, 1e-9, 'MB seniors top-up is nil at 47,600');
-  near(await mbr(60000, 12000, { ageA: 70 }), 625, 1e-9, 'MB seniors top-up is floored at 0');
-  // Couple, B is 65, combined income 40,000: one credit 625 + (357 - 300 = 57) = 682.
+  // Line 39: the lesser of the rent paid and the computed amount: 300 of rent gives 300.
+  near(await mbr(20000, 300), 300, 1e-9, 'MB renters credit is limited by the rent paid');
+  // Single 70, income 20,000: 575 + (328.57 - 0.008214 x 20,000 = 164.29) = 739.29.
+  near(await mbr(20000, 12000, { ageA: 70 }), 575 + 328.57 - 0.008214 * 20000, 1e-9, 'MB renters credit with the seniors top-up');
+  // Income 0: 903.57 (line 31); rent 800 limits it to 800.
+  near(await mbr(0, 12000, { ageA: 70 }), 903.57, 1e-9, 'MB renters credit, senior at no income: 903.57');
+  near(await mbr(0, 800, { ageA: 70 }), 800, 1e-9, 'MB renters credit, senior, limited by 800 of rent');
+  // Income 60,000: the reduction is capped at 328.57 so the credit is the 575 floor (line 36: whichever is more of 47.91).
+  near(await mbr(60000, 12000, { ageA: 70 }), 575, 1e-9, 'MB seniors top-up is floored at 0');
+  // Couple, B is 65, combined income 30,000: one credit 575 + (328.57 - 0.008214 x 30,000 = 82.15) = 657.15.
   near(
-    await housing('mb', prof({ otherA: 20000, otherB: 20000, ageA: 60, ageB: 65, singlePerson: false }), 'rentPaid', 12000, 'provCredit'),
-    625 + 357 - 0.0075 * 40000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
+    await housing('mb', prof({ otherA: 15000, otherB: 15000, ageA: 60, ageB: 65, singlePerson: false }), 'rentPaid', 12000, 'provCredit'),
+    575 + 328.57 - 0.008214 * 30000, 1e-9, 'MB renters credit: couple, one household credit, top-up once',
   );
 ```
 
@@ -479,46 +473,92 @@ Add `'mbratc'` to `IDS`.
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `node tests/benefit_rules.js; node tests/benefits.js`
-Expected: FAIL `mbratc: missing`, and `MB renters credit: 625 at low income` got 0.
+Expected: FAIL `mbratc: missing`, and `MB renters credit: 575 at low income` got 0.
 
-- [ ] **Step 3: Add the row and extend the case**
+- [ ] **Step 3: Add the rows and the case as built**
 
-Row (insert before `    qcsol: {`):
+Rows `mbhatc`, `mbsstr` and `mbratc` (insert before `    qcsol: {`):
 
 ```js
+    mbhatc: {
+      name: 'Manitoba Homeowners Affordability Tax Credit',
+      kind: 'occupancyCredit',
+      scope: 'mb',
+      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html',
+      asOf: '2025-01-01',
+      retrieved: '2026-10-05',
+      verified: { baseAmount: 'primary', schoolTaxProxy: 'secondary' },
+      indexing: { amounts: true },
+      dependsOn: [],
+      style: 'mbhatc',
+      max: 1500,
+      notes: 'Form MB479 for 2025 (page 2, lines 22 to 28): the lesser of the base amount, 1,500 for 2025 (Information Bulletin 126 gives 1,600 for 2026 and 1,700 for 2027; the 2025 form is the latest published, owner ruling), and the school taxes on the principal residence. No income test. The planner has only total property tax, so school taxes are proxied by the property tax paid, an upper bound. The maximum scales with plan inflation.',
+    },
+    mbsstr: {
+      name: 'Manitoba Seniors School Tax Rebate',
+      kind: 'occupancyCredit',
+      scope: 'mb',
+      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html',
+      asOf: '2025-01-01',
+      retrieved: '2026-10-05',
+      verified: { amounts: 'primary', incomeTest: 'primary', schoolTaxLimit: 'primary' },
+      indexing: { amountsAndThresholds: false },
+      dependsOn: [],
+      style: 'mbsstr',
+      seniorAge: 65,
+      max: 235,
+      from: 40000,
+      rate: 0.01,
+      notes: 'Form MB479 for 2025 (page 4, lines 42 to 52): for a homeowner (either spouse) 65 or older with family income under 63,500, the school taxes less the homeowners affordability credit (maximum 235) less 1 percent of family income over 40,000. Modeled as the lesser of the property tax left after the homeowners credit (the whole property tax stands in for school taxes) and 235 less that reduction. Not indexed.',
+    },
     mbratc: {
       name: 'Manitoba Renters Affordability Tax Credit',
       kind: 'occupancyCredit',
       scope: 'mb',
-      source: 'https://www.gov.mb.ca/finance/personal/pcredits.html',
-      asOf: '2026-03-24',
+      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html',
+      asOf: '2025-01-01',
       retrieved: '2026-10-05',
-      verified: { maximum: 'primary', monthlyRule: 'primary', topUpRate: 'secondary' },
-      indexing: { amounts: true },
+      verified: { baseAmount: 'primary', seniorsTopUp: 'primary', rentLimit: 'primary' },
+      indexing: { amountsAndThresholds: true },
       dependsOn: [],
       style: 'mbratc',
-      max: 625,
-      topUp: 357,
-      topUpRate: 0.0075,
+      max: 575,
+      topUp: 328.57,
+      topUpRate: 0.008214,
       seniorAge: 65,
-      notes: 'A refundable credit of one twelfth of the maximum for each month rented (625 for 2026, 675 for 2027), no income test; seniors get a top-up of the top-up maximum (357 for 2026, 385.71 for 2027) less 0.75 percent of family net income. The 0.75 percent is stated on the page for the older 300 maximum and is assumed unchanged; one credit and one top-up per household, the top-up when either person is 65 or older (a reading, secondary). A full year of rent is assumed whenever rent is above zero. The maxima scale with plan inflation; the enacted 2027 steps are not separately modeled.',
+      notes: 'Form MB479 for 2025 (page 3, lines 29 to 40): 575 a year (47.91 a month) for a renter, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income, the reduction capped at 328.57 (so the credit is 575 plus the larger of zero and 328.57 less 0.008214 times family income); the credit is the lesser of the rent paid and that amount. One credit per household. A full year of rent is assumed. The 2025 form is the latest published (owner ruling); the 2026 maxima of 625 and 357 (Information Bulletin 126) are not used. Amounts and the income point scale with plan inflation.',
     },
 ```
 
-In `case 'mb'` add, after the `if (pt > 0) {...}` block and before `break;`:
+The Manitoba case as built (homeowners credit, seniors rebate limited to the tax left after the credit, renters credit limited by the rent paid):
 
 ```js
+      case 'mb': {
+        // Homeowners Affordability Tax Credit (school-tax proxy: the property tax) and the Seniors School Tax Rebate.
+        const pt = profile.propertyTaxPaid || 0;
+        if (pt > 0) {
+          const H = BENEFIT_RULES.mbhatc,
+            S = BENEFIT_RULES.mbsstr;
+          const credit = Math.min(H.max * f, pt);
+          BEN.provCredit += credit;
+          // The rebate is based on school taxes less the credit received: with the whole property tax as the proxy it is limited to what is left.
+          if (ageA >= S.seniorAge || (couple && ageB >= S.seniorAge)) BEN.provSenior += Math.min(pt - credit, Math.max(0, S.max - S.rate * Math.max(0, fam - S.from)));
+        }
         if ((profile.rentPaid || 0) > 0) {
+          // Renters Affordability Tax Credit (Form MB479 lines 29 to 40): one credit per household, plus the seniors top-up
+          // reduced by family income, never more than the rent paid.
           const T = BENEFIT_RULES.mbratc;
           let c = T.max * f;
           if (ageA >= T.seniorAge || (couple && ageB >= T.seniorAge)) c += Math.max(0, T.topUp * f - T.topUpRate * fam);
-          BEN.provCredit += c;
+          BEN.provCredit += Math.min(profile.rentPaid, c);
         }
+        break;
+      }
 ```
 
 - [ ] **Step 4: Regenerate and test**
 
-Run: `npm run gen:benefits; node tests/benefit_rules.js; node tests/benefits.js` — expected ok.
+Run: `npm run gen:benefits; node tests/benefit_rules.js; node tests/benefits.js` - expected ok.
 
 - [ ] **Step 5: Full suite and commit**
 
@@ -528,8 +568,6 @@ Run: `npm test`; `git diff --stat tests/snapshots/` empty.
 git add Planner_Canada.html tests/benefit_rules.js tests/benefits.js docs/benefits-rules.md
 git commit -m "7M: Manitoba renters affordability tax credit"
 ```
-
-If Task 1 could not source the formula: skip this task, add the program to the named gaps and the backlog (Task 7) and say so in the final message.
 
 ---
 
@@ -557,13 +595,13 @@ Append before `await browser.close();` in `tests/benefits.js`:
     return { credit: row.benefitProvCredit, senior: row.benefitProvSenior };
   }, { prov, pt });
   // Income 15,150 (GIS income 6,000 > 0): NB allowance 300 (income under 22,001); NS rebate min(800, 1,500) = 800;
-  // MB: homeowners credit 1,600 and seniors rebate 235 (income under 40,000).
+  // MB: homeowners credit 1,500 and seniors rebate 235 (income under 40,000).
   let e1 = await engine('nb', 3000), e0 = await engine('nb', 0);
   near(e1.credit - e0.credit, 300, 1e-6, 'engine, NB: allowance in the row');
   e1 = await engine('ns', 3000); e0 = await engine('ns', 0);
   near(e1.senior - e0.senior, 800, 1e-6, 'engine, NS: rebate in the row');
   e1 = await engine('mb', 3000); e0 = await engine('mb', 0);
-  near(e1.credit - e0.credit, 1600, 1e-6, 'engine, MB: homeowners credit in the row');
+  near(e1.credit - e0.credit, 1500, 1e-6, 'engine, MB: homeowners credit in the row');
   near(e1.senior - e0.senior, 235, 1e-6, 'engine, MB: seniors rebate in the row');
 
   // No phase-in: every new program is non-increasing in income (a rise would meet the known drawTaxable over-sell limitation
