@@ -7169,7 +7169,12 @@
         : state.appliedRothSchedule && Object.prototype.hasOwnProperty.call(state.appliedRothSchedule, ageKey)
           ? state.appliedRothSchedule[ageKey]
           : state.rothConvBracket;
-    if (bracketPct === 0) return 0;
+    return solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct);
+  }
+  // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
+  // maxAvailable. solveRothConversion above resolves the bracket (schedule, override or setting) and calls it.
+  function solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct) {
+    if (maxAvailable <= 0 || bracketPct === 0) return 0;
     const factor = taxIndexFactor(yearIndex),
       filing = FILING[profile.filing] ? profile.filing : 'single',
       joint = filingRow(filing).joint;
@@ -9967,34 +9972,12 @@
         });
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
-        if (convertsThisYear) {
-          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
-          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
-        }
-        const magiProxy = magiBase + conversionAmount + estTrad + estGain;
-        // Provisional (this pass's estimate); overwritten with the realized MAGI at
-        // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
-        magiHistory[year] = magiProxy;
-        twoReturnHistory[year] = twoReturns;
-        let magiA = 0,
-          magiB = 0;
-        if (twoReturns) {
-          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);
-          magiHistoryA[year] = magiA;
-          magiHistoryB[year] = magiB;
-        }
-        // Display-only running total: like totalTax below, this starts as the
-        // pre-withdrawal MAGI proxy and is corrected after the withdrawal
-        // waterfall runs to also include realized traditional withdrawals and
-        // taxable-brokerage gains, so it does not understate income in years
-        // funded mostly by withdrawals.
-        let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
-        const baseSpend =
-          baseSpendingNominal(age, year, factor, incomeFactor) *
-          guardrailSpendingMultiplier(guardrails, working) *
-          (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-        // acaEligibleA/B (computed above, before the Roth-conversion guard) say
-        // which partners are on the individual market this year.
+        // The healthcare arguments and costAt are built before the conversion, so a conversion chooser can price
+        // candidates through costAt (Batch 5); the MAGI fields hold this pass's pre-conversion estimate until the conversion is
+        // known, then the estimate including it (below, before healthcareCost runs).
+        let magiProxy = preConvMagi,
+          magiA = preMagiA,
+          magiB = preMagiB;
         const hcArgs = {
           acaEligibleA,
           acaEligibleB,
@@ -10018,10 +10001,6 @@
           magiHistoryB,
           twoReturnHistory,
         };
-        const hcOut = healthcareCost(hcArgs);
-        let healthcare = hcOut.healthcare;
-        const ltc = hcOut.ltc,
-          usesMagiEstimate = hcOut.usesMagiEstimate;
         // The cost at another (discretionary traditional + conversion, gains) pair: the forced pass prices
         // the realized one, and 3C's solver prices its candidates.
         const costAt = (trad, gain) => {
@@ -10033,6 +10012,73 @@
           hcArgs.magiB = magiB;
           return c;
         };
+        // The IRMAA this year's MAGI sets is charged two years on (healthcareCost): to the partners on Medicare and alive
+        // then, against that year's tiers and filing status; a two-return year is charged per person on the single tiers.
+        // The solver prices its candidates on that year's tiers, estimated as this year's grown two years at the plan's
+        // assumed inflation (a historical path's own future inflation is not known yet; scaling the tiers up equals scaling
+        // the MAGI down). The IRMAA lines themselves are this year's edges (magiThresholds: the safe side). The charging
+        // year's filing status is looked up only when a solver asks for it.
+        const year2 = year + 2,
+          survivor2 = year2 >= deathYear,
+          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && age + 2 >= retireAgeA,
+          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && ageB + 2 >= retireAgeB;
+        let filing2 = null;
+        const irmaaFiling2 = () =>
+          filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
+        const irmaaAt = (trad, gain) => {
+          if (!medA && !medB) return 0;
+          if (twoReturns) {
+            const [ma, mb] = returnMagis(profile, trad, gain);
+            return (medA ? irmaaSurcharge(ma / irmaaGrowth2, 'single', year) : 0) + (medB ? irmaaSurcharge(mb / irmaaGrowth2, 'single', year) : 0);
+          }
+          const s = irmaaSurcharge((magiBase + trad + gain) / irmaaGrowth2, irmaaFiling2(), year);
+          return (medA ? s : 0) + (medB ? s : 0);
+        };
+        // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
+        // walk is net of the traditional share (of investable money at the start of the year) of this year's need,
+        // leaving out this year's lump expenses (spec 13.1, 13.2). Only called from the withdrawal plan, after `flow` is known.
+        const lambdaOf = () => {
+          if (yearLambda) return yearLambda;
+          const b = balSnapshot,
+            tradNow = b.traditional + b.bondTraditional,
+            inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
+          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: Math.max(0, -flow - lumpExpense), tradShare: inv > 0 ? tradNow / inv : 0 }));
+        };
+        if (convertsThisYear) {
+          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
+          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+        }
+        magiProxy = magiBase + conversionAmount + estTrad + estGain;
+        // Provisional (this pass's estimate); overwritten with the realized MAGI at
+        // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
+        magiHistory[year] = magiProxy;
+        twoReturnHistory[year] = twoReturns;
+        magiA = 0;
+        magiB = 0;
+        if (twoReturns) {
+          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);
+          magiHistoryA[year] = magiA;
+          magiHistoryB[year] = magiB;
+        }
+        // Display-only running total: like totalTax below, this starts as the
+        // pre-withdrawal MAGI proxy and is corrected after the withdrawal
+        // waterfall runs to also include realized traditional withdrawals and
+        // taxable-brokerage gains, so it does not understate income in years
+        // funded mostly by withdrawals.
+        let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
+        const baseSpend =
+          baseSpendingNominal(age, year, factor, incomeFactor) *
+          guardrailSpendingMultiplier(guardrails, working) *
+          (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+        // acaEligibleA/B (computed above, before the Roth-conversion guard) say
+        // which partners are on the individual market this year.
+        hcArgs.magiProxy = magiProxy;
+        hcArgs.magiA = magiA;
+        hcArgs.magiB = magiB;
+        const hcOut = healthcareCost(hcArgs);
+        let healthcare = hcOut.healthcare;
+        const ltc = hcOut.ltc,
+          usesMagiEstimate = hcOut.usesMagiEstimate;
         if (usesMagiEstimate) estUsed = true;
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
         // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
@@ -10129,26 +10175,7 @@
           const guard = !!state.cliffGuardEnabled;
           let planWinner = null;
           if (guard && iter === 0 && !forcedPass) {
-            // The IRMAA this year's MAGI sets is charged two years on (healthcareCost): to the partners on Medicare and alive
-            // then, against that year's tiers and filing status; a two-return year is charged per person on the single tiers.
-            // The candidates are priced on that year's tiers, estimated as this year's grown two years at the plan's assumed
-            // inflation (a historical path's own future inflation is not known yet; scaling the tiers up equals scaling the
-            // MAGI down). The IRMAA lines themselves are this year's edges (magiThresholds: the safe side).
-            const year2 = year + 2,
-              survivor2 = year2 >= deathYear,
-              medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && age + 2 >= retireAgeA,
-              medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && ageB + 2 >= retireAgeB,
-              filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing,
-              reachLo = magiBase + wd.traditionalGross + wd.taxableGainGross;
-            const irmaaAt = (trad, gain) => {
-              if (!medA && !medB) return 0;
-              if (twoReturns) {
-                const [ma, mb] = returnMagis(profile, trad, gain);
-                return (medA ? irmaaSurcharge(ma / irmaaGrowth2, 'single', year) : 0) + (medB ? irmaaSurcharge(mb / irmaaGrowth2, 'single', year) : 0);
-              }
-              const s = irmaaSurcharge((magiBase + trad + gain) / irmaaGrowth2, filing2, year);
-              return (medA ? s : 0) + (medB ? s : 0);
-            };
+            const reachLo = magiBase + wd.traditionalGross + wd.taxableGainGross;
             // The return MAGIs including this year's conversion (it lands on the returns by the pool share).
             const convA = conversionAmount * profile.ownerShareA;
             const planTr = planTrace ? {} : null;
@@ -10158,19 +10185,11 @@
               magiBase,
               profile,
               runWithdraw,
-              thresholds: magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: filing2, a: medA, b: medB }, lo: reachLo, hi: reachLo + REACH_GROSS_UP * wd.need }),
+              thresholds: magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, lo: reachLo, hi: reachLo + REACH_GROSS_UP * wd.need }),
               guard,
               orders: [null],
               splits: [-1],
-              // lambda's pool walk is net of the traditional share (of investable money at the start of the year) of this
-              // year's need (spec 13.1), leaving out this year's lump expenses (spec 13.2, as the bond target does).
-              lambdaOf: () => {
-                if (yearLambda) return yearLambda;
-                const b = balSnapshot,
-                  tradNow = b.traditional + b.bondTraditional,
-                  inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
-                return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: Math.max(0, -flow - lumpExpense), tradShare: inv > 0 ? tradNow / inv : 0 }));
-              },
+              lambdaOf,
               premiumAt: costAt,
               irmaaAt,
               hcCharged: healthcare,

@@ -386,6 +386,8 @@ Each planner is one big IIFE. Core shape:
   `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
+  `solveRothConversionTo(profile, cap, yearIndex, bracketPct)` is the bracket fill, and `solveRothConversion`
+  resolves the bracket (override, applied schedule, setting) and calls it.
 - **Per-year solver (3C, US; section "Per-year solver (Batch 3C)" just above
   `newWithdrawal`).** Hooks: `magiThresholds` (the year's federal lines in household MAGI; with `c.lo/c.hi`
   only the lines in that reach, a shared empty list when none; IRMAA lines are this year's edges under the
