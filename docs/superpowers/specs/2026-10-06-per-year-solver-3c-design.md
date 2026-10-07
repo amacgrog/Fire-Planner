@@ -541,3 +541,48 @@ scenario runs out earlier (543 compared against 292109e: 415 identical, 97 lambd
 
 **Hard rules, unchanged:** no snapshot scenario depletes earlier; guard-on never depletes earlier than guard-off, in
 both engines.
+
+### 13.7 Eighth amendment (owner decision, 2026-10-07): IRMAA lines where the charge jumps; the guard acts only on real cliffs
+
+**What an independent code check found (Opus, on the B8a2 work in progress), confirmed against the code.**
+1. **The IRMAA lines sit at the wrong tiers (our design error).** `magiThresholds` places each IRMAA line at this
+   year's tier edge, but `irmaaAt` (and the charge in `healthcareCost`) price the tiers of the year the surcharge is
+   charged, two years on (`irmaaGrowth2`, about 5% higher at 2.5% inflation). The guard stayed under a line where
+   nothing jumps (a single person at 68 under 143,936 when the cliff was 151,222). The 3C notes called this placement
+   "the safe side"; it is for the conversion ceiling, not for a solver that looks for cliffs. It also broke 13.6:
+   `costNear(line +/- 1)` reads 0 at every IRMAA line, so an IRMAA cliff could never count (13.6's unit test used a
+   synthetic price with the jump at the line and could not see it). Measured on the 768-household scan with the B8a2
+   work: smooth mode worse-off plans 39 -> 18, worst loss -211.7k -> -124k, lifetime cost worse 129 -> 103; default
+   order lifetime cost worse 17 -> 11; no earlier depletion.
+2. **The guard can act as the rejected tax-aware order.** A trial is scored on after-tax value with traditional money
+   discounted by lambda, so a stay-under can win only because this year's tax rate exceeds lambda, with no premium or
+   IRMAA saved: 36 such wins in the default order and 188 in smooth (12 and 148 at 65 or older). Some households stayed
+   under 15 to 18 times and paid 47k to 81k more lifetime tax and healthcare. 13.3 rejected this yearly lambda bet.
+3. **Timing.** 55% of default-order trials (43% smooth) cannot succeed, most ending at the natural MAGI because no
+   penalty-free money other than traditional is left; about 70% of plan years replay the natural year.
+4. **Known gaps, not 3C:** the bracket conversion is sized before the year's draws and ignores them (48 of 128 scan
+   households with conversions; two-return couples compared with one single filer's bracket); the pre-retirement
+   ladder moves about five years of expenses from traditional into bonds, which the default order draws only after
+   Roth. Both are recorded for Batch 5 (conversion sizing, the order) and 4A.
+
+**Decision.**
+- **A. IRMAA lines at the charged year's tiers, its own commit on top of 292109e.** `magiThresholds` takes an
+  optional `c.irmaaGrowth` (default 1); the year loop passes `irmaaGrowth2`, the estimate `irmaaAt` already uses
+  (plan inflation, both engines). Each edge is multiplied by it before the two-return translation. The conversion
+  ceiling keeps this year's tiers (a deliberate safe side; Batch 5 revisits it with conversion sizing).
+- **B. The guard acts only on real cliffs** (a new gate, the owner's decision). A stay-under is offered at a line only
+  if premium plus IRMAA just over it exceeds just under it by more than $1 (`costNear`); the nearest such line below
+  the natural MAGI and, per 13.6, the one with the largest cliff. The child-tax-credit and senior-deduction phase-out
+  lines therefore stop being stay-under candidates (tax kinks, not premium or IRMAA cliffs: order logic, Batch 5).
+  A trial wins only if it met its plan with no unmet need, lowers this year's healthcare charge plus `irmaaAt` by more
+  than $1 against the natural year, and beats the natural score by more than $1 (or the best earlier qualifying
+  trial). Lambda still weighs whether the cliff saving is worth the extra tax; it can no longer win a year alone.
+- **C. Number-neutral speedups in 8b** (snapshots identical to the 8a commit), measured after A and B: skip a
+  stay-under when no penalty-free money other than traditional is left to switch to; keep the natural year's result
+  instead of replaying it if that is clean. The +30% ACA gate and the no-cliff rule of 13.4 item 4 stand.
+- **Order of work:** A as its own commit on 292109e's code; then 8a on top (the B8a2 work, B, 13.6), with the scans
+  and movers reported after each step; then 8b.
+
+**Hard rules, unchanged.** For commit A alone, measured against 292109e: no snapshot scenario depletes earlier, the
+standard scan exits 0, and the bucket sweep shows no guard-on earlier depletion other than the known 1966 household
+(fixed by 8a).

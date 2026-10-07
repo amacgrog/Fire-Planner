@@ -2237,7 +2237,157 @@ No number change.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task B8: The guard never spends Roth for a conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4, 13.5, 13.6)
+### Task B8: The guard never spends Roth for a conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4 to 13.7)
+
+> **AMENDMENT 8 (owner decision, 2026-10-07, spec section 13.7). It wins over Amendment 7 and the 13.5 block where
+> they differ.** Do not act on the Amendment 7 handoff message (30ab060); Amendment 7's metric (a), its re-run list
+> (c) and its 8b changes still apply as amended here; its `yearPlanCandidates` code is replaced by the code below.
+> Three stages, in order.
+>
+> **Stage A: IRMAA lines on the charged year's tiers. Its own commit, on 292109e's code.**
+> 1. *Set the B8a2 work aside, losing nothing.*
+>    - Refresh the patch: `git diff -- Planner_US.html tests/ > .superpowers/sdd/2026-10-06-per-year-solver-3c/task-B8a2-wip.patch`.
+>    - Stash it: `git stash push -m "B8a2 wip before 13.7 A" -- Planner_US.html tests/cliff_guard.js tests/historical_parity.js tests/solver_primitives.js`.
+>    - Check that `git diff 292109e HEAD -- Planner_US.html tests/` is empty (HEAD carries docs only since 292109e).
+> 2. *Failing tests first*, in `tests/solver_hooks.js` beside the existing `magiThresholds` cases. These run at
+>    inflation 0 and year 0, so the tax index factor is 1; `irmaaGrowth: 1.05` keeps the products exact.
+>    - `ctx({ age: 63, acaEligibleA: false, irmaaGrowth: 1.05 })`, ACA off -> `[114450, 143850, 179550, 215250, 525000]`.
+>    - `ctx({ age: 66, acaEligibleA: false, irmaaGrowth: 1.05 })` -> `[75000, 114450, 143850, 179550, 215250, 525000]`
+>      (the senior phase-out start does not grow).
+>    - Two returns, `ctx({ twoReturns: true, singlePerson: false, age: 66, ageB: 66, acaEligibleA: false, preMagi: 100000, preMagiA: 40000, preMagiB: 60000, profile: { ownerShareA: 0.5 }, irmaaGrowth: 1.05 })`,
+>      ACA off. The result includes B's first tier at `100000 + (114450 - 60000) / 0.5 = 208900` and A's at
+>      `100000 + (114450 - 40000) / 0.5 = 248900`. The same call without `irmaaGrowth` includes `198000` and `238000`
+>      (default 1, unchanged).
+>    - The existing cases (no `irmaaGrowth`) stay as they are.
+>
+>    Expect the first three to fail.
+> 3. *Implement.*
+>    - In `magiThresholds`: `g = c.irmaaGrowth === undefined ? 1 : c.irmaaGrowth`, and every IRMAA edge becomes
+>      `edge * f * g`, in the two-return branch (before `toHousehold`) and in the one-return branch. Update its comment:
+>      the lines are placed on the tiers of the year the surcharge is charged, estimated as `irmaaAt` estimates them.
+>    - At the year loop's one call site, pass `irmaaGrowth: irmaaGrowth2`.
+>    - Fix the comment above `irmaaAt`: the lines use the same estimate; the conversion ceiling keeps this year's edges
+>      (the safe side, deliberate; Batch 5 revisits it).
+>    - Leave `conversionMagiCeiling` / `irmaaTierCeiling` untouched.
+> 4. *A guard-level case* in `tests/cliff_guard.js`. Pick a household from the scan grid where, at 292109e, a year is
+>    labelled "stayed under IRMAA tier" while its natural MAGI lies between this year's edge and that edge x
+>    `irmaaGrowth2`. Assert that after A this year carries no IRMAA stay-under. Document the household and its numbers
+>    in the test.
+> 5. *Measure against 292109e.*
+>    - Movers must be guard years only. Dump and compare, then write a table (scenario, first moved age, depletion, end
+>      value, label change).
+>    - `tests/solver_scan.js` must exit 0. Report value / cost / depletion better-equal-worse for both modes beside
+>      292109e's.
+>    - The bucket sweep (`b8a2-scratch/bucket_sweep.js`) may show no guard-on earlier depletion except the known 1966
+>      household.
+>    - No snapshot scenario may run out earlier.
+>    - If any of these fails, STOP and report with worked examples.
+> 6. *Docs and commit.*
+>    - `CLAUDE.md`: the `magiThresholds` sentence (IRMAA lines on the charged year's tiers via `c.irmaaGrowth`; the
+>      ceiling keeps this year's).
+>    - 3C notes: correct "the lines sit at this year's tier edges" in "IRMAA stay-unders (note for Batch 5)", and add
+>      the stage A table to the 13.7 entry.
+>    - `npm run snapshot:update`, then the full `npm test`.
+>    - Commit as "3C: IRMAA lines on the charged year's tiers, where the guard prices them (spec 13.7 A)", with the
+>      mover table in the message.
+>
+> **Stage 8a: pop the stash on top of A** and resolve conflicts: the B8a2 call site of `magiThresholds` must pass
+> `irmaaGrowth: irmaaGrowth2`. Then work in three steps, measuring after each:
+> 1. The B8a2 work as it stands, on A.
+> 2. Amendment 7 (a), the own-natural metric (tests only, no number change).
+> 3. The real-cliff gate and the largest cliff (spec 13.7 B, 13.6). `yearPlanCandidates` becomes:
+>
+> ```js
+>   function yearPlanCandidates(c) {
+>     let out = NO_PLANS;
+>     const gain = c.gain,
+>       costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + c.irmaaAt(m - c.magiBase - gain, gain),
+>       offerUnder = (t) => c.natTrad > 0 && c.natMagi - c.natConv > t.magi,
+>       underOf = (t) => ({ kind: 'under', magi: t.magi - 1, label: t.label });
+>     // 13.7: a stay-under only at a real cliff (premium + IRMAA just over the line more than $1 above just under it):
+>     // the nearest such line below the natural MAGI and (13.6) the one with the largest cliff when it is another line
+>     // (ties go to the nearer line). Tax kinks (the CTC and senior-deduction phase-outs) are not cliffs.
+>     let near = null,
+>       big = null,
+>       bigJump = 0;
+>     for (const t of c.thresholds) {
+>       if (t.magi > c.natMagi) break;
+>       if (t.magi - 1 < c.lo) continue;
+>       const jump = costNear(t.magi + 1) - costNear(t.magi - 1);
+>       if (jump <= 1) continue;
+>       near = t;
+>       if (jump >= bigJump) {
+>         big = t;
+>         bigJump = jump;
+>       }
+>     }
+>     if (near && offerUnder(near)) out = [underOf(near)];
+>     if (big && big !== near && offerUnder(big)) out = out === NO_PLANS ? [underOf(big)] : [out[0], underOf(big)];
+>     if (c.canFill) {
+>       for (const t of c.thresholds) {
+>         if (t.magi <= c.natMagi || t.magi + 1 > c.hi) continue;
+>         if (costNear(t.magi + 1) < costNear(t.magi - 1)) {
+>           const fill = { kind: 'fill', magi: t.magi + 1, label: t.label };
+>           out = out === NO_PLANS ? [fill] : [...out, fill];
+>           break;
+>         }
+>       }
+>     }
+>     return out;
+>   }
+> ```
+>
+>    **The win gate.**
+>    - Each phase record (natural and trials) gets `cliffCost`: the healthcare this phase charges (after the
+>      forced-pass refund, the figure its row would show) plus `irmaaAt(traditionalGross, taxableGainGross)`.
+>    - A trial may win only if it met its plan, has `wd.need <= 1`, and `natural.cliffCost - trial.cliffCost > 1`.
+>    - Among eligible trials the score rule is unchanged: beat the natural score by more than $1, or the best earlier
+>      eligible trial.
+>    - The trace records `cliffCost` per candidate. Export `window.__test_yearPlanCandidates`.
+>
+>    **Unit tests first** (hand-computed). Common inputs: `magiBase 20000`, `gain 0`, `lo 20000`, `hi 300000`,
+>    `canFill false`, `premiumAt = (t, g) => (20000 + t + g > 80000 ? 24697 : 8059)`.
+>    - Lines `[{ magi: 80000, label: 'ACA 400% line' }, { magi: 140000, label: 'IRMAA tier' }]`,
+>      `irmaaAt = (t, g) => (20000 + t + g > 140000 ? 1000 : 0)`, `natMagi 148700`, `natTrad 100000`:
+>      - `natConv 0` -> `[under 139999 IRMAA, under 79999 ACA]` (cliffs 1,000 and 16,638);
+>      - `natConv 10000` -> `[under 79999 ACA]`;
+>      - `natConv 70000` -> `NO_PLANS`;
+>      - `natTrad 0` -> `NO_PLANS`.
+>    - Lines `[{ magi: 60000, label: 'IRMAA tier' }, { magi: 80000, label: 'ACA 400% line' }]`, `irmaaAt` jumping
+>      1,000 over 60,000, `natMagi 90000`, `natConv 0`, `natTrad 50000` -> `[under 79999 ACA]` only.
+>    - Lines `[{ magi: 80000, label: 'ACA 400% line' }, { magi: 120000, label: 'child tax credit phase-out' }, { magi: 140000, label: 'IRMAA tier' }]`,
+>      the first `irmaaAt`, `natMagi 148700`, `natConv 0`, `natTrad 100000` -> `[under 139999 IRMAA, under 79999 ACA]`
+>      (the CTC line has no cliff).
+>    - Lines `[{ magi: 80000, label: 'ACA 400% line' }, { magi: 120000, label: 'child tax credit phase-out' }]`,
+>      `irmaaAt` 0, `natMagi 130000`, `natConv 0`, `natTrad 100000` -> `[under 79999 ACA]`.
+>    - Lines `[{ magi: 120000, label: 'child tax credit phase-out' }]`, `irmaaAt` 0, `natMagi 130000`, `natConv 0`,
+>      `natTrad 100000` -> `NO_PLANS`.
+>
+>    Expect the CTC cases and the two-under case to fail before the change.
+>
+> **Report a table after steps 1 and 3**, each with:
+> - the scan's value / cost / depletion counts for both modes, the worst value loss and the count with higher
+>   lifetime cost;
+> - the bucket sweep;
+> - the snapshot movers against the A commit;
+> - Amendment 7 (c)'s stay-under counts;
+> - a new count, trials that won with a cliff saving of $1 or less (must be 0 after step 3);
+> - `bench_solver.js` against `24f6585` (recorded, not gating).
+>
+> The mover table must include the three 13.6 losers, the 1966 household and the three smooth-mode households. The hard
+> rules are unchanged; if one fails, STOP. Then:
+> - the CLAUDE.md paragraph: the phases, the real-cliff offer and win gates, the largest cliff, the own-natural
+>   invariant;
+> - `npm run snapshot:update`, then the full `npm test`;
+> - commit as "3C: the guard chooses against the converged natural year and acts only on real cliffs; never spends
+>   Roth for a conversion; labels only when met (spec 13.5-13.7)".
+>
+> **Stage 8b:** as in Amendment 7. Apply these speedups first, each leaving the snapshots identical to the 8a commit:
+> - skip a stay-under trial when no penalty-free money other than traditional is left to switch to;
+> - keep the natural phase's result instead of replaying it, if that can be done cleanly (if not, say why).
+>
+> Measure and gate as in Amendment 7. Add two entries to the 3C notes' "Known gaps": the bracket conversion is sized
+> without the year's draws, and the ladder's traditional-to-bonds move is drawn after Roth.
 
 > **AMENDMENT 7 (owner decision, 2026-10-07, spec section 13.6). It wins over the 13.5 block and the text below
 > where they differ.** Resume from the uncommitted B8a2 work in the tree (`task-B8a2-wip.patch`); keep everything it

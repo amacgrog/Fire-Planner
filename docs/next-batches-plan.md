@@ -2239,7 +2239,7 @@ thresholds and the 0% gains band.
 - `costAt` is declared above the conversion as a hook for Batch 5 (B5); the per-pass closure setup is now
   unconditional (measured at about 0).
 
-##### Section 13.4 to 13.6: the whole-branch review, B8a, and the guard's conversion rule
+##### Section 13.4 to 13.7: the whole-branch review, B8a, and the guard's conversion rule
 
 - **Review of PR 2 (spec 13.4).** Later MAGI passes re-sized the conversion and refilled the headroom a "stayed
   under" plan made (79 of 234 standard stay-under rows, 78 of 255 historical). One bucket-engine household ran out
@@ -2290,6 +2290,35 @@ thresholds and the 0% gains band.
   trials; the +30% ACA timing gate stays, met by number-neutral speedups in 8b, else the owner decides. Accepted:
   `std G hoh 58 aca smooth` -106k (a stay-under no longer funds a conversion with Roth; conversion sizing is
   Batch 5's) and the age-71 test rewritten to its intent.
+- **Independent code check (Opus, 2026-10-07) on the B8a2 work, confirmed against the code.**
+  - *The IRMAA lines sat at this year's tier edges* while `irmaaAt` and `healthcareCost` charge the tiers two years
+    on (`irmaaGrowth2`, about 5% higher). The guard stayed under lines where nothing jumps; for example, a single
+    person at 68 stayed under 143,936 when the cliff was 151,222. 104 of 972 default-order and 728 of 2,778 smooth
+    IRMAA stay-unders targeted a cliff the plan never reached.
+  - This also broke 13.6: `costNear` reads 0 at a misplaced line. 13.6's unit test used a synthetic jump at the line
+    and could not see it; the planner's own mistake.
+  - With the lines moved, on the 768-household scan with the B8a2 work:
+    - smooth worse-off plans 39 -> 18;
+    - worst loss -211.7k -> -124k;
+    - lifetime cost worse 129 -> 103 (smooth) and 17 -> 11 (default);
+    - no earlier depletion.
+  - *The guard could win a year on lambda alone*: 36 default-order and 188 smooth stay-unders won with no IRMAA saved
+    (12 and 148 at 65+). Some households stayed under 15 to 18 times and paid 47k to 81k more lifetime tax and
+    healthcare. This is the yearly lambda bet 13.3 rejected.
+  - *Timing*: 55% (default) and 43% (smooth) of trials cannot succeed, mostly because no penalty-free money other
+    than traditional is left. About 70% of plan years replay the natural year.
+- **Decision (spec 13.7).**
+  - (A) IRMAA lines on the charged year's tiers (`c.irmaaGrowth`), its own commit on 292109e's code. The conversion
+    ceiling keeps this year's edges (safe side; Batch 5).
+  - (B) The guard acts only on real cliffs:
+    - a stay-under is offered only where premium plus IRMAA jumps by more than $1;
+    - a trial wins only if it lowers healthcare plus IRMAA by more than $1 and also beats the score;
+    - the CTC and senior-deduction phase-out lines stop being stay-under candidates (order logic, Batch 5).
+  - (C) Number-neutral speedups in 8b: skip trials with nothing to switch to; avoid the replay.
+  - Recorded for later:
+    - the bracket conversion is sized before, and ignores, the year's draws (48 of 128 scan households with
+      conversions; Batch 5);
+    - the ladder's traditional-to-bonds move is drawn after Roth in the default order (Batch 4A/5).
 
 ##### Scripts (not in `npm test`)
 
