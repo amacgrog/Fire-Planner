@@ -356,3 +356,48 @@ the re-run scan still shows a tax-aware household depleting earlier than at c54a
 
 B5a's literal test (need 50,000, lambda 0.10) changes under item 2: each sample now prices the 50,000 draw rather
 than the RMD, so lambda becomes 0.12. The test is updated, not kept.
+
+### 13.3 Fourth amendment (owner decision, 2026-10-07): the tax-aware order and the draw split move to Batch 5
+
+**Measurements at B5b (b5b7878), 768 households per mode** (data in
+`.superpowers/sdd/2026-10-06-per-year-solver-3c/task-B5-metrics.md` and `task-B5-guard-metrics.md`). "Equal" means
+within $1,000. Value is the ending after-tax value with a flat 22% haircut on traditional money; cost is lifetime
+real tax plus healthcare.
+
+| Comparison | Value better / equal / worse | Cost better / equal / worse | Depletion later / same / earlier |
+|---|---|---|---|
+| Tax-aware order vs default order | 227 / 401 / 140 | 232 / 367 / 169 | 0 / 749 / 19 |
+| Guard on vs off, default order | 43 / 713 / 12 | 98 / 649 / 21 | 21 / 747 / 0 |
+| Guard on vs off, smooth withdrawals | 227 / 488 / 53 | 202 / 456 / 110 | 33 / 735 / 0 |
+| Guard on, b5b7878 vs c54ac72, default order | 6 / 746 / 16 | 25 / 716 / 27 | 5 / 763 / 0 |
+
+- **The tax-aware order.** Where it changes a result, it is better about 60/40, but it never lets a plan last
+  longer, and its losses are large (10th percentile about -75k, -150k among plans that never run out, worst
+  -694k). They fall on the same kind of household as its gains: early retirees with large taxable balances.
+- **With conversions on, the order is worse than a coin flip on cost** (107 dearer, 87 cheaper against the default
+  order). The yearly choice does not see that the bracket conversion has already used the cheap room.
+- **Without a plan-level check it is not reliable enough to ship, even marked experimental.**
+- **The cliff guard is sound.** It never makes a plan run out earlier, it often lets one last longer, and it helps
+  clearly with smooth withdrawals. Its value losses are small (largest about -29.5k on a 5.1M plan) and all come
+  from IRMAA stay-unders.
+- **The B5a/B5b lambda changes barely moved the guard.**
+
+**Decision.**
+- **B5 ships refactors only, with no number change** (snapshots identical to b5b7878):
+  - `solveRothConversionTo`;
+  - the healthcare-cost block moved above the conversion;
+  - the lifted `irmaaAt` / `lambdaOf` closures (the guard uses them).
+- **The live-mix toggle keeps its old behaviour, label and info tip** (`pickLiveWithdrawalOrder`). The plan's
+  `orders` stays `[null]`.
+- **Task B6 (the two-return draw split) moves to Batch 5.** It lives inside tax-aware mode and is scored by the same
+  lambda.
+- **Batch 5 owns all lambda-driven policy:** the stock-account order, the two-return draw split and conversion
+  sizing (Notes 1 and 2), each behind the outer search, which includes the user's current mode and `m = 0` as
+  candidates and ranks depletion first. Its acceptance tests are the tables above, the 5 households that ran out
+  a year earlier, the conversions-on interplay, and the two costs the yearly score cannot see:
+  - leaving more gains in taxable raises later MAGI and IRMAA;
+  - a finite step can cross an IRMAA tier.
+- **The cliff guard stays on by default, unchanged.** Batch 5 also looks at whether IRMAA stay-unders should
+  remain guard candidates (all of the guard's value losses), using the same scans.
+- **3C's remaining hard rules are unchanged:** no snapshot scenario depletes earlier, guard-on never earlier than
+  guard-off.

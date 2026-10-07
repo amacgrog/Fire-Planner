@@ -1646,7 +1646,39 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - Re-run the 768-per-mode scan and report both counts: tax-aware vs c54ac72's tax-aware, and tax-aware vs the default order.
   - If any tax-aware household still depletes earlier than at c54ac72, STOP and report two worked examples, with no heuristic.
 
-### Task B5: Tax-aware withdrawals (order chosen by the plan; conversions unchanged)
+### Task B5: Refactors for Batch 5 (no number change)
+
+> **AMENDMENT 2 (owner decision, 2026-10-07, spec section 13.3). It wins over the AMENDMENT block below and over
+> all the task text after it.** B5 ships refactors only. The tax-aware order is not reliable enough without
+> Batch 5's plan-level check, so it moves to Batch 5.
+>
+> **Keep from the uncommitted B5 work:**
+> - `solveRothConversionTo` (the split-out bracket fill; `solveRothConversion` calls it);
+> - the healthcare-cost block moved above the conversion;
+> - the lifted `irmaaAt` / `lambdaOf` closures, with B5b's `lambdaOf` arguments.
+>
+> **Revert to the B5b commit (b5b7878):**
+> - the plan's `orders` goes back to `[null]` and its call condition back to `guard` only;
+> - the `drawMixedStockAccounts` live branch is the old `pickLiveWithdrawalOrder` call (keep `wd.taxAwareOrder` in
+>   `newWithdrawal`; it stays `null`);
+> - no `mixOrder` row field;
+> - the `withdrawalMixEnabled` label, descriptor and info tip are unchanged;
+> - `tests/golden.js` unchanged; no README or `CLAUDE.md` feature text about tax-aware mode;
+> - delete the untracked `tests/tax_aware.js` (save a copy beside `task-B5-wip.patch` for Batch 5);
+> - no `package.json` change and no badge bump (nothing user-facing).
+>
+> In `CLAUDE.md`, add one line in the Withdrawals section: `solveRothConversionTo(profile, cap, yearIndex,
+> bracketPct)` is the bracket fill, and `solveRothConversion` resolves the bracket (override, applied schedule,
+> setting) and calls it.
+>
+> **Acceptance:**
+> - `npm test` green;
+> - the snapshot dump against b5b7878 shows **zero** changed scenarios (`--root` a worktree of b5b7878, dump A, dump B, compare);
+> - `npm run check:shared` green; the page loads with no pageerror.
+>
+> **Commit:** "3C: refactors for Batch 5 (solveRothConversionTo, healthcare block before the conversion, lifted
+> closures), no number change". Keep `task-B5-wip.patch`, `task-B5-wip-post-B5a.patch`, the saved
+> `tests/tax_aware.js` and the stashes; they are Batch 5's starting material.
 
 > **AMENDMENT (owner decision, 2026-10-07): B5 is order-only. Where this block and the task text below disagree, this block wins.** See spec section 13 for why: the conversion sizing as written made five scenarios deplete earlier, and it moves to Batch 5 with two design notes.
 >
@@ -1877,6 +1909,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task B6: Two-return draw split (pro rata, A first, B first)
 
+> **DEFERRED TO BATCH 5 (owner decision, 2026-10-07, spec section 13.3). Do not build in 3C.** The split lives
+> inside tax-aware mode and is scored by the same lambda as the order choice, so it moves with it, behind Batch 5's
+> plan-level check. The text below is kept as Batch 5's starting point. Skip to Task B7.
+
 **Files:**
 - Modify: `Planner_US.html` (year loop: `splits`; application of `yearPlan.split`; row field)
 - Create: `tests/two_return_split.js`; add to `package.json` after `tests/tax_aware.js`
@@ -1951,6 +1987,38 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ### Task B7: Measurements, performance record, gap table, plan and docs
+
+> **AMENDMENT (owner decision, 2026-10-07, spec section 13.3). It wins over the task text below.** With B5 refactors-only and B6 deferred:
+>
+> **Scan.** `tests/solver_scan.js` becomes the metrics scan already written for the B5 decision. Take
+> `C:\Users\Alex\code\scan-b5-metrics\scan_guard.js` + `analyze_guard.js`, and make them one committed script
+> that runs the 768-per-mode grid and prints, for guard on vs off (default order and smooth):
+> - value, cost and depletion better / equal / worse;
+> - p10 / median / p90 of the differences;
+> - the conversions split;
+> - exit code 1 if any household depletes earlier with the guard on.
+>
+> Run it at the B5 commit; the numbers must match the 13.3 table, rows 2 and 3.
+>
+> **Gap table.** In `tests/solver_gap.js` the "solver" run is the shipped engine with the guard on and the default
+> order (`withdrawalMixEnabled: false`, `cliffGuardEnabled: true`), against the slow reference. It records where
+> 3C leaves Batch 5.
+>
+> **Timing.** Run the gate against `c54ac72` (the guard is unchanged since; B5a/B5b only added the lambda walk)
+> and against the B5 commit.
+>
+> **Notes** (`docs/next-batches-plan.md`, 3C batch notes) record:
+> - spec sections 13 to 13.3, including the 13.3 table, the B5 tax-aware metrics table (`task-B5-metrics.md`)
+>   and the guard tables (`task-B5-guard-metrics.md`);
+> - that B6 and the tax-aware order moved to Batch 5, with their acceptance tests;
+> - the IRMAA stay-under note;
+> - that `remainingMagiRoom` is dead wiring for Batch 5 to remove with `pickLiveWithdrawalOrder`.
+>
+> The Batch 5 section in that file gets the 13.3 Batch 5 requirements as written in the spec.
+>
+> **No badge bump; no README change about tax-aware mode.**
+>
+> **Then:** a whole-branch review of PR 2 (B1-B5, B5a, B5b, B7).
 
 **Files:**
 - Create: `tests/bench_solver.js`, `tests/solver_scan.js`, `tests/solver_gap.js` (not in `npm test`)
