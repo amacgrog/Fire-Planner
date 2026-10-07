@@ -91,15 +91,42 @@ const taxCall = (page, patch, fn, args) =>
   assert(big.lambda > lam.lambda && big.lambda <= 0.6, `larger pool, larger lambda (${big.lambda})`);
   // Note 1 (spec 13.1): the pool walks forward net of the traditional share of the need. Single, 70,
   // 1,000,000 traditional, real return 0, Texas, life expectancy 74, need 50,000, tradShare 1.
-  // Samples 73, 74, 74: pools 850,000 and 800,000; RMDs 32,075.47 and 31,372.55. Deduction 16,100 + 2,050 +
-  // 6,000: taxable income 7,925 (+3,208 step) and 7,223 (+3,137), all in the 10% band, so lambda is 0.10.
+  // 13.2: each sample prices the draw the walk assumes. The samples at 73 and 74 (pools 850,000 and 800,000
+  // before the year's draw, RMDs 32,075 and 31,373) now price 50,000 of income (not the RMD), deduction
+  // 16,100 + 2,050 + 6,000 = 24,150, taxable 25,850 (+5,000 step), 12% band: lambda 0.12.
   const drawn = await call(
     { singlePerson: true, ageA: 70, lifeExpectancyA: 74, returnRate: 2.5, inflation: 2.5, stateTax: 'tx', ssMonthlyA: 0, pensionYearlyA: 0, survivorEnabled: false },
     'lambdaEstimate',
     { tradPool: 1000000, year: 0, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1, need: 50000, tradShare: 1 },
   );
-  near(drawn.lambda, 0.1, 1e-9, 'lambda with draws');
-  assert(drawn.lambda < lam.lambda, 'draws lower lambda');
+  near(drawn.lambda, 0.12, 1e-9, 'lambda prices the draw');
+
+  const S70 = { singlePerson: true, ageA: 70, lifeExpectancyA: 74, returnRate: 2.5, inflation: 2.5, stateTax: 'tx', ssMonthlyA: 0, pensionYearlyA: 0, survivorEnabled: false };
+  const ctxL = (o) => ({ year: 0, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1, ...o });
+
+  // 13.2 item 2, a draw larger than the RMD: 1,000,000, need 90,000. Samples 73, 74, 74 (pools 820,000 and
+  // 730,000 before the draw, RMDs 30,943 and 28,627) price 90,000 of income: senior deduction 6,000 - 6% x
+  // (90,000 - 75,000) = 5,100, deduction 23,250, taxable 66,750, 22% band; the 9,000 step costs 22% x 1.06 =
+  // 23.32% (the senior deduction keeps phasing out). MAGI 99,000 stays under the first IRMAA tier (109,000).
+  const bigDraw = await call(S70, 'lambdaEstimate', ctxL({ tradPool: 1000000, need: 90000, tradShare: 1 }));
+  near(bigDraw.lambda, 0.2332, 1e-9, 'draw above the RMD');
+
+  // 13.2 item 2, the pool runs out: 100,000, need 50,000: 50,000 left at 72, which that year's draw empties, so
+  // every sample moves to 72 (before the RMD age) and prices 50,000: taxable 25,850 (+5,000 step), 12% band.
+  // B5a gave about 0 here (no RMD left in the sample years).
+  const out = await call(S70, 'lambdaEstimate', ctxL({ tradPool: 100000, need: 50000, tradShare: 1 }));
+  near(out.lambda, 0.12, 1e-9, 'pool runs out: priced at the last draw year');
+
+  // 13.2 item 1, IRMAA per person on two returns: couple filing single, both 70, life expectancy 73, need 0.
+  // Every sample is 73: RMD 3,551,000 / 26.5 = 134,000, 67,000 per return, under 109,000 even with the step.
+  // Each return: deduction 24,150, taxable 42,850 (+6,700) in the 12% band. The old household-MAGI IRMAA step
+  // made it about 0.379.
+  const twoRet = await call(
+    { singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 70, ageB: 70, lifeExpectancyA: 73, lifeExpectancyB: 73, returnRate: 2.5, inflation: 2.5, stateTax: 'tx', ssMonthlyA: 0, ssMonthlyB: 0, pensionYearlyA: 0, pensionYearlyB: 0, survivorEnabled: false },
+    'lambdaEstimate',
+    ctxL({ tradPool: 3551000, singlePerson: false }),
+  );
+  near(twoRet.lambda, 0.12, 1e-9, 'two-return IRMAA per person');
 
   // After-tax value: taxable 100k with 40k gain at 15%, traditional 200k at lambda 0.2, Roth 50k, cash 10k.
   const value = await page.evaluate(() =>

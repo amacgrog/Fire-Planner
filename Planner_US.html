@@ -8833,9 +8833,12 @@
   // from three synthetic future years: Partner A's first RMD year, a midpoint, and a survivor year (the year
   // after the first death: the survivor-modeling death year, else the earlier life expectancy) or the plan's
   // last year. Each walks today's traditional pool forward at the plan's real return, net of the traditional
-  // share of this year's need (c.need, c.tradShare; both 0: no draws), takes that year's RMD on the owner's age,
-  // adds Social Security and pensions in this year's dollars, and measures the marginal federal + state tax
-  // plus IRMAA over a step of 10% of the RMD (at least $1,000), under this year's tax law and indexing.
+  // share of this year's need (c.need, c.tradShare; both 0: no draws). A sample prices the traditional income
+  // the walk assumes that year, the larger of the RMD on the owner's age and that year's draw (spec 13.2); if
+  // the draws empty the pool before a sample year, the sample moves to the year that empties it. It adds Social
+  // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (per
+  // person on two returns) over a step of 10% of that income (at least $1,000), under this year's tax law and
+  // indexing.
   const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraIncome: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS };
   function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0 }) {
     const real = (1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1,
@@ -8862,26 +8865,34 @@
       ssOf = (p, a) => (a >= state['ssStartAge' + p] ? state['ssMonthly' + p] * 12 : 0) * factor,
       pensionOf = (p, a) =>
         (state.pensionCoverage === 'both' || state.pensionCoverage === p.toLowerCase() || (p === 'A' && singlePerson)) && a >= state['pensionStartAge' + p] ? state['pensionYearly' + p] * factor : 0;
+    // Note 1 (spec 13.1): walk the pool forward in real dollars net of the traditional share of each year's need
+    // (this year's dollars); Social Security and pensions that start later take over part of the need. The walk
+    // uses the household's benefits even past a death (close enough for an estimate; the sample's own income
+    // below uses the survivor's). 13.2: walkTo(ys0) returns [year priced, pool at the start of that year grown
+    // one year, that year's draw]; if a year's draw empties the pool before ys0, that year is priced (one more
+    // dollar left today would be spent there).
+    const incomeAt = (y) => ssOf('A', state.ageA + y) + pensionOf('A', state.ageA + y) + (singlePerson ? 0 : ssOf('B', state.ageB + y) + pensionOf('B', state.ageB + y));
+    const incomeNow = incomeAt(year),
+      drawIn = (y) => tradShare * Math.max(0, need - Math.max(0, incomeAt(y) - incomeNow));
+    const walkTo = (ys0) => {
+      let pool = tradPool;
+      for (let y = year + 1; y <= ys0; y++) {
+        const before = pool * (1 + real),
+          d = drawIn(y);
+        if (y === ys0 || before <= d) return [y, before, d];
+        pool = before - d;
+      }
+      return [ys0, tradPool, drawIn(year)];
+    };
     let rateSum = 0,
       tauSum = 0;
-    for (const ys of samples) {
+    for (const ys0 of samples) {
+      // With need 0 or tradShare 0 this is B2's plain compounding and no draw, to the bit.
+      const [ys, trad, draw] = need > 0 && tradShare > 0 ? walkTo(ys0) : [ys0, tradPool * Math.pow(1 + real, Math.max(0, ys0 - year)), 0];
       const ageAs = state.ageA + ys,
         ageBs = state.ageB + ys,
         survivorIsB = isSurvivorPeriod ? deceasedIsA : ys > firstDeath && aDiesFirst,
         onePerson = singlePerson || isSurvivorPeriod || ys > firstDeath;
-      // Note 1 (spec 13.1): walk the pool forward in real dollars net of the traditional share of each year's
-      // need (this year's dollars); Social Security and pensions that start later take over part of the need.
-      // The walk uses the household's benefits even past a death (close enough for an estimate; the sample's
-      // own income below uses the survivor's). With need 0 or tradShare 0 this is B2's plain compounding, to the bit.
-      let trad;
-      if (need > 0 && tradShare > 0) {
-        trad = tradPool;
-        const incomeNow = ssOf('A', state.ageA + year) + pensionOf('A', state.ageA + year) + (singlePerson ? 0 : ssOf('B', state.ageB + year) + pensionOf('B', state.ageB + year));
-        for (let y = year + 1; y <= ys; y++) {
-          const later = ssOf('A', state.ageA + y) + pensionOf('A', state.ageA + y) + (singlePerson ? 0 : ssOf('B', state.ageB + y) + pensionOf('B', state.ageB + y));
-          trad = Math.max(0, trad * (1 + real) - tradShare * Math.max(0, need - Math.max(0, later - incomeNow)));
-        }
-      } else trad = tradPool * Math.pow(1 + real, Math.max(0, ys - year));
       let ownerAge, startAge;
       if (onePerson && survivorIsB) {
         ownerAge = ageBs;
@@ -8915,13 +8926,29 @@
       P.otherB = P.pensionB;
       P.year = year;
       const rmd = ownerAge >= startAge ? trad / rmdDivisor(ownerAge) : 0,
-        step = Math.max(1000, 0.1 * rmd),
-        t0 = taxFor(P, 0, rmd),
-        t1 = taxFor(P, 0, rmd + step),
-        g1 = taxFor(P, step, rmd);
-      const magi = P.otherA + P.otherB + P.ssA + P.ssB + rmd,
-        onMedicare = (P.ageA >= 65 ? 1 : 0) + (!onePerson && P.ageB >= 65 ? 1 : 0),
+        // 13.2: the traditional income the walk assumes this year (the RMD alone when there are no draws:
+        // Math.max(rmd, Math.min(trad, 0)) is rmd itself).
+        tradIncome = Math.max(rmd, Math.min(trad, draw)),
+        step = Math.max(1000, 0.1 * tradIncome),
+        t0 = taxFor(P, 0, tradIncome),
+        t1 = taxFor(P, 0, tradIncome + step),
+        g1 = taxFor(P, step, tradIncome);
+      let irmaaStep;
+      if (!onePerson && !filingRow(P.filing).joint) {
+        // 13.2 item 1: two returns, IRMAA per person on their own MAGI (half the traditional income each, the
+        // profile's ownerShareA 0.5) against the single tiers; the step is split half to each.
+        const half = tradIncome / 2,
+          hs = step / 2,
+          mA = P.otherA + P.ssA + half,
+          mB = P.otherB + P.ssB + half;
+        irmaaStep =
+          (P.ageA >= 65 ? irmaaSurcharge(mA + hs, 'single', year) - irmaaSurcharge(mA, 'single', year) : 0) +
+          (P.ageB >= 65 ? irmaaSurcharge(mB + hs, 'single', year) - irmaaSurcharge(mB, 'single', year) : 0);
+      } else {
+        const magi = P.otherA + P.otherB + P.ssA + P.ssB + tradIncome,
+          onMedicare = (P.ageA >= 65 ? 1 : 0) + (!onePerson && P.ageB >= 65 ? 1 : 0);
         irmaaStep = onMedicare * (irmaaSurcharge(magi + step, P.filing, year) - irmaaSurcharge(magi, P.filing, year));
+      }
       rateSum += (t1 - t0 + irmaaStep) / step;
       tauSum += (g1 - t0) / step;
     }
@@ -10136,13 +10163,13 @@
               orders: [null],
               splits: [-1],
               // lambda's pool walk is net of the traditional share (of investable money at the start of the year) of this
-              // year's need (spec 13.1).
+              // year's need (spec 13.1), leaving out this year's lump expenses (spec 13.2, as the bond target does).
               lambdaOf: () => {
                 if (yearLambda) return yearLambda;
                 const b = balSnapshot,
                   tradNow = b.traditional + b.bondTraditional,
                   inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
-                return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: -flow, tradShare: inv > 0 ? tradNow / inv : 0 }));
+                return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: Math.max(0, -flow - lumpExpense), tradShare: inv > 0 ? tradNow / inv : 0 }));
               },
               premiumAt: costAt,
               irmaaAt,
