@@ -11364,6 +11364,9 @@
   const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
   const ROTH_PER_YEAR_MAX_PASSES = 5;
   const ROTH_PER_YEAR_EVAL_BUDGET = 8000; // simulate() calls, hard cap for the whole run (shared across every lever/smooth-branch in one call)
+  // The budget optimizeMultiLever reads; only the test hook __test_setOptimizerBudget changes it (tests/solver_gap.js
+  // runs a slow reference with a larger budget).
+  let rothPerYearEvalBudget = ROTH_PER_YEAR_EVAL_BUDGET;
   // Total real-dollar tax + healthcare (income/payroll tax AND IRMAA
   // surcharge/net ACA premium) across the full projection — deliberately
   // wider than the flat optimizer's tax-only score above, since a
@@ -11442,7 +11445,7 @@
           let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
           for (const candidate of candidates) {
             if (candidate === currentCandidate) continue;
-            if (evalCount >= ROTH_PER_YEAR_EVAL_BUDGET) {
+            if (evalCount >= rothPerYearEvalBudget) {
               budgetExhausted = true;
               break;
             }
@@ -15671,6 +15674,9 @@
   window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
   window.__test_optimizeMultiLever = optimizeMultiLever;
   window.__test_rothScheduleCost = rothScheduleCost;
+  window.__test_setOptimizerBudget = (n) => {
+    rothPerYearEvalBudget = n;
+  };
   window.__test_setRothOverride = (m) => {
     rothBracketOverrideByAge = m;
   };

@@ -35,7 +35,16 @@ feature list.
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
   the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
-  at the 7C merge so it runs unchanged on an old worktree; not in `npm test`. `tests/tax_caches.js` (in `npm test`) — the
+  at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
+  Per-year solver scripts (3C, US; none in `npm test`): `tests/bench_solver.js --base DIR [--rounds N]` — interleaved timing
+  (two trees, one process, medians) of one `simulate()` and one historical path for the ACA early retiree (CA, the +30% gate)
+  and the default household. `tests/solver_scan.js [--root DIR]` — the cliff-guard sweep: 768 households, guard on vs off,
+  default order and smooth; prints value / cost / depletion better-equal-worse, p10 / median / p90 (all and where neither
+  run depletes), the conversions split, the cliff choices and the largest losses and gains; exits 1 if any household
+  depletes earlier with the guard on (about 20 s). `tests/solver_gap.js` — the gap table: the shipped engine (guard on,
+  default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
+  `window.__test_setOptimizerBudget`) on three short plans; cost, after-tax end value, amounts converted (about a minute).
+  `tests/tax_caches.js` (in `npm test`) — the
   guard for the tax-code memos and the per-row `needsPerPerson` flag: identical doubles (`Object.is`), never a tolerance.
 - `tests/benefit_rules.js` / `tests/gis_tables.js` / `tests/benefits.js` — the Canada income-tested benefit table coverage, every row of the ESDC GIS tables against the fitted knots, and hand-computed benefit cases (see "Income-tested benefits"); `docs/sources/` holds the ESDC tables and the extraction script.
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
@@ -387,12 +396,18 @@ Each planner is one big IIFE. Core shape:
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
   `solveRothConversionTo(profile, cap, yearIndex, bracketPct)` is the bracket fill, and `solveRothConversion`
-  resolves the bracket (override, applied schedule, setting) and calls it.
+  resolves the bracket (override, applied schedule, setting) and calls it. The US year loop builds the
+  healthcare-cost block (`hcArgs`, `costAt`) and the `irmaaAt` / `lambdaOf` closures before the conversion (3C B5,
+  for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
 - **Per-year solver (3C, US; section "Per-year solver (Batch 3C)" just above
   `newWithdrawal`).** Hooks: `magiThresholds` (the year's federal lines in household MAGI; with `c.lo/c.hi`
   only the lines in that reach, a shared empty list when none; IRMAA lines are this year's edges under the
   filing status and Medicare partners of the year the surcharge is charged, two years on), `lambdaEstimate`
-  (future tax on a traditional dollar, 9 `taxFor` calls), `afterTaxValue`. Primitives on `wd`: `magiCap`
+  (future tax on a traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at
+  the real return net of `tradShare x` the year's need less benefits started since, pricing `max(RMD, min(pool,
+  draw))`, moved to the year the walk empties the pool; two-return samples price IRMAA per person; `need` 0 or
+  `tradShare` 0 is the plain compounding; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)`
+  and the start-of-year traditional share), `afterTaxValue`. Primitives on `wd`: `magiCap`
   (limits penalty-free traditional draws only; gains and early Roth earnings still raise MAGI, so it is not
   a hard MAGI guarantee), `releaseMagiCap` (before penalized money and home equity), `fillTraditional`,
   `freeTraditional`, `cloneWithdrawal`, `adoptWithdrawal`. The bond reserve's traditional draw is uncapped
@@ -413,9 +428,13 @@ Each planner is one big IIFE. Core shape:
   `bal`, ledgers or `profile`; a new `wd` field is carried by `adoptWithdrawal` automatically. Rows carry
   `cliffChoice` ("stayed under ..." / "filled to ...") and `lambda` only when set; `annotateSolverRows`
   (US, after the shared `renderTable`) puts them in the status cell's tooltip. State-law cliffs are priced
-  by `taxFor` but are not candidates. Tests: `tests/cliff_guard.js`; timing: `tests/bench_solver.js --base
-  DIR` (interleaved, not in `npm test`); `window.__test_planTrace()` returns each withdrawal year's
-  candidates.
+  by `taxFor` but are not candidates. The plan context's `orders: [null]` / `splits: [-1]` and the `wd` fields
+  `taxAwareOrder` / `onlyPartner` are wired but unused: the tax-aware order, the two-return draw split and
+  conversion sizing by lambda are Batch 5 (spec section 13.3); the live-mix toggle still runs
+  `pickLiveWithdrawalOrder`, whose `remainingMagiRoom` input cannot change its choice (dead wiring, removed with it
+  in Batch 5). Tests: `tests/cliff_guard.js`; timing: `tests/bench_solver.js --base
+  DIR` (interleaved, not in `npm test`); sweep and gap table: `tests/solver_scan.js`, `tests/solver_gap.js`;
+  `window.__test_planTrace()` returns each withdrawal year's candidates.
 - `syncControls()` and `syncContributionControls()` — **two separate**
   functions that both push `state` back into the DOM, and the split is
   deliberate (the contribution sync must not reformat money fields while the

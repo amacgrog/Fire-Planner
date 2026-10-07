@@ -105,19 +105,23 @@ remaining states and DC, one PR) -> 7D part 2 (state-tax performance, one small 
 provinces, one PR) -> 7L (income-tested benefits) -> 7M (paid benefits of the other six
 provinces) -> 7N (remaining Canadian credits and fixes) -> 7O (remaining US credits,
 benefits and fixes) -> 7O follow-up (review fixes: the OR, VT and ME child credits, then the
-O1 and O3 items the owner decides; see "7O follow-up fixes" in the batch notes) -> 3C (safe-MAGI room; moved
-here, owner decision) -> 4A -> 4B -> 5 -> 6 -> 8 (survivor-benefit claim
-optimizer).
+O1 and O3 items the owner decides; see "7O follow-up fixes" in the batch notes) -> Rule of 55 PR (per-partner
+election, 72(t) field visibility; no number change) -> 3C (per-year solver: per-return MAGI, the cliff guard;
+redesigned, owner decision 2026-10-06, see `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md`)
+-> 5 -> 4A -> 4B -> 6 -> 8 (survivor-benefit claim optimizer).
 
-Why 3C moved after Batch 7 and before 4A and 5 (owner decision): Batch 7 adds the
+Why 3C moved after Batch 7 (owner decision): Batch 7 adds the
 cliffs and phase-outs (senior deduction, child tax credit, state circuit-breaker
-cutoffs, 7L income-tested benefits) that the safe-MAGI policy has to price, and the
-measurement of the ACA-cliff policy (Auto / Always / Never, see the 3C notes) is
-only worth running once the tax model has settled. 3C still goes before 4A, which
-reuses its shared `stayUnder` policy for the Canadian income-room hook, and before
-5, which consumes a settled engine and may sweep the policy's parameter as a lever.
-Nothing in 4A-8 or 7 consumes 3C's output; what stays open meanwhile is listed
-under "Open items".
+cutoffs, 7L income-tested benefits, the 7O Medicaid and 100%-of-FPL lines) that the
+per-year decision has to price, so measuring it before the tax model settled would
+have been wasted.
+
+Why 5 now runs before 4A and 4B (owner decision, 2026-10-06, spec section 2 item 5): 3C replaced the
+`stayUnder(k)` design with a per-year solver scored by lambda (the future tax on a traditional dollar) and a
+multiplier `m` that an outer, whole-plan search tunes. That outer search, and every lambda-driven policy
+(the stock-account order, the two-return draw split, conversion sizing; spec section 13.3), is Batch 5. Canada
+then ports the solver core and the search together (4A/4B), instead of porting a per-year rule first and an
+optimizer later. What stays open meanwhile is listed under "Open items".
 
 Why: 3A is a no-number-change data-model PR that 3B and 3C depend on. Batch 1's
 mix-mode work in the historical engine is written against the `take*` withdrawal
@@ -490,34 +494,54 @@ traditional first, so for a household retiring before 59.5 any draw from it owes
 the 10% penalty. Decide whether the source order should depend on the age the
 reserve will first be drawn.
 
-### 3C: safe-MAGI room on every withdrawal path (old B2)
+### 3C: per-year solver, US (done; redesigned from "safe-MAGI room on every withdrawal path")
 
-**Scheduling (owner decision): runs after Batch 7 (after 7L) and before 4A and 5.** See "Execution order".
-Exploration, the prototype and the design direction are recorded in "Batch 3C: exploration so far" in the
-notes. When it is picked up, re-derive the prototype diff against the then-current `Planner_US.html` (it
-targets today's line positions), and re-run the cap-policy measurement on the post-Batch-7 tax model.
+**Design:** `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md` (approved 2026-10-06, amended four
+times on 2026-10-07, sections 13 to 13.3). **Plan:** `docs/superpowers/plans/2026-10-06-per-year-solver-3c.md`.
+Findings, measurements and decisions: "Batch 3C notes" below. The old `stayUnder(k)` direction ("Auto / Always /
+Never", from the exploration) is superseded; `docs/batch-3c-prototype/` is kept for the record only.
 
-Default draw, smooth withdrawals and the applied/optimizer schedules respect
-`remainingMagiRoom`: prefer taxable gains or Roth when traditional would cross
-the 400%-FPL cliff or the next IRMAA tier, inside the 3B rules (penalty-free
-money first). The ceiling is computed every year (`usesMagiRoom` on for the
-bucket mode, from Batch 1). Check that the MAGI iteration (`MAGI_ITER_MAX`/`TOL`)
-still converges; add a case where the draw straddles a cliff. Before/after on
-the default scenario, a cliff-straddling scenario, and the historical success
-rates. Finish by re-running the optimizer once on the new engine and recording
-whether its schedules still beat the live mix (reference-doc note; no code).
+What shipped (US only, branch `claude/batch-3b-penalty-rules`, V112 -> V116):
+- **Rule of 55 PR** (before 3C, no number change, V113-V114): `ruleOf55A` / `ruleOf55B` per partner, the Partner B
+  72(t) field visibility fix.
+- **B1, per-return MAGI (V115):** in two-return years (an unmarried couple, or before a marry-later wedding) the
+  ACA premium is priced per tax household and IRMAA per person on the single tiers; `conversionMagiCeiling`
+  keeps each return under its own lines.
+- **B2/B3, hooks and primitives (no number change):** `magiThresholds`, `lambdaEstimate`, `afterTaxValue`;
+  `magiCap`, `releaseMagiCap`, `fillTraditional`, `freeTraditional`, `cloneWithdrawal`, `adoptWithdrawal`.
+- **B4, the cliff guard (V116, on by default, `cliffGuardEnabled`):** in every withdrawal year with a federal line in
+  reach, `chooseYearPlan` compares the mode's natural draw with a stay-under cap and a fill-to-floor, scored by
+  after-tax value (traditional at `1 - lambda`) less the premium and IRMAA changes. Every mode (default order,
+  smooth, the live mix, applied schedules), standard and historical engines.
+- **B5a/B5b, lambda (number change in guard years only):** the pool is walked forward net of the traditional share
+  of the year's need (spec 13.1, Note 1); each sample prices the walk's own draws and moves to the year the pool
+  runs out; two-return samples price IRMAA per person (spec 13.2).
+- **B5, refactors for Batch 5 (no number change):** `solveRothConversionTo`, the healthcare-cost block before the
+  conversion, the lifted `irmaaAt` / `lambdaOf` closures.
 
-**Also resolve here (carried from Batch 1):** the safe-MAGI room has no behavioral
-test. No scenario was found where `remainingMagiRoom` changes the live mix's choice
-(the room is computed from a MAGI that already includes the same year's own
-estimated draw), so Batch 1 only checks the wiring in the source. Build a scenario
-where the room binds, or fix the computation, then add a behavioral parity test
-with a mutation check, and record the outcome in this batch's notes and in the
-"Batch 1" section of `docs/reference.md` (step 5 and the open items there).
+Moved to Batch 5 (spec 13.3): the tax-aware stock-account order, the two-return draw split (task B6) and
+tax-aware conversion sizing. The live-mix toggle keeps its old behavior (`pickLiveWithdrawalOrder`).
+
+**Carried from Batch 1, resolved:** the safe-MAGI room now has a behavioral test with a mutation check
+(`tests/cliff_guard.js` case 1: removing the cap, guard off, changes the result); the double-counted room is fixed
+(the cap uses `target - magiBase`, not `incomeRoom`). See the notes.
 
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
+
+**Redesign after 3C (owner decision 2026-10-06; spec section 11; runs after Batch 5).** Canada ports the US
+per-year solver and the Batch 5 outer search together, instead of a two-order live mix plus a port of
+`optimizeMultiLever`:
+- **4A:** move the scoring and candidate loop (`chooseYearPlan`, `afterTaxValue`, the dry-run primitives) into a
+  `shared/` fragment; Canada supplies its own kink list (OAS recovery threshold, GIS and Allowance cutoffs, CCB
+  bands, the age-amount range, the provincial lines in `BENEFIT_RULES`), its lambda inputs (RRIF minimums,
+  CPP/OAS, `personTaxCA` and the benefits through Canada's net `taxFor`) and TFSA as the zero-income source
+  (the US Roth slot, no basis ledger). Pension splitting (`solvePensionSplit`) runs before a draw is scored.
+- **4B:** port Batch 5's outer search over `m` (and its Apply refinement) with the RRSP meltdown as the
+  conversion lever. 4A and 4B may merge into one PR if the shared core makes 4B small.
+The text below is the pre-3C plan; keep its tests, hooks and interactions, read "live mix" as the solver's
+order choice and "the optimizer port" as the outer search.
 
 Prerequisite check before starting: how much of the withdrawal module is shared
 today. Phase 2 step 4.5 shared helpers only and left the year loops per-country,
@@ -527,8 +551,9 @@ so this batch may need to extract the mix code from `withdrawStandard` into a
 1. **Federal age amount and pension income credits: moved to Batch 7 (7J)**
    (owner decision; same machinery as the provincial credits). By the time this
    batch runs, `personTaxCA` already has them.
-   **Depends on 3C (now scheduled before this batch):** if 3C puts its stay-under-the-ceiling policy in a
-   shared fragment, the Canadian `incomeRoom` hook below reuses it for the OAS clawback and GIS limits.
+   **Depends on 3C and 5 (both before this batch):** 3C's solver is US-only code today; 4A moves its core
+   into a `shared/` fragment (see the redesign note above), and the Canadian `incomeRoom` hook below becomes
+   Canada's kink list for it (OAS recovery, GIS, age amount).
 2. **Mixed withdrawals** for taxable / RRSP-RRIF / TFSA using the shared module
    and these hooks: `penaltyFraction` always 0, `incomeRoom` = room under the
    OAS clawback threshold and, now that Batch 7 models it, the Guaranteed Income
@@ -585,9 +610,71 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 Run after the engine and tax model have settled, since objective values and
 timing both depend on them.
 
-**After 3C (now scheduled before this batch):** the ACA-cliff policy's parameter may become an optimizer lever.
-Solve any "Auto" choice once outside the optimizer and hold it fixed inside the search; running extra
-projections per evaluation would multiply the cost of the up-to-8,000-call search.
+**Redesign after 3C (owner decisions 2026-10-06 and 2026-10-07; spec sections 2, 11 and 13 to 13.3).** The
+optimizer's output becomes a **policy** (a few parameters every run follows: standard, historical, Monte Carlo),
+not an age-keyed schedule. Close to optimal and fast (seconds) beats exact; deterministic (fixed grids and
+candidates, no random starts).
+1. **Outer search over `m`** (lambda = `m x rateHat`, `SOLVER_LAMBDA_MULT` = 1 in 3C): full projections on the fast
+   path (a deterministic grid or golden-section, roughly 20-100 projections instead of 8,000), scored by the
+   Batch 5 objective. The candidates always include the user's current mode and `m = 0` ("never worse than your
+   current settings"), and **depletion is ranked first**.
+2. **Apply refinement:** the single-scenario Optimize -> Apply button searches per-phase multipliers (before 65,
+   65 to RMDs, RMD years); its result is always applicable (it starts from the live policy and keeps the best
+   found, so it cannot score worse on the standard projection). The card shows the historical and Monte Carlo
+   success rates for both, since the refinement can lose there.
+3. **Objective registry and wording:** items 2-4 below (lifetime tax, healthcare, ending net worth, legacy, IRMAA,
+   ACA subsidy, RMDs, balanced; "searches for a tax-efficient strategy").
+4. **Retire coordinate ascent and the age-keyed schedules:** `optimizeMultiLever`, `ROTH_PER_YEAR_*`, and
+   migrate or retire `appliedMixSchedule` / `appliedRothSchedule` (saved scenarios: `normalizeState` and
+   `tests/legacy_state.js`). Decide whether the full solver becomes the default.
+5. **The gap script becomes a guard:** `tests/solver_gap.js` (3C's gap table, below in the 3C notes) and
+   `tests/solver_scan.js` (the depletion sweep) run on every lambda-driven change.
+
+**Batch 5 owns all lambda-driven policy (spec 13.3, as written there):**
+- The stock-account order, the two-return draw split and conversion sizing (Notes 1 and 2), each behind the outer
+  search, which includes the user's current mode and `m = 0` as candidates and ranks depletion first. Its acceptance
+  tests are the tables in the 3C notes (13.3), the 5 households that ran out a year earlier, the conversions-on
+  interplay, and the two costs the yearly score cannot see:
+  - leaving more gains in taxable raises later MAGI and IRMAA;
+  - a finite step can cross an IRMAA tier.
+- The cliff guard stays on by default, unchanged. Batch 5 also looks at whether IRMAA stay-unders should remain
+  guard candidates (all of the guard's value losses), using the same scans.
+- 3C's remaining hard rules carry over: no snapshot scenario depletes earlier, guard-on never earlier than guard-off.
+
+**The three policies and their acceptance tests (moved from 3C):**
+- **Tax-aware stock-account order** (3C task B5, built and measured, not shipped). Replace `pickLiveWithdrawalOrder`'s
+  two-order rule and its `overage * 1e6` term with the plan's order choice (`chooseYearPlan` with
+  `orders: ['taxable', 'traditional']`, `wd.taxAwareOrder`, which the B3 primitives already carry). Accept only if,
+  against the default order over the 768-household grid per mode, it no longer depletes earlier (it did in 19, the 5
+  distinct households in the 3C notes), its losses shrink (p10 about -75k, -150k among plans that never run out,
+  worst -694k at 3C), and with conversions on it beats a coin flip on cost (107 dearer, 87 cheaper at 3C). Also
+  remove `remainingMagiRoom` with `pickLiveWithdrawalOrder`: it is built every year (`incomeRoom(magiSafeRoom,
+  conversionAmount)`) and forwarded through `withdrawStandard` / `drawMixedStockAccounts`, but it cannot change the
+  live mix's choice (3C notes, exploration finding 2), so it is dead wiring; `tests/historical_parity.js` checks the
+  wiring in the source and must change with it.
+- **Two-return draw split** (3C task B6, not built). In two-return years with no conversion, three dry runs: pro rata
+  (today), A first, B first (`wd.onlyPartner`, `profile.ownerShareA` 1 or 0; the pass-start reset to `ownerShareA0`
+  undoes it). Row field `drawSplit` ('A' / 'B', only when not pro rata). Acceptance test (from the B6 brief,
+  `tests/two_return_split.js`): B has a 90,000 pension and A none, both 60, filing single, 1M in each 401(k), cash 0,
+  spending 120,000: the split is 'A'; a conversion year is never split; a joint return is never split. Only tax-aware
+  two-return scenarios may move.
+- **Tax-aware conversion sizing** (3C task B5, first attempt, not shipped). Size the conversion by
+  `amount x lambda - tax now - premium change - IRMAA change` over the bracket tops, built to the two design notes:
+  - **Note 1, lambda's pool path includes the expected draws: done in 3C** (B5a, and B5b prices each sample on the
+    walk's own draws and on the year the pool runs out).
+  - **Note 2, a bridge check on conversions (still to build).** Before 59.5 (per owner, using the 3B statuses), a
+    conversion amount is allowed only while the penalty-free accessible money (taxable, cash, the taxable bond
+    reserve, Roth basis and seasoned conversions, penalty-free traditional) still covers the need for every year left
+    until 59.5 after the conversion's tax is paid. Larger amounts are not candidates.
+  - A hand-computed one-dollar conversion test pins the no-double-counting invariant (a converted dollar gains
+    `lambda`; this year's tax is subtracted once).
+  - Before it ships: the depletion sweep and the slow-reference gap table on conversion sizing, and "never worse than
+    your current settings" (the bracket conversion is always a candidate). The first attempt depleted 5 snapshot
+    scenarios earlier (3C notes, spec 13).
+  - The open item on `solveRothConversion`'s conservative deduction lower bound is decided here.
+
+Starting material kept by the owner/controller for Batch 5 (not committed): the B5 work-in-progress patches (the
+order choice and the first conversion attempt) and its test `tax_aware.js`.
 
 **Dependencies on Batch 7 (must be in place first):**
 - `row.tax` must include state tax and be net of the new credits (child tax
@@ -1192,7 +1279,9 @@ tax credit for anyone eligible for Medicaid, and none below 100% of FPL.
   the full premium when Medicaid is declined or the work requirement fails), the 2027 start. Note
   for 3C: the safe-MAGI room gains a floor, since a Roth conversion or gain harvest that lifts MAGI to
   100% (non-expansion) or past 138% (expansion, failing the work requirement) can be worth more than
-  the tax it costs. 3C decides the policy; O1 only prices it.
+  the tax it costs. 3C decides the policy; O1 only prices it. (Done in 3C: these lines are cliff-guard candidates
+  through `magiThresholds`; the fill-to-floor candidate fills to them. See "Cliffs register: what 3C reads" in the
+  3C notes.)
 - Effect: in the years it applies, the full couple premium (often $15,000-25,000 near 60) or $0
   instead of a few hundred dollars, in the low-MAGI years FIRE plans aim for.
 - Tests: new `tests/aca_medicaid.js` (hand-computed: expansion and non-expansion at 90%, 120%, 140%
@@ -1791,122 +1880,372 @@ mainly by shrinking the reserve (default: ceiling 92.9, (c) 100), and the non-ea
 decision (no code change) is unchanged. Caveat for every historical rate in this repo: with a long lifespan
 the historical run is thin and early-weighted; read it next to Monte Carlo.
 
-#### Batch 3C: exploration so far (no app code committed; V92)
+#### Batch 3C notes: per-year solver (US V112 -> V116; Canada untouched)
 
-**Handoff (session moved to a local clone).** Status: **deferred** (owner decision) to run after Batch 7 and
-before 4A and 5; nothing is built. When picked up, the owner answers the open design points below, then the
-real change is built as one isolated number-change commit. Branch `claude/batch-3b-penalty-rules` holds
-steps 1-6 of 3B plus these notes; 3B's PR should be split from the 3C notes and prototype so 3B can merge
-without them.
+Reference text for the finished batch. Design: `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md`
+(sections 1-12 approved 2026-10-06; amendments 13 to 13.3, 2026-10-07). Plan:
+`docs/superpowers/plans/2026-10-06-per-year-solver-3c.md`. Commits on `claude/batch-3b-penalty-rules`: Rule of 55 PR
+(cdac738 V113, 24f6585 V114), then B1 43a166b (V115), B2 2497856, B3 5de23a1, B4 c54ac72 (V116), B5a 0e664d6,
+B5b b5b7878, B5 3b2b854 (refactors only), B7 (these notes and the measurement scripts). B6 was not built (moved to
+Batch 5). Every number below was measured with the clock pinned to 2026-06-15 in Chromium via Playwright.
 
-Branch: still `claude/batch-3b-penalty-rules` (the session's designated branch); the 3C commits can be split
-off later. Everything below was measured with throwaway edits in a scratch worktree (US, `simulate()`, 2026
-tax year, ACA on and not enhanced, Texas, no conversions, no bond reserve).
+##### Decisions (owner)
 
-**Why the safe-MAGI room never had a behavioral test (answered).** Two separate reasons.
-1. *Double counting.* The engines pass `remainingMagiRoom = ceiling - preConvMagi - conversion`, and
-   `preConvMagi` already contains the MAGI iteration's estimate of this year's own draw (`estTrad + estGain`).
-   `pickLiveWithdrawalOrder` then compares the whole draw (`taxableGain + fromTraditional`) against that
-   already-reduced room. The right room for a draw is `ceiling - magiBase - conversion` (the draw's own
-   estimate excluded). With that fix alone, 972 scenarios (single and married, ages 52/58/62, taxable
-   $0.3-2M, traditional $0.5-1.5M, basis 20/60/90%, spending $60-130k, live/smooth/default) still gave
-   identical results.
-2. *The live mix cannot lower MAGI.* Its two orders are taxable-first and traditional-first. A traditional dollar
-   counts one for one in MAGI; a taxable dollar counts only its gain share. So taxable-first never has more MAGI
-   than traditional-first, and the overage term can never favor traditional-first. The only zero-MAGI source is
-   Roth (and cash/bonds principal), which the live mix deliberately leaves alone. A behavioral test for the room
-   needs a rule that actually steers MAGI-bearing draws toward Roth, which is what the 3C text asks for.
+From the spec, section 2 (2026-10-06):
+1. The optimizer's output is a **policy** (a few parameters every run follows), not an age-keyed schedule. Close to
+   optimal and fast beats exact.
+2. The single-scenario Optimize -> Apply may run a deeper search; its result is always applicable and the card shows
+   both success rates (Batch 5).
+3. Deterministic results (fixed grids and candidates, no random starts).
+4. lambda is estimated per year from each path's own balances, times a multiplier `m` the outer search tunes
+   (`m = 1` in 3C, `SOLVER_LAMBDA_MULT`).
+5. Order: Rule of 55 PR -> 3C -> 5 -> 4A -> 4B -> 6 -> 8.
+6. Mode scope: the cliff guard in every mode; the full solver opt-in behind the live-mix toggle (superseded by 13.3:
+   the full solver moved to Batch 5).
+7. lambda averages three sample future years (the first RMD year, a midpoint, a late survivor year).
+8. Performance gate: +5% for households with no cliff in reach, up to +30% with one in reach.
+9. New checkbox "Cliff guard", on by default, old saves included (`trueUnlessFalse`).
+10. The Rule of 55 per-partner election and the Partner B 72(t) field fix ship as a separate PR first.
+11. Discounting IRMAA for its two-year lag goes to the backlog (Open items).
 
-**Prototype: cap the MAGI-bearing draw at the room.** In `takeTraditional`, limit a (non-penalized) traditional
-draw to `room - discretionary traditional so far - taxable gains so far`, with the corrected room; the shortfall
-falls to Roth, cash and the bonds through the existing fallbacks, and a last uncapped traditional pass runs just
-before home equity so the cap can never strand money or cause depletion. Smooth and the applied/override schedules
-go through the same `takeTraditional`, so they are covered; the live mix was not yet changed. Result across the
-same 972 scenarios (standard engine), counting scenarios whose results moved:
+Amendments (2026-10-07): section 13, conversion sizing moves to Batch 5; 13.1, Note 1 (lambda's pool path net of
+draws) built in 3C as B5a; 13.2, lambda prices the walk's own draws and two-return IRMAA per person (B5b); 13.3, the
+tax-aware order and the two-return draw split (B6) move to Batch 5, B5 ships refactors only. Details below.
 
-| Mode | Scenarios that moved | Ending investable assets higher / lower (> $1,000) | Depletes later / earlier |
+##### Exploration findings that shaped the design (before 3C was built)
+
+- **Why the safe-MAGI room never had a behavioral test** (the Batch 1 open item). (1) *Double counting:* the engines
+  pass `remainingMagiRoom = ceiling - preConvMagi - conversion`, and `preConvMagi` already contains the MAGI
+  iteration's estimate of this year's own draw; `pickLiveWithdrawalOrder` then compares the whole draw against that
+  already-reduced room. The right room is `ceiling - magiBase - conversion`. (2) *The live mix cannot lower MAGI:*
+  its two orders are taxable-first and traditional-first, and taxable-first never has more MAGI, so the
+  `overage * 1e6` term can never favor traditional-first. Only Roth (and cash or bond principal) is zero-MAGI money.
+- **Prototype cap** (`docs/batch-3c-prototype/`, 972 scenarios, standard engine): capping the traditional draw at the
+  corrected room moved 274 smooth scenarios (194 higher, 3 lower, 42 later, 0 earlier) and 112 default ones (41
+  higher, 24 later, 0 earlier). Crossing a cliff costs a fixed lump while staying under costs more the further over
+  the draw is, so a hard cap is not always right; that led to the priced, per-year decision.
+
+**Batch 1 open item, closed.** The MAGI room now has a behavioral test with a mutation check: `tests/cliff_guard.js`
+case 1 (and 1b): just over the 400% line the guard stays under and keeps the credit; removing the cap (guard off)
+changes the result (case 1 failed before B4: "guard on stays under (62898.4)"). The double-counted room is fixed: the
+cap's limit is the line less `magiBase` (the year's MAGI before any discretionary draw), never `incomeRoom`, so the
+iteration's own draw estimate is not subtracted twice. (`remainingMagiRoom` itself is unchanged and still cannot
+move the live mix: dead wiring, removed in Batch 5 with `pickLiveWithdrawalOrder`.)
+
+##### B1: per-return MAGI in two-return years (V115)
+
+Two returns = an unmarried couple, or before a marry-later wedding. ACA is priced per tax household (A's household
+includes the children; half the premium each against their own poverty line); IRMAA per person on the single tiers
+whenever the lookback year had two returns; `conversionMagiCeiling` keeps each return under its own lines. Joint
+returns are unchanged. 4 US snapshot scenarios moved (2 only by the new `magiA` / `magiB` row fields); the UI MCP
+fixture's depletion moved 74 -> 75; `tests/historical_rates.js` identical.
+
+| Scenario, year | | Before | After |
 |---|---|---|---|
-| Smooth | 274 | 194 / 3 | 42 / 0 |
-| Default (taxable then traditional) | 112 | 41 / 0 | 24 / 0 |
-| Live mix | 0 (not wired) | | |
+| MCP fixture (filing-single couple, ACA), year 13 (A 61, B 56) | healthcare | 28,239.73 | 22,365.60 |
+| | MAGI | 211,280.83 household, over the household 400% line | A 82,788.38 (subsidized) + B 120,870.14 (over B's line) |
+| std R filing single, year 13 (A 65, B 63) | healthcare | 23,112.64 | 21,964.24 (-95.70 x 12) |
+| | lookback MAGI | 151,801.6 household on the single tiers (tier 1) | A 76,303 / B 75,499, each under the first single tier |
 
-The mechanism is the ACA 400%-FPL cliff (the IRMAA tier ceiling is also in the room): without the cap a year that
-lands a little over the line loses the whole premium credit. The 3 worse smooth cases are married, age 52 or 58,
-$2M taxable and $0.5M traditional, ending about $0.1M lower of about $16-20M (an earlier Roth draw forgoes
-tax-free growth).
+##### B4: the cliff guard (V116)
 
-**Open design points (owner)**, to settle before building the real change:
-1. Hard cap for both ceilings, or only for the ACA cliff? The IRMAA ceiling is a soft cost assessed two years
-   later, so capping at it spends Roth earlier for a smaller, delayed saving.
-2. Fallback order after the cap: Roth first (the prototype), or cash and bond-reserve first?
-3. Live mix: replace its `overage * 1e6` term with the same cap (it never changes the choice today).
+Mechanism (CLAUDE.md, "Per-year solver"): in a withdrawal year (`flow < 0`) with a federal line in reach,
+`chooseYearPlan` dry-runs the year's real withdrawal on clones for the natural draw, a cap just under the nearest line
+at or below its MAGI (only if the natural draw took traditional money, and it counts only if its realized MAGI is at
+most the target + 1) and a fill just over the nearest **floor** above (premium plus IRMAA lower just over than just
+under; only with penalty-free traditional money). Each is scored by `afterTaxValue` (traditional at `1 - lambda`,
+embedded gains at `tauGain`) less the premium change and the IRMAA charged two years on; the natural draw is kept
+unless another beats it by more than $1. The plan is chosen on MAGI pass 0 and held; the bond reserve's traditional
+draw is never capped (cash and bonds keep their place). Skip rule: no line in reach, no solver work.
 
-**Reframing (brainstorm with the owner; design direction, nothing built or measured yet).** The hard cap in the
-prototype assumes staying under the ACA cliff is always worth it. It is not. Crossing the cliff costs a fixed
-lump (the whole premium credit, whether $1 or $100k over). Staying under costs an amount that grows with the
-overshoot, because every MAGI-bearing dollar steered to Roth is spent earlier. A high-expense household can
-therefore do better by crossing. The 3 worse smooth cases above are the early sign of this.
+Departures from the plan's code, accepted at review: fill only to a floor (the plan's "fill to any line" moved 317
+snapshot scenarios and depleted 10 earlier); the bond reserve uncapped (capping it sold stocks at the bottom in down
+years and depleted 5 scan households earlier); IRMAA priced as charged (two years on, that year's partners, filing
+and tiers grown at plan inflation), with the lines at this year's edges.
 
-Why per-year pricing was dropped. A per-year comparison needs a growth rate and a "later tax rate on traditional
-money". The growth rate cancels (traditional left behind compounds at the same rate as Roth), so what remains is
-the later tax on traditional. A fixed constant cannot capture it: leftover traditional money is forced out by
-RMDs (73 or 75), stacks on Social Security, and can push MAGI into higher brackets and IRMAA, whereas Roth has no
-RMDs and stays a zero-MAGI source for later cliff years. `simulate()` already models all of that year by year, so
-the later cost does not need estimating; two whole-plan runs can be compared instead.
+Snapshots vs 5de23a1: 476 identical, 8 row-field-only (`lambda`), 34 moved: 23 end higher, 0 lower, 11 deplete in
+both (6 later, 5 same age), 0 earlier. `tests/historical_rates.js` identical. First moved year of `std R aca`
+(age 62): MAGI 185,778 -> 108,294; healthcare 25,452 -> 10,786; tax 16,998 -> 6,723; traditional drawn 147,376 ->
+69,892; Roth drawn 0 -> 52,543; year-end total 1,847,342 -> 1,872,283 ("stayed under ACA 400% line", lambda 0.230).
+In Texas, with the guard off, the MAGI iteration can settle on the high fixed point of the 400% cliff while a lower
+self-consistent one exists (cliff_guard case 1); the guard finds the low one.
 
-Direction chosen (a first version; the owner expects to refine it later, see "Refinement later"):
-- A first plain version was a single plan-level on/off switch, decided once and applied to every run. The owner
-  rejected that as too coarse: in the historical and Monte Carlo runs the right answer changes with an up or a
-  down year (a down year raises spending and the overshoot, which favors crossing).
-- Instead the decision is made **per year inside the engine**, and the plan level only chooses a parameter.
-  One function, `stayUnder(yearState, policy)`, decides whether this year's draw is capped. It is the only
-  place the decision lives: in the prototype it replaces the line that builds `wd.magiCap`
-  (`wd.magiCap = stayUnder(...) ? {room, ...} : null`), so later refinements replace only that function. Put it
-  in a `shared/` fragment so Canada (4A) can reuse it.
-- Rule: each year compute the overshoot (the MAGI-bearing draw that does not fit under the room, i.e. the amount
-  that would have to come from Roth, cash or bonds to stay under) and the subsidy at stake (price crossing with
-  `acaNetCost` at that year's MAGI). Stay under only if `subsidyLost >= k * overshoot`, where `k` is the value of
-  keeping one dollar out of Roth. `k = Infinity` is Always, `k = 0` is Never, values between are the middle.
-- Auto searches for the best `k` on the standard projection, by comparing runs (depletion age first, then ending
-  wealth; leftover traditional balance valued with a flat terminal tax haircut, which the owner agreed is fine as
-  a tie-breaker because it only separates plans that do not deplete). The chosen `k` is then applied to the
-  historical and Monte Carlo runs, where the per-year rule adapts to each path's own sequence.
-- Setting: "Stay under ACA cliff: Auto / Always / Never", Auto as the default.
-- Cost: a handful of standard projections (one per candidate `k`) per render, solved once and held fixed inside
-  the optimizer (see Batch 5).
+##### Section 13: the B5 conversion finding and decision
 
-Refinement later (owner: handling can be modified once this is in place and measured):
-- Replace or enrich `stayUnder` without touching the engine: a per-year `k`, `k` varying with age or years left,
-  a threshold lever the multi-lever optimizer sweeps, or pricing IRMAA and the Batch 7 cliffs directly in the same
-  rule instead of treating the ceiling as a single number.
-- Use the plan-derived later tax rate on traditional money, or a "value of a zero-MAGI reserve" term, if the flat
-  terminal haircut turns out to matter.
-- Open risk: the year's MAGI estimate moves with the decision, so the decision and the MAGI iteration
-  (`MAGI_ITER_MAX`/`TOL`) can interact near the cliff; the convergence check on a cliff-straddling case is
-  required, and `k` needs a sensible search grid.
+B5 as first built sized conversions in tax-aware mode by `amount x lambda - tax now - premium change - IRMAA change`.
+Five snapshot scenarios then depleted earlier than at c54ac72: `std R rothConv+aca+live` 95 -> 88, `hist R everything
+real1929` 91 -> 89, `real1966` 88 -> 87, `real1973` 87 -> 85, `rich crashFirst` never -> 97. The order choice alone
+moved 29 and depleted none earlier. `m` = 0.9, 0.8 or 0.7 still left five scenarios a year or two earlier.
+- Not the cause: double counting (a converted dollar gains `lambda`; this year's tax is subtracted once).
+- Cause 1, lambda's pool path ignored draws: the pool grew untouched (900k became 2.4M, 3.9M and 6.0M across the
+  samples; the survivor sample alone 0.368; lambda 0.284).
+- Cause 2, the score values wealth, not when it can be spent: before 59.5 a converted dollar is locked for five years
+  while the tax comes out of taxable, the bridge money (52 and 53: 435k and 446k converted, about 218k of tax from
+  taxable, the ACA credit lost; taxable empty by 57, then penalized draws and depletion).
+- Decision: conversions keep the bracket setting (capped by the safe-MAGI ceiling) in every mode; Batch 5 owns
+  tax-aware conversion sizing, built to Note 1 (pool path net of expected draws) and Note 2 (a bridge check before
+  59.5). See the Batch 5 section.
 
-Effect on the open points above:
-- Point 1 (both ceilings or ACA only) mostly goes away. IRMAA tiers sit well above the ACA cliff (checked in
-  `conversionMagiCeiling`: the ceiling is the `min` of the two, and IRMAA only enters from age 63), so before 65
-  the ACA term is the binding one and IRMAA binds only at 65+ where ACA no longer applies. Exceptions: a couple
-  with one partner 65+, and ages 63-64. Note `irmaaTierCeiling(preConvMagi)` is the top of the tier the
-  pre-conversion MAGI currently sits in, so the ceiling can move when the cap changes MAGI; check for that
-  circularity when building.
-- Point 2 (Roth first, or cash and bonds first) is still open. Roth is the most valuable pocket to keep (no
-  RMDs); cash and bonds are the sequence-risk reserve.
-- Point 3 (live mix) is still open; the live mix would call the same `stayUnder` instead of its `overage * 1e6`
-  term.
+##### Section 13.1: the second finding; Note 1 built as B5a
 
-Measurement before building: Auto against Always and Never over the same 972 scenarios, plus high-spending cases
-where crossing should win, and historical paths with bad early sequences, to see how often crossing actually
-wins and whether Auto beats Always by enough to justify the extra explanation. Run it on the post-Batch-7 tax
-model. Extend `docs/batch-3c-prototype/scan.js` for this (throwaway).
+B5 order-only had clean snapshots (473 identical, 16 field-only, 29 live-mix movers, no depletion age changed), but
+the B7 grid scan (768 households per mode; first reported as 384) showed tax-aware mode depleting 1 to 3 years earlier
+than c54ac72's tax-aware mode in 36 households (35 with the guard off), and earlier than the default order in 40 (the
+old live mix: 4). Example: single, 58, lambda 0.311, 17,155 of tax and the ACA credit lost, runs out at 83 instead of
+84. B5a (0e664d6) walks the pool forward from now in real dollars, `pool = max(0, pool x (1 + real) - tradShare x
+max(0, need - benefits started since now))`, `need = -flow`, `tradShare` = traditional's share of investable money.
 
-The prototype diff and scan script are committed under `docs/batch-3c-prototype/` (throwaway, see its README).
-This is an intended number change: when built it needs its own commit with
-before/after, `npm run snapshot:update`, a behavioral test with a mutation check, the bucket engine (down and up
-year orders, the penalty-aware paths), a MAGI-iteration convergence check on a cliff-straddling case, the
-optimizer re-run note, the US badge bump and the README.
+B5a before/after (snapshots vs c54ac72): 852 identical, 27 lambda-only, 14 moved, all in guard years; none earlier
+(two later: `hist R aca sawtooth` 84 -> 85; three ends lower in face value, the largest -627k of 92.1M in `hist R
+everything boom`). Re-run scan: tax-aware earlier than c54ac72 in 3 runs (one household), guard-on never earlier
+than guard-off. But 2 guard-on households (two returns, 58, 1.5M / 300k / 130k, 72(t); smooth and tax-aware)
+depleted 84 -> 83 against c54ac72: the walk drained the pool before the RMD samples, so lambda fell to about 0.
+
+##### Section 13.2: the third finding; B5b
+
+The 3 remaining runs were one household: two returns, both 62, 1.5M traditional, 300k taxable, 200k Roth, 130k
+spending, ACA on, Texas; lambda 0.494 and 0.444, traditional-first (MAGI 206k instead of 119k, tax 25,492 instead of
+0, healthcare 18,000 instead of 11,859), out at 93 instead of 94.
+- Cause A, a bug: `lambdaEstimate`'s IRMAA step for a two-return couple used the household MAGI on the single tiers
+  and charged it twice (per person it is 0; lambda would be about 0.22-0.25).
+- Cause B: each sample priced only the RMD although the walk assumed `tradShare x need` a year.
+- B5b (b5b7878): IRMAA per person for two-return samples; each sample prices `max(RMD, min(pool, draw))` and moves to
+  the year the walk empties the pool; the walk's need leaves out this year's lump expenses.
+
+B5b before/after (vs 0e664d6): 477 identical, 38 lambda-only, 3 moved (`hist R rothConv+aca mc1` same depletion 84;
+`hist R single rich flat` -1,081 of 1.44M; `rich real1929` -84,580 of 7.06M), no depletion age changed. Scan (guard
+on, vs c54ac72): 70 changed, 9 later, 0 earlier; B5a's two earlier households back to 84. Informational: hoh, 58,
+1.5M / 300k / 130k, smooth, Rule of 55 depletes at 76 (B5a 77; 76 is its c54ac72 and guard-off age).
+
+##### Section 13.3: measurements at B5b and the fourth decision
+
+768 households per mode (grid: `tests/solver_scan.js` header). "Equal" means within $1,000. Value is the ending
+after-tax value with a flat 22% haircut on traditional money; cost is lifetime real tax plus healthcare.
+
+| Comparison | Value better / equal / worse | Cost better / equal / worse | Depletion later / same / earlier |
+|---|---|---|---|
+| Tax-aware order vs default order | 227 / 401 / 140 | 232 / 367 / 169 | 0 / 749 / 19 |
+| Guard on vs off, default order | 43 / 713 / 12 | 98 / 649 / 21 | 21 / 747 / 0 |
+| Guard on vs off, smooth withdrawals | 227 / 488 / 53 | 202 / 456 / 110 | 33 / 735 / 0 |
+| Guard on, b5b7878 vs c54ac72, default order | 6 / 746 / 16 | 25 / 716 / 27 | 5 / 763 / 0 |
+
+- **The tax-aware order.** Where it changes a result, it is better about 60/40, but it never lets a plan last longer,
+  and its losses are large (10th percentile about -75k, -150k among plans that never run out, worst -694k). They fall
+  on the same kind of household as its gains: early retirees with large taxable balances.
+- **With conversions on, the order is worse than a coin flip on cost** (107 dearer, 87 cheaper against the default
+  order). The yearly choice does not see that the bracket conversion has already used the cheap room.
+- **Without a plan-level check it is not reliable enough to ship, even marked experimental.**
+- **The cliff guard is sound.** It never makes a plan run out earlier, it often lets one last longer, and it helps
+  clearly with smooth withdrawals. Its value losses are small (largest about -29.5k on a 5.1M plan) and all come from
+  IRMAA stay-unders.
+- **The B5a/B5b lambda changes barely moved the guard.**
+
+Decision: B5 ships refactors only (`solveRothConversionTo`; the healthcare-cost block before the conversion; the
+lifted `irmaaAt` / `lambdaOf` closures), snapshots identical to b5b7878 (893 scenarios, 0 differ; the conversion path
+compared on 84,096 rows, 0 differ). The live-mix toggle keeps its old behavior, label and info tip; the plan's
+`orders` stays `[null]`. B6 moves to Batch 5. Batch 5 owns all lambda-driven policy (its requirements and acceptance
+tests are in the Batch 5 section). The cliff guard stays on by default, unchanged.
+
+The 5 households in which the tax-aware order ran out a year earlier than c54ac72 (13 runs over the elections axis;
+Batch 5 acceptance cases): single 58, trad 500k, taxable 2M, 130k, no conversions 90 -> 89; single 66, 1.5M / 300k /
+130k, no conversions 86 -> 85; HoH 58, 500k / 2M / 130k 91 -> 90; HoH 62, 500k / 300k / 60k, conversions on 95 -> 94;
+HoH 66, 1.5M / 300k / 130k, conversions on 86 -> 85. Two worked causes: (1) single 66: lambda 0.284 from samples at
+0.425 whose 10% step (9,983) crosses an IRMAA tier (+1,736 on 2,510 of tax), so traditional-first wins at about 21%
+now (MAGI 105k -> 219k, tax 4.6k -> 39.6k); (2) single 58: lambda 0.222 picks 47.5k traditional-first at 60 (about 15%
+now), and the larger gains left in taxable raise MAGI by 2-4k a year to 77 and IRMAA about 1.7k a year at 67-72; the
+gap grows from 7k to 70k by 85.
+
+**Tax-aware order metrics at B5b** (the uncommitted B5 order-only tree; A = tax-aware, guard on; B = default order,
+guard on; C = c54ac72's tax-aware mode, guard on; from `task-B5-metrics.md`):
+
+| A vs B | n | Value better / equal / worse | Value p10 / median / p90 | Neither depletes: n, p10 / median / p90 |
+|---|---|---|---|---|
+| conversions off | 384 | 134 / 186 / 64 | -42,522 / 0 / +206,609 | 256: -66,335 / +15,875 / +238,249 |
+| conversions on | 384 | 93 / 215 / 76 | -143,251 / 0 / +175,348 | 257: -178,409 / 0 / +244,478 |
+| combined | 768 | 227 / 401 / 140 | -74,961 / 0 / +191,549 | 513: -150,680 / 0 / +242,551 |
+
+| A vs B | Cost better / equal / worse | Cost p10 / median / p90 | Depletion later / same / earlier |
+|---|---|---|---|
+| conversions off | 145 / 177 / 62 | -73,092 / 0 / +11,416 | 0 / 374 / 10 |
+| conversions on | 87 / 190 / 107 | -43,887 / 0 / +13,824 | 0 / 375 / 9 |
+| combined | 232 / 367 / 169 | -65,400 / 0 / +13,445 | 0 / 749 / 19 |
+
+A vs C (combined): value 239 / 392 / 137 (p10 -74,822, p90 +202,092), cost 253 / 335 / 180, depletion 3 / 752 / 13.
+Largest losses by value (A vs B): MFJ 58, 401(k) 250k + 250k, taxable 2M, 60k, Rule of 55, conversions on -693,952;
+single 58, 1.5M / 300k / 60k, conversions on -521,044. Largest gains: two returns 58, 750k + 750k, taxable 2M, 130k,
+conversions on +635,067; MFJ 52, 750k + 750k, taxable 2M, 60k +616,620 (cost -172,748).
+
+**Guard metrics at B5b** (tax-aware off in every run; from `task-B5-guard-metrics.md`; re-measured at the 3C tip by
+`tests/solver_scan.js`, identical to the dollar). Inert check: guard-off default order identical to c54ac72 in 768 of
+768 households.
+
+Guard on vs off, default order:
+
+| Subset | Value better / equal / worse | Value p10 / median / p90 | Cost better / equal / worse | Cost p10 / median / p90 | Depletion later / same / earlier |
+|---|---|---|---|---|---|
+| conversions off | 20 / 358 / 6 | 0 / 0 / 0 | 56 / 319 / 9 | -4,478 / 0 / 0 | 16 / 368 / 0 |
+| conversions on | 23 / 355 / 6 | 0 / 0 / 0 | 42 / 330 / 12 | -3,056 / 0 / 0 | 5 / 379 / 0 |
+| combined | 43 / 713 / 12 | 0 / 0 / 0 | 98 / 649 / 21 | -3,454 / 0 / 0 | 21 / 747 / 0 |
+
+Among the 510 households where neither run depletes: value 40 / 458 / 12, cost 38 / 458 / 14. Value losers (12) all
+"stayed under IRMAA tier"; winners (43): ACA 400% line (34), IRMAA tier (15), filled to the 100% credit floor (4).
+Largest loss: HoH 52, 1.5M / 2M / 130k, -29,502 of 5.13M (IRMAA stay-unders x6). Largest gain: MFJ 52, 750k + 750k /
+300k / 60k, 72(t), +588,818 (ACA 400% x5). Largest cost gain: HoH 52, 500k / 300k / 60k, -63,160, and the plan lasts
+to 73 instead of 71 (filled to the ACA credit floor x2; the single person: -63,029, 72 instead of 71).
+
+Guard on vs off, smooth withdrawals:
+
+| Subset | Value better / equal / worse | Value p10 / median / p90 | Cost better / equal / worse | Cost p10 / median / p90 | Depletion later / same / earlier |
+|---|---|---|---|---|---|
+| conversions off | 121 / 247 / 16 | 0 / 0 / +180,581 | 108 / 216 / 60 | -13,022 / 0 / +3,784 | 24 / 360 / 0 |
+| conversions on | 106 / 241 / 37 | -430 / 0 / +129,955 | 94 / 240 / 50 | -13,982 / 0 / +2,151 | 9 / 375 / 0 |
+| combined | 227 / 488 / 53 | -45 / 0 / +157,235 | 202 / 456 / 110 | -13,808 / 0 / +3,087 | 33 / 735 / 0 |
+
+Value losers (53): IRMAA tier (51), ACA 400% line (6). Largest loss: HoH 52, 1.5M / 2M / 130k, conversions on,
+-155,790 (cost +90,114; IRMAA x14). Largest gain: HoH 58, 1.5M / 300k / 60k, Rule of 55, +849,577 (ACA 400% x7).
+
+Guard on, b5b7878 vs c54ac72 (what B5a/B5b changed in the guard), default order: value 6 / 746 / 16, cost 25 / 716 /
+27, depletion 5 / 763 / 0 (all p10 / median / p90 0); smooth: value 68 / 646 / 54, cost 46 / 654 / 68, depletion 5 /
+763 / 0. Largest default-order loss: HoH 58, 1.5M / 300k / 60k, conversions on, -37,358 (IRMAA stay-unders x6 instead
+of x2).
+
+##### The sweep at the 3C tip (`tests/solver_scan.js`)
+
+`node tests/solver_scan.js` at B7 (3b2b854 plus the test hook) prints exactly the two guard tables above (all 18
+subset rows identical to the B5b guard metrics; summary: default order value 43 / 713 / 12, cost 98 / 649 / 21,
+depletion 21 / 747 / 0; smooth value 227 / 488 / 53, cost 202 / 456 / 110, depletion 33 / 735 / 0), matching the 13.3
+table rows 2 and 3. Exit 0: no household depletes earlier with the guard on. Run time about 20 s (3,072 projections
+plus account traces).
+
+##### Gap table: where 3C leaves Batch 5 (`tests/solver_gap.js`)
+
+Shipped engine (cliff guard on, default order, conversions at the plan's 22% bracket from now to 74) against a slow
+reference: `optimizeMultiLever` (per-year Roth bracket, per-year mix, smooth on/off; 6 starts, 5 passes) with a
+200,000-evaluation budget (`window.__test_setOptimizerBudget`), on short plans (life expectancy 75). Objective: the
+optimizer's own lifetime real tax + healthcare. A positive gap means the shipped engine costs more.
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | After-tax end value, real: shipped / ref | Converted: shipped / ref | Depletion shipped / ref | Ref smooth | Reference evals | Seconds |
+|---|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 432,616 | 481,749 | 254,143 | 70.23% | 1,811,471 / 1,934,394 | 162,082 / 113,834 | never / never | off | 15498 | 24 |
+| couple 62, IRMAA (CA) | 630,193 | 630,183 | 228,885 | 175.33% | 3,908,167 / 4,038,069 | 1,189,760 / 0 | never / never | on | 5116 | 5 |
+| couple 58, trad-heavy, ACA (NY) | 631,928 | 681,895 | 349,377 | 80.87% | 2,064,288 / 2,332,972 | 1,191,735 / 92,295 | never / never | on | 9816 | 17 |
+
+Reading: none of the three runs hit the budget, so the reference is the coordinate ascent's own optimum. Most of the
+gap is conversion sizing: the reference converts much less (none in the IRMAA couple) and the shipped run converts to
+the 22% bracket every year; the reference also wins on the after-tax end value with a 22% haircut, so the gap is not
+only the objective ignoring the tax left on traditional at 75 (it does ignore it; short plans favor not converting).
+The guard's own share is visible in the guard-off column (ACA single -49k, ACA couple -50k, IRMAA couple +10). This is
+the Batch 5 starting point (outer search over `m`, conversion sizing with Notes 1 and 2), not a gate.
+
+##### Timing
+
+Interleaved, one process, medians (the bench_runs workload: 400 `simulate()` + 120 historical runs per state, 11
+rounds; `tests/bench_solver.js`, 15 rounds), the 3C tip (3b2b854 plus the B7 test hook) against each base. The bench_runs
+workload has no cliff in reach (it computes no lambda), so it is the +5% gate; the ACA early retiree (CA) and its
+historical path are the +30% gate.
+
+| Workload (std / hist, % change) | vs c54ac72 (B4) | vs b5b7878 (B5b) | vs 24f6585 (pre-3C, record) |
+|---|---|---|---|
+| tx | -2.1 / 0.0 | +1.6 / +1.9 | +4.0 / +7.7 (21 rounds: +5.7 / +7.8) |
+| ca | -0.4 / -3.7 | +0.7 / +2.6 | +8.6 / +2.5 (21 rounds: +3.4 / +2.6) |
+| ny | +1.4 / 0.0 | +1.7 / +2.4 | +1.4 / +2.4 (21 rounds: +1.4 / 0.0) |
+| pa | +1.8 / +1.3 | -1.1 / +1.3 | +3.4 / +2.7 (21 rounds: +1.5 / +2.7) |
+| ct | -0.8 / -3.6 | -1.1 / -1.9 | +2.5 / +1.0 (21 rounds: +1.7 / +2.9) |
+| wa | +0.5 / 0.0 | 0.0 / -1.6 | +2.9 / +5.0 (21 rounds: +1.9 / +3.3) |
+| ACA early retiree (CA), simulate / path | 2.80 -> 2.70 ms (-3.6%) / 2.65 -> 2.75 ms (+3.8%) | 2.84 -> 2.72 (-4.2%) / 2.70 -> 2.65 (-1.9%) | 2.46 -> 2.80 (+13.8%) / 2.45 -> 2.65 (+8.2%) |
+| Default household, simulate / path | 1.18 -> 1.24 (+5.1%, timer quantized at 0.05 ms) / 0.0% | 0.0% / -5.3% | +5.1% / 0.0% |
+
+Gates (against c54ac72 and b5b7878, as the amended B7 brief sets them): pass, every bench_runs state within +5% and the
+ACA case within +30%. Against the pre-3C tip (record only), the ACA case is +14% / +8% (inside +30%), and the
+no-cliff workload is within +5% everywhere except Texas, the cheapest state per `taxFor` call, where the fixed per-year
+cost added across B1-B5 (the two-return test, the `runWithdraw` closure, the guard's line check, the per-pass
+`irmaaAt` / `lambdaOf` setup) shows as +5.7% / +7.8% over 21 rounds; each step was within +5% of its own base.
+`tests/bench_runs.js` (sequential, the record; +-10% noise between runs on this machine): 3C tip tx 226 / 64, ca 294 /
+81, ny 320 / 89, pa 290 / 76, ct 370 / 106, wa 222 / 67 ms; 24f6585 in the same session tx 206 / 57, ca 273 / 75, ny
+311 / 84, pa 279 / 74, ct 359 / 103, wa 216 / 61 (at the start of PR 2: tx 207 / 57, ca 266 / 76, ny 294 / 83, pa 264 /
+75, ct 337 / 99, wa 212 / 60). Per-task records: B3 worst +3.6% (TX hist); B4 bench_runs +0.6% to +4.9%, ACA +9.5% to
++17.2% / +8.0% to +10.0% (before the skip-path work it was +41% / +32%); B5a ACA +1.4% to +2.2%; B5b ACA -3.5% vs
+B5a, +7.2% vs c54ac72; B5 0% to +2.3%, ACA -8%.
+
+##### Success rates (`tests/historical_rates.js`, seed 7, 2,000 paths)
+
+Identical before and after 3C: `node tests/historical_rates.js` at the 3C tip gives byte-for-byte the output measured at the
+start of PR 2 on 24f6585 (every US and Canada row; for example US default 85.4% historical / 86.1% Monte Carlo, early
+retiree 90.6% / 88.6%, low-MAGI CA 100.0% / 99.5%, PA early retiree 50.9% / 61.8%). The guard does not change a draw in
+any of its scenarios (B1 and B4 also found them identical).
+
+##### Optimizer re-run (spec section 7: "re-run today's optimizer once on the new engine")
+
+`optimizeMultiLever` (Roth + mix + smooth, the shipped 8,000-evaluation budget) against the shipped engine (guard on, default
+order), lifetime real tax + healthcare:
+
+| Scenario | Shipped engine | Optimizer | Evaluations | Time |
+|---|---|---|---|---|
+| Default | 1,325,040 | 1,254,962 (-5.3%) | 8,003 (budget hit) | 8.1 s |
+| Default, conversions on | 1,325,407 | 1,254,962 (-5.3%) | 8,003 (budget hit) | 9.1 s |
+| ACA early retiree (CA; both run out at 55) | 752,069 | 749,910 (-0.3%) | 5,628 | 21.4 s |
+
+The optimizer's schedules still beat the shipped engine on its own objective (as the slow reference does in the gap
+table), mostly through per-year conversion brackets; the tax-aware solver they were to be compared against was not
+shipped (13.3). `node test_multi_lever_optimizer.js`: 31 passed. One `simulate()` of the ACA case is now about 2.7 ms
+(the spec measured 12.9 ms and a 208 s search at bb798d4), so its full search now takes 21 s.
+
+##### IRMAA stay-unders (note for Batch 5)
+
+Every value loss of the guard in the default order comes from "stayed under IRMAA tier" (12 households, largest
+-29.5k on a 5.1M plan), and most in smooth mode (51 of 53). IRMAA is priced in the year that causes it, undiscounted,
+as charged two years on (that year's partners on Medicare, filing status and tiers grown at plan inflation); the lines
+sit at this year's tier edges (the safe side in inflation, about 5% low; they can miss in deflation). A stay-under
+spends Roth or taxable now for a surcharge two years away that a death or a lower later MAGI might never charge, and
+it gives up tax-free growth on the Roth spent. Batch 5 decides, on the same scans, whether IRMAA stay-unders remain
+guard candidates (or only above some margin) and whether to discount IRMAA for its lag (Open items).
+
+##### Cliffs register: what 3C reads
+
+`magiThresholds` is the solver's view of the US cliffs register. Candidates (federal lines in household MAGI, only
+those inside the year's reach): the ACA 100% credit floor, the Medicaid line (expansion states; `medicaidLimit`) and
+the ACA 400% line (enhanced credits off), for partners on the individual market; the IRMAA tier edges (from 63,
+retired; per person on the single tiers with two returns); the senior-deduction phase-out start (65+, through 2028);
+the child-tax-credit phase-out start. With two returns each return's line is translated into household MAGI through
+that return's share of the draw. Priced only (through `taxFor`, `acaNetCost` and `healthcareCost`), not candidates:
+the state-law cliffs (state retirement exclusions, credits and step tables), the 2027 Medicaid work-requirement start
+(it changes which side of the line is cheaper, which the floor test reads), NIIT, the Social Security taxation
+thresholds and the 0% gains band.
+
+##### Known gaps carried out of 3C
+
+- `conversionMagiCeiling`'s two-return room divides each return's room by its share of the conversion, but caps the
+  live draw order where gains split 50/50 (an approximation; refine with the Batch 5 draw split).
+- The Medicaid work-requirement exemption reads the household's children for B's household of one (B1; undocumented
+  until now).
+- Year-0 IRMAA lookback: a household 65+ at the start without `irmaaPriorKnown` has years 0 and 1 priced on year 0's
+  MAGI (the first-year stand-in), which the guard's candidates do not price (B4 minor; also seen in the 13.3 example 1).
+- `lambdaEstimate` approximations: HoH and QSS samples are taxed as `single` / `mfj` (not `filingStatusFor`);
+  `onMedicare` counts 65+ rather than `max(65, retirement age)`; the first sample uses A's RMD start even for a B
+  survivor sample; the walk uses the household's benefits past a death; IRMAA lines are this year's edges.
+- The pool walk (B5b): when the pool runs out before a sample, the sample moves to that year; untested combinations:
+  a joint couple with draws, a survivor sample with draws, mid-walk benefits plus exhaustion. The need excludes this
+  year's lump expenses (as the bond target does) but includes the wage offset.
+- The fill candidate has no realized-MAGI check (a short fill can be labelled "filled to ..."); the $1 tie rule is
+  pinned only by determinism (case 7); a year whose pass 0 has no withdrawal but a later pass has one gets no plan.
+- The bond reserve's traditional draw is never capped: while penalized money exists, Roth basis cannot replace reserve
+  traditional money to stay under a line.
+- Untested B1 paths: a death before a marry-later wedding (the survivor's lookback per person), the even split of an
+  entered `irmaaPriorKnown`, and no snapshot scenario combines two returns with ACA on.
+- Scan household HoH 58, 1.5M / 300k / 130k, smooth, Rule of 55 depletes at 76 (B5a: 77; 76 is its c54ac72 and
+  guard-off age).
+- `tests/snapshot_ui.js` "std R everything" `histSuccess` is timing-fragile under machine load (a render race seen once
+  in B4); re-run before treating it as a regression.
+- `costAt` is declared above the conversion as a hook for Batch 5 (B5); the per-pass closure setup is now
+  unconditional (measured at about 0).
+
+##### Scripts (not in `npm test`)
+
+- `tests/solver_scan.js [--root DIR] [--json OUT] [--md OUT]`: the guard sweep above; exit 1 on any earlier depletion
+  with the guard on.
+- `tests/solver_gap.js [--root DIR] [--budget N]`: the gap table above.
+- `tests/bench_solver.js --base DIR [--rounds N]`: interleaved timing of the ACA early retiree (CA) and the default
+  household, one `simulate()` and one historical path, two trees in one process.
 
 ### Batch 7 notes (7A, 7B, 7C, 7D, 7J, 7K, 7L)
 
@@ -3879,8 +4218,20 @@ remains is detail to settle when the relevant batch is scoped:
   Canada: ordinary income); `bondTraditional`, `bondRoth` (and the Canadian RRSP
   and TFSA equivalents) grow at the bond return with no yearly tax. The tax shows
   up only when money leaves the account.
-- Batch 3C: the safe-MAGI room has no behavioral test (carried from Batch 1, see
-  its notes); resolve it there and carry the note into `docs/reference.md`.
+- ~~Batch 3C: the safe-MAGI room has no behavioral test (carried from Batch 1, see
+  its notes); resolve it there and carry the note into `docs/reference.md`.~~ **Resolved in 3C:** the cliff guard's
+  cap has a behavioral test with a mutation check (`tests/cliff_guard.js` case 1) and the double-counted room is fixed
+  (the cap uses the line less `magiBase`); see "Batch 3C notes". Carry into `docs/reference.md` at consolidation.
+- IRMAA is priced undiscounted in the year that causes it (3C): the surcharge is charged two years on and a death
+  or a lower later MAGI may mean it is never charged; the guard's stay-unders still count it in full (all of the
+  guard's value losses are IRMAA stay-unders). Decide a discount (or a margin) in Batch 5, with the scans.
+- State-law cliffs are not solver candidates (3C): state retirement exclusions, credits and step tables are priced by
+  `taxFor` only, so the guard never stays under or fills to them. Revisit with Batch 5 (or a state candidate list
+  read from `STATE_RULES`).
+- `pickLiveWithdrawalOrder` (decision, 3C amendment 13.3): it still drives the live-mix toggle (old behavior, label
+  and info tip); its `remainingMagiRoom` input is built and forwarded every year but cannot change its choice (dead
+  wiring). Batch 5 removes both when the tax-aware order replaces it (and updates the source check in
+  `tests/historical_parity.js`).
 - Roth-conversion bracket sizing (raised in Batch 2): `solveRothConversion` sizes the
   conversion with a conservative deduction lower bound (age-adjusted standard, or
   property tax + mortgage interest if larger), leaving out the senior deduction and
@@ -3889,7 +4240,8 @@ remains is detail to settle when the relevant batch is scoped:
   exact fill, and a large-state-tax itemizer slightly less; later years are
   unaffected. Making it exact needs iterating on the conversion inside
   `solveRothConversion`. Revisit with Batch 3C (safe-MAGI room and conversion
-  sizing), with a before/after on a 65+ conversion scenario.
+  sizing), with a before/after on a 65+ conversion scenario. **Still open after 3C:** conversion sizing moved to
+  Batch 5 (spec section 13), so this is decided there (`solveRothConversionTo` is the bracket fill to change).
 - Grandfathered mortgage debt (raised in Batch 2, decided to leave): the model limits
   deductible mortgage interest to $750,000 of original debt (IRC 163(h)(3)(F), permanent
   for debt after 12/15/2017) by prorating interest by 750,000 / original principal. Debt

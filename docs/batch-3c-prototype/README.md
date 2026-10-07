@@ -1,7 +1,10 @@
+Superseded by Batch 3C (see the spec, `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md`, and the
+3C notes in `docs/next-batches-plan.md`); kept for the record.
+
 # Batch 3C prototype (throwaway, not part of the app)
 
 Scratch work from the 3C exploration, kept so a new session can reproduce the numbers in
-`docs/next-batches-plan.md` ("Batch 3C: exploration so far"). Not wired into `npm test`.
+`docs/next-batches-plan.md` (now "Batch 3C notes", "Exploration findings"). Not wired into `npm test`.
 
 - `safe-magi-cap.diff`: a patch against `Planner_US.html` at 65704ca (V92). Adds `window.__ROOMFIX`
   (corrected draw room: `ceiling - magiBase - conversionAmount`) and `window.__CAP` (cap the
