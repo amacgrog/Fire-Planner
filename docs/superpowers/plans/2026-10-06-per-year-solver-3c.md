@@ -1407,6 +1407,97 @@ git commit -m "3C: cliff guard in every mode, on by default (US V116)
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
+### Task B5a: lambda's pool path net of expected draws (spec section 13.1)
+
+> Owner decision, 2026-10-07. Build and commit this **before** committing B5. B5's order-only work is uncommitted
+> in the tree. Stash it (`git stash push -- Planner_US.html tests/tax_aware.js CLAUDE.md README.md package.json
+> tests/golden.js`), do B5a on top of c54ac72 plus the amendment commits, commit it, then `git stash pop` and
+> resolve any conflict in the plan call's `lambdaOf` arguments.
+
+**Files:**
+- Modify: `Planner_US.html` (`lambdaEstimate`; the `lambdaOf` closure in the year loop)
+- Modify: `tests/solver_hooks.js` (one new case)
+
+**Interfaces:**
+- Consumes: `lambdaEstimate` (B2); `balSnapshot` and `-flow` in the year loop.
+- Produces: `lambdaEstimate(c)` with two more optional inputs, `need` (default 0) and `tradShare` (default 0). With
+  both 0 the result is identical to B2's, to the bit.
+
+- [ ] **Step 1: Write the failing test.** Add to `tests/solver_hooks.js`, after the existing lambda cases:
+
+```js
+  // Note 1 (spec 13.1): the pool walks forward net of the traditional share of the need. Single, 70,
+  // 1,000,000 traditional, real return 0, Texas, life expectancy 74, need 50,000, tradShare 1.
+  // Samples 73, 74, 74: pools 850,000 and 800,000; RMDs 32,075.47 and 31,372.55. Deduction 16,100 + 2,050 +
+  // 6,000: taxable income 7,925 (+3,208 step) and 7,223 (+3,137), all in the 10% band, so lambda is 0.10.
+  const drawn = await call(
+    { singlePerson: true, ageA: 70, lifeExpectancyA: 74, returnRate: 2.5, inflation: 2.5, stateTax: 'tx', ssMonthlyA: 0, pensionYearlyA: 0, survivorEnabled: false },
+    'lambdaEstimate',
+    { tradPool: 1000000, year: 0, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1, need: 50000, tradShare: 1 },
+  );
+  near(drawn.lambda, 0.1, 1e-9, 'lambda with draws');
+  assert(drawn.lambda < lam.lambda, 'draws lower lambda');
+```
+
+- [ ] **Step 2: Run it.** `node tests/solver_hooks.js`. Expected: FAIL, `lambda with draws: expected 0.1, got 0.12`.
+
+- [ ] **Step 3: Implement.** In `lambdaEstimate`, destructure `need = 0, tradShare = 0`. Replace the line
+  `const trad = tradPool * Math.pow(1 + real, Math.max(0, ys - year));` with a walk:
+
+```js
+      // Note 1 (spec 13.1): walk the pool forward net of the traditional share of each year's need. Social
+      // Security and pensions that start later take over part of the need (this year's dollars). With need 0
+      // this is the plain compounding of B2, so need = 0 must keep the old result exactly.
+      let trad = tradPool;
+      if (need > 0 && tradShare > 0) {
+        const incomeNow = ssOf('A', state.ageA + year) + (singlePerson ? 0 : ssOf('B', state.ageB + year)) + pensionOf('A', state.ageA + year) + (singlePerson ? 0 : pensionOf('B', state.ageB + year));
+        for (let y = year + 1; y <= ys; y++) {
+          const later = ssOf('A', state.ageA + y) + (singlePerson ? 0 : ssOf('B', state.ageB + y)) + pensionOf('A', state.ageA + y) + (singlePerson ? 0 : pensionOf('B', state.ageB + y));
+          trad = Math.max(0, trad * (1 + real) - tradShare * Math.max(0, need - Math.max(0, later - incomeNow)));
+        }
+      } else trad = tradPool * Math.pow(1 + real, Math.max(0, ys - year));
+```
+
+  (Survivor samples already use the survivor's benefits for the sample year's income. The walk uses the
+  household's benefits, which is close enough for an estimate. Note this in the comment if you keep it.)
+
+  In the year loop, the `lambdaOf` closure passes the two inputs. `-flow` is the year's need, known when the
+  plan is chosen:
+
+```js
+              lambdaOf: () =>
+                yearLambda ||
+                (yearLambda = lambdaEstimate({
+                  tradPool: balSnapshot.traditional + balSnapshot.bondTraditional,
+                  year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor,
+                  need: -flow,
+                  tradShare: (() => {
+                    const b = balSnapshot,
+                      inv = b.taxable + b.bondTaxable + b.traditional + b.bondTraditional + b.roth + b.bondRoth + b.cash;
+                    return inv > 0 ? (b.traditional + b.bondTraditional) / inv : 0;
+                  })(),
+                })),
+```
+
+- [ ] **Step 4: Run tests and re-explain the movers.**
+  - `node tests/solver_hooks.js` passes; the B2 literal cases are unchanged.
+  - `npm test`: movers are only scenarios where the guard computed lambda. Dump and compare against c54ac72: `node tests/snapshot.js --root ../fp-3c-b5base --dump A --update-nothing`, `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
+  - Write a before/after table. Hard rules: no scenario depletes earlier; guard-on is never earlier than guard-off (`node tests/solver_scan.js`, or the B7 grid scan).
+  - Then `npm run snapshot:update` and `npm test` green.
+
+- [ ] **Step 5: Commit.**
+
+```bash
+git add Planner_US.html tests/solver_hooks.js tests/snapshots/
+git commit -m "3C: lambda walks the traditional pool forward net of expected draws (spec 13.1, Note 1)
+
+<before/after; movers = guard years where lambda was computed; no earlier depletion>
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+- [ ] **Step 6: Finish B5 on top.** `git stash pop`, then re-run the 384-household scan. If any tax-aware household still depletes earlier than at c54ac72, STOP and report the count and two worked examples; add no heuristic without the owner's decision.
+
 ### Task B5: Tax-aware withdrawals (order chosen by the plan; conversions unchanged)
 
 > **AMENDMENT (owner decision, 2026-10-07): B5 is order-only. Where this block and the task text below disagree, this block wins.** See spec section 13 for why: the conversion sizing as written made five scenarios deplete earlier, and it moves to Batch 5 with two design notes.
@@ -1910,7 +2001,7 @@ Run: `node test_multi_lever_optimizer.js` and record whether the optimizer's sch
 `docs/next-batches-plan.md`:
 - Execution order line and its "Why" paragraph: Rule of 55 PR -> 3C -> 5 -> 4A -> 4B -> 6 -> 8, with the owner's reason (Canada ports the solver and the search together).
 - Rewrite the 3C section to point at the spec and summarize what shipped; rewrite the Batch 5 section (outer search over `m`, per-phase Apply refinement always applicable with both success rates, objective registry, retiring coordinate ascent and age-keyed schedules, the gap script as a guard), and the 4A/4B sections (solver core to `shared/`, Canada kinks and lambda inputs, TFSA, pension splitting before scoring; 4A and 4B may merge).
-- "Batch 3C notes" (replace "exploration so far" with finished reference text): the decisions list from the spec; the two-return MAGI fix and its before/after; the guard's mechanism and the sweep table; the tax-aware before/after; the gap table; the timing table; the rates before/after; the optimizer re-run result; the Batch 1 open item closed (the MAGI room now has a behavioral test with a mutation check: `tests/cliff_guard.js` case 1); the double-counted room finding (the cap uses the target, not `incomeRoom`); the B5 conversion finding and the owner decision from spec section 13 (the five scenarios that depleted earlier, the two causes, and the two design notes), copied into the Batch 5 section as requirements for tax-aware conversion sizing.
+- "Batch 3C notes" (replace "exploration so far" with finished reference text): the decisions list from the spec; the two-return MAGI fix and its before/after; the guard's mechanism and the sweep table; the tax-aware before/after; the gap table; the timing table; the rates before/after; the optimizer re-run result; the Batch 1 open item closed (the MAGI room now has a behavioral test with a mutation check: `tests/cliff_guard.js` case 1); the double-counted room finding (the cap uses the target, not `incomeRoom`); the B5 conversion finding and the owner decision from spec section 13 (the five scenarios that depleted earlier, the two causes, and the two design notes); the second finding and decision from section 13.1 (36 of 384 households depleting earlier with the order choice; Note 1 built in 3C as B5a, with its before/after and the re-run scan); Note 2 copied into the Batch 5 section as a requirement for tax-aware conversion sizing.
 - Open items: add "IRMAA priced undiscounted in the year that causes it (two-year lag, possible death before it is charged)" and "State-law cliffs are not solver candidates (priced by taxFor only)"; mark the Batch 1 safe-MAGI test item resolved (the conservative conversion deduction item stays open: conversion sizing moved to Batch 5); record the decision that `pickLiveWithdrawalOrder` is no longer used by the engine.
 - Cliffs register: note that 3C reads it through `magiThresholds` and which rows are candidates.
 

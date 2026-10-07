@@ -286,3 +286,31 @@ byte-identical). Batch 5 owns tax-aware conversion sizing, built to these two no
 
 Batch 5 also runs the depletion sweep and the slow-reference gap table on conversion sizing before it ships, and
 keeps "never worse than your current settings" (the bracket conversion is always a candidate).
+
+### 13.1 Second amendment (owner decision, 2026-10-07): Note 1 moves into 3C (task B5a)
+
+**What happened.** B5 order-only had clean snapshots: 473 identical, 16 changed in fields only, 29 live-mix
+movers, no depletion age changed. But the B7 grid scan (384 households) showed tax-aware mode depleting 1 to 3
+years earlier than the tax-aware mode at c54ac72 in 36 households (35 of them with the cliff guard off).
+
+The cause is section 13's cause 1: an inflated lambda makes traditional-first win when it should not. Example:
+single, 58, lambda 0.311, 17,155 of tax and the ACA credit lost, runs out at 83 instead of 84.
+
+Default-mode households were unchanged, and the guard never depleted earlier than guard-off.
+
+**Decision.** Note 1 is built in 3C, as its own commit, task B5a, before B5 is committed. `lambdaEstimate` takes
+`need` (this year's withdrawal need, `-flow`) and `tradShare` (traditional's share of investable money at the
+start of the year). Both default to 0, which keeps the old path. For each sample year the pool is walked forward
+from now in real dollars:
+
+`pool = max(0, pool x (1 + real) - tradShare x max(0, need - (Social Security and pensions that start between now
+and that year, in this year's dollars)))`
+
+The sample's RMD is then taken on that pool, as before. B5a changes numbers only in years where the guard
+computes lambda; those movers are re-explained as an intended change.
+
+**Hard rules, unchanged:** no snapshot scenario depletes earlier, and guard-on never depletes earlier than
+guard-off. If the re-run scan still shows a tax-aware household depleting earlier than at c54ac72, the work
+stops and the owner decides; no traditional-first gate or other heuristic is added without that decision.
+
+Note 2 (the bridge check on conversions) stays in Batch 5, with conversion sizing.
