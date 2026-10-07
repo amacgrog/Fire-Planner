@@ -3626,6 +3626,181 @@
    "rest": "48e7dace",
    "depletedAge": null,
    "finalInvestable": 533995942.58029526
+  },
+  "std G hoh 66 1966 household": {
+   "hash": "138382dd7b508ea3",
+   "rows": "c84c718a145398877e258c6196249c5abaf542d71bde99d77bc3e0d949edef65c6cc1b09064b99e9235684de09e331b2d1e3f65bee86e55739e39478578e67e766376c5529db00e55d41e57e3a848ab5af0c5d62947eddb881ca678fc55fd88fa2a02e66dbcfc9f3eae17353acc9b9729b540a70e186948f",
+   "rest": "5e4e695e",
+   "depletedAge": 86,
+   "finalInvestable": 0
+  },
+  "std G hoh 66 1966 household smooth": {
+   "hash": "e659f0a02f4f683f",
+   "rows": "f6fa7c5fcae35735ac4c413f425a289ac64b0b286dffb093e28a9a6ccaf19ac3facc8fa8af7bf92b0b7e3d550c9e5b1ee6e5e521c2b1f90b6e2c753436d60fee78a747d6fc1015bba057319147b9ddfdaf0c5d62947eddb881ca678fc55fd88fa2a02e66dbcfc9f3eae17353acc9b9729b540a70e186948f",
+   "rest": "76259654",
+   "depletedAge": 86,
+   "finalInvestable": 0
+  },
+  "std G mfj 66 250k+250k 300k 130k smooth": {
+   "hash": "7c7e0a6697a3cff8",
+   "rows": "780c52bed14c20ff28a9485593cd87cd9f6f4027f4e8a9ff2c92e4f8cb36615bab8d2a6104bcee6d09363a3b3b1caf3446f757a017a6f94cb2453c02b9fc0399bbfb0828fbf04b065727d1a96c8dcd17bf38c476176b9d738cbe701a720a7b2ca4925450f4298ef3e57d700ae50885d0bbe4742ae330ffa0",
+   "rest": "f87bec2d",
+   "depletedAge": 80,
+   "finalInvestable": 0
+  },
+  "std G single 66 500k 300k 60k smooth": {
+   "hash": "575c27711f56c611",
+   "rows": "ab3544b83e0b64eaeaeb4b2a64fea72e30e7487985b3427f559d52bfeb144c0d39ccdf387f81da57a5ae55200ea9bcc51307f0c3b509b7a30d282a07a1cd16f27fed03e3551600f865511215a8b6f9a8129d202ba26f2f45afc04fa6d471f68bc0e5960fd059a220aa7dbcf619211460d60e9ef8bee10dff",
+   "rest": "927e14a8",
+   "depletedAge": 95,
+   "finalInvestable": 0
+  },
+  "std G single 66 500k 300k 130k smooth": {
+   "hash": "0421d994dd56266a",
+   "rows": "f6166f851e249da3b4a1161bf15515284d63e807fb80dadf299566af57e6d7980e8d03ee51b8d5bfed5a096ccc3882f4c73ea5bc73a984382b7eea8fbcf35e0ac072341bb9ff205b5e041e67de293c60af0c5d62947eddb881ca678fc55fd88fa2a02e66dbcfc9f3eae17353acc9b9729b540a70e186948f",
+   "rest": "50c82b1d",
+   "depletedAge": 76,
+   "finalInvestable": 0
+  },
+  "std G mfj 62 aca 400% default": {
+   "hash": "58edb41335fc6285",
+   "rows": "222e05dd3777f6e7d5044a7b6d900e2226975745591b1a893712fd4d0b15c6711cf1496f53c619b331902618179d55462bec3e68d170029b08ecb5a27351bd625aa3d5606fa7b0a103d29ed052b126df9d0fb45b120077a68d3bc2c85cdf4c1d3036d80d8157a1a097ffe3d7d60af1e2b54390b70a71092bf7008bc9ed09184a880e351dab42d048",
+   "rest": "4edb97bf",
+   "depletedAge": null,
+   "finalInvestable": 10442122.65478181
+  },
+  "std G mfj 62 aca 400% smooth": {
+   "hash": "5a3ee4f83b33900f",
+   "rows": "89febab28888b8271e04d7b2adc450a7e735101e8666ad9f10ae7340277b55188f8dc02f07e545f80ac96ef3c738c9745ef2675b570673b2556e8971a4fc189227043d88cbd4ce4b9c2fdec6233e0b570341c5f816264684f48ce06b42cd8a4a35aa9f015b9b8e60b70f80e451ed103440f104263fb330c66ede9c9549587ea3544bd5b0516d30c0",
+   "rest": "6043b4b9",
+   "depletedAge": null,
+   "finalInvestable": 10427060.87222753
+  },
+  "std G two returns 62 aca smooth": {
+   "hash": "f160d8ca2fb1cb85",
+   "rows": "a28c227e9ced9318439687d6e80dc7ed00cae83630593d2ec4df37d481ce2e33844f27291aa9eb8b0990afa85979822e32f9637c85e94bf9199687f79903abb73247e1bd2f7bbac2c676f51f6943ca2171f710553aecbcc5fa68e1743dc0154accecc06d3b43212dee2f6e9adff7f51a4e88ad3dcf7004d3d424131b2f5ddc0eae9915f880b0ea75",
+   "rest": "9f00ee2e",
+   "depletedAge": null,
+   "finalInvestable": 10600844.928273134
+  },
+  "std G two returns 66 irmaa default": {
+   "hash": "834490f2141b29b9",
+   "rows": "31e8b5fc4669c00578e3e279cff0ae73dc5b6226f4778b45f8813a92df2b0ae0030f1341d4c6f5b1f780e5ed7a5f10bcc464d889de0802ec8e275cc6be4426551d3c26cc252e95d464962bc7264fe12299be44511e8ec2d571cba79b8db54656178d95f89793c7bb745df956a7e802f098ed6ac63555e4c9",
+   "rest": "4076871b",
+   "depletedAge": null,
+   "finalInvestable": 0
+  },
+  "std G two returns 66 irmaa smooth": {
+   "hash": "e81cd2d830747d88",
+   "rows": "ba70f865c88fc9effd9405793b6307e47b36cabe6fcdbb62037460c5eac3cfc626c8558bf6fe12784aaa15e89bd67ae636e8096b67e53052583e9b8acbcdbee0c9f658af670ea211f1fb2e1b6bf641619063ecd11b67135a587c63a32926c909640d2b1075380c479a9ea8bfc7e619ac8e2a8e58a456ffb8",
+   "rest": "defadec4",
+   "depletedAge": 80,
+   "finalInvestable": 0
+  },
+  "std G hoh 58 aca smooth": {
+   "hash": "63557872d698c8f3",
+   "rows": "6e0d835717af4452d28e44ea455bd44f5544ba98c3856e6eeddcc82d908c3ad5621184c77239f12b72c55ba8c389484fe58b6cc8f599a01d97d8ca61fc7fe877827508041358c6d718e58a3fdfef66da17afe55a3729f59ef3cb85d46fd02e93b8960abae93f536cb533364efc6c9fe0921af3c7c229d0259f5ec7f6da92c3531902ed2fa6d830c203ee04fb561193b48c08e8493678204d",
+   "rest": "37a9fc89",
+   "depletedAge": null,
+   "finalInvestable": 5283787.33500076
+  },
+  "std G single 62 aca smooth": {
+   "hash": "e56075db4d22aa72",
+   "rows": "33b75863c0189299c0dd4424d8a657a62cdcf4a7b53e40a2db12e8532aed93879d8c436bc45e7770db86fada648f54a2023ec6eea9578125621a83ffa3e4c353980c33c44c62ddccf417026e8763ce1baa6881bdb68cb9eca00cdc308c0ed26f2b2adfc656c6933b8142ab0c5b6e6df3ce448098e91af1032cd232b3cb699cb0d4f76f9c850d9af1",
+   "rest": "41ff5fdd",
+   "depletedAge": null,
+   "finalInvestable": 4895870.116693346
+  },
+  "std G mfj 58 aca default": {
+   "hash": "171aa998620d3096",
+   "rows": "5a67f44e1664c2e8d2a7be8d23ac4a0602a1cb2a431243ee3576431579f9f8c9e844b10d89972e57cd3660b9ac6bbad4e853e0b705a25900af909fce6fed5336b7131bc8d2beaac6868eb58f4690c4eb6cf35ece2e6263b267ea4ff31fc458fd1911ded532bb948fcd04c6a90bd303d7b454389473924bb5f7e52a55a07ce76ee80049b2fcd6667b792d60eb421b9b03ee209f41881f3050",
+   "rest": "93b46f84",
+   "depletedAge": null,
+   "finalInvestable": 11123936.258074738
+  },
+  "std G single 58 aca default": {
+   "hash": "aca20743d3bc9ac7",
+   "rows": "6a0149a8ac11049e364d4547790dee154c609367faf0fb31e654a9cdb56f8e9bdaa06a72ba4f58680f7aee295968d002930fbc9e784a1f1924e263ebab29f2d6906511069cdf84889a5a365a6f5a57a80adabcda7fbf28dd5e4f582e9f10e6e40b0615af5eec4db217f02a8b7271b062039e8c97b7d93d4dd285fc10ecbd726c37a1d564bc4705c13dfae582a68629b38496a9931f2decd7",
+   "rest": "1ec1651a",
+   "depletedAge": null,
+   "finalInvestable": 5106262.895897255
+  },
+  "std G hoh 62 aca default": {
+   "hash": "9b2716b9f926e443",
+   "rows": "bf5f73c3a5fc72ee941d63b38bf5518a95c4d29ec110ad7aa1151008e0570e5a40c49c6cb0adc7dc6a7195c037237d5ca27565f1077c1ac10c6020d1972be37b4fb7b90cdb3868f1c93f139290297218aff7d5d89911e04634c643d5f8e14512633aabba4bedddb2853d68185ced2a65ddba9a23a10d9df12f2ff99c641888f6ad0d10388ac71b95",
+   "rest": "a23ef2c9",
+   "depletedAge": null,
+   "finalInvestable": 5593757.427857666
+  },
+  "std G hoh 62 aca smooth": {
+   "hash": "e26326c521c0dae4",
+   "rows": "02285456ea493c1e623a143766e1f53bc777385d43ba488d42e1fc9e68224e8a6fecace81673b8aae4eee0d7472bb3c66520b69bfd34b63854f9e88e37063f2b231d8823356bd2348a370c930453c5945ef74c4c888a426da0cca623975d09549b2e0f4f61876cef586d85ae3147fd67edea700de354257baa174c34b646b3dec02f32f472a50a5b",
+   "rest": "41ff5fdd",
+   "depletedAge": null,
+   "finalInvestable": 5235044.867536888
+  },
+  "std G hoh 66 irmaa 500k smooth": {
+   "hash": "28edca6c6310d848",
+   "rows": "17c3af1a8def6b205c98db353274fedc7a853d9c861e1f5228da549b54377ca883c924594b813b07ed5a096ccc3882f4c73ea5bc73a984382b7eea8fbcf35e0ac072341bb9ff205b5e041e67de293c60af0c5d62947eddb881ca678fc55fd88fa2a02e66dbcfc9f3eae17353acc9b9729b540a70e186948f",
+   "rest": "50c82b1d",
+   "depletedAge": 76,
+   "finalInvestable": 0
+  },
+  "hist G hoh 66 1966 household | real1929": {
+   "hash": "adf1531d548b0e97",
+   "rows": "879d105f3d59fd52d6c34ed567e5be2780f8af0ed7691cf2863e4c8589d3008f7c105e887c4c8ded98434f6f3356201b7efe6f63d64ea6fa0d61c73ab2cdb58efbcedb00a1522c6210565193d9cbee317e30b3604d194d3e5f5ffa52e260fc673ee187c6ed7d7da2cbc3535eb5ea7036ac32e4b517decdac",
+   "rest": "05c7caea",
+   "depletedAge": 76,
+   "finalInvestable": 0
+  },
+  "hist G hoh 66 1966 household | real1966": {
+   "hash": "b3faca4e95c46df9",
+   "rows": "c4251c2af004848f3c4aa826c9155cd51660e8cb1cbc3d22952fa5e42527b2f5a4a0964c5ac1e61fdf2a89703a4fdc8176e0e75f7b56ad2acc0a421e83fb0d4aa8e09bd98cba1d4b5f3dc33c6ca1e8fdaf3b559c2019ef04f641fdf43f17ce1accc0fdef87e73e00140aae855467d3c683def80c14a67c5e",
+   "rest": "71ec21bd",
+   "depletedAge": 80,
+   "finalInvestable": 0
+  },
+  "hist G hoh 66 1966 household | real1973": {
+   "hash": "0fed58352bb7c0af",
+   "rows": "309076d0f38664858fcf97c8dd09ad7edb5d671a5f7b084eca8b17e9039911de9dbc0c557f69262b60d5ed6f24bb1bb8e4b88c2a3ae565dc3a8ddeaeaecab5bd15d64ef5409cc00a387c973b0bc4b65f268c5b8ee49cb3b4bde59cd2a87c3d06540db1e06368a1da008200ad18d0bfef5b97d25fb112b25a",
+   "rest": "cd6a23d0",
+   "depletedAge": 76,
+   "finalInvestable": 0
+  },
+  "hist G mfj 62 aca 400% smooth | real1966": {
+   "hash": "5bb4bb4968866d11",
+   "rows": "ce733bccdcdd29c2327e9487749ba0c35c5acf378071a6c9913d82842557358f4e9a2b6efae0fc633acc5611df30c2dd752babd4cd34d78892399038d8a1a6055481e8840665ddf96b132489e467f9249a40b4ba696db7a0a6c553e9e5fb9fe568c4e39ef01ba1cd0954921887d6733a7726d3415be849cff1ab87a924e1e59a0f9a0556a9649002",
+   "rest": "b2a63759",
+   "depletedAge": null,
+   "finalInvestable": 40198423.016164295
+  },
+  "hist G mfj 58 aca default | real1966": {
+   "hash": "e04a2cd73285ab36",
+   "rows": "6be7753a3a9dd3dd090cfedaeaeca6c935186498907ce25be5594eb6516f191f7bb8008b5662debadeea7d591227a9a17741f3c44b4d5a8c9053d7e5eaae920d159e465374a4eaa3ea8dae737710ec41a8fa57fc9220bd94847147fe1a5bd03cedf0c30445d47440b83322a98f3bad1411c56fa4f2a1432dbb3079cc61c7739dde025756ce3aca4d2e93e68120d2bcf2427e3e4a9c61042a",
+   "rest": "784a62db",
+   "depletedAge": null,
+   "finalInvestable": 28727127.86543491
+  },
+  "hist G hoh 58 aca smooth | real1973": {
+   "hash": "1f6c13ad6a9555a1",
+   "rows": "4b525c8976c76fde7b995fe6840299d72f85fd154e4b0f98d54cfdecf69f1d3a236bc34bae1ea90fb22aa05f19f9c33c7e5f5f62577c6601b676e9be6ea8edc301bc3bd968e9e24fbc7c884e21bc52f2269c1f395d1f8067a96eb8b83044b7d2bcaf320935e11b6541fb11461a7d358fdaf7344b7f8683810d90bbaf0068cb84d2f0390083fe014ffab06fece229f1863a2aaee450162b6b",
+   "rest": "9649ac64",
+   "depletedAge": null,
+   "finalInvestable": 2435808.363184988
+  },
+  "hist G single 58 aca default | real1966": {
+   "hash": "8cea9dc3a472d2fe",
+   "rows": "3567df9606366109cb036d6c953cefd54bfd13f232b2aa0524de98fa0445ccd4d00299aa81e1211d318267c54548c1222bcb511278674544d5d5da654b50acc132dbc0526042e09cdee29be589df443c68ba3a9987b61e1e7064c9c9ef928e281144b4f4cb4da7931e046a76afbe05eefb277c3194807726970c373bc7126256745c16b22b770329dca5258a24f63627481c2ec3e0ed0f5f",
+   "rest": "935f0b62",
+   "depletedAge": null,
+   "finalInvestable": 2330851.76690937
+  },
+  "hist G hoh 62 aca default | real1966": {
+   "hash": "25654e16b0e164c2",
+   "rows": "b32f67c8bb781433a758c16067857e301be038b8e4f3f83837cfed00abd8c4363bbeaec8cc24853b5354f865cff722ce504ca7dafa26490f48bcf9b78f1bba2bd93cf61003750065947c474240453ab4f0e651caabb0bb7b9ea20791a052d2f5a10cbf38cdd691b456ae415d980149a983bd0b57d160d985ebb8ead768645dbbba33f45afd48f8ea",
+   "rest": "e5c4e8e7",
+   "depletedAge": null,
+   "finalInvestable": 11502371.160892222
   }
  }
 }

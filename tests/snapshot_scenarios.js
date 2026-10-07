@@ -227,6 +227,65 @@ function histGrid(std, names, seriesIds) {
   return out;
 }
 
+// Batch 3C (8.0): households where the cliff guard acts with Roth conversions on (US only; no Canada
+// equivalent). Conversions run from the retirement age to 72 at the 22% bracket, ACA on (enhanced credits
+// off), Texas, life expectancy 95. Together they cover an IRMAA line, the ACA 400% line, the senior-deduction
+// and child-credit phase-outs, in the default and the smooth withdrawal modes, for MFJ, two single returns,
+// a single person and a head of household, in the standard engine and (bucket engine) on the 1929, 1966 and
+// 1973 starts. Every one of them labels at least one year with a cliffChoice at the commit that added them.
+const GUARD_CONV = { acaEnabled: true, acaEnhanced: false, stateTax: 'tx', lifeExpectancyA: 95, lifeExpectancyB: 95,
+  withdrawalMixEnabled: false, rothConvEnabled: true, rothConvBracket: 22, ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false };
+const gHousehold = (filing, age, trad, taxable, spending, smooth, extra = {}) => ({
+  ...GUARD_CONV,
+  ...(filing === 'mfj' ? { singlePerson: false, filingStatus: 'mfj' } : filing === 'two' ? { singlePerson: false, filingStatus: 'single' } : { singlePerson: true }),
+  children: filing === 'hoh' ? [{ birthYear: 2016, student: false }] : [],
+  ageA: age, ageB: age, retireAgeA: age, retireAgeB: age,
+  rothConvStartAge: age, rothConvEndAge: Math.max(age, 72),
+  taxable, spending, smoothWithdrawals: smooth,
+  traditional: trad, roth: 200000,
+  ...extra,
+});
+// The 1966 head-of-household household: one child born 2016, 1.5M in Partner A's 401(k), 300k taxable,
+// 200k Roth IRA (basis not entered), spending 130k, conversions 66-72.
+const H1966 = { ...GUARD_CONV, singlePerson: true, children: [{ birthYear: 2016, student: false }],
+  ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66, taxable: 300000, spending: 130000, smoothWithdrawals: false,
+  rothConvStartAge: 66, rothConvEndAge: 72,
+  tradIraA: 0, tradIraB: 0, trad401kA: 1500000, trad401kB: 0, rothIraA: 200000, rothIraB: 0, roth401kA: 0, roth401kB: 0,
+  rothIraBasisA: 0, rothIraBasisB: 0 };
+
+function usGuard() {
+  const std = [
+    ['G hoh 66 1966 household', H1966],
+    ['G hoh 66 1966 household smooth', { ...H1966, smoothWithdrawals: true }],
+    ['G mfj 66 250k+250k 300k 130k smooth', gHousehold('mfj', 66, 500000, 300000, 130000, true)],
+    ['G single 66 500k 300k 60k smooth', gHousehold('single', 66, 500000, 300000, 60000, true)],
+    ['G single 66 500k 300k 130k smooth', gHousehold('single', 66, 500000, 300000, 130000, true)],
+    ['G mfj 62 aca 400% default', gHousehold('mfj', 62, 1500000, 300000, 60000, false)],
+    ['G mfj 62 aca 400% smooth', gHousehold('mfj', 62, 1500000, 300000, 60000, true)],
+    ['G two returns 62 aca smooth', gHousehold('two', 62, 1500000, 300000, 60000, true)],
+    ['G two returns 66 irmaa default', gHousehold('two', 66, 1500000, 300000, 130000, false)],
+    ['G two returns 66 irmaa smooth', gHousehold('two', 66, 500000, 300000, 130000, true)],
+    ['G hoh 58 aca smooth', gHousehold('hoh', 58, 1500000, 300000, 60000, true)],
+    ['G single 62 aca smooth', gHousehold('single', 62, 1500000, 300000, 60000, true)],
+    ['G mfj 58 aca default', gHousehold('mfj', 58, 1500000, 300000, 60000, false)],
+    ['G single 58 aca default', gHousehold('single', 58, 1500000, 300000, 60000, false)],
+    ['G hoh 62 aca default', gHousehold('hoh', 62, 1500000, 300000, 60000, false)],
+    ['G hoh 62 aca smooth', gHousehold('hoh', 62, 1500000, 300000, 60000, true)],
+    ['G hoh 66 irmaa 500k smooth', gHousehold('hoh', 66, 500000, 300000, 130000, true)],
+  ].map(([name, patch]) => ({ name: 'std ' + name, kind: 'std', patch, shift: 0 }));
+  const hist = [
+    ['hist G hoh 66 1966 household | real1929', H1966, 'real1929'],
+    ['hist G hoh 66 1966 household | real1966', H1966, 'real1966'],
+    ['hist G hoh 66 1966 household | real1973', H1966, 'real1973'],
+    ['hist G mfj 62 aca 400% smooth | real1966', gHousehold('mfj', 62, 1500000, 300000, 60000, true), 'real1966'],
+    ['hist G mfj 58 aca default | real1966', gHousehold('mfj', 58, 1500000, 300000, 60000, false), 'real1966'],
+    ['hist G hoh 58 aca smooth | real1973', gHousehold('hoh', 58, 1500000, 300000, 60000, true), 'real1973'],
+    ['hist G single 58 aca default | real1966', gHousehold('single', 58, 1500000, 300000, 60000, false), 'real1966'],
+    ['hist G hoh 62 aca default | real1966', gHousehold('hoh', 62, 1500000, 300000, 60000, false), 'real1966'],
+  ].map(([name, patch, id]) => ({ name, kind: 'hist', patch, series: SERIES.find((x) => x.id === id) }));
+  return [...std, ...hist];
+}
+
 function scenarios(isUS) {
   const std = isUS ? usStd() : caStd();
   const histNames = isUS
@@ -235,7 +294,7 @@ function scenarios(isUS) {
        'R ruleOf55', 'R sepp72t both + ruleOf55', 'R all lists', 'R everything']
     : ['default', 'R', 'R single', 'R smooth', 'R meltdown+split', 'R guardrails', 'R survivor A',
        'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R loans', 'R lumpExpenses', 'R rentThenBuy', 'R fhsa', 'R all lists', 'R everything'];
-  return [...std, ...shifts(std), ...histGrid(std, histNames)];
+  return [...std, ...shifts(std), ...histGrid(std, histNames), ...(isUS ? usGuard() : [])];
 }
 
 module.exports = { scenarios };
