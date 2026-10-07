@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V112</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V113</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -1257,6 +1257,14 @@
     { key: 'stateTax', type: 'choice', sync: 'controls', resync: [] },
     { key: 'rothConvBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
   ];
+  // Registry reveals by element id, so code that shows or hides a whole group of elements (the partner-B
+  // loop in syncControls) does not undo a reveal that hides one of them.
+  const REVEAL_BY_ID = new Map();
+  FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
+  function revealHidden(id) {
+    const fn = REVEAL_BY_ID.get(id);
+    return !!fn && fn(state);
+  }
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
@@ -13202,9 +13210,11 @@
     });
     FIELDS.filter((field) => isDomWired(field) && field.sync === 'controls').forEach(syncFieldDom);
     renderLoanFields();
+    // Partner B's elements hide in single-person mode, and otherwise only when their own registry reveal
+    // hides them (the 72(t) first-payment fields while their box is unchecked).
     document
       .querySelectorAll('[data-partner-b]')
-      .forEach((el) => (el.hidden = !!state.singlePerson));
+      .forEach((el) => (el.hidden = !!state.singlePerson || revealHidden(el.id)));
     document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
@@ -15062,6 +15072,7 @@
   window.__test_withdrawalMixWeights = withdrawalMixWeights;
   window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
   window.__test_getState = () => state;
+  window.__test_syncControls = () => syncControls();
   window.__test_children = { dependentsInYear, qualifyingChildCount, acaHouseholdSize };
   window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
     const trace = [];
