@@ -1407,7 +1407,44 @@ git commit -m "3C: cliff guard in every mode, on by default (US V116)
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task B5: Tax-aware withdrawals (full solver: order and conversion by lambda)
+### Task B5: Tax-aware withdrawals (order chosen by the plan; conversions unchanged)
+
+> **AMENDMENT (owner decision, 2026-10-07): B5 is order-only. Where this block and the task text below disagree, this block wins.** See spec section 13 for why: the conversion sizing as written made five scenarios deplete earlier, and it moves to Batch 5 with two design notes.
+>
+> **Resume from the first attempt.** Its uncommitted work is in `Planner_US.html` and `tests/tax_aware.js` (also saved as `.superpowers/sdd/2026-10-06-per-year-solver-3c/task-B5-wip.patch`).
+>
+> **Keep from it:**
+> - the `solveRothConversionTo` split (byte-identical);
+> - the healthcare-cost block moved above the conversion (byte-identical);
+> - the lifted `irmaaAt` / `lambdaOf` closures;
+> - plan selection over the two orders, the live branch following `wd.taxAwareOrder`, and the `mixOrder` row field;
+> - the test household's `tenure: 'rent', rent: 0` fix.
+>
+> **Drop:**
+> - `chooseTaxAwareConversion` and `CONVERSION_BRACKETS` (delete them; do not leave dead code);
+> - the `taxAware && !scheduled` branch of the conversion block and the `yearConversion` variable.
+>
+> The conversion block goes back to its B4 form in every mode, `conversionAmount = solveRothConversion(profile, Math.min(capNoMagi, magiSafeRoom), year, age)`, now calling the split-out function.
+>
+> **Interfaces:** Produces `solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct) -> amount` and the row field `mixOrder`. It no longer produces `chooseTaxAwareConversion`. `lambdaOf` is still called by the plan in tax-aware years, so rows carry `lambda` there.
+>
+> **Tests (`tests/tax_aware.js`).**
+> - *Remove* the three conversion cases: `r1` (fill to the 22% top), `r2` (no conversion at lambda 0) and `r3` (applied schedule).
+> - *Keep* the order case (`r4`: `mixOrder === 'traditional'`, traditional only) and the plan-trace check (chosen plan scores highest).
+> - *Add* two cases:
+>   - **(a) Conversions follow the bracket in tax-aware mode.** The same household as the old `conv` case, with `rothConvBracket: 22`: `conversionAmount` equals the guard-off, live-mix-off run of the same household (`withdrawalMixEnabled: false`), to the cent.
+>   - **(b) Tax-aware never shortens the plan.** For the snapshot scenario `std R rothConv+aca+live`'s patch (copy it from `tests/snapshot_scenarios.js`), `depletedAge` with tax-aware on is `null` or no earlier than with `withdrawalMixEnabled: false`.
+>
+> **UI copy.** Label "Tax-aware withdrawals". Info tip: "Each year with a withdrawal, the planner tries drawing taxable money first and traditional money first (and, with the cliff guard on, keeping income just under or just over the nearest cost line), and keeps whichever leaves the most after-tax wealth, valuing a traditional dollar at the tax it will likely cost later (estimated from your RMDs, Social Security and pensions). Roth conversions still follow your bracket setting. Applied optimizer schedules take precedence." Descriptor: "Chooses each year's withdrawal order by later tax".
+>
+> **Docs.**
+> - README: "Tax-aware withdrawals" chooses the order; conversions follow the bracket.
+> - `CLAUDE.md`: the live branch follows `wd.taxAwareOrder`; `solveRothConversionTo`; conversion sizing by lambda is Batch 5 work (spec section 13).
+> - Badge `V116` -> `V117`.
+>
+> **Hard stops unchanged.** Snapshot movers must be live-mix scenarios only, and none may deplete earlier than at c54ac72 (compare with `node tests/snapshot.js --root ../fp-3c-b5base --dump A --update-nothing`, then `--dump B`, then `--compare A B`). Also run `npm test`, the timing gate and `tests/solver_scan.js` if it exists; otherwise defer the scan to B7 as planned.
+>
+> **Commit message:** "3C: tax-aware withdrawals choose the stock-account order; conversions keep the bracket setting (US V117)".
 
 **Files:**
 - Modify: `Planner_US.html` (`drawMixedStockAccounts` live branch; `solveRothConversion` split into `solveRothConversionTo`; new `chooseTaxAwareConversion`; year loop; `withdrawalMixEnabled` label and info tip)
@@ -1873,8 +1910,8 @@ Run: `node test_multi_lever_optimizer.js` and record whether the optimizer's sch
 `docs/next-batches-plan.md`:
 - Execution order line and its "Why" paragraph: Rule of 55 PR -> 3C -> 5 -> 4A -> 4B -> 6 -> 8, with the owner's reason (Canada ports the solver and the search together).
 - Rewrite the 3C section to point at the spec and summarize what shipped; rewrite the Batch 5 section (outer search over `m`, per-phase Apply refinement always applicable with both success rates, objective registry, retiring coordinate ascent and age-keyed schedules, the gap script as a guard), and the 4A/4B sections (solver core to `shared/`, Canada kinks and lambda inputs, TFSA, pension splitting before scoring; 4A and 4B may merge).
-- "Batch 3C notes" (replace "exploration so far" with finished reference text): the decisions list from the spec; the two-return MAGI fix and its before/after; the guard's mechanism and the sweep table; the tax-aware before/after; the gap table; the timing table; the rates before/after; the optimizer re-run result; the Batch 1 open item closed (the MAGI room now has a behavioral test with a mutation check: `tests/cliff_guard.js` case 1); the double-counted room finding (the cap uses the target, not `incomeRoom`).
-- Open items: add "IRMAA priced undiscounted in the year that causes it (two-year lag, possible death before it is charged)" and "State-law cliffs are not solver candidates (priced by taxFor only)"; mark the Batch 1 safe-MAGI test item and the conservative conversion deduction item (tax-aware mode) resolved; record the decision that `pickLiveWithdrawalOrder` is no longer used by the engine.
+- "Batch 3C notes" (replace "exploration so far" with finished reference text): the decisions list from the spec; the two-return MAGI fix and its before/after; the guard's mechanism and the sweep table; the tax-aware before/after; the gap table; the timing table; the rates before/after; the optimizer re-run result; the Batch 1 open item closed (the MAGI room now has a behavioral test with a mutation check: `tests/cliff_guard.js` case 1); the double-counted room finding (the cap uses the target, not `incomeRoom`); the B5 conversion finding and the owner decision from spec section 13 (the five scenarios that depleted earlier, the two causes, and the two design notes), copied into the Batch 5 section as requirements for tax-aware conversion sizing.
+- Open items: add "IRMAA priced undiscounted in the year that causes it (two-year lag, possible death before it is charged)" and "State-law cliffs are not solver candidates (priced by taxFor only)"; mark the Batch 1 safe-MAGI test item resolved (the conservative conversion deduction item stays open: conversion sizing moved to Batch 5); record the decision that `pickLiveWithdrawalOrder` is no longer used by the engine.
 - Cliffs register: note that 3C reads it through `magiThresholds` and which rows are candidates.
 
 `docs/batch-3c-prototype/README.md`: one line at the top: "Superseded by Batch 3C (see the spec and the 3C notes); kept for the record."

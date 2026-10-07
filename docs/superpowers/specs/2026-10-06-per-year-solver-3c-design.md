@@ -137,8 +137,9 @@ their place).
 - **Cliff guard (all modes: default order, smooth, live/tax-aware, applied schedules):** the stay-under and
   fill-to-line candidates against the mode's own draw. Controlled by `cliffGuardEnabled`.
 - **Full solver:** the live-mix toggle (`withdrawalMixEnabled`, key unchanged, relabelled "Tax-aware withdrawals")
-  runs the full candidate set including conversions while conversions are on. Replaces `pickLiveWithdrawalOrder`'s
-  two-order rule and its `overage * 1e6` term.
+  runs the full candidate set for the draw: both stock-account orders, the cliff candidates and (two returns) the
+  draw split. Replaces `pickLiveWithdrawalOrder`'s two-order rule and its `overage * 1e6` term. **Conversions are
+  not sized by the solver in 3C** (amendment, section 13): they keep the bracket setting and the safe-MAGI ceiling.
 - Applied schedules keep precedence over the solver (as the override does over the live mix today); the cliff
   guard still applies to them. The Apply flow is unchanged until Batch 5.
 
@@ -172,15 +173,16 @@ for conversions; pro rata among penalty-free traditional accounts on a joint ret
 - No user field for `m` in 3C.
 - Rows gain `lambda` and `cliffChoice` (e.g. "stayed under ACA 400%", "filled to the Medicaid line", or empty),
   shown in the year table's tooltip. Sankey and exports unchanged.
-- In tax-aware mode conversions are priced through `taxFor` directly, which closes the open item on
-  `solveRothConversion`'s conservative deduction lower bound for that mode.
+- The open item on `solveRothConversion`'s conservative deduction lower bound stays open (conversion sizing moved
+  to Batch 5, section 13).
 
 ## 6. 3C commits
 
 1. Per-return MAGI for ACA and IRMAA in two-return years (correctness; before/after; snapshots updated).
 2. Hooks, no number change: reach bounds, the year's kink list, the lambda estimate (hand-computed tests).
 3. Cliff guard in every mode, `cliffGuardEnabled` (number change).
-4. Full solver behind "Tax-aware withdrawals", conversions included (only live-mix scenarios move).
+4. Full solver behind "Tax-aware withdrawals": the stock-account order chosen by the plan; conversions unchanged
+   (only live-mix scenarios move; amendment, section 13).
 5. Two-return draw split lever.
 Each: `npm test` green; intended number changes shown before/after with `npm run snapshot:update` in the same
 commit; README, `CLAUDE.md` and US badge in the same commit when user-facing or architectural.
@@ -229,7 +231,8 @@ Batch 5); Canada (4A/4B); state cliffs as candidates; IRMAA discounting; modelin
   per-phase multipliers (before 65, 65 to RMDs, RMD years) and is always applicable, showing both success rates;
   objective registry and wording from the current Batch 5 text; decide whether the full solver becomes the
   default; migrate or retire `appliedMixSchedule` / `appliedRothSchedule`; gap table against the slow reference
-  becomes a guard script.
+  becomes a guard script. **Also tax-aware conversion sizing**, built to the two design notes in section 13 and
+  measured against the slow reference and the depletion sweep before it ships.
 - **4A/4B:** move the scoring and candidate loop to a `shared/` fragment; Canada supplies its kink list (OAS
   recovery threshold, GIS, CCB bands, age-amount range), its lambda inputs (RRIF minimums, CPP/OAS, `personTaxCA`)
   and TFSA as the zero-income source; pension splitting runs before the draw is scored; the outer search ports
@@ -243,4 +246,43 @@ Batch 5); Canada (4A/4B); state cliffs as candidates; IRMAA discounting; modelin
 - `irmaaTierCeiling` depends on the pre-conversion MAGI, which the cap changes; use the tier edges as fixed
   candidates rather than a moving ceiling.
 - lambda is an estimate; a poor estimate costs value but never depletion, because the guard rule (no earlier
-  depletion) is tested across the sweep and the outer search in 5 tunes `m`.
+  depletion) is tested across the sweep and the outer search in 5 tunes `m`. (This held for the draw decisions; it
+  did not hold for conversion sizing, see section 13.)
+
+## 13. Amendment (owner decision, 2026-10-07): conversion sizing moves to Batch 5
+
+**What happened.** Task B5 as first built sized conversions in tax-aware mode by `amount x lambda - tax now -
+premium change - IRMAA change`. Five snapshot scenarios then depleted earlier than at the B4 tip (c54ac72), a hard
+stop: `std R rothConv+aca+live` 95 -> 88, `hist R everything real1929` 91 -> 89, `real1966` 88 -> 87, `real1973`
+87 -> 85, `rich crashFirst` never -> 97. With conversions left alone, the order choice moved 29 scenarios and none
+depleted earlier. Lowering the multiplier to 0.9, 0.8 or 0.7 still left five scenarios depleting a year or two
+earlier.
+
+**Not the cause: double counting.** A converted dollar leaves traditional (worth `1 - lambda`) and enters Roth
+(worth 1), gaining `lambda`; this year's tax is subtracted once, separately. lambda stands only for future tax.
+Batch 5 adds a hand-computed one-dollar conversion test that pins this invariant.
+
+**The two causes.**
+1. *lambda's pool path ignores draws.* `lambdaEstimate` grows today's traditional pool at the real return with no
+   withdrawals, so a household that lives on its traditional money is priced as if its RMDs will be huge (in the
+   first failing scenario 900k becomes 2.4M, 3.9M and 6.0M across the samples; the survivor sample alone gives
+   0.368, lambda 0.284). The spec called this an overestimate; for spenders it is a large one.
+2. *The score values wealth, not when it can be spent.* A Roth dollar and a taxable dollar both count 1, but before
+   59.5 a converted dollar is locked for five years while the conversion tax comes out of taxable, the money that
+   bridges to 59.5. Converting to the top of the 24% bracket at 52 and 53 (435k, 446k; about 218k of tax from
+   taxable, ACA credit lost) emptied taxable by 57 and pushed the plan into penalized draws and depletion.
+
+**Decision.** B5 ships the order choice only. In 3C, conversions keep the bracket setting
+(`solveRothConversion`, capped by the safe-MAGI ceiling) in every mode, including tax-aware. The refactors from the
+first attempt stay: `solveRothConversionTo` split out, the healthcare-cost block moved above the conversion (both
+byte-identical). Batch 5 owns tax-aware conversion sizing, built to these two notes:
+- **Note 1, lambda's pool path includes the expected draws.** Project the traditional pool forward net of the
+  traditional share of each year's need (for example the year's need times traditional's share of investable
+  money, grown with inflation), not untouched. A household that spends its traditional money gets a small lambda.
+- **Note 2, a bridge check on conversions.** Before 59.5 (per owner, using the 3B statuses), a conversion amount is
+  allowed only while the penalty-free accessible money (taxable, cash, the taxable bond reserve, Roth basis and
+  seasoned conversions, penalty-free traditional) still covers the need for every year left until 59.5 after the
+  conversion's tax is paid. Larger amounts are not candidates.
+
+Batch 5 also runs the depletion sweep and the slow-reference gap table on conversion sizing before it ships, and
+keeps "never worse than your current settings" (the bracket conversion is always a candidate).
