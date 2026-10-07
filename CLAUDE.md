@@ -197,6 +197,19 @@ Each planner is one big IIFE. Core shape:
   `row.magiProxy` is the realized MAGI and `magiHistory[year]` is
   overwritten with it after convergence; the in-body assignment is
   provisional and only read by the plan's first-year IRMAA stand-in.
+  **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an
+  unmarried couple, or before a marry-later wedding; never the survivor period or single-person mode).
+  `returnMagis(profile, trad, gain)` splits the MAGI into `[magiA, magiB]` (each partner's `other` and
+  Social Security, half the investment income and gains, `trad` = discretionary draw + conversion by
+  `profile.ownerShareA`; the two sum to the household figure) and allocates its 2-array only in those
+  years. The year loop keeps `magiHistoryA/B` and `twoReturnHistory` beside `magiHistory` (written per
+  pass like it, overwritten with the realized split after convergence; rows carry `magiA`/`magiB` in
+  two-return years only). `healthcareCost` prices the ACA premium per tax household (A's includes the
+  children, half the premium each, own poverty line) and IRMAA per person on the single tiers whenever
+  the lookback year had two returns (`irmaaLookbackSplit`; the entered first-two-years prior MAGI is
+  split evenly), else the household rule. `conversionMagiCeiling` keeps each return under its own ACA
+  400% line and IRMAA tier, dividing each return's room by its share of the conversion. The forced pass
+  prices other draws through `costAt(trad, gain)` (which re-splits the MAGI). Test: `tests/two_return_magi.js`.
   Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),

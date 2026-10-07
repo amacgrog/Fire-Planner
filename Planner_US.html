@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V114</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V115</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -6992,7 +6992,8 @@
   // employerCoversSpouse flag for that spouse is set (the default, which makes
   // the pre-65 premium start once BOTH have stopped working); unchecked, the
   // retired partner is on the market from their own retirement date. The
-  // household size and MAGI used for the subsidy stay the whole household's.
+  // household size and MAGI used for the subsidy are the household's on a joint
+  // return; per partner with two returns (healthcareCost).
   // Single-person and survivor cases have no spouse's plan to fall back on.
   function acaEligibility(c) {
     const { age, ageB, workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB } = c;
@@ -7103,6 +7104,26 @@
     if (year < 2 && state.irmaaPriorKnown)
       return Math.max(0, Number(year === 0 ? state.irmaaMagiPrior2 : state.irmaaMagiPrior1) || 0);
     return magiHistory[Math.max(0, year - 2)] || 0;
+  }
+  // Two returns (an unmarried couple, or before a marry-later wedding): each partner's own MAGI. `trad` is
+  // the year's discretionary traditional draw plus the conversion (split by the traditional-pool share, as
+  // taxFor splits it), `gain` the realized gains (half each, as taxFor). The two sum to the household MAGI.
+  function returnMagis(profile, trad, gain) {
+    const s = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA,
+      inv = ((profile.invOrd || 0) + (profile.invQual || 0)) / 2;
+    return [profile.otherA + profile.ssA + inv + trad * s + gain / 2, profile.otherB + profile.ssB + inv + trad * (1 - s) + gain / 2];
+  }
+  // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
+  // that year, against the single tiers. Null when the lookback year was one return (household rule).
+  // The household's own entries for the first two years are split evenly (approximation).
+  function irmaaLookbackSplit(magiHistoryA, magiHistoryB, twoReturnHistory, year) {
+    const y = Math.max(0, year - 2);
+    if (!twoReturnHistory[y]) return null;
+    if (year < 2 && state.irmaaPriorKnown) {
+      const v = Math.max(0, Number(year === 0 ? state.irmaaMagiPrior2 : state.irmaaMagiPrior1) || 0) / 2;
+      return [v, v];
+    }
+    return [magiHistoryA[y] || 0, magiHistoryB[y] || 0];
   }
   // Roth conversion ladder — converts traditional balances to Roth each year
   // in the chosen window, solving for the gross conversion that fills
@@ -8443,6 +8464,12 @@
     magiProxy,
     magiHistory,
     filing,
+    twoReturns = false,
+    magiA = 0,
+    magiB = 0,
+    magiHistoryA = null,
+    magiHistoryB = null,
+    twoReturnHistory = null,
   }) {
     const inflate = (amount) => amount * factor * medicalGrowth(year);
     // An annual `total` shared equally between the two partners (or all Partner
@@ -8456,10 +8483,19 @@
     let usesMagiEstimate = false;
     let healthcare;
     if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
-      const householdSize = acaHouseholdSize(singlePerson, isSurvivorPeriod, year);
-      const grossPremium = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
+      if (twoReturns) {
+        // Two tax households: A's includes the children A claims; each partner's half of the premium is
+        // priced on their own MAGI and poverty line.
+        const kids = qualifyingChildCount(taxYearOf(year));
+        healthcare =
+          acaNetCost(magiA, 1 + kids, inflate(acaEligibleA ? state.healthcare / 2 : 0), year) +
+          acaNetCost(magiB, 1, inflate(acaEligibleB ? state.healthcare / 2 : 0), year);
+      } else {
+        const householdSize = acaHouseholdSize(singlePerson, isSurvivorPeriod, year);
+        const grossPremium = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
+        healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
+      }
       usesMagiEstimate = true;
-      healthcare = acaNetCost(magiProxy, householdSize, grossPremium, year);
     } else {
       // acaEligibleA/B already require age < 65, so this flat premium (ACA
       // modeling off, or both partners past 65) stops for a partner at 65;
@@ -8475,9 +8511,16 @@
     healthcare += sharedCost(state.medicareYearly, medicareEligibleA, medicareEligibleB);
     // IRMAA applies only to partners actually on Medicare (see above), using
     // the two-year MAGI lookback.
-    const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
-    if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-    if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+    // A lookback year with two returns charges each person on their own MAGI against the single tiers.
+    const split = twoReturnHistory ? irmaaLookbackSplit(magiHistoryA, magiHistoryB, twoReturnHistory, year) : null;
+    if (split) {
+      if (medicareEligibleA) healthcare += irmaaSurcharge(split[0], 'single', year);
+      if (medicareEligibleB) healthcare += irmaaSurcharge(split[1], 'single', year);
+    } else {
+      const lookbackMagi = irmaaLookbackMagi(magiHistory, year);
+      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+    }
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
           factor * medicalGrowth(year) +
@@ -8561,7 +8604,27 @@
     preConvMagi,
     filing,
     year,
+    twoReturns = false,
+    preMagiA = 0,
+    preMagiB = 0,
+    shareA = 0.5,
   }) {
+    if (twoReturns) {
+      // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
+      // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
+      // never occur in the survivor period or single-person mode, so the household branch's survivor
+      // guards are not needed here.)
+      let room = Infinity;
+      const kids = qualifyingChildCount(taxYearOf(year)),
+        allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
+      if (state.acaEnabled && !state.acaEnhanced) {
+        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(1 + kids, year) * 4, preMagiA, shareA));
+        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(1, year) * 4, preMagiB, 1 - shareA));
+      }
+      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaTierCeiling(preMagiA, 'single', year), preMagiA, shareA));
+      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaTierCeiling(preMagiB, 'single', year), preMagiB, 1 - shareA));
+      return preConvMagi + room;
+    }
       let magiCeiling = Infinity;
       // Avoid the ACA subsidy cliff: once non-enhanced-mode MAGI crosses
       // 400% of the federal poverty line, the full premium is owed with
@@ -9296,7 +9359,12 @@
     const schedule = mortgageSchedule(),
       loans = loanSchedules(),
       rows = [],
-      magiHistory = [];
+      magiHistory = [],
+      // Two-return years (an unmarried couple, or before a marry-later wedding): each partner's own MAGI,
+      // and which years had two returns, for the per-person IRMAA lookback.
+      magiHistoryA = [],
+      magiHistoryB = [],
+      twoReturnHistory = [];
     // Per-account Roth contribution/conversion ledgers (see rothAccountsNew).
     const rothAccts = rothAccountsNew();
     // Per-account shares of the traditional and Roth pools (see accountsNew).
@@ -9431,6 +9499,9 @@
         workingA,
         workingB,
       });
+      // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
+      // single-person mode, whose profile is a one-person return).
+      const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
         ageB,
@@ -9483,6 +9554,9 @@
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
         const preConvMagi = magiBase + estTrad + estGain;
+        let preMagiA = 0,
+          preMagiB = 0;
+        if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain);
         const magiCeiling = conversionMagiCeiling({
           acaEligibleA,
           acaEligibleB,
@@ -9497,6 +9571,10 @@
           preConvMagi,
           filing,
           year,
+          twoReturns,
+          preMagiA,
+          preMagiB,
+          shareA: profile.ownerShareA,
         });
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
@@ -9508,6 +9586,14 @@
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
         // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
         magiHistory[year] = magiProxy;
+        twoReturnHistory[year] = twoReturns;
+        let magiA = 0,
+          magiB = 0;
+        if (twoReturns) {
+          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);
+          magiHistoryA[year] = magiA;
+          magiHistoryB[year] = magiB;
+        }
         // Display-only running total: like totalTax below, this starts as the
         // pre-withdrawal MAGI proxy and is corrected after the withdrawal
         // waterfall runs to also include realized traditional withdrawals and
@@ -9536,16 +9622,26 @@
           magiProxy,
           magiHistory,
           filing,
+          twoReturns,
+          magiA,
+          magiB,
+          magiHistoryA,
+          magiHistoryB,
+          twoReturnHistory,
         };
         const hcOut = healthcareCost(hcArgs);
         let healthcare = hcOut.healthcare;
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
-        // The cost at some other MAGI (the forced pass below prices the realized one).
-        const costAtMagi = (m) => {
-          hcArgs.magiProxy = m;
+        // The cost at another (discretionary traditional + conversion, gains) pair: the forced pass prices
+        // the realized one, and 3C's solver prices its candidates.
+        const costAt = (trad, gain) => {
+          hcArgs.magiProxy = magiBase + trad + gain;
+          if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
           const c = healthcareCost(hcArgs).healthcare;
           hcArgs.magiProxy = magiProxy;
+          hcArgs.magiA = magiA;
+          hcArgs.magiB = magiB;
           return c;
         };
         if (usesMagiEstimate) estUsed = true;
@@ -9660,7 +9756,7 @@
         const unconverged =
           estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;
         if (usesMagiEstimate && !forcedPass)
-          passLog.push({ estTrad, estGain, charged: healthcare, realized: costAtMagi(magiBase + traditionalGross + taxableGainGross) });
+          passLog.push({ estTrad, estGain, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross) });
         if (unconverged && !forcedPass && iter < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -9690,7 +9786,7 @@
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds.
-          const realizedCost = costAtMagi(magiBase + traditionalGross + taxableGainGross),
+          const realizedCost = costAt(traditionalGross, taxableGainGross),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
           expenses -= refund;
@@ -9712,6 +9808,7 @@
         // withdrawals included): what the IRMAA lookback reads two years on.
         const realizedMagi = magiBase + traditionalGross + taxableGainGross;
         magiHistory[year] = realizedMagi;
+        if (twoReturns) [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);
         bal.mortgage = Math.max(0, bal.mortgage);
         const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
           bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
@@ -9762,6 +9859,10 @@
         };
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
+        if (twoReturns) {
+          row.magiA = magiHistoryA[year];
+          row.magiB = magiHistoryB[year];
+        }
         rows.push(row);
         if (trace) {
           const tradPool = bal.traditional + bal.bondTraditional,
