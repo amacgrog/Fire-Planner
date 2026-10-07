@@ -275,6 +275,28 @@ const BASE = {
   // 10% (to the 12,400 bracket top) nets 7,650, the remaining 5,740 at 12% takes 5,740 / 0.88 gross.
   near(prim.tradGross, 20000 + 8500 + 5740 / 0.88, 0.5, 'release: the rest from traditional, uncapped');
 
+  // 13.7 A: the IRMAA line sits on the tiers of the year the surcharge is charged. Household from the solver_scan grid:
+  // single person, 62, 500k traditional, 2M taxable, Roth IRA 200k, 60k spending, smooth withdrawals, ACA on, Texas,
+  // 2.5% inflation (the defaults). Age 63 (year 1; the surcharge is charged at 65, two years on). The natural MAGI
+  // (guard off) is 113,610. This year's first IRMAA edge is 109,000 x 1.025 = 111,725; the one charged is 1.025^2 higher,
+  // 117,381. Before 13.7 A the guard put the line at 111,725 and stayed under it ("stayed under IRMAA tier", MAGI
+  // 111,724) although nothing jumps there: at 113,610 the household is still under the edge that is charged.
+  {
+    const { legacyToAccounts } = require('./legacy_balances');
+    const H = {
+      singlePerson: true, children: [], ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, lifeExpectancyA: 95, lifeExpectancyB: 95,
+      acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: 2000000, spending: 60000, smoothWithdrawals: true,
+      withdrawalMixEnabled: false, rothConvEnabled: false, ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false,
+      ...legacyToAccounts({ traditional: 500000, roth: 200000 }, { singlePerson: true }),
+    };
+    const hOff = (await rows(page, { ...H, cliffGuardEnabled: false }))[1];
+    const hOn = (await rows(page, { ...H, cliffGuardEnabled: true }))[1];
+    assert.strictEqual(hOff.age, 63);
+    assert(hOff.magiProxy > 111725 && hOff.magiProxy < 117381, `natural MAGI between the edges (${hOff.magiProxy})`);
+    assert(!/IRMAA/.test(hOn.cliffChoice || ''), `no IRMAA stay-under between this year's edge and the charged one (${hOn.cliffChoice})`);
+    near(hOn.magiProxy, hOff.magiProxy, 1, 'the guard leaves the natural MAGI alone');
+  }
+
   assert.deepStrictEqual(errors, []);
   console.log('cliff_guard: OK');
   await browser.close();

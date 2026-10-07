@@ -401,8 +401,10 @@ Each planner is one big IIFE. Core shape:
   for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
 - **Per-year solver (3C, US; section "Per-year solver (Batch 3C)" just above
   `newWithdrawal`).** Hooks: `magiThresholds` (the year's federal lines in household MAGI; with `c.lo/c.hi`
-  only the lines in that reach, a shared empty list when none; IRMAA lines are this year's edges under the
-  filing status and Medicare partners of the year the surcharge is charged, two years on), `lambdaEstimate`
+  only the lines in that reach, a shared empty list when none; IRMAA lines sit on the tiers of the year the
+  surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate `irmaaAt` uses),
+  under the filing status and Medicare partners of that year; the Roth-conversion ceiling `irmaaTierCeiling` keeps this
+  year's edges, the safe side there, 13.7 A), `lambdaEstimate`
   (future tax on a traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at
   the real return net of `tradShare x` the year's need less benefits started since, pricing `max(RMD, min(pool,
   draw))`, moved to the year the walk empties the pool; two-return samples price IRMAA per person; `need` 0 or

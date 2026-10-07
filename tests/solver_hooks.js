@@ -64,6 +64,14 @@ const taxCall = (page, patch, fn, args) =>
   // IRMAA from 63 (retired), single tiers; senior-deduction phase-out start at 65 through 2028.
   assert.deepStrictEqual(magis(await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 63, acaEligibleA: false }))), [109000, 137000, 171000, 205000, 500000]);
   assert.deepStrictEqual(magis(await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 66, acaEligibleA: false }))), [75000, 109000, 137000, 171000, 205000, 500000]);
+  // 13.7 A: the IRMAA lines sit on the tiers of the year the surcharge is charged (c.irmaaGrowth, default 1).
+  assert.deepStrictEqual(magis(await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 63, acaEligibleA: false, irmaaGrowth: 1.05 }))), [114450, 143850, 179550, 215250, 525000]);
+  assert.deepStrictEqual(magis(await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 66, acaEligibleA: false, irmaaGrowth: 1.05 }))), [75000, 114450, 143850, 179550, 215250, 525000]);
+  const twoIr = { twoReturns: true, singlePerson: false, age: 66, ageB: 66, acaEligibleA: false, preMagi: 100000, preMagiA: 40000, preMagiB: 60000, profile: { ownerShareA: 0.5 } };
+  const grown = magis(await call({ acaEnabled: false }, 'magiThresholds', ctx({ ...twoIr, irmaaGrowth: 1.05 })));
+  assert(grown.includes(208900) && grown.includes(248900), `two-return growth: ${JSON.stringify(grown)}`);
+  const plain = magis(await call({ acaEnabled: false }, 'magiThresholds', ctx(twoIr)));
+  assert(plain.includes(198000) && plain.includes(238000), `two-return default: ${JSON.stringify(plain)}`);
   // Child tax credit phase-out start (joint).
   assert.deepStrictEqual(
     magis(await call({ acaEnabled: false, children: [{ birthYear: 2016, student: false }] }, 'magiThresholds', ctx({ filing: 'mfj', singlePerson: false, ageB: 50, age: 50, acaEligibleA: false }))),

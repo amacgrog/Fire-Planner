@@ -2195,7 +2195,8 @@ shipped (13.3). `node test_multi_lever_optimizer.js`: 31 passed. One `simulate()
 Every value loss of the guard in the default order comes from "stayed under IRMAA tier" (12 households, largest
 -29.5k on a 5.1M plan), and most in smooth mode (51 of 53). IRMAA is priced in the year that causes it, undiscounted,
 as charged two years on (that year's partners on Medicare, filing status and tiers grown at plan inflation); the lines
-sit at this year's tier edges (the safe side in inflation, about 5% low; they can miss in deflation). A stay-under
+sat at this year's tier edges until 13.7 A (about 5% low in inflation, where nothing jumps; they now sit on the charged
+year's tiers via `c.irmaaGrowth`, while the conversion ceiling keeps this year's edges). A stay-under
 spends Roth or taxable now for a surcharge two years away that a death or a lower later MAGI might never charge, and
 it gives up tax-free growth on the Roth spent. Batch 5 decides, on the same scans, whether IRMAA stay-unders remain
 guard candidates (or only above some margin) and whether to discount IRMAA for its lag (Open items).
@@ -2222,7 +2223,8 @@ thresholds and the 0% gains band.
   MAGI (the first-year stand-in), which the guard's candidates do not price (B4 minor; also seen in the 13.3 example 1).
 - `lambdaEstimate` approximations: HoH and QSS samples are taxed as `single` / `mfj` (not `filingStatusFor`);
   `onMedicare` counts 65+ rather than `max(65, retirement age)`; the first sample uses A's RMD start even for a B
-  survivor sample; the walk uses the household's benefits past a death; IRMAA lines are this year's edges.
+  survivor sample; the walk uses the household's benefits past a death. (The IRMAA lines moved to the charged year's tiers
+  in 13.7 A; the conversion ceiling keeps this year's edges.)
 - The pool walk (B5b): when the pool runs out before a sample, the sample moves to that year; untested combinations:
   a joint couple with draws, a survivor sample with draws, mid-walk benefits plus exhaustion. The need excludes this
   year's lump expenses (as the bond target does) but includes the wage offset.
@@ -2319,6 +2321,61 @@ thresholds and the 0% gains band.
     - the bracket conversion is sized before, and ignores, the year's draws (48 of 128 scan households with
       conversions; Batch 5);
     - the ladder's traditional-to-bonds move is drawn after Roth in the default order (Batch 4A/5).
+
+- **Stage A result (13.7 A, own commit on 292109e's code; `magiThresholds` gets `c.irmaaGrowth`, the year loop passes
+  `irmaaGrowth2`).**
+  - Tests: three new `solver_hooks.js` cases (red, then green), and a `cliff_guard.js` household (single 62, 500k
+    traditional, 2M taxable, 60k, smooth; age 63: natural MAGI 113,610 between this year's edge 111,725 and the charged
+    117,381; 292109e stayed under at 111,724, now no IRMAA stay-under).
+  - Snapshots vs 292109e: 543 US scenarios, 503 identical, 1 label-only, 39 moved, none depletes earlier (1966 HoH
+    bucket household 80 -> 81); every first moved year carries a guard label on one side. Canada untouched.
+  - `solver_scan` (768 per mode, exit 0, no earlier depletion), guard ON minus OFF, better / equal / worse:
+    - default order, value 43 / 713 / 12 -> 45 / 710 / 13; cost 98 / 649 / 21 -> 100 / 648 / 20; depletion later /
+      same / earlier 21 / 747 / 0 -> 21 / 747 / 0;
+    - smooth, value 227 / 488 / 53 -> 251 / 506 / 11; cost 202 / 456 / 110 -> 236 / 438 / 94; depletion 33 / 735 / 0
+      -> 33 / 735 / 0.
+  - Bucket sweep (1536 paths): guard-on earlier 1 -> 0, later 31 -> 31; stayed-under rows 632 -> 559, not lower than
+    guard-off 212 -> 148.
+  - Movers (scenario | first moved age | depletion | end value change):
+    - hist_G_hoh_58_aca_smooth_real1973 | age 65 | dep never->never | end -7275
+    - hist_G_hoh_62_aca_default_real1966 | age 72 | dep never->never | end +248
+    - hist_G_hoh_66_1966_household_real1966 | age 70 | dep 80->81 | end 0
+    - hist_G_mfj_58_aca_default_real1966 | age 67 | dep never->never | end +7
+    - hist_G_mfj_62_aca_400_smooth_real1966 | age 67 | dep never->never | end -1523
+    - hist_G_single_58_aca_default_real1966 | age 67 | dep never->never | end -122
+    - hist_R_everything_rich_flat | age 81 | dep never->never | end -2042
+    - hist_R_everything_rich_real1929 | age 87 | dep never->never | end +8701
+    - hist_R_mixApplied_rich_boom | age 65 | dep never->never | end -288428
+    - hist_R_mixApplied_rich_mc2 | age 72 | dep never->never | end -35102
+    - hist_R_single_boom | age 63 | dep never->never | end -616694
+    - hist_R_single_mc1 | age 63 | dep 75->75 | end 0
+    - hist_R_single_mc2 | age 68 | dep never->never | end -8978
+    - hist_R_single_rich_crashFirst | age 63 | dep never->never | end -557
+    - hist_R_single_rich_flat | age 65 | dep never->never | end -25911
+    - hist_R_single_rich_real1929 | age 65 | dep never->never | end -68765
+    - hist_R_single_rich_real1966 | age 69 | dep never->never | end -9580
+    - hist_R_single_rich_real1973 | age 63 | dep never->never | end -9706
+    - hist_R_single_rich_real2000 | age 64 | dep never->never | end -92120
+    - hist_R_single_rich_sawtooth | age 90 | dep never->never | end +4355
+    - hist_R_smooth_rich_boom | age 67 | dep never->never | end -380169
+    - hist_R_smooth_rich_mc2 | age 64 | dep never->never | end +10173
+    - std_G_hoh_58_aca_smooth | age 64 | dep never->never | end +103793
+    - std_G_hoh_62_aca_default | age 67 | dep never->never | end +12743
+    - std_G_hoh_62_aca_smooth | age 63 | dep never->never | end +178393
+    - std_G_hoh_66_1966_household | age 68 | dep 86->86 | end 0
+    - std_G_hoh_66_1966_household_smooth | age 66 | dep 86->86 | end 0
+    - std_G_hoh_66_irmaa_500k_smooth | age 66 | dep 76->76 | end 0
+    - std_G_mfj_58_aca_default | age 65 | dep never->never | end +90
+    - std_G_mfj_62_aca_400_default | age 70 | dep never->never | end +4
+    - std_G_mfj_62_aca_400_smooth | age 65 | dep never->never | end +5565
+    - std_G_mfj_66_250k+250k_300k_130k_smooth | age 66 | dep 80->80 | end 0
+    - std_G_single_58_aca_default | age 65 | dep never->never | end 0
+    - std_G_single_62_aca_smooth | age 63 | dep never->never | end -120616
+    - std_G_single_66_500k_300k_130k_smooth | age 66 | dep 76->76 | end 0
+    - std_G_single_66_500k_300k_60k_smooth | age 66 | dep 95->95 | end 0
+    - std_G_two_returns_66_irmaa_default | age 69 | dep never->never | end +7
+    - std_G_two_returns_66_irmaa_smooth | age 66 | dep 80->80 | end 0
+    - std_R_work_past_65_single | age 76 | dep never->never | end -21383
 
 ##### Scripts (not in `npm test`)
 

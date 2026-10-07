@@ -8804,23 +8804,25 @@
       } else acaLines(fplForHousehold(acaHouseholdSize(c.singlePerson, c.isSurvivorPeriod, y), y), add);
     }
     // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, under that
-    // year's filing status; a caller may pass those (c.irmaa: { filing, a, b }). The edges are this year's (the safe
-    // side: the tiers rise with inflation, so a MAGI under this year's edge is under the one charged; the conversion
-    // ceiling, irmaaTierCeiling, reads this year's tiers too).
+    // year's filing status; a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
+    // the surcharge is charged, estimated as irmaaAt estimates them: this year's edge times c.irmaaGrowth (default 1;
+    // the year loop passes irmaaGrowth2). That is where the charge jumps, so that is where a stay-under saves money.
+    // (The conversion ceiling, irmaaTierCeiling, keeps this year's tiers: the safe side there; Batch 5 revisits it.)
     const ir = c.irmaa,
       irmaaA = ir ? ir.a : !c.workingA && c.age >= 63 && !(c.isSurvivorPeriod && c.deceasedIsA),
       irmaaB = ir ? ir.b : !c.singlePerson && !c.workingB && c.ageB >= 63 && !(c.isSurvivorPeriod && c.deceasedIsB);
     if (irmaaA || irmaaB) {
+      const g = c.irmaaGrowth === undefined ? 1 : c.irmaaGrowth;
       if (c.twoReturns) {
         const f = taxIndexFactor(y);
         for (const [edge] of IRMAA_TIERS[filingKey('single', 'irmaa')]) {
-          const cap = edge * f;
+          const cap = edge * f * g;
           if (irmaaA && cap < Infinity) add(toHousehold(cap, c.preMagiA, shareA), 'IRMAA tier');
           if (irmaaB && cap < Infinity) add(toHousehold(cap, c.preMagiB, 1 - shareA), 'IRMAA tier');
         }
       } else {
         const f = taxIndexFactor(y);
-        for (const [edge] of IRMAA_TIERS[filingKey(ir ? ir.filing : c.filing, 'irmaa')]) if (edge < Infinity) add(edge * f, 'IRMAA tier');
+        for (const [edge] of IRMAA_TIERS[filingKey(ir ? ir.filing : c.filing, 'irmaa')]) if (edge < Infinity) add(edge * f * g, 'IRMAA tier');
       }
     }
     if (taxYear <= SENIOR_DEDUCTION_LAST_YEAR && (c.age >= 65 || (!c.singlePerson && c.ageB >= 65)))
@@ -10016,7 +10018,8 @@
         // then, against that year's tiers and filing status; a two-return year is charged per person on the single tiers.
         // The solver prices its candidates on that year's tiers, estimated as this year's grown two years at the plan's
         // assumed inflation (a historical path's own future inflation is not known yet; scaling the tiers up equals scaling
-        // the MAGI down). The IRMAA lines themselves are this year's edges (magiThresholds: the safe side). The charging
+        // the MAGI down). The IRMAA lines use the same estimate (magiThresholds, c.irmaaGrowth); the conversion ceiling keeps this year's edges
+        // (the safe side, deliberate; Batch 5 revisits it). The charging
         // year's filing status is looked up only when a solver asks for it.
         const year2 = year + 2,
           survivor2 = year2 >= deathYear,
@@ -10185,7 +10188,7 @@
               magiBase,
               profile,
               runWithdraw,
-              thresholds: magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, lo: reachLo, hi: reachLo + REACH_GROSS_UP * wd.need }),
+              thresholds: magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo: reachLo, hi: reachLo + REACH_GROSS_UP * wd.need }),
               guard,
               orders: [null],
               splits: [-1],
