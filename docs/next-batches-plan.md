@@ -2377,6 +2377,90 @@ thresholds and the 0% gains band.
     - std_G_two_returns_66_irmaa_smooth | age 66 | dep 80->80 | end 0
     - std_R_work_past_65_single | age 76 | dep never->never | end -21383
 
+##### Stage 8a block and the independent engine review (2026-10-07; 3C paused for a redesign)
+
+**Where the work stands.**
+- Stage A is committed (`3ebee0e`: IRMAA lines on the charged year's tiers, plan inflation; against 292109e none
+  earlier, bucket sweep 0 earlier).
+- Stage 8a is NOT committed: B8a2 + the own-natural metric + the real-cliff gate + the largest cliff. It is in the
+  working tree and in `.superpowers/sdd/2026-10-06-per-year-solver-3c/task-B8-stage8a-wip.patch`; report
+  `task-B8-stage8a-report.md`, harnesses `stage8a-scratch/`.
+- It is blocked by the hard rule: 7 of 1,536 bucket paths run out one year earlier with the guard on, all with
+  conversions on (HoH 62 / 300k / 60k on 1929, HoH 58 / 2M / 130k on 1929, single 58 / 2M / 130k on 1966, HoH 62 /
+  2M / 130k on 1973, plus smooth-mode twins).
+- Everything else passed: standard scan exit 0, no snapshot scenario earlier, every stay-under invariant 0, no win
+  with a cliff saving of $1 or less.
+- Timing: ACA +16% / +21% against `24f6585`, recorded.
+
+**Independent review** (three read-only Opus reviewers on `3ebee0e` + the 8a patch; the planner verified the
+starred claims against the code):
+1. **A per-year choice cannot guarantee "guard-on never runs out earlier than guard-off".**
+   - Each year is chosen without the path's future.
+   - Plans end on knife edges: guard-off had 2.4k left at 89 on a 1.8M plan.
+   - The engine is discontinuous (conversion ceiling, bond refill), so small changes cascade.
+   - This is why amendments 13 to 13.7 each fixed one scan and the next found a new failure.
+2. **\* Historical IRMAA estimate.** The guard grows the tiers two years on at plan inflation (`irmaaGrowth2`); the
+   charge uses the path's own inflation (`histTaxFactors` via `taxIndexFactor`).
+   - Of the bucket wins with an estimated IRMAA saving, 27% (90 of 338) save $0 for real; two of the 7 failures
+     do (1937-39 deflation).
+   - It drives Stage A's large historical losses: `hist_R_single_boom` -617k (2% path inflation; it lands over the
+     real tier while labelled "stayed under"; 0.44% of a 141M nominal end) and `hist_R_smooth_rich_boom` -380k.
+   - The standard engine's estimate is exact. Owner: keep plan inflation (this year's inflation is no predictor of
+     inflation two years on).
+3. **\* Bucket bond reserve.** In all 7 failures the whole traditional pool sits in `bondTraditional`
+   (`refillBondReserve` moves it there in up years), whose draw is uncapped (`takeTraditional(..., uncapped)`).
+   - The cap has nothing to limit, so a stay-under there is only a dropped conversion.
+   - `offerUnder`'s `natTrad` is `realizedTrad`, which includes the uncapped reserve draw: a defect.
+   - A proxy gate (stock traditional > 1) gave bucket 0 earlier but 3 standard smooth households earlier (single
+     66, 500k, 300k, 130k, conversions on: 75 vs 76). Tracking the cappable draw on `wd` is the proper fix.
+4. **\* The score is blind to stocks versus bonds.** `afterTaxValue` values a dollar the same in either.
+   - In HoH 62 / 1929 the dropped 15.1k conversion stayed in bonds instead of moving into Roth stocks (1938: stocks
+     +29.3%, bonds +4.2%; about 3.6k).
+   - Lambda was accurate there (14.8% vs 15.1% realized), so the 8a report's "taxed later above lambda" does not
+     hold for that path.
+5. **Lambda is biased low.**
+   - When the walk empties the pool before a sample, that sample prices a sliver at about 0% (two samples at 22%,
+     the third 0: lambda about 0.147).
+   - `LAMBDA_PROFILE` has no conversions or investment income, and the engine draws traditional in lumps.
+   - HoH 62 / 1973: the trial dropped a 145.7k conversion (46% marginal now) and the run's lifetime tax from 66 on
+     was 73.6k higher.
+   - The bracket conversion is sized before the year's draw, so a natural year converts "at 22%" at a MAGI of 507k
+     (known gap, Batch 5).
+6. **Machinery sound.**
+   - Replay matched the winning pass in 24,330 of 24,330 fingerprinted replays.
+   - No un-rewound state.
+   - Guard-off identical to `3ebee0e` over 2,048 runs.
+   - Minor: a zero-conversion stay-under can turn `flow` non-negative and still win with a label;
+     `annotateSolverRows` always overwrites the title.
+7. **Scan coverage.** `tests/solver_scan.js` runs only `simulate()` (constant inflation, no reserve refill), so it
+   cannot reach these failures; the bucket check lives only in scratch harnesses.
+8. **Outer check, prototyped** (`../fp-3c-rev-outer`): run guard-off only if the guard won a year, and keep guard-on
+   only if it does not run out earlier.
+   - 0 earlier by construction (both sweeps, 500 Monte Carlo paths). Free where the guard never wins (the
+     default, ACA early retiree and Texas households never win).
+   - About 2x on guard-winning runs (guard-active household: +138% simulate, +87% real path against `24f6585`).
+   - In historical and Monte Carlo runs it looks ahead at the path's future: slightly optimistic success rates
+     (about 0.5% of paths).
+   - Option 1 (no stay-under in a converting year) is no substitute: 1 of 500 Monte Carlo paths still runs out
+     earlier, and it gives up real gains (worst -1.78M bucket).
+   - Measured timing of the tree as is: no-cliff +9% to +17% against `24f6585` (fails +5/8%; needs a proper
+     `bench_runs` check).
+
+**Owner direction (2026-10-07).**
+- The hard-rule failures are historical / Monte Carlo only; the standard engine has quality issues (value losses,
+  lambda, the stock/bond blind spot, the guard line vs conversion ceiling tier mismatch, e.g.
+  `std_G_single_62_aca_smooth` -120k) but no earlier depletion since 13.5.
+- The future market is unknown, so optimization should run on the fixed assumptions (return, inflation, bond
+  yield) and on known future events (a car, a house sale, a partner's death, a child, including a later adoption,
+  with expenses rising for a period), not on each historical path's year-by-year fluctuations.
+- A redesign starts in a new chat. Its shape is a plan computed once on the deterministic projection and applied
+  unchanged in historical and Monte Carlo runs, as the applied conversion and mix schedules already are.
+- Open until then: lambda's emptied-pool sample (now or Batch 5), the timing gates, and whether the outer check is
+  still needed.
+- Do not resume Stage 8a or 8b. The Sonnet implementer is paused.
+- Review copies `../fp-3c-review` and `../fp-3c-rev-{score,phase,phase-exp,outer}` are throwaway (prototype and
+  probe scripts inside).
+
 ##### Scripts (not in `npm test`)
 
 - `tests/solver_scan.js [--root DIR] [--json OUT] [--md OUT]`: the guard sweep above; exit 1 on any earlier depletion
