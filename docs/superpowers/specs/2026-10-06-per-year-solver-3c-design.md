@@ -314,3 +314,45 @@ guard-off. If the re-run scan still shows a tax-aware household depleting earlie
 stops and the owner decides; no traditional-first gate or other heuristic is added without that decision.
 
 Note 2 (the bridge check on conversions) stays in Batch 5, with conversion sizing.
+
+### 13.2 Third amendment (owner decision, 2026-10-07): lambda prices what the walk assumes (task B5b)
+
+**What happened after B5a.** On the 768-household grid per mode (the earlier "384" was a miscount; the counts
+36 and 40 were over 768), tax-aware mode now depletes earlier than at c54ac72 in 3 households (guard on or off;
+36 before B5a), and earlier than the default order in the same 3 (40 before B5a; the old live mix had 4). The 3
+are one household, repeated across the election columns (Rule of 55 and 72(t) do nothing at 62): an unmarried
+couple filing two returns, both 62, 1.5M traditional, 300k taxable, 200k Roth, 130k spending, ACA on, Texas, no
+conversions. Lambda is 0.494 at 62 and 0.444 at 63, so traditional-first wins (MAGI 206k instead of 119k, tax
+25,492 instead of 0, healthcare 18,000 instead of 11,859), and the plan runs out at 93 instead of 94.
+
+**Cause A, a bug.** `lambdaEstimate`'s IRMAA step for a two-return couple uses the household MAGI against the
+single tiers and charges it for both partners. B1 prices IRMAA per person everywhere else; the estimate never got
+that rule.
+
+**Cause B, the gap the B5a review found.** The walk assumes the household draws `tradShare x need` every year,
+but each sample priced only the RMD. Lambda is therefore too low whenever draws exceed the RMD, and about 0 when
+the pool runs out before the RMD years (B5a's own scan: two age-58, 130k-spending households, 84 -> 83).
+
+**Decision.** Task B5b, its own commit on top of B5a (0e664d6), before B5 is committed:
+1. **IRMAA per person for two-return samples.** When a sample is a couple on two returns (not one person, filing
+   not joint), each partner's MAGI is their own `other` + Social Security + half the sample's traditional income
+   (the estimate's `ownerShareA` is 0.5). The step is split half to each, and each partner on Medicare is charged
+   `irmaaSurcharge(own MAGI + step / 2, 'single') - irmaaSurcharge(own MAGI, 'single')`. Joint and one-person
+   samples are unchanged.
+2. **Each sample prices the traditional income the walk assumes.** For sample year `ys`, `poolBefore` is the pool
+   after the walk's draws through `ys - 1`, grown one year, and `d` is that year's draw
+   (`tradShare x max(0, need - benefits started since now)`).
+   - The sample's traditional income is `max(RMD on poolBefore, min(poolBefore, d))` in place of the RMD alone.
+   - If the walk empties the pool at a year `z` before a sample, that sample moves to `z` (ages, benefits, filing
+     and RMD divisor of that year), priced at `max(RMD on poolBefore_z, min(poolBefore_z, d_z))`. One more dollar
+     left today would be spent there.
+   - With `need` 0 or `tradShare` 0 every sample's income is its RMD, so apart from item 1 (two-return couples'
+     IRMAA, a deliberate fix) B2's results stay identical to the bit.
+3. **The walk's need leaves out this year's lump expenses:** `need = max(0, -flow - lumpExpense)`, as the bond
+   target already does.
+
+**Hard rules, unchanged:** no snapshot scenario depletes earlier, guard-on never earlier than guard-off, and if
+the re-run scan still shows a tax-aware household depleting earlier than at c54ac72, the work stops for the owner.
+
+B5a's literal test (need 50,000, lambda 0.10) changes under item 2: each sample now prices the 50,000 draw rather
+than the RMD, so lambda becomes 0.12. The test is updated, not kept.
