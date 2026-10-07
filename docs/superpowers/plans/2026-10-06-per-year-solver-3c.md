@@ -1616,7 +1616,7 @@ UI copy: the `withdrawalMixEnabled` label becomes "Tax-aware withdrawals", info 
 
 Tests that pin the old live mix: update their expectations only where the test is about the live mix itself, with the reason in the commit; for tests about something else, set `withdrawalMixEnabled: false`.
 
-Docs: README (Tax-aware withdrawals bullet replaces the live mix bullet), `CLAUDE.md` (Withdrawals section: the live branch now follows `wd.taxAwareOrder`; `chooseTaxAwareConversion`; `solveRothConversionTo`; precedence of applied schedules; the open item on the conservative conversion deduction is closed for tax-aware mode). Badge `V116` -> `V117`.
+Docs: README (Tax-aware withdrawals bullet replaces the live mix bullet), `CLAUDE.md` (Withdrawals section: the live branch now follows `wd.taxAwareOrder`; `solveRothConversionTo`; precedence of applied schedules; conversions keep the bracket setting and conversion sizing by lambda is Batch 5 work, spec section 13). Badge `V116` -> `V117`.
 
 - [ ] **Step 4: Run tests and measure**
 
