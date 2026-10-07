@@ -498,3 +498,46 @@ conversions on. This is needed because the existing grid moved 1 of 893 scenario
 
 **Hard rules, unchanged:** no snapshot scenario depletes earlier, and guard-on never depletes earlier than
 guard-off, in both engines.
+
+### 13.6 Seventh amendment (owner decision, 2026-10-07): the stay-under metric, the largest-cliff line, timing
+
+**What the redesigned B8a found** (uncommitted, `task-B8a2-wip.patch`, report `task-B8a2-report.md`). Spec 13.5 works
+as written: the 1966 household runs out at 81 (guard off 81), the bucket sweep's one earlier depletion is gone, no
+"stayed under" row converts (1,288 did), every stay-under is under its target, `planMissed` is 0, and no snapshot
+scenario runs out earlier (543 compared against 292109e: 415 identical, 97 lambda only, 31 moved). Three gates failed:
+
+1. **13.5's metric was wrong (our design error).** "Stayed under, not lower than the guard-off run's MAGI in the same
+   year" compares two histories. Once the guard draws Roth in an earlier year, guard-off empties its traditional pool
+   first and later lives on Roth at a low MAGI while guard-on still holds traditional money. All 163 such rows (of
+   2,224; 785 before) come after the two runs diverged, conversions-off households included; before divergence the
+   count is 0, and against each run's own natural year it is 0.
+2. **Timing.** The ACA early retiree is +53% (simulate) / +49% (path) against `24f6585`, over the +30% gate; the
+   default household +5-6%; no-cliff Texas equals 292109e.
+3. **The nearest line below can be the wrong one.** At 63-64 on the ACA the converged natural year pays the full
+   premium, so its MAGI can rise over an IRMAA tier that lies above the ACA 400% line; section 5.2 then offers only
+   the IRMAA stay-under. `hist G single 58 aca default | real1966` ends at 2.64M against 3.71M at 292109e (guard off
+   2.12M); `std G single 58 aca default` -220k and `hist R aca rich crashFirst` -173k are the same mechanism.
+   No depletion changes.
+
+**Decision.**
+1. **The stay-under invariant is measured against the run's own natural year.** Every "stayed under" row has
+   conversion 0, MAGI at or under its target plus $1, and MAGI lower than that year's natural candidate (the
+   trace's `realized`) by more than $1. The scan also reports the cross-run count (stay-under MAGI not lower than the
+   guard-off run's by more than $1), split at the first year the two runs' rows differ: before divergence it must
+   be 0 (exit 1 otherwise), after divergence it is information only.
+2. **A second stay-under: the line below with the largest cliff** (this amends section 5.2). Among the lines inside
+   the reach at or below the natural MAGI, the cliff of a line is premium plus IRMAA just over it less just under it
+   (the `costNear` the fill test already uses). If the line with the largest cliff (over $1; ties go to the nearer
+   line) is not the nearest line, it is also offered as a stay-under, under 13.5 item 2's own eligibility (natural
+   MAGI less the natural conversion over that line, and a natural traditional draw). At most three trials (two
+   stay-unders and a fill), each a fresh converged iteration; the winner rule is unchanged.
+3. **Timing: the +30% ACA gate stays.** 8a commits with its timing recorded. 8b then adds number-neutral speedups
+   (snapshots identical to the 8a commit), measured after item 2, for example seeding a stay-under trial at its
+   target, avoiding the replay when the natural year wins, or skipping a trial that cannot win. If the ACA early
+   retiree is still over +30% against `24f6585`, or no-cliff households over +8%, the work stops for the owner.
+4. **Accepted as decided in 13.5:** where a stay-under used to fund a conversion with Roth and that happened to pay
+   (`std G hoh 58 aca smooth` -106k), the loss stands; conversion sizing is Batch 5's. The implementer's rewrite of
+   the age-71 test to its intent (a plan at 71, if any, targets a lower line with no conversion) is accepted.
+
+**Hard rules, unchanged:** no snapshot scenario depletes earlier; guard-on never depletes earlier than guard-off, in
+both engines.

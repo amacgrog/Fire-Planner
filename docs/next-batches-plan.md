@@ -2239,7 +2239,7 @@ thresholds and the 0% gains band.
 - `costAt` is declared above the conversion as a hook for Batch 5 (B5); the per-pass closure setup is now
   unconditional (measured at about 0).
 
-##### Section 13.4 and 13.5: the whole-branch review, B8a, and the guard's conversion rule
+##### Section 13.4 to 13.6: the whole-branch review, B8a, and the guard's conversion rule
 
 - **Review of PR 2 (spec 13.4).** Later MAGI passes re-sized the conversion and refilled the headroom a "stayed
   under" plan made (79 of 234 standard stay-under rows, 78 of 255 historical). One bucket-engine household ran out
@@ -2269,6 +2269,27 @@ thresholds and the 0% gains band.
   - With a plan, the iteration converges again with the plan held.
   - Labels only when met.
   - Coverage comes first: about 20 snapshot scenarios where the guard acts with conversions on.
+- **Redesigned B8a (spec 13.5), first build** (uncommitted, `task-B8a2-wip.patch`). It worked as specified: the 1966
+  household 80 -> 81 (guard off 81), bucket sweep (1,536 paths) earlier 1 -> 0, stay-under rows with a conversion
+  1,288 -> 0, `planMissed` 0, snapshots against 292109e 415 identical / 97 lambda only / 31 moved, none earlier.
+  Three gates failed:
+  - *The cross-run metric (our design error).* "Stay-under MAGI not lower than guard-off's in the same year": 163 of
+    2,224 (785 before), all after the two runs diverged (guard-on spent Roth earlier and still holds traditional money;
+    guard-off's traditional pool is empty and it lives on Roth). Before divergence 0; against the run's own natural
+    year 0.
+  - *Timing.* ACA early retiree +53% simulate / +49% path against `24f6585` (gate +30%); default +5-6%; no-cliff
+    Texas equal to 292109e. Each year with a line in reach runs the converged natural year, one or two converged
+    trials and often a replay.
+  - *Nearest line.* At 63-64 the converged natural year pays the full premium and can rise over an IRMAA tier above
+    the ACA 400% line, so only the IRMAA stay-under was offered: `hist G single 58 aca default | real1966` 3.71M ->
+    2.64M (guard off 2.12M), `std G single 58 aca default` -220k, `hist R aca rich crashFirst` -173k; no depletion
+    change.
+- **Decision (spec 13.6):** the invariant is measured against the run's own natural year (the cross-run count is
+  reported split at divergence; before divergence must be 0); a second stay-under is offered at the line below with
+  the largest cliff (premium + IRMAA just over less just under) when it is not the nearest line, so at most three
+  trials; the +30% ACA timing gate stays, met by number-neutral speedups in 8b, else the owner decides. Accepted:
+  `std G hoh 58 aca smooth` -106k (a stay-under no longer funds a conversion with Roth; conversion sizing is
+  Batch 5's) and the age-71 test rewritten to its intent.
 
 ##### Scripts (not in `npm test`)
 

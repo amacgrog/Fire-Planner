@@ -2237,7 +2237,98 @@ No number change.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task B8: The guard never spends Roth for a conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4, 13.5)
+### Task B8: The guard never spends Roth for a conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4, 13.5, 13.6)
+
+> **AMENDMENT 7 (owner decision, 2026-10-07, spec section 13.6). It wins over the 13.5 block and the text below
+> where they differ.** Resume from the uncommitted B8a2 work in the tree (`task-B8a2-wip.patch`); keep everything it
+> built. Three changes, then 8a commits:
+>
+> **(a) The metric.** In `tests/cliff_guard.js` group 2, the third clause becomes: every "stayed under" row's
+> `magiProxy` is lower than that year's natural candidate's `realized` (from `window.__test_planTrace()`) by more
+> than $1. The guard-off comparison leaves the tests. Keep the conversion-0 and target-plus-$1 clauses. The
+> age-71 assertion as you rewrote it (to its intent) is accepted.
+>
+> **(b) The largest-cliff stay-under (spec 13.6 item 2).** In `yearPlanCandidates`:
+>
+> ```js
+>   function yearPlanCandidates(c) {
+>     let out = NO_PLANS,
+>       below = null;
+>     for (const t of c.thresholds) if (t.magi <= c.natMagi && t.magi - 1 >= c.lo) below = t;
+>     const gain = c.gain,
+>       costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + c.irmaaAt(m - c.magiBase - gain, gain),
+>       offerUnder = (t) => c.natTrad > 0 && c.natMagi - c.natConv > t.magi,
+>       underOf = (t) => ({ kind: 'under', magi: t.magi - 1, label: t.label });
+>     if (below) {
+>       // 13.6: also the line below with the largest cliff (premium + IRMAA just over less just under, over $1; ties
+>       // to the nearer line) when it is not the nearest: the full premium can lift the natural MAGI over an IRMAA tier
+>       // that sits above the ACA 400% line.
+>       let big = null,
+>         bigJump = 0;
+>       for (const t of c.thresholds) {
+>         if (t.magi > below.magi) break;
+>         if (t.magi - 1 < c.lo) continue;
+>         const jump = costNear(t.magi + 1) - costNear(t.magi - 1);
+>         if (jump > 1 && jump >= bigJump) {
+>           big = t;
+>           bigJump = jump;
+>         }
+>       }
+>       if (offerUnder(below)) out = [underOf(below)];
+>       if (big && big !== below && offerUnder(big)) out = out === NO_PLANS ? [underOf(big)] : [out[0], underOf(big)];
+>     }
+>     if (c.canFill) {
+>       for (const t of c.thresholds) {
+>         if (t.magi <= c.natMagi || t.magi + 1 > c.hi) continue;
+>         if (costNear(t.magi + 1) < costNear(t.magi - 1)) {
+>           const fill = { kind: 'fill', magi: t.magi + 1, label: t.label };
+>           out = out === NO_PLANS ? [fill] : [...out, fill];
+>           break;
+>         }
+>       }
+>     }
+>     return out;
+>   }
+> ```
+>
+> The trial loop runs every candidate (now up to three) as a fresh converged iteration; the winner rule, replay,
+> statistics and trace are unchanged (the trace lists both stay-unders). Export it for tests beside the other hooks:
+> `window.__test_yearPlanCandidates = yearPlanCandidates;`.
+>
+> Unit test first (new case in `tests/cliff_guard.js`, hand-computed). Common inputs: `magiBase 20000`, `gain 0`,
+> `lo 20000`, `hi 300000`, `canFill false`, `premiumAt = (t, g) => (20000 + t + g > 80000 ? 24697 : 8059)`.
+> 1. Lines `[{ magi: 80000, label: 'ACA 400% line' }, { magi: 140000, label: 'IRMAA tier' }]`,
+>    `irmaaAt = (t, g) => (20000 + t + g > 140000 ? 1000 : 0)`, `natMagi 148700`, `natTrad 100000`:
+>    - `natConv 0` -> `[under 139999 'IRMAA tier', under 79999 'ACA 400% line']` (cliffs: ACA 24,697 - 8,059 =
+>      16,638; IRMAA 1,000);
+>    - `natConv 10000` -> `[under 79999 'ACA 400% line']` (138,700 is not over the tier but is over the ACA line);
+>    - `natConv 70000` -> `NO_PLANS` (78,700 is under both lines);
+>    - `natTrad 0` -> `NO_PLANS`.
+> 2. Lines `[{ magi: 60000, label: 'IRMAA tier' }, { magi: 80000, label: 'ACA 400% line' }]`,
+>    `irmaaAt = (t, g) => (20000 + t + g > 60000 ? 1000 : 0)`, `natMagi 90000`, `natConv 0`, `natTrad 50000` ->
+>    `[under 79999 'ACA 400% line']` only (the nearest line has the largest cliff, 16,638 against 1,000).
+> Expect them to fail before the change (case 1 with `natConv 0` and `natConv 10000`).
+>
+> **(c) Re-run and re-explain, then commit 8a.**
+> - Tests green; dump and compare against `292109e` (the 8.0 commit) with a before/after mover table that includes
+>   the 1966 household, the three smooth-mode households and the three 13.6 losers (`hist G single 58 aca default |
+>   real1966`, `std G single 58 aca default`, `hist R aca rich crashFirst`). No scenario may run out earlier.
+> - Standard scan and bucket sweep: guard-on never earlier (exit 0); report the stay-under counts: with a conversion
+>   (must be 0), over target + 1 (must be 0), not lower than own natural by more than $1 (must be 0), and the
+>   cross-run guard-off count split before / after the first year the two runs' rows differ (before must be 0; after
+>   is information).
+> - Record the timing (`bench_solver.js` against `24f6585` and `292109e`); it does not gate 8a.
+> - CLAUDE.md paragraph (the phases, the up-to-three candidates, the own-natural invariant), `npm run
+>   snapshot:update`, full `npm test`, commit as "3C: the guard chooses against the converged natural year, never
+>   spends Roth for a conversion, and also tries the largest cliff below; labels only when met (spec 13.5, 13.6)",
+>   with the mover table in the message.
+>
+> **8b changes.** Step 5's scan exits 1 on any guard-on earlier depletion in either engine, on a stay-under with a
+> conversion, over its target + 1 or not lower than its own natural year by more than $1, and on a nonzero
+> before-divergence cross-run count; it prints the after-divergence count. Step 8: speedups first (each leaves the
+> snapshots identical to the 8a commit), then measure; the ACA early retiree keeps its +30% gate against `24f6585`
+> and no-cliff households the 13.4 item 4 rule (+5% done, up to +8% accepted and recorded, above +8% stop). If
+> either gate fails after the speedups, STOP and report the measurements.
 
 > **AMENDMENT (owner decision, 2026-10-07, spec section 13.5). It wins over the 8a text below. Steps 5-9 (8b)
 > stand.** The "hold the conversion" fix is withdrawn. Discard the uncommitted B8a change (keep `task-B8a-wip.patch`;
