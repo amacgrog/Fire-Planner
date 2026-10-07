@@ -193,6 +193,8 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
       k401Type: 'traditional', iraType: 'traditional', iraPctA: 0, incomeB: 0, k401PctB: 0,
       acaEnabled: true, healthcare: 18000, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 62, rothConvBracket: 22,
       trad401kA: 600000, trad401kB: 600000, rothIraA: 50000, rothIraB: 50000, taxable: 0, cash: 30000, cashReserve: 0, spending: 30000,
+      // The 3C cliff guard would draw Roth to stay under an ACA line; this case pins the ledger under the plain order.
+      cliffGuardEnabled: false,
     };
     const { trace, rows } = await run(patch, [55, 55]);
     // Ten working years add 24,500 + 4,000 match to A's 401(k): 600,000 + 285,000 of 1,485,000.

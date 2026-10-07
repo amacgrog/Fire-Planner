@@ -1,0 +1,284 @@
+const { chromium } = require('playwright');
+const assert = require('assert');
+const path = require('path');
+const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expected ${b} (+/-${tol}), got ${a}`);
+
+async function openPlanner() {
+  const browser = await chromium.launch();
+  const page = await (await browser.newContext()).newPage();
+  await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.waitForTimeout(300);
+  return { browser, page, errors };
+}
+// Runs simulate() under a state patch and restores the state afterwards. Returns the rows.
+const rows = (page, patch) =>
+  page.evaluate((patch) => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, patch);
+    try {
+      return JSON.parse(JSON.stringify(window.__test_simulate().rows));
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  }, patch);
+// Calls window.__test_tax[fn](...args) under a state patch.
+const taxCall = (page, patch, fn, args) =>
+  page.evaluate(({ patch, fn, args }) => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, patch);
+    try {
+      return window.__test_tax[fn](...args);
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  }, { patch, fn, args });
+
+const BASE = {
+  singlePerson: true, filingStatus: 'single', marryLater: false, survivorEnabled: false, children: [],
+  ageA: 60, ageB: 60, retireAgeA: 60, retireAgeB: 60, lifeExpectancyA: 64, lifeExpectancyB: 64,
+  inflation: 0, medicalInflation: 0, returnRate: 0, bondReturn: 0, hysaRate: 0, incomeA: 0, incomeB: 0,
+  taxable: 0, basisRatio: 100, cash: 3000000, cashReserve: 0, bondYears: 0, spending: 40000,
+  tradIraA: 0, trad401kA: 0, rothIraA: 0, roth401kA: 0, rothIraBasisA: 0,
+  tradIraB: 0, trad401kB: 0, rothIraB: 0, roth401kB: 0, rothIraBasisB: 0,
+  ssMonthlyA: 0, ssMonthlyB: 0, pensionCoverage: 'both', pensionYearlyA: 0, pensionYearlyB: 0, pensionStartAgeA: 0, pensionStartAgeB: 0,
+  stateTax: 'tx', acaEnabled: false, acaEnhanced: false, medicaidWhenEligible: true, healthcare: 12000,
+  medicareYearly: 0, ltcEnabled: false, irmaaPriorKnown: false, rothConvEnabled: false,
+  withdrawalMixEnabled: false, smoothWithdrawals: false, appliedMixSchedule: null, appliedRothSchedule: null,
+  guardrailsEnabled: false, incomeSources: [], oneTimeIncome: [], extraExpenses: [], lumpExpenses: [], spendingTiers: [],
+  sepp72tIraA: false, sepp72tK401A: false, sepp72tIraB: false, sepp72tK401B: false,
+};
+
+// 3C cliff guard: stay under a line when the credit saved outweighs the extra value spent; cross when it
+// does not; fill to a floor when that removes a premium. Each case finds its spending by scanning, so it does
+// not depend on housing defaults.
+(async () => {
+  const { browser, page, errors } = await openPlanner();
+  const G = { ...BASE, ruleOf55A: false, ruleOf55B: false, acaEnabled: true, trad401kA: 600000, rothIraA: 300000, rothIraBasisA: 300000, cash: 0, lifeExpectancyA: 62 };
+  const first = async (patch) => (await rows(page, patch))[0];
+  async function findSpending(patch, lo, hi, pred) {
+    for (let s = 0; s <= 200000; s += 500) {
+      const r = await first({ ...patch, spending: s, cliffGuardEnabled: false });
+      if (r.magiProxy > lo && r.magiProxy < hi && (!pred || pred(r))) return s;
+    }
+    throw new Error(`no spending lands MAGI in (${lo}, ${hi})`);
+  }
+
+  // 1. Just over the 400% line (62,600): staying under saves most of a 12,000 premium for a small Roth draw.
+  const s1 = await findSpending(G, 62600, 64000);
+  const off1 = await first({ ...G, spending: s1, cliffGuardEnabled: false });
+  const on1 = await first({ ...G, spending: s1, cliffGuardEnabled: true });
+  near(off1.healthcare, 12000, 0.01, 'guard off: over the cliff, full premium');
+  assert(on1.magiProxy <= 62600, `guard on stays under (${on1.magiProxy})`);
+  assert(on1.healthcare < 12000 - 3000, 'guard on keeps the credit');
+  assert(/^stayed under ACA 400% line/.test(on1.cliffChoice), `cliffChoice ${on1.cliffChoice}`);
+  // Just over the line the premium saved (about 6,400) alone brings the need under the cap, so no Roth is needed
+  // here (Texas: with the guard off the MAGI iteration settles on the high fixed point, 12,000 charged at 62,898;
+  // the low one, about 5,600 charged at about 56,500, is also consistent and is what the cap finds).
+  assert(on1.rothWithdrawn >= off1.rothWithdrawn, 'no less Roth');
+  // This pair is also the mutation check for the MAGI room: removing the cap (guard off) changes the result.
+
+  // 1b. Further over (about 71,000): even with the lower premium the need exceeds the room under the line, so the
+  //     capped shortfall falls through to Roth (the strategy's own order, before the cap is released).
+  const s1b = await findSpending(G, 70000, 72000);
+  const off1b = await first({ ...G, spending: s1b, cliffGuardEnabled: false });
+  const on1b = await first({ ...G, spending: s1b, cliffGuardEnabled: true });
+  assert(on1b.magiProxy <= 62600, `1b: guard on stays under (${on1b.magiProxy})`);
+  assert(/^stayed under ACA 400% line/.test(on1b.cliffChoice), `1b: cliffChoice ${on1b.cliffChoice}`);
+  assert(on1b.rothWithdrawn > off1b.rothWithdrawn + 100, `1b: the shortfall came from Roth (${on1b.rothWithdrawn})`);
+  assert(on1b.total > off1b.total, '1b: ends the year with more');
+
+  // 2. Far over the line (about 150,000) with a high lambda: staying under would replace about 87,000 of
+  //    traditional (worth 1 - lambda) with Roth (worth 1) to save a credit of about 5,800. That loses when
+  //    lambda exceeds this year's marginal rate (24%) by more than 5,800 / 87,000, so crossing wins.
+  //    (With lambda 0, as in case 1, staying under always wins: the Roth draw also saves this year's tax.)
+  const H = { ...G, trad401kA: 8000000, lifeExpectancyA: 90 };
+  const s2 = await findSpending(H, 140000, 160000);
+  const on2 = await first({ ...H, spending: s2, cliffGuardEnabled: true });
+  assert(on2.lambda > 0.33, `precondition: lambda well above 24% (${on2.lambda})`);
+  assert(on2.magiProxy > 62600, 'crossing wins far over the line');
+  assert.strictEqual(on2.cliffChoice, undefined);
+
+  // 3. Fill to the Medicaid line: California, Medicaid declined, MAGI under 138% pays the full premium;
+  //    just over it pays about 3.1% of income.
+  //    No housing cost here: the default mortgage alone (about 26,400 a year) puts MAGI over the line at zero spending.
+  const F = { ...G, stateTax: 'ca', medicaidWhenEligible: false, pensionYearlyA: 8000, tenure: 'rent', rent: 0 };
+  const s3 = await findSpending(F, 15650, 21597);
+  const on3 = await first({ ...F, spending: s3, cliffGuardEnabled: true });
+  assert(/^filled to Medicaid line/.test(on3.cliffChoice), `cliffChoice ${on3.cliffChoice}`);
+  assert(on3.magiProxy > 21597, 'MAGI just over the line');
+  const expect3 = await taxCall(page, F, 'acaNetCost', [on3.magiProxy, 1, 12000, 0]);
+  near(on3.healthcare, expect3, 0.5, 'premium priced at the realized MAGI');
+
+  // 4. Nothing in reach (no ACA, age 50, no children): identical rows with the guard on and off, no lambda.
+  const N = { ...G, acaEnabled: false, ageA: 50, retireAgeA: 50, lifeExpectancyA: 54, spending: 50000 };
+  const a = await rows(page, { ...N, cliffGuardEnabled: false }),
+    b = await rows(page, { ...N, cliffGuardEnabled: true });
+  assert.deepStrictEqual(b, a, 'skip path is identical');
+  assert(b.every((r) => r.lambda === undefined), 'no lambda computed on the skip path');
+
+  // Each year's candidates (window.__test_planTrace), under a state patch.
+  const traceOf = (patch) =>
+    page.evaluate((patch) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      Object.assign(st, patch);
+      try {
+        return window.__test_planTrace();
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, patch);
+  const kinds = (tr, year) => ((tr.find((t) => t.year === year) || {}).candidates || []).map((c) => c.kind);
+
+  // 3b. Fill to the nearest FLOOR, not the nearest line: natural MAGI under 100% of the poverty line. In California
+  //     with Medicaid declined the 100% line is not a floor (the full 12,000 premium on both sides: no credit under it,
+  //     declined Medicaid over it); the Medicaid line (138%, 21,597) is. Filled to 21,598: ratio 21,598 / 15,650 =
+  //     1.38006; applicable percentage 3.14 + 1.05 x (1.38006 - 1.33) / 0.17 = 3.44922%; premium 21,598 x 3.44922% = 744.96.
+  // (Natural MAGI near the top of that band, so the floor is within reach: from 8,000 up to twice the need.)
+  const s3b = await findSpending(F, 14700, 15650);
+  const off3b = await first({ ...F, spending: s3b, cliffGuardEnabled: false });
+  const on3b = await first({ ...F, spending: s3b, cliffGuardEnabled: true });
+  near(off3b.healthcare, 12000, 0.01, '3b: guard off pays the full premium under 100%');
+  assert(/^filled to Medicaid line/.test(on3b.cliffChoice), `3b: cliffChoice ${on3b.cliffChoice}`);
+  near(on3b.magiProxy, 21598, 0.01, '3b: MAGI just over the Medicaid line');
+  near(on3b.healthcare, 744.96, 0.01, '3b: premium at 138%');
+  assert(on3b.total > off3b.total, '3b: ends the year with more');
+
+  // 5. No penalty-free traditional money (55, IRA only, no Rule of 55): the fill is never offered, with natural MAGI
+  //    between the 100% line and the Medicaid floor, where a fill would pay. Positive control: the same household with
+  //    the money in a Rule of 55 401(k) is offered the fill and takes it. (No Roth or cash: the draw is traditional.)
+  const P0 = { ...G, ageA: 55, retireAgeA: 55, lifeExpectancyA: 57, rothIraA: 0, rothIraBasisA: 0, stateTax: 'ca', medicaidWhenEligible: false, pensionYearlyA: 8000, tenure: 'rent', rent: 0 };
+  const Ppen = { ...P0, trad401kA: 0, tradIraA: 600000, ruleOf55A: false },
+    Pfree = { ...P0, trad401kA: 600000, tradIraA: 0, ruleOf55A: true };
+  const s5 = await findSpending(Ppen, 15650, 21597);
+  const tr5 = await traceOf({ ...Ppen, spending: s5, cliffGuardEnabled: true });
+  assert(kinds(tr5, 0).includes('none'), 'precondition: the guard looked at year 0');
+  assert(!kinds(tr5, 0).includes('fill'), `no fill offered from penalized money (${kinds(tr5, 0)})`);
+  const pr = await rows(page, { ...Ppen, spending: s5, cliffGuardEnabled: true });
+  assert(pr.every((r) => !/^filled/.test(r.cliffChoice || '')), 'no fill from penalized money');
+  const s5c = await findSpending(Pfree, 15650, 21597);
+  const tr5c = await traceOf({ ...Pfree, spending: s5c, cliffGuardEnabled: true });
+  assert(kinds(tr5c, 0).includes('fill'), `positive control: fill offered with Rule of 55 money (${kinds(tr5c, 0)})`);
+  assert(/^filled to Medicaid line/.test((await first({ ...Pfree, spending: s5c, cliffGuardEnabled: true })).cliffChoice || ''), 'positive control: filled');
+
+  // 5b. An 'under' candidate that does not stay under is not eligible: the taxable account (66,000, all gain, sold
+  //     first) alone puts MAGI at 66,000, over the 400% line (62,600); capping traditional cannot undo that, so the
+  //     capped candidate realizes 66,000 > target 62,599 + 1 and the natural draw is kept (it used to be able to win
+  //     just from drawing Roth instead of traditional).
+  const U = { ...G, taxable: 66000, basisRatio: 0, dividendYield: 0, tenure: 'rent', rent: 0, spending: 90000 };
+  const trU = (await traceOf({ ...U, cliffGuardEnabled: true })).find((t) => t.year === 0);
+  const capU = (trU.candidates || []).find((c) => c.kind === 'under');
+  assert(capU, 'precondition: an under candidate was tried');
+  near(capU.magi, 62599, 1e-6, '5b: target');
+  near(capU.realized, 66000, 0.01, '5b: realized MAGI, the gain alone');
+  assert.strictEqual(capU.ok, false, '5b: not eligible');
+  const offU = await first({ ...U, cliffGuardEnabled: false }),
+    onU = await first({ ...U, cliffGuardEnabled: true });
+  assert.strictEqual(onU.cliffChoice, undefined, '5b: not labelled');
+  near(onU.total, offU.total, 1e-6, '5b: same year as with the guard off');
+
+  // 6. Survivor transition: A-dies equals B-dies with the guard on (identical partners).
+  const SV = { ...G, singlePerson: false, ageB: 60, retireAgeB: 60, lifeExpectancyA: 70, lifeExpectancyB: 70, trad401kB: 600000, survivorEnabled: true, survivorDeathAge: 63, spending: 70000, cliffGuardEnabled: true };
+  const dA = await rows(page, { ...SV, survivorPartner: 'A' }),
+    dB = await rows(page, { ...SV, survivorPartner: 'B' });
+  for (let i = 0; i < dA.length; i++) near(dA[i].total, dB[i].total, 0.01, `survivor symmetry, year ${i}`);
+
+  // 7. Determinism: the same scenario twice gives identical rows.
+  assert.deepStrictEqual(await rows(page, { ...G, spending: s1, cliffGuardEnabled: true }), await rows(page, { ...G, spending: s1, cliffGuardEnabled: true }));
+
+  // 8. Bucket engine, a down year paid from cash: finite results.
+  const hist = await page.evaluate((patch) => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, patch);
+    try {
+      return window.__test_simulateHistorical(() => [2008, -37, 0, 5]).rows.map((r) => r.total);
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  }, { ...G, cash: 500000, bondYears: 2, spending: s1, cliffGuardEnabled: true });
+  assert(hist.every(Number.isFinite), 'historical run finite');
+
+  // 8b. Bucket engine down years paid from cash and the bond reserve: the guard is a no-op (cash and bonds keep their
+  //     place; the bond step is never capped), so those years match the guard-off run exactly.
+  const histRows = (guard) =>
+    page.evaluate((patch) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      Object.assign(st, patch);
+      try {
+        return JSON.parse(JSON.stringify(window.__test_simulateHistorical(() => [2008, -37, 0, 5]).rows));
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, { ...G, cash: 60000, trad401kA: 400000, bondYears: 3, retireAgeA: 62, lifeExpectancyA: 66, spending: s1b, dividendYield: 0, cliffGuardEnabled: guard });
+  const hOff = await histRows(false),
+    hOn = await histRows(true);
+  const strip = (r) => {
+    const o = { ...r };
+    delete o.lambda;
+    return o;
+  };
+  // Ages 60-61 work (the ladder is built), 62 onward retired: the down years draw cash, then the bond reserve.
+  const bondYearsRows = hOff.filter((r) => r.age >= 62 && r.bonds > 0);
+  assert(bondYearsRows.length > 0, 'precondition: some retired years still hold bonds');
+  for (const r of bondYearsRows) assert.deepStrictEqual(strip(hOn[r.year]), strip(r), `down year at ${r.age} unchanged by the guard`);
+
+  // 9. The primitives the guard relies on, on a hand-built withdrawal (single, 60, Texas; 2026 deduction 16,100).
+  //    freeTraditional: only the penalty-free accounts count. withdrawStandard with a cap: traditional up to the
+  //    room (20,000 gross, tax 10% of 3,900 = 390), then Roth, then cash, then the cap is released and the rest
+  //    comes from traditional uncapped, so the target never strands the need.
+  const prim = await page.evaluate(() => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, { stateTax: 'tx', inflation: 0, singlePerson: true, tenure: 'rent' });
+    try {
+      const S = window.__test_solver;
+      const profile = { filing: 'single', otherA: 0, otherB: 0, extraIncome: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 60, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: [] };
+      const r = {};
+      let wd = S.newTestWithdrawal({ traditional: 400000, bondTraditional: 100000 }, profile);
+      r.freeAll = S.freeTraditional(wd);
+      wd.status = [0, 1, 2, 3].map(() => ({ free: false, qualified: false }));
+      r.freeNone = S.freeTraditional(wd);
+      wd.accts.trad = [0.5, 0, 0.5, 0];
+      wd.status = [{ free: true, qualified: true }, { free: false, qualified: false }, { free: false, qualified: false }, { free: false, qualified: false }];
+      r.freeHalf = S.freeTraditional(wd);
+      wd = S.newTestWithdrawal({ traditional: 500000, roth: 5000, cash: 2000 }, profile);
+      wd.magiCap = { limit: 20000, off: false };
+      wd.need = 40000;
+      S.withdrawStandard(wd, { age: 60, remainingMagiRoom: Infinity });
+      Object.assign(r, { need: wd.need, off: wd.magiCap.off, roth: wd.rothWithdrawn, cash: wd.bal.cash, tradGross: wd.traditionalGross });
+      return r;
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  });
+  assert.strictEqual(prim.freeAll, 500000, 'freeTraditional: everything free');
+  assert.strictEqual(prim.freeNone, 0, 'freeTraditional: nothing free');
+  near(prim.freeHalf, 250000, 1e-6, 'freeTraditional: one of two owners free');
+  near(prim.need, 0, 0.01, 'release: need met');
+  assert.strictEqual(prim.off, true, 'release: cap lifted');
+  near(prim.roth, 5000, 1e-6, 'release: Roth drawn before the release');
+  near(prim.cash, 0, 1e-6, 'release: cash drawn before the release');
+  // After the release: 40,000 - 19,610 - 5,000 - 2,000 = 13,390 net more. Taxable income is 3,900: 8,500 more at
+  // 10% (to the 12,400 bracket top) nets 7,650, the remaining 5,740 at 12% takes 5,740 / 0.88 gross.
+  near(prim.tradGross, 20000 + 8500 + 5740 / 0.88, 0.5, 'release: the rest from traditional, uncapped');
+
+  assert.deepStrictEqual(errors, []);
+  console.log('cliff_guard: OK');
+  await browser.close();
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

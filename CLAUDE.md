@@ -386,6 +386,34 @@ Each planner is one big IIFE. Core shape:
   `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
+- **Per-year solver (3C, US; section "Per-year solver (Batch 3C)" just above
+  `newWithdrawal`).** Hooks: `magiThresholds` (the year's federal lines in household MAGI; with `c.lo/c.hi`
+  only the lines in that reach, a shared empty list when none; IRMAA lines are this year's edges under the
+  filing status and Medicare partners of the year the surcharge is charged, two years on), `lambdaEstimate`
+  (future tax on a traditional dollar, 9 `taxFor` calls), `afterTaxValue`. Primitives on `wd`: `magiCap`
+  (limits penalty-free traditional draws only; gains and early Roth earnings still raise MAGI, so it is not
+  a hard MAGI guarantee), `releaseMagiCap` (before penalized money and home equity), `fillTraditional`,
+  `freeTraditional`, `cloneWithdrawal`, `adoptWithdrawal`. The bond reserve's traditional draw is uncapped
+  in both strategies (`takeTraditional(..., uncapped)`): cash and bonds keep their place, the guard steers
+  the stock-account step and what precedes the reserve. `chooseYearPlan(c)` dry-runs the year's real
+  withdrawal (`runWithdraw`) on clones for the natural draw, a cap just under the nearest line at or below
+  its MAGI (only if the natural draw took traditional money; it counts only if its realized MAGI is at most
+  the target + 1, since gains, the reserve and the release can carry it over) and a fill just over the nearest
+  FLOOR above (the first line in reach where premium plus IRMAA is lower just over than just under; only with
+  penalty-free traditional money), scores each by `afterTaxValue` less the premium change (`costAt`) and the IRMAA two
+  years on (priced on this year's tiers grown two years at plan inflation, undiscounted), and keeps the
+  natural draw unless another beats it by more than $1 or the other leaves need unmet. The cliff guard
+  (`cliffGuardEnabled`, default on, `trueUnlessFalse`) runs it in every mode, only in withdrawal years
+  (`flow < 0`), on the first MAGI pass; the plan (and `yearLambda`, computed lazily from the start-of-year
+  pool, only when a second candidate exists) is held across the later passes and the forced pass, and the
+  choosing pass adopts the winning dry run instead of re-running it. Skip rule: no line in reach, no
+  solver work beyond the line list (no dry run, no lambda). A dry run must never write to the engine's
+  `bal`, ledgers or `profile`; a new `wd` field is carried by `adoptWithdrawal` automatically. Rows carry
+  `cliffChoice` ("stayed under ..." / "filled to ...") and `lambda` only when set; `annotateSolverRows`
+  (US, after the shared `renderTable`) puts them in the status cell's tooltip. State-law cliffs are priced
+  by `taxFor` but are not candidates. Tests: `tests/cliff_guard.js`; timing: `tests/bench_solver.js --base
+  DIR` (interleaved, not in `npm test`); `window.__test_planTrace()` returns each withdrawal year's
+  candidates.
 - `syncControls()` and `syncContributionControls()` — **two separate**
   functions that both push `state` back into the DOM, and the split is
   deliberate (the contribution sync must not reformat money fields while the

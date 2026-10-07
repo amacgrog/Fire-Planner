@@ -53,6 +53,8 @@ const US = {
   // 3C PR 1: Rule of 55 is elected per partner; an old household box ticks both, and the old key is dropped.
   'legacy household rule of 55': { ruleOf55Enabled: true },
   'legacy rule of 55 off': { ruleOf55Enabled: false },
+  // 3C: the cliff guard defaults on (an old save without the key reads as on); only a literal false turns it off.
+  'cliff guard explicitly off': { cliffGuardEnabled: false },
   // Batch 3A: the pooled retirement fields are retired and NOT migrated (owner decision); an old
   // save opens with empty/default accounts and the retired keys are dropped.
   'retired pooled retirement fields': { traditional: 500000, roth: 100000, traditionalSharePctA: 70, rothBasisPct: 40 },
