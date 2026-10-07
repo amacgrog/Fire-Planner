@@ -441,3 +441,60 @@ real tax plus healthcare.
 6. **The implementer's seven rulings are accepted:** inline note style, fill to the nearest floor only, an uncapped
    bond-reserve traditional draw, IRMAA priced as `healthcareCost` charges it, and the B7 wording on
    `pickLiveWithdrawalOrder`.
+
+### 13.5 Sixth amendment (owner decision, 2026-10-07): the guard never spends Roth to make room for a conversion
+
+**13.4 items 1 and 2 are superseded by this section.** Items 3 to 6 (the scan, the cumulative timing gate, the
+clean-ups and the rulings) stand.
+
+**What B8a and the probe found.**
+- *Holding pass 0's conversion fails in both directions.* It left the 1966 bucket case at 80 against 81. It also
+  broke the conversion's own ceiling where pass 0's estimate was stale (a held 72,500 where a converged pass would
+  convert about 10k), and nine smooth-mode runs then ran out a year earlier.
+- *The mechanism, confirmed by a guard-off / guard-on trace of the 1966 household at 9dfc9e5:*
+
+| Age | MAGI off / on | Conversion off / on | Roth drawn off / on |
+|---|---|---|---|
+| 70 | 202,740 / 162,424 | 29,758 / 20,849 | 0 / 22,537 |
+| 71 | 256,499 / 256,581 | 7,460 / 29,168 | 0 / 21,645 |
+
+- At 71 the guard spent 21.6k of Roth and ended at the same MAGI: the conversion grew by the same amount. The draw
+  cap is a MAGI limit that counts the conversion. When it pushes the draw onto Roth, the next pass estimates a
+  smaller draw, the conversion's ceiling room grows, and the conversion fills it. The next year's pass 0 is seeded
+  with the capped draw, so the pattern carries over. This is the "Roth for nothing" pattern: 79 of 234 standard
+  stay-under rows in the review, and 398 of 2,740 in the implementer's grid.
+- *No head-of-household bug.* The household's head-of-household branches (IRMAA single tiers, an ACA household of
+  2, the 75,000 senior phase-out, the 200,000 child-credit start, lambda's single filing after the child ages out)
+  are correct. The failure is the general mechanism and can occur under any filing status with conversions on near
+  an IRMAA tier.
+
+**Decision: the guard never spends Roth to make room for a conversion.**
+1. **The plan is chosen against the converged natural year.** The year's MAGI iteration first runs with no plan
+   until it converges (or ends in its forced pass). That converged pass is the natural candidate. Only if a line
+   lies inside the reach of the natural MAGI (section 5.2's reach, measured from it) are the candidates evaluated.
+   Each candidate is evaluated against the natural year, under section 5.1's score, on the same balances and
+   estimates.
+2. **A "stay under" plan sets that year's conversion to 0.** It is offered only when the natural year's MAGI
+   without its conversion (natural MAGI less the natural conversion) is still over the line; the draw is then capped
+   at the line with no conversion. If only the conversion puts the year over a line, the guard does nothing: the
+   conversion ceiling sized it inside its tier on purpose. A "fill" plan keeps the natural conversion
+   (`min(natural conversion, that pass's ceiling-sized amount)`, so the ceiling holds).
+3. **With a plan chosen, the iteration converges again with the plan held** (the cap or the fill, and the plan's
+   conversion). The first pass that holds the plan is seeded from the natural pass's realized draw and gains, not
+   from the previous year's seed.
+4. **The label is set only when the final pass's realized MAGI meets the plan**, as in 13.4 item 2 (`planMissed`
+   counts the misses).
+
+**Cost.** Extra MAGI passes only in years where a line is inside the reach of the converged natural MAGI. A year
+with no line in reach runs exactly as it does with the guard off. The cumulative gate in 13.4 item 4 applies.
+
+**Coverage first.** Before the fix, a no-behaviour commit adds about 20 snapshot scenarios where the guard acts with
+conversions on. This is needed because the existing grid moved 1 of 893 scenarios under B8a. The new scenarios:
+- conversions on with IRMAA and ACA lines, in the default and smooth modes;
+- head of household and two-return couples;
+- the 1966 household, plus the same household on the 1929 and 1973 starts in the bucket engine;
+- the three smooth-mode households B8a broke (MFJ 66 250k+250k 300k taxable 130k; single 66 500k 300k 60k;
+  single 66 500k 300k 130k).
+
+**Hard rules, unchanged:** no snapshot scenario depletes earlier, and guard-on never depletes earlier than
+guard-off, in both engines.

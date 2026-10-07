@@ -2237,7 +2237,83 @@ No number change.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-### Task B8: The plan holds its conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4)
+### Task B8: The guard never spends Roth for a conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4, 13.5)
+
+> **AMENDMENT (owner decision, 2026-10-07, spec section 13.5). It wins over the 8a text below. Steps 5-9 (8b)
+> stand.** The "hold the conversion" fix is withdrawn. Discard the uncommitted B8a change (keep `task-B8a-wip.patch`;
+> its label rule and test cases 10 and 12 are reused below).
+>
+> **Three commits, then the review:**
+>
+> **8.0 Coverage (no behaviour change).**
+> - Add about 20 scenarios to `tests/snapshot_scenarios.js` where the guard acts with conversions on, as listed in
+>   spec 13.5:
+>   - conversions on with IRMAA and ACA lines, default and smooth;
+>   - head of household and two-return couples;
+>   - the 1966 head-of-household household and the same household on the 1929 and 1973 starts (bucket engine,
+>     the `real1929` / `real1966` / `real1973` paths);
+>   - the three smooth-mode households B8a broke.
+> - Generate their baseline with `node tests/snapshot.js --update` at the current HEAD (`9dfc9e5`'s code). Existing
+>   entries must stay byte-identical: check with `git diff --stat tests/snapshots/` that only additions appear.
+> - Commit as "3C: snapshot scenarios where the guard acts with conversions on (no behaviour change)".
+>
+> **8a (redesigned): choose the plan against the converged natural year; a stay-under plan converts nothing.**
+>
+> Failing tests first, in `tests/cliff_guard.js`:
+> 1. **The 1966 household** (case 11 from the WIP patch):
+>    - guard-on depletion no earlier than guard-off;
+>    - at 71 (natural MAGI already under the tier) no `cliffChoice`, and `rothWithdrawn` equal to guard-off;
+>    - at 70, if labelled "stayed under", `conversionAmount === 0`.
+> 2. **"Never Roth for nothing"** over the case-1 household with conversions on, and the three smooth-mode
+>    households. Every row labelled "stayed under" has `conversionAmount === 0`, `magiProxy` at or under its line
+>    plus $1, and `magiProxy` lower than the guard-off run's MAGI in the same year by more than $1.
+> 3. **The three smooth-mode households:** guard-on depletion no earlier than guard-off.
+> 4. **Cases 10 and 12** from the WIP patch (the label rule), kept.
+>
+> Run them: expect 1 and 2 to fail on the current code.
+>
+> **Implement (spec 13.5).** The year loop gets a small phase state, reset each year beside `yearPlan`:
+> - **natural:** the existing iteration with no plan (exactly the guard-off year) until it converges or finishes
+>   its forced pass.
+>   - At that point, if the guard is on and `flow < 0`, record the natural result: realized discretionary trad,
+>     gains, conversion, MAGI, and the score `afterTaxValue(bal at the end of the withdrawal, lambda, tauGain) -
+>     irmaaAt(trad, gain)`.
+>   - Find the lines inside the reach measured from the natural MAGI (`magiThresholds` plus section 5.2's
+>     below/above rule).
+>   - If none, keep the natural pass and finish the year: it is byte-identical to guard-off.
+> - **trial(s):** at most two, the "stay under" candidate (offered only when natural MAGI less the natural
+>   conversion is still over that line) and the "fill" candidate (with penalty-free traditional money).
+>   - Each is a fresh converged iteration from the year's snapshot with the plan held.
+>   - "Stay under": conversion 0 and the cap at the line. "Fill": conversion `min(natural conversion, the pass's
+>     ceiling-sized amount)`, plus the fill draw.
+>   - Seed the trial's first pass from the natural pass's realized trad and gains. Give each phase its own
+>     `MAGI_ITER_MAX` budget.
+>   - Score it the same way.
+> - **final:** the best score wins. A trial wins only by more than $1 over the natural year (the existing tie rule).
+>   If the winner is not the phase that ran last, re-run the winner's final pass from the snapshot with its recorded
+>   estimates (deterministic) so the row and the balances come from it.
+> - **Statistics:** count `magiStats.forced` / `unresolved` and the new `planMissed` only in the final phase, so
+>   trials do not inflate them.
+> - **Snapshot rules:** every new per-year variable lives beside `yearPlan`, outside the MAGI restore block. The
+>   iteration's restore covers balances, ledgers, scalars and guardrails as now.
+> - **Label rule:** set `cliffChoice` only if the final pass's realized MAGI meets the plan.
+> - **Trace:** push one plan-trace entry per year with each candidate's score, and keep
+>   `window.__test_planTrace` working.
+> - **`chooseYearPlan`:** keep its line-selection logic (or move it to a helper). Retire its dry-run evaluation for
+>   the guard if nothing else uses it. Do not leave dead code; update its tests if it goes.
+>
+> **Run and re-explain.**
+> - Tests green. `npm test`: dump and compare against the 8.0 commit. Movers are guard years only; write a
+>   before/after table that includes the 1966 household and the three smooth-mode households.
+> - Run the standard and bucket scans from the B8a scratch, or `solver_scan.js` once 8b widens it. Both must exit 0,
+>   and add the count of "stayed under" rows not lower than guard-off, which must be 0.
+> - Hard rules: no scenario depletes earlier; guard-on never earlier than guard-off in either engine. If either
+>   fails, STOP and report with worked examples.
+> - `npm run snapshot:update`. Commit as "3C: the guard chooses against the converged natural year and never spends
+>   Roth for a conversion; labels only when met (spec 13.5)".
+>
+> **8b:** steps 5-9 below, unchanged. In step 5, also report the "stayed under, not lower than guard-off" count (it
+> must be 0). The timing in step 8 includes the extra passes, which only years with a line in reach pay.
 
 > Owner decision, 2026-10-07, from the whole-branch review of PR 2. Two commits: the fix (8a: numbers move in plan
 > years only), then the number-neutral clean-up and speedups (8b: snapshots identical). Then re-review the whole branch.

@@ -2239,6 +2239,37 @@ thresholds and the 0% gains band.
 - `costAt` is declared above the conversion as a hook for Batch 5 (B5); the per-pass closure setup is now
   unconditional (measured at about 0).
 
+##### Section 13.4 and 13.5: the whole-branch review, B8a, and the guard's conversion rule
+
+- **Review of PR 2 (spec 13.4).** Later MAGI passes re-sized the conversion and refilled the headroom a "stayed
+  under" plan made (79 of 234 standard stay-under rows, 78 of 255 historical). One bucket-engine household ran out
+  earlier with the guard on: head of household, 66, 1.5M traditional, 300k taxable, 200k Roth, 130k spending,
+  Texas, ACA on, conversions 66-72, start 1966; 80 against 81. The timing gate is cumulative against the pre-3C tip
+  `24f6585`; +5% to +8% after number-neutral speedups is accepted and documented, above +8% the owner decides.
+- **B8a: holding pass 0's conversion failed** (not committed; `task-B8a-wip.patch`). The 1966 case stayed at 80
+  against 81, and the held amount broke the conversion ceiling where pass 0's estimate was stale. Example: single
+  66, 500k, smooth, held 72,500 where a converged pass converts about 10k. Nine smooth-mode runs then ran out a
+  year earlier. The label rule alone was safe.
+- **Probe (owner-requested, 2026-10-07).** A guard-off / guard-on trace of the 1966 household at `9dfc9e5`:
+
+  | Age | MAGI off / on | Conversion off / on | Roth drawn off / on |
+  |---|---|---|---|
+  | 70 | 202,740 / 162,424 | 29,758 / 20,849 | 0 / 22,537 |
+  | 71 | 256,499 / 256,581 | 7,460 / 29,168 | 0 / 21,645 |
+
+  The guard spent Roth to make room for a larger conversion: the draw cap counts the conversion, a capped draw
+  lowers the next pass's estimate, and the conversion fills the freed room. Next year's pass 0 is seeded with the
+  capped draw, so it carries over. No head-of-household bug was found: the HoH branches (IRMAA single tiers, an ACA
+  household of 2, the 75,000 senior phase-out, the 200,000 child-credit start, lambda's single filing after the
+  child ages out) are correct.
+- **Decision (spec 13.5):** the guard never spends Roth to make room for a conversion.
+  - The plan is chosen against the converged natural year.
+  - A "stay under" plan converts nothing, and is offered only when the natural MAGI without its conversion is still
+    over the line.
+  - With a plan, the iteration converges again with the plan held.
+  - Labels only when met.
+  - Coverage comes first: about 20 snapshot scenarios where the guard acts with conversions on.
+
 ##### Scripts (not in `npm test`)
 
 - `tests/solver_scan.js [--root DIR] [--json OUT] [--md OUT]`: the guard sweep above; exit 1 on any earlier depletion
