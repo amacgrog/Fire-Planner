@@ -89,6 +89,17 @@ const taxCall = (page, patch, fn, args) =>
     { tradPool: 5000000, year: 0, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1 },
   );
   assert(big.lambda > lam.lambda && big.lambda <= 0.6, `larger pool, larger lambda (${big.lambda})`);
+  // Note 1 (spec 13.1): the pool walks forward net of the traditional share of the need. Single, 70,
+  // 1,000,000 traditional, real return 0, Texas, life expectancy 74, need 50,000, tradShare 1.
+  // Samples 73, 74, 74: pools 850,000 and 800,000; RMDs 32,075.47 and 31,372.55. Deduction 16,100 + 2,050 +
+  // 6,000: taxable income 7,925 (+3,208 step) and 7,223 (+3,137), all in the 10% band, so lambda is 0.10.
+  const drawn = await call(
+    { singlePerson: true, ageA: 70, lifeExpectancyA: 74, returnRate: 2.5, inflation: 2.5, stateTax: 'tx', ssMonthlyA: 0, pensionYearlyA: 0, survivorEnabled: false },
+    'lambdaEstimate',
+    { tradPool: 1000000, year: 0, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1, need: 50000, tradShare: 1 },
+  );
+  near(drawn.lambda, 0.1, 1e-9, 'lambda with draws');
+  assert(drawn.lambda < lam.lambda, 'draws lower lambda');
 
   // After-tax value: taxable 100k with 40k gain at 15%, traditional 200k at lambda 0.2, Roth 50k, cash 10k.
   const value = await page.evaluate(() =>
