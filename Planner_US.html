@@ -8905,6 +8905,49 @@
     const gain = Math.max(0, bal.taxable - bal.taxableBasis) + Math.max(0, bal.bondTaxable - bal.bondTaxableBasis);
     return bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
   }
+  // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
+  // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
+  function magiCapLeft(wd) {
+    const c = wd.magiCap;
+    return !c || c.off ? Infinity : Math.max(0, c.limit - wd.traditionalGross - wd.taxableGainGross);
+  }
+  // Lifts the cap and takes any remaining need from penalty-free traditional money (stocks, then the bond
+  // bucket): runs before penalized money and before home equity, so a target never strands money.
+  function releaseMagiCap(wd, solver) {
+    if (!wd.magiCap || wd.magiCap.off) return;
+    wd.magiCap.off = true;
+    if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
+    if (wd.need > 0 && wd.bal.bondTraditional > 0)
+      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
+  }
+  // Penalty-free traditional dollars available to a discretionary draw this year.
+  function freeTraditional(wd) {
+    return tradGroup(wd, false).share * (wd.bal.traditional + wd.bal.bondTraditional);
+  }
+  // "Fill to the line": `gross` more from penalty-free traditional money (stocks, then bonds), the after-tax
+  // proceeds kept as cash. Returns the gross drawn.
+  function fillTraditional(wd, gross) {
+    const { bal } = wd;
+    let left = gross;
+    for (const bucket of ['traditional', 'bondTraditional']) {
+      if (!(left > 0)) break;
+      const { slots, share } = tradGroup(wd, false),
+        from = Math.min(left, bal[bucket] * share);
+      if (!(from > 0)) continue;
+      const before = taxFor(wd.profile, wd.taxableGainGross, wd.traditionalGross);
+      accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, from);
+      bal[bucket] -= from;
+      wd.traditionalGross += from;
+      wd.traditionalWithdrawn += from;
+      bal.cash += from - (taxFor(wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
+      left -= from;
+    }
+    return gross - left;
+  }
+  // A withdrawal on copies of the balances and ledgers, for a dry run.
+  function cloneWithdrawal(wd) {
+    return { ...wd, bal: { ...wd.bal }, rothAccts: rothAccountsClone(wd.rothAccts), accts: accountsClone(wd.accts), magiCap: wd.magiCap ? { ...wd.magiCap } : null };
+  }
 
   // ---- Withdrawal building blocks ----
   const TAXABLE_BASIS_KEY = { taxable: 'taxableBasis', bondTaxable: 'bondTaxableBasis' };
@@ -8932,6 +8975,9 @@
       rothWithdrawn: 0,
       earlyPenalty: 0,
       mixCandidate: null,
+      magiCap: null,
+      onlyPartner: -1,
+      taxAwareOrder: null,
     };
   }
   // @@shared:takeTaxable begin
@@ -8954,7 +9000,9 @@
   // The accounts of the traditional pool that are penalty-free (or penalized) this year for a
   // discretionary draw, and their share of the pool.
   function tradGroup(wd, penalized) {
-    const slots = [0, 1, 2, 3].filter((i) => !wd.seppActive[i] && wd.status[i].free === !penalized);
+    const slots = [0, 1, 2, 3].filter(
+      (i) => !wd.seppActive[i] && wd.status[i].free === !penalized && (wd.onlyPartner < 0 || (i < 2 ? 0 : 1) === wd.onlyPartner),
+    );
     return { slots, share: slots.reduce((sum, i) => sum + wd.accts.trad[i], 0) };
   }
   // True when some account holding money would owe the 10% on a discretionary draw: a penalized
@@ -8985,8 +9033,9 @@
   // bucket is its share of the pool times the bucket.
   function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet, penalized = false) {
     const { bal } = wd;
-    const { slots, share } = tradGroup(wd, penalized),
-      cap = bal[bucket] * share;
+    const { slots, share } = tradGroup(wd, penalized);
+    let cap = bal[bucket] * share;
+    if (!penalized && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
     if (!(cap > 0)) return 0;
     const { fromTrad, tradNet, penalty } = solver(
       cap,
@@ -9158,7 +9207,7 @@
         live = pickLiveWithdrawalOrder(
           wd.need,
           bal.taxable,
-          freeTrad,
+          wd.magiCap ? Math.min(freeTrad, magiCapLeft(wd)) : freeTrad,
           bal.taxableBasis,
           wd.profile,
           wd.taxableGainGross,
@@ -9215,6 +9264,7 @@
       bondTrad();
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+      releaseMagiCap(wd, solveTraditionalForNet);
       takePenalized(wd, solveTraditionalForNet);
     } else {
       wd.need -= takeRoth(wd, 'roth', wd.need);
@@ -9222,6 +9272,7 @@
       wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
       bondTrad();
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
+      releaseMagiCap(wd, solveTraditionalForNet);
     }
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
@@ -9249,7 +9300,10 @@
     roth: (wd) => {
       wd.need = Math.max(0, wd.need - takeRoth(wd, 'roth', wd.need));
     },
-    home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
+    home: (wd) => {
+      releaseMagiCap(wd, solveTraditionalForNetFromNeed);
+      if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
+    },
     // The stock accounts as one grouped step: a mix mode when one is active (the
     // same code the standard cascade uses), otherwise taxable -> traditional -> Roth.
     // Cash and the bond buckets keep their own place in the order.
@@ -9261,7 +9315,10 @@
       // While penalized money exists Roth is its own step later (withdrawBucketPenaltyAware).
       if (wd.need > 0 && !wd.penaltyAware) BUCKET_STEP.roth(wd);
     },
-    penalized: (wd) => takePenalized(wd, solveTraditionalForNetFromNeed),
+    penalized: (wd) => {
+      releaseMagiCap(wd, solveTraditionalForNetFromNeed);
+      if (wd.need > 0) takePenalized(wd, solveTraditionalForNetFromNeed);
+    },
   };
   // @@shared:BUCKET_DOWN_YEAR_ORDER begin
   const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
@@ -9885,15 +9942,14 @@
           const statusCtx = { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB };
           wd.status = accountStatuses(statusCtx);
           wd.penaltyAware = hasPenalizedMoney(wd);
-          if (mode.bucketStrategy)
-            (wd.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(wd, {
-              yearReturn: stockReturn,
-              bondTarget,
-              refillCap: expenses - lumpExpense,
-              age,
-              remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount),
-            });
-          else withdrawStandard(wd, { age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) });
+          const wopts = mode.bucketStrategy
+            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) }
+            : { age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) };
+          const runWithdraw = (w) => {
+            if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
+            else withdrawStandard(w, wopts);
+          };
+          runWithdraw(wd);
           if (wd.need > 1 && !depletedAge) depletedAge = age;
           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
@@ -15370,7 +15426,28 @@
   // For tests/tax_caches.js: the compiled state rules, so a test can force the per-person inputs on for every row.
   window.__test_stateRuleFor = stateRuleFor;
   window.__test_magiStats = magiStats;
-  window.__test_solver = { magiThresholds, lambdaEstimate, afterTaxValue, returnMagis };
+  window.__test_solver = {
+    magiThresholds,
+    lambdaEstimate,
+    afterTaxValue,
+    returnMagis,
+    takeTraditional,
+    releaseMagiCap,
+    fillTraditional,
+    cloneWithdrawal,
+    magiCapLeft,
+    solveTraditionalForNet,
+    newTestWithdrawal: (balPatch, profile) =>
+      newWithdrawal({
+        bal: { taxable: 0, taxableBasis: 0, bondTaxable: 0, bondTaxableBasis: 0, bondTraditional: 0, bondRoth: 0, traditional: 0, roth: 0, cash: 0, home: 0, mortgage: 0, ...balPatch },
+        rothAccts: rothAccountsNew(),
+        accts: { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] },
+        seppActive: [false, false, false, false],
+        profile,
+        conversionAmount: 0,
+        rmd: 0,
+      }),
+  };
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     lastMultiLeverRun = { opt, options, savings: 2 };

@@ -146,8 +146,12 @@ function compare(label, std, hist, problems, preRetirement) {
 function checkRoomWiring() {
   const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'Planner_US.html'), 'utf8');
   const room = 'incomeRoom(magiSafeRoom, conversionAmount)';
-  assert(src.includes(`withdrawStandard(wd, { age, remainingMagiRoom: ${room} })`), 'standard engine must pass the remaining MAGI room');
-  assert(/\)\(wd, \{[^}]*remainingMagiRoom: incomeRoom\(magiSafeRoom, conversionAmount\)[^}]*\}\)/.test(src), 'historical engine must pass the remaining MAGI room');
+  // Since 3C (B3) both strategies get one options object, `wopts`, built per engine mode and passed
+  // through `runWithdraw`.
+  const wopts = src.match(/const wopts = mode\.bucketStrategy\s*\?\s*(\{[^}]*\})\s*:\s*(\{[^}]*\});/);
+  assert(wopts, 'the year loop must build the withdrawal options (wopts)');
+  assert(wopts[2].includes(`remainingMagiRoom: ${room}`) && src.includes('withdrawStandard(w, wopts)'), 'standard engine must pass the remaining MAGI room');
+  assert(wopts[1].includes(`remainingMagiRoom: ${room}`) && /withdrawBucket\)\(w, wopts\)/.test(src), 'historical engine must pass the remaining MAGI room');
   assert(src.includes('remainingMagiRoom: opts.remainingMagiRoom'), 'BUCKET_STEP.stocks must forward the remaining MAGI room');
   console.log('ok   [F5] US safe-MAGI room is passed to the live mix by both engines (source check)');
 }
