@@ -401,3 +401,43 @@ real tax plus healthcare.
   remain guard candidates (all of the guard's value losses), using the same scans.
 - **3C's remaining hard rules are unchanged:** no snapshot scenario depletes earlier, guard-on never earlier than
   guard-off.
+
+### 13.4 Fifth amendment (owner decision, 2026-10-07): the plan holds its conversion; the timing gate is cumulative
+
+**What the whole-branch review of PR 2 found.**
+- **The plan's conversion was not held.** The year's plan is chosen on pass 0 and held, but later MAGI passes re-size
+  the Roth conversion from the new estimate. That refills the headroom a "stayed under" plan created: Roth is spent
+  for nothing, and the row is still labelled "stayed under". The realized MAGI is never checked against the target.
+  This affects 79 of 234 standard-engine "stayed under" rows and 78 of 255 historical ones.
+- **One hard-rule breach, in the bucket engine.** A head-of-household household (66, 1.5M traditional, 300k
+  taxable, 200k Roth, 130k spending, Texas, ACA on, conversions 66-72, historical start 1966) runs out at 80 with
+  the guard on against 81 with it off: 3 of 3,840 bucket paths, all that one household.
+- **The scan missed it** because `tests/solver_scan.js` covered only the standard engine.
+
+**Decision.**
+1. **Hold the conversion in plan years.** In a year whose plan is not `none`, every pass after the one that chose
+   the plan (later passes and the forced pass) uses that pass's conversion amount. Other years re-size it as
+   before. This changes numbers only in years where the guard acted.
+2. **Label only what happened.** `cliffChoice` is set only when the final pass's realized MAGI meets the plan:
+   at or under the target plus $1 for "stayed under", at or over the target less $1 for "filled to". A missed
+   plan leaves the label empty and is counted (a `magiStats` counter) so the scan can report it.
+3. **The scan covers both engines and every mode.** `tests/solver_scan.js` adds the bucket engine (the reviewer's
+   historical starts per household) and the live mix. It exits 1 on any guard-on earlier depletion in either
+   engine, and reports the missed-plan count.
+4. **The +5% timing gate is cumulative:** PR 2's tip against the pre-3C tip (`24f6585`), for households with no
+   cliff in reach. The B7 amendment's per-step baseline was a drafting error.
+   - Number-neutral speedups come first (snapshots identical), such as an early exit before building the year's
+     lines when none can apply, and no per-pass allocation for one-return households.
+   - If the result is still above +5% but at most +8%, it is accepted and documented (part of it is B1's
+     correctness fix; this machine's run-to-run noise is about 10%). Above +8%, the owner decides.
+   - The ACA early-retiree case keeps its +30% gate (+11 to 12% measured).
+5. **Number-neutral clean-ups from the review:**
+   - the README's B1 line drops "and withdrawal";
+   - the README states that a fill can draw the traditional bond bucket;
+   - spec section 7's MAGI-iteration probe in `tests/aca_medicaid.js` with `magiStats` pass counts is built (it
+     was skipped);
+   - `annotateSolverRows` stops reading `mixOrder` / `drawSplit`;
+   - the docs describe `solver_scan.js`'s actual coverage.
+6. **The implementer's seven rulings are accepted:** inline note style, fill to the nearest floor only, an uncapped
+   bond-reserve traditional draw, IRMAA priced as `healthcareCost` charges it, and the B7 wording on
+   `pickLiveWithdrawalOrder`.

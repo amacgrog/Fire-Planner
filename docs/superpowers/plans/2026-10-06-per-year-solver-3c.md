@@ -2236,3 +2236,110 @@ No number change.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
+
+### Task B8: The plan holds its conversion; labels match what happened; scan both engines; cumulative timing (spec 13.4)
+
+> Owner decision, 2026-10-07, from the whole-branch review of PR 2. Two commits: the fix (8a: numbers move in plan
+> years only), then the number-neutral clean-up and speedups (8b: snapshots identical). Then re-review the whole branch.
+
+**Files:**
+- Modify: `Planner_US.html` (the year loop's conversion block and row; `magiStats`; `annotateSolverRows`)
+- Modify: `tests/cliff_guard.js`, `tests/solver_scan.js`, `tests/aca_medicaid.js`
+- Docs: `README.md`, `CLAUDE.md`, `docs/next-batches-plan.md` (3C notes)
+
+**Interfaces:**
+- Consumes: `yearPlan`, `NO_PLAN` (B4); the conversion block (B5 refactor).
+- Produces: `magiStats.planMissed` (a count of plan years whose realized MAGI missed the target); `cliffChoice` set
+  only on a met plan.
+
+**8a: hold the conversion and check the label (number change in plan years only)**
+
+- [ ] **Step 1: Write the failing tests** in `tests/cliff_guard.js`:
+  1. **Conversions on, standard engine.** The case-1 household with `rothConvEnabled: true` over its retirement
+     years. For every row with `cliffChoice` starting "stayed under", the row's `magiProxy` is at or under that
+     line plus $1. Take the line from `window.__test_planTrace()`: the chosen candidate's `magi + 1`.
+  2. **The review's bucket-engine regression.** Head of household, 66, 1.5M traditional (401(k)), 300k taxable,
+     200k Roth IRA, 130k spending, Texas, ACA on, conversions 66-72, historical start 1966. Run it through the same
+     historical path mechanism `tests/snapshot_scenarios.js` uses for its `hist ... real1966` scenarios. Guard-on
+     depletion must be no earlier than guard-off.
+  3. **Fill label.** In the case-3 household, any row labelled "filled to" has `magiProxy` at or over its target
+     less $1.
+
+  Run `node tests/cliff_guard.js`. Expected: FAIL in 1 and 2.
+
+- [ ] **Step 2: Implement.**
+  - In the year loop, beside `yearPlan`, declare `let planConversion = null;` (reset each year with `yearPlan`).
+  - Where the plan is chosen (pass 0), right after `chooseYearPlan`, set
+    `if (yearPlan.kind !== 'none') planConversion = conversionAmount;`.
+  - In the conversion block, after the conversion is computed on any pass:
+
+```js
+        // 13.4: a year whose plan was chosen holds the conversion that plan was priced against; re-sizing it on a
+        // later pass would refill the headroom a "stayed under" plan made.
+        if (planConversion !== null) conversionAmount = planConversion;
+```
+
+  - Make sure `planConversion` is not rewound by the MAGI-iteration snapshot (it lives beside `yearPlan`, outside
+    the restore block), and that the forced pass also takes the held value.
+  - Row label:
+
+```js
+        if (yearPlan.kind !== 'none') {
+          const met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1;
+          if (met) row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
+          else magiStats.planMissed++;
+        }
+```
+
+  - Add `planMissed: 0` to `magiStats`.
+
+- [ ] **Step 3: Run tests and re-explain.**
+  - `node tests/cliff_guard.js` passes.
+  - `npm test`. Movers must be plan years only. Dump and compare against `9dfc9e5` (the B7 commit) and write a
+    before/after table, including how many "stayed under" rows now have MAGI under the guard-off run (it was 79 of
+    234 that did not).
+  - Hard rules: no scenario depletes earlier; guard-on never earlier than guard-off.
+  - `npm run snapshot:update`, `npm test` green.
+
+- [ ] **Step 4: Commit.** "3C: a plan year holds its conversion across MAGI passes; cliff labels only when met (spec 13.4)", with the before/after in the message.
+
+**8b: scan both engines, clean-ups, cumulative timing (snapshots identical to 8a)**
+
+- [ ] **Step 5: Widen `tests/solver_scan.js`.**
+  - Add the bucket engine: the same historical starts per household the review used, documented at the top of the
+    script.
+  - Add the live mix (`withdrawalMixEnabled: true`) as a mode.
+  - Report a missed-plan count per run from `magiStats.planMissed` (exposed through `window.__test_magiStats`).
+  - Exit 1 on any guard-on earlier depletion in either engine.
+  - Run it. Exit 0 is required; if not, STOP and report.
+
+- [ ] **Step 6: Build spec section 7's skipped probe** in `tests/aca_medicaid.js`: a cliff-straddling household
+  whose draw crosses the 400% line, asserting that every pre-65 row satisfies `healthcare === acaNetCost(row MAGI)`
+  within $1.50 with the guard on and off. Record `magiStats.forced` / `unresolved` before and after the run, and
+  assert `unresolved` did not grow.
+
+- [ ] **Step 7: Clean-ups (number-neutral).**
+  - README: the B1 line drops "and withdrawal"; the guard bullet says a fill can draw the traditional bond bucket.
+  - `annotateSolverRows`: drop the `mixOrder` and `drawSplit` lines (Batch 5 adds them back).
+  - `CLAUDE.md` and the 3C notes: describe `solver_scan.js`'s real coverage (both engines, the modes, what the exit
+    code checks); record 13.4 and the planMissed count.
+
+- [ ] **Step 8: Cumulative timing.**
+  1. Measure PR 2's tip against the pre-3C tip `24f6585` (`git worktree add ../fp-3c-pre 24f6585`). Use
+     `tests/bench_runs.js` per state in both trees, plus `tests/bench_solver.js --base ../fp-3c-pre`, interleaved,
+     several rounds.
+  2. If no-cliff households (the Texas workload) are above +5%, apply number-neutral speedups. Each one must
+     leave snapshots identical, checked with `npm test`. Examples:
+     - skip building the year's lines when none can apply (no partner on the marketplace, both under 63, no 65+
+       before 2029, no child at or under the CTC age);
+     - no `returnMagis` array allocation on one-return households;
+     - avoid per-pass closure creation where a hoisted function works.
+  3. Re-measure.
+  4. Outcome: at or under +5% is done. From +5% to +8% is accepted and recorded in the notes with the
+     measurements. Above +8%, STOP and report. The ACA early-retiree case keeps its +30% gate.
+
+- [ ] **Step 9: Commit and re-review.**
+  - Commit as "3C: scan both engines and the live mix, MAGI-iteration probe, clean-ups and number-neutral speedups
+    (spec 13.4)".
+  - Run a fresh whole-branch review of PR 2.
+  - Remove the scratch worktrees (`../fp-3c-*`) once the review is done.
