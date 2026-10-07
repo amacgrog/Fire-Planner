@@ -33,7 +33,7 @@ const BASE = {
   tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0, taxable: 0, basisRatio: 100, cash: 0, cashReserve: 0, bondYears: 0, spending: 20000,
   tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0,
   rothIraBasisA: 0, rothIraBasisB: 0, roth401kBasisPctA: 100, roth401kBasisPctB: 100,
-  ruleOf55Enabled: false, withdrawalMixEnabled: false, smoothWithdrawals: false, appliedMixSchedule: null, rothConvEnabled: false,
+  ruleOf55A: false, ruleOf55B: false, withdrawalMixEnabled: false, smoothWithdrawals: false, appliedMixSchedule: null, rothConvEnabled: false,
 };
 
 (async () => {

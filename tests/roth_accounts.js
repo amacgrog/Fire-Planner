@@ -17,7 +17,7 @@ const BASE = {
   healthcare: 0, medicareYearly: 0, acaEnabled: false, ltcEnabled: false, stateTax: 'tx', ssMonthlyA: 0, ssMonthlyB: 0,
   tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0, taxable: 0, cash: 0, cashReserve: 0, bondYears: 0, spending: 10000,
   tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0,
-  rothIraBasisA: 0, rothIraBasisB: 0, roth401kBasisPctA: 100, roth401kBasisPctB: 100, ruleOf55Enabled: false,
+  rothIraBasisA: 0, rothIraBasisB: 0, roth401kBasisPctA: 100, roth401kBasisPctB: 100, ruleOf55A: false, ruleOf55B: false,
 };
 
 (async () => {
@@ -88,17 +88,17 @@ const BASE = {
   //    spending 40,000: earnings are 60% of the draw, above the standard deduction, so tax is owed.
   {
     const base = { ageA: 56, retireAgeA: 56, lifeExpectancyA: 70, roth401kA: 500000, roth401kBasisPctA: 40, spending: 40000 };
-    const on = (await rows({ ...base, ruleOf55Enabled: true }))[0];
+    const on = (await rows({ ...base, ruleOf55A: true, ruleOf55B: true }))[0];
     near(on.earlyPenalty, 0, 0.01, 'Rule of 55: no 10% on the Roth 401(k)');
     assert(on.tax > 100, `Rule of 55: Roth 401(k) earnings are still taxed (${on.tax})`);
     assert(on.rothWithdrawn > 40100, `Rule of 55: gross is grossed up for the tax (${on.rothWithdrawn})`);
-    const off = (await rows({ ...base, ruleOf55Enabled: false }))[0];
+    const off = (await rows({ ...base, ruleOf55A: false, ruleOf55B: false }))[0];
     assert(off.earlyPenalty > 1000, `no Rule of 55: the 10% applies (${off.earlyPenalty})`);
     // A Roth IRA never gets Rule of 55.
-    const ira = (await rows({ ...base, roth401kA: 0, rothIraA: 500000, rothIraBasisA: 1, ruleOf55Enabled: true }))[0];
+    const ira = (await rows({ ...base, roth401kA: 0, rothIraA: 500000, rothIraBasisA: 1, ruleOf55A: true, ruleOf55B: true }))[0];
     assert(ira.earlyPenalty > 1000, `Rule of 55 does not cover a Roth IRA (${ira.earlyPenalty})`);
     // Someone who stopped working before 55 never qualifies, even when they are 55 or older later.
-    const early = (await rows({ ...base, ageA: 50, retireAgeA: 50, ruleOf55Enabled: true, lifeExpectancyA: 70 })).find((x) => x.age === 56);
+    const early = (await rows({ ...base, ageA: 50, retireAgeA: 50, ruleOf55A: true, ruleOf55B: true, lifeExpectancyA: 70 })).find((x) => x.age === 56);
     assert(early.earlyPenalty > 0, 'retired at 50: Rule of 55 never applies');
   }
   // 4. The deceased partner's accounts are inherited by the spouse (penalty-free): A died at 50, B is 45 with no Roth.

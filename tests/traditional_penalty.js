@@ -32,7 +32,7 @@ const BASE = {
   healthcare: 0, medicareYearly: 0, acaEnabled: false, ltcEnabled: false, stateTax: 'tx', ssMonthlyA: 0, ssMonthlyB: 0,
   tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0, taxable: 0, cash: 0, cashReserve: 0, bondYears: 0, spending: 40000,
   tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0,
-  ruleOf55Enabled: true, withdrawalMixEnabled: false, smoothWithdrawals: false,
+  ruleOf55A: true, ruleOf55B: true, withdrawalMixEnabled: false, smoothWithdrawals: false,
 };
 
 (async () => {
@@ -70,7 +70,7 @@ const BASE = {
     near(ira.traditionalWithdrawn, G, 0.05, `${fn}: IRA draw is grossed up for tax and the 10%`);
     near(ira.earlyPenalty, 0.1 * G, 0.05, `${fn}: IRA owes the 10% although Rule of 55 is on`);
     // Without the Rule of 55 the 401(k) owes it too.
-    const off = (await rows({ trad401kA: 1000000, ruleOf55Enabled: false }, fn))[0];
+    const off = (await rows({ trad401kA: 1000000, ruleOf55A: false, ruleOf55B: false }, fn))[0];
     near(off.earlyPenalty, 0.1 * G, 0.05, `${fn}: Rule of 55 off: the 401(k) owes the 10%`);
     // 2. A 401(k) and an IRA together: the 401(k) is drawn first (30,000 gross), only the IRA draw is penalized.
     const mix = await rows({ trad401kA: 30000, tradIraA: 1000000 }, fn);
@@ -87,7 +87,7 @@ const BASE = {
   // 5. A deceased partner's traditional accounts are inherited (penalty-free); with no death the same draw at
   //    A's age 50 owes the 10%.
   {
-    const couple = { singlePerson: false, ageA: 50, retireAgeA: 50, lifeExpectancyA: 58, ageB: 45, retireAgeB: 45, lifeExpectancyB: 58, tradIraA: 1000000, ruleOf55Enabled: false };
+    const couple = { singlePerson: false, ageA: 50, retireAgeA: 50, lifeExpectancyA: 58, ageB: 45, retireAgeB: 45, lifeExpectancyB: 58, tradIraA: 1000000, ruleOf55A: false, ruleOf55B: false };
     const dead = await rows({ ...couple, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 50 });
     near(dead[0].earlyPenalty, 0, 0.01, 'survivor: the deceased partner\'s IRA is inherited, no penalty');
     const alive = await rows({ ...couple, survivorEnabled: false });
@@ -104,7 +104,7 @@ const BASE = {
   //    B (45) a 1,000,000 IRA. A runs out in year 1, so the rest of year 1 comes from B at 10%. A stale ledger
   //    would keep calling B's money penalty-free.
   {
-    const couple = { singlePerson: false, ageA: 60, retireAgeA: 60, lifeExpectancyA: 63, ageB: 45, retireAgeB: 45, lifeExpectancyB: 63, trad401kA: 600000, tradIraB: 1000000, spending: 400000, withdrawalMixEnabled: true, ruleOf55Enabled: false };
+    const couple = { singlePerson: false, ageA: 60, retireAgeA: 60, lifeExpectancyA: 63, ageB: 45, retireAgeB: 45, lifeExpectancyB: 63, trad401kA: 600000, tradIraB: 1000000, spending: 400000, withdrawalMixEnabled: true, ruleOf55A: false, ruleOf55B: false };
     const { r, aEnd0, aEnd1 } = await page.evaluate((patch) => {
       const st = window.__test_getState();
       const saved = JSON.parse(JSON.stringify(st));

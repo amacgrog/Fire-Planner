@@ -50,6 +50,9 @@ const US = {
   // Batch 3B: 72(t) is elected per account; the household-wide flags above are retired and dropped (no migration).
   'sepp72t per account valid': { sepp72tK401A: true, sepp72tK401AgeA: 55, sepp72tIraB: true, sepp72tIraAgeB: 52 },
   'sepp72t per account junk': { sepp72tIraA: 'yes', sepp72tIraAgeA: -4, sepp72tK401AgeB: 500, sepp72tK401AgeA: 'x' },
+  // 3C PR 1: Rule of 55 is elected per partner; an old household box ticks both, and the old key is dropped.
+  'legacy household rule of 55': { ruleOf55Enabled: true },
+  'legacy rule of 55 off': { ruleOf55Enabled: false },
   // Batch 3A: the pooled retirement fields are retired and NOT migrated (owner decision); an old
   // save opens with empty/default accounts and the retired keys are dropped.
   'retired pooled retirement fields': { traditional: 500000, roth: 100000, traditionalSharePctA: 70, rothBasisPct: 40 },

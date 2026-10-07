@@ -35,7 +35,7 @@ const PA = 0.0307;
           acaEnabled: false, ltcEnabled: false, ssMonthlyA: 0, ssMonthlyB: 0, tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0,
           taxable: 0, cash: 0, cashReserve: 0, bondYears: 0, spending: 40000, stateTax: 'pa', children: [], survivorEnabled: false,
           tradIraA: 0, trad401kA: 0, tradIraB: 0, trad401kB: 0, rothIraA: 0, roth401kA: 0, rothIraB: 0, roth401kB: 0,
-          rothConvEnabled: false, ruleOf55Enabled: false, incomeSources: [],
+          rothConvEnabled: false, ruleOf55A: false, ruleOf55B: false, incomeSources: [],
         },
         patch,
       );

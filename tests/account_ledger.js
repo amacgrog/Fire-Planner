@@ -189,7 +189,7 @@ const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]
   //    partner's share of every converted dollar. Zero returns: exact dollars.
   {
     const patch = {
-      ...FLAT, ageA: 45, ageB: 45, retireAgeA: 55, retireAgeB: 55, lifeExpectancyA: 66, lifeExpectancyB: 66, ruleOf55Enabled: true,
+      ...FLAT, ageA: 45, ageB: 45, retireAgeA: 55, retireAgeB: 55, lifeExpectancyA: 66, lifeExpectancyB: 66, ruleOf55A: true, ruleOf55B: true,
       k401Type: 'traditional', iraType: 'traditional', iraPctA: 0, incomeB: 0, k401PctB: 0,
       acaEnabled: true, healthcare: 18000, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 62, rothConvBracket: 22,
       trad401kA: 600000, trad401kB: 600000, rothIraA: 50000, rothIraB: 50000, taxable: 0, cash: 30000, cashReserve: 0, spending: 30000,
