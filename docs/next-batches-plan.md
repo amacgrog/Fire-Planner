@@ -695,6 +695,38 @@ can cost more later: `std_G_hoh_66_1966_household` converts 195,257 less over th
 can use the per-pass values. Separate, unscheduled: the Canada UI snapshot flaked once (historical success "—" instead of
 a rate; the 500 ms debounced backtest raced the capture).
 
+##### Branch review of the cliff plan and IRMAA fix (2026-10-08)
+
+An independent Opus review of `5eb30fa` against `0d6dcf7` (owner-run, re-checked by its own chat) found no correctness
+bug: `apply(choose's plan)` replays `choose` (600 households, 309 intents), rule A holds on the standard projection, the
+IRMAA inverse is exact (about 81,000 cases, worst round trip 4.7e-10), the ACA side is untouched (450 ACA households,
+none differs before 63), stale plans cannot reach another household, the MAGI iteration stays safe, and
+`refreshCliffPlan`'s key covers every non-state input. Findings and how they relate to the work:
+1. **Anchor drift** (the reviewer's design-chat miss): the IRMAA fix moves guard-off numbers by design, so
+   `tests/plan_off_anchor.js --base 3ebee0e` gives 339 identical, 204 different at `5eb30fa` (543 identical against
+   `ce5fb56`); the IRMAA plan should have re-based it. Re-based to `5eb30fa`.
+2. **Five paths no test protects** (mutation runs, one edit at a time, ten test files): lambda's IRMAA step on one and
+   two returns (M1, M13), the two-return `irmaaAt` (M14), the two-return IRMAA lines (M15), and the fill rule "never more
+   than the natural year's conversion" (M17; the only fill test had conversions off). "No steering is always a candidate"
+   (M6) is caught only by the snapshot. Gaps in the plans' test lists (IRMAA Task 2 covered one-return cases only; the
+   cliff plan's fill case was accepted without conversions).
+3. **`planForState` ignores the tax year** (only reachable through `__test_setCurrentYear` today): the fix wave added the
+   year to `refreshCliffPlan`'s check but not to `planForState`'s key and cache.
+4. **The $1 de-duplication can drop a cliff line for a tax-family line** (senior or child-tax-credit within $1 below an ACA
+   or IRMAA line), so `choose` could record a `senior` intent; the implementer's ledger had this as latent.
+5. **Cleanups:** `madeFor` is never read; `natOf` is allocated every withdrawal year; `conversionMagiCeiling` silently
+   falls back to a benefit of 0 without a profile; `CLAUDE.md` does not list `tests/irmaa_magi.js`; `returnStatusA`
+   changes no number (head of household reads the single Social Security bases).
+
+**Decisions (owner, 2026-10-08):** fix 3 and 4 now, each with a test that fails before the fix. The reviewer's choices
+for the rest (owner to veto before the handoff): add tests for M1, M13, M14, M15, M17 and M6, each proven against its
+mutation; drop `madeFor`; `natOf` only where used; `conversionMagiCeiling` requires its profile; keep `returnStatusA`
+(it states the return's status where the law reads it; its per-pass cost is one scan of the children list); fold E1's
+housekeeping in here (one taxable-benefit formula, the per-pass lookups, the healthcare callout naming children, V121),
+so E1 starts clean; the flaky Canada UI snapshot stays out. All number-neutral (a snapshot move in the de-duplication fix
+stops the work). Plan: `docs/superpowers/plans/2026-10-08-review-followups.md`; branch `claude/review-followups` from the
+commit that adds it.
+
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 
 The cliff plan optimizes against the known future events the inputs describe, so events that change tax rates, MAGI
