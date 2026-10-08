@@ -48,12 +48,19 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   const offCases = ALL.filter((s) => s.kind === 'std' && s.shift === 0 && (s.name.startsWith('std G ') || s.name === 'std default'));
   assert(offCases.length >= 18, `case 1: ${offCases.length} households`);
   for (const sc of offCases) {
-    const off = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: false }),
+    // The binding claim: `off` is today's guard-off year whatever the state flag says (flag on and flag off).
+    const off = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: true }),
+      offFlagOff = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: false }),
       legacy = await runMode(page, sc, 'legacy', null, null, { cliffGuardEnabled: false });
-    assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(legacy.rows), `1: ${sc.name}: off rows differ from legacy (guard off)`);
+    assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(legacy.rows), `1: ${sc.name}: off (flag on) rows differ from legacy with the guard off`);
     assert.strictEqual(off.depletedAge, legacy.depletedAge, `1: ${sc.name}: depletedAge`);
+    assert.strictEqual(JSON.stringify(offFlagOff.rows), JSON.stringify(legacy.rows), `1: ${sc.name}: off (flag off) rows differ from legacy with the guard off`);
     assert.strictEqual(off.intents, null, `1: ${sc.name}: off records no intents`);
   }
+
+  await page.evaluate(() => {
+    window.__test_magiStats.planMissed = 0;
+  });
 
   // 2-4. `choose` records intents; rows label only intents; stay-under years convert nothing. (The plan's list named
   // 'std G mfj 62 aca 400% default' and 'std G two returns 66 irmaa default': `choose` records nothing there, by rule: the
