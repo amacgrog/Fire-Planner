@@ -453,6 +453,116 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(out.c6, 'T6.9 case 6: cache churn leaves results unchanged');
   }
 
+
+  // ---- Task 7: label, summary line, row tooltip. ----
+  {
+    const sum = (plan, report) => page.evaluate(([p, r]) => window.__test_cliffPlanSummary(p, r), [plan, report]);
+    // (a) guard off; (b) empty plan.
+    assert.strictEqual(await sum(null, null), 'Cliff plan: off.', 'T7 a');
+    assert.strictEqual(await sum({ intents: {}, family: 'none' }, { candidates: [{ family: 'none' }, { family: 'all' }], kept: 'none' }), 'Cliff plan: no steering helps this plan.', 'T7 b');
+    // (c) runs, verbs, order, and the unused family.
+    const U = (line) => ({ kind: 'under', line, ret: null }),
+      F = (line) => ({ kind: 'fill', line, ret: null });
+    const rep = { candidates: [{ family: 'none' }, { family: 'aca' }, { family: 'irmaa' }, { family: 'all' }], kept: 'aca' };
+    assert.strictEqual(
+      await sum({ intents: { 60: U('aca400'), 61: U('aca400'), 62: U('aca400'), 58: F('medicaid') }, family: 'aca' }, rep),
+      'Cliff plan: stay under the ACA 400% line at 60-62; fill to the Medicaid line at 58. IRMAA stay-unders not used (no gain over the whole plan).',
+      'T7 c'
+    );
+    // Partner returns, a gap in ages, a tier name, the other unused family, nothing unused when all is kept.
+    assert.strictEqual(
+      await sum({ intents: { 60: { kind: 'under', line: 'aca400', ret: 'A' }, 62: { kind: 'under', line: 'irmaa2', ret: null }, 63: { kind: 'under', line: 'irmaa2', ret: null } }, family: 'all' }, { ...rep, kept: 'all' }),
+      "Cliff plan: stay under the ACA 400% line (Partner A's return) at 60; stay under IRMAA tier 2 at 62-63.",
+      'T7 c2'
+    );
+    assert(
+      (await sum({ intents: { 70: U('irmaa1') }, family: 'irmaa' }, { ...rep, kept: 'irmaa' })).endsWith(' ACA stay-unders not used (no gain over the whole plan).'),
+      'T7 c3'
+    );
+    // (d) after a render the element equals the summary of the module plan; (e) tooltip; (f) the real checkbox.
+    const P = household('std G hoh 62 aca smooth');
+    const patch = legacyToAccounts(P.patch, { singlePerson: !!P.patch.singlePerson });
+    const load = (extra) =>
+      page.evaluate(
+        ({ patch, extra }) => {
+          const st = window.__test_getState();
+          Object.assign(st, patch, extra);
+          window.__test_syncControls();
+        },
+        { patch, extra: {} }
+      );
+    await load();
+    const click = () => page.evaluate(() => document.getElementById('cliffGuardEnabled').click());
+    // Render through the real checkbox: off, then on.
+    const snap = () =>
+      page.evaluate(() => ({
+        text: document.getElementById('cliffPlanSummary').textContent,
+        rows: JSON.stringify(window.fireProjectionRows),
+        checked: document.getElementById('cliffGuardEnabled').checked,
+        tips: [...document.querySelectorAll('#projectionRows .table-status')].map((c) => c.title).filter(Boolean),
+        label: document.querySelector('label[for="cliffGuardEnabled"]').textContent.replace(/ +/g, ' ').trim(),
+        small: document.querySelector('label[for="cliffGuardEnabled"] small').textContent,
+      }));
+    if (!(await page.evaluate(() => document.getElementById('cliffGuardEnabled').checked))) await click();
+    await click();
+    await page.waitForTimeout(500);
+    const off = await snap();
+    assert.strictEqual(off.checked, false, 'T7 f: unchecked');
+    assert.strictEqual(off.text, 'Cliff plan: off.', 'T7 f: off summary');
+    const offRows = await page.evaluate(() => JSON.stringify(window.__test_runPlanMode({ planMode: 'off' }).rows));
+    assert.strictEqual(off.rows, offRows, 'T7 f: guard off equals the off rows');
+    assert.strictEqual(off.tips.length, 0, 'T7 f: no tooltips when off');
+    await click();
+    await page.waitForTimeout(500);
+    const on = await snap();
+    assert.strictEqual(on.checked, true, 'T7 f: checked again');
+    assert(/^Cliff plan: (stay under|fill to) /.test(on.text), 'T7 f: non-empty summary: ' + on.text);
+    assert.notStrictEqual(on.rows, offRows, 'T7 f: the plan changes the rows');
+    assert(on.label.startsWith('Cliff plan'), 'T7: label ' + on.label);
+    assert.strictEqual(on.small, 'Steer income around cost lines, planned once', 'T7: small');
+    // (d)
+    const d = await page.evaluate(() => [document.getElementById('cliffPlanSummary').textContent, window.__test_cliffPlanSummary(window.__test_refreshCliffPlan().plan, window.__test_refreshCliffPlan().report)]);
+    assert.strictEqual(d[0], d[1], 'T7 d');
+    // (e)
+    assert(on.tips.length > 0 && on.tips.every((t) => /^Income (stayed under|filled to) /.test(t)), 'T7 e: ' + JSON.stringify(on.tips));
+    assert(on.tips.every((t) => !/lambda|first|Drawn from|split|order/i.test(t)), 'T7 e: nothing about lambda, order or split');
+    // Mobile: the Task 5 case 3 household (both families), long summary, no horizontal overflow at 390x844.
+    const SCAN = hand({
+      singlePerson: true, children: [], ageA: 58, ageB: 58, retireAgeA: 58, retireAgeB: 58, lifeExpectancyA: 95, lifeExpectancyB: 95,
+      acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: 300000, spending: 130000, smoothWithdrawals: false, withdrawalMixEnabled: false,
+      rothConvEnabled: false, rothConvStartAge: 58, rothConvEndAge: 72, rothConvBracket: 22, ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false,
+      cliffGuardEnabled: true, traditional: 1500000, roth: 200000,
+    });
+    await page.evaluate((patch) => {
+      Object.assign(window.__test_getState(), patch);
+      window.__test_syncControls();
+    }, legacyToAccounts(SCAN.patch, { singlePerson: true }));
+    await click();
+    await click();
+    await page.waitForTimeout(500);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+    // The SCAN household has candidates in both families but keeps none under the rule (its plan is empty), so the line is
+    // also laid out with a synthetic long summary: intents in both families, Partner returns, several runs, an unused family.
+    const mob = await page.evaluate(() => {
+      document.getElementById('moreResultsCard').open = true;
+      const U = (line, ret) => ({ kind: 'under', line, ret }),
+        intents = {};
+      for (let a = 58; a <= 64; a++) intents[a] = U('aca400', a < 61 ? 'A' : 'B');
+      for (let a = 66; a <= 70; a++) intents[a] = U('irmaa3', null);
+      intents[57] = { kind: 'fill', line: 'medicaid', ret: null };
+      intents[72] = { kind: 'fill', line: 'acaFloor', ret: null };
+      const el = document.getElementById('cliffPlanSummary');
+      const real = el.textContent;
+      el.textContent = window.__test_cliffPlanSummary({ intents }, { candidates: [{ family: 'aca' }, { family: 'irmaa' }], kept: 'none' });
+      return { t: el.textContent, real, over: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+    });
+    assert.strictEqual(mob.real, 'Cliff plan: no steering helps this plan.', 'T7 mobile: real SCAN line');
+    assert(/stay under/.test(mob.t) && mob.t.length > 60, 'T7 mobile: long summary: ' + mob.t);
+    assert.strictEqual(mob.over, false, 'T7 mobile: no horizontal overflow');
+    await page.setViewportSize({ width: 1280, height: 800 });
+  }
+
   assert.deepStrictEqual(errors, []);
   console.log('cliff_plan: OK');
   await browser.close();
