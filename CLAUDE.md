@@ -207,17 +207,22 @@ Each planner is one big IIFE. Core shape:
   convergence check must be in the snapshot (`bal` fields are rewound
   automatically; add new scalar `let`s to `scalarSnapshot`; the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
   loop. `prevDiscTraditional`/`prevTaxableGainGross` only seed pass 0.
-  `row.magiProxy` is the realized MAGI and `magiHistory[year]` is
-  overwritten with it after convergence; the in-body assignment is
+  `row.magiProxy` is the realized MAGI and `irmaaMagiHistory[year]` is
+  overwritten with its Medicare MAGI after convergence; the in-body assignment is
   provisional and only read by the plan's first-year IRMAA stand-in.
+  The engine's MAGI is the ACA definition (all of Social Security); IRMAA amounts convert with
+  `irmaaMagiOf(magi, ss, filing)` (Medicare's MAGI: only the taxable part of Social Security, this year's
+  return's benefit and filing status, `irmaaSsOf` / `returnStatusA`), and IRMAA lines and caps translate
+  into the engine's MAGI with its exact inverse `magiForIrmaaLine` (one MAGI scale for steering).
   **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an
   unmarried couple, or before a marry-later wedding; never the survivor period or single-person mode).
   `returnMagis(profile, trad, gain)` splits the MAGI into `[magiA, magiB]` (each partner's `other` and
   Social Security, half the investment income and gains, `trad` = discretionary draw + conversion by
   `profile.ownerShareA`; the two sum to the household figure) and allocates its 2-array only in those
-  years. The year loop keeps `magiHistoryA/B` and `twoReturnHistory` beside `magiHistory` (written per
-  pass like it, overwritten with the realized split after convergence; rows carry `magiA`/`magiB` in
-  two-return years only). `healthcareCost` prices the ACA premium per tax household (A's includes the
+  years. The year loop keeps `magiHistoryA/B` (rows keep this ACA per-return MAGI), their Medicare MAGIs
+  `irmaaMagiHistoryA/B` (A on `returnStatusA`, B single; what `healthcareCost`'s IRMAA reads) and
+  `twoReturnHistory` beside `irmaaMagiHistory` (written per pass like it, overwritten with the realized split
+  after convergence; rows carry `magiA`/`magiB` in two-return years only). `healthcareCost` prices the ACA premium per tax household (A's includes the
   children, half the premium each, own poverty line) and IRMAA per person on the single tiers whenever
   the lookback year had two returns (`irmaaLookbackSplit`; the entered first-two-years prior MAGI is
   split evenly), else the household rule. `conversionMagiCeiling` keeps each return under its own ACA
@@ -409,12 +414,13 @@ Each planner is one big IIFE. Core shape:
   irmaa1..irmaa5 | senior | ctc`, `ret` 'H' or, in a two-return year, 'A' / 'B', `family` `aca | irmaa | tax`; with
   `c.lo/c.hi` only the lines in that reach, a shared empty list (`NO_THRESHOLDS`) when none; IRMAA lines sit on the tiers of
   the year the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate
-  `irmaaAt` uses), under the filing status and Medicare partners of that year; the Roth-conversion ceiling
+  `irmaaAt` uses), under the filing status and Medicare partners of that year; the edges are Medicare's MAGI translated
+  into the engine's with `magiForIrmaaLine` on this year's return (`c.profile`'s benefit, `c.filing`); the Roth-conversion ceiling
   `irmaaTierCeiling` keeps this year's edges, the safe side there, 13.7 A), `lambdaEstimate` (future tax on a
   traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at the real return net of
   `tradShare x` the year's need less benefits started since, pricing `max(RMD, min(pool, draw))`, moved to the year the
-  walk empties the pool (`movedSample` flags it; a known defect left for Batch 5); two-return samples price IRMAA per
-  person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
+  walk empties the pool (`movedSample` flags it; a known defect left for Batch 5); IRMAA is priced on Medicare's MAGI (`irmaaMagiOf`
+  with the sample's own benefits); two-return samples price IRMAA per person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
   share), `afterTaxValue`. Primitives on `wd`: `magiCap` (limits penalty-free traditional draws only; gains and early
   Roth earnings still raise MAGI, so it is not a hard MAGI guarantee), `releaseMagiCap` (before penalized money and
   home equity), `fillTraditional`, `freeTraditional`, `cappableTraditional` (the traditional drawn that a cap could
