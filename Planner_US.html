@@ -7134,29 +7134,41 @@
   // binds. A listed point that is not a kink in this case lies on a straight segment, so interpolation stays exact.
   function magiForIrmaaLine(line, ss, filing) {
     if (!(ss > 0) || !Number.isFinite(line)) return line;
-    const [lower, upper, base] = SS_BASE[filingKey(filing, 'ss')],
+    const row = SS_BASE[filingKey(filing, 'ss')],
+      lower = row[0],
+      upper = row[1],
+      base = row[2],
       h = ss * 0.5,
-      f = (x) => x + taxableSocialSecurity(ss, x, filing),
       k1 = lower - h,
       k2 = lower + h,
       k3 = upper - h,
-      k4 = upper - h + Math.max(0, 0.85 * ss - Math.min(base, h)) / 0.85,
-      kinks = [k1, k2, k3, k4].sort((a, b) => a - b);
-    let px = kinks[0],
-      pf = f(px);
-    if (line <= pf) return line + ss; // at or below the first kink (k1, always the smallest) nothing is taxable: f(x) = x
-    for (let i = 1; i < kinks.length; i++) {
-      const kx = kinks[i],
-        kf = f(kx);
-      if (line <= kf) return (kf > pf ? px + ((line - pf) * (kx - px)) / (kf - pf) : kx) + ss;
-      px = kx;
-      pf = kf;
-    }
-    return px + (line - pf) + ss; // above the last kink: slope 1
+      k4 = upper - h + Math.max(0, 0.85 * ss - Math.min(base, h)) / 0.85;
+    // The kinks in ascending order without an array (hot path: the IRMAA lines of every planned year): k1 is always the
+    // smallest and k4 >= k3, so only k2's place among k3 and k4 is open. Equal kinks are equal numbers, so the order
+    // among them does not matter.
+    let a, b, c;
+    if (k2 <= k3) (a = k2), (b = k3), (c = k4);
+    else if (k2 <= k4) (a = k3), (b = k2), (c = k4);
+    else (a = k3), (b = k4), (c = k2);
+    const pf = k1 + taxableSocialSecurity(ss, k1, filing);
+    if (line <= pf) return line + ss; // at or below the first kink nothing is taxable: f(x) = x
+    const af = a + taxableSocialSecurity(ss, a, filing);
+    if (line <= af) return (af > pf ? k1 + ((line - pf) * (a - k1)) / (af - pf) : a) + ss;
+    const bf = b + taxableSocialSecurity(ss, b, filing);
+    if (line <= bf) return (bf > af ? a + ((line - af) * (b - a)) / (bf - af) : b) + ss;
+    const cf = c + taxableSocialSecurity(ss, c, filing);
+    if (line <= cf) return (cf > bf ? b + ((line - bf) * (c - b)) / (cf - bf) : c) + ss;
+    return c + (line - cf) + ss; // above the last kink: slope 1
   }
+  // The highest engine MAGI that keeps a single-tier return's IRMAA MAGI inside the tier engine MAGI m puts it in.
+  function irmaaRoomFor(m, ss, st, year) {
+    return magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(m, ss, st), 'single', year), ss, st);
+  }
+  const NO_PROFILE = Object.freeze({});
   // The filing status of Partner A's own return in a two-return year (A claims the children), as taxFor's two-filer branch.
   function returnStatusA(dependents) {
-    return (dependents || NO_DEPENDENTS).some((d) => d.qualifyingChild) ? 'hoh' : 'single';
+    if (dependents) for (let i = 0; i < dependents.length; i++) if (dependents[i].qualifyingChild) return 'hoh';
+    return 'single';
   }
   // The benefit on a household or one-person return (the survivor remap puts the survivor's benefit in slot A).
   function irmaaSsOf(profile) {
@@ -8696,11 +8708,9 @@
         if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(1 + kids, year) * 4, preMagiA, shareA));
         if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(1, year) * 4, preMagiB, 1 - shareA));
       }
-      const p = profile || {},
-        stA = returnStatusA(p.dependents),
-        irmaaRoom = (m, ss, st) => magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(m, ss, st), 'single', year), ss, st);
-      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoom(preMagiA, p.ssA || 0, stA), preMagiA, shareA));
-      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoom(preMagiB, p.ssB || 0, 'single'), preMagiB, 1 - shareA));
+      const p = profile || NO_PROFILE;
+      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
+      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
       return preConvMagi + room;
     }
       let magiCeiling = Infinity;
