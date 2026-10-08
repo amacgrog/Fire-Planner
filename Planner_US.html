@@ -9767,6 +9767,7 @@
     const accts = accountsNew();
     let depletedAge = null,
       firstWithdrawal = 0;
+    let endTax = null;
     // Last year's realized discretionary income, used only to SEED each year's
     // MAGI estimate (estTrad/estGain in the year loop): traditional withdrawals
     // (excluding the Roth conversion, which is sized separately each year) and
@@ -10348,6 +10349,7 @@
         if (yearPlan.kind !== 'none') row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
         if (yearLambda) row.lambda = yearLambda.lambda;
         rows.push(row);
+        if (year === projectionYears) endTax = { profile: { ...profile }, lastGain: wd.taxableGainGross, lastTrad: wd.traditionalGross };
         if (trace) {
           const tradPool = bal.traditional + bal.bondTraditional,
             rothPool = bal.roth + bal.bondRoth;
@@ -10368,7 +10370,7 @@
       }
       source.endOfYear();
     }
-    return {
+    const result = {
       rows,
       depletedAge,
       firstWithdrawal,
@@ -10379,6 +10381,35 @@
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(futureBuy, schedule),
     };
+    // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
+    // enumerable, so the result's own fields and every snapshot stay as they were.
+    Object.defineProperty(result, 'estate', {
+      value: {
+        traditional: bal.traditional + bal.bondTraditional,
+        roth: bal.roth + bal.bondRoth,
+        taxable: bal.taxable + bal.bondTaxable,
+        cash: bal.cash,
+        homeEquity: Math.max(0, bal.home - bal.mortgage),
+        profile: endTax ? endTax.profile : null,
+        lastGain: endTax ? endTax.lastGain : 0,
+        lastTrad: endTax ? endTax.lastTrad : 0,
+      },
+    });
+    return result;
+  }
+
+  // The plan's ending value (cliff plan, spec section 5): Roth, taxable (US heirs get a stepped-up basis: no gains tax),
+  // cash and home equity at face value; traditional money net of the income tax it carries, priced as ten slices of the
+  // balance, each added to the last year's own return (its law, its filing status: single after a death). Not modeled:
+  // heirs' own rates, the federal estate tax, state estate and inheritance taxes. Standard runs only (a historical run's
+  // per-path tax factors are gone once simulateHistorical returns).
+  function afterTaxEndValueUS(sim) {
+    const e = sim.estate;
+    if (!e || !e.profile) return 0;
+    const T = e.traditional;
+    let tax = 0;
+    if (T > 0) tax = 10 * (taxFor(e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(e.profile, e.lastGain, e.lastTrad));
+    return e.roth + e.taxable + e.cash + e.homeEquity + T - Math.max(0, tax);
   }
 
   // @@shared:13-simulate begin
@@ -15682,6 +15713,7 @@
   window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
   window.__test_HIST = HIST;
   // @@shared:block end
+  window.__test_afterTaxEndValueUS = afterTaxEndValueUS;
   window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
   window.__test_optimizeMultiLever = optimizeMultiLever;
   window.__test_rothScheduleCost = rothScheduleCost;
