@@ -1007,6 +1007,27 @@ calls (a two-element loop over module scratch arrays, no allocation) per project
 - Timing (21 rounds): bench_runs_interleaved at most +3.4% (TX historical); bench_solver run 1 ACA simulate +8.3%, default
   path +5.6%; run 2 ACA simulate +5.6%, default path +5.6% (0.05 ms grain, the change adds one min/max per year).
 
+##### E1a: review and acceptance (2026-10-08)
+
+Re-checked by the reviewer in a scratch copy, at `9ba26fc` (Tasks 1-4) and at `accfc91` (Task 5): `npm test` exits 0 at
+both. One projection moved in all of E1a: `default megaBackdoor+match` (a 5,000% / 3,000% match, now limited to the room;
+final investable 1,600,677,371.58 -> 29,816,035.43; never depletes, before or after). The UI snapshot's DOM hashes all
+change because the sidebar gained two fields (the hash covers the whole sidebar). Task 5 adds exactly the three new
+`us.json` entries. Code as planned. Reviewer timing of the whole of E1a against `4df6e02`
+(`tests/bench_runs_interleaved.js`, 21 rounds): simulate tx / ca / ny / pa / ct / wa -1.6 / 0.0 / 0.0 / +0.4 / -0.5 / 0.0%,
+historical 0.0 / 0.0 / +1.1 / 0.0 / +0.9 / +1.6%. `tests/bench_solver.js`, 31 rounds, two runs: ACA early retiree
++3.4% / +2.2% then +5.1% / 0.0%; default +6.7% / +5.6% then +1.7% / 0.0% (simulate / path). The same tree reads +5.6% and
+0.0% on one path: one timer tick (0.05 ms) is 5% of a 1 ms single run, so this bench cannot resolve a change of a few
+`min`s per partner-year; the gate is decided on the interleaved table (`CLAUDE.md`), and the solver readings are recorded
+as measured.
+
+**Decisions (owner, 2026-10-08):**
+1. After Tasks 1-4: the pay cap on after-tax money, MCP bounds for profit sharing and three snapshot scenarios (Task 5,
+   above); the match's missing clamp, the `histSuccess` flake and the E1 pointer's placement recorded with no change.
+2. **Accepted** and merged into `claude/batch-3b-penalty-rules` (`d669f9f`; `npm test` green on the merged tree), then
+   pushed to origin at the owner's request.
+3. Next: E1b (income stream owner and W-2 kind), designed in a new chat.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
