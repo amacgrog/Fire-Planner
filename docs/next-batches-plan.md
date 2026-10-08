@@ -727,6 +727,25 @@ so E1 starts clean; the flaky Canada UI snapshot stays out. All number-neutral (
 stops the work). Plan: `docs/superpowers/plans/2026-10-08-review-followups.md`; branch `claude/review-followups` from the
 commit that adds it.
 
+**Task 1 stop and decisions (owner, 2026-10-08).** The implementer stopped in Task 1 at Step 5 (M17): no household found
+(1,553 runs: the 768-household grid in both modes and the 17 `std G` scenarios, conversions on over 58 to 64; no fill
+candidate at all; the probe does find the known conversions-off fill of T4.6). Steps 1 to 4 and 6 were written, uncommitted,
+with `npm test` green and every snapshot identical; the reviewer re-ran the three test files on a clean copy of `8ce17e3`
+(pass). Households found: M1 single 70, P 63,000; M13 unmarried couple 70, P 80,000 each; M14 unmarried couple 66, P 66,500
+(natural `cliffCost` = row healthcare = 12,296.8; the search also requires year 0 to have trace candidates, which Step 4
+asserts anyway). Mutations: M15, M1, M13, M14 each fail on the mutated tree and pass on the real one.
+1. **M17 dropped: the fill clamp is unreachable today** (reviewer's reading of the code, accepted). `solveRothConversionTo`
+   sizes the conversion from the profile's income and Social Security only, so a fill trial converts the same as the natural
+   year unless `magiSafeRoom` binds; a fill raises the estimated draw, which only shrinks that room (the IRMAA stay-in-tier
+   ceiling could grow it, but only near an IRMAA edge, and a fill's only target, `acaFloor`, is under 100% of the poverty
+   line). A natural conversion also puts MAGI at the 10% bracket top plus the deduction or more, above that floor except in
+   very large households. The line `if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion)`
+   stays as a defensive rule; its test moves to Batch 5 (below).
+2. **M6's mutation reworded**: `none` kept only when `choose` recorded no intent. The plan's first wording (`none` always
+   removed) empties `cands` for a household with no intent and crashes `render()` at load, a failure that does not exercise
+   the new assertion; the revised one fails T5.2's own check (`'all' !== 'none'`).
+3. Step 8's commit message no longer names the fill rule.
+
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 
 The cliff plan optimizes against the known future events the inputs describe, so events that change tax rates, MAGI
@@ -939,6 +958,11 @@ candidates, no random starts).
     your current settings" (the bracket conversion is always a candidate). The first attempt depleted 5 snapshot
     scenarios earlier (3C notes, spec 13).
   - The open item on `solveRothConversion`'s conservative deduction lower bound is decided here.
+  - **The fill clamp's test (review follow-ups M17, deferred 2026-10-08).** A fill year keeps at most the natural year's
+    conversion (`conversionAmount > naturalRec.conversion` clamp in `runProjection`). No household reaches it today
+    (conversion sizing ignores the draws; see "Task 1 stop and decisions" under the branch review). Once conversion sizing
+    reads the draws or a new floor line can be filled, add the test as written in Task 1 Step 5 of
+    `docs/superpowers/plans/2026-10-08-review-followups.md`, proven on deleting the line.
 
 Starting material kept by the owner/controller for Batch 5 (not committed): the B5 work-in-progress patches (the
 order choice and the first conversion attempt) and its test `tax_aware.js`.
