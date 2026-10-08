@@ -1028,6 +1028,27 @@ as measured.
    pushed to origin at the owner's request.
 3. Next: E1b (income stream owner and W-2 kind), designed in a new chat.
 
+##### E1b: design (owner decisions, 2026-10-08)
+
+Spec `docs/superpowers/specs/2026-10-08-e1b-income-streams-design.md`, plan
+`docs/superpowers/plans/2026-10-08-e1b-income-streams.md`. Base `71451fd` (US V122, Canada V58).
+- Income streams get an owner (Partner A / B; hidden in single-person mode; a stored B reads as A there) and a kind (Not
+  earned / W-2 wages; self-employment is E1c's third kind). The age window is the owner's age.
+- W-2 wages: payroll tax sharing the owner's wage base with their salary, earned income for the ACTC, the owner's
+  return; no change to Medicare, ACA or the main job's contributions. A W-2 stream stops in its owner's death year; a
+  not-earned stream continues to the survivor, taxed on the survivor's return.
+- Reopened question 3: a W-2 stream may contribute to retirement accounts (checkbox opening a panel: 401(k) type,
+  401(k) contribution, employer match, after-tax (mega backdoor) Roth, IRA). The deferral and IRA limits are per
+  person and shared with the salary (salary first); the match and after-tax room are per employer (each stream its own
+  employer). Self-employment streams get profit sharing in the same panel in E1c.
+- Display: owner and kind are dropdowns; a `select` kind is added to the shared list renderer (`23-dynFieldHtml`; Canada
+  unchanged). The new keys are normalized in a US-only step (`normalizeUsStreams`).
+- The deceased partner's main salary stops at death, both planners, one commit (the deceased's effective retirement age
+  is the lesser of the retirement age and the death age). Expected mover: `std R work past 65 survivor`.
+- Backlog (not built): a pre-tax health premium on stream wages. No interim self-employment warning in the tooltip.
+- Defaults (owner A, not earned, no contribution) reproduce today's numbers exactly; Tasks 3 and 4 must leave every
+  existing snapshot entry byte-identical.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
@@ -5346,6 +5367,8 @@ reading (itself secondary).
 
 ## Open items
 
+- Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages (today only the main
+  salary carries the per-paycheck premium).
 - 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.
 
 Everything raised so far is answered or recorded as a decision above. What
