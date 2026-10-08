@@ -15964,20 +15964,31 @@
   window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
   window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
   // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
-  window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false }) => {
+  // endValue: also the ending after-tax value (afterTaxEndValueUS, priced while a path's own tax factors are still set) and
+  // the ending Roth / traditional / taxable balances (tests/solver_scan.js).
+  window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false, endValue = false }) => {
     const tr = planTrace ? [] : null;
-    let sim;
-    if (!rowFn) sim = runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
-    else {
+    let sim, value, estate;
+    const measure = () => {
+      if (!endValue) return;
+      value = afterTaxEndValueUS(sim);
+      const e = sim.estate;
+      estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
+    };
+    if (!rowFn) {
+      sim = runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+      measure();
+    } else {
       const prev = histTaxFactors;
       histTaxFactors = [];
       try {
         sim = runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+        measure();
       } finally {
         histTaxFactors = prev;
       }
     }
-    return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim };
+    return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim, ...(endValue ? { value, estate } : null) };
   };
   window.__test_yearPlanCandidates = yearPlanCandidates;
   window.__test_planStats = planStats;

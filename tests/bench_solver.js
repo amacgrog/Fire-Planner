@@ -1,5 +1,7 @@
 // Interleaved timing of one scenario in two trees, one process (CLAUDE.md: +-10% wall-clock noise between
 // runs). Usage: node tests/bench_solver.js --base <worktree> [--rounds 7]
+// Cliff plan: each round plans once for the scenario (outside the timing), then times the raw hooks; a tree without the plan
+// hooks times the plain ones.
 const { chromium } = require('playwright');
 const path = require('path');
 const args = process.argv.slice(2);
@@ -30,11 +32,14 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
           window.__benchBase = window.__benchBase || JSON.parse(JSON.stringify(st));
           for (const key of Object.keys(st)) delete st[key];
           Object.assign(st, JSON.parse(JSON.stringify(window.__benchBase)), patch);
+          if (window.__test_refreshCliffPlan) window.__test_refreshCliffPlan();
+          const simulate = window.__test_simulateRaw || window.__test_simulate,
+            simulateHistorical = window.__test_simulateHistoricalRaw || window.__test_simulateHistorical;
           const t0 = performance.now();
-          for (let i = 0; i < 50; i++) window.__test_simulate();
+          for (let i = 0; i < 50; i++) simulate();
           const sim = (performance.now() - t0) / 50;
           const t1 = performance.now();
-          for (let i = 0; i < 20; i++) window.__test_simulateHistorical((y) => [1928 + ((y * 7) % 90), 7 - (y % 5) * 6, 2.5, 4]);
+          for (let i = 0; i < 20; i++) simulateHistorical((y) => [1928 + ((y * 7) % 90), 7 - (y % 5) * 6, 2.5, 4]);
           return { sim, mc: (performance.now() - t1) / 20 };
         }, patch);
         t[k].sim.push(out.sim);
