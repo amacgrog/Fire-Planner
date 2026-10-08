@@ -23,11 +23,14 @@ const runMode = (page, sc, planMode, plan = null, series = null, extra = {}) =>
       try {
         Object.assign(st, patch);
         const rowFn = series ? window.__test_rowFnFor(series) : null;
+        // The default mode (no planMode) applies the plan of the state object render() planned for: re-plan for the patch.
+        if (planMode === undefined) window.__test_refreshCliffPlan();
         const r = window.__test_runPlanMode({ planMode, plan, rowFn });
         return JSON.parse(JSON.stringify({ rows: r.rows, depletedAge: r.depletedAge, intents: r.intents }));
       } finally {
         for (const k of Object.keys(st)) delete st[k];
         Object.assign(st, saved);
+        if (planMode === undefined) window.__test_refreshCliffPlan();
       }
     },
     { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, planMode, plan, series }
@@ -44,17 +47,18 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
   await page.waitForTimeout(300);
 
-  // 1. `off` equals `legacy` with the guard off, row for row.
+  // 1. `off` equals the default run with the guard off (no plan: planForState gives null), row for row. (Before the switch
+  // this compared `off` with the legacy in-path guard's guard-off year; tests/plan_off_anchor.js pins that against 3ebee0e.)
   const offCases = ALL.filter((s) => s.kind === 'std' && s.shift === 0 && (s.name.startsWith('std G ') || s.name === 'std default'));
   assert(offCases.length >= 18, `case 1: ${offCases.length} households`);
   for (const sc of offCases) {
-    // The binding claim: `off` is today's guard-off year whatever the state flag says (flag on and flag off).
+    // The binding claim: `off` is the guard-off year whatever the state flag says (flag on and flag off).
     const off = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: true }),
       offFlagOff = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: false }),
-      legacy = await runMode(page, sc, 'legacy', null, null, { cliffGuardEnabled: false });
-    assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(legacy.rows), `1: ${sc.name}: off (flag on) rows differ from legacy with the guard off`);
-    assert.strictEqual(off.depletedAge, legacy.depletedAge, `1: ${sc.name}: depletedAge`);
-    assert.strictEqual(JSON.stringify(offFlagOff.rows), JSON.stringify(legacy.rows), `1: ${sc.name}: off (flag off) rows differ from legacy with the guard off`);
+      dflt = await runMode(page, sc, undefined, null, null, { cliffGuardEnabled: false });
+    assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(dflt.rows), `1: ${sc.name}: off (flag on) rows differ from the default guard-off run`);
+    assert.strictEqual(off.depletedAge, dflt.depletedAge, `1: ${sc.name}: depletedAge`);
+    assert.strictEqual(JSON.stringify(offFlagOff.rows), JSON.stringify(dflt.rows), `1: ${sc.name}: off (flag off) rows differ from the default guard-off run`);
     assert.strictEqual(off.intents, null, `1: ${sc.name}: off records no intents`);
   }
 
@@ -229,6 +233,8 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
         } finally {
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, saved);
+          // The restored contents are the same object: plan for them again, so no later default run sees the patch's plan.
+          window.__test_refreshCliffPlan();
         }
       },
       { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, applyAll }
@@ -345,6 +351,106 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
       window.__test_yearPlanCandidates({ thresholds: [{ magi: 80000, label: 'ACA 400% line', id: 'aca400', ret: 'B' }], natMagi: 90000, natConv: 0, natTrad: 1, gain: 0, lo: 20000, hi: 300000, magiBase: 20000, canFill: false, premiumAt: (t, g) => (20000 + t + g > 80000 ? 24697 : 8059), irmaaAt: () => 0 })
     );
     assert.deepStrictEqual(under, [{ kind: 'under', magi: 79999, label: 'ACA 400% line', id: 'aca400', ret: 'B' }], '5: under carries id and ret');
+  }
+
+  // ---- Task 6 ----
+  // T6.2a The live-mix draw is cappable (fix to Task 1's wd.cappableTraditional): without it choose offers no stay-under in a
+  // live-mix household, and this one ran out at 94 where the 3C guard (3ebee0e) lasted to 95.
+  {
+    const { plan, report } = await refresh(household('std R rothConv+aca+live'));
+    assert.strictEqual(report.kept, 'all', `T6.2a: kept ${JSON.stringify(report)}`);
+    for (const a of [62, 63, 64, 65]) {
+      const it = plan.intents[a];
+      assert(it && it.kind === 'under' && it.line === 'aca400', `T6.2a: under aca400 at ${a} (${JSON.stringify(plan.intents)})`);
+    }
+    const none = report.candidates.find((c) => c.family === 'none'),
+      kept = report.candidates.find((c) => c.family === 'all');
+    assert(depOf(kept.depletedAge) > depOf(none.depletedAge), `T6.2a: kept depletes at ${kept.depletedAge}, none at ${none.depletedAge}`);
+  }
+
+  // T6.9 Stale plans (Review Focus 1; spec section 3): every default projection uses the plan of the state it projects.
+  // P = std G hoh 62 aca smooth (its plan keeps ACA stay-unders), R = std G hoh 58 aca smooth (another ACA household whose
+  // plan keeps stay-unders at 60-64, P's at 62-64), Q = no line in reach (Texas, no ACA, both 66, spending 60,000).
+  {
+    const full = (sc, extra = {}) => ({ ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra });
+    const P = full(household('std G hoh 62 aca smooth')),
+      R = full(household('std G hoh 58 aca smooth')),
+      Q = { stateTax: 'tx', acaEnabled: false, ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66, spending: 60000 };
+    const out = await page.evaluate(
+      ({ P, R, Q }) => {
+        const base = JSON.parse(JSON.stringify(window.__test_getState())),
+          raw = (patch) => ({ ...JSON.parse(JSON.stringify(base)), ...JSON.parse(JSON.stringify(patch)) }),
+          rowsOf = (sim) => JSON.stringify(sim.rows),
+          load = (patch) => {
+            window.__test_replaceState(raw(patch));
+            return window.__test_refreshCliffPlan().plan;
+          },
+          // A scenario loaded and planned, then its comparison row.
+          loadedMetrics = (patch) => {
+            load(patch);
+            return window.__test_scenarioMetrics(window.__test_getState());
+          },
+          r = {};
+        try {
+          // 1. Replaced before render.
+          const planP = load(P);
+          r.planPIntents = Object.keys(planP.intents).length;
+          window.__test_replaceState(raw(Q));
+          r.c1q = rowsOf(window.__test_simulateRaw()) === JSON.stringify(window.__test_runPlanMode({ planMode: 'off' }).rows);
+          window.__test_replaceState(raw(R));
+          const planR = window.__test_planForState();
+          r.planRIntents = Object.keys(planR.intents).length;
+          r.c1r = rowsOf(window.__test_simulateRaw()) === JSON.stringify(window.__test_runPlanMode({ planMode: 'apply', plan: planR }).rows);
+          r.c1differ = JSON.stringify(planR.intents) !== JSON.stringify(planP.intents);
+          // 2. The main plan survives a swap.
+          load(P);
+          const stP = window.__test_getState(),
+            rows0 = rowsOf(window.__test_simulateRaw());
+          window.__test_scenarioMetrics(raw(R));
+          window.__test_scenarioMetrics(raw(Q));
+          r.c2same = window.__test_getState() === stP && rowsOf(window.__test_simulateRaw()) === rows0;
+          // 3. A compared scenario shows what loading it shows.
+          load(P);
+          const m3 = window.__test_scenarioMetrics(raw(R)),
+            m3l = loadedMetrics(R);
+          r.c3 = [m3.lastsToAge, m3.endAssets, m3l.lastsToAge, m3l.endAssets];
+          // 4. The "Current" row equals the dashboard.
+          load(P);
+          const a = window.__test_scenarioMetrics(window.__test_getState());
+          window.__test_setCliffPlan(null);
+          const b = window.__test_scenarioMetrics(window.__test_getState());
+          window.__test_refreshCliffPlan();
+          const a2 = loadedMetrics(P);
+          r.c4 = { a, b, a2 };
+          // 5. Guard off in a swapped state runs off.
+          load(P);
+          const m5 = window.__test_scenarioMetrics(raw({ ...R, cliffGuardEnabled: false })),
+            m5l = loadedMetrics({ ...R, cliffGuardEnabled: false });
+          r.c5 = [JSON.stringify(m5), JSON.stringify(m5l)];
+          // 6. Cache churn: 17 swapped states, two passes.
+          load(P);
+          const pass = () => Array.from({ length: 17 }, (_, i) => JSON.stringify(window.__test_scenarioMetrics(raw({ ...R, spending: 50000 + 1000 * i }))));
+          const p1 = pass(),
+            p2 = pass();
+          r.c6 = p1.every((m, i) => m === p2[i]);
+        } finally {
+          window.__test_replaceState(base);
+          window.__test_refreshCliffPlan();
+        }
+        return r;
+      },
+      { P, R, Q }
+    );
+    assert(out.planPIntents > 0 && out.planRIntents > 0, `T6.9: P and R keep intents (${out.planPIntents}, ${out.planRIntents})`);
+    assert(out.c1q, 'T6.9 case 1: Q replaced before render runs off');
+    assert(out.c1r, "T6.9 case 1: R replaced before render applies R's own plan");
+    assert(out.c1differ, "T6.9 case 1: R's plan differs from P's");
+    assert(out.c2same, 'T6.9 case 2: the main plan survives the comparison swaps');
+    assert.deepStrictEqual(out.c3.slice(0, 2), out.c3.slice(2), 'T6.9 case 3: a compared scenario shows what loading it shows');
+    assert.deepStrictEqual(out.c4.a, out.c4.a2, 'T6.9 case 4: the Current row equals P loaded and planned');
+    assert.notStrictEqual(out.c4.a.endAssets, out.c4.b.endAssets, 'T6.9 case 4: the Current row really applied the plan');
+    assert.strictEqual(out.c5[0], out.c5[1], 'T6.9 case 5: guard off in a swapped state');
+    assert(out.c6, 'T6.9 case 6: cache churn leaves results unchanged');
   }
 
   assert.deepStrictEqual(errors, []);

@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V116</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V117</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -7035,11 +7035,15 @@
   const magiStats = { forced: 0, unresolved: 0, planMissed: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
-  // Cliff plan: the kept plan (null with the guard off), the state it was made for (JSON) and the keep-rule table; set by
-  // refreshCliffPlan (below afterTaxEndValueUS).
+  // Cliff plan: the kept plan (null with the guard off), the state it was made for (JSON), the keep-rule table and the
+  // state object refreshCliffPlan() planned for; set by refreshCliffPlan (below afterTaxEndValueUS). Declared early so a
+  // projection at load never meets them uninitialized.
   let cliffPlan = null,
     cliffPlanKey = null,
-    cliffPlanReport = null;
+    cliffPlanReport = null,
+    cliffPlanState = null;
+  const cliffPlanCache = new Map(), // JSON of a swapped-in state -> its plan (planForState)
+    CLIFF_PLAN_CACHE_MAX = 16;
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
     const ratio = magi > 0 ? magi / fplForHousehold(householdSize, yearIndex) : 0;
@@ -9024,117 +9028,8 @@
     }
     return gross - left;
   }
-  // A withdrawal on copies of the balances and ledgers, for a dry run.
-  function cloneWithdrawal(wd) {
-    return { ...wd, bal: { ...wd.bal }, rothAccts: rothAccountsClone(wd.rothAccts), accts: accountsClone(wd.accts), magiCap: wd.magiCap ? { ...wd.magiCap } : null };
-  }
-  const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '', order: null, split: -1, score: 0 });
-  // Makes the engine's own withdrawal `wd` the result of a dry run `w` (cloned from it at the start of the year's
-  // draw): the balances and ledgers are copied back in place and every running total is taken over. Exactly what
-  // re-running the same draw on `wd` would give, without the second run.
-  function adoptWithdrawal(wd, w) {
-    Object.assign(wd.bal, w.bal);
-    accountsRestore(wd.accts, w.accts);
-    rothAccountsRestore(wd.rothAccts, w.rothAccts);
-    for (const k in w) if (k !== 'bal' && k !== 'accts' && k !== 'rothAccts') wd[k] = w[k];
-  }
-  // The year's plan: each candidate is a dry run of the year's real withdrawal (c.runWithdraw) on cloned
-  // balances and ledgers, scored by afterTaxValue less the premium it changes this year and the IRMAA it
-  // sets two years on (undiscounted, documented). Candidates per (order, split): the natural draw; a cap
-  // just under the nearest line at or below the natural MAGI (only when the natural draw takes traditional
-  // money, which is all the cap limits: otherwise it would repeat the natural draw); a fill just over the
-  // nearest line above it, only when that line is a floor (this year's premium plus IRMAA is lower just over
-  // it than just under it: spec 5.2) and only with penalty-free traditional money. Lines count only inside
-  // the reach: from the MAGI with no discretionary draw to that plus REACH_GROSS_UP x the need. The first
-  // natural candidate is the baseline; another wins only by more than $1. lambda (c.lambdaOf) is read only
-  // when there is a second candidate to compare. The cap limits traditional draws only (taxable gains and
-  // early Roth earnings still raise MAGI), so a capped candidate can still land over its line: every
-  // candidate is priced at the MAGI it realizes, never at its target. A dry run never writes to the engine's
-  // balances, ledgers or profile; the winner's dry run is left in c.winner for the caller to adopt
-  // (adoptWithdrawal) on the pass that chose it.
-  function chooseYearPlan(c) {
-    c.winner = null;
-    const lo = c.magiBase + c.wd.traditionalGross + c.wd.taxableGainGross,
-      hi = lo + REACH_GROSS_UP * c.need;
-    let inReach = false;
-    if (c.guard) for (const t of c.thresholds) if (t.magi > lo && t.magi <= hi) inReach = true;
-    if (!inReach && c.orders.length < 2 && c.splits.length < 2) return NO_PLAN;
-    const share0 = c.profile.ownerShareA,
-      list = c.trace ? [] : null;
-    let lam = null;
-    const scoreOf = (cand) => {
-      if (cand.score === null) {
-        if (!lam) lam = c.lambdaOf();
-        const w = cand.w;
-        cand.score =
-          afterTaxValue(w.bal, lam.lambda, lam.tauGain) - (c.premiumAt(w.traditionalGross, w.taxableGainGross) - c.hcCharged) - c.irmaaAt(w.traditionalGross, w.taxableGainGross);
-      }
-      return cand.score;
-    };
-    const evaluate = (order, split, kind, target, label) => {
-      const w = cloneWithdrawal(c.wd);
-      w.need = c.need;
-      w.taxAwareOrder = order;
-      w.onlyPartner = split;
-      if (split >= 0) c.profile.ownerShareA = split === 0 ? 1 : 0;
-      if (kind === 'under') w.magiCap = { limit: target - c.magiBase, off: false };
-      c.runWithdraw(w);
-      if (kind === 'fill') {
-        const m = c.magiBase + w.traditionalGross + w.taxableGainGross;
-        if (m < target) fillTraditional(w, target - m);
-      }
-      c.profile.ownerShareA = share0;
-      // An 'under' candidate counts only if it really stayed under its line: the cap limits penalty-free stock traditional
-      // draws only, so gains, the bond reserve and the release can carry the realized MAGI over the target, and such a
-      // candidate would win only by reordering the draw (the full solver's job, spec 5.5), not by the line.
-      const realized = c.magiBase + w.traditionalGross + w.taxableGainGross;
-      const cand = { kind, magi: kind === 'none' ? realized : target, realized, label, order, split, score: null, ok: w.need <= 1 && (kind !== 'under' || realized <= target + 1), w };
-      if (list) list.push(cand);
-      return cand;
-    };
-    let base = null,
-      best = null;
-    // A candidate that leaves need unmet (it would deplete where the baseline does not, or a split whose
-    // partner cannot cover the draw) is never chosen; the baseline is kept whatever it does.
-    const consider = (cand) => {
-      if (!cand.ok) return;
-      if (scoreOf(cand) > scoreOf(best) + (best === base ? 1 : 0)) best = cand;
-    };
-    const canFill = freeTraditional(c.wd) > 0;
-    for (const order of c.orders)
-      for (const split of c.splits) {
-        const nat = evaluate(order, split, 'none', 0, '');
-        if (!base) base = best = nat;
-        else consider(nat);
-        if (!inReach) continue;
-        let below = null;
-        for (const t of c.thresholds) if (t.magi <= nat.magi && t.magi - 1 >= lo) below = t;
-        if (below && nat.w.traditionalWithdrawn > c.wd.traditionalWithdrawn) consider(evaluate(order, split, 'under', below.magi - 1, below.label));
-        // The fill target is the nearest FLOOR above the natural MAGI (spec 5.2): the first line in reach where this year's
-        // premium plus IRMAA is lower just over it than just under it (the Medicaid line with Medicaid declined, the 100%
-        // credit floor without Medicaid). Just over a cliff (the 400% line, an IRMAA tier) costs more, so it is skipped.
-        if (canFill) {
-          const gain = nat.w.taxableGainGross,
-            costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + c.irmaaAt(m - c.magiBase - gain, gain);
-          for (const t of c.thresholds) {
-            if (t.magi <= nat.magi || t.magi + 1 > hi) continue;
-            if (costNear(t.magi + 1) < costNear(t.magi - 1)) {
-              consider(evaluate(order, split, 'fill', t.magi + 1, t.label));
-              break;
-            }
-          }
-        }
-      }
-    c.winner = best.w;
-    if (c.trace) {
-      for (const cand of list) scoreOf(cand);
-      c.trace.candidates = list.map(({ w, ...rest }) => rest);
-      c.trace.chosenScore = best.score;
-    }
-    if (best === base && base.order === null && base.split < 0) return NO_PLAN;
-    const { w, ...plan } = best;
-    return plan;
-  }
+  // No plan this year (the natural draw).
+  const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '' });
   const NO_PLANS = Object.freeze([]);
   // A line's family (cliff plan): 'aca' (medicaid, acaFloor, aca400), 'irmaa' (irmaa1 ... irmaa5) or 'tax' (the senior-deduction
   // and child-tax-credit phase-outs, never a candidate).
@@ -9490,6 +9385,7 @@
       bal.traditional -= live.fromTraditional;
       wd.traditionalGross += live.fromTraditional;
       wd.traditionalWithdrawn += live.fromTraditional;
+      wd.cappableTraditional += live.fromTraditional;
       wd.earlyPenalty += live.penalty;
       wd.need = live.remainingNeed;
     } else if (state.smoothWithdrawals) {
@@ -9812,11 +9708,15 @@
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  // Cliff plan: `planMode` is 'legacy' (the 3C in-path guard, until the switch), 'off' (no steering), 'choose' (the phased
-  // year: converge the natural year, try each candidate plan as its own converged iteration, keep the winner and record its
-  // intent; deterministic run only) or 'apply' (follow `plan.intents`). Undefined: 'legacy' with the guard on, else 'off'.
+  // Cliff plan: `planMode` is 'off' (no steering), 'choose' (the phased year: converge the natural year, try each candidate
+  // plan as its own converged iteration, keep the winner and record its intent; deterministic run only, refreshCliffPlan) or
+  // 'apply' (follow `plan.intents`). Undefined: 'apply' with the plan of the projected state (planForState), 'off' when
+  // there is none (the guard off). This is the first statement: planForState may run nested projections.
   function runProjection({ mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null, planMode, plan = null }) {
-    if (planMode === undefined) planMode = state.cliffGuardEnabled ? 'legacy' : 'off';
+    if (planMode === undefined) {
+      plan = planForState();
+      planMode = plan ? 'apply' : 'off';
+    }
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null;
     const singlePerson = !!state.singlePerson;
@@ -10023,8 +9923,6 @@
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
         let forcedPass = false;
-        // 3C (legacy): the year's plan (cliff guard) and lambda are chosen on the first MAGI pass and held across the later
-        // passes (re-deciding each pass could stop the iteration converging); lambda is computed only when needed.
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
         // state lives here, outside the MAGI restore.
         // - natural: no plan (exactly the `off` year), iterated until it converges or ends in its forced pass;
@@ -10038,7 +9936,8 @@
         //   wins a year) and beats the natural score by more than $1 (or the best earlier such trial); if the winner is
         //   not the phase that ran last, its final pass is replayed (same plan, same estimates, so the same pass) and the
         //   row comes from it.
-        // magiStats count the kept phase only. With no phases (off, legacy) phasePass is the pass index.
+        // magiStats count the kept phase only. With no phases (off) phasePass is the pass index. lambda (yearLambda) is
+        // computed once, on first use (choose only), and held.
         let yearPlan = NO_PLAN,
           yearLambda = null,
           phasePass = -1,
@@ -10303,45 +10202,13 @@
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
             else withdrawStandard(w, wopts);
           };
-          // The legacy in-path guard (dry runs on the first pass) runs only in 'legacy'; 'off' skips it, and the phased year
-          // holds its own plan (set at the end of a phase, below) on every pass: the cap at the line, or the fill to the floor.
-          const guard = planMode === 'legacy' && !!state.cliffGuardEnabled;
-          let planWinner = null;
-          if (guard && iter === 0 && !forcedPass) {
-            const reachLo = magiBase + wd.traditionalGross + wd.taxableGainGross;
-            // The return MAGIs including this year's conversion (it lands on the returns by the pool share).
-            const convA = conversionAmount * profile.ownerShareA;
-            const planTr = planTrace ? {} : null;
-            const planCtx = {
-              wd,
-              need: wd.need,
-              magiBase,
-              profile,
-              runWithdraw,
-              thresholds: magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo: reachLo, hi: reachLo + REACH_GROSS_UP * wd.need }),
-              guard,
-              orders: [null],
-              splits: [-1],
-              lambdaOf,
-              premiumAt: costAt,
-              irmaaAt,
-              hcCharged: healthcare,
-              trace: planTr,
-            };
-            yearPlan = chooseYearPlan(planCtx);
-            planWinner = planCtx.winner;
-            if (planTr) planTrace.push({ year, ...planTr });
-          }
-          // The pass that chose the plan takes over the winning dry run (the same draw, already done); later passes
-          // apply the held plan to their own need.
-          if (planWinner) adoptWithdrawal(wd, planWinner);
-          else {
-            if (yearPlan.kind === 'under') wd.magiCap = { limit: yearPlan.magi - magiBase, off: false };
-            runWithdraw(wd);
-            if (yearPlan.kind === 'fill') {
-              const m = magiBase + wd.traditionalGross + wd.taxableGainGross;
-              if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
-            }
+          // The phased year holds its plan (set at the end of a phase, below) on every pass: the cap at the line, or the fill
+          // to the floor. With no plan ('off', the natural phase) the draw runs as it is.
+          if (yearPlan.kind === 'under') wd.magiCap = { limit: yearPlan.magi - magiBase, off: false };
+          runWithdraw(wd);
+          if (yearPlan.kind === 'fill') {
+            const m = magiBase + wd.traditionalGross + wd.taxableGainGross;
+            if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
           }
           if (wd.need > 1 && !depletedAge) depletedAge = age;
           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
@@ -10420,10 +10287,14 @@
               const lo = magiBase + ladderGain,
                 hi = lo + conversionAmount + REACH_GROSS_UP * -flow,
                 convA = conversionAmount * profile.ownerShareA;
-              const lines = magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi });
+              const intent = planMode === 'apply' && plan && plan.intents ? plan.intents[age] : null;
+              // apply builds the year's lines only in a year with an intent (choose always).
+              const lines =
+                planMode === 'choose' || intent
+                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
+                  : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 });
-              const intent = planMode === 'apply' && plan && plan.intents ? plan.intents[age] : null;
               if (intent) {
                 // apply (spec section 6): follow the plan literally. The intent's line is looked up by id and return among the very
                 // lines choose builds (same call, same lo / hi from the converged natural year); a line that does not exist this
@@ -10589,10 +10460,7 @@
           row.magiA = magiHistoryA[year];
           row.magiB = magiHistoryB[year];
         }
-        if (!phased) {
-          if (yearPlan.kind !== 'none') row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
-          if (yearLambda && planMode === 'legacy') row.lambda = yearLambda.lambda;
-        } else if (yearPlan.kind !== 'none') {
+        if (yearPlan.kind !== 'none') {
           // Phased year: the label says only what happened: the kept pass's realized MAGI met the plan (a missed plan is counted).
           if (yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1)
             row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
@@ -10685,35 +10553,63 @@
   }
   // Every candidate is a standard (deterministic) run: afterTaxEndValueUS reads the run's own tax law, which a historical
   // run's per-path tax factors no longer carry once it returns (standard runs only).
+  // The plan for the current `state`, touching no module plan variable. Planning never sees a historical path's tax
+  // factors: a nested call (planForState at the start of a historical run) saves and restores them.
+  function computeCliffPlan() {
+    if (!state.cliffGuardEnabled) return { plan: null, report: null };
+    const prevFactors = histTaxFactors;
+    histTaxFactors = null;
+    try {
+      const run = (planMode, plan) =>
+        runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan });
+      const infl = pct(state.inflation);
+      // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
+      const measure = (family, intents, sim) => {
+        let cost = 0;
+        for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
+        return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(sim), cost };
+      };
+      const chosen = run('choose', null),
+        all = chosen.cliffIntents,
+        pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
+      const cands = [measure('none', {}, run('off', null))];
+      const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
+      if (fams.size > 1)
+        for (const fam of ['aca', 'irmaa']) {
+          const sub = pick(fam);
+          cands.push(measure(fam, sub, run('apply', { intents: sub })));
+        }
+      if (fams.size) cands.push(measure('all', all, chosen));
+      let best = cands[0];
+      for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
+      return {
+        plan: { intents: best.intents, family: best.family, madeFor: JSON.stringify(state) },
+        report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
+      };
+    } finally {
+      histTaxFactors = prevFactors;
+    }
+  }
+  // Plans for the current state (top of render()) and records which state object the plan belongs to.
   function refreshCliffPlan() {
     cliffPlanKey = JSON.stringify(state);
-    cliffPlan = null;
-    cliffPlanReport = null;
-    if (!state.cliffGuardEnabled) return;
-    const run = (planMode, plan) =>
-      runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan });
-    const infl = pct(state.inflation);
-    // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
-    const measure = (family, intents, sim) => {
-      let cost = 0;
-      for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
-      return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(sim), cost };
-    };
-    const chosen = run('choose', null),
-      all = chosen.cliffIntents,
-      pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
-    const cands = [measure('none', {}, run('off', null))];
-    const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
-    if (fams.size > 1)
-      for (const fam of ['aca', 'irmaa']) {
-        const sub = pick(fam);
-        cands.push(measure(fam, sub, run('apply', { intents: sub })));
-      }
-    if (fams.size) cands.push(measure('all', all, chosen));
-    let best = cands[0];
-    for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
-    cliffPlan = { intents: best.intents, family: best.family, madeFor: cliffPlanKey };
-    cliffPlanReport = { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family };
+    cliffPlanState = state;
+    ({ plan: cliffPlan, report: cliffPlanReport } = computeCliffPlan());
+  }
+  // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
+  // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
+  // gets the plan of its own inputs, cached by their JSON. The state-replacement sites are in shared regions and are not
+  // edited: this is the whole stale-plan rule.
+  function planForState() {
+    if (state === cliffPlanState) return cliffPlan;
+    if (!state.cliffGuardEnabled) return null;
+    const key = JSON.stringify(state);
+    if (key === cliffPlanKey) return cliffPlan;
+    if (cliffPlanCache.has(key)) return cliffPlanCache.get(key);
+    const plan = computeCliffPlan().plan;
+    if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
+    cliffPlanCache.set(key, plan);
+    return plan;
   }
 
   // @@shared:13-simulate begin
@@ -10787,6 +10683,8 @@
   // @@shared:13-simulate end
 
   function render() {
+    // The cliff plan for this state, before anything projects (every run below applies it).
+    refreshCliffPlan();
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
     renderGroupSummaries();
@@ -12817,7 +12715,6 @@
       if (r.cliffChoice) parts.push(`Income ${r.cliffChoice}`);
       if (r.mixOrder) parts.push(`${r.mixOrder === 'traditional' ? 'Traditional' : 'Taxable'} drawn first`);
       if (r.drawSplit) parts.push(`Drawn from Partner ${r.drawSplit}'s accounts`);
-      if (r.lambda !== undefined) parts.push(`Later tax on a traditional dollar: about ${Math.round(r.lambda * 100)}%`);
       cell.title = parts.join(' · ');
     }
   }
@@ -16017,6 +15914,18 @@
   window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
   window.__test_HIST = HIST;
   // @@shared:block end
+  // Cliff plan in tests: a test changes state and calls a shared hook without render(), so the hooks plan for the state
+  // they see (production plans in render()). Benchmarks use the raw hooks after one explicit refresh.
+  const ensureTestPlan = () => {
+    if (JSON.stringify(state) !== cliffPlanKey) refreshCliffPlan();
+  };
+  window.__test_simulateRaw = simulate;
+  window.__test_simulateHistoricalRaw = simulateHistorical;
+  window.__test_setCliffPlan = (p) => { cliffPlan = p; cliffPlanKey = JSON.stringify(state); cliffPlanState = state; }; // scans: run a path with no plan
+  window.__test_simulate = (...a) => (ensureTestPlan(), simulate(...a));
+  window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
+  window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
+  window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
   // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
   window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false }) => {
     const tr = planTrace ? [] : null;
@@ -16040,6 +15949,13 @@
     return JSON.parse(JSON.stringify({ plan: cliffPlan, report: cliffPlanReport }));
   };
   window.__test_planCandidateBetter = planCandidateBetter;
+  window.__test_planForState = () => JSON.parse(JSON.stringify(planForState()));
+  // Replaces state the way load / undo / reset do, without render() (the stale-plan tests).
+  window.__test_replaceState = (raw) => {
+    state = normalizeState(raw);
+  };
+  // The scenario comparison's own row function (defined in a shared region, in scope here).
+  window.__test_scenarioMetrics = (raw) => computeScenarioMetrics(raw);
   // tests/snapshot.js's rowFnFor and mulberry32, verbatim: a year-row function for one of its SERIES entries.
   window.__test_rowFnFor = (() => {
     function mulberry32(a) {
@@ -16102,6 +16018,7 @@
   window.__test_normalizeState = normalizeState;
   window.__test_children = { dependentsInYear, qualifyingChildCount, acaHouseholdSize };
   window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
+    ensureTestPlan();
     const trace = [];
     if (hist) {
       const prevTaxFactors = histTaxFactors;
@@ -16121,9 +16038,20 @@
   // For tests/tax_caches.js: the compiled state rules, so a test can force the per-person inputs on for every row.
   window.__test_stateRuleFor = stateRuleFor;
   window.__test_magiStats = magiStats;
-  window.__test_planTrace = () => {
+  // The plan trace: without rowFn, the standard `choose` run; with it, an `apply` run of the state's plan on that path.
+  window.__test_planTrace = (rowFn) => {
     const planTrace = [];
-    runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
+    if (!rowFn) runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'choose', planTrace });
+    else {
+      ensureTestPlan();
+      const prev = histTaxFactors;
+      histTaxFactors = [];
+      try {
+        runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'apply', plan: cliffPlan, planTrace });
+      } finally {
+        histTaxFactors = prev;
+      }
+    }
     return planTrace;
   };
   window.__test_solver = {
@@ -16136,7 +16064,6 @@
     fillTraditional,
     freeTraditional,
     withdrawStandard,
-    cloneWithdrawal,
     magiCapLeft,
     solveTraditionalForNet,
     newTestWithdrawal: (balPatch, profile) =>

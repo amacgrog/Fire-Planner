@@ -65,13 +65,6 @@ const taxCall = (page, patch, fn, args) =>
     r.fillGross = S.fillTraditional(wd, 10000);
     r.fillCash = wd.bal.cash;
     r.fillTrad = wd.bal.traditional;
-    // Clone independence.
-    wd = S.newTestWithdrawal({ traditional: 500000 }, profile);
-    const c = S.cloneWithdrawal(wd);
-    S.takeTraditional(c, 'traditional', 10000);
-    r.origTrad = wd.bal.traditional;
-    r.origShares = wd.accts.trad.slice();
-    r.cloneTrad = c.bal.traditional;
     // onlyPartner: B's slots only; A owns everything here, so nothing is drawn.
     wd = S.newTestWithdrawal({ traditional: 500000 }, profile);
     wd.onlyPartner = 1;
@@ -94,9 +87,6 @@ const taxCall = (page, patch, fn, args) =>
   near(out.fillGross, 10000, 1e-6, 'fill: gross');
   near(out.fillCash, 11000, 1e-6, 'fill: proceeds in cash, no tax under the deduction');
   near(out.fillTrad, 490000, 1e-6, 'fill: traditional reduced');
-  near(out.origTrad, 500000, 1e-9, 'clone: original balance untouched');
-  assert.deepStrictEqual(out.origShares, [1, 0, 0, 0], 'clone: original ledger untouched');
-  assert(out.cloneTrad < 500000, 'clone drew');
   near(out.onlyB, 0, 1e-9, 'onlyPartner B: A’s accounts are not drawn');
   assert.strictEqual(out.afterReserve, 0, 'reserve draw is not cappable');
   assert(out.cappableAfter > 0 && out.cappableAfter < out.cappableGross, 'stock draw is cappable, the reserve draw is not');

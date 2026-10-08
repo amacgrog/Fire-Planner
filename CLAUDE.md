@@ -399,44 +399,66 @@ Each planner is one big IIFE. Core shape:
   resolves the bracket (override, applied schedule, setting) and calls it. The US year loop builds the
   healthcare-cost block (`hcArgs`, `costAt`) and the `irmaaAt` / `lambdaOf` closures before the conversion (3C B5,
   for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
-- **Per-year solver (3C, US; section "Per-year solver (Batch 3C)" just above
-  `newWithdrawal`).** Hooks: `magiThresholds` (the year's federal lines in household MAGI; with `c.lo/c.hi`
-  only the lines in that reach, a shared empty list when none; IRMAA lines sit on the tiers of the year the
-  surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate `irmaaAt` uses),
-  under the filing status and Medicare partners of that year; the Roth-conversion ceiling `irmaaTierCeiling` keeps this
-  year's edges, the safe side there, 13.7 A), `lambdaEstimate`
-  (future tax on a traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at
-  the real return net of `tradShare x` the year's need less benefits started since, pricing `max(RMD, min(pool,
-  draw))`, moved to the year the walk empties the pool; two-return samples price IRMAA per person; `need` 0 or
-  `tradShare` 0 is the plain compounding; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)`
-  and the start-of-year traditional share), `afterTaxValue`. Primitives on `wd`: `magiCap`
-  (limits penalty-free traditional draws only; gains and early Roth earnings still raise MAGI, so it is not
-  a hard MAGI guarantee), `releaseMagiCap` (before penalized money and home equity), `fillTraditional`,
-  `freeTraditional`, `cloneWithdrawal`, `adoptWithdrawal`. The bond reserve's traditional draw is uncapped
-  in both strategies (`takeTraditional(..., uncapped)`): cash and bonds keep their place, the guard steers
-  the stock-account step and what precedes the reserve. `chooseYearPlan(c)` dry-runs the year's real
-  withdrawal (`runWithdraw`) on clones for the natural draw, a cap just under the nearest line at or below
-  its MAGI (only if the natural draw took traditional money; it counts only if its realized MAGI is at most
-  the target + 1, since gains, the reserve and the release can carry it over) and a fill just over the nearest
-  FLOOR above (the first line in reach where premium plus IRMAA is lower just over than just under; only with
-  penalty-free traditional money), scores each by `afterTaxValue` less the premium change (`costAt`) and the IRMAA two
-  years on (priced on this year's tiers grown two years at plan inflation, undiscounted), and keeps the
-  natural draw unless another beats it by more than $1 or the other leaves need unmet. The cliff guard
-  (`cliffGuardEnabled`, default on, `trueUnlessFalse`) runs it in every mode, only in withdrawal years
-  (`flow < 0`), on the first MAGI pass; the plan (and `yearLambda`, computed lazily from the start-of-year
-  pool, only when a second candidate exists) is held across the later passes and the forced pass, and the
-  choosing pass adopts the winning dry run instead of re-running it. Skip rule: no line in reach, no
-  solver work beyond the line list (no dry run, no lambda). A dry run must never write to the engine's
-  `bal`, ledgers or `profile`; a new `wd` field is carried by `adoptWithdrawal` automatically. Rows carry
-  `cliffChoice` ("stayed under ..." / "filled to ...") and `lambda` only when set; `annotateSolverRows`
-  (US, after the shared `renderTable`) puts them in the status cell's tooltip. State-law cliffs are priced
-  by `taxFor` but are not candidates. The plan context's `orders: [null]` / `splits: [-1]` and the `wd` fields
-  `taxAwareOrder` / `onlyPartner` are wired but unused: the tax-aware order, the two-return draw split and
-  conversion sizing by lambda are Batch 5 (spec section 13.3); the live-mix toggle still runs
-  `pickLiveWithdrawalOrder`, whose `remainingMagiRoom` input cannot change its choice (dead wiring, removed with it
-  in Batch 5). Tests: `tests/cliff_guard.js`; timing: `tests/bench_solver.js --base
-  DIR` (interleaved, not in `npm test`); sweep and gap table: `tests/solver_scan.js`, `tests/solver_gap.js`;
-  `window.__test_planTrace()` returns each withdrawal year's candidates.
+- **Per-year solver and the cliff plan (3C redesign, US; section "Per-year solver (Batch 3C)" just above
+  `newWithdrawal`; spec `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`).** Hooks: `magiThresholds` (the year's
+  federal lines in household MAGI, each `{ magi, label, id, ret, family }`: `id` in `medicaid | acaFloor | aca400 |
+  irmaa1..irmaa5 | senior | ctc`, `ret` 'H' or, in a two-return year, 'A' / 'B', `family` `aca | irmaa | tax`; with
+  `c.lo/c.hi` only the lines in that reach, a shared empty list (`NO_THRESHOLDS`) when none; IRMAA lines sit on the tiers of
+  the year the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate
+  `irmaaAt` uses), under the filing status and Medicare partners of that year; the Roth-conversion ceiling
+  `irmaaTierCeiling` keeps this year's edges, the safe side there, 13.7 A), `lambdaEstimate` (future tax on a
+  traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at the real return net of
+  `tradShare x` the year's need less benefits started since, pricing `max(RMD, min(pool, draw))`, moved to the year the
+  walk empties the pool (`movedSample` flags it; a known defect left for Batch 5); two-return samples price IRMAA per
+  person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
+  share), `afterTaxValue`. Primitives on `wd`: `magiCap` (limits penalty-free traditional draws only; gains and early
+  Roth earnings still raise MAGI, so it is not a hard MAGI guarantee), `releaseMagiCap` (before penalized money and
+  home equity), `fillTraditional`, `freeTraditional`, `cappableTraditional` (the traditional drawn that a cap could
+  limit: `takeTraditional` with `penalized === false && uncapped === false`, and the live-mix draw of
+  `drawMixedStockAccounts`; a new draw path that honours `magiCapLeft` must add to it, or the plan never offers a
+  stay-under for that mode). The bond reserve's traditional draw is uncapped in both strategies.
+  **Run modes** (`runProjection({ ..., planMode, plan })`): `off` (no steering; byte for byte the guard-off year of
+  3ebee0e, pinned by `tests/plan_off_anchor.js --base DIR`), `choose` (deterministic run only: each withdrawal year with
+  a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
+  stay-under at the nearest real cliff and at the largest one, offered only when `underEligible`: cappable traditional
+  drawn and the natural MAGI less its conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free
+  traditional only) as its own converged iteration from the year's snapshot, seeded from the natural draw; a trial wins
+  if it met its line, left no need unmet, cut premium plus IRMAA by more than $1 and beats the natural `afterTaxValue`
+  score by more than $1; a stay-under year converts nothing; the winner is recorded as `intents[age] = { kind, line, ret }`
+  and returned as the non-enumerable `cliffIntents`), and `apply` (follow `plan.intents` by Partner A's age: the intent's
+  line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
+  already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
+  unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
+  **Planning**: `computeCliffPlan()` (pure; saves and restores `histTaxFactors`) runs `choose`, the ACA-only and
+  IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
+  (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);
+  `afterTaxEndValueUS(sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
+  for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
+  return. `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
+  `cliffPlanReport` and `cliffPlanState` (the state object). **`runProjection`'s first statement**, with no `planMode`:
+  `plan = planForState(); planMode = plan ? 'apply' : 'off'`. `planForState()`: the very object `refreshCliffPlan` planned
+  for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
+  sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
+  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full) gives or
+  stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
+  `render()`). The state-replacement sites are NOT edited (all sit in shared regions, and a clear at the comparison swap
+  would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
+  without restoring must call `render()`. Tests: the US-only hooks after `// @@shared:block end` redefine
+  `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
+  `__test_accountTrace` to re-plan when the state's JSON changed (`ensureTestPlan`, never called from production code);
+  benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
+  `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,
+  `__test_scenarioMetrics`, `__test_planStats`; `window.__test_planTrace(rowFn)` returns the `choose` trace (each
+  year's candidates, `movedSample`, the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
+  what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
+  irmaaZeroSaving; cumulative, scans read deltas). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
+  in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
+  status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.
+  The `wd` fields `taxAwareOrder` / `onlyPartner` are wired but unused (Batch 5: the tax-aware order, the two-return draw
+  split and conversion sizing, as plan intents); the live-mix toggle still runs `pickLiveWithdrawalOrder` per path.
+  Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
+  `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
+  `tests/solver_scan.js`, `tests/solver_gap.js` (not in `npm test`).
 - `syncControls()` and `syncContributionControls()` — **two separate**
   functions that both push `state` back into the DOM, and the split is
   deliberate (the contribution sync must not reformat money fields while the
