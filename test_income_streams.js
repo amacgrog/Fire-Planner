@@ -98,7 +98,37 @@ const path = require('path');
   assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, 'no horizontal scroll');
   assert.deepStrictEqual(errors, [], 'page errors');
   console.log('test_income_streams: part 1 passed');
-  // Part 2 (Task 3)
+  // ---- Part 2: the engine reads owner and kind ----
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const fresh = async (patch, streams) => {
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForTimeout(300);
+    await page.evaluate(
+      ([p, ls]) => {
+        Object.assign(window.__test_getState(), p, { incomeSources: ls });
+        document.getElementById('singlePerson').checked = !!p.singlePerson;
+        document.getElementById('singlePerson').dispatchEvent(new Event('change', { bubbles: true }));
+      },
+      [patch, streams],
+    );
+    await page.waitForTimeout(200);
+  };
+  const tax0 = () => page.evaluate(() => window.fireProjectionRows[0].tax);
+  const RET = { singlePerson: false, ageA: 60, ageB: 58, retireAgeA: 60, retireAgeB: 58, incomeA: 0, incomeB: 0, stateTax: 'tx' };
+  const stream = (o) => ({ amount: 40000, startAge: 50, endAge: 70, followGrowth: false, growth: 0, owner: 'B', kind: 'other', contribute: false, deferralType: 'traditional', deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, ...o });
+  await fresh(RET, [stream({ kind: 'other' })]);
+  const notEarned = await tax0();
+  await fresh(RET, [stream({ kind: 'wages' })]);
+  const w2 = await tax0();
+  assert(w2 > notEarned, `a W-2 stream pays payroll tax (${w2} vs ${notEarned})`);
+  await fresh({ ...RET, filingStatus: 'single' }, [stream({ owner: 'A', amount: 50000 }), stream({ owner: 'A', amount: 40000 })]);
+  const onA = await tax0();
+  await fresh({ ...RET, filingStatus: 'single' }, [stream({ owner: 'A', amount: 50000 }), stream({ owner: 'B', amount: 40000 })]);
+  const onB = await tax0();
+  assert(onB < onA, `two returns: the owner changes the tax (${onB} vs ${onA})`);
+  console.log('test_income_streams: part 2 passed');
+
   // Part 3 (Task 4)
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

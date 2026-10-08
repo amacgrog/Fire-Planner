@@ -2,7 +2,7 @@
 //
 // The federal side reads profile.otherA, which carries the household's extra income in Partner A's slot;
 // the state inputs were built from the wage fields only, so a rental stream or a one-time payment was
-// federally taxed but never state taxed. profile.extraIncome now feeds the state `wages` in every branch.
+// federally taxed but never state taxed. profile.extraA / extraB (not-earned streams, each on its owner's return) now feed the state `wages` in every branch.
 // Hand-computed on a synthetic flat 10% state with no deduction.
 
 const { chromium } = require('playwright');
@@ -31,12 +31,12 @@ function checks() {
   const stateOf = (p) => { st.stateTax = 'zzx'; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; return a - t.taxFor(p, 0, 0); };
 
   // A couple: wages 60,000 + 40,000, extra income 20,000 -> 120,000 x 10% = 12,000 (was 10,000).
-  near(stateOf(profile({ wageA: 60000, wageB: 40000, otherA: 80000, otherB: 40000, extraIncome: 20000 })), 12000, 'joint return taxes the extra income');
+  near(stateOf(profile({ wageA: 60000, wageB: 40000, otherA: 80000, otherB: 40000, extraA: 20000 })), 12000, 'joint return taxes the extra income');
   // One person: wages 60,000 + extra 20,000 -> 8,000.
-  near(stateOf(profile({ singlePerson: true, filing: 'single', ageB: null, wageA: 60000, otherA: 80000, extraIncome: 20000 })), 8000, 'one-person return taxes the extra income');
+  near(stateOf(profile({ singlePerson: true, filing: 'single', ageB: null, wageA: 60000, otherA: 80000, extraA: 20000 })), 8000, 'one-person return taxes the extra income');
   // Two separate returns: the household's extra income sits with Partner A (as the federal side has it):
   // A 60,000 + 20,000 = 8,000, B 40,000 = 4,000.
-  near(stateOf(profile({ filing: 'single', wageA: 60000, wageB: 40000, otherA: 80000, otherB: 40000, extraIncome: 20000 })), 12000, 'two separate returns tax the extra income once, on A\'s return');
+  near(stateOf(profile({ filing: 'single', wageA: 60000, wageB: 40000, otherA: 80000, otherB: 40000, extraA: 20000 })), 12000, 'two separate returns tax the extra income once, on A\'s return');
   // A profile without the field (the Roth solver and optimizer literals) owes what it did.
   near(stateOf(profile({ wageA: 60000, wageB: 40000, otherA: 60000, otherB: 40000 })), 10000, 'no extra income field: unchanged');
   delete R.zzx;
