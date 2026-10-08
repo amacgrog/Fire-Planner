@@ -82,13 +82,16 @@ the guard on, it runs `choose` (which also yields the whole-plan candidate), the
 both families appear, and `off`; keeps the winner by rule A (section 5); stores it in the module-level `cliffPlan`.
 With the guard off, `cliffPlan = null`.
 
-**Where it is used.** `simulate()` and `simulateHistorical()` run `apply` with `cliffPlan`, or `off` when it is null.
-That covers every call site (83 at `3ebee0e`): the main projection, every variant, historical, Monte Carlo, MCP.
-`simulate()` never plans.
+**Where it is used.** `runProjection`, called with no `planMode`, runs `apply` with `cliffPlan`, or `off` when it is
+null. `simulate()` and `simulateHistorical()` sit in a shared region and are not edited; through them this covers every
+call site (83 at `3ebee0e`): the main projection, every variant, historical, Monte Carlo, MCP. `simulate()` never plans.
 
 **Stale plans.** Every place that replaces state outside `render()` (autosave load, scenario import, reset; the
-implementer lists the sites) clears `cliffPlan`. A test or harness that never plans runs `off`. Test hook:
-`window.__test_refreshCliffPlan()` (returns the plan and the keep-rule table).
+implementer lists the sites) clears `cliffPlan`. Tests change state and call the shared `window.__test_simulate*` hooks
+without `render()`; US-only code after the shared hook block redefines those hooks to re-plan first whenever the state
+differs from the one the plan was made for (`JSON.stringify(state)`, a test-only cost), so a test always runs the plan
+of the state it set, never a stale one. Benchmarks use raw hooks (`__test_simulateRaw`) after one explicit refresh. Test
+hook: `window.__test_refreshCliffPlan()` (returns the plan and the keep-rule table).
 
 **Precedence, unchanged.** Applied Roth and mix schedules still set the conversion bracket and the order; the plan's
 intents sit on top; a stay-under year sets that year's conversion to 0 (8a rule 2).
@@ -154,8 +157,10 @@ In a year with an intent for Partner A's age:
 2. Converge the natural year, exactly as in `choose`.
 3. If the natural year is already on the intent's side of the line (stay-under: natural MAGI at or under it; fill:
    at or over it), keep the natural pass. No label.
-4. Otherwise run the intent as one trial, with 8a's rules (stay-under: conversion 0, cap at the line; fill: as in
-   section 4), seeded and snapshotted as in `choose`.
+4. Otherwise, if the intent passes the same eligibility test `choose` applies (section 4 step 3 for a stay-under; the
+   fill's penalty-free traditional money and reach), run it as one trial with 8a's rules (stay-under: conversion 0, cap
+   at the line; fill: as in section 4), seeded and snapshotted as in `choose`. Not eligible: keep the natural pass, no
+   label.
 5. If the trial meets its plan with no unmet need, keep it and label the row (`cliffChoice`). Otherwise keep the
    natural pass, no label (a fallback).
 
@@ -209,10 +214,10 @@ with the guard off at `3ebee0e`.
 - `afterTaxEndValueUS`: hand-computed (ten slices; single filing after a death; taxable and home at face value).
 - The cappable-draw field: a bond-reserve draw is not cappable.
 - `movedSample`: set exactly when the walk empties the pool before a sample year.
-- Stale plans: state replacement clears `cliffPlan`; a test that never plans runs `off`.
+- Stale plans: state replacement clears `cliffPlan`; the test hooks re-plan when the state changed.
 - Variants: the +-1-year line applies the main plan by age and never plans.
 - `tests/cliff_guard.js` rewritten to these semantics; `tests/historical_parity.js` covers `apply` and `off`; the
-  snapshot harness, `tests/historical_rates.js` and the scans call `__test_refreshCliffPlan()` per scenario.
+  snapshot harness and `tests/historical_rates.js` plan per scenario through the re-planning hooks (no edit needed).
 
 **Scan** (`tests/solver_scan.js`, extended; not in `npm test`). Per household: the family kept; standard depletion,
 value and cost against `off`; historical and seeded Monte Carlo success rates with and without the plan; per-path
