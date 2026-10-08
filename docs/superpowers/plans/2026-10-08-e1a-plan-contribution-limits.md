@@ -254,7 +254,22 @@ git commit -m "E1a 2: PLAN_LIMITS table, allocatePlanRoom (country-neutral), tes
   55,500, profit sharing 0 vs 36,000, and so on) for the report.
 - [ ] **Step 3: State, field and markup.**
   - `defaults`: `profitSharingPctA: 0, profitSharingPctB: 0,` after `matchB`.
-  - `FIELDS`: `{ key: 'profitSharingPctA', type: 'number' }, { key: 'profitSharingPctB', type: 'number' },` after `matchB`.
+  - `FIELDS`, after `matchB` (strictly 0 to 25 while typing: the `input` listener stores the number, then `onInput` runs):
+```js
+    { key: 'profitSharingPctA', type: 'number', onInput: () => clampProfitSharing('profitSharingPctA') },
+    { key: 'profitSharingPctB', type: 'number', onInput: () => clampProfitSharing('profitSharingPctB') },
+```
+    with, beside `clampLifeExpectancyB` (just above `FIELDS`, outside the shared region):
+```js
+  // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
+  const clampProfitSharing = (key) => {
+    const v = Math.min(25, Math.max(0, state[key]));
+    if (v !== state[key]) {
+      state[key] = v;
+      document.getElementById(key).value = v;
+    }
+  };
+```
   - `normalizeState`, after the `fiWithdrawalRate` line:
 ```js
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
@@ -264,7 +279,7 @@ git commit -m "E1a 2: PLAN_LIMITS table, allocatePlanRoom (country-neutral), tes
   - Markup, right after the `#matchA` field (and the same for B after `#matchB`, with `data-partner-b` on the wrapper and
     "Partner B"):
 ```html
-          <div class="field"><label for="profitSharingPctA">Partner A employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company.">i</button></span><small>Employer contribution to the traditional 401(k)</small></label><input id="profitSharingPctA" type="number" min="0" max="25" step="0.5"></div>
+          <div class="field"><label for="profitSharingPctA">Partner A employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice.">i</button></span><small>Employer contribution to the traditional 401(k)</small></label><input id="profitSharingPctA" type="number" min="0" max="25" step="0.5"></div>
 ```
   - Match tooltip (A and B): append " Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with
     inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions,
@@ -321,7 +336,8 @@ git commit -m "E1a 2: PLAN_LIMITS table, allocatePlanRoom (country-neutral), tes
 - [ ] **Step 6: Part 2 of `test_contribution_limits.js`**: set `#profitSharingPctA` to 10 (fill + input event) with
   Partner A working: `state.profitSharingPctA === 10` and `window.fireProjectionRows` at the last working age has a larger
   `traditional` than at 0; partner B's field is hidden in single-person mode (`#profitSharingPctB` not visible after
-  ticking single-person); no horizontal scroll at 390 x 844 with the new fields; no page errors.
+  ticking single-person); typing 40 into `#profitSharingPctA` gives `state.profitSharingPctA === 25` and the box shows 25,
+  typing -3 gives 0; no horizontal scroll at 390 x 844 with the new fields; no page errors.
 - [ ] **Step 7: Run the unit tests.** `node tests/contribution_limits.js` and `node test_contribution_limits.js` pass.
 - [ ] **Step 8: Movers.** In the worktree:
   `node tests/snapshot.js --root ../fp-e1a-base --dump A --update-nothing`, `node tests/snapshot.js --dump B`,

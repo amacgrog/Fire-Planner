@@ -57,7 +57,10 @@ times `limitFactor`.
   percentage of pay; only pay up to the IRS compensation limit counts ($360,000 in 2026, indexed); it shares the annual
   limit ($72,000 in 2026, indexed; catch-up contributions are outside it) with your deferrals, the match and after-tax
   money, and is reduced when they would exceed it; 25% is the most an employer can deduct across its payroll and the
-  usual ceiling for an owner-employee. Registered in `FIELDS` (`type: 'number'`, like the match), in
+  usual ceiling for an owner-employee; to estimate it, divide last year's employer profit-sharing (nonelective)
+  contribution on the 401(k) statement by that year's pay (a typical year if it varies), or, for an owner, it is their
+  choice. Strictly 0 to 25: an `onInput` hook clamps a typed value at once (and rewrites the box when it was out of
+  range), and `normalizeState` clamps a saved one. Registered in `FIELDS` (`type: 'number'`, like the match), in
   `ESTIMATE_ALWAYS_IDS` like `matchA/B`, clamped 0 to 25 in `normalizeState`. Exposed through MCP (every numeric field is).
 - **Match tooltip:** add that only pay up to the compensation limit counts and that the match shares the annual limit.
 - **Mega-backdoor tooltip:** the room is the annual limit less your deferrals (not the catch-up), the match and profit
