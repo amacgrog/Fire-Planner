@@ -110,6 +110,12 @@ election, 72(t) field visibility; no number change) -> 3C (per-year solver: per-
 redesigned, owner decision 2026-10-06, see `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md`)
 -> 5 -> 4A -> 4B -> 6 -> 8 (survivor-benefit claim optimizer).
 
+**Revised 2026-10-07 (owner):** 3C is paused and redesigned as the **cliff plan** (a plan chosen once on the
+deterministic projection and applied unchanged in historical and Monte Carlo runs; spec
+`docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md` is superseded in part by
+`docs/superpowers/specs/2026-10-07-cliff-plan-design.md`). Order from here: cliff plan -> Batch E (E1 to E4, life
+events, small PRs) -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the Canada province move are scheduled later.
+
 Why 3C moved after Batch 7 (owner decision): Batch 7 adds the
 cliffs and phase-outs (senior deduction, child tax credit, state circuit-breaker
 cutoffs, 7L income-tested benefits, the 7O Medicaid and 100%-of-FPL lines) that the
@@ -496,6 +502,12 @@ reserve will first be drawn.
 
 ### 3C: per-year solver, US (done; redesigned from "safe-MAGI room on every withdrawal path")
 
+**Status 2026-10-07: paused at `3ebee0e` (Stage A) and redesigned as the cliff plan** (owner;
+`docs/superpowers/specs/2026-10-07-cliff-plan-design.md`, plan `docs/superpowers/plans/2026-10-07-cliff-plan.md`). The
+in-path guard described below is replaced by a plan chosen once per render on the deterministic projection and applied
+unchanged everywhere else; Stage 8a is not committed (its four rules are ported into the chooser). Decisions: "Redesign:
+the cliff plan" in the 3C notes.
+
 **Design:** `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md` (approved 2026-10-06, amended four
 times on 2026-10-07, sections 13 to 13.3). **Plan:** `docs/superpowers/plans/2026-10-06-per-year-solver-3c.md`.
 Findings, measurements and decisions: "Batch 3C notes" below. The old `stayUnder(k)` direction ("Auto / Always /
@@ -525,6 +537,56 @@ tax-aware conversion sizing. The live-mix toggle keeps its old behavior (`pickLi
 **Carried from Batch 1, resolved:** the safe-MAGI room now has a behavioral test with a mutation check
 (`tests/cliff_guard.js` case 1: removing the cap, guard off, changes the result); the double-counted room is fixed
 (the cap uses `target - magiBase`, not `incomeRoom`). See the notes.
+
+---
+
+## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
+
+The cliff plan optimizes against the known future events the inputs describe, so events that change tax rates, MAGI
+lines or who files which return matter to it. Events that only change a cash flow are already covered by the dated
+lists (lump expenses, one-time income, income streams, extra expenses, spending tiers). Each item below gets its own
+short design before it is built; none is part of the cliff-plan batch (each changes the projection's inputs, which
+would confound that batch's movers). Statuses were checked against `Planner_US.html` at `3ebee0e`.
+
+**After the cliff plan, small PRs, in this order:**
+- **E1. Income character.**
+  - Income streams: an owner choice (Partner A / B; hidden in single-person mode) and an "earned income (wages)"
+    checkbox. Today a stream is "taxed as ordinary income attributed to Partner A": no payroll tax, not earned income
+    for the ACTC, and on two returns B's part-time work lands on A's return (state per-person rules read it wrong).
+    Earned income pays payroll tax, counts for the ACTC and lands on its owner's return; it does not make the partner
+    "working" for Medicare, the ACA or 401(k) contributions.
+  - One-time income: a tax treatment per lump sum. Today every lump is "tax-free ... added directly to cash". Choices:
+    tax-free (an inheritance of cash, stocks or a house, with stepped-up basis; life insurance; gifts received; a home
+    gain under the section 121 exclusion; a sale at cost), ordinary income (severance, deferred compensation), long-term
+    gain with a gain share (a business sale), and inherited traditional IRA / 401(k), drawn evenly over 10 years as
+    ordinary income (10 years of MAGI right where the ACA and IRMAA lines sit).
+- **E2. Adoption.** `dependentsInYear` (shared) counts a child from the birth year, so a 5-year-old adopted in 2032 is
+  entered as born 2027 and counts from 2027 (wrong CTC, ACA household size, head-of-household status and Canada
+  benefits for the years before). One optional field per child row, "Joins the household in (year)", blank meaning
+  from birth; both planners; legacy-state cases.
+- **E3. IRMAA appeal for a life-changing event (form SSA-44).** Today IRMAA always uses MAGI from two years earlier
+  (the UI callout says appeals are not modeled). Model the two common appeals: a work stoppage (a retiree first charged
+  on their last salary years) and a spouse's death (the survivor charged on the old joint MAGI against the single
+  tiers): the charge uses the current year's MAGI instead. No new input. These are the years the cliff plan steers
+  around IRMAA lines.
+- **E4. State relocation (US).** `state.stateTax` is one value for the whole projection. A "+ Add a move" list: a state
+  (same options as the selector) and "from Partner A age"; a move lasts until the next one; the current selector is
+  the starting state; the move year is taxed wholly in the new state (part-year returns not modeled). Engine reads at
+  `3ebee0e`: `stateIncomeTax`, `taxFor`'s no-tax fast path, `acaNetCost`'s Medicaid line, `magiThresholds`, plus
+  `lambdaEstimate`'s sample years (each in its own year's state). The rule compiler and `medicaidLimit` are already
+  cached per code, so a per-year code array costs nothing on the hot path. Biggest lever: converting after a move from
+  a high-tax state to a no-tax one.
+
+**Later, each with its own design:**
+- **E5. Real assets.** One tab: the primary-home sale or downsize (sale age, replacement value or renting, selling
+  costs, the section 121 exclusion) and investment properties (value, basis, growth, a property-tax rate, net rent, an
+  optional sale age; on sale, cash with the gain taxed, or a 1031 exchange into a replacement: 1031 applies to
+  investment property only). Cars are not assets (a car purchase is a repeating lump expense).
+- **Canada province relocation** (many more reads: `PROVINCE_RULES`, `BENEFIT_RULES`, probate, Quebec).
+- Already in Batch 6: Social Security claim-age rules and the earnings test; HSA.
+
+**Excluded (owner; state them in the README where a user could assume otherwise):** divorce or separation, annuity
+purchase, a disabled child, QCDs and charitable giving, a survivor's remarriage, international moves, cars as assets.
 
 ---
 
@@ -609,6 +671,24 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 Run after the engine and tax model have settled, since objective values and
 timing both depend on them.
+
+**Re-scoped by the cliff plan (owner, 2026-10-07; `docs/superpowers/specs/2026-10-07-cliff-plan-design.md` section
+10).** Read the text below with these changes; where they conflict, this block wins:
+- The output is a **plan** chosen on the deterministic projection and applied unchanged in historical and Monte Carlo
+  runs, not a policy re-applied per path with lambda from each path's balances (3C spec decisions 1 and 4 are
+  superseded). Every lever below becomes plan intents chosen by whole-run evaluation, never per path.
+- **Optimize -> Apply** runs a deeper search and stores a plan of the cliff plan's shape in `state` (`normalizeState`
+  guard, legacy cases), with a staleness flag ("computed for different inputs") and the historical and Monte Carlo
+  success rates with and without it on its card. It overrides the automatic quick plan.
+- **The tax-aware order** becomes a named order or mix per age in the plan (it may differ by age; it is fixed in the
+  plan). It replaces the live-mix toggle's `pickLiveWithdrawalOrder`, the one remaining per-path choice after the
+  cliff plan. The two-return draw split and conversion sizing (Notes 1 and 2) become plan intents the same way.
+- Retire `optimizeMultiLever` and migrate `appliedMixSchedule` / `appliedRothSchedule` into the plan.
+- **Lambda's accuracy:** the emptied-pool sample (defect recorded in the 3C notes, "Redesign: the cliff plan"; the
+  cliff-plan scan counts `movedSample` years against family rejections), the multiplier `m`, both against the slow
+  reference; then decide between correcting the sample, tuning `m` and replacing the estimator.
+- Rule A carries over: on the deterministic projection the search never runs out earlier than the user's current
+  settings; historical and Monte Carlo rates are reported, never used to choose.
 
 **Redesign after 3C (owner decisions 2026-10-06 and 2026-10-07; spec sections 2, 11 and 13 to 13.3).** The
 optimizer's output becomes a **policy** (a few parameters every run follows: standard, historical, Monte Carlo),
@@ -2460,6 +2540,58 @@ starred claims against the code):
 - Do not resume Stage 8a or 8b. The Sonnet implementer is paused.
 - Review copies `../fp-3c-review` and `../fp-3c-rev-{score,phase,phase-exp,outer}` are throwaway (prototype and
   probe scripts inside).
+
+##### Redesign: the cliff plan (owner decisions, 2026-10-07)
+
+Brainstormed in a new chat after the Stage 8a block. Spec `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`,
+plan `docs/superpowers/plans/2026-10-07-cliff-plan.md`. A second opinion (ChatGPT, pasted by the owner) agreed with
+the direction; its points were checked against the code before use.
+
+**Diagnosis, said plainly.** The in-path guard was a path-dependent controller: decision 4 (lambda from each path's
+own balances) and decision 6 (the guard inside every run) of the 3C spec made each path's market noise part of the
+choice, so "guard on never runs out earlier" could not be guaranteed year by year. Our design, not an implementation
+bug.
+
+**Decisions (one question at a time; the owner's answer in brackets):**
+1. "Never worse" is rule A: guaranteed on the deterministic projection by construction (no steering is a candidate,
+   depletion first); historical and Monte Carlo reported, never used to accept or reject (that would be leakage)
+   [A; an aggregate success-rate gate (B) and the per-path outer check (C) rejected].
+2. When computed: the hybrid, an automatic quick plan each render and a deeper Optimize -> Apply in Batch 5 [3].
+3. Stage 8a: not committed; its four rules ported into the once-per-render chooser; committed 3C code stays; a new
+   branch `claude/3c-cliff-plan` in a new worktree; the owner's working tree, the 8a patch and the stashes untouched.
+4. Execution on a path: literal with a fallback (skip when already on the right side; fall back to the natural year
+   when the trial cannot meet the plan); no scoring inside a path [(a); a cost bound (b) comes back only with numbers;
+   cap-only (c) rejected: the "Roth for nothing" pattern].
+5. Keep-rule tie-break: ending after-tax value, traditional money net of the income tax it carries [(i); lifetime cost
+   (ii) and a flat 22% haircut (iii) rejected]. Computed as ten slices of the balance on the last year's own return
+   [(1)]. The owner asked whether this is estate tax: it is not; no estate, inheritance or heirs' tax is modeled.
+6. Subsets by line family: whole plan, ACA only, IRMAA only, none [(a); all-or-nothing and per-intent pruning
+   rejected; per-intent pruning is Batch 5's deep search].
+7. Variants apply the main plan unchanged by Partner A's age [(a)].
+8. Timing gates: per path +5% (up to +8% documented) for no-cliff households and +30% for the ACA early retiree, both
+   against `24f6585`; planning at most 5x one plain `simulate()` [recommended].
+9. Lambda's emptied-pool sample: deferred to Batch 5, recorded and measured now (below) [defer].
+10. Life events: Batch E (E1 to E4 after the cliff plan; E5 and the Canada move later; exclusions stated) [agreed].
+11. With/without success rates: scan only in this batch [scan only].
+Design sections 1 to 6 (architecture, chooser, keep rule, inputs and display, tests and gates, commits) approved in
+turn; section 6 with the note that the live-mix toggle stays per path until Batch 5.
+
+**Defect recorded for Batch 5: lambda's emptied-pool sample.** When the walk empties the traditional pool before a
+sample year, the sample moves to that year and prices the small remaining draw at about 0%, pulling lambda low (8a
+review: samples 22%, 22%, 0, lambda about 0.147). The cliff-plan batch does not change the estimator (lambda's
+semantics change in this batch; changing its numbers too would confound the movers). It adds a `movedSample` flag to
+the plan trace; the scan reports how often it occurs and whether the family containing those years was rejected by the
+keep rule. Batch 5 compares the resulting plans against the slow reference, then decides between correcting the
+sample, tuning `m` and replacing the estimator.
+
+**Known remaining path dependence.** The live-mix toggle (`pickLiveWithdrawalOrder`) still decides each year on each
+path from that path's own tax; Batch 5 replaces it with plan intents.
+
+**Checked against the code for the redesign (`3ebee0e`).** `appliedRothSchedule` (a bracket per age, read in
+`solveRothConversion`) and `appliedMixSchedule` (a named mix per age, read in `drawMixedStockAccounts`) are already
+applied unchanged in both engines by Partner A's age: the precedent for the plan. `simulate(` has 83 call sites, all
+of which pick up the plan through the wrappers. `magiThresholds` labels lines but has no stable ids (added in commit 1).
+The US has no ending after-tax value (Canada has `afterTaxEstate`, 7N N8).
 
 ##### Scripts (not in `npm test`)
 
@@ -4447,6 +4579,9 @@ remains is detail to settle when the relevant batch is scoped:
 - IRMAA is priced undiscounted in the year that causes it (3C): the surcharge is charged two years on and a death
   or a lower later MAGI may mean it is never charged; the guard's stay-unders still count it in full (all of the
   guard's value losses are IRMAA stay-unders). Decide a discount (or a margin) in Batch 5, with the scans.
+- Cliff plan (2026-10-07): lambda's emptied-pool sample (recorded in the 3C notes, "Redesign: the cliff plan") and
+  the live-mix toggle's per-path order choice are Batch 5's; IRMAA stay-unders on a path can save $0 when the path's
+  inflation moves the charged tier (counted by the cliff-plan scan, not gated).
 - State-law cliffs are not solver candidates (3C): state retirement exclusions, credits and step tables are priced by
   `taxFor` only, so the guard never stays under or fills to them. Revisit with Batch 5 (or a state candidate list
   read from `STATE_RULES`).

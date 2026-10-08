@@ -1,6 +1,8 @@
 # Per-year withdrawal and conversion solver (new Batch 3C): design
 
 Status: approved in brainstorming with the owner, 2026-10-06. Next step: implementation plan (writing-plans).
+
+**Superseded in part (owner, 2026-10-07):** see section 14 and `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`.
 Scope of this spec: the prerequisite Rule of 55 PR and Batch 3C (US). Batches 5, 4A and 4B are sketched only so
 that 3C does not block them; each gets its own spec.
 
@@ -586,3 +588,11 @@ both engines.
 **Hard rules, unchanged.** For commit A alone, measured against 292109e: no snapshot scenario depletes earlier, the
 standard scan exits 0, and the bucket sweep shows no guard-on earlier depletion other than the known 1966 household
 (fixed by 8a).
+
+## 14. Superseded in part by the cliff plan (owner decision, 2026-10-07)
+
+Stage 8a stopped on 7 of 1,536 bucket paths running out a year earlier with the guard on. A per-year choice made inside
+every path, from that path's own balances, cannot guarantee "guard on never runs out earlier". 3C is redesigned as the
+cliff plan: `docs/superpowers/specs/2026-10-07-cliff-plan-design.md` (decisions in `docs/next-batches-plan.md`, 3C
+notes, "Redesign: the cliff plan"). It supersedes section 2 decisions 1, 4 and 6 and sections 5.4 and 5.5 here; the
+rules of 13.5 to 13.7 survive as rules of its chooser; everything committed up to `3ebee0e` stays.
