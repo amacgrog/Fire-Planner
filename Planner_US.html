@@ -354,8 +354,8 @@
         <details class="group" data-cat="income" open>
           <summary><span class="group-summary-text"><span class="group-title">Income</span><span class="group-state" id="incomeGroupState"></span></span></summary>
     <!-- @@shared:html-timelineGroupState end -->
-          <div class="range-field"><div class="range-head"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeAOut"></span></div><input id="incomeA" type="range" min="0" max="350000" step="1000"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><span class="range-value" id="incomeBOut"></span></div><input id="incomeB" type="range" min="0" max="350000" step="1000"></div>
+          <div class="field"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><input id="incomeA" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" data-partner-b><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><input id="incomeB" type="number" class="money" min="0" step="1000"></div>
           <div class="field"><label for="incomeGrowth">Annual income <span class="info-nw">growth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Yearly raise on your pay, in nominal terms — it already includes inflation, so a raise equal to inflation means no real growth.">i</button></span></label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group" data-cat="income">
@@ -1142,8 +1142,8 @@
     { key: 'lifeExpectancyB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyB(); } },
     { key: 'retireAgeA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
     { key: 'retireAgeB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
-    { key: 'incomeA', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
-    { key: 'incomeB', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
+    { key: 'incomeA', type: 'number' },
+    { key: 'incomeB', type: 'number' },
     { key: 'matchA', type: 'number' },
     { key: 'matchB', type: 'number' },
     { key: 'k401PctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
