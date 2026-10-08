@@ -2619,7 +2619,14 @@ reports kept with the run (`.superpowers/sdd/2026-10-07-cliff-plan/`, git-exclud
 - `82b1197` (8): scan with with/without rates, path counters and the moved-sample cross; `tests/bench_plan.js`; the
   benches time the raw hooks after one `__test_refreshCliffPlan()`. One test-hook change in `Planner_US.html`
   (`__test_runPlanMode({ endValue: true })`); no production change.
-- Task 9 (timing repair) was not needed: no gate missed. This notes commit is Task 10.
+- Task 9 (timing repair) was not run: no gate was clearly missed (see Timing: the per-path gate against `24f6585` is
+  marginal). The notes commit `5dac389` is Task 10.
+- `0bdc229` (11, final-review fix wave): `refreshCliffPlan` re-plans only when the inputs change (state JSON, tax year,
+  optimizer overrides); `computeCliffPlan` reuses a `choose` run with no intent as the `none` candidate (it equals `off`
+  row for row: full sweep of the scan grid in both modes plus every standard snapshot scenario, 1,114 households without
+  intents, 0 differences; pinned in `tests/cliff_plan.js` F2); `ensureTestPlan` keys on the tax year and wraps the
+  optimizer test hooks; summary wording "ACA steering not used"; `tests/bench_runs_interleaved.js`; `tests/bench_plan.js`
+  forces a re-plan per timed refresh. Number-neutral (snapshots identical, off anchor 543 identical).
 
 **Off-anchor.** `node tests/plan_off_anchor.js --base ../fp-3c-A` (guard off, `3ebee0e` against this tree): 543 identical,
 0 different, before and after the switch and again at the Task 8 tip. `node tests/historical_rates.js` prints identical
@@ -2636,7 +2643,8 @@ Why they move, one line each: the `R aca` / `rothConv+aca` / `everything` and `G
 under or fills to a line in its intent years where the old guard chose per year on a path's own lambda, so the
 converted amount, the Roth and traditional split and the tax paid differ, and the ending total moves with them.
 Label-only rows: the plan does not label a year the guard labelled (or the reverse), or the removed `row.lambda`
-differed. Large negative historical rows (boom and crash-first paths, -0.3M to -1.45M): the stay-unders are carried out
+differed. Large negative historical rows (boom, crash-first and real1929 paths, about -0.27M to -1.45M; the real1929 rows are
+-455,165 and -274,681): the stay-unders are carried out
 on a path the plan was not chosen for and spend Roth money that a boom would have compounded (spec section 12, plan
 optimized for one market); see the per-path comparison below. `std G hoh 62 aca default` ends 26,727 lower: rule A kept
 a plan that `afterTaxEndValueUS` values higher, while the snapshot `total` does not tax traditional money.
@@ -2736,7 +2744,7 @@ Paths, households that keep intents only (61 default, 274 smooth); success rate 
 These are information, never an acceptance gate (decision 1). The per-household rows (p10 / median / p90, lower count,
 median Roth difference) are in `task-8-scan.md`. Per-path after-tax comparison, five largest losses: all in smooth mode
 on Monte Carlo seed 1142, a boom path whose totals reach about $260M to $700M nominal; the losses are $8.3M to $14.7M
-(about 2 to 3%), the plan ends with much less Roth (-$65M to -$109M) and more traditional and taxable money; nothing
+(1.4% to 3.1% of the off value: 2.24%, 2.11%, 1.79%, 1.40%, 3.06% in loss order), the plan ends with much less Roth (-$65M to -$109M) and more traditional and taxable money; nothing
 depletes on either side.
 
 Path counters (`planStats` sums):
@@ -2751,7 +2759,7 @@ Path counters (`planStats` sums):
 | smooth | Monte Carlo | 307,514 | 107,993 | 41,263 | 76,969 | 56,724 | 24,565 | +2,721M | 53,302 | 14,164 |
 
 Applied share of intent years on paths: default historical 5,627 of 14,276 (39%), default Monte Carlo 18,765 of 47,311
-(40%), smooth historical 33,171 of 96,480 and Monte Carlo 107,993 of 307,514 (about 34%). IRMAA zero-saving share
+(40%), smooth historical 33,171 of 96,480 (34.4%) and Monte Carlo 107,993 of 307,514 (35.1%). IRMAA zero-saving share
 (`irmaaZeroSaving` / `irmaaStayUnders`, computed from the table): default historical 4.5%, default Monte Carlo 7.6%,
 smooth historical 22.8%, smooth Monte Carlo 26.6%; the standard runs 0.
 
@@ -2765,20 +2773,36 @@ Moved-sample cross (years where lambda's emptied-pool sample moved, from `__test
 The families holding those years are rejected by the keep rule more often than kept. The estimator is unchanged
 (decision 9); Batch 5 decides.
 
-**Timing (gates against `24f6585` unless noted; the pass rests on the interleaved one-process run).**
+**Timing (gates against `24f6585` unless noted).** The per-path gate against `24f6585` is marginal and not reliably
+reproducible: tx historical read +5.9% (Task 8), +5.9% and +3.9% (fix wave), and +8.0% and +9.8% in the final reviewer's
+two runs, over the +8% accepted band in one. The gap is inherited from 3C, not from the cliff plan: against `3ebee0e`
+(the 3C Stage A tip) this branch reads -1.2% to +3.3% (fix wave) and -4.7% to +1.3% (reviewer). Every run is listed:
+
+| Run | Tool | 400 simulate per state (tx / ca / ny / pa / ct / wa) | 120 historical per state (same order) |
+|---|---|---|---|
+| Task 8, vs 24f6585 | interleaved, 11 rounds | +2.9 / +1.5 / +2.8 / -0.4 / -0.6 / -0.9% | +5.9 / +2.7 / +3.8 / -1.4 / 0.0 / 0.0% |
+| Task 8, vs 24f6585 | `tests/bench_runs.js`, two separate processes | -1.4 / +4.5 / +7.8 / +9.4 / +6.2 / +4.3% | +1.7 / +1.3 / +4.8 / +6.8 / +4.0 / +3.3% |
+| Final review, vs 24f6585 | interleaved, two runs | (reviewer's figures; tx historical +8.0% and +9.8%) | |
+| Fix wave run 1, vs 24f6585 | `tests/bench_runs_interleaved.js`, 11 rounds | +2.9 / +3.5 / +5.6 / +2.3 / +2.0 / +5.4% | +5.9 / +4.1 / +3.7 / +4.2 / -1.0 / +5.1% |
+| Fix wave run 2, vs 24f6585 | same | +5.9 / +3.1 / +4.7 / +3.1 / +0.8 / +2.9% | +3.9 / +2.7 / +3.8 / +2.8 / +2.0 / +3.4% |
+| Fix wave, vs 3ebee0e | same | 0.0 / +0.4 / +0.3 / +1.5 / +0.6 / 0.0% | 0.0 / 0.0 / -1.2 / +1.4 / 0.0 / +3.3% |
+| Final review, vs 3ebee0e | interleaved | -4.7% to +1.3% (reviewer's range) | |
+
+The separate-process figures (pa +9.4%, ny +7.8%) are reported as measured; they exceed the band too, and the
+interleaved runs do not reproduce them.
 
 | Gate | Measure | Number | Verdict |
 |---|---|---|---|
-| bench_runs per state, +5% (+8% accepted) | interleaved, one process, 11 rounds, 400 simulate / 120 historical | tx +2.9% / +5.9%; ca +1.5% / +2.7%; ny +2.8% / +3.8%; pa -0.4% / -1.4%; ct -0.6% / 0.0%; wa -0.9% / 0.0% | pass (tx historical +5.9% is inside the accepted band) |
-| same workload, separate processes (record) | `tests/bench_runs.js`, two runs | tx -1.4 / +1.7; ca +4.5 / +1.3; ny +7.8 / +4.8; pa +9.4 / +6.8; ct +6.2 / +4.0; wa +4.3 / +3.3 (%) | within the +-10% noise between processes; pa +9.4% and ny +7.8% are in that noise |
+| bench_runs per state, +5% (+8% accepted) | the runs above | interleaved spread -1.4% to +5.9% in this branch's runs; up to +9.8% (tx historical) in the reviewer's | marginal: over +5% on some state in every interleaved run against 24f6585 (up to +5.9% in this branch's three); inside the +8% accepted band in four of the five (the reviewer's +8.0% at its edge), over it in one (+9.8%) |
 | ACA early retiree (CA), +30% | `tests/bench_solver.js`, simulate / path | 7 rounds +2.2% / +4.2%; 21 rounds 0.0% / +2.2% | pass |
-| default household (not a named gate) | `tests/bench_solver.js`, simulate / path | 7 rounds +6.6% / +15.8%; 21 rounds +3.4% / +5.9% | the 7-round path figure is quantization noise (0.95 to 1.10 ms over 20 runs); in the accepted band at 21 rounds |
-| Planning at most 5x one off simulate | `tests/bench_plan.js` | default 2.14; ACA CA 2.08; Texas no cliff 2.50; `std G hoh 62 aca smooth` (keeps 3 intents) 2.10 | pass |
+| default household (not a named gate) | `tests/bench_solver.js`, simulate / path | 7 rounds +6.6% / +15.8%; 21 rounds +3.4% / +5.9% | the 7-round path figure is 0.95 to 1.10 ms over 20 runs at a 0.1 ms timer |
+| Planning at most 5x one off simulate | `tests/bench_plan.js` | Task 8: default 2.14, ACA CA 2.08, Texas no cliff 2.50, `std G hoh 62 aca smooth` (3 intents) 2.10. Fix wave (no-intent choose reused as `none`): 1.14, 1.12, 1.60, 2.10 | pass |
 
-Information, not a gate: one full `render()` (through the theme toggle), interleaved, 15 rounds: default 22.0 ms on
-`24f6585`, 25.0 ms here (+13.6%); ACA early retiree (CA) 51.0 ms, 56.0 ms (+9.8%). About one `refreshCliffPlan()` per
-render (2 to 5 ms). The scenario comparison's plan per compared scenario (on a cache miss) was not measured: the default
-page has no saved scenarios.
+Information, not a gate: one full `render()` (through the theme toggle, inputs unchanged), interleaved, 15 rounds, against
+`24f6585`: Task 8, default 22.0 -> 25.0 ms (+13.6%), ACA early retiree (CA) 51.0 -> 56.0 ms (+9.8%), one plan per render;
+fix wave, 22.0 -> 22.0 ms and 51.0 -> 50.0 ms (a render with unchanged inputs keeps the plan). A render after an input
+change still plans once (about 1.6 to 2.8 ms on these households, 8.8 ms on one that keeps intents). The scenario
+comparison's plan per compared scenario (on a cache miss) was not measured: the default page has no saved scenarios.
 
 **Test expectations changed and why.**
 - `tests/snapshots/us.json`: the 64 movers above (intended behavior change, `npm run snapshot:update`); the Canada files
@@ -2813,8 +2837,8 @@ live.fromTraditional` (Step 2a), part of Task 1's concept, committed in Task 6.
 - Depleting households keep `none` under rule A: every candidate ends at value 0, so the tie goes to fewer intents, and
   any plan that does not change the depletion age is dropped there however much it saves before depletion (the spec
   rule as written).
-- The plan is re-run on a cache miss inside `render()`: one plan per render (+10 to +14% of a render), and the scenario
-  comparison plans once per compared scenario; the latter and the comparison-row key mismatch cost are not measured.
+- Since the fix wave a render with unchanged inputs keeps the plan; the scenario comparison still plans once per compared
+  scenario on a cache miss; that cost and the comparison-row key mismatch cost are not measured.
 - Tests that mutate the state in place and then call a production function directly (not a wrapped hook) get the plan of
   whatever `refreshCliffPlan` last planned for that object (identity check first); the helpers in `tests/cliff_plan.js`
   re-plan after restoring.
@@ -2822,12 +2846,12 @@ live.fromTraditional` (Step 2a), part of Task 1's concept, committed in Task 6.
   `skippedSide`; `irmaaChecks` covers only `ret H`.
 - Line-id tests lack medicaid / ret A,B / ctc asserts; `r.reserveGross` is unused in `tests/solver_primitives.js`;
   tax-family intents would confuse `fams.size` (latent; `choose` never records them); T6.9 case 6 and the Q half are weak
-  at detecting a wrong cache entry; README wording "chosen once each time inputs change".
+  at detecting a wrong cache entry.
 - The survivor test in `tests/end_value_us.js` asserts balances + 1,000,000 - 131,700 and filing `single` rather than
   equality with the single case (the survivor spends less); `afterTaxEndValueUS` is standard-run only; the estate
   allocation per run is covered only by the Task 8 bench.
-- `bench_runs_interleaved.js` and `render_bench.js` are scratch scripts, copied into the git-excluded `task-8-output/`
-  and not committed (the brief's file list does not name them); `solver_scan.json` there is 57 MB.
+- `render_bench.js` is a scratch script in the git-excluded `task-8-output/` (the interleaved bench is committed as
+  `tests/bench_runs_interleaved.js`); `solver_scan.json` there is 57 MB.
 - No corpus household records fill or two-return intents; `tests/cliff_plan.js` T4.2 and T4.6 use hand-built households
   found by a grid.
 

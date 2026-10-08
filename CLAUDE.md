@@ -33,15 +33,19 @@ feature list.
   state); not in `npm test`; compare a worktree of the previous commit with the working tree (+5% allowed).
   Wall-clock noise between runs is ±10% on this machine, so for a decision compare two trees in ONE process, interleaved
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
+  `tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states ...]` is that comparison: bench_runs.js's workload,
+  two trees in one process, interleaved rounds, medians; not in `npm test`.
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
   the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
   Per-year solver scripts (3C, US; none in `npm test`): `tests/bench_solver.js --base DIR [--rounds N]` — interleaved timing
   (two trees, one process, medians) of one `simulate()` and one historical path for the ACA early retiree (CA, the +30% gate)
-  and the default household. `tests/solver_scan.js [--root DIR]` — the cliff-guard sweep: 768 households, guard on vs off,
-  default order and smooth; prints value / cost / depletion better-equal-worse, p10 / median / p90 (all and where neither
-  run depletes), the conversions split, the cliff choices and the largest losses and gains; exits 1 if any household
-  depletes earlier with the guard on (about 20 s). `tests/solver_gap.js` — the gap table: the shipped engine (guard on,
+  and the default household. `tests/solver_scan.js [--root DIR]` — the cliff-plan sweep: 768 households, default order and smooth, the
+  plan applied vs `off`: value / cost / depletion better-equal-worse on the standard projection, then every historical
+  start year and 200 seeded Monte Carlo paths (success with and without the plan, per-path after-tax value and Roth /
+  traditional / taxable differences, `planStats`, the moved-sample cross); exits 1 if a household's plan depletes earlier
+  than off on the standard projection (about 18 minutes). `tests/bench_plan.js` — the planning gate (`refreshCliffPlan()`
+  at most 5x one `off` projection, four households). `tests/solver_gap.js` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
   `window.__test_setOptimizerBudget`) on three short plans; cost, after-tax end value, amounts converted (about a minute).
   `tests/tax_caches.js` (in `npm test`) — the
@@ -434,8 +438,10 @@ Each planner is one big IIFE. Core shape:
   (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);
   `afterTaxEndValueUS(sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
-  return. `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
-  `cliffPlanReport` and `cliffPlanState` (the state object). **`runProjection`'s first statement**, with no `planMode`:
+  return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
+  `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
+  `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
+  `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object. **`runProjection`'s first statement**, with no `planMode`:
   `plan = planForState(); planMode = plan ? 'apply' : 'off'`. `planForState()`: the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
   sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
@@ -445,13 +451,17 @@ Each planner is one big IIFE. Core shape:
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
   without restoring must call `render()`. Tests: the US-only hooks after `// @@shared:block end` redefine
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
-  `__test_accountTrace` to re-plan when the state's JSON changed (`ensureTestPlan`, never called from production code);
+  `__test_accountTrace` to re-plan when the state's JSON or the tax year changed (`ensureTestPlan`, never called from production code; it also
+  wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_rothScheduleCost` and
+  `__test_applyMultiLeverSchedule`); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) and
+  `__test_cliffPlanComputes()` counts plans;
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
   `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,
   `__test_scenarioMetrics`, `__test_planStats`; `window.__test_planTrace(rowFn)` returns the `choose` trace (each
   year's candidates, `movedSample`, the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
-  irmaaZeroSaving; cumulative, scans read deltas). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
+  irmaaZeroSaving; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
+  final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
   status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.
   The `wd` fields `taxAwareOrder` / `onlyPartner` are wired but unused (Batch 5: the tax-aware order, the two-return draw
