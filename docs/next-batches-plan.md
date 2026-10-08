@@ -819,7 +819,28 @@ gate +5%):
 - Task 3's invariant passes with and without the fix (a guard only); the T6.9 state-swap households exercise plan lookup, not line
   selection, so the regression is caught by FU3 in `solver_hooks.js`, not by the invariant.
 - M17 (the fill clamp `conversionAmount > naturalRec.conversion`) has no test; it stays as a defensive rule, and its test moves to Batch 5.
-- Scratch folders `fp-scratch-t1`, `-t2`, `-t3` under `C:UsersAlexcode` hold the mutation copies and can be deleted.
+- Scratch folders `fp-scratch-t1`, `-t2`, `-t3` under `C:\Users\Alex\code` held the mutation copies; the implementer deleted them.
+
+##### Review follow-ups: review and acceptance (2026-10-08)
+
+Re-checked by the reviewer in a scratch copy of `c3ce5a9`: `npm test` exits 0; US 543 and Canada 375 snapshots identical to
+`5eb30fa`; the only snapshot file change is `ui_us.json` (the three rendered surfaces' text 3 characters shorter, the callout
+wording; projection and rows hashes identical); `tests/plan_off_anchor.js --base ../fp-followups-base` 543 identical; badge
+V121. Timing (`tests/bench_runs_interleaved.js`, 21 rounds, against `5eb30fa`): simulate tx / ca / ny / pa / ct / wa -1.6 /
+-1.8 / +2.4 / +1.5 / -0.5 / +2.8%, historical 0.0 / 0.0 / +2.4 / +2.7 / -0.9 / +3.2% (the implementer's run-1 spike did not
+recur). `tests/bench_solver.js`: default rounds, ACA early retiree +2.2% / 0.0%, default household simulate +7.9% (1.26 -> 1.36
+ms) / path 0.0%; 31 rounds, ACA 0.0% / -2.1%, default -1.6% / 0.0% (the +7.9% is noise on 0.1 ms; the gate is per path).
+Code matches the plan; `intent.line` is the line id, so the Task 3 invariant checks ids.
+
+**Decisions (owner, 2026-10-08):**
+1. **Accepted** and merged into `claude/batch-3b-penalty-rules` (`3d0851e`; `npm test` green on the merged tree).
+2. The implementer's rulings stand: Task 2's household is an IRMAA one (it fails without the fix); the Task 3 invariant is a
+   guard (FU3 is the regression test); the two `planForState` fast-path year checks have no test (`currentYear` changes only
+   through `__test_setCurrentYear`, so they are defensive).
+3. Docs fixed in the acceptance commit: `CLAUDE.md`'s de-duplication sentence and the tax-year condition on every
+   `planForState` step; the scratch-folder path above; the plan's checkboxes.
+4. **For E1's first commit:** the comment above the Task 3 invariant in `tests/cliff_plan.js` says "plus the plan
+   refreshCliffPlan stores"; the test checks the `choose` intents only. Reword the comment (no code change).
 
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 

@@ -410,8 +410,8 @@ Each planner is one big IIFE. Core shape:
   for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
 - **Per-year solver and the cliff plan (3C redesign, US; section "Per-year solver (Batch 3C)" just above
   `newWithdrawal`; spec `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`).** Hooks: `magiThresholds` (the year's
-  federal lines in household MAGI, two lines within $1 are one line: a cliff line (`aca` or `irmaa` family) replaces a `tax`-family line, otherwise the earlier line stays; each `{ magi, label, id, ret, family }`: `id` in `medicaid | acaFloor | aca400 |
-  irmaa1..irmaa5 | senior | ctc`, `ret` 'H' or, in a two-return year, 'A' / 'B', `family` `aca | irmaa | tax`; with
+  federal lines in household MAGI, each `{ magi, label, id, ret, family }`: `id` in `medicaid | acaFloor | aca400 |
+  irmaa1..irmaa5 | senior | ctc`, `ret` 'H' or, in a two-return year, 'A' / 'B', `family` `aca | irmaa | tax`; lines within $1 of each other count as one: the earlier is kept, except that an `aca` or `irmaa` line replaces a `tax` line, so an intent never names `senior` or `ctc`; with
   `c.lo/c.hi` only the lines in that reach, a shared empty list (`NO_THRESHOLDS`) when none; IRMAA lines sit on the tiers of
   the year the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate
   `irmaaAt` uses), under the filing status and Medicare partners of that year; the edges are Medicare's MAGI translated
@@ -448,10 +448,10 @@ Each planner is one big IIFE. Core shape:
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object. **`runProjection`'s first statement**, with no `planMode`:
-  `plan = planForState(); planMode = plan ? 'apply' : 'off'`. `planForState()`: the very object `refreshCliffPlan` planned
+  `plan = planForState(); planMode = plan ? 'apply' : 'off'`. `planForState()` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
   sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
-  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full; keyed on the state's JSON and the tax year `currentYear`, as `refreshCliffPlan` is) gives or
+  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
   `render()`). The state-replacement sites are NOT edited (all sit in shared regions, and a clear at the comparison swap
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
