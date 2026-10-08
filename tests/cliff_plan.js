@@ -206,6 +206,93 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     for (const r of ap.rows) if (r.age < later.retireAgeA) assert(!r.cliffChoice, `T4.7: working age ${r.age} labelled ${r.cliffChoice}`);
   }
 
+  // ---- Task 5: the keep rule (rule A) and refreshCliffPlan. ----
+  // refreshCliffPlan under a scenario's patch (translated as runMode does); with `applyAll`, also an apply run of choose's
+  // intents, measured as refreshCliffPlan measures (depletion, afterTaxEndValueUS, real tax + healthcare).
+  const refresh = (sc, extra = {}, applyAll = false) =>
+    page.evaluate(
+      ({ patch, applyAll }) => {
+        const st = window.__test_getState(),
+          saved = JSON.parse(JSON.stringify(st));
+        try {
+          Object.assign(st, patch);
+          const out = window.__test_refreshCliffPlan();
+          if (applyAll) {
+            const ch = window.__test_runPlanMode({ planMode: 'choose' });
+            const r = window.__test_runPlanMode({ planMode: 'apply', plan: { intents: ch.intents } });
+            const infl = st.inflation / 100;
+            let cost = 0;
+            for (const x of r.rows) cost += (x.tax + x.healthcare) / Math.pow(1 + infl, x.year);
+            out.applyAll = { depletedAge: r.depletedAge, value: window.__test_afterTaxEndValueUS(r.sim), cost, n: Object.keys(ch.intents).length };
+          }
+          return out;
+        } finally {
+          for (const k of Object.keys(st)) delete st[k];
+          Object.assign(st, saved);
+        }
+      },
+      { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, applyAll }
+    );
+  const depOf = (d) => (d == null ? Infinity : d);
+
+  // T5.1 Rule A, pure.
+  {
+    const better = (a, b) => page.evaluate(([a, b]) => window.__test_planCandidateBetter(a, b), [a, b]);
+    assert(await better({ depletedAge: null, value: 0, n: 3 }, { depletedAge: 90, value: 9e6, n: 0 }), 'T5.1: never depleting beats a richer plan that depletes');
+    assert(await better({ depletedAge: 90, value: 100, n: 2 }, { depletedAge: 89, value: 1e6, n: 0 }), 'T5.1: later depletion first');
+    assert(!(await better({ depletedAge: 89, value: 1e6, n: 0 }, { depletedAge: 90, value: 100, n: 2 })), 'T5.1: earlier depletion loses');
+    assert(await better({ depletedAge: null, value: 1002, n: 3 }, { depletedAge: null, value: 1000, n: 0 }), 'T5.1: value higher by 2 wins');
+    assert(!(await better({ depletedAge: null, value: 1001, n: 3 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: value higher by 1 does not');
+    assert(await better({ depletedAge: null, value: 1000, n: 1 }, { depletedAge: null, value: 1000, n: 2 }), 'T5.1: equal value, fewer intents wins');
+    assert(!(await better({ depletedAge: null, value: 1000, n: 2 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: off is never beaten by a tie');
+    assert(!(await better({ depletedAge: null, value: 1000, n: 0 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: a tie with itself does not win');
+  }
+
+  // T5.2 The kept plan is never worse than off, for every std G household.
+  for (const sc of ALL.filter((s) => s.kind === 'std' && s.shift === 0 && s.name.startsWith('std G '))) {
+    const { plan, report } = await refresh(sc);
+    assert(plan, `T5.2 ${sc.name}: guard on gives a plan`);
+    const off = report.candidates.find((c) => c.family === 'none'),
+      kept = report.candidates.find((c) => c.family === report.kept);
+    assert.strictEqual(plan.family, report.kept, `T5.2 ${sc.name}: plan family`);
+    assert(depOf(kept.depletedAge) >= depOf(off.depletedAge), `T5.2 ${sc.name}: kept ${report.kept} depletes at ${kept.depletedAge}, off at ${off.depletedAge}`);
+    if (depOf(kept.depletedAge) === depOf(off.depletedAge)) assert(kept.value >= off.value, `T5.2 ${sc.name}: kept value ${kept.value} under off's ${off.value}`);
+  }
+
+  // T5.3 Family subsets. No std G household's choose plan has both families. Found in tests/solver_scan.js's grid (69 of its
+  // 1,536 household x mode runs have both): single person, 58, 1.5M traditional, 300k taxable, spending 130k, no elections,
+  // conversions off, default order (it stays under the ACA 400% line and, later, an IRMAA tier). The patch is the one
+  // solver_scan.js's patchOf builds for it.
+  {
+    const SCAN = hand({
+      singlePerson: true, children: [], ageA: 58, ageB: 58, retireAgeA: 58, retireAgeB: 58, lifeExpectancyA: 95, lifeExpectancyB: 95,
+      acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: 300000, spending: 130000, smoothWithdrawals: false, withdrawalMixEnabled: false,
+      rothConvEnabled: false, rothConvStartAge: 58, rothConvEndAge: 72, rothConvBracket: 22, ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false,
+      cliffGuardEnabled: true, traditional: 1500000, roth: 200000,
+    });
+    const both = await refresh(SCAN);
+    assert.deepStrictEqual(both.report.candidates.map((c) => c.family), ['none', 'aca', 'irmaa', 'all'], `T5.3: four candidates (${JSON.stringify(both.report)})`);
+    const one = await refresh(household('std G hoh 62 aca smooth'));
+    assert.deepStrictEqual(one.report.candidates.map((c) => c.family), ['none', 'all'], `T5.3: one family, two candidates (${JSON.stringify(one.report)})`);
+  }
+
+  // T5.4 Guard off: no plan.
+  {
+    const r = await refresh(household('std G hoh 62 aca smooth'), { cliffGuardEnabled: false });
+    assert.strictEqual(r.plan, null, 'T5.4: guard off gives no plan');
+  }
+
+  // T5.5 The `all` candidate is the choose run itself: it equals an apply run of the same intents.
+  for (const name of ['std G hoh 62 aca smooth', 'std G hoh 66 1966 household']) {
+    const r = await refresh(household(name), {}, true);
+    const all = r.report.candidates.find((c) => c.family === 'all');
+    assert(all, `T5.5 ${name}: an all candidate`);
+    assert.strictEqual(all.intents, r.applyAll.n, `T5.5 ${name}: intent count`);
+    assert.strictEqual(all.depletedAge, r.applyAll.depletedAge, `T5.5 ${name}: depletion`);
+    assert.strictEqual(all.value, r.applyAll.value, `T5.5 ${name}: value`);
+    assert.strictEqual(all.cost, r.applyAll.cost, `T5.5 ${name}: cost`);
+  }
+
   // 5. yearPlanCandidates, hand-computed (ported from the 8a patch's cliff_guard cases). Common inputs: magiBase 20,000,
   // gain 0, reach 20,000 to 300,000; the premium is 24,697 over a MAGI of 80,000 and 8,059 at or under it (an ACA cliff of
   // 16,638).

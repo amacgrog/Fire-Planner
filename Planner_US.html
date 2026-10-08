@@ -7035,6 +7035,11 @@
   const magiStats = { forced: 0, unresolved: 0, planMissed: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
+  // Cliff plan: the kept plan (null with the guard off), the state it was made for (JSON) and the keep-rule table; set by
+  // refreshCliffPlan (below afterTaxEndValueUS).
+  let cliffPlan = null,
+    cliffPlanKey = null,
+    cliffPlanReport = null;
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
     const ratio = magi > 0 ? magi / fplForHousehold(householdSize, yearIndex) : 0;
@@ -10664,6 +10669,51 @@
     let tax = 0;
     if (T > 0) tax = 10 * (taxFor(e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(e.profile, e.lastGain, e.lastTrad));
     return e.roth + e.taxable + e.cash + e.homeEquity + T - Math.max(0, tax);
+  }
+
+  // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
+  // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
+  // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer
+  // intents. Lifetime real tax plus healthcare is reported, never ranked.
+  function planCandidateBetter(a, b) {
+    const da = a.depletedAge == null ? Infinity : a.depletedAge,
+      db = b.depletedAge == null ? Infinity : b.depletedAge;
+    if (da !== db) return da > db;
+    if (a.value > b.value + 1) return true;
+    if (b.value > a.value + 1) return false;
+    return a.n < b.n;
+  }
+  // Every candidate is a standard (deterministic) run: afterTaxEndValueUS reads the run's own tax law, which a historical
+  // run's per-path tax factors no longer carry once it returns (standard runs only).
+  function refreshCliffPlan() {
+    cliffPlanKey = JSON.stringify(state);
+    cliffPlan = null;
+    cliffPlanReport = null;
+    if (!state.cliffGuardEnabled) return;
+    const run = (planMode, plan) =>
+      runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan });
+    const infl = pct(state.inflation);
+    // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
+    const measure = (family, intents, sim) => {
+      let cost = 0;
+      for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
+      return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(sim), cost };
+    };
+    const chosen = run('choose', null),
+      all = chosen.cliffIntents,
+      pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
+    const cands = [measure('none', {}, run('off', null))];
+    const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
+    if (fams.size > 1)
+      for (const fam of ['aca', 'irmaa']) {
+        const sub = pick(fam);
+        cands.push(measure(fam, sub, run('apply', { intents: sub })));
+      }
+    if (fams.size) cands.push(measure('all', all, chosen));
+    let best = cands[0];
+    for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
+    cliffPlan = { intents: best.intents, family: best.family, madeFor: cliffPlanKey };
+    cliffPlanReport = { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family };
   }
 
   // @@shared:13-simulate begin
@@ -15985,6 +16035,11 @@
   };
   window.__test_yearPlanCandidates = yearPlanCandidates;
   window.__test_planStats = planStats;
+  window.__test_refreshCliffPlan = () => {
+    refreshCliffPlan();
+    return JSON.parse(JSON.stringify({ plan: cliffPlan, report: cliffPlanReport }));
+  };
+  window.__test_planCandidateBetter = planCandidateBetter;
   // tests/snapshot.js's rowFnFor and mulberry32, verbatim: a year-row function for one of its SERIES entries.
   window.__test_rowFnFor = (() => {
     function mulberry32(a) {
