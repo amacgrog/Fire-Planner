@@ -114,7 +114,7 @@ redesigned, owner decision 2026-10-06, see `docs/superpowers/specs/2026-10-06-pe
 deterministic projection and applied unchanged in historical and Monte Carlo runs; spec
 `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md` is superseded in part by
 `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`). Order from here: cliff plan -> IRMAA MAGI fix (added
-2026-10-07, below) -> Batch E (E1 to E4, life events, small PRs) -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the
+2026-10-07, below; both done and merged 2026-10-08) -> Batch E (E1 to E4, life events, small PRs) -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the
 Canada province move are scheduled later.
 
 Why 3C moved after Batch 7 (owner decision): Batch 7 adds the
@@ -503,7 +503,7 @@ reserve will first be drawn.
 
 ### 3C: per-year solver, US (done; redesigned from "safe-MAGI room on every withdrawal path")
 
-**Status 2026-10-07: paused at `3ebee0e` (Stage A) and redesigned as the cliff plan** (owner;
+**Status: cliff plan implemented on `claude/3c-cliff-plan` (V117-V118; "Cliff plan: implementation" in the 3C notes). Earlier, 2026-10-07: paused at `3ebee0e` (Stage A) and redesigned as the cliff plan** (owner;
 `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`, plan `docs/superpowers/plans/2026-10-07-cliff-plan.md`). The
 in-path guard described below is replaced by a plan chosen once per render on the deterministic projection and applied
 unchanged everywhere else; Stage 8a is not committed (its four rules are ported into the chooser). Decisions: "Redesign:
@@ -555,6 +555,145 @@ its own movers table. No separate measurement first (owner: the movers table is 
 time and found correct: credits never enter MAGI (they reduce tax); state exclusions, deductions and credits never enter
 federal MAGI; federal deductions lower taxable income, not AGI; the ACA and Medicaid MAGI count all of Social Security,
 as the engine does; one-time income (tax-free) is correctly outside MAGI.
+
+##### IRMAA MAGI fix: implementation
+
+Branch `claude/irmaa-magi` on `ce5fb56` (the cliff plan's V119 tip, CLIFF_TIP; both merge together later). Commits:
+- `8f803b0` IRMAA MAGI 1: `irmaaMagiOf` (engine MAGI to Medicare's MAGI: only the taxable part of Social Security) and its
+  exact inverse `magiForIrmaaLine` (piecewise linear through the four kinks of the taxable-benefit formula), `returnStatusA`,
+  `irmaaSsOf`. No number change.
+- `5b6a192` IRMAA MAGI 2 (V119 -> V120, snapshot update): the IRMAA lookback history stores Medicare's MAGI (household and,
+  in two-return years, per return); `irmaaAt`, the IRMAA lines of `magiThresholds`, the conversion ceiling
+  (`conversionMagiCeiling`, now given the profile) and `lambdaEstimate`'s IRMAA step convert through it, and lines and caps
+  are translated back into the engine's MAGI. The ACA premium, the Medicaid line and the 400% guard still read the engine's
+  (ACA) MAGI. README, CLAUDE.md and the healthcare callout updated.
+- `538052c`, `eb58669` IRMAA MAGI 2b (number-neutral speedups for the timing gate; `npm test` green, every snapshot
+  identical): `magiForIrmaaLine` without its kinks array, sort and closure (k1 is always the smallest and k4 >= k3, so only
+  k2's place is written out; 6 million random cases bit-identical to the array version), reading the `SS_BASE` row once
+  (`taxableSsOnRow`, the same arithmetic as `taxableSocialSecurity`); `returnStatusA` as a loop; no closure in the
+  two-return conversion ceiling; `irmaaAt` reads the return's benefit and A's filing status once per pass, not per probe.
+
+**Movers** (`node tests/snapshot.js --root ../fp-irmaa-base --dump A --update-nothing`, `--dump B`, `--compare A B`).
+US: 543 scenarios, 339 identical, **204 moved** (175 historical / Monte Carlo paths, 29 standard). Canada: 375, all
+identical. Every mover has Social Security in some year and reaches 63; no scenario without a benefit moved. **No
+depletion age changed** (standard or historical). Healthcare totals fell in 187 movers and rose in 5.
+
+| Group (first change) | Count (hist / std) | What happened |
+|---|---|---|
+| Charge removed | 178 (167 / 11) | The lookback's IRMAA MAGI no longer counts the untaxed benefit, so a tier is no longer crossed: `healthcare` falls by one or more IRMAA steps (e.g. -1,148.40 = 95.70 x 12 per Medicare partner). The saving stays invested; later draws, balances and MAGI follow. End total up in every one except the depleting `std_R_single` (+0, depletes at 77 both). Largest: `hist_R_everything_rich_boom` +391,362. |
+| Conversion cap raised | 14 (of 25 conversion movers: 8 / 17) | The IRMAA cap on Roth conversions is the tier ceiling in Medicare's MAGI translated back, higher by the untaxed benefit, so the ladder converts more (e.g. `std_G_mfj_58_aca_default` 1,131,784 -> 1,204,630 converted, end +53,497). |
+| Conversion cap lowered | 11 (same 25) | The cap's own rule (keep the year inside its current tier) now reads Medicare's MAGI, which can sit a tier LOWER than the engine MAGI did, so the cap protects that lower tier: e.g. `std_G_single_62_aca_smooth` at 66, engine MAGI about 124k (tier 2, edge about 151k) but IRMAA MAGI about 119k (tier 1, edge about 120k): conversion 26,922 -> 5,748, the later charge one tier lower for 7 years, end +106,015. Other ends +19,181 and +90,951; the depleting ones +0 (depletion unchanged). |
+| Cliff-plan intent dropped | 1 (0 / 1: `std_R_work_past_65_single`) | At 76-79 CLIFF_TIP stayed under an IRMAA line by spending Roth; with the line translated up by the untaxed benefit the natural MAGI is already under it, so no stay-under is planned (healthcare identical, end -1,108: traditional drawn instead of Roth). The only `cliffChoice` change. |
+
+The 5 healthcare-up movers are all conversion movers: the conversion timing moved MAGI between years and a later year
+crosses a tier (e.g. `std_G_hoh_66_1966_household`, lower conversions at 69-70 leave more traditional to draw at 72-74:
+healthcare 561,084 -> 563,969; depletes at 86 both).
+
+**Lower nominal end totals (10 movers, all from raised conversion caps).** Larger conversions pay tax earlier and the end
+total counts traditional at face value: largest `hist_G_mfj_62_aca_400_smooth_real1966` -1,210,733 of 41.4M (-2.9%);
+standard: `std_G_two_returns_66_irmaa_default` -18,885 of 489k, `std_G_mfj_62_aca_400_default` / `_smooth` -16,587 /
+-16,532 of 11.7M, `std_G_hoh_58_aca_smooth` -12,349 of 6.8M, `std_G_hoh_62_aca_smooth` -1,009; historical:
+`hist_G_single_58_aca_default_real1966` -84,370, `hist_G_hoh_58_aca_smooth_real1973` -62,951,
+`hist_G_hoh_62_aca_default_real1966` -60,280. No depletion change in any of them. (The cap is the existing rule on a
+corrected MAGI; sizing conversions by after-tax value is Batch 5.)
+
+**ACA side (plan Task 2, Step 3b).** The plan's Global Constraint says rows' `magiProxy`, `magiA` and `magiB` are
+identical in every scenario. That cannot hold literally once a conversion or a draw moves (the MAGI includes them), so it
+was applied as Step 3b states it: the MAGI may change only downstream of a moved conversion, draw or charge. Checked over
+all 543 US dumps: in every mover the first year in which `magiProxy` / `magiA` / `magiB` differ is at or after the first
+year a conversion, a draw or balance, the healthcare charge or the cliff choice changed, and in a same-year change a
+conversion or draw changed that year. **No violations.** 201 of the 204 movers have a MAGI change, all downstream in this
+sense; 3 changed only healthcare and balances. No `healthcare` change in any year with nobody 65 or over (the ACA years);
+in mixed-age couple years the 5 changes are each exactly -1,148.40 (one IRMAA step), so the ACA premium did not move.
+**Owner: please acknowledge this reading of the constraint** (the literal reading would forbid every conversion mover).
+
+**Test expectations changed: none.** Every existing IRMAA test (`irmaa_startup`, `irmaa_gating`, `medicare_enrollment`,
+`two_return_magi`, `solver_hooks`, `cliff_plan`, `cliff_guard`) passes unchanged. New engine cases in
+`tests/irmaa_magi.js`: (a) the charge: single 70 with a 40,000 benefit, no surcharge on IRMAA MAGI 106,000 while the
+engine MAGI stays 112,000.08; (b) two returns, A head of household: neither partner charged; (c) the IRMAA line at the
+translated edge (109,000 of IRMAA MAGI is 115,000 of engine MAGI; no benefit: the edge itself), id / family / return
+unchanged; (d) the survivor: no surcharge, ACA MAGI kept; (e) the first-two-years stand-in reads the user's entries;
+(f) the conversion ceiling rises by the untaxed benefit; (g) no benefit, no change (fills to 109,000). Before the fix
+(a), (b), (d), (e) from year 2 and (f) failed, (c) failed on the line value; (g) passed. Three justified deviations from
+the brief: (b) asserts year-0 healthcare 10,000, not 20,000 (`medicareYearly` is a household figure, half per partner);
+(f)'s hand numbers are a conversion of 24,999.93 and an engine MAGI of 115,000.01, not 25,000 / 115,000 (the benefit is
+3,333.34 x 12 = 40,000.08); (g) uses spending 20,000, not (f)'s 60,000 (at 60,000 a draw enters the MAGI iteration and
+the year ends at 108,980.49 on both trees, within tolerance of the edge rather than on it).
+
+**Timing** (against CLIFF_TIP `ce5fb56`). The first interleaved measurement of `5b6a192` was over the per-path gate, so the
+two number-neutral speedup commits were added; after them every full interleaved run is inside +5%. Every run is listed:
+
+| Run | Tree | 400 simulate per state (tx / ca / ny / pa / ct / wa) | 120 historical (same order) |
+|---|---|---|---|
+| interleaved, 11 rounds | `5b6a192` | +6.5 / +4.5 / +3.7 / +3.0 / +2.5 / +2.3% | +3.6 / +6.6 / +3.5 / +9.5 / +2.9 / +3.2% |
+| interleaved, 25 rounds | `5b6a192` | +7.3 / +4.9 / +6.2 / +3.7 / +5.1 / +7.7% | +9.6 / +5.3 / +6.1 / +6.8 / +4.9 / +4.8% |
+| interleaved, 25 rounds | `538052c` | +6.1 / +4.9 / +4.1 / +3.8 / +4.0 / +5.3% | +3.8 / +5.3 / +6.0 / +5.5 / +4.9 / +6.6% |
+| interleaved, 25 rounds | `538052c` | -2.7 / +1.9 / +1.7 / +3.1 / +2.0 / +1.9% | 0.0 / +2.6 / +3.7 / +4.2 / +1.9 / +1.6% |
+| interleaved, 31 rounds | `538052c` | -0.5 / +1.5 / +2.4 / +2.3 / +5.8 / +1.9% | +3.6 / +1.3 / +3.6 / +1.4 / +6.1 / +1.6% |
+| interleaved, 41 rounds, ct and tx | `538052c` | ct +6.4, tx +3.9% | ct +5.0, tx +1.9% |
+| `tests/bench_runs.js`, separate processes, base first | `538052c` | +13.1 / +4.7 / +7.8 / +6.5 / +8.5 / +9.2% | +15.8 / +5.1 / +10.7 / +5.3 / +4.9 / +12.7% |
+| `tests/bench_runs.js`, separate processes, head first | `538052c` | +2.3 / +2.5 / +1.3 / +2.2 / +7.6 / +4.1% | +15.8 / +2.6 / +3.5 / +1.3 / +7.6 / +3.1% |
+| `tests/bench_runs.js --scale 3 --repeats 5`, separate | `538052c` | +2.9 / +2.1 / +2.2 / +3.8 / -0.6 / 0.0% | +1.8 / +2.6 / -0.8 / 0.0 / -0.6 / -0.5% |
+| interleaved, 31 rounds | `eb58669` | +1.7 / +0.7 / +1.0 / +1.1 / +0.6 / 0.0% | 0.0 / +1.3 / +1.2 / +1.4 / 0.0 / 0.0% |
+| interleaved, 41 rounds, ct and tx | `eb58669` | ct 0.0, tx +1.0% | ct 0.0, tx +5.5% (55 -> 58 ms) |
+| interleaved, 61 rounds, tx | `eb58669` | tx +1.1% | tx 0.0% |
+| interleaved, 31 rounds (final) | `eb58669` | +1.7 / +2.3 / +2.8 / +2.3 / +3.4 / +2.7% | +1.9 / +1.3 / +2.4 / +4.1 / +2.9 / +3.1% |
+| `tests/bench_runs.js --scale 3 --repeats 5`, separate | `eb58669` | +9.1 / +3.4 / +4.5 / +5.6 / +2.8 / +2.9% | +8.1 / +4.9 / +3.2 / +3.7 / +2.0 / +3.3% |
+
+Final medians (interleaved, 31 rounds, `ce5fb56` -> `eb58669`, ms): simulate 179 -> 182, 265 -> 271, 288 -> 296,
+264 -> 270, 353 -> 365, 220 -> 226; historical 53 -> 54, 76 -> 77, 83 -> 85, 73 -> 76, 103 -> 106, 64 -> 66. The work
+done is identical on both trees (instrumented copies: the same 557,497 `taxFor` calls and 29,003 MAGI passes for 400 ct
+simulations); the new code adds about 23,000 `magiForIrmaaLine` and 75,000 `irmaaMagiOf` calls on that workload. The
+separate-process figures are reported as measured (tx, the first state in each process, swings most); as CLAUDE.md
+says, the gate was decided on the interleaved comparison.
+
+| Gate | Measure | Number | Verdict |
+|---|---|---|---|
+| per path +5%, no-cliff households | `tests/bench_runs_interleaved.js`, `eb58669` | final 31 rounds: +1.3% to +4.1% (largest pa historical); tx historical +5.5% in one 41-round two-state run (a 3 ms step on 55 ms), 0.0% at 61 rounds | pass |
+| ACA early retiree (CA) +5% | `tests/bench_solver.js`, simulate / path | `538052c`: 7 rounds -4.3% / +5.9%, 21 rounds +4.2% / 0.0%, 31 rounds -0.8% / 0.0%; `eb58669` 31 rounds +0.8% / 0.0% (2.36 -> 2.38 ms, 2.25 -> 2.25 ms) | pass |
+| default household (printed) | same | `538052c`: 7 rounds +1.6% / +5.0%, 21 rounds +3.3% / 0.0%, 31 rounds +1.6% / 0.0%; `eb58669` 31 rounds +1.7% / 0.0% | pass |
+| planning at most 5x one off projection | `tests/bench_plan.js` | `538052c`: default 1.07, ACA CA 1.20, Texas no cliff 1.20, `std G hoh 62 aca smooth` (3 intents) 2.23; `eb58669`: 1.14, 1.15, 1.60, 2.18 (CLIFF_TIP: 1.14, 1.12, 1.20, 2.14) | pass |
+
+**For the owner.**
+- Acknowledge the Step 3b reading of "`magiProxy` identical in every scenario" (above).
+- 10 movers end with a lower nominal total (largest -2.9%), all where the corrected cap lets the ladder convert more;
+  the end total counts traditional money at face value. No depletion change; conversion sizing by after-tax value is
+  Batch 5.
+- 11 movers convert less: the corrected IRMAA MAGI sits a tier lower and the existing stay-in-the-current-tier cap now
+  protects that tier (mostly better end totals).
+- The separate-process `tests/bench_runs.js` figures read higher than the interleaved ones (up to +9.1% simulate and
+  +8.1% historical for tx at `eb58669`, scale 3); recorded, not used for the decision.
+- The section's introduction lived on the docs branch (`3ee7d6e`); kept above at the merge.
+- Tax-exempt interest (part of Medicare's MAGI) is not modeled (no input), as before.
+
+##### IRMAA MAGI fix: review and acceptance (2026-10-08)
+
+Re-checked by the reviewer in a scratch copy of `f13f0a2` against CLIFF_TIP `ce5fb56`: `npm test` exits 0; dump/compare
+918 files, 204 US movers, all 375 Canada identical; no depletion change; no mover without Social Security; no
+`healthcare` change in any year with nobody 65 or over. Reviewer timing (`tests/bench_runs_interleaved.js`, 21 rounds):
+simulate tx / ca / ny / pa / ct / wa +0.5 / +0.4 / +1.0 / +4.6 / +3.7 / -2.3%, historical +1.8 / +3.9 / +1.2 / +4.1 / +4.8 /
++3.2%; `tests/bench_solver.js`: ACA early retiree 0.0% / 0.0%, default -3.0% / 0.0%. All gates pass.
+
+**Decisions (owner, 2026-10-08):**
+1. **Accepted**, and merged with the cliff plan into `claude/batch-3b-penalty-rules` (both branches, one merge). The
+   owner authorized stashing the superseded Stage 8a work first: `stash@{0}`, "stage 8a wip (superseded by the cliff
+   plan)"; the patch is also in `.superpowers/sdd/2026-10-06-per-year-solver-3c/`.
+2. **Step 3b reading accepted.** The plan's Global Constraints line ("`magiProxy`, `magiA`, `magiB` identical in every
+   scenario") was the reviewer's drafting error; Step 3b and the handoff stated the intended rule (they may change only
+   downstream of a moved conversion, draw or charge), which the implementer applied and checked.
+3. **Timing record accepted**: the interleaved comparison decides (`CLAUDE.md`); the separate-process figures stay
+   recorded.
+
+**Finding for Batch 5 (conversion sizing).** The conversion cap's rule, keep this year's MAGI inside the IRMAA tier it
+already sits in, now reads the correct MAGI and raises conversions in 14 movers and lowers them in 11. A lowered cap
+can cost more later: `std_G_hoh_66_1966_household` converts 195,257 less over the plan and pays 2,885 more healthcare
+(IRMAA on the larger RMDs at 72-74). The rule works as written; sizing conversions by whole-run value is Batch 5's.
+
+**For E1's PR (housekeeping):** the healthcare callout still says dependents are not modeled for the ACA household size
+(stale since 7A: children count; user-facing copy); `taxableSsOnRow` repeats `taxableSocialSecurity`'s formula (make
+`taxableSocialSecurity` call it, number-neutral); three per-call `irmaaSsOf` / `returnStatusA` lookups after convergence
+can use the per-pass values. Separate, unscheduled: the Canada UI snapshot flaked once (historical success "—" instead of
+a rate; the 500 ms debounced backtest raced the capture).
 
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 
@@ -2647,6 +2786,282 @@ committed. Re-checked by the reviewer in a scratch copy of the tree (`f94b9d6` p
    (cash, the solvers, lambda, the ending value, rule A's whole-run comparison); state-law cliffs are priced, not
    targeted (spec section 11). The MAGI check that followed found the IRMAA defect: see "IRMAA MAGI fix" (after the
    cliff plan, before Batch E).
+
+##### Cliff plan: implementation (V117-V118)
+
+Branch `claude/3c-cliff-plan` (worktree `fp-cliff-plan`), base `0d6dcf7`, not pushed. Numbers below come from the task
+reports kept with the run (`.superpowers/sdd/2026-10-07-cliff-plan/`, git-excluded: `task-6-movers.md`, `task-8-scan.md`,
+`task-8-output/`).
+
+**Commits.**
+- `44239fe` (1): `wd.cappableTraditional` (the traditional money a magi cap can limit), `lambdaEstimate` returns
+  `movedSample`, `magiThresholds` lines carry `id` / `ret` / `family`. No number change.
+- `211c2a0` (2): US ending after-tax value (`afterTaxEndValueUS`: ten slices of the final balance on the last return;
+  non-enumerable `sim.estate`). No number change.
+- `aaaa087` + `2bb06d4` (3): plan modes `off` / `choose` / `legacy` in `runProjection` (the 8a phased year ported:
+  `yearPlanCandidates`, intents, `planStats`); the fix commit makes the `off` check run with the guard flag on and off.
+  No number change.
+- `2834ae3` (4): `apply` mode (literal, with fallback to the natural year) and exact replay of `choose`'s intents;
+  shared eligibility helpers. No number change.
+- `f94b9d6` (5): keep rule A (`planCandidateBetter`) and `refreshCliffPlan` with the family subsets (`none`, `aca`,
+  `irmaa`, `all`). No number change.
+- `9f8bb87` (6): the switch (V117). The plan is chosen once per render and applied in every run; the in-path guard
+  (`chooseYearPlan`, `cloneWithdrawal`, `adoptWithdrawal`, `row.lambda`) is removed; `planForState` (option (e), below);
+  the live-mix `cappableTraditional` fix; snapshot update (`us.json`, `ui_us.json`).
+- `db86b05` (7): label "Cliff plan", info bubble, plan summary line in More results, row tooltip keeps `cliffChoice`
+  only (V118); UI snapshot updated for rendered text only.
+- `82b1197` (8): scan with with/without rates, path counters and the moved-sample cross; `tests/bench_plan.js`; the
+  benches time the raw hooks after one `__test_refreshCliffPlan()`. One test-hook change in `Planner_US.html`
+  (`__test_runPlanMode({ endValue: true })`); no production change.
+- Task 9 (timing repair) was not run: no gate was clearly missed (see Timing: the per-path gate against `24f6585` is
+  marginal). The notes commit `5dac389` is Task 10.
+- `0bdc229` (11, final-review fix wave): `refreshCliffPlan` re-plans only when the inputs change (state JSON, tax year,
+  optimizer overrides); `computeCliffPlan` reuses a `choose` run with no intent as the `none` candidate (it equals `off`
+  row for row: full sweep of the scan grid in both modes plus every standard snapshot scenario, 1,114 households without
+  intents, 0 differences; pinned in `tests/cliff_plan.js` F2); `ensureTestPlan` keys on the tax year and wraps the
+  optimizer test hooks; summary wording "ACA steering not used"; `tests/bench_runs_interleaved.js`; `tests/bench_plan.js`
+  forces a re-plan per timed refresh. Number-neutral (snapshots identical, off anchor 543 identical).
+
+**Off-anchor.** `node tests/plan_off_anchor.js --base ../fp-3c-A` (guard off, `3ebee0e` against this tree): 543 identical,
+0 different, before and after the switch and again at the Task 8 tip. `node tests/historical_rates.js` prints identical
+output at both trees.
+
+**Movers (guard on at `3ebee0e` -> the plan applied).** `node tests/snapshot.js --dump` / `--compare`: 543 compared, 64
+differ (24 standard, 40 historical); 13 of the 64 are label-only (5 standard, 8 historical; only `cliffChoice` and the
+removed `row.lambda` differ). No scenario changes its depletion age, so there is no depletion change to explain. Hard
+rules, checked over all 85 standard scenarios at their shifts: the plan never runs out earlier than off, and the kept
+candidate never earlier than `none` (kept: none 73, all 12); 0 violations. End total change = last row total, B minus A
+(nominal).
+
+Why they move, one line each: the `R aca` / `rothConv+aca` / `everything` and `G` ACA / IRMAA households: the plan stays
+under or fills to a line in its intent years where the old guard chose per year on a path's own lambda, so the
+converted amount, the Roth and traditional split and the tax paid differ, and the ending total moves with them.
+Label-only rows: the plan does not label a year the guard labelled (or the reverse), or the removed `row.lambda`
+differed. Large negative historical rows (boom, crash-first and real1929 paths, about -0.27M to -1.45M; the real1929 rows are
+-455,165 and -274,681): the stay-unders are carried out
+on a path the plan was not chosen for and spend Roth money that a boom would have compounded (spec section 12, plan
+optimized for one market); see the per-path comparison below. `std G hoh 62 aca default` ends 26,727 lower: rule A kept
+a plan that `afterTaxEndValueUS` values higher, while the snapshot `total` does not tax traditional money.
+
+| scenario | first moved age | depletion before -> after | end total change | label only |
+|---|---|---|---|---|
+| std default aca+retire-late-B | 65 | never -> never | 0 | yes |
+| std R rothConv+aca | 62 | 95 -> 95 | 0 | yes |
+| std R rothConv+aca+live | 62 | 95 -> 95 | 0 |  |
+| std R aca | 62 | 94 -> 94 | 0 | yes |
+| std R aca employerCoversSpouse | 63 | never -> never | 0 | yes |
+| std R work past 65 single | 76 | never -> never | 0 | yes |
+| std R everything | 62 | 91 -> 91 | 0 |  |
+| hist R single | boom | 63 | never -> never | +25,427 |  |
+| hist R single | mc1 | 64 | 75 -> 75 | 0 |  |
+| hist R single | mc2 | 67 | never -> never | +118 |  |
+| hist R single rich | real1929 | 65 | never -> never | -455,165 |  |
+| hist R single rich | real1966 | 69 | never -> never | +198 |  |
+| hist R single rich | real1973 | 64 | never -> never | +9,939 |  |
+| hist R single rich | real2000 | 64 | never -> never | -9,506 |  |
+| hist R single rich | crashFirst | 63 | never -> never | -107,486 |  |
+| hist R single rich | sawtooth | 84 | never -> never | -15,625 |  |
+| hist R single rich | flat | 65 | never -> never | -1,248 |  |
+| hist R smooth rich | boom | 67 | never -> never | +6,380 |  |
+| hist R smooth rich | mc2 | 64 | never -> never | -56,803 |  |
+| hist R mixApplied rich | boom | 65 | never -> never | +24,863 |  |
+| hist R mixApplied rich | mc2 | 64 | never -> never | -1,431 |  |
+| hist R rothConv+aca | sawtooth | 62 | 85 -> 85 | 0 | yes |
+| hist R rothConv+aca | boom | 63 | never -> never | -337,488 |  |
+| hist R rothConv+aca | mc1 | 64 | 84 -> 84 | 0 |  |
+| hist R rothConv+aca rich | real1929 | 65 | never -> never | -274,681 |  |
+| hist R rothConv+aca rich | real1973 | 66 | never -> never | 0 | yes |
+| hist R rothConv+aca rich | real2000 | 65 | never -> never | 0 | yes |
+| hist R rothConv+aca rich | crashFirst | 62 | never -> never | -830,141 |  |
+| hist R aca | real1929 | 60 | 64 -> 64 | 0 | yes |
+| hist R aca | sawtooth | 62 | 85 -> 85 | 0 | yes |
+| hist R aca | boom | 63 | never -> never | -685,299 |  |
+| hist R aca | mc1 | 64 | 84 -> 84 | 0 |  |
+| hist R aca rich | real1929 | 65 | never -> never | 0 | yes |
+| hist R aca rich | real2000 | 66 | never -> never | 0 | yes |
+| hist R aca rich | crashFirst | 62 | never -> never | -544,570 |  |
+| hist R survivor A rich | real1929 | 79 | never -> never | 0 | yes |
+| hist R everything | sawtooth | 62 | 90 -> 90 | +0 |  |
+| hist R everything | boom | 62 | never -> never | -1,450,165 |  |
+| hist R everything | mc1 | 65 | 89 -> 89 | 0 |  |
+| hist R everything rich | real1929 | 87 | never -> never | -39,605 |  |
+| hist R everything rich | flat | 81 | never -> never | +137 |  |
+| std G hoh 66 1966 household | 68 | 86 -> 86 | 0 |  |
+| std G hoh 66 1966 household smooth | 66 | 86 -> 86 | 0 |  |
+| std G mfj 66 250k+250k 300k 130k smooth | 66 | 80 -> 80 | 0 |  |
+| std G single 66 500k 300k 60k smooth | 66 | 95 -> 95 | 0 |  |
+| std G single 66 500k 300k 130k smooth | 66 | 76 -> 76 | 0 |  |
+| std G mfj 62 aca 400% default | 70 | never -> never | +1 |  |
+| std G mfj 62 aca 400% smooth | 62 | never -> never | +90,361 |  |
+| std G two returns 62 aca smooth | 63 | never -> never | -3 |  |
+| std G two returns 66 irmaa default | 69 | never -> never | -8 |  |
+| std G two returns 66 irmaa smooth | 66 | 80 -> 80 | 0 |  |
+| std G hoh 58 aca smooth | 60 | never -> never | -276 |  |
+| std G single 62 aca smooth | 62 | never -> never | +341,154 |  |
+| std G mfj 58 aca default | 61 | never -> never | -78 |  |
+| std G single 58 aca default | 62 | never -> never | -6 |  |
+| std G hoh 62 aca default | 67 | never -> never | -26,727 |  |
+| std G hoh 62 aca smooth | 62 | never -> never | +90,157 |  |
+| std G hoh 66 irmaa 500k smooth | 66 | 76 -> 76 | 0 |  |
+| hist G hoh 66 1966 household | real1966 | 70 | 81 -> 81 | 0 |  |
+| hist G mfj 62 aca 400% smooth | real1966 | 63 | never -> never | -961 |  |
+| hist G mfj 58 aca default | real1966 | 64 | never -> never | +24 |  |
+| hist G hoh 58 aca smooth | real1973 | 60 | never -> never | +806,447 |  |
+| hist G single 58 aca default | real1966 | 63 | never -> never | +27 |  |
+| hist G hoh 62 aca default | real1966 | 72 | never -> never | -170 |  |
+
+Before the live-mix fix (Step 2a), `std R rothConv+aca+live` ran out at 94 instead of 95 (the stop below).
+
+**Scan (`node tests/solver_scan.js`: 768 households x default order and smooth, every historical start year and 200
+Monte Carlo paths; 1076 s; exit 0, no household's plan depletes earlier than off; the `__test_runHistoricalCycles`
+cross-check on the first 5 households with intents matched).**
+
+Kept family: default order none 707, all 61; smooth none 494, all 265, aca 9. The choose run had both families in 20
+households (default) and 49 (smooth).
+
+Standard projection, plan minus off (n 768; value is `afterTaxEndValueUS`):
+
+| Mode | Value better / equal / worse | Cost better / equal / worse | Depletion later / same / earlier |
+|---|---|---|---|
+| default | 37 / 731 / 0 | 55 / 707 / 6 | 27 / 741 / 0 |
+| smooth | 234 / 534 / 0 | 168 / 520 / 80 | 43 / 725 / 0 |
+
+Paths, households that keep intents only (61 default, 274 smooth); success rate is the mean over those households:
+
+| Mode, paths | Success with / without | Households higher / same / lower | Paths depleting earlier / later | Lower by > $1 / higher | (plan-off)/off p10 / median / p90 |
+|---|---|---|---|---|---|
+| default, historical (3,637) | 64.85% / 64.31% | 17 / 44 / 0 | 1 / 227 | 186 / 1,153 | 0.00% / 0.00% / +13.18% |
+| default, Monte Carlo (12,200) | 64.04% / 63.42% | 33 / 28 / 0 | 41 / 902 | 579 / 3,735 | 0.00% / 0.00% / +8.42% |
+| smooth, historical (17,026) | 83.57% / 83.23% | 50 / 221 / 3 | 10 / 592 | 2,164 / 8,283 | -0.06% / +0.16% / +6.40% |
+| smooth, Monte Carlo (54,800) | 83.42% / 83.09% | 69 / 196 / 9 | 64 / 2,136 | 7,112 / 25,625 | -0.07% / +0.12% / +4.99% |
+
+These are information, never an acceptance gate (decision 1). The per-household rows (p10 / median / p90, lower count,
+median Roth difference) are in `task-8-scan.md`. Per-path after-tax comparison, five largest losses: all in smooth mode
+on Monte Carlo seed 1142, a boom path whose totals reach about $260M to $700M nominal; the losses are $8.3M to $14.7M
+(1.4% to 3.1% of the off value: 2.24%, 2.11%, 1.79%, 1.40%, 3.06% in loss order), the plan ends with much less Roth (-$65M to -$109M) and more traditional and taxable money; nothing
+depletes on either side.
+
+Path counters (`planStats` sums):
+
+| Mode | Runs | intentYears | applied | skippedSide | skippedIneligible | fallback | absent | rothShift | irmaaStayUnders | irmaaZeroSaving |
+|---|---|---|---|---|---|---|---|---|---|---|
+| default | standard | 239 | 239 | 0 | 0 | 0 | 0 | +7.6M | 71 | 0 |
+| default | historical | 14,276 | 5,627 | 2,273 | 5,495 | 639 | 242 | +215M | 1,983 | 90 |
+| default | Monte Carlo | 47,311 | 18,765 | 7,415 | 18,115 | 2,313 | 703 | +691M | 6,081 | 465 |
+| smooth | standard | 1,549 | 1,549 | 0 | 0 | 0 | 0 | +31.3M | 1,043 | 0 |
+| smooth | historical | 96,480 | 33,171 | 13,217 | 24,634 | 17,553 | 7,905 | +823M | 16,654 | 3,795 |
+| smooth | Monte Carlo | 307,514 | 107,993 | 41,263 | 76,969 | 56,724 | 24,565 | +2,721M | 53,302 | 14,164 |
+
+Applied share of intent years on paths: default historical 5,627 of 14,276 (39%), default Monte Carlo 18,765 of 47,311
+(40%), smooth historical 33,171 of 96,480 (34.4%) and Monte Carlo 107,993 of 307,514 (35.1%). IRMAA zero-saving share
+(`irmaaZeroSaving` / `irmaaStayUnders`, computed from the table): default historical 4.5%, default Monte Carlo 7.6%,
+smooth historical 22.8%, smooth Monte Carlo 26.6%; the standard runs 0.
+
+Moved-sample cross (years where lambda's emptied-pool sample moved, from `__test_planTrace()`):
+
+| Mode | Households with moved-sample years | Moved-sample years | In intent years | Family kept | Family rejected |
+|---|---|---|---|---|---|
+| default | 98 | 434 | 313 | 28 | 52 |
+| smooth | 134 | 598 | 409 | 41 | 69 |
+
+The families holding those years are rejected by the keep rule more often than kept. The estimator is unchanged
+(decision 9); Batch 5 decides.
+
+**Timing (gates against `24f6585` unless noted).** The per-path gate against `24f6585` is marginal and not reliably
+reproducible: tx historical read +5.9% (Task 8), +5.9% and +3.9% (fix wave), and +8.0% and +9.8% in the final reviewer's
+two runs, over the +8% accepted band in one. The gap is inherited from 3C, not from the cliff plan: against `3ebee0e`
+(the 3C Stage A tip) this branch reads -1.2% to +3.3% (fix wave) and -4.7% to +1.3% (reviewer). Every run is listed:
+
+| Run | Tool | 400 simulate per state (tx / ca / ny / pa / ct / wa) | 120 historical per state (same order) |
+|---|---|---|---|
+| Task 8, vs 24f6585 | interleaved, 11 rounds | +2.9 / +1.5 / +2.8 / -0.4 / -0.6 / -0.9% | +5.9 / +2.7 / +3.8 / -1.4 / 0.0 / 0.0% |
+| Task 8, vs 24f6585 | `tests/bench_runs.js`, two separate processes | -1.4 / +4.5 / +7.8 / +9.4 / +6.2 / +4.3% | +1.7 / +1.3 / +4.8 / +6.8 / +4.0 / +3.3% |
+| Final review, vs 24f6585 | interleaved, two runs | (reviewer's figures; tx historical +8.0% and +9.8%) | |
+| Fix wave run 1, vs 24f6585 | `tests/bench_runs_interleaved.js`, 11 rounds | +2.9 / +3.5 / +5.6 / +2.3 / +2.0 / +5.4% | +5.9 / +4.1 / +3.7 / +4.2 / -1.0 / +5.1% |
+| Fix wave run 2, vs 24f6585 | same | +5.9 / +3.1 / +4.7 / +3.1 / +0.8 / +2.9% | +3.9 / +2.7 / +3.8 / +2.8 / +2.0 / +3.4% |
+| Fix wave, vs 3ebee0e | same | 0.0 / +0.4 / +0.3 / +1.5 / +0.6 / 0.0% | 0.0 / 0.0 / -1.2 / +1.4 / 0.0 / +3.3% |
+| Final review, vs 3ebee0e | interleaved | -4.7% to +1.3% (reviewer's range) | |
+
+The separate-process figures (pa +9.4%, ny +7.8%) are reported as measured; they exceed the band too, and the
+interleaved runs do not reproduce them.
+
+| Gate | Measure | Number | Verdict |
+|---|---|---|---|
+| bench_runs per state, +5% (+8% accepted) | the runs above | interleaved spread -1.4% to +5.9% in this branch's runs; up to +9.8% (tx historical) in the reviewer's | marginal: over +5% on some state in every interleaved run against 24f6585 (up to +5.9% in this branch's three); inside the +8% accepted band in four of the five (the reviewer's +8.0% at its edge), over it in one (+9.8%) |
+| ACA early retiree (CA), +30% | `tests/bench_solver.js`, simulate / path | 7 rounds +2.2% / +4.2%; 21 rounds 0.0% / +2.2% | pass |
+| default household (not a named gate) | `tests/bench_solver.js`, simulate / path | 7 rounds +6.6% / +15.8%; 21 rounds +3.4% / +5.9% | the 7-round path figure is 0.95 to 1.10 ms over 20 runs at a 0.1 ms timer |
+| Planning at most 5x one off simulate | `tests/bench_plan.js` | Task 8: default 2.14, ACA CA 2.08, Texas no cliff 2.50, `std G hoh 62 aca smooth` (3 intents) 2.10. Fix wave (no-intent choose reused as `none`): 1.14, 1.12, 1.60, 2.10 | pass |
+
+Information, not a gate: one full `render()` (through the theme toggle, inputs unchanged), interleaved, 15 rounds, against
+`24f6585`: Task 8, default 22.0 -> 25.0 ms (+13.6%), ACA early retiree (CA) 51.0 -> 56.0 ms (+9.8%), one plan per render;
+fix wave, 22.0 -> 22.0 ms and 51.0 -> 50.0 ms (a render with unchanged inputs keeps the plan). A render after an input
+change still plans once (about 1.6 to 2.8 ms on these households, 8.8 ms on one that keeps intents). The scenario
+comparison's plan per compared scenario (on a cache miss) was not measured: the default page has no saved scenarios.
+
+**Test expectations changed and why.**
+- `tests/snapshots/us.json`: the 64 movers above (intended behavior change, `npm run snapshot:update`); the Canada files
+  were rewritten with no content change and restored.
+- `tests/snapshots/ui_us.json`: Task 6, `std R everything` rendered text and rows hash; Task 7, rendered text only (label,
+  info bubble, summary line; projection and rows hashes identical).
+- `tests/cliff_guard.js`: every household kept, each case also asserts the kept plan's intent; the case 1 mutation check
+  runs through apply (default run, guard on) against off; the assertions that read `row.lambda` were replaced or removed.
+- `tests/historical_parity.js`: new check that apply with an empty plan equals off on both engines; the source check now
+  asserts the legacy guard is gone.
+- `tests/solver_primitives.js`: the `cloneWithdrawal` export is gone; `cappableTraditional` cases added in Task 1.
+- `tests/solver_scan.js`, `tests/bench_runs.js`, `tests/bench_solver.js`: plan-aware (Task 8); the benches still run
+  unchanged on `../fp-3c-pre`.
+- New: `tests/end_value_us.js` and `tests/cliff_plan.js` (both in `npm test`), `tests/plan_off_anchor.js` and
+  `tests/bench_plan.js` (not in `npm test`).
+- Root scripts `test_apply_optimizer_schedule.js`, `test_live_withdrawal_mix.js`, `test_multi_lever_optimizer.js`,
+  `test_roth_optimizer_per_year.js` pass with no expectation changed.
+
+**Owner stop and resolution (Task 6).** The first attempt stopped on two points. (B1) Every state-replacement site
+(boot, the comparison and overlay swaps in `computeScenarioMetrics`, `loadScenario`, reset, undo) sits in a shared
+region, so a stale-plan clear could not go there, and a clear at the comparison swap would wipe the plan mid-render. The
+owner chose option (e): `planForState()` finds the plan for whatever state object is current (identity, then JSON, then
+a 16-entry cache; `computeCliffPlan` is pure, `refreshCliffPlan` the setter), so no replacement site is edited; apply
+lines are built only in an intent year (Step 2c). (B2) `std R rothConv+aca+live` ran out at 94 instead of 95 because
+`wd.cappableTraditional` missed the live-mix draw; the owner accepted the one-line fix `wd.cappableTraditional +=
+live.fromTraditional` (Step 2a), part of Task 1's concept, committed in Task 6.
+
+**Deferred minors worth keeping.**
+- `ret 'B'` intents never arise: `magiThresholds`' $1 dedup keeps A's line over B's at equal MAGI (the partners are
+  symmetric in every grid), so `ret 'B'` is untested end to end; on a path where only B's line exists, the intent naming
+  A may be absent or the wrong return's line (Task 1 code, not changed).
+- Depleting households keep `none` under rule A: every candidate ends at value 0, so the tie goes to fewer intents, and
+  any plan that does not change the depletion age is dropped there however much it saves before depletion (the spec
+  rule as written).
+- Since the fix wave a render with unchanged inputs keeps the plan; the scenario comparison still plans once per compared
+  scenario on a cache miss; that cost and the comparison-row key mismatch cost are not measured.
+- Tests that mutate the state in place and then call a production function directly (not a wrapped hook) get the plan of
+  whatever `refreshCliffPlan` last planned for that object (identity check first); the helpers in `tests/cliff_plan.js`
+  re-plan after restoring.
+- `planStats` does not count intents at ages with `flow >= 0`; equality is counted `skippedIneligible`, not
+  `skippedSide`; `irmaaChecks` covers only `ret H`.
+- Line-id tests lack medicaid / ret A,B / ctc asserts; `r.reserveGross` is unused in `tests/solver_primitives.js`;
+  tax-family intents would confuse `fams.size` (latent; `choose` never records them); T6.9 case 6 and the Q half are weak
+  at detecting a wrong cache entry.
+- The survivor test in `tests/end_value_us.js` asserts balances + 1,000,000 - 131,700 and filing `single` rather than
+  equality with the single case (the survivor spends less); `afterTaxEndValueUS` is standard-run only; the estate
+  allocation per run is covered only by the Task 8 bench.
+- `render_bench.js` is a scratch script in the git-excluded `task-8-output/` (the interleaved bench is committed as
+  `tests/bench_runs_interleaved.js`); `solver_scan.json` there is 57 MB.
+- No corpus household records fill or two-return intents; `tests/cliff_plan.js` T4.2 and T4.6 use hand-built households
+  found by a grid.
+
+**Open questions for the owner.**
+1. Large boom-path Roth losses: the five largest per-path losses are $8.3M to $14.7M (2 to 3%) on seed 1142, and the
+   snapshot movers show -0.3M to -1.45M on historical boom and crash-first paths. Accept as the market risk of a plan
+   chosen on one market (spec section 12), or bring back a cost bound (decision 4 (b)) with these numbers?
+2. Low apply share: on paths the plan applies under 40% of its intent years (about 34% in smooth); the rest are skipped
+   as ineligible, fall back or are absent. It also depletes earlier than off on some paths (1 + 41 default, 10 + 64
+   smooth, against far more later) and has a lower success rate in 3 + 9 smooth households. Acceptable, or tighten the
+   literal rule?
+3. Rule A on depleting households (keeps `none`) and the `ret 'B'` dedup: leave for Batch 5 or fix now?
+4. Measure the scenario comparison's per-scenario plan cost before merging? Is the +10 to +14% `render()` cost
+   acceptable?
+
+(The open questions above were answered by the owner in the next subsection.)
 
 ##### Cliff plan: final review and acceptance (2026-10-08)
 

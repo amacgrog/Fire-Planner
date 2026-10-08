@@ -124,6 +124,16 @@ const taxCall = (page, patch, fn, args) =>
   // B5a gave about 0 here (no RMD left in the sample years).
   const out = await call(S70, 'lambdaEstimate', ctxL({ tradPool: 100000, need: 50000, tradShare: 1 }));
   near(out.lambda, 0.12, 1e-9, 'pool runs out: priced at the last draw year');
+  assert.strictEqual(out.movedSample, true, 'pool emptied before a sample');
+  assert.strictEqual((await call(S70, 'lambdaEstimate', ctxL({ tradPool: 30000 }))).movedSample, false, 'no draws: no sample moves');
+  // Cliff plan, Task 1: every line carries id / ret / family.
+  const idLines = await call({ acaEnabled: true, stateTax: 'tx' }, 'magiThresholds', ctx({}));
+  assert.deepStrictEqual(idLines.map((l) => [l.id, l.ret, l.family]), [['acaFloor', 'H', 'aca'], ['aca400', 'H', 'aca']], 'ACA line ids');
+  const irLines = await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 66, acaEligibleA: false }));
+  assert.deepStrictEqual(irLines.map((l) => l.id), ['senior', 'irmaa1', 'irmaa2', 'irmaa3', 'irmaa4', 'irmaa5'], 'senior and IRMAA ids');
+  assert(irLines.every((l) => l.ret === 'H' && (l.id === 'senior' ? l.family === 'tax' : l.family === 'irmaa')), 'ret and family');
+  const twoLines = await call({ acaEnabled: false }, 'magiThresholds', ctx({ ...twoIr }));
+  assert(twoLines.some((l) => l.ret === 'A' && l.id === 'irmaa1') && twoLines.some((l) => l.ret === 'B'), 'two returns: A and B lines');
 
   // 13.2 item 1, IRMAA per person on two returns: couple filing single, both 70, life expectancy 73, need 0.
   // Every sample is 73: RMD 3,551,000 / 26.5 = 134,000, 67,000 per return, under 109,000 even with the step.

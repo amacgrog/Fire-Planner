@@ -5,6 +5,8 @@
 //
 //   node tests/bench_runs.js [--root DIR] [--states tx,ca,ny,pa,ct,wa] [--repeats 3] [--scale 1]
 //   (--root: a `git worktree` of the "before" ref)
+// Cliff plan: the state's plan is made once (outside the timing), then the raw hooks run it, as render()'s projections do.
+// On a tree without the plan hooks (before the cliff plan) the plain hooks are timed.
 
 const { chromium } = require('playwright');
 const path = require('path');
@@ -26,16 +28,19 @@ const SCALE = Number(opt('--scale', 1)); // multiplies both run counts, for a st
     const out = await page.evaluate(({ code, REPEATS, SCALE }) => {
       const st = window.__test_getState();
       st.stateTax = code;
+      if (window.__test_refreshCliffPlan) window.__test_refreshCliffPlan();
+      const simulate = window.__test_simulateRaw || window.__test_simulate,
+        simulateHistorical = window.__test_simulateHistoricalRaw || window.__test_simulateHistorical;
       // A working couple with children and some of every income source, so the state rules do real work.
       const median = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
       const std = [], hist = [];
       for (let r = 0; r < REPEATS; r++) {
         let t0 = performance.now();
-        for (let i = 0; i < 400 * SCALE; i++) window.__test_simulate(55 + (i % 8), 55 + ((i >> 3) % 8));
+        for (let i = 0; i < 400 * SCALE; i++) simulate(55 + (i % 8), 55 + ((i >> 3) % 8));
         std.push(performance.now() - t0);
         t0 = performance.now();
         const H = window.__test_HIST;
-        for (let i = 0; i < 120 * SCALE; i++) window.__test_simulateHistorical((y) => H[i % 30 + y]);
+        for (let i = 0; i < 120 * SCALE; i++) simulateHistorical((y) => H[i % 30 + y]);
         hist.push(performance.now() - t0);
       }
       return { std: median(std), hist: median(hist) };

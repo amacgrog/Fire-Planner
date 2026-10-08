@@ -23,6 +23,10 @@
 //                 compare only the years before retirement)
 //   F4-F6         mix modes: applied schedule, live mix, smooth withdrawals
 //
+// The US runs go through the test hooks, which plan for the state they see: the cliff plan is applied in both engines.
+// A second US check: `apply` with an empty plan equals `off` on both engines for every parity household (the cliff plan's
+// apply mode adds nothing in a year without an intent).
+//
 // Run: node tests/historical_parity.js
 
 const { chromium } = require('playwright');
@@ -103,6 +107,17 @@ const PAGE = `(() => {
     const std = window.__test_simulate();
     return { std, hist };
   };
+  // US: apply with an empty plan against off, standard engine and the bucket engine (a real path, so down years too).
+  window.__emptyPlan = (patch) => {
+    for (const k of Object.keys(state)) delete state[k];
+    Object.assign(state, JSON.parse(JSON.stringify(base)), JSON.parse(JSON.stringify(patch)));
+    if (window.__test_setRothOverride) window.__test_setRothOverride(null);
+    if (window.__test_setWithdrawalMixOverride) window.__test_setWithdrawalMixOverride(null);
+    const rowsOf = (planMode, rowFn) => JSON.stringify(window.__test_runPlanMode({ planMode, plan: planMode === 'apply' ? { intents: {} } : null, rowFn }).rows);
+    const out = [];
+    for (const rowFn of [null, window.__test_rowFnFor({ type: 'real', start: 1966 })]) out.push(rowsOf('apply', rowFn) === rowsOf('off', rowFn));
+    return out;
+  };
   return true;
 })()`;
 
@@ -147,12 +162,14 @@ function checkRoomWiring() {
   const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'Planner_US.html'), 'utf8');
   const room = 'incomeRoom(magiSafeRoom, conversionAmount)';
   // Since 3C (B3) both strategies get one options object, `wopts`, built per engine mode and passed
-  // through `runWithdraw`.
+  // through `runWithdraw` (since the cliff plan, called once in the year body: the legacy guard's dry runs are gone).
   const wopts = src.match(/const wopts = mode\.bucketStrategy\s*\?\s*(\{[^}]*\})\s*:\s*(\{[^}]*\});/);
   assert(wopts, 'the year loop must build the withdrawal options (wopts)');
   assert(wopts[2].includes(`remainingMagiRoom: ${room}`) && src.includes('withdrawStandard(w, wopts)'), 'standard engine must pass the remaining MAGI room');
   assert(wopts[1].includes(`remainingMagiRoom: ${room}`) && /withdrawBucket\)\(w, wopts\)/.test(src), 'historical engine must pass the remaining MAGI room');
   assert(src.includes('remainingMagiRoom: opts.remainingMagiRoom'), 'BUCKET_STEP.stocks must forward the remaining MAGI room');
+  // The legacy in-path guard is gone (cliff plan, Task 6): no dry runs remain to wire.
+  assert(!/chooseYearPlan|cloneWithdrawal|adoptWithdrawal/.test(src), 'the legacy in-path guard is removed');
   console.log('ok   [F5] US safe-MAGI room is passed to the live mix by both engines (source check)');
 }
 
@@ -184,6 +201,13 @@ function checkRoomWiring() {
         console.error(`FAIL [${GROUPS[sc.group]}] ${key} ${sc.name}`);
         problems.slice(0, 8).forEach((p) => console.error('  ' + p));
       } else console.log(`ok   [${GROUPS[sc.group]}] ${key} ${sc.name}`);
+      if (key === 'US') {
+        const [stdSame, histSame] = await page.evaluate((p) => window.__emptyPlan(p), sc.patch);
+        if (!stdSame || !histSame) {
+          failed++;
+          console.error(`FAIL [plan] US ${sc.name}: apply with an empty plan differs from off (standard ${stdSame}, bucket ${histSame})`);
+        }
+      }
     }
     assert.deepStrictEqual(errors, [], `${key} page errors`);
     await ctx.close();

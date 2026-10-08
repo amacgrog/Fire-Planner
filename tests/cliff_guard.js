@@ -26,6 +26,21 @@ const rows = (page, patch) =>
       Object.assign(st, saved);
     }
   }, patch);
+// The cliff plan refreshCliffPlan keeps for a state patch ({ plan, report }); the state is restored and re-planned.
+const planOf = (page, patch) =>
+  page.evaluate((patch) => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, patch);
+    try {
+      return window.__test_refreshCliffPlan();
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+      window.__test_refreshCliffPlan();
+    }
+  }, patch);
+const intentAt = (p, age) => (p.plan && p.plan.intents[age]) || null;
 // Calls window.__test_tax[fn](...args) under a state patch.
 const taxCall = (page, patch, fn, args) =>
   page.evaluate(({ patch, fn, args }) => {
@@ -55,9 +70,11 @@ const BASE = {
   sepp72tIraA: false, sepp72tK401A: false, sepp72tIraB: false, sepp72tK401B: false,
 };
 
-// 3C cliff guard: stay under a line when the credit saved outweighs the extra value spent; cross when it
-// does not; fill to a floor when that removes a premium. Each case finds its spending by scanning, so it does
-// not depend on housing defaults.
+// The cliff plan (spec 2026-10-07; this file was the 3C in-path guard's test, rewritten to the plan): the plan chosen on
+// the deterministic projection stays under a line when the credit saved outweighs the extra value spent, crosses when it
+// does not, fills to a floor when that removes a premium; refreshCliffPlan keeps it (rule A) and the rows of a projection
+// that applies it carry the label. Each case finds its spending by scanning, so it does not depend on housing defaults.
+// rows() runs __test_simulate, which plans for the state it sees (ensureTestPlan).
 (async () => {
   const { browser, page, errors } = await openPlanner();
   const G = { ...BASE, ruleOf55A: false, ruleOf55B: false, acaEnabled: true, trad401kA: 600000, rothIraA: 300000, rothIraBasisA: 300000, cash: 0, lifeExpectancyA: 62 };
@@ -70,60 +87,7 @@ const BASE = {
     throw new Error(`no spending lands MAGI in (${lo}, ${hi})`);
   }
 
-  // 1. Just over the 400% line (62,600): staying under saves most of a 12,000 premium for a small Roth draw.
-  const s1 = await findSpending(G, 62600, 64000);
-  const off1 = await first({ ...G, spending: s1, cliffGuardEnabled: false });
-  const on1 = await first({ ...G, spending: s1, cliffGuardEnabled: true });
-  near(off1.healthcare, 12000, 0.01, 'guard off: over the cliff, full premium');
-  assert(on1.magiProxy <= 62600, `guard on stays under (${on1.magiProxy})`);
-  assert(on1.healthcare < 12000 - 3000, 'guard on keeps the credit');
-  assert(/^stayed under ACA 400% line/.test(on1.cliffChoice), `cliffChoice ${on1.cliffChoice}`);
-  // Just over the line the premium saved (about 6,400) alone brings the need under the cap, so no Roth is needed
-  // here (Texas: with the guard off the MAGI iteration settles on the high fixed point, 12,000 charged at 62,898;
-  // the low one, about 5,600 charged at about 56,500, is also consistent and is what the cap finds).
-  assert(on1.rothWithdrawn >= off1.rothWithdrawn, 'no less Roth');
-  // This pair is also the mutation check for the MAGI room: removing the cap (guard off) changes the result.
-
-  // 1b. Further over (about 71,000): even with the lower premium the need exceeds the room under the line, so the
-  //     capped shortfall falls through to Roth (the strategy's own order, before the cap is released).
-  const s1b = await findSpending(G, 70000, 72000);
-  const off1b = await first({ ...G, spending: s1b, cliffGuardEnabled: false });
-  const on1b = await first({ ...G, spending: s1b, cliffGuardEnabled: true });
-  assert(on1b.magiProxy <= 62600, `1b: guard on stays under (${on1b.magiProxy})`);
-  assert(/^stayed under ACA 400% line/.test(on1b.cliffChoice), `1b: cliffChoice ${on1b.cliffChoice}`);
-  assert(on1b.rothWithdrawn > off1b.rothWithdrawn + 100, `1b: the shortfall came from Roth (${on1b.rothWithdrawn})`);
-  assert(on1b.total > off1b.total, '1b: ends the year with more');
-
-  // 2. Far over the line (about 150,000) with a high lambda: staying under would replace about 87,000 of
-  //    traditional (worth 1 - lambda) with Roth (worth 1) to save a credit of about 5,800. That loses when
-  //    lambda exceeds this year's marginal rate (24%) by more than 5,800 / 87,000, so crossing wins.
-  //    (With lambda 0, as in case 1, staying under always wins: the Roth draw also saves this year's tax.)
-  const H = { ...G, trad401kA: 8000000, lifeExpectancyA: 90 };
-  const s2 = await findSpending(H, 140000, 160000);
-  const on2 = await first({ ...H, spending: s2, cliffGuardEnabled: true });
-  assert(on2.lambda > 0.33, `precondition: lambda well above 24% (${on2.lambda})`);
-  assert(on2.magiProxy > 62600, 'crossing wins far over the line');
-  assert.strictEqual(on2.cliffChoice, undefined);
-
-  // 3. Fill to the Medicaid line: California, Medicaid declined, MAGI under 138% pays the full premium;
-  //    just over it pays about 3.1% of income.
-  //    No housing cost here: the default mortgage alone (about 26,400 a year) puts MAGI over the line at zero spending.
-  const F = { ...G, stateTax: 'ca', medicaidWhenEligible: false, pensionYearlyA: 8000, tenure: 'rent', rent: 0 };
-  const s3 = await findSpending(F, 15650, 21597);
-  const on3 = await first({ ...F, spending: s3, cliffGuardEnabled: true });
-  assert(/^filled to Medicaid line/.test(on3.cliffChoice), `cliffChoice ${on3.cliffChoice}`);
-  assert(on3.magiProxy > 21597, 'MAGI just over the line');
-  const expect3 = await taxCall(page, F, 'acaNetCost', [on3.magiProxy, 1, 12000, 0]);
-  near(on3.healthcare, expect3, 0.5, 'premium priced at the realized MAGI');
-
-  // 4. Nothing in reach (no ACA, age 50, no children): identical rows with the guard on and off, no lambda.
-  const N = { ...G, acaEnabled: false, ageA: 50, retireAgeA: 50, lifeExpectancyA: 54, spending: 50000 };
-  const a = await rows(page, { ...N, cliffGuardEnabled: false }),
-    b = await rows(page, { ...N, cliffGuardEnabled: true });
-  assert.deepStrictEqual(b, a, 'skip path is identical');
-  assert(b.every((r) => r.lambda === undefined), 'no lambda computed on the skip path');
-
-  // Each year's candidates (window.__test_planTrace), under a state patch.
+  // Each year's candidates in the chooser (window.__test_planTrace: the standard `choose` run), under a state patch.
   const traceOf = (patch) =>
     page.evaluate((patch) => {
       const st = window.__test_getState();
@@ -138,6 +102,74 @@ const BASE = {
     }, patch);
   const kinds = (tr, year) => ((tr.find((t) => t.year === year) || {}).candidates || []).map((c) => c.kind);
 
+  // 1. Just over the 400% line (62,600): staying under saves most of a 12,000 premium for a small Roth draw.
+  const s1 = await findSpending(G, 62600, 64000);
+  const off1 = await first({ ...G, spending: s1, cliffGuardEnabled: false });
+  const on1 = await first({ ...G, spending: s1, cliffGuardEnabled: true });
+  near(off1.healthcare, 12000, 0.01, 'guard off: over the cliff, full premium');
+  assert(on1.magiProxy <= 62600, `guard on stays under (${on1.magiProxy})`);
+  assert(on1.healthcare < 12000 - 3000, 'guard on keeps the credit');
+  assert(/^stayed under ACA 400% line/.test(on1.cliffChoice), `cliffChoice ${on1.cliffChoice}`);
+  const p1 = await planOf(page, { ...G, spending: s1, cliffGuardEnabled: true });
+  assert.deepStrictEqual(intentAt(p1, 60), { kind: 'under', line: 'aca400', ret: 'H' }, `1: the plan stays under the 400% line at 60 (${JSON.stringify(p1)})`);
+  // Just over the line the premium saved (about 6,400) alone brings the need under the cap, so no Roth is needed
+  // here (Texas: with the guard off the MAGI iteration settles on the high fixed point, 12,000 charged at 62,898;
+  // the low one, about 5,600 charged at about 56,500, is also consistent and is what the cap finds).
+  assert(on1.rothWithdrawn >= off1.rothWithdrawn, 'no less Roth');
+  // This pair is also the mutation check for the MAGI room: on1 is the plan applied (`apply`, the default run with the guard
+  // on); removing the cap (guard off) changes the result.
+  assert(off1.magiProxy > 62600 && on1.magiProxy !== off1.magiProxy, '1: mutation check: without the cap the year is different');
+
+  // 1b. Further over (about 71,000): even with the lower premium the need exceeds the room under the line, so the
+  //     capped shortfall falls through to Roth (the strategy's own order, before the cap is released).
+  const s1b = await findSpending(G, 70000, 72000);
+  const off1b = await first({ ...G, spending: s1b, cliffGuardEnabled: false });
+  const on1b = await first({ ...G, spending: s1b, cliffGuardEnabled: true });
+  assert(on1b.magiProxy <= 62600, `1b: guard on stays under (${on1b.magiProxy})`);
+  assert(/^stayed under ACA 400% line/.test(on1b.cliffChoice), `1b: cliffChoice ${on1b.cliffChoice}`);
+  assert.deepStrictEqual(intentAt(await planOf(page, { ...G, spending: s1b, cliffGuardEnabled: true }), 60), { kind: 'under', line: 'aca400', ret: 'H' }, '1b: plan intent');
+  assert(on1b.rothWithdrawn > off1b.rothWithdrawn + 100, `1b: the shortfall came from Roth (${on1b.rothWithdrawn})`);
+  assert(on1b.total > off1b.total, '1b: ends the year with more');
+
+  // 2. Far over the line (about 150,000) with a high lambda: staying under would replace about 87,000 of
+  //    traditional (worth 1 - lambda) with Roth (worth 1) to save a credit of about 5,800. That loses when
+  //    lambda exceeds this year's marginal rate (24%) by more than 5,800 / 87,000, so crossing wins.
+  //    (With lambda 0, as in case 1, staying under always wins: the Roth draw also saves this year's tax.)
+  const H = { ...G, trad401kA: 8000000, lifeExpectancyA: 90 };
+  const s2 = await findSpending(H, 140000, 160000);
+  const on2 = await first({ ...H, spending: s2, cliffGuardEnabled: true });
+  // The chooser's trace shows the stay-under tried and met, but scored below the natural year; the plan keeps no intent.
+  const tr2 = (await traceOf({ ...H, spending: s2, cliffGuardEnabled: true })).find((t) => t.year === 0);
+  const nat2 = tr2.candidates.find((c) => c.kind === 'none'),
+    und2 = tr2.candidates.find((c) => c.kind === 'under');
+  assert(und2 && und2.ok && und2.score < nat2.score, `2: the stay-under met its line but scored lower (${JSON.stringify(tr2.candidates)})`);
+  assert.strictEqual(intentAt(await planOf(page, { ...H, spending: s2, cliffGuardEnabled: true }), 60), null, '2: no intent at 60');
+  assert(on2.magiProxy > 62600, 'crossing wins far over the line');
+  assert.strictEqual(on2.cliffChoice, undefined);
+
+  // 3. Fill to the Medicaid line: California, Medicaid declined, MAGI under 138% pays the full premium;
+  //    just over it pays about 3.1% of income.
+  //    No housing cost here: the default mortgage alone (about 26,400 a year) puts MAGI over the line at zero spending.
+  const F = { ...G, stateTax: 'ca', medicaidWhenEligible: false, pensionYearlyA: 8000, tenure: 'rent', rent: 0 };
+  const s3 = await findSpending(F, 15650, 21597);
+  const on3 = await first({ ...F, spending: s3, cliffGuardEnabled: true });
+  assert(/^filled to Medicaid line/.test(on3.cliffChoice), `cliffChoice ${on3.cliffChoice}`);
+  assert.deepStrictEqual(intentAt(await planOf(page, { ...F, spending: s3, cliffGuardEnabled: true }), 60), { kind: 'fill', line: 'medicaid', ret: 'H' }, '3: plan fills to the Medicaid line at 60');
+  assert(on3.magiProxy > 21597, 'MAGI just over the line');
+  const expect3 = await taxCall(page, F, 'acaNetCost', [on3.magiProxy, 1, 12000, 0]);
+  near(on3.healthcare, expect3, 0.5, 'premium priced at the realized MAGI');
+
+  // 4. Nothing in reach (no ACA, age 50, no children): identical rows with the guard on and off; the plan is empty and only
+  //    `none` was a candidate.
+  const N = { ...G, acaEnabled: false, ageA: 50, retireAgeA: 50, lifeExpectancyA: 54, spending: 50000 };
+  const a = await rows(page, { ...N, cliffGuardEnabled: false }),
+    b = await rows(page, { ...N, cliffGuardEnabled: true });
+  assert.deepStrictEqual(b, a, 'skip path is identical');
+  const p4 = await planOf(page, { ...N, cliffGuardEnabled: true });
+  assert.deepStrictEqual(p4.plan.intents, {}, '4: empty plan');
+  assert.deepStrictEqual(p4.report.candidates.map((c) => c.family), ['none'], '4: only none was a candidate');
+
+
   // 3b. Fill to the nearest FLOOR, not the nearest line: natural MAGI under 100% of the poverty line. In California
   //     with Medicaid declined the 100% line is not a floor (the full 12,000 premium on both sides: no credit under it,
   //     declined Medicaid over it); the Medicaid line (138%, 21,597) is. Filled to 21,598: ratio 21,598 / 15,650 =
@@ -148,6 +180,7 @@ const BASE = {
   const on3b = await first({ ...F, spending: s3b, cliffGuardEnabled: true });
   near(off3b.healthcare, 12000, 0.01, '3b: guard off pays the full premium under 100%');
   assert(/^filled to Medicaid line/.test(on3b.cliffChoice), `3b: cliffChoice ${on3b.cliffChoice}`);
+  assert.deepStrictEqual(intentAt(await planOf(page, { ...F, spending: s3b, cliffGuardEnabled: true }), 60), { kind: 'fill', line: 'medicaid', ret: 'H' }, '3b: plan intent');
   near(on3b.magiProxy, 21598, 0.01, '3b: MAGI just over the Medicaid line');
   near(on3b.healthcare, 744.96, 0.01, '3b: premium at 138%');
   assert(on3b.total > off3b.total, '3b: ends the year with more');
@@ -168,6 +201,8 @@ const BASE = {
   const tr5c = await traceOf({ ...Pfree, spending: s5c, cliffGuardEnabled: true });
   assert(kinds(tr5c, 0).includes('fill'), `positive control: fill offered with Rule of 55 money (${kinds(tr5c, 0)})`);
   assert(/^filled to Medicaid line/.test((await first({ ...Pfree, spending: s5c, cliffGuardEnabled: true })).cliffChoice || ''), 'positive control: filled');
+  assert.strictEqual(intentAt(await planOf(page, { ...Ppen, spending: s5, cliffGuardEnabled: true }), 55), null, '5: no plan intent from penalized money');
+  assert.deepStrictEqual(intentAt(await planOf(page, { ...Pfree, spending: s5c, cliffGuardEnabled: true }), 55), { kind: 'fill', line: 'medicaid', ret: 'H' }, '5: positive control: plan intent');
 
   // 5b. An 'under' candidate that does not stay under is not eligible: the taxable account (66,000, all gain, sold
   //     first) alone puts MAGI at 66,000, over the 400% line (62,600); capping traditional cannot undo that, so the
@@ -184,6 +219,7 @@ const BASE = {
     onU = await first({ ...U, cliffGuardEnabled: true });
   assert.strictEqual(onU.cliffChoice, undefined, '5b: not labelled');
   near(onU.total, offU.total, 1e-6, '5b: same year as with the guard off');
+  assert.strictEqual(intentAt(await planOf(page, { ...U, cliffGuardEnabled: true }), 60), null, '5b: no plan intent');
 
   // 6. Survivor transition: A-dies equals B-dies with the guard on (identical partners).
   const SV = { ...G, singlePerson: false, ageB: 60, retireAgeB: 60, lifeExpectancyA: 70, lifeExpectancyB: 70, trad401kB: 600000, survivorEnabled: true, survivorDeathAge: 63, spending: 70000, cliffGuardEnabled: true };
@@ -224,15 +260,10 @@ const BASE = {
     }, { ...G, cash: 60000, trad401kA: 400000, bondYears: 3, retireAgeA: 62, lifeExpectancyA: 66, spending: s1b, dividendYield: 0, cliffGuardEnabled: guard });
   const hOff = await histRows(false),
     hOn = await histRows(true);
-  const strip = (r) => {
-    const o = { ...r };
-    delete o.lambda;
-    return o;
-  };
   // Ages 60-61 work (the ladder is built), 62 onward retired: the down years draw cash, then the bond reserve.
   const bondYearsRows = hOff.filter((r) => r.age >= 62 && r.bonds > 0);
   assert(bondYearsRows.length > 0, 'precondition: some retired years still hold bonds');
-  for (const r of bondYearsRows) assert.deepStrictEqual(strip(hOn[r.year]), strip(r), `down year at ${r.age} unchanged by the guard`);
+  for (const r of bondYearsRows) assert.deepStrictEqual(hOn[r.year], r, `down year at ${r.age} unchanged by the plan`);
 
   // 9. The primitives the guard relies on, on a hand-built withdrawal (single, 60, Texas; 2026 deduction 16,100).
   //    freeTraditional: only the penalty-free accounts count. withdrawStandard with a cap: traditional up to the
