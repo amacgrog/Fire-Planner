@@ -540,6 +540,121 @@ tax-aware conversion sizing. The live-mix toggle keeps its old behavior (`pickLi
 
 ---
 
+## IRMAA MAGI fix (after the cliff plan, before Batch E; owner decision 2026-10-07)
+
+(The section's introduction, the finding and its scope, was written on the docs branch in `3ee7d6e`; this branch stacks on
+the cliff plan's `ce5fb56`, which does not have it. On merge keep both: that introduction first, then the subsection below.)
+
+##### IRMAA MAGI fix: implementation
+
+Branch `claude/irmaa-magi` on `ce5fb56` (the cliff plan's V119 tip, CLIFF_TIP; both merge together later). Commits:
+- `8f803b0` IRMAA MAGI 1: `irmaaMagiOf` (engine MAGI to Medicare's MAGI: only the taxable part of Social Security) and its
+  exact inverse `magiForIrmaaLine` (piecewise linear through the four kinks of the taxable-benefit formula), `returnStatusA`,
+  `irmaaSsOf`. No number change.
+- `5b6a192` IRMAA MAGI 2 (V119 -> V120, snapshot update): the IRMAA lookback history stores Medicare's MAGI (household and,
+  in two-return years, per return); `irmaaAt`, the IRMAA lines of `magiThresholds`, the conversion ceiling
+  (`conversionMagiCeiling`, now given the profile) and `lambdaEstimate`'s IRMAA step convert through it, and lines and caps
+  are translated back into the engine's MAGI. The ACA premium, the Medicaid line and the 400% guard still read the engine's
+  (ACA) MAGI. README, CLAUDE.md and the healthcare callout updated.
+- `538052c`, `eb58669` IRMAA MAGI 2b (number-neutral speedups for the timing gate; `npm test` green, every snapshot
+  identical): `magiForIrmaaLine` without its kinks array, sort and closure (k1 is always the smallest and k4 >= k3, so only
+  k2's place is written out; 6 million random cases bit-identical to the array version), reading the `SS_BASE` row once
+  (`taxableSsOnRow`, the same arithmetic as `taxableSocialSecurity`); `returnStatusA` as a loop; no closure in the
+  two-return conversion ceiling; `irmaaAt` reads the return's benefit and A's filing status once per pass, not per probe.
+
+**Movers** (`node tests/snapshot.js --root ../fp-irmaa-base --dump A --update-nothing`, `--dump B`, `--compare A B`).
+US: 543 scenarios, 339 identical, **204 moved** (175 historical / Monte Carlo paths, 29 standard). Canada: 375, all
+identical. Every mover has Social Security in some year and reaches 63; no scenario without a benefit moved. **No
+depletion age changed** (standard or historical). Healthcare totals fell in 187 movers and rose in 5.
+
+| Group (first change) | Count (hist / std) | What happened |
+|---|---|---|
+| Charge removed | 178 (167 / 11) | The lookback's IRMAA MAGI no longer counts the untaxed benefit, so a tier is no longer crossed: `healthcare` falls by one or more IRMAA steps (e.g. -1,148.40 = 95.70 x 12 per Medicare partner). The saving stays invested; later draws, balances and MAGI follow. End total up in every one except the depleting `std_R_single` (+0, depletes at 77 both). Largest: `hist_R_everything_rich_boom` +391,362. |
+| Conversion cap raised | 14 (of 25 conversion movers: 8 / 17) | The IRMAA cap on Roth conversions is the tier ceiling in Medicare's MAGI translated back, higher by the untaxed benefit, so the ladder converts more (e.g. `std_G_mfj_58_aca_default` 1,131,784 -> 1,204,630 converted, end +53,497). |
+| Conversion cap lowered | 11 (same 25) | The cap's own rule (keep the year inside its current tier) now reads Medicare's MAGI, which can sit a tier LOWER than the engine MAGI did, so the cap protects that lower tier: e.g. `std_G_single_62_aca_smooth` at 66, engine MAGI about 124k (tier 2, edge about 151k) but IRMAA MAGI about 119k (tier 1, edge about 120k): conversion 26,922 -> 5,748, the later charge one tier lower for 7 years, end +106,015. Other ends +19,181 and +90,951; the depleting ones +0 (depletion unchanged). |
+| Cliff-plan intent dropped | 1 (0 / 1: `std_R_work_past_65_single`) | At 76-79 CLIFF_TIP stayed under an IRMAA line by spending Roth; with the line translated up by the untaxed benefit the natural MAGI is already under it, so no stay-under is planned (healthcare identical, end -1,108: traditional drawn instead of Roth). The only `cliffChoice` change. |
+
+The 5 healthcare-up movers are all conversion movers: the conversion timing moved MAGI between years and a later year
+crosses a tier (e.g. `std_G_hoh_66_1966_household`, lower conversions at 69-70 leave more traditional to draw at 72-74:
+healthcare 561,084 -> 563,969; depletes at 86 both).
+
+**Lower nominal end totals (10 movers, all from raised conversion caps).** Larger conversions pay tax earlier and the end
+total counts traditional at face value: largest `hist_G_mfj_62_aca_400_smooth_real1966` -1,210,733 of 41.4M (-2.9%);
+standard: `std_G_two_returns_66_irmaa_default` -18,885 of 489k, `std_G_mfj_62_aca_400_default` / `_smooth` -16,587 /
+-16,532 of 11.7M, `std_G_hoh_58_aca_smooth` -12,349 of 6.8M, `std_G_hoh_62_aca_smooth` -1,009; historical:
+`hist_G_single_58_aca_default_real1966` -84,370, `hist_G_hoh_58_aca_smooth_real1973` -62,951,
+`hist_G_hoh_62_aca_default_real1966` -60,280. No depletion change in any of them. (The cap is the existing rule on a
+corrected MAGI; sizing conversions by after-tax value is Batch 5.)
+
+**ACA side (plan Task 2, Step 3b).** The plan's Global Constraint says rows' `magiProxy`, `magiA` and `magiB` are
+identical in every scenario. That cannot hold literally once a conversion or a draw moves (the MAGI includes them), so it
+was applied as Step 3b states it: the MAGI may change only downstream of a moved conversion, draw or charge. Checked over
+all 543 US dumps: in every mover the first year in which `magiProxy` / `magiA` / `magiB` differ is at or after the first
+year a conversion, a draw or balance, the healthcare charge or the cliff choice changed, and in a same-year change a
+conversion or draw changed that year. **No violations.** 201 of the 204 movers have a MAGI change, all downstream in this
+sense; 3 changed only healthcare and balances. No `healthcare` change in any year with nobody 65 or over (the ACA years);
+in mixed-age couple years the 5 changes are each exactly -1,148.40 (one IRMAA step), so the ACA premium did not move.
+**Owner: please acknowledge this reading of the constraint** (the literal reading would forbid every conversion mover).
+
+**Test expectations changed: none.** Every existing IRMAA test (`irmaa_startup`, `irmaa_gating`, `medicare_enrollment`,
+`two_return_magi`, `solver_hooks`, `cliff_plan`, `cliff_guard`) passes unchanged. New engine cases in
+`tests/irmaa_magi.js`: (a) the charge: single 70 with a 40,000 benefit, no surcharge on IRMAA MAGI 106,000 while the
+engine MAGI stays 112,000.08; (b) two returns, A head of household: neither partner charged; (c) the IRMAA line at the
+translated edge (109,000 of IRMAA MAGI is 115,000 of engine MAGI; no benefit: the edge itself), id / family / return
+unchanged; (d) the survivor: no surcharge, ACA MAGI kept; (e) the first-two-years stand-in reads the user's entries;
+(f) the conversion ceiling rises by the untaxed benefit; (g) no benefit, no change (fills to 109,000). Before the fix
+(a), (b), (d), (e) from year 2 and (f) failed, (c) failed on the line value; (g) passed. Three justified deviations from
+the brief: (b) asserts year-0 healthcare 10,000, not 20,000 (`medicareYearly` is a household figure, half per partner);
+(f)'s hand numbers are a conversion of 24,999.93 and an engine MAGI of 115,000.01, not 25,000 / 115,000 (the benefit is
+3,333.34 x 12 = 40,000.08); (g) uses spending 20,000, not (f)'s 60,000 (at 60,000 a draw enters the MAGI iteration and
+the year ends at 108,980.49 on both trees, within tolerance of the edge rather than on it).
+
+**Timing** (against CLIFF_TIP `ce5fb56`). The first interleaved measurement of `5b6a192` was over the per-path gate, so the
+two number-neutral speedup commits were added; after them every full interleaved run is inside +5%. Every run is listed:
+
+| Run | Tree | 400 simulate per state (tx / ca / ny / pa / ct / wa) | 120 historical (same order) |
+|---|---|---|---|
+| interleaved, 11 rounds | `5b6a192` | +6.5 / +4.5 / +3.7 / +3.0 / +2.5 / +2.3% | +3.6 / +6.6 / +3.5 / +9.5 / +2.9 / +3.2% |
+| interleaved, 25 rounds | `5b6a192` | +7.3 / +4.9 / +6.2 / +3.7 / +5.1 / +7.7% | +9.6 / +5.3 / +6.1 / +6.8 / +4.9 / +4.8% |
+| interleaved, 25 rounds | `538052c` | +6.1 / +4.9 / +4.1 / +3.8 / +4.0 / +5.3% | +3.8 / +5.3 / +6.0 / +5.5 / +4.9 / +6.6% |
+| interleaved, 25 rounds | `538052c` | -2.7 / +1.9 / +1.7 / +3.1 / +2.0 / +1.9% | 0.0 / +2.6 / +3.7 / +4.2 / +1.9 / +1.6% |
+| interleaved, 31 rounds | `538052c` | -0.5 / +1.5 / +2.4 / +2.3 / +5.8 / +1.9% | +3.6 / +1.3 / +3.6 / +1.4 / +6.1 / +1.6% |
+| interleaved, 41 rounds, ct and tx | `538052c` | ct +6.4, tx +3.9% | ct +5.0, tx +1.9% |
+| `tests/bench_runs.js`, separate processes, base first | `538052c` | +13.1 / +4.7 / +7.8 / +6.5 / +8.5 / +9.2% | +15.8 / +5.1 / +10.7 / +5.3 / +4.9 / +12.7% |
+| `tests/bench_runs.js`, separate processes, head first | `538052c` | +2.3 / +2.5 / +1.3 / +2.2 / +7.6 / +4.1% | +15.8 / +2.6 / +3.5 / +1.3 / +7.6 / +3.1% |
+| `tests/bench_runs.js --scale 3 --repeats 5`, separate | `538052c` | +2.9 / +2.1 / +2.2 / +3.8 / -0.6 / 0.0% | +1.8 / +2.6 / -0.8 / 0.0 / -0.6 / -0.5% |
+| interleaved, 31 rounds | `eb58669` | +1.7 / +0.7 / +1.0 / +1.1 / +0.6 / 0.0% | 0.0 / +1.3 / +1.2 / +1.4 / 0.0 / 0.0% |
+| interleaved, 41 rounds, ct and tx | `eb58669` | ct 0.0, tx +1.0% | ct 0.0, tx +5.5% (55 -> 58 ms) |
+| interleaved, 61 rounds, tx | `eb58669` | tx +1.1% | tx 0.0% |
+| interleaved, 31 rounds (final) | `eb58669` | +1.7 / +2.3 / +2.8 / +2.3 / +3.4 / +2.7% | +1.9 / +1.3 / +2.4 / +4.1 / +2.9 / +3.1% |
+| `tests/bench_runs.js --scale 3 --repeats 5`, separate | `eb58669` | +9.1 / +3.4 / +4.5 / +5.6 / +2.8 / +2.9% | +8.1 / +4.9 / +3.2 / +3.7 / +2.0 / +3.3% |
+
+Final medians (interleaved, 31 rounds, `ce5fb56` -> `eb58669`, ms): simulate 179 -> 182, 265 -> 271, 288 -> 296,
+264 -> 270, 353 -> 365, 220 -> 226; historical 53 -> 54, 76 -> 77, 83 -> 85, 73 -> 76, 103 -> 106, 64 -> 66. The work
+done is identical on both trees (instrumented copies: the same 557,497 `taxFor` calls and 29,003 MAGI passes for 400 ct
+simulations); the new code adds about 23,000 `magiForIrmaaLine` and 75,000 `irmaaMagiOf` calls on that workload. The
+separate-process figures are reported as measured (tx, the first state in each process, swings most); as CLAUDE.md
+says, the gate was decided on the interleaved comparison.
+
+| Gate | Measure | Number | Verdict |
+|---|---|---|---|
+| per path +5%, no-cliff households | `tests/bench_runs_interleaved.js`, `eb58669` | final 31 rounds: +1.3% to +4.1% (largest pa historical); tx historical +5.5% in one 41-round two-state run (a 3 ms step on 55 ms), 0.0% at 61 rounds | pass |
+| ACA early retiree (CA) +5% | `tests/bench_solver.js`, simulate / path | `538052c`: 7 rounds -4.3% / +5.9%, 21 rounds +4.2% / 0.0%, 31 rounds -0.8% / 0.0%; `eb58669` 31 rounds +0.8% / 0.0% (2.36 -> 2.38 ms, 2.25 -> 2.25 ms) | pass |
+| default household (printed) | same | `538052c`: 7 rounds +1.6% / +5.0%, 21 rounds +3.3% / 0.0%, 31 rounds +1.6% / 0.0%; `eb58669` 31 rounds +1.7% / 0.0% | pass |
+| planning at most 5x one off projection | `tests/bench_plan.js` | `538052c`: default 1.07, ACA CA 1.20, Texas no cliff 1.20, `std G hoh 62 aca smooth` (3 intents) 2.23; `eb58669`: 1.14, 1.15, 1.60, 2.18 (CLIFF_TIP: 1.14, 1.12, 1.20, 2.14) | pass |
+
+**For the owner.**
+- Acknowledge the Step 3b reading of "`magiProxy` identical in every scenario" (above).
+- 10 movers end with a lower nominal total (largest -2.9%), all where the corrected cap lets the ladder convert more;
+  the end total counts traditional money at face value. No depletion change; conversion sizing by after-tax value is
+  Batch 5.
+- 11 movers convert less: the corrected IRMAA MAGI sits a tier lower and the existing stay-in-the-current-tier cap now
+  protects that tier (mostly better end totals).
+- The separate-process `tests/bench_runs.js` figures read higher than the interleaved ones (up to +9.1% simulate and
+  +8.1% historical for tx at `eb58669`, scale 3); recorded, not used for the decision.
+- The section's introduction lives on the docs branch (`3ee7d6e`); the merge needs both kept (above).
+- Tax-exempt interest (part of Medicare's MAGI) is not modeled (no input), as before.
+
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 
 The cliff plan optimizes against the known future events the inputs describe, so events that change tax rates, MAGI
