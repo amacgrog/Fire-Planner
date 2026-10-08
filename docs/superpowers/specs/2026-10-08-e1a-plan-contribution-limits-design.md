@@ -18,6 +18,13 @@ spec, plan and review, in this order (owner, 2026-10-08):
   415(c) limit applies per unrelated employer while the 402(g) deferral limit is per person across plans, so a W-2 job
   plus a side business gets a second annual-additions limit but shares one deferral limit; the employer part alone fills
   $72,000 only at about $237,500 of compensation after half the SE tax, so after-tax money matters below that.
+  **Owner requirement (2026-10-08), self-employed profit sharing:** the input keeps E1a's meaning and range, the plan's
+  rate as a percentage, 0 to 25 (strict), and the engine applies the self-employed definition of compensation: net
+  self-employment earnings less half the SE tax and less the contribution itself. With C = net earnings less half the SE
+  tax and a plan rate r, the contribution P solves P = r x (C - P), so P = C x r / (1 + r): 25% gives 20% of C, 10% about
+  9.09%. Nothing is subtracted from the rate; it is divided by 1 + r. The 401(a)(17) compensation limit and the 415(c)
+  room apply after that, as for W-2 pay. Source: IRS, "One-participant 401(k) plans" and "Calculation of plan
+  compensation for sole proprietorships"; Publication 560.
 - **E1d:** one-time income tax treatments (tax-free, ordinary, long-term gain with a gain share, inherited traditional
   IRA / 401(k) drawn evenly over 10 years).
 - **E1-CA (later, near the Canada province move):** the Canada port of E1a to E1d. See section 7.
