@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V120</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V121</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -706,7 +706,7 @@
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity. While anyone would owe the 10% early-withdrawal penalty on some of their money, the order protects the penalty-free money instead: taxable and penalty-free traditional accounts (59½ or older, or a 401(k) under Rule of 55) first, then cash, then the taxable bond reserve, then Roth contributions (basis), and only then penalized money, cheapest per dollar first, with home equity last. Once everyone is 59½ or older (or exempt) the order above applies.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled. Federal deductions: each year uses the larger of the standard deduction (plus $1,650 per married filer, $2,050 if single, aged 65+) and a simplified itemized total (state income tax plus property tax under the SALT cap, plus mortgage interest on up to $750,000 of loan; charitable gifts, QCDs and medical expenses are not modeled), and the temporary $6,000-per-person senior deduction (phased out above $75,000 single / $150,000 joint of income) is added on top for tax years 2025 through 2028 only. The Roth-conversion bracket target uses a conservative deduction (standard, or property tax plus mortgage interest if larger), so it converts slightly less than an exact calculation would.</div>
-            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (1 for single-person, 2 for couples; dependents aren't modeled). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at the later of 65 and their own retirement age: a partner still working at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
+            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (the adults plus qualifying children from the Children list). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at the later of 65 and their own retirement age: a partner still working at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (traditional first, then Roth, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI, and the moves inside traditional and Roth create no income and no early-withdrawal penalty). The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. While anyone would owe the early-withdrawal penalty on some of their money, only penalty-free money is used in those steps, Roth basis waits until after cash and the bond reserve in an up year too, and penalized money is the last resort before home equity. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
@@ -6563,11 +6563,8 @@
     return fifteenGain * 0.15 + twentyGain * 0.2;
   }
   function taxableSocialSecurity(benefits, otherIncome, filing = 'mfj') {
-    const provisional = otherIncome + benefits * 0.5;
     const [lower, upper, base] = SS_BASE[filingKey(filing, 'ss')];
-    if (provisional <= lower) return 0;
-    if (provisional <= upper) return Math.min(benefits * 0.5, (provisional - lower) * 0.5);
-    return Math.min(benefits * 0.85, (provisional - upper) * 0.85 + Math.min(base, benefits * 0.5));
+    return taxableSsOnRow(benefits, otherIncome, lower, upper, base);
   }
   // Federal child credits for one return (IRC 24). 2026 amounts (Rev. Proc. 2025-32, via
   // secondary sources): the Child Tax Credit is $2,200 per child aged 16 or under at year end,
@@ -7171,7 +7168,6 @@
   function irmaaRoomFor(m, ss, st, year) {
     return magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(m, ss, st), 'single', year), ss, st);
   }
-  const NO_PROFILE = Object.freeze({});
   // The filing status of Partner A's own return in a two-return year (A claims the children), as taxFor's two-filer branch.
   function returnStatusA(dependents) {
     if (dependents) for (let i = 0; i < dependents.length; i++) if (dependents[i].qualifyingChild) return 'hoh';
@@ -8701,7 +8697,7 @@
     preMagiA = 0,
     preMagiB = 0,
     shareA = 0.5,
-    profile = null,
+    profile,
   }) {
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
@@ -8715,7 +8711,7 @@
         if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(1 + kids, year) * 4, preMagiA, shareA));
         if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(1, year) * 4, preMagiB, 1 - shareA));
       }
-      const p = profile || NO_PROFILE;
+      const p = profile;
       if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
       if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
       return preConvMagi + room;
@@ -8742,7 +8738,7 @@
         (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
         (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
       ) {
-        const ssH = profile ? irmaaSsOf(profile) : 0;
+        const ssH = irmaaSsOf(profile);
         magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
       }
     return magiCeiling;
@@ -8927,7 +8923,13 @@
     if (!out.length) return NO_THRESHOLDS;
     out.sort((a, b) => a.magi - b.magi);
     const deduped = [];
-    for (const t of out) if (!deduped.length || t.magi - deduped[deduped.length - 1].magi > 1) deduped.push(t);
+    // Two lines within $1 are one line. Keep the earlier one, except that a cliff line (aca or irmaa family) replaces a
+    // tax-family line (senior, ctc): those are priced by taxFor and are never candidates, so an intent must not name one.
+    for (const t of out) {
+      const last = deduped[deduped.length - 1];
+      if (!last || t.magi - last.magi > 1) deduped.push(t);
+      else if (last.family === 'tax' && t.family !== 'tax') deduped[deduped.length - 1] = t;
+    }
     return deduped;
   }
 
@@ -10386,7 +10388,7 @@
                   ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
-              const natOf = () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 });
+              const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
               if (intent) {
                 // apply (spec section 6): follow the plan literally. The intent's line is looked up by id and return among the very
                 // lines choose builds (same call, same lo / hi from the converged natural year); a line that does not exist this
@@ -10431,7 +10433,7 @@
               planStats.applied++;
               if (yearPlan.kind === 'under') planStats.rothShift += rothWithdrawn - naturalRec.roth;
               if (yearPlan.kind === 'under' && lineFamily(yearPlan.id) === 'irmaa' && yearPlan.ret === 'H')
-                irmaaChecks.push({ y: year + 2, filing: irmaaFiling2(), nat: irmaaMagiOf(naturalRec.realized, irmaaSsOf(profile), filing), trial: irmaaMagiOf(realizedMagi, irmaaSsOf(profile), filing) });
+                irmaaChecks.push({ y: year + 2, filing: irmaaFiling2(), nat: irmaaMagiOf(naturalRec.realized, irmaaSsH, filing), trial: irmaaMagiOf(realizedMagi, irmaaSsH, filing) });
             } else {
               planStats.fallback++;
               yearPlan = NO_PLAN;
@@ -10496,10 +10498,10 @@
           planTr.intent = (intents && intents[age]) || null;
           planTrace.push(planTr);
         }
-        irmaaMagiHistory[year] = irmaaMagiOf(realizedMagi, irmaaSsOf(profile), filing);
+        irmaaMagiHistory[year] = irmaaMagiOf(realizedMagi, irmaaSsH, filing);
         if (twoReturns) {
           [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);
-          irmaaMagiHistoryA[year] = irmaaMagiOf(magiHistoryA[year], profile.ssA || 0, returnStatusA(profile.dependents));
+          irmaaMagiHistoryA[year] = irmaaMagiOf(magiHistoryA[year], profile.ssA || 0, irmaaStA);
           irmaaMagiHistoryB[year] = irmaaMagiOf(magiHistoryB[year], profile.ssB || 0, 'single');
         }
         bal.mortgage = Math.max(0, bal.mortgage);
@@ -10680,7 +10682,7 @@
       let best = cands[0];
       for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
       return {
-        plan: { intents: best.intents, family: best.family, madeFor: JSON.stringify(state) },
+        plan: { intents: best.intents, family: best.family },
         report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
       };
     } finally {
@@ -10702,17 +10704,18 @@
   }
   // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
   // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
-  // gets the plan of its own inputs, cached by their JSON. The state-replacement sites are in shared regions and are not
-  // edited: this is the whole stale-plan rule.
+  // gets the plan of its own inputs under the current tax year, cached by the year and their JSON (refreshCliffPlan keys on
+  // the year too). The state-replacement sites are in shared regions and are not edited: this is the whole stale-plan rule.
   function planForState() {
-    if (state === cliffPlanState) return cliffPlan;
+    if (state === cliffPlanState && cliffPlanYear === currentYear) return cliffPlan;
     if (!state.cliffGuardEnabled) return null;
     const key = JSON.stringify(state);
-    if (key === cliffPlanKey) return cliffPlan;
-    if (cliffPlanCache.has(key)) return cliffPlanCache.get(key);
+    if (key === cliffPlanKey && cliffPlanYear === currentYear) return cliffPlan;
+    const cacheKey = currentYear + '|' + key;
+    if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
     const plan = computeCliffPlan().plan;
     if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
-    cliffPlanCache.set(key, plan);
+    cliffPlanCache.set(cacheKey, plan);
     return plan;
   }
 

@@ -72,6 +72,17 @@ const taxCall = (page, patch, fn, args) =>
   assert(grown.includes(208900) && grown.includes(248900), `two-return growth: ${JSON.stringify(grown)}`);
   const plain = magis(await call({ acaEnabled: false }, 'magiThresholds', ctx(twoIr)));
   assert(plain.includes(198000) && plain.includes(238000), `two-return default: ${JSON.stringify(plain)}`);
+  // Review follow-up 3: two lines within $1 are one line, and a cliff line (irmaa/aca) wins over a tax-family line. Single,
+  // 66, 2026: the senior-deduction phase-out starts at 75,000 (not indexed) and irmaa1 at 109,000 x (75000.5 / 109000).
+  {
+    const lines = await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 66, acaEligibleA: false, irmaaGrowth: 75000.5 / 109000 }));
+    const ir = lines.find((l) => l.id === 'irmaa1');
+    assert(ir && ir.family === 'irmaa', `FU3: irmaa1 kept: ${JSON.stringify(lines)}`);
+    near(ir.magi, 75000.5, 1e-6, 'FU3: irmaa1 line at 75,000.5');
+    assert(!lines.some((l) => l.family === 'tax' && Math.abs(l.magi - 75000) <= 1), `FU3: no tax line at 75,000: ${JSON.stringify(lines)}`);
+    // (Two non-tax lines within $1, an ACA line and an IRMAA line, keep the first one by the unchanged rule; no easy
+    // context puts them within $1 without a contrived growth factor, so that case is not built here.)
+  }
   // Child tax credit phase-out start (joint).
   assert.deepStrictEqual(
     magis(await call({ acaEnabled: false, children: [{ birthYear: 2016, student: false }] }, 'magiThresholds', ctx({ filing: 'mfj', singlePerson: false, ageB: 50, age: 50, acaEligibleA: false }))),
@@ -80,6 +91,22 @@ const taxCall = (page, patch, fn, args) =>
   // Two returns: A's 400% line (62,600) at A-MAGI 40,000, half the traditional draw on A: household 100,000 + 22,600 / 0.5.
   const two = await call({ acaEnabled: true, stateTax: 'tx' }, 'magiThresholds', ctx({ twoReturns: true, singlePerson: false, ageB: 60, preMagi: 100000, preMagiA: 40000, preMagiB: 60000, profile: { ownerShareA: 0.5 } }));
   assert(magis(two).includes(145200), `two-return translation: ${JSON.stringify(magis(two))}`);
+  // Review follow-up M15: the same two returns on Medicare with benefits. Each return's IRMAA edge is Medicare's MAGI (only
+  // the taxable part of Social Security), translated into the engine's MAGI on that return (magiForIrmaaLine, its own
+  // benefit; A's status is single with no children) before it is placed in household MAGI.
+  {
+    const twoMed = await call({ acaEnabled: false }, 'magiThresholds', ctx({ twoReturns: true, singlePerson: false, preMagi: 100000, preMagiA: 40000, preMagiB: 60000, age: 66, ageB: 66, acaEligibleA: false, acaEligibleB: false, irmaa: { filing: 'single', a: true, b: true }, irmaaGrowth: 1, profile: { ownerShareA: 0.5, ssA: 40000, ssB: 20000, dependents: [] } }));
+    const inv = await page.evaluate(() => [window.__test_tax.magiForIrmaaLine(109000, 40000, 'single'), window.__test_tax.magiForIrmaaLine(109000, 20000, 'single')]);
+    const wantA = 100000 + (inv[0] - 40000) / 0.5,
+      wantB = 100000 + (inv[1] - 60000) / 0.5;
+    const lineA = twoMed.find((l) => l.id === 'irmaa1' && l.ret === 'A'),
+      lineB = twoMed.find((l) => l.id === 'irmaa1' && l.ret === 'B');
+    assert(lineA && lineB, `M15: irmaa1 lines for A and B: ${JSON.stringify(twoMed)}`);
+    near(lineA.magi, wantA, 1e-6, "M15: A's irmaa1 line is the translated edge");
+    near(lineB.magi, wantB, 1e-6, "M15: B's irmaa1 line is the translated edge");
+    assert(Math.abs(lineA.magi - (100000 + (109000 - 40000) / 0.5)) > 1, `M15: A's line is not the untranslated edge (${lineA.magi})`);
+    assert(Math.abs(lineB.magi - (100000 + (109000 - 60000) / 0.5)) > 1, `M15: B's line is not the untranslated edge (${lineB.magi})`);
+  }
 
   // lambda: single, 70, 1,000,000 traditional, real return 0, Texas, life expectancy 74. Samples 73, 74, 74.
   // RMDs 37,735.85 and 39,215.69; deduction 16,100 + 2,050 + 6,000 senior: taxable income stays in the 12% band

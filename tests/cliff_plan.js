@@ -213,9 +213,9 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // ---- Task 5: the keep rule (rule A) and refreshCliffPlan. ----
   // refreshCliffPlan under a scenario's patch (translated as runMode does); with `applyAll`, also an apply run of choose's
   // intents, measured as refreshCliffPlan measures (depletion, afterTaxEndValueUS, real tax + healthcare).
-  const refresh = (sc, extra = {}, applyAll = false) =>
+  const refresh = (sc, extra = {}, applyAll = false, withOff = false) =>
     page.evaluate(
-      ({ patch, applyAll }) => {
+      ({ patch, applyAll, withOff }) => {
         const st = window.__test_getState(),
           saved = JSON.parse(JSON.stringify(st));
         try {
@@ -229,6 +229,11 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
             for (const x of r.rows) cost += (x.tax + x.healthcare) / Math.pow(1 + infl, x.year);
             out.applyAll = { depletedAge: r.depletedAge, value: window.__test_afterTaxEndValueUS(r.sim), cost, n: Object.keys(ch.intents).length };
           }
+          if (withOff) {
+            // A real `off` run, measured as computeCliffPlan measures a candidate.
+            const o = window.__test_runPlanMode({ planMode: 'off' });
+            out.offRun = { depletedAge: o.depletedAge, value: window.__test_afterTaxEndValueUS(o.sim) };
+          }
           return out;
         } finally {
           for (const k of Object.keys(st)) delete st[k];
@@ -237,7 +242,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
           window.__test_refreshCliffPlan();
         }
       },
-      { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, applyAll }
+      { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, applyAll, withOff }
     );
   const depOf = (d) => (d == null ? Infinity : d);
 
@@ -256,8 +261,12 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
 
   // T5.2 The kept plan is never worse than off, for every std G household.
   for (const sc of ALL.filter((s) => s.kind === 'std' && s.shift === 0 && s.name.startsWith('std G '))) {
-    const { plan, report } = await refresh(sc);
+    const { plan, report, offRun } = await refresh(sc, {}, false, true);
     assert(plan, `T5.2 ${sc.name}: guard on gives a plan`);
+    // Review follow-up M6: no steering is always the first candidate, and it is the real `off` run.
+    assert.strictEqual(report.candidates[0].family, 'none', `T5.2 ${sc.name}: the first candidate is none (${JSON.stringify(report.candidates)})`);
+    assert.strictEqual(report.candidates[0].depletedAge, offRun.depletedAge, `T5.2 ${sc.name}: none depletes as off`);
+    assert.strictEqual(report.candidates[0].value, offRun.value, `T5.2 ${sc.name}: none's value is off's`);
     const off = report.candidates.find((c) => c.family === 'none'),
       kept = report.candidates.find((c) => c.family === report.kept);
     assert.strictEqual(plan.family, report.kept, `T5.2 ${sc.name}: plan family`);
@@ -453,6 +462,39 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(out.c6, 'T6.9 case 6: cache churn leaves results unchanged');
   }
 
+  // T6.10 planForState keys its plan on the tax year, as refreshCliffPlan does (review follow-ups, finding 3). R = 'std G single 66
+  // 500k 300k 130k smooth', the first household found by search (all std scenarios, the std G ACA ones included) whose plan differs
+  // between the tax years 2026 and 2027: 2026 keeps no intent, 2027 keeps IRMAA stay-unders at 66 and 67 (the IRMAA edges move).
+  {
+    const full = (name) => { const sc = household(name); return legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }); };
+    const P = full('std G hoh 62 aca smooth'),
+      R = full('std G single 66 500k 300k 130k smooth');
+    const out = await page.evaluate(
+      ({ P, R }) => {
+        const base = JSON.parse(JSON.stringify(window.__test_getState())),
+          raw = (patch) => ({ ...JSON.parse(JSON.stringify(base)), ...JSON.parse(JSON.stringify(patch)) }),
+          r = {};
+        try {
+          window.__test_replaceState(raw(P));
+          window.__test_refreshCliffPlan();
+          window.__test_replaceState(raw(R));
+          r.p1 = window.__test_planForState(); // R under 2026, now cached
+          window.__test_setCurrentYear(2027);
+          r.p2 = window.__test_planForState(); // the same state object and JSON, a later tax year
+          r.p3 = window.__test_refreshCliffPlan().plan; // R is the current state; the refresh plans under 2027
+        } finally {
+          window.__test_setCurrentYear(2026);
+          window.__test_replaceState(base);
+          window.__test_refreshCliffPlan();
+        }
+        return r;
+      },
+      { P, R }
+    );
+    assert.notDeepStrictEqual(out.p1, out.p3, 'T6.10: R plans differently under 2026 and 2027');
+    assert.deepStrictEqual(out.p2, out.p3, 'T6.10: planForState plans for the current tax year, not the cached 2026 plan');
+  }
+
 
   // ---- Task 7: label, summary line, row tooltip. ----
   {
@@ -646,6 +688,20 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(out.none >= 40, `F2: ${out.none} households without intents`);
     assert.deepStrictEqual(out.differ, [], 'F2: choose without intents differs from off');
     assert.deepStrictEqual(out.reportDiffer, [], "F2: the 'none' candidate differs from a real off run");
+  }
+
+  // Review follow-up 3 invariant: no recorded intent names a tax-family line (senior, ctc): those are priced by taxFor and
+  // are never candidates. Every std G household, plus the plan refreshCliffPlan stores for each.
+  {
+    let n = 0;
+    for (const sc of ALL.filter((x) => x.kind === 'std' && x.shift === 0 && x.name.startsWith('std G '))) {
+      const ch = await runMode(page, sc, 'choose');
+      for (const a of Object.keys(ch.intents || {})) {
+        n++;
+        assert(!['senior', 'ctc'].includes(ch.intents[a].line), `FU3: ${sc.name} age ${a} intent names ${ch.intents[a].line}`);
+      }
+    }
+    assert(n > 0, 'FU3: some intents were checked');
   }
 
   assert.deepStrictEqual(errors, []);

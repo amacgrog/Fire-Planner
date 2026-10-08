@@ -228,7 +228,7 @@ Each planner is one big IIFE. Core shape:
   split evenly), else the household rule. `conversionMagiCeiling` keeps each return under its own ACA
   400% line and IRMAA tier, dividing each return's room by its share of the conversion. The forced pass
   prices other draws through `costAt(trad, gain)` (which re-splits the MAGI). Test: `tests/two_return_magi.js`.
-  Test: `tests/aca_magi_iteration.js`. See `docs/reference.md`.
+  Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
   `nonExpansion` (ten states), `adultCoverage` (Wisconsin 1.0), `ptcFloor` (1.0) and `workRequirement` (`fromYear` 2027,
@@ -410,7 +410,7 @@ Each planner is one big IIFE. Core shape:
   for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
 - **Per-year solver and the cliff plan (3C redesign, US; section "Per-year solver (Batch 3C)" just above
   `newWithdrawal`; spec `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`).** Hooks: `magiThresholds` (the year's
-  federal lines in household MAGI, each `{ magi, label, id, ret, family }`: `id` in `medicaid | acaFloor | aca400 |
+  federal lines in household MAGI, two lines within $1 are one line: a cliff line (`aca` or `irmaa` family) replaces a `tax`-family line, otherwise the earlier line stays; each `{ magi, label, id, ret, family }`: `id` in `medicaid | acaFloor | aca400 |
   irmaa1..irmaa5 | senior | ctc`, `ret` 'H' or, in a two-return year, 'A' / 'B', `family` `aca | irmaa | tax`; with
   `c.lo/c.hi` only the lines in that reach, a shared empty list (`NO_THRESHOLDS`) when none; IRMAA lines sit on the tiers of
   the year the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate
@@ -427,8 +427,8 @@ Each planner is one big IIFE. Core shape:
   limit: `takeTraditional` with `penalized === false && uncapped === false`, and the live-mix draw of
   `drawMixedStockAccounts`; a new draw path that honours `magiCapLeft` must add to it, or the plan never offers a
   stay-under for that mode). The bond reserve's traditional draw is uncapped in both strategies.
-  **Run modes** (`runProjection({ ..., planMode, plan })`): `off` (no steering; byte for byte the guard-off year of
-  3ebee0e, pinned by `tests/plan_off_anchor.js --base DIR`), `choose` (deterministic run only: each withdrawal year with
+  **Run modes** (`runProjection({ ..., planMode, plan })`): `off` (no steering; byte for byte the guard-off year,
+  pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `5eb30fa`; `3ebee0e` up to `ce5fb56`), `choose` (deterministic run only: each withdrawal year with
   a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
   stay-under at the nearest real cliff and at the largest one, offered only when `underEligible`: cappable traditional
   drawn and the natural MAGI less its conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free
@@ -451,7 +451,7 @@ Each planner is one big IIFE. Core shape:
   `plan = planForState(); planMode = plan ? 'apply' : 'off'`. `planForState()`: the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
   sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
-  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full) gives or
+  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full; keyed on the state's JSON and the tax year `currentYear`, as `refreshCliffPlan` is) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
   `render()`). The state-replacement sites are NOT edited (all sit in shared regions, and a clear at the comparison swap
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
