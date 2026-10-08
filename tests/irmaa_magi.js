@@ -201,6 +201,124 @@ const path = require('path');
   near(gRows[0].magiProxy, 109000, 1e-6, '(g) no benefit: the tier edge itself');
   near(gRows[0].conversionAmount, 59000, 1e-6, '(g) the conversion fills to the edge');
 
+  // --- Review follow-ups M1 / M13: lambdaEstimate prices its IRMAA step on Medicare's MAGI ---
+  // X has Social Security 40,000 (started) and pension P; Y has none and pension P + 34,000. With P >= 60,000 X's taxable
+  // benefit is at its 85% cap (34,000) at every sample, so X and Y have the same ordinary income, the same federal tax (Texas:
+  // no state tax) and the same Medicare MAGI: lambda must be the same. Their ENGINE MAGIs differ by the untaxed 6,000. The
+  // search keeps the first P (from 60,000 in 500 steps) where some sample's engine-MAGI step crosses an IRMAA tier edge
+  // while its Medicare-MAGI step does not, so pricing the step on the engine MAGI would make lambda differ. Samples (life
+  // expectancy 85, plan year 2026, RMDs from 73): ages 73, 79 and 85, Uniform Lifetime divisors 26.5, 21.1 and 16.0; real
+  // return 0 (return = inflation), so each sample's pool is tradPool and its traditional income the RMD.
+  // One page call: the search, then lambda for X and Y at the P found. X: Social Security 40,000 and pension P (each partner
+  // on two returns); Y: no benefit and pension P + 34,000.
+  const lambdaPair = (common, onePerson) =>
+    page.evaluate(
+      ({ common, onePerson }) => {
+        const st = window.__test_getState();
+        const saved = JSON.parse(JSON.stringify(st));
+        const t = window.__test_tax,
+          tradPool = 500000,
+          divisors = [26.5, 21.1, 16.0],
+          lam = (ssMonthly, pension) => {
+            for (const k of Object.keys(st)) delete st[k];
+            Object.assign(st, JSON.parse(JSON.stringify(saved)), common, { ssMonthlyA: ssMonthly, pensionYearlyA: pension }, onePerson ? {} : { ssMonthlyB: ssMonthly, pensionYearlyB: pension });
+            return window.__test_solver.lambdaEstimate({ tradPool, year: 0, singlePerson: onePerson, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1 });
+          };
+        try {
+          const ss = (40000 / 12) * 12;
+          let found = null;
+          for (let P = 60000; P <= 300000 && found === null; P += 500) {
+            let atCap = true,
+              crosses = false;
+            for (const div of divisors) {
+              const rmd = tradPool / div,
+                step = Math.max(1000, 0.1 * rmd),
+                // Per return: the whole RMD and step on one return; half of each on each of two returns.
+                trad = onePerson ? rmd : rmd / 2,
+                s = onePerson ? step : step / 2,
+                eng = P + ss + trad,
+                med = t.irmaaMagiOf(eng, ss, 'single'),
+                medUp = t.irmaaMagiOf(eng + s, ss, 'single');
+              if (Math.abs(med - (eng - ss + 0.85 * ss)) > 1e-6) atCap = false;
+              const engCross = t.irmaaSurcharge(eng + s, 'single', 0) !== t.irmaaSurcharge(eng, 'single', 0),
+                medCross = t.irmaaSurcharge(medUp, 'single', 0) !== t.irmaaSurcharge(med, 'single', 0);
+              if (engCross && !medCross) crosses = true;
+            }
+            if (atCap && crosses) found = P;
+          }
+          if (found === null) return { found };
+          return { found, x: lam(40000 / 12, found), y: lam(0, found + 34000) };
+        } finally {
+          for (const k of Object.keys(st)) delete st[k];
+          Object.assign(st, saved);
+        }
+      },
+      { common, onePerson }
+    );
+  const LAMBDA_BASE = { returnRate: 2.5, inflation: 2.5, stateTax: 'tx', survivorEnabled: false, children: [], ssStartAgeA: 67, ssStartAgeB: 67, pensionStartAgeA: 65, pensionStartAgeB: 65 };
+  // M1: one person, 70, life expectancy 85.
+  {
+    const r = await lambdaPair({ ...LAMBDA_BASE, singlePerson: true, ageA: 70, lifeExpectancyA: 85, pensionCoverage: 'a' }, true);
+    assert(r.found !== null, 'M1: a pension P where the engine-MAGI step crosses a tier edge and the Medicare one does not');
+    assert(Math.abs(r.x.lambda - r.y.lambda) < 1e-12, `M1 (P ${r.found}): lambda with and without the untaxed benefit: ${r.x.lambda} vs ${r.y.lambda}`);
+  }
+  // M13: an unmarried couple on two single returns, both 70, life expectancy 85; per person as in M1.
+  {
+    const r = await lambdaPair({ ...LAMBDA_BASE, singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 70, ageB: 70, lifeExpectancyA: 85, lifeExpectancyB: 85, pensionCoverage: 'both' }, false);
+    assert(r.found !== null, 'M13: a pension P where the per-return engine-MAGI step crosses a tier edge and the Medicare one does not');
+    assert(Math.abs(r.x.lambda - r.y.lambda) < 1e-12, `M13 (P ${r.found}): lambda with and without the untaxed benefits: ${r.x.lambda} vs ${r.y.lambda}`);
+  }
+
+  // --- Review follow-up M14: the year loop's irmaaAt on two returns prices each return's Medicare MAGI ---
+  // An unmarried couple, both 66 and retired, Texas, no ACA, inflation 2.5%: pension P and Social Security 40,000 (started)
+  // each, 300,000 in each partner's traditional IRA (the draw splits half and half), spending 2P + 60,000 (more than the
+  // income after tax: year 0 draws from the traditional IRAs), cliff plan on. The search (P from 60,000 in 500 steps) keeps
+  // the first P where year 0 is a withdrawal year with a line in reach (a choose-trace entry with candidates) and each
+  // return's ENGINE MAGI divided by irmaaGrowth2 (1.025 squared) is over the single first tier (109,000) and its Medicare
+  // MAGI divided by it is at or under: the year's IRMAA estimate must be 0, so the natural candidate's cliffCost
+  // (healthcare + irmaaAt) is the row's healthcare exactly. On the engine MAGI it would add a surcharge.
+  {
+    const M14 = {
+      ...QUIET, inflation: 2.5, tradIraA: 300000, tradIraB: 300000, singlePerson: false, filingStatus: 'single', marryLater: false,
+      ageA: 66, ageB: 66, retireAgeA: 60, retireAgeB: 60, lifeExpectancyA: 75, lifeExpectancyB: 75, pensionCoverage: 'both',
+      pensionStartAgeA: 60, pensionStartAgeB: 60, ssStartAgeA: 62, ssStartAgeB: 62, ssMonthlyA: 40000 / 12, ssMonthlyB: 40000 / 12, cliffGuardEnabled: true,
+    };
+    const r = await page.evaluate((M14) => {
+      const st = window.__test_getState(),
+        saved = JSON.parse(JSON.stringify(st)),
+        t = window.__test_tax,
+        set = (P) => {
+          for (const k of Object.keys(st)) delete st[k];
+          Object.assign(st, JSON.parse(JSON.stringify(saved)), M14, { pensionYearlyA: P, pensionYearlyB: P, spending: 2 * P + 60000 });
+        };
+      try {
+        const g2 = (1 + M14.inflation / 100) * (1 + M14.inflation / 100),
+          ss = (40000 / 12) * 12;
+        for (let P = 60000; P <= 150000; P += 500) {
+          set(P);
+          const row = window.__test_runPlanMode({ planMode: 'choose' }).rows[0];
+          if (!(row.magiA > 0 && row.magiB > 0)) continue;
+          const ok = [row.magiA, row.magiB].every((m) => m / g2 > 109000 && t.irmaaMagiOf(m, ss, 'single') / g2 <= 109000);
+          if (!ok) continue;
+          // A withdrawal year with a line in reach: the choose trace has year 0 with candidates.
+          const tr = window.__test_planTrace().find((x) => x.year === 0);
+          if (!tr || !tr.candidates) continue;
+          return { P, row: { healthcare: row.healthcare, magiA: row.magiA, magiB: row.magiB, trad: row.traditionalWithdrawn }, tr: tr || null };
+        }
+        return { P: null };
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, M14);
+    assert(r.P !== null, 'M14: a pension P where each return is over the first tier on the engine MAGI and at or under it on Medicare MAGI');
+    assert(r.row.trad > 0, `M14 (P ${r.P}): year 0 draws from the traditional IRAs`);
+    assert(r.tr && Array.isArray(r.tr.candidates) && r.tr.candidates.length > 0, `M14 (P ${r.P}): year 0 has a trace entry with candidates: ${JSON.stringify(r.tr)}`);
+    const nat = r.tr.candidates.find((c) => c.kind === 'none');
+    assert(nat, `M14 (P ${r.P}): a natural candidate`);
+    assert.strictEqual(nat.cliffCost, r.row.healthcare, `M14 (P ${r.P}): the natural cliffCost is the row's healthcare (no IRMAA estimate)`);
+  }
+
   assert.deepStrictEqual(errors, [], 'no page errors');
   await browser.close();
   console.log('irmaa_magi: all passed');

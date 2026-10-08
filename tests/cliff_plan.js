@@ -213,9 +213,9 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // ---- Task 5: the keep rule (rule A) and refreshCliffPlan. ----
   // refreshCliffPlan under a scenario's patch (translated as runMode does); with `applyAll`, also an apply run of choose's
   // intents, measured as refreshCliffPlan measures (depletion, afterTaxEndValueUS, real tax + healthcare).
-  const refresh = (sc, extra = {}, applyAll = false) =>
+  const refresh = (sc, extra = {}, applyAll = false, withOff = false) =>
     page.evaluate(
-      ({ patch, applyAll }) => {
+      ({ patch, applyAll, withOff }) => {
         const st = window.__test_getState(),
           saved = JSON.parse(JSON.stringify(st));
         try {
@@ -229,6 +229,11 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
             for (const x of r.rows) cost += (x.tax + x.healthcare) / Math.pow(1 + infl, x.year);
             out.applyAll = { depletedAge: r.depletedAge, value: window.__test_afterTaxEndValueUS(r.sim), cost, n: Object.keys(ch.intents).length };
           }
+          if (withOff) {
+            // A real `off` run, measured as computeCliffPlan measures a candidate.
+            const o = window.__test_runPlanMode({ planMode: 'off' });
+            out.offRun = { depletedAge: o.depletedAge, value: window.__test_afterTaxEndValueUS(o.sim) };
+          }
           return out;
         } finally {
           for (const k of Object.keys(st)) delete st[k];
@@ -237,7 +242,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
           window.__test_refreshCliffPlan();
         }
       },
-      { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, applyAll }
+      { patch: { ...legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }), ...extra }, applyAll, withOff }
     );
   const depOf = (d) => (d == null ? Infinity : d);
 
@@ -256,8 +261,12 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
 
   // T5.2 The kept plan is never worse than off, for every std G household.
   for (const sc of ALL.filter((s) => s.kind === 'std' && s.shift === 0 && s.name.startsWith('std G '))) {
-    const { plan, report } = await refresh(sc);
+    const { plan, report, offRun } = await refresh(sc, {}, false, true);
     assert(plan, `T5.2 ${sc.name}: guard on gives a plan`);
+    // Review follow-up M6: no steering is always the first candidate, and it is the real `off` run.
+    assert.strictEqual(report.candidates[0].family, 'none', `T5.2 ${sc.name}: the first candidate is none (${JSON.stringify(report.candidates)})`);
+    assert.strictEqual(report.candidates[0].depletedAge, offRun.depletedAge, `T5.2 ${sc.name}: none depletes as off`);
+    assert.strictEqual(report.candidates[0].value, offRun.value, `T5.2 ${sc.name}: none's value is off's`);
     const off = report.candidates.find((c) => c.family === 'none'),
       kept = report.candidates.find((c) => c.family === report.kept);
     assert.strictEqual(plan.family, report.kept, `T5.2 ${sc.name}: plan family`);
