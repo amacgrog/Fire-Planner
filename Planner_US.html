@@ -1158,8 +1158,8 @@
     { key: 'incomeB', type: 'number' },
     { key: 'matchA', type: 'number' },
     { key: 'matchB', type: 'number' },
-    { key: 'profitSharingPctA', type: 'number', onInput: () => clampProfitSharing('profitSharingPctA') },
-    { key: 'profitSharingPctB', type: 'number', onInput: () => clampProfitSharing('profitSharingPctB') },
+    { key: 'profitSharingPctA', type: 'number', min: 0, max: 25, onInput: () => clampProfitSharing('profitSharingPctA') },
+    { key: 'profitSharingPctB', type: 'number', min: 0, max: 25, onInput: () => clampProfitSharing('profitSharingPctB') },
     { key: 'k401PctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
     { key: 'k401PctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
     { key: 'catchupPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
@@ -1311,7 +1311,7 @@
         : { type: 'string', enum: field.values };
   const mcpAccepts = (field, v) =>
     field.type === 'number'
-      ? Number.isFinite(v)
+      ? Number.isFinite(v) && (field.min === undefined || v >= field.min) && (field.max === undefined || v <= field.max)
       : field.type === 'bool'
         ? typeof v === 'boolean'
         : field.values.includes(v);
@@ -8180,8 +8180,10 @@
     const leftB = allocatePlanRoom(Math.min(wageB, annualAdditionLimit) - kBaseB, PLAN_REQ, PLAN_GOT);
     const matchB = PLAN_GOT[0],
       profitB = PLAN_GOT[1];
-    const megaA = state.megaBackdoor ? leftA * pct(state.megaPctA) : 0,
-      megaB = state.megaBackdoor ? leftB * pct(state.megaPctB) : 0;
+    // After-tax money is the employee's own, like the deferral and catch-up, so it comes out of pay: at most the pay left
+    // after them (the room above already keeps annual additions within 100% of pay; catch-ups sit outside that room).
+    const megaA = state.megaBackdoor ? Math.min(leftA, Math.max(0, wageA - kA)) * pct(state.megaPctA) : 0,
+      megaB = state.megaBackdoor ? Math.min(leftB, Math.max(0, wageB - kB)) * pct(state.megaPctB) : 0;
     const rothContribA =
       (state.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
@@ -16268,6 +16270,7 @@
   window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, accountStatuses };
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
+  window.__test_mcpAccepts = (key, v) => mcpAccepts(FIELDS.find((f) => f.key === key), v);
   window.__test_setCurrentYear = (y) => { currentYear = y; };
   // For tests/tax_caches.js: the compiled state rules, so a test can force the per-person inputs on for every row.
   window.__test_stateRuleFor = stateRuleFor;

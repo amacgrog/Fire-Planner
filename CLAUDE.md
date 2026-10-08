@@ -391,9 +391,9 @@ Each planner is one big IIFE. Core shape:
   out)` (pure, country-neutral, allocation-free; moves to `shared/` at E1-CA) sit above `retirementContributions`, which
   returns the limited `matchA/B`, `profitA/B` and `employerContrib` (the year loop's `employerMatch`). One room per
   partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
-  `min(pay, annual limit) - deferrals` (catch-ups outside it); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
+  `min(pay, annual limit) - deferrals` (catch-ups outside it); the mega backdoor is further capped at pay less deferral and catch-up (the employee's own money never exceeds pay); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
   `normalizeState` and while typing) is the employer's share of pay into the traditional 401(k). Partner income
-  (`incomeA/B`) is a money field, not a slider. Test: `tests/contribution_limits.js`.
+  (`incomeA/B`) is a money field, not a slider. Optional `min` / `max` on a `FIELDS` number entry bound MCP input only (`mcpAccepts`, US-only; profit sharing 0-25). Test: `tests/contribution_limits.js`.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,

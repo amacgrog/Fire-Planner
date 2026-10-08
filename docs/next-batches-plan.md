@@ -990,6 +990,23 @@ calls (a two-element loop over module scratch arrays, no allocation) per project
   stable dash.
 - Only one scenario moved: default megaBackdoor+match (group c), year 0 match 7,905,000 lower.
 
+**Review fixes (Task 5, owner decisions 2026-10-08).**
+- The employee's own money (deferral + catch-up + after-tax) is capped at pay: the mega backdoor is now
+  `min(room, max(0, pay - deferral - catch-up))` times the slider (at 55 on 40,000 the old code put in 24,500 + 8,000 +
+  15,500 = 48,000). New cases in `tests/contribution_limits.js`: pay 40,000 at 55 gives traditional 401(k) 32,500 and Roth
+  401(k) 7,500 (was 15,500); with a 10% match 4,000, Roth 7,500, traditional 36,500; with a 30% match the room (3,500)
+  binds, Roth 3,500. The 200,000 catch-up cases (55,500 and 58,750) are unchanged.
+- MCP: `mcpAccepts` (US-only, outside every shared region) rejects a number outside a field's optional `min` / `max`; the
+  profit-sharing entries carry 0 and 25 (26 and -1 rejected, 0 and 25 accepted; the match has no bounds). The MCP `execute`
+  in the shared region is not touched. Hook `window.__test_mcpAccepts`.
+- Three snapshot scenarios added (`default megaBackdoor 50+`, `default pay over comp limit+match`, `default low pay 55
+  megaBackdoor`): `us.json` gains exactly those three entries; no existing entry changes (base-vs-working compare: the only
+  existing scenario that differs is the accepted `default megaBackdoor+match`, unchanged against the committed baseline).
+- Recorded, no change: the match has no clamp (harmless, the engine limits any match to the room); `histSuccess` text in
+  the UI snapshot is timing-flaky; the E1 pointer stays where it is.
+- Timing (21 rounds): bench_runs_interleaved at most +3.4% (TX historical); bench_solver run 1 ACA simulate +8.3%, default
+  path +5.6%; run 2 ACA simulate +5.6%, default path +5.6% (0.05 ms grain, the change adds one min/max per year).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

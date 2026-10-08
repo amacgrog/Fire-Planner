@@ -135,6 +135,29 @@ const path = require('path');
   sv = await loadSaved({ incomeA: 500000 });
   assert.strictEqual(sv.incomeA, 500000, 'legacy: income above the old slider cap');
 
+  // ---- Task 5: the employee's own money (deferral + catch-up + after-tax) never exceeds pay. ----
+  // Pay 40,000 at 55: deferral 24,500 (traditional); catch-up min(40,000 - 24,500, 8,000) = 8,000 (traditional, pay under
+  // 150,000); room 40,000 - 24,500 = 15,500; employee money left 40,000 - 24,500 - 8,000 = 7,500, so mega 7,500
+  // (before the cap 15,500: 24,500 + 8,000 + 15,500 = 48,000 of 40,000 pay). 401(k) traditional 24,500 + 8,000 = 32,500.
+  r = await rc(P0, { wageA: 40000, age: 55 });
+  assert.strictEqual(r.acct.trad[1], 32500, 'pay cap: traditional 401(k)');
+  assert.strictEqual(r.acct.roth[1], 7500, 'pay cap: mega limited to pay less deferral and catch-up');
+  // With a 10% match: match 4,000 (room 15,500 -> 11,500 left); mega min(11,500, 7,500) = 7,500; traditional 32,500 + 4,000.
+  r = await rc({ ...P0, matchA: 10 }, { wageA: 40000, age: 55 });
+  assert.strictEqual(r.matchA, 4000, 'pay cap + match: match');
+  assert.strictEqual(r.acct.roth[1], 7500, 'pay cap + match: mega');
+  assert.strictEqual(r.acct.trad[1], 36500, 'pay cap + match: traditional');
+  // The cap does not bind when the room is smaller: match 30% = 12,000 (room 15,500 -> 3,500); mega min(3,500, 7,500).
+  r = await rc({ ...P0, matchA: 30 }, { wageA: 40000, age: 55 });
+  assert.strictEqual(r.acct.roth[1], 3500, 'room smaller than the pay cap');
+  // MCP bounds: profit sharing strictly 0 to 25, the match unbounded.
+  const acc = (k, v) => page.evaluate(([a, b]) => window.__test_mcpAccepts(a, b), [k, v]);
+  assert.strictEqual(await acc('profitSharingPctA', 26), false, 'mcp: 26 rejected');
+  assert.strictEqual(await acc('profitSharingPctA', -1), false, 'mcp: -1 rejected');
+  assert.strictEqual(await acc('profitSharingPctA', 25), true, 'mcp: 25 accepted');
+  assert.strictEqual(await acc('profitSharingPctA', 0), true, 'mcp: 0 accepted');
+  assert.strictEqual(await acc('matchA', 5000), true, 'mcp: match unbounded');
+
   // allocatePlanRoom
   let a = await alloc(100, [30, 50, 40]);
   assert.deepStrictEqual(a, { out: [30, 50, 20], left: 0 });
