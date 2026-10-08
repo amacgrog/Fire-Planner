@@ -1135,6 +1135,28 @@
   const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
   const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
   // @@shared:01-LIST_MAX end
+  // E1b: income stream owner, kind and retirement-contribution panel (US; Canada carries none of these keys until E1-CA).
+  // normalizeLists (shared) keeps only the common stream keys, so these are read from the raw save, aligned the way
+  // normalizeLists filtered it. Unknown values fall back to the legacy meaning: Partner A, not earned, no contribution.
+  function normalizeUsStreams(s, raw) {
+    const legacy = !!raw && 'otherIncomeEnabled' in raw,
+      src = !legacy && Array.isArray(raw?.incomeSources) ? raw.incomeSources.filter((x) => x && typeof x === 'object') : [],
+      pct0 = (v) => (v !== '' && v !== null && Number.isFinite(Number(v)) ? Math.min(100, Math.max(0, Number(v))) : 0);
+    s.incomeSources = s.incomeSources.map((x, i) => {
+      const r = src[i] || {};
+      return {
+        ...x,
+        owner: r.owner === 'B' ? 'B' : 'A',
+        kind: r.kind === 'wages' ? 'wages' : 'other',
+        contribute: r.contribute === true,
+        deferralType: r.deferralType === 'roth' ? 'roth' : 'traditional',
+        deferralPct: pct0(r.deferralPct),
+        matchPct: pct0(r.matchPct),
+        afterTaxPct: pct0(r.afterTaxPct),
+        personalPct: pct0(r.personalPct),
+      };
+    });
+  }
   const clampLifeExpectancyA = () =>
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
   const clampLifeExpectancyB = () =>
@@ -1329,6 +1351,7 @@
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));
     normalizeLists(s, raw);
+    normalizeUsStreams(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
@@ -13951,9 +13974,18 @@
       rowTitle: (i) => `Income stream ${i + 1}`,
       addLabel: '+ Add an income stream',
       note: 'Recurring income over an age window.',
-      tip: 'e.g. rental income, a pension not modeled above, or alimony. Taxed as ordinary income attributed to Partner A. Add as many streams as you need; remove one with the × on its row.',
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth }),
+      tip: 'e.g. rental income, a pension not modeled above, or alimony. Choose who receives it and whether it is W-2 wages. Add as many streams as you need; remove one with the × on its row.',
+      fresh: () => ({
+        amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth,
+        owner: 'A', kind: 'other', contribute: false, deferralType: 'traditional',
+        deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0,
+      }),
       fields: [
+        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: () => !state.singlePerson },
+        {
+          key: 'kind', kind: 'select', label: 'Kind', options: [['other', 'Not earned'], ['wages', 'W-2 wages']],
+          tip: "W-2 wages: pay from an employer. It pays Social Security and Medicare tax (sharing the owner's wage base with their salary), counts as earned income for the child tax credit, is taxed on the owner's return, and can fund the owner's 401(k) and IRA (tick Contribute to retirement accounts). It does not change Medicare or ACA eligibility or the main job's contributions. It stops in the owner's death year. Not earned (rent, an annuity, alimony): no payroll tax; it continues to the survivor.",
+        },
         {
           key: 'amount',
           kind: 'money',
@@ -13962,9 +13994,27 @@
           tip: "Entered in today's dollars and grown from today at the rate chosen below, so a stream that starts years from now begins higher than the number you enter.",
           step: 1000,
         },
-        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 100, step: 1 },
-        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: "Last age it's received", min: 18, max: 100, step: 1 },
+        { key: 'startAge', kind: 'num', label: 'Starts at age', short: "Owner's age", min: 18, max: 100, step: 1 },
+        { key: 'endAge', kind: 'num', label: 'Ends at age', short: "Owner's age; last year received", min: 18, max: 100, step: 1 },
         ...DYN_GROWTH_FIELDS('income'),
+        { key: 'contribute', kind: 'check', label: 'Contribute to retirement accounts', short: "From this job's pay", showIf: (it) => it.kind === 'wages' },
+        { key: 'deferralType', kind: 'select', label: '401(k) type', options: [['traditional', 'Traditional'], ['roth', 'Roth']], showIf: (it) => it.kind === 'wages' && it.contribute },
+        {
+          key: 'deferralPct', kind: 'num', label: '401(k) contribution', short: 'Share of the deferral room left, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "100% fills the yearly 401(k) deferral limit (and the age-50 catch-up) that this person has left after their main job's contribution, up to this job's pay. The limit is per person across all jobs; the main salary is filled first.",
+        },
+        {
+          key: 'matchPct', kind: 'num', label: 'Employer match', short: "% of this job's pay", min: 0, max: 100, step: 0.1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "Added to the owner's traditional 401(k). It uses this employer's own annual limit ($72,000 in 2026, never more than this job's pay, less the deferral); only pay up to the compensation limit ($360,000 in 2026) counts.",
+        },
+        {
+          key: 'afterTaxPct', kind: 'num', label: 'After-tax (mega backdoor) Roth', short: "Share of this employer's room left, %", min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "Share of the room left under this employer's annual limit after the deferral and the match, and never more than this job's pay less the deferral and catch-up. Goes to the owner's Roth 401(k).",
+        },
+        {
+          key: 'personalPct', kind: 'num', label: 'IRA contribution', short: 'Share of the IRA room left, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "100% fills the IRA limit this person has left after their main job's IRA contribution, up to their total pay. Traditional or Roth follows the IRA type chosen above.",
+        },
       ],
     },
     oneTimeIncome: {
@@ -14127,6 +14177,12 @@
     if (f.kind === 'check') {
       return `<div ${wrapAttrs}><label for="${id}"><input id="${id}" type="checkbox" data-dyn-i="${i}" data-dyn-k="${f.key}" ${item[f.key] ? 'checked' : ''}> ${dynLabel(f.label, f.tip)}${small}</label></div>`;
     }
+    if (f.kind === 'select') {
+      const opts = f.options
+        .map(([v, l]) => `<option value="${escapeHtml(v)}"${String(item[f.key]) === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
+        .join('');
+      return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><select id="${id}" data-dyn-i="${i}" data-dyn-k="${f.key}">${opts}</select></div>`;
+    }
     const money = f.kind === 'money' ? ' class="money"' : '',
       bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`;
     return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds} value="${Number(item[f.key]) || 0}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
@@ -14180,6 +14236,7 @@
         item = state[spec.key][i];
       if (!item || !f) return;
       if (f.kind === 'check') item[f.key] = el.checked;
+      else if (f.kind === 'select') item[f.key] = el.value;
       else if (f.kind === 'money') item[f.key] = Number(String(el.value).replace(/[^0-9]/g, '')) || 0;
       else {
         const n = Number(el.value) || 0;
@@ -14193,7 +14250,7 @@
       if (e.target.matches('input[data-dyn-k]') && e.target.type !== 'checkbox') apply(e.target);
     });
     container.addEventListener('change', (e) => {
-      if (e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') apply(e.target);
+      if ((e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') || e.target.matches('select[data-dyn-k]')) apply(e.target);
     });
     container.addEventListener('click', (e) => {
       const add = e.target.closest('[data-dyn-add]'),
@@ -14286,6 +14343,7 @@
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
+    dynApplyVisibility('incomeSources');
     [
       ['ownBtn', 'own'],
       ['rentBtn', 'rent'],

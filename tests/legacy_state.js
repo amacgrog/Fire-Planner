@@ -64,6 +64,11 @@ const US = {
   'profit sharing junk': { profitSharingPctA: 'x', profitSharingPctB: 400 },
   'profit sharing negative': { profitSharingPctA: -5 },
   'income above the old slider cap': { incomeA: 500000 },
+  // E1b: income stream owner, kind and contribution panel.
+  'stream owner kind': { incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'B', kind: 'wages', contribute: true, deferralType: 'roth', deferralPct: 50, matchPct: 4, afterTaxPct: 0, personalPct: 100 }] },
+  'stream junk': { incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'C', kind: 'self', contribute: 'yes', deferralType: 'x', deferralPct: 400, matchPct: -3, afterTaxPct: 'q' }] },
+  'stream no keys': { incomeSources: [{ amount: 10000, startAge: 60, endAge: 70 }] },
+  'stream stored B single': { singlePerson: true, incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'B' }] },
 };
 const CA = {
   ...COMMON,

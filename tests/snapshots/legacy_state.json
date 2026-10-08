@@ -6,8 +6,8 @@
   "age clamps": "6b1177aadcdc9f0e",
   "old retireAge field": "f745cda3f34fd827",
   "unknown and retired keys": "a8a2b6df03445c7b",
-  "legacy bridge plan": "c13442806fc36737",
-  "legacy loans and income": "1d7b8117be7b5daf",
+  "legacy bridge plan": "26f4b4f03dc9b83d",
+  "legacy loans and income": "284a5d9220c178ce",
   "string numbers and junk": "2ec3fb105dbfbc78",
   "garbage schedules": "98ea43078755b74f",
   "dismissed arrays wrong type": "f4e7509f24c221f8",
@@ -32,7 +32,11 @@
   "account balances junk": "7f81fa357b6f157d",
   "profit sharing junk": "25bafed486707ed6",
   "profit sharing negative": "f4e7509f24c221f8",
-  "income above the old slider cap": "9b9e51b50e1eef4e"
+  "income above the old slider cap": "9b9e51b50e1eef4e",
+  "stream owner kind": "8e79606ab1955dc5",
+  "stream junk": "d268216591d768d9",
+  "stream no keys": "4c056e0634ed1fb4",
+  "stream stored B single": "a0ff3dc2e05c094d"
  },
  "Canada": {
   "empty": "20ac0e4dd9d51e22",

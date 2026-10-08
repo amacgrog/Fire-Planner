@@ -5,6 +5,12 @@
     if (f.kind === 'check') {
       return `<div ${wrapAttrs}><label for="${id}"><input id="${id}" type="checkbox" data-dyn-i="${i}" data-dyn-k="${f.key}" ${item[f.key] ? 'checked' : ''}> ${dynLabel(f.label, f.tip)}${small}</label></div>`;
     }
+    if (f.kind === 'select') {
+      const opts = f.options
+        .map(([v, l]) => `<option value="${escapeHtml(v)}"${String(item[f.key]) === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
+        .join('');
+      return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><select id="${id}" data-dyn-i="${i}" data-dyn-k="${f.key}">${opts}</select></div>`;
+    }
     const money = f.kind === 'money' ? ' class="money"' : '',
       bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`;
     return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds} value="${Number(item[f.key]) || 0}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
@@ -58,6 +64,7 @@
         item = state[spec.key][i];
       if (!item || !f) return;
       if (f.kind === 'check') item[f.key] = el.checked;
+      else if (f.kind === 'select') item[f.key] = el.value;
       else if (f.kind === 'money') item[f.key] = Number(String(el.value).replace(/[^0-9]/g, '')) || 0;
       else {
         const n = Number(el.value) || 0;
@@ -71,7 +78,7 @@
       if (e.target.matches('input[data-dyn-k]') && e.target.type !== 'checkbox') apply(e.target);
     });
     container.addEventListener('change', (e) => {
-      if (e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') apply(e.target);
+      if ((e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') || e.target.matches('select[data-dyn-k]')) apply(e.target);
     });
     container.addEventListener('click', (e) => {
       const add = e.target.closest('[data-dyn-add]'),
