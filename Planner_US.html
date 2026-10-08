@@ -10702,17 +10702,18 @@
   }
   // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
   // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
-  // gets the plan of its own inputs, cached by their JSON. The state-replacement sites are in shared regions and are not
-  // edited: this is the whole stale-plan rule.
+  // gets the plan of its own inputs under the current tax year, cached by the year and their JSON (refreshCliffPlan keys on
+  // the year too). The state-replacement sites are in shared regions and are not edited: this is the whole stale-plan rule.
   function planForState() {
-    if (state === cliffPlanState) return cliffPlan;
+    if (state === cliffPlanState && cliffPlanYear === currentYear) return cliffPlan;
     if (!state.cliffGuardEnabled) return null;
     const key = JSON.stringify(state);
-    if (key === cliffPlanKey) return cliffPlan;
-    if (cliffPlanCache.has(key)) return cliffPlanCache.get(key);
+    if (key === cliffPlanKey && cliffPlanYear === currentYear) return cliffPlan;
+    const cacheKey = currentYear + '|' + key;
+    if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
     const plan = computeCliffPlan().plan;
     if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
-    cliffPlanCache.set(key, plan);
+    cliffPlanCache.set(cacheKey, plan);
     return plan;
   }
 

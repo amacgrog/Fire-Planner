@@ -462,6 +462,39 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(out.c6, 'T6.9 case 6: cache churn leaves results unchanged');
   }
 
+  // T6.10 planForState keys its plan on the tax year, as refreshCliffPlan does (review follow-ups, finding 3). R = 'std G single 66
+  // 500k 300k 130k smooth', the first household found by search (all std scenarios, the std G ACA ones included) whose plan differs
+  // between the tax years 2026 and 2027: 2026 keeps no intent, 2027 keeps IRMAA stay-unders at 66 and 67 (the IRMAA edges move).
+  {
+    const full = (name) => { const sc = household(name); return legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }); };
+    const P = full('std G hoh 62 aca smooth'),
+      R = full('std G single 66 500k 300k 130k smooth');
+    const out = await page.evaluate(
+      ({ P, R }) => {
+        const base = JSON.parse(JSON.stringify(window.__test_getState())),
+          raw = (patch) => ({ ...JSON.parse(JSON.stringify(base)), ...JSON.parse(JSON.stringify(patch)) }),
+          r = {};
+        try {
+          window.__test_replaceState(raw(P));
+          window.__test_refreshCliffPlan();
+          window.__test_replaceState(raw(R));
+          r.p1 = window.__test_planForState(); // R under 2026, now cached
+          window.__test_setCurrentYear(2027);
+          r.p2 = window.__test_planForState(); // the same state object and JSON, a later tax year
+          r.p3 = window.__test_refreshCliffPlan().plan; // R is the current state; the refresh plans under 2027
+        } finally {
+          window.__test_setCurrentYear(2026);
+          window.__test_replaceState(base);
+          window.__test_refreshCliffPlan();
+        }
+        return r;
+      },
+      { P, R }
+    );
+    assert.notDeepStrictEqual(out.p1, out.p3, 'T6.10: R plans differently under 2026 and 2027');
+    assert.deepStrictEqual(out.p2, out.p3, 'T6.10: planForState plans for the current tax year, not the cached 2026 plan');
+  }
+
 
   // ---- Task 7: label, summary line, row tooltip. ----
   {
