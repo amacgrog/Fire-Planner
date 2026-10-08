@@ -746,6 +746,81 @@ asserts anyway). Mutations: M15, M1, M13, M14 each fail on the mutated tree and 
    the new assertion; the revised one fails T5.2's own check (`'all' !== 'none'`).
 3. Step 8's commit message no longer names the fill rule.
 
+##### Review follow-ups: implementation
+
+Branch `claude/review-followups` (worktree `fp-followups`), from `8ce17e3`; base tree `5eb30fa`. Plan:
+`docs/superpowers/plans/2026-10-08-review-followups.md`.
+
+**Commits:** `393b146` (the reviewer's Task 1 stop decisions, above), merged as `07f754d`; `d744511` (1: tests for the
+two-return IRMAA lines, lambda's IRMAA step, two-return `irmaaAt` and the `none` candidate); `674c1ac` (2: `planForState`
+keys its plan on the tax year); `7330bfa` (3: line de-duplication keeps the cliff line over a tax-family line); `373080c`
+(4: cleanups, V121); and this commit (5: anchor re-based, CLAUDE.md, notes).
+
+**Mutation table** (each applied in a scratch copy of the planner; "mutated" = the test run on the mutated tree):
+
+| Test (file) | Mutation | Mutated tree | Real tree |
+|---|---|---|---|
+| M15 two-return lines (`solver_hooks.js`) | two-return branch of `magiThresholds`: the A and B `magiForIrmaaLine` calls replaced by `cap` | fails (A line 238,000, expected 250,000) | passes |
+| M1 lambda IRMAA step, one return (`irmaa_magi.js`) | `lambdaEstimate` one-return branch: both `irmaaMagiOf` calls replaced by their first argument | fails (lambda 0.42548 vs 0.24027) | passes |
+| M13 lambda, two returns (`irmaa_magi.js`) | two-return branch: the four `irmaaMagiOf` calls replaced by their first argument | fails (lambda 0.6 vs 0.24198) | passes |
+| M14 two-return `irmaaAt` (`irmaa_magi.js`) | `irmaaAt` two-return branch: `irmaaMagiOf(ma, ...)`, `irmaaMagiOf(mb, ...)` replaced by `ma`, `mb` | fails (cliffCost 14,593.6 vs healthcare 12,296.8) | passes |
+| M17 fill clamp | dropped by the owner decision (unreachable today); test deferred to Batch 5 | - | - |
+| M6 `none` candidate (`cliff_plan.js`, T5.2) | `const cands = fams.size ? [] : [measure('none', {}, chosen)];` | fails (`'all' !== 'none'`) | passes |
+| Task 2 T6.10 (`cliff_plan.js`) | the fix reverted (HEAD of Task 1 planner, `planForState` without the tax-year key) | fails ("planForState plans for the current tax year, not the cached 2026 plan") | passes |
+| Task 3 FU3 (`solver_hooks.js`) | the fix reverted (de-duplication keeps the earlier line) | fails (senior kept, irmaa1 dropped) | passes |
+| Task 3 invariant (`cliff_plan.js`: no intent names a senior or ctc line, every `std G` household) | the fix reverted | PASSES (no `std G` household reaches the coincident-line case) | passes |
+
+The Task 3 invariant is a guard only; it cannot fail alone today. The "two non-tax lines coincide" case was skipped (the brief
+permits it; no easy context).
+
+**Households the searches found:**
+- Task 1 Step 1 (M15): no search; the brief's context, `acaEnabled: false`; lines A 250,000, B 204,000 (untranslated 238,000 / 198,000).
+- Step 2 (M1): single, 70, life expectancy 85, Texas, real return 0, pool 500,000, **P = 63,000** (at 85 the engine MAGI 134,250 to
+  137,375 crosses 137,000, Medicare's 128,250 to 131,375 does not).
+- Step 3 (M13): unmarried couple, both 70, same pool and return, **P = 80,000** each.
+- Step 4 (M14): unmarried couple, both 66, retired at 60, Texas, no ACA, 2.5% inflation, 300,000 in each IRA, Social Security 40,000
+  each, **P = 66,500** each (magiA = magiB = 116,925.14; natural `cliffCost` = row healthcare = 12,296.8). P = 66,000 met the MAGI rule but
+  had no line in reach, so "a line in reach" is part of the search condition.
+- Step 5 (M17): **0 hits in 1,553 runs** (the 768-household grid in both modes plus the 17 `std G` scenarios, conversions on over 58 to
+  64); not one trace year with any fill candidate. Dropped (see the decision above).
+- Step 6 (M6): the T5.2 loop, every `std G` household.
+- Task 2 (R): `std G single 66 500k 300k 130k smooth`, an IRMAA household with ACA enabled in its state (2026: no intents, family none;
+  2027: IRMAA stay-unders irmaa2 at 66 and irmaa1 at 67). The search over about 66 `std` shift-0 scenarios found no ACA-only `std G`
+  scenario whose plan differs between 2026 and 2027.
+
+**Anchor runs:** `node tests/plan_off_anchor.js --base ../fp-followups-base` (the `5eb30fa` tree): `plan_off_anchor: 543 identical, 0 different`.
+Against `3ebee0e` it was 339 identical, 204 different (the IRMAA fix, by design); the header comment now names `5eb30fa`.
+
+**Snapshots:** after Tasks 1, 2 and 3: US 543 and Canada 375 exact, UI snapshots pass, none updated. Task 4: US 543 and Canada 375
+exact; `ui_us.json` updated with `node tests/snapshot_ui.js --update` (not `snapshot:update`) for the text hash and length of three
+`std` surfaces only (the healthcare callout wording; `projectionHash` and `rowsHash` identical); `ui_canada.json` was rewritten
+with no content change and restored.
+
+**Timing** (Task 4; branch HEAD with Tasks 1 to 3 against `5eb30fa`, interleaved, 21 rounds, medians in ms, simulate / history path;
+gate +5%):
+
+| State | Run 1 | Run 2 |
+|---|---|---|
+| tx | 192->191 (-0.5%) / 57->57 (0.0%) | 190->190 (0.0%) / 57->57 (0.0%) |
+| ca | 286->287 (0.3%) / 80->81 (1.2%) | 278->276 (-0.7%) / 80->80 (0.0%) |
+| ny | 307->322 (4.9%) / 89->94 (5.6%) | 299->299 (0.0%) / 86->86 (0.0%) |
+| pa | 273->287 (5.1%) / 77->81 (5.2%) | 275->274 (-0.4%) / 77->76 (-1.3%) |
+| ct | 349->368 (5.4%) / 102->108 (5.9%) | 363->365 (0.6%) / 106->108 (1.9%) |
+| wa | 219->234 (6.8%) / 65->70 (7.7%) | 221->222 (0.5%) / 65->65 (0.0%) |
+
+`tests/bench_solver.js`: ACA early retiree (CA) simulate 2.84->2.96 ms (4.2%), path 2.70->2.60 (-3.7%); default household simulate
+1.32->1.36 (3.0%), path 1.05->1.05 (0.0%).
+
+**For the owner:**
+- Run 1 of the timing showed ny, pa, ct and wa up to +7.7%; a single rerun showed -1.3% to +1.9%. CLAUDE.md puts the machine's noise
+  at +-10%, and the change is number-neutral; the rerun was accepted, the +7.7% is unexplained.
+- Task 2's test household is an IRMAA household (ACA enabled in the state), not a strict ACA-cliff one; no ACA-only `std G` scenario
+  differs between 2026 and 2027.
+- Task 3's invariant passes with and without the fix (a guard only); the T6.9 state-swap households exercise plan lookup, not line
+  selection, so the regression is caught by FU3 in `solver_hooks.js`, not by the invariant.
+- M17 (the fill clamp `conversionAmount > naturalRec.conversion`) has no test; it stays as a defensive rule, and its test moves to Batch 5.
+- Scratch folders `fp-scratch-t1`, `-t2`, `-t3` under `C:UsersAlexcode` hold the mutation copies and can be deleted.
+
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 
 The cliff plan optimizes against the known future events the inputs describe, so events that change tax rates, MAGI
