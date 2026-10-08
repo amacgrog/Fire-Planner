@@ -851,6 +851,10 @@ short design before it is built; none is part of the cliff-plan batch (each chan
 would confound that batch's movers). Statuses were checked against `Planner_US.html` at `3ebee0e`.
 
 **After the cliff plan, small PRs, in this order:**
+- **E1 is split (owner, 2026-10-08) into E1a (contribution limits and profit sharing; spec
+  `docs/superpowers/specs/2026-10-08-e1a-plan-contribution-limits-design.md`), E1b (stream owner and W-2 kind), E1c (full
+  self-employment, main income and streams), E1d (one-time income treatments), and E1-CA (the Canada port, later, near the
+  province move); see the E1a spec section 1.** The original E1 text below is the source for E1b to E1d.
 - **E1. Income character.**
   - Income streams: an owner choice (Partner A / B; hidden in single-person mode) and an "earned income (wages)"
     checkbox. Today a stream is "taxed as ordinary income attributed to Partner A": no payroll tax, not earned income
@@ -889,6 +893,119 @@ would confound that batch's movers). Statuses were checked against `Planner_US.h
 
 **Excluded (owner; state them in the README where a user could assume otherwise):** divorce or separation, annuity
 purchase, a disabled child, QCDs and charitable giving, a survivor's remarriage, international moves, cars as assets.
+
+##### E1a: implementation (US V122; Canada untouched)
+
+Commits on `claude/e1a-contribution-limits`: fbc11a4 (1: Partner A/B income as money fields, no number change), 383b76e
+(2: `PLAN_LIMITS`, `allocatePlanRoom`, test hooks, tests of today's contribution math, no number change), 261d984 (3: the
+limits and profit sharing, `snapshot:update`). No change to `Planner_Canada.html`, `shared/` or any shared region;
+`npm run check:shared` OK (55 x 2).
+
+**Failing, then passing** (Task 3 step 2, run before the fix with a soft-assert copy of the test):
+
+| Case | Expected | Before the fix | After |
+|---|---|---|---|
+| catch-up at 55: acct.roth[1] | 55500 | 47500 | pass |
+| catch-up at 61: acct.roth[1] | 58750 | 47500 | pass |
+| compensation limit: profitA | 36000 | undefined | pass |
+| compensation limit: acct.trad[1] (profit sharing) | 36000 | 0 | pass |
+| compensation limit: matchA | 36000 | undefined | pass |
+| order: matchA | 18000 | undefined | pass |
+| order: profitA | 29500 | undefined | pass |
+| order: acct.roth[1] (mega) | 0 | 47500 | pass |
+| order: acct.trad[1] | 72000 | 24500 | pass |
+| order: employerContrib | 47500 | undefined | pass |
+| 100% of pay: matchA | 0 | undefined | pass |
+| indexing: profitA | 39600 | undefined | pass |
+| retired: [matchA, profitA, roth[1], trad[1]] | [0,0,0,0] | [undefined, undefined, 0, 0] | pass |
+| single: [matchB, profitB, trad[3], roth[3]] | [0,0,0,0] | [undefined, undefined, 0, 0] | pass |
+| engine: 401(k) A higher by 15,000 | 15000 | 0 | pass |
+| legacy 'profit sharing junk' (A, B) | [0, 25] | ['x', 400] | pass |
+| legacy 'profit sharing negative' (A, B) | [0, 0] | [-5, undefined] | pass |
+
+Already passing before the fix (guards): catch-up deferral (24,500), 100% of pay deferral only (20,000), engine `tax` /
+`wages` / `magiProxy` identical (`Object.is`) and IRA A identical, legacy income above the old slider cap (500,000).
+
+**Movers** (dump of base 4df6e02 against the working tree): 918 scenario files compared, 1 differs (Canada: 0).
+
+| Group | Standard | Historical | Largest end-total change | Depletion before -> after |
+|---|---|---|---|---|
+| (a) catch-up | 0 | 0 | - | - |
+| (b) compensation limit | 0 | 0 | - | - |
+| (c) match cut to the room | 1 (`default megaBackdoor+match`) | 0 | finalInvestable 1,600,677,371.58 -> 29,816,035.43 | null -> null (never runs out) |
+
+The one mover (matchA 5000%, matchB 3000%, Roth deferrals, mega on; A 48, B 43, pay 100,000 each): first differing year
+is index 0, `traditional` only (8,229,000 -> 324,000, i.e. 7,905,000 less). Hand check: old match 5,000,000 + 3,000,000 =
+8,000,000; new match = each room min(100,000, 72,000) - 24,500 = 47,500, so 95,000; removed 7,905,000, exactly the
+year-0 difference. The Roth pool is identical in every year (mega backdoor 0 before and after: the 50x match filled the
+room in both). No mover outside (a)-(c); no standard scenario depletes earlier.
+
+**Legacy proof:** `node tests/legacy_state.js` failed on all 30 pre-existing US cases plus the 3 new ones (Canada: all
+passed). A scratch script (not committed) loaded every US case on both trees: every normalized state has exactly the two
+new keys added, and with `profitSharingPctA` / `profitSharingPctB` deleted the states are equal for 33 of 33 cases. Then
+`node tests/legacy_state.js --update` (US 33, Canada 17; the Canada hashes unchanged).
+
+**Snapshots:** `npm run snapshot:update` changes only the one scenario above in `us.json`. `snapshot_ui.js --update`:
+`ui_us.json` differs only in the MCP schema (two new properties `profitSharingPctA/B` after `matchB`), two new wiring
+entries, every control's domHash/reloadDomHash (the DOM map holds the two new inputs) and the three rendered-text hashes
+(+190 characters each, the estimated-field count 47 -> 49). No rowsHash or projectionHash changed.
+
+**Timing** (`node tests/bench_runs_interleaved.js --base ../fp-e1a-base --rounds 21`; +5% allowed):
+
+Run 1:
+```
+US tx  400 simulate 189 -> 188 ms (-0.5%), 120 historical 56 -> 55 ms (-1.8%)
+US ca  400 simulate 280 -> 287 ms (2.5%), 120 historical 81 -> 83 ms (2.5%)
+US ny  400 simulate 305 -> 311 ms (2.0%), 120 historical 87 -> 89 ms (2.3%)
+US pa  400 simulate 272 -> 282 ms (3.7%), 120 historical 76 -> 80 ms (5.3%)
+US ct  400 simulate 364 -> 358 ms (-1.6%), 120 historical 106 -> 104 ms (-1.9%)
+US wa  400 simulate 216 -> 226 ms (4.6%), 120 historical 64 -> 67 ms (4.7%)
+```
+Run 2 (the one allowed re-run, for PA historical 5.3%):
+```
+US tx  400 simulate 186 -> 186 ms (0.0%), 120 historical 55 -> 55 ms (0.0%)
+US ca  400 simulate 280 -> 277 ms (-1.1%), 120 historical 79 -> 79 ms (0.0%)
+US ny  400 simulate 292 -> 296 ms (1.4%), 120 historical 85 -> 85 ms (0.0%)
+US pa  400 simulate 265 -> 272 ms (2.6%), 120 historical 73 -> 76 ms (4.1%)
+US ct  400 simulate 353 -> 360 ms (2.0%), 120 historical 103 -> 105 ms (1.9%)
+US wa  400 simulate 213 -> 217 ms (1.9%), 120 historical 61 -> 63 ms (3.3%)
+```
+`node tests/bench_solver.js --base ../fp-e1a-base` (7 rounds), run 1: ACA early retiree (CA) simulate 2.96 -> 2.72 ms
+(-8.1%), path 2.75 -> 2.75 ms (0.0%); default simulate 1.28 -> 1.44 ms (12.5%), path 1.05 -> 1.10 ms (4.8%). Run 2: ACA
+2.94 -> 2.90 ms (-1.4%), path 2.60 -> 2.75 ms (5.8%); default 1.38 -> 1.30 ms (-5.8%), path 1.00 -> 1.10 ms (10.0%). At 21
+rounds: ACA simulate 2.36 -> 2.46 ms (4.2%), path 2.30 -> 2.35 ms (2.2%); default simulate 1.20 -> 1.26 ms (5.0%), path
+0.90 -> 0.90 ms (0.0%). The 7-round figures change sign between runs at a 0.05 ms grain (noise); the interleaved bench is
+at most +4.6% in run 2 apart from PA historical (+5.3% in run 1, +4.1% in run 2). The change adds two `allocatePlanRoom`
+calls (a two-element loop over module scratch arrays, no allocation) per projection year.
+
+**For the owner:**
+- `kA` / `kB` in `retirementContributions` are now unused (they only fed the old mega room); left as they were, remove at
+  your choice.
+- The MCP path stores `profitSharingPctA/B` values above 25 until the next reload's `normalizeState` clamps them;
+  `matchA` has no normalizeState clamp at all (never clamped, even on reload), so the profit-sharing gap is smaller
+  than the match's.
+- The snapshot grid has no case for movers (a) or (b); only the hand-computed unit tests cover them. Say if you want a
+  snapshot scenario for each (a 50+ partner with the mega backdoor and positive room; pay over 360,000 with a match).
+- `snapshot_ui` `histSuccess` is timing-flaky (an `--update` can write 85% instead of a dash); the committed value is the
+  stable dash.
+- Only one scenario moved: default megaBackdoor+match (group c), year 0 match 7,905,000 lower.
+
+**Review fixes (Task 5, owner decisions 2026-10-08).**
+- The employee's own money (deferral + catch-up + after-tax) is capped at pay: the mega backdoor is now
+  `min(room, max(0, pay - deferral - catch-up))` times the slider (at 55 on 40,000 the old code put in 24,500 + 8,000 +
+  15,500 = 48,000). New cases in `tests/contribution_limits.js`: pay 40,000 at 55 gives traditional 401(k) 32,500 and Roth
+  401(k) 7,500 (was 15,500); with a 10% match 4,000, Roth 7,500, traditional 36,500; with a 30% match the room (3,500)
+  binds, Roth 3,500. The 200,000 catch-up cases (55,500 and 58,750) are unchanged.
+- MCP: `mcpAccepts` (US-only, outside every shared region) rejects a number outside a field's optional `min` / `max`; the
+  profit-sharing entries carry 0 and 25 (26 and -1 rejected, 0 and 25 accepted; the match has no bounds). The MCP `execute`
+  in the shared region is not touched. Hook `window.__test_mcpAccepts`.
+- Three snapshot scenarios added (`default megaBackdoor 50+`, `default pay over comp limit+match`, `default low pay 55
+  megaBackdoor`): `us.json` gains exactly those three entries; no existing entry changes (base-vs-working compare: the only
+  existing scenario that differs is the accepted `default megaBackdoor+match`, unchanged against the committed baseline).
+- Recorded, no change: the match has no clamp (harmless, the engine limits any match to the room); `histSuccess` text in
+  the UI snapshot is timing-flaky; the E1 pointer stays where it is.
+- Timing (21 rounds): bench_runs_interleaved at most +3.4% (TX historical); bench_solver run 1 ACA simulate +8.3%, default
+  path +5.6%; run 2 ACA simulate +5.6%, default path +5.6% (0.05 ms grain, the change adds one min/max per year).
 
 ---
 

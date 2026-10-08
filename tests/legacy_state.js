@@ -60,6 +60,10 @@ const US = {
   'retired pooled retirement fields': { traditional: 500000, roth: 100000, traditionalSharePctA: 70, rothBasisPct: 40 },
   'account balances valid': { trad401kA: 250000, tradIraB: 80000, roth401kA: 20000, rothIraB: 30000, rothIraBasisB: 12000, roth401kBasisPctA: 60 },
   'account balances junk': { trad401kA: -5, tradIraA: 'x', rothIraB: null, rothIraBasisA: -1, roth401kBasisPctA: 250, roth401kBasisPctB: -3 },
+  // E1a: employer profit sharing, clamped 0 to 25 (exact values asserted in tests/contribution_limits.js).
+  'profit sharing junk': { profitSharingPctA: 'x', profitSharingPctB: 400 },
+  'profit sharing negative': { profitSharingPctA: -5 },
+  'income above the old slider cap': { incomeA: 500000 },
 };
 const CA = {
   ...COMMON,

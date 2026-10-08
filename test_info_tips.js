@@ -66,11 +66,15 @@ async function run(browser, file, viewport, label) {
   check((await tipBtn.getAttribute('aria-expanded')) === 'false', 'aria-expanded false after close');
 
   // 3. Slider-label bubble must not move or focus the slider.
-  const sliderTip = await page.$('label[for="incomeA"] .info-tip');
+  const sliderId = await page.evaluate(() => {
+    const f = [...document.querySelectorAll('.range-field')].find((r) => r.querySelector('label .info-tip') && r.querySelector('input[type=range]'));
+    return f.querySelector('input[type=range]').id;
+  });
+  const sliderTip = await page.$(`label[for="${sliderId}"] .info-tip`);
   await sliderTip.scrollIntoViewIfNeeded();
-  const sliderBefore = await page.$eval('#incomeA', (s) => s.value);
+  const sliderBefore = await page.$eval('#' + sliderId, (s) => s.value);
   await sliderTip.click();
-  check((await page.$eval('#incomeA', (s) => s.value)) === sliderBefore, 'slider value unchanged by ⓘ click');
+  check((await page.$eval('#' + sliderId, (s) => s.value)) === sliderBefore, 'slider value unchanged by ⓘ click');
   check(await bubble.isVisible(), 'slider-label bubble opens');
   // 4. Scroll closes it.
   await page.mouse.wheel(0, 200);
