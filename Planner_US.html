@@ -8071,22 +8071,51 @@
   // @@shared:07-mortgagePayment end
 
   // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----
+  // IRS limits for employer plans and IRAs, 2026 values (IRS Notice 2025-67 and News Release IR-2025-111); every one is
+  // indexed by limitFactor. Pure literals.
+  const PLAN_LIMITS = {
+    deferral: 24500, // IRC 402(g): elective deferrals
+    catchUp50: 8000, // IRC 414(v): catch-up from age 50 (also 64 and over)
+    catchUp60to63: 11250, // SECURE 2.0 section 109: the larger catch-up at ages 60 to 63
+    annualAdditions: 72000, // IRC 415(c)(1)(A): all annual additions, also at most 100% of pay; catch-ups are outside it
+    compensation: 360000, // IRC 401(a)(17): the most pay a percentage-of-pay contribution can count
+    rothCatchUpWages: 150000, // SECURE 2.0 section 603: catch-ups must be Roth over this prior-year FICA wage
+    ira: 7500, // IRC 219(b)(5)(A)
+    iraCatchUp: 1100, // IRC 219(b)(5)(B), indexed since 2024
+  };
+  // Fills `room` with amounts[0], amounts[1], ... in that order: out[i] is what amounts[i] gets (a negative amount gets
+  // 0). Returns the room left. Pure and country-neutral (no state, no US names): Canada's port moves it into a shared
+  // fragment (E1-CA). The caller passes reusable arrays; this runs every projection year.
+  function allocatePlanRoom(room, amounts, out) {
+    let left = room > 0 ? room : 0;
+    for (let i = 0; i < amounts.length; i++) {
+      const want = amounts[i] > 0 ? amounts[i] : 0,
+        got = want < left ? want : left;
+      out[i] = got;
+      left -= got;
+    }
+    return left;
+  }
   // 401(k) / IRA / mega-backdoor contributions for one year. Wages are already
   // zero for a partner who has retired, which zeroes their contributions. The
   // IRS limits are 2026 values scaled by limitFactor (inflation indexing).
   // Returns the dollars that go to traditional vs Roth accounts.
   function retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor }) {
     const catchupBaseA =
-        age >= 60 && age <= 63 ? 11250 * limitFactor : age >= 50 ? 8000 * limitFactor : 0,
+        age >= 60 && age <= 63
+          ? PLAN_LIMITS.catchUp60to63 * limitFactor
+          : age >= 50
+            ? PLAN_LIMITS.catchUp50 * limitFactor
+            : 0,
       catchupBaseB = singlePerson
         ? 0
         : ageB >= 60 && ageB <= 63
-          ? 11250 * limitFactor
+          ? PLAN_LIMITS.catchUp60to63 * limitFactor
           : ageB >= 50
-            ? 8000 * limitFactor
+            ? PLAN_LIMITS.catchUp50 * limitFactor
             : 0;
-    const baseLimitA = 24500 * limitFactor,
-      baseLimitB = 24500 * limitFactor;
+    const baseLimitA = PLAN_LIMITS.deferral * limitFactor,
+      baseLimitB = PLAN_LIMITS.deferral * limitFactor;
     const kBaseA = Math.min(wageA, baseLimitA) * pct(state.k401PctA),
       kBaseB = Math.min(wageB, baseLimitB) * pct(state.k401PctB);
     const catchupRoomA = Math.max(0, Math.min(wageA - kBaseA, catchupBaseA)),
@@ -8098,11 +8127,11 @@
     // SECURE 2.0: catch-up contributions must be Roth once prior-year FICA
     // wages exceed ~$150k (2026-indexed); approximated here using the
     // current-year modeled wage.
-    const rothCatchupThreshold = 150000 * limitFactor,
+    const rothCatchupThreshold = PLAN_LIMITS.rothCatchUpWages * limitFactor,
       catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : state.k401Type,
       catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : state.k401Type;
-    const iraLimitA = (7500 + (age >= 50 ? 1100 : 0)) * limitFactor,
-      iraLimitB = singlePerson ? 0 : (7500 + (ageB >= 50 ? 1100 : 0)) * limitFactor;
+    const iraLimitA = (PLAN_LIMITS.ira + (age >= 50 ? PLAN_LIMITS.iraCatchUp : 0)) * limitFactor,
+      iraLimitB = singlePerson ? 0 : (PLAN_LIMITS.ira + (ageB >= 50 ? PLAN_LIMITS.iraCatchUp : 0)) * limitFactor;
     const iraA = Math.min(wageA, iraLimitA) * pct(state.iraPctA),
       iraB = Math.min(wageB, iraLimitB) * pct(state.iraPctB);
     const traditionalContribA =
@@ -8114,7 +8143,7 @@
       (catchupTypeB === 'traditional' ? kCatchupB : 0) +
       (state.iraType === 'traditional' ? iraB : 0);
     const traditionalContrib = traditionalContribA + traditionalContribB;
-    const annualAdditionLimit = 72000 * limitFactor,
+    const annualAdditionLimit = PLAN_LIMITS.annualAdditions * limitFactor,
       megaRoomA = Math.max(
         0,
         Math.min(wageA, annualAdditionLimit) - Math.min(kA, baseLimitA + catchupBaseA) - matchA,
@@ -16188,6 +16217,21 @@
       }
     } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
     return trace;
+  };
+  window.__test_allocatePlanRoom = (room, amounts) => {
+    const out = [];
+    const left = allocatePlanRoom(room, amounts, out);
+    return { out, left };
+  };
+  window.__test_retirementContributions = (patch, args) => {
+    const saved = JSON.parse(JSON.stringify(state));
+    try {
+      Object.assign(state, patch);
+      return retirementContributions(args);
+    } finally {
+      for (const k of Object.keys(state)) delete state[k];
+      Object.assign(state, saved);
+    }
   };
   window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, accountStatuses };
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
