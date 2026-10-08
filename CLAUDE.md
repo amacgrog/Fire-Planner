@@ -63,6 +63,10 @@ feature list.
   `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
   including the 10% early-withdrawal penalty). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run
   through each row's real credit literals on a flat-10% synthetic base.
+- `tests/income_streams.js` — income stream owner and kind (E1b, US): `streamAmountsForYear`, payroll tax on stream wages, the ACTC,
+  two-return and survivor cases, hand-computed. `tests/stream_contributions.js` — `streamPlanContributions` and its rooms through
+  `retirementContributions` and the engine. `tests/survivor_salary.js` — a partner who dies before retiring stops working at death
+  (both planners). `test_income_streams.js` (Playwright, not in CI) covers the stream rows' owner/kind/panel controls.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
@@ -599,8 +603,8 @@ side before porting a feature:
   fields — survivor modeling has to actively remap the surviving partner's
   data into the `A` slot when Partner A died, rather than just flipping
   `profile.singlePerson = true` in place.
-  Anything summed into the A slot for the household (`extraIncome`) must be
-  re-attributed to the survivor in that remap too, and the Canada
+  Anything summed into the A slot for the household (US: not-earned income streams, now `extraA` / `extraB`, each on its
+  owner's slot) must be re-attributed to the survivor in that remap too, and the Canada
   `totalA`/`totalB`/OAS-clawback block keys off `aliveA`/`aliveB`, never off
   `effectiveSingle` alone. `tests/survivor_symmetry.js` (identical partners,
   A-dies must equal B-dies) guards both.
@@ -691,6 +695,26 @@ section (`bridge*` fields) is removed; `normalizeLists()` converts a saved
 retirement age, Partner B's window shifted into Partner A's age) and deletes
 every `bridge*` key — note `normalizeState` spreads unknown keys, so any
 retired field must be deleted explicitly or it re-migrates on every load.
+**Income streams, owner and kind (US, E1b).** A stream row also carries `owner` ('A'/'B'), `kind` ('other' = Not earned /
+`'wages'` = W-2) and a contribution panel (`contribute`, `deferralType`, `deferralPct`, `matchPct`, `afterTaxPct`, `personalPct`),
+normalized by the US-only `normalizeUsStreams(s, raw)` (just below the shared `01-LIST_MAX` region; the shared `normalizeLists`
+keeps only the common keys, so these are read from `raw`, aligned to the filtered list; anything but a literal `'B'` / `'wages'` /
+`true` / `'roth'` is the legacy meaning). Canada's streams are unchanged until E1-CA. The shared list renderer
+(`23-dynFieldHtml`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, ctx, out)`
+(pure, scratch `STREAM_OUT`, just above `listAmountsForYear`) splits the year's streams: owner A in single-person mode, the window
+tested on the owner's age, W-2 skipped once the owner is dead, not-earned moved to the survivor's bucket; `total` is the old
+`extraIncome` sum bit for bit and stays the cash figure. `buildTaxProfile` takes `streamWagesA/B` (added to the owner's wages, less
+the traditional contributions in `streamWageCutA/B`) and `streamOtherA/B` (not earned); the profile carries `extraA` / `extraB`
+(replacing `extraIncome`), and `taxFor` puts each on its owner's return (the two-filer branch gives B's return `extraB`).
+`payrollTax` takes `streamWagesA/B` so the Social Security base and the Additional Medicare threshold are shared with the salary.
+`streamPlanContributions` (just above `retirementContributions`) fills contributing W-2 streams after the salary, against
+per-person deferral / catch-up / IRA rooms (what the salary left) and per-stream annual-additions room; see the spec
+(`docs/superpowers/specs/2026-10-08-e1b-income-streams-design.md`) section 5.4. Every added term is an exact 0 for a legacy save, so
+existing snapshots did not move. Tests: `tests/income_streams.js`, `tests/stream_contributions.js`, `test_income_streams.js`.
+**Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
+becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
+ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.
+
 `state.spendingTiers` is a sixth DYN list (ids `tier<i>…`): amount, startAge,
 endAge, followGrowth/growth. `baseSpendingNominal(age, year, factor, incomeFactor)`
 is the single place both engines (and `projectedExpense`) read household
