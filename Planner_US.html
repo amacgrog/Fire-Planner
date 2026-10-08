@@ -6780,7 +6780,7 @@
     }
     // Partner A claims the children (owner decision), so A's return is head of household
     // while a qualifying child exists; B's is single.
-    const statusA = (profile.dependents || []).some((d) => d.qualifyingChild) ? 'hoh' : 'single';
+    const statusA = returnStatusA(profile.dependents);
     const halfProperty = propertyTax / 2,
       halfRent = rent / 2;
     // The discretionary traditional draw follows each partner's share of the pool in the year (the
@@ -7118,6 +7118,49 @@
     for (const [cap, , inclusive] of tiers)
       if (inclusive ? magi0 <= cap : magi0 < cap) return cap === Infinity ? Infinity : inclusive ? cap : cap - 0.01;
     return Infinity;
+  }
+  // IRMAA is assessed on Medicare's MAGI: AGI plus tax-exempt interest (42 U.S.C. 1395r(i)(4)(A)), which counts only the
+  // TAXABLE part of Social Security. The engine's MAGI is the ACA's (26 U.S.C. 36B(d)(2)(B): all of Social Security), so
+  // IRMAA amounts convert with irmaaMagiOf and IRMAA lines and caps are translated into the engine's MAGI with its exact
+  // inverse. `ss` and `filing` are the return's own benefit and filing status in the year the MAGI is earned (irmaaSsOf,
+  // returnStatusA). magi - ss is all other income, the otherIncome taxFor passes to taxableSocialSecurity. Tax-exempt
+  // interest is not modeled (no input).
+  function irmaaMagiOf(magi, ss, filing) {
+    return ss > 0 ? magi - ss + taxableSocialSecurity(ss, magi - ss, filing) : magi;
+  }
+  // The engine MAGI whose IRMAA MAGI is `line`. With x = magi - ss, f(x) = x + taxable(ss, x) is continuous, piecewise
+  // linear and strictly increasing (slopes 1, 1.5, 1.85, 1); its kinks are where provisional income (x + ss / 2) reaches
+  // the lower base, where the 50% part reaches half the benefit (lower base + ss), the upper base, and where the 85% cap
+  // binds. A listed point that is not a kink in this case lies on a straight segment, so interpolation stays exact.
+  function magiForIrmaaLine(line, ss, filing) {
+    if (!(ss > 0) || !Number.isFinite(line)) return line;
+    const [lower, upper, base] = SS_BASE[filingKey(filing, 'ss')],
+      h = ss * 0.5,
+      f = (x) => x + taxableSocialSecurity(ss, x, filing),
+      k1 = lower - h,
+      k2 = lower + h,
+      k3 = upper - h,
+      k4 = upper - h + Math.max(0, 0.85 * ss - Math.min(base, h)) / 0.85,
+      kinks = [k1, k2, k3, k4].sort((a, b) => a - b);
+    let px = kinks[0],
+      pf = f(px);
+    if (line <= pf) return line + ss; // at or below the first kink (k1, always the smallest) nothing is taxable: f(x) = x
+    for (let i = 1; i < kinks.length; i++) {
+      const kx = kinks[i],
+        kf = f(kx);
+      if (line <= kf) return (kf > pf ? px + ((line - pf) * (kx - px)) / (kf - pf) : kx) + ss;
+      px = kx;
+      pf = kf;
+    }
+    return px + (line - pf) + ss; // above the last kink: slope 1
+  }
+  // The filing status of Partner A's own return in a two-return year (A claims the children), as taxFor's two-filer branch.
+  function returnStatusA(dependents) {
+    return (dependents || NO_DEPENDENTS).some((d) => d.qualifyingChild) ? 'hoh' : 'single';
+  }
+  // The benefit on a household or one-person return (the survivor remap puts the survivor's benefit in slot A).
+  function irmaaSsOf(profile) {
+    return profile.singlePerson ? profile.ssA || 0 : (profile.ssA || 0) + (profile.ssB || 0);
   }
   // MAGI that IRMAA is assessed on for a given plan year: the return filed two
   // years earlier. For the first two plan years that return predates the plan,
@@ -16143,7 +16186,7 @@
         rmd: 0,
       }),
   };
-  window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
+  window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     ensureTestPlan();
     lastMultiLeverRun = { opt, options, savings: 2 };
