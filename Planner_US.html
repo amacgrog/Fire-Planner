@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V121</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V122</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -360,19 +360,21 @@
         </details>
         <details class="group" data-cat="income">
           <summary><span class="group-summary-text"><span class="group-title">Retirement contributions</span><span class="group-state" id="retireContribGroupState"></span></span></summary>
-          <div class="field"><label for="matchA">Partner A employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
+          <div class="field"><label for="matchA">Partner A employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own. Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions, profit sharing and after-tax money.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
+          <div class="field"><label for="profitSharingPctA">Partner A employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice.">i</button></span><small>Employer contribution to the traditional 401(k)</small></label><input id="profitSharingPctA" type="number" min="0" max="25" step="0.5"></div>
           <div class="range-field"><div class="range-head"><label for="k401PctA">Partner A 401(k) <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full federal elective-deferral limit (or all of your pay, if that&#x27;s lower); 50% contributes half of that. It&#x27;s a share of the maximum, not a percentage of your salary.">i</button></span><small>Share of the annual 401(k) limit you contribute</small></label><span class="range-value" id="k401PctAOut"></span></div><input id="k401PctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="catchupPctA">Partner A catch-up <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the available catch-up room you use (100% = the full catch-up amount). Only applies at age 50+, and is automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed).">i</button></span><small>Age 50+ only; Roth above ~$150k pay</small></label><span class="range-value" id="catchupPctAOut"></span></div><input id="catchupPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="iraPctA">Partner A IRA <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full IRA limit (or your pay, if lower), including the age-50+ catch-up once eligible.">i</button></span><small>Share of the annual IRA limit</small></label><span class="range-value" id="iraPctAOut"></span></div><input id="iraPctA" type="range" min="0" max="100" step="1"></div>
-          <div class="field" data-partner-b><label for="matchB">Partner B employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchB" type="number" min="0" max="100" step="0.1"></div>
+          <div class="field" data-partner-b><label for="matchB">Partner B employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own. Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions, profit sharing and after-tax money.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchB" type="number" min="0" max="100" step="0.1"></div>
+          <div class="field" data-partner-b><label for="profitSharingPctB">Partner B employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice.">i</button></span><small>Employer contribution to the traditional 401(k)</small></label><input id="profitSharingPctB" type="number" min="0" max="25" step="0.5"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="k401PctB">Partner B 401(k) <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full federal elective-deferral limit (or all of your pay, if that&#x27;s lower); 50% contributes half of that. It&#x27;s a share of the maximum, not a percentage of your salary.">i</button></span><small>Share of the annual 401(k) limit you contribute</small></label><span class="range-value" id="k401PctBOut"></span></div><input id="k401PctB" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="catchupPctB">Partner B catch-up <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the available catch-up room you use (100% = the full catch-up amount). Only applies at age 50+, and is automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed).">i</button></span><small>Age 50+ only; Roth above ~$150k pay</small></label><span class="range-value" id="catchupPctBOut"></span></div><input id="catchupPctB" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="iraPctB">Partner B IRA <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full IRA limit (or your pay, if lower), including the age-50+ catch-up once eligible.">i</button></span><small>Share of the annual IRA limit</small></label><span class="range-value" id="iraPctBOut"></span></div><input id="iraPctB" type="range" min="0" max="100" step="1"></div>
           <div class="field" style="display:block"><label style="display:block;margin-bottom:8px">401(k) contribution <span class="info-nw">type<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional contributions are pre-tax: they lower taxable income now and are taxed when withdrawn. Roth contributions are after-tax and come out tax-free later.">i</button></span></label><div class="choice" role="radiogroup" aria-label="401(k) contribution type"><button type="button" id="k401TraditionalBtn" role="radio">Traditional</button><button type="button" id="k401RothBtn" role="radio">Roth</button></div></div>
           <div class="field" style="display:block"><label style="display:block;margin-bottom:8px">IRA contribution <span class="info-nw">type<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional contributions are pre-tax: they lower taxable income now and are taxed when withdrawn. Roth contributions are after-tax and come out tax-free later.">i</button></span></label><div class="choice" role="radiogroup" aria-label="IRA contribution type"><button type="button" id="iraTraditionalBtn" role="radio">Traditional</button><button type="button" id="iraRothBtn" role="radio">Roth</button></div></div>
-          <div class="field"><label for="megaBackdoor"><input id="megaBackdoor" type="checkbox"> Enable mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Requires a plan that allows after-tax contributions and an in-plan Roth conversion or rollover. The sliders below set how much of the remaining room you fill — the room left under the plan&#x27;s total annual contribution limit after your 401(k) contribution and employer match.">i</button></span><small>Needs after-tax plan contributions + in-plan Roth conversion</small></label></div>
-          <div class="range-field" id="megaAField"><div class="range-head"><label for="megaPctA">Partner A mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the room left under the plan&#x27;s total annual contribution limit after your 401(k) contribution and employer match.">i</button></span></label><span class="range-value" id="megaPctAOut"></span></div><input id="megaPctA" type="range" min="0" max="100" step="1"></div>
-          <div class="range-field" id="megaBField"><div class="range-head"><label for="megaPctB">Partner B mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the room left under the plan&#x27;s total annual contribution limit after your 401(k) contribution and employer match.">i</button></span></label><span class="range-value" id="megaPctBOut"></span></div><input id="megaPctB" type="range" min="0" max="100" step="1"></div>
+          <div class="field"><label for="megaBackdoor"><input id="megaBackdoor" type="checkbox"> Enable mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Requires a plan that allows after-tax contributions and an in-plan Roth conversion or rollover. The sliders below set how much of the remaining room you fill — the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing.">i</button></span><small>Needs after-tax plan contributions + in-plan Roth conversion</small></label></div>
+          <div class="range-field" id="megaAField"><div class="range-head"><label for="megaPctA">Partner A mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing.">i</button></span></label><span class="range-value" id="megaPctAOut"></span></div><input id="megaPctA" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field" id="megaBField"><div class="range-head"><label for="megaPctB">Partner B mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing.">i</button></span></label><span class="range-value" id="megaPctBOut"></span></div><input id="megaPctB" type="range" min="0" max="100" step="1"></div>
         </details>
         <details class="group" id="otherIncomeGroup" data-cat="income">
           <summary><span class="group-summary-text"><span class="group-title">Additional income</span><span class="group-state" id="otherIncomeGroupState"></span></span></summary>
@@ -805,6 +807,8 @@
     incomeB: 100000,
     matchA: 0,
     matchB: 0,
+    profitSharingPctA: 0,
+    profitSharingPctB: 0,
     k401Type: 'traditional',
     iraType: 'traditional',
     spending: 60000,
@@ -1135,6 +1139,14 @@
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
   const clampLifeExpectancyB = () =>
     (state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1)));
+  // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
+  const clampProfitSharing = (key) => {
+    const v = Math.min(25, Math.max(0, state[key]));
+    if (v !== state[key]) {
+      state[key] = v;
+      document.getElementById(key).value = v;
+    }
+  };
   const FIELDS = [
     { key: 'ageA', type: 'number', resync: true, onInput: () => { clampRetireAgeA(); clampLifeExpectancyA(); } },
     { key: 'ageB', type: 'number', resync: true, onInput: () => { clampRetireAgeB(); clampLifeExpectancyB(); } },
@@ -1146,6 +1158,8 @@
     { key: 'incomeB', type: 'number' },
     { key: 'matchA', type: 'number' },
     { key: 'matchB', type: 'number' },
+    { key: 'profitSharingPctA', type: 'number', onInput: () => clampProfitSharing('profitSharingPctA') },
+    { key: 'profitSharingPctB', type: 'number', onInput: () => clampProfitSharing('profitSharingPctB') },
     { key: 'k401PctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
     { key: 'k401PctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
     { key: 'catchupPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
@@ -1312,6 +1326,8 @@
     s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
     s.lifeExpectancyB = Math.min(110, Math.max(s.lifeExpectancyB, s.ageB + 1));
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
+    // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
+    for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));
     normalizeLists(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
@@ -1660,7 +1676,7 @@
   // default value, and the person hasn't explicitly dismissed it. See the
   // "estimated field badges" note in CLAUDE.md for the full design.
   const ESTIMATE_ALWAYS_IDS = [
-    'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB',
+    'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB', 'profitSharingPctA', 'profitSharingPctB',
     'k401PctA', 'k401PctB', 'iraPctA', 'iraPctB', 'spending', 'taxable', 'basisRatio',
     'trad401kA', 'trad401kB', 'tradIraA', 'tradIraB', 'roth401kA', 'roth401kB', 'rothIraA', 'rothIraB',
     'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
@@ -8096,11 +8112,15 @@
     }
     return left;
   }
-  // 401(k) / IRA / mega-backdoor contributions for one year. Wages are already
-  // zero for a partner who has retired, which zeroes their contributions. The
-  // IRS limits are 2026 values scaled by limitFactor (inflation indexing).
-  // Returns the dollars that go to traditional vs Roth accounts.
-  function retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor }) {
+  // 401(k) / IRA / mega-backdoor and employer (match, profit sharing) contributions for one year. Wages are already
+  // zero for a partner who has retired, and for B in single-person mode, which zeroes every pay-based amount. The
+  // limits come from PLAN_LIMITS (2026 values scaled by limitFactor). Each partner's annual-additions room (the lesser
+  // of the limit and 100% of pay, less the deferrals; catch-ups are outside it) is filled in plan order: the match,
+  // profit sharing, then the mega backdoor. Returns the dollars that go to traditional vs Roth accounts and the
+  // limited employer money.
+  const PLAN_REQ = [0, 0],
+    PLAN_GOT = [0, 0]; // allocatePlanRoom scratch: [match, profit sharing]
+  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor }) {
     const catchupBaseA =
         age >= 60 && age <= 63
           ? PLAN_LIMITS.catchUp60to63 * limitFactor
@@ -8143,17 +8163,25 @@
       (catchupTypeB === 'traditional' ? kCatchupB : 0) +
       (state.iraType === 'traditional' ? iraB : 0);
     const traditionalContrib = traditionalContribA + traditionalContribB;
+    // The annual-additions room (IRC 415(c)): the lesser of the limit and 100% of pay, less the deferrals; catch-ups are
+    // outside it. A plan in operation fills it in this order: deferrals as elected, the match, profit sharing, then
+    // after-tax (mega backdoor) money. A percentage-of-pay contribution counts pay only up to the compensation limit.
     const annualAdditionLimit = PLAN_LIMITS.annualAdditions * limitFactor,
-      megaRoomA = Math.max(
-        0,
-        Math.min(wageA, annualAdditionLimit) - Math.min(kA, baseLimitA + catchupBaseA) - matchA,
-      ),
-      megaRoomB = Math.max(
-        0,
-        Math.min(wageB, annualAdditionLimit) - Math.min(kB, baseLimitB + catchupBaseB) - matchB,
-      ),
-      megaA = state.megaBackdoor ? megaRoomA * pct(state.megaPctA) : 0,
-      megaB = state.megaBackdoor ? megaRoomB * pct(state.megaPctB) : 0;
+      compLimit = PLAN_LIMITS.compensation * limitFactor;
+    const compA = Math.min(wageA, compLimit),
+      compB = Math.min(wageB, compLimit);
+    PLAN_REQ[0] = compA * pct(state.matchA);
+    PLAN_REQ[1] = compA * pct(state.profitSharingPctA);
+    const leftA = allocatePlanRoom(Math.min(wageA, annualAdditionLimit) - kBaseA, PLAN_REQ, PLAN_GOT);
+    const matchA = PLAN_GOT[0],
+      profitA = PLAN_GOT[1];
+    PLAN_REQ[0] = compB * pct(state.matchB);
+    PLAN_REQ[1] = compB * pct(state.profitSharingPctB);
+    const leftB = allocatePlanRoom(Math.min(wageB, annualAdditionLimit) - kBaseB, PLAN_REQ, PLAN_GOT);
+    const matchB = PLAN_GOT[0],
+      profitB = PLAN_GOT[1];
+    const megaA = state.megaBackdoor ? leftA * pct(state.megaPctA) : 0,
+      megaB = state.megaBackdoor ? leftB * pct(state.megaPctB) : 0;
     const rothContribA =
       (state.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
@@ -8166,18 +8194,20 @@
       megaB;
     const rothContrib = rothContribA + rothContribB;
     // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
-    // IRA B, 401(k) B). The employer match always goes to the traditional 401(k);
+    // IRA B, 401(k) B). Employer money (match and profit sharing) always goes to the traditional 401(k);
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
         state.iraType === 'traditional' ? iraA : 0,
         (state.k401Type === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
-          matchA,
+          matchA +
+          profitA,
         state.iraType === 'traditional' ? iraB : 0,
         (state.k401Type === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
-          matchB,
+          matchB +
+          profitB,
       ],
       roth: [
         state.iraType === 'roth' ? iraA : 0,
@@ -8186,7 +8216,10 @@
         (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB,
       ],
     };
-    return { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct };
+    return {
+      traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
+      matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB,
+    };
   }
 
   // Social Security for the year, each partner's own benefit once they reach
@@ -9935,10 +9968,7 @@
         isSurvivorPeriod = year >= deathYear;
       const incomeFactor = Math.pow(1 + wageGrowth, year);
       const wageA = workingA ? state.incomeA * incomeFactor : 0,
-        wageB = workingB ? state.incomeB * incomeFactor : 0,
-        matchA = workingA ? wageA * pct(state.matchA) : 0,
-        matchB = workingB ? wageB * pct(state.matchB) : 0,
-        employerMatch = matchA + matchB;
+        wageB = workingB ? state.incomeB * incomeFactor : 0;
       const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } =
         listAmountsForYear({ age, year, factor, incomeFactor });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
@@ -9946,8 +9976,10 @@
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
-      const { traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib } =
-        retirementContributions({ wageA, wageB, matchA, matchB, age, ageB, singlePerson, limitFactor });
+      const {
+        traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
+        employerContrib: employerMatch,
+      } = retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
