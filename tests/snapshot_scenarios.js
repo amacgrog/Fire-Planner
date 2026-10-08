@@ -143,6 +143,7 @@ function caStd() {
     ['R survivor A', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 80, survivorSpendingPct: 70 }],
     ['R survivor B', { ...R, survivorEnabled: true, survivorPartner: 'B', survivorDeathAge: 80, survivorSpendingPct: 70 }],
     ['R survivor+loans', { ...R, survivorEnabled: true, survivorDeathAge: 75, loans: LISTS.loans }],
+    ['R death before retirement', { ...R, ageA: 60, ageB: 58, retireAgeA: 68, retireAgeB: 66, lifeExpectancyA: 92, lifeExpectancyB: 92, incomeA: 90000, incomeB: 60000, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 64, survivorSpendingPct: 70 }],
     ['R rent', { ...R, tenure: 'rent' }],
     ['R rentThenBuy', { ...R, tenure: 'rentThenBuy', buyAge: 56 }],
     ['R loans', { ...R, loans: LISTS.loans }],
