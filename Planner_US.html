@@ -7030,8 +7030,11 @@
   const MAGI_ITER_MAX = 8,
     MAGI_ITER_TOL = 1;
   // Years that ended the MAGI iteration through the forced pass (7O follow-up F5), and years that hit the cap on a cost step with no
-  // pass to force.
-  const magiStats = { forced: 0, unresolved: 0 };
+  // pass to force; planMissed: plan years (choose / apply) whose final realized MAGI missed the plan's target (a plan wins only
+  // when it met its line, so this guards an invariant). Counted for the phase of the year that is kept.
+  const magiStats = { forced: 0, unresolved: 0, planMissed: 0 };
+  // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
+  const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
     const ratio = magi > 0 ? magi / fplForHousehold(householdSize, yearIndex) : 0;
@@ -9127,6 +9130,65 @@
     const { w, ...plan } = best;
     return plan;
   }
+  const NO_PLANS = Object.freeze([]);
+  // A line's family (cliff plan): 'aca' (medicaid, acaFloor, aca400), 'irmaa' (irmaa1 ... irmaa5) or 'tax' (the senior-deduction
+  // and child-tax-credit phase-outs, never a candidate).
+  function lineFamily(id) {
+    return id.startsWith('irmaa') ? 'irmaa' : id === 'senior' || id === 'ctc' ? 'tax' : 'aca';
+  }
+  // The year's candidate plans for the phased year (planMode 'choose'; spec 13.5-13.7 of the 3C design, section 4 of the cliff
+  // plan), read off the converged natural year (c.natMagi, its conversion c.natConv, its cappable discretionary traditional
+  // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable) and gains c.gain), at most three,
+  // in this order:
+  // - 'under': a cap just under a line at or below the natural MAGI, with NO conversion that year. Only at a real cliff
+  //   (13.7 B): premium + IRMAA just over the line more than $1 above just under it (costNear, this year's premium and
+  //   the IRMAA charged two years on). Tax kinks (the child-tax-credit and senior-deduction phase-outs) are not cliffs.
+  //   The nearest such line, and (13.6) the line with the largest cliff when it is another one (ties go to the nearer
+  //   line): the full premium can lift the natural MAGI over an IRMAA tier above the ACA 400% line. Each is offered
+  //   only when the natural draw took traditional money the cap can limit and the natural MAGI less its conversion
+  //   is still over that line: if only the conversion puts the year over a line the plan does nothing (the
+  //   conversion ceiling sized it inside its tier on purpose), so it never spends Roth to make room for a conversion.
+  // - 'fill': just over the nearest FLOOR above the natural MAGI (the first line in reach where this year's premium
+  //   plus IRMAA is lower just over it than just under it: the Medicaid line with Medicaid declined, the 100% credit
+  //   floor without Medicaid; just over a cliff, the 400% line or an IRMAA tier, costs more and is skipped), only
+  //   with penalty-free traditional money (c.canFill).
+  // Lines count only inside the reach: from the MAGI with no discretionary draw and no conversion (c.lo) to the
+  // MAGI with the conversion and no draw plus REACH_GROSS_UP x the need (c.hi). c.thresholds is sorted by MAGI.
+  // Each candidate carries its line's id and ret. Returns NO_PLANS when none.
+  function yearPlanCandidates(c) {
+    let out = NO_PLANS;
+    const gain = c.gain,
+      costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + c.irmaaAt(m - c.magiBase - gain, gain),
+      offerUnder = (t) => c.natTrad > 0 && c.natMagi - c.natConv > t.magi,
+      underOf = (t) => ({ kind: 'under', magi: t.magi - 1, label: t.label, id: t.id, ret: t.ret });
+    let near = null,
+      big = null,
+      bigJump = 0;
+    for (const t of c.thresholds) {
+      if (t.magi > c.natMagi) break;
+      if (t.magi - 1 < c.lo) continue;
+      const jump = costNear(t.magi + 1) - costNear(t.magi - 1);
+      if (jump <= 1) continue;
+      near = t;
+      if (jump >= bigJump) {
+        big = t;
+        bigJump = jump;
+      }
+    }
+    if (near && offerUnder(near)) out = [underOf(near)];
+    if (big && big !== near && offerUnder(big)) out = out === NO_PLANS ? [underOf(big)] : [out[0], underOf(big)];
+    if (c.canFill) {
+      for (const t of c.thresholds) {
+        if (t.magi <= c.natMagi || t.magi + 1 > c.hi) continue;
+        if (costNear(t.magi + 1) < costNear(t.magi - 1)) {
+          const fill = { kind: 'fill', magi: t.magi + 1, label: t.label, id: t.id, ret: t.ret };
+          out = out === NO_PLANS ? [fill] : [...out, fill];
+          break;
+        }
+      }
+    }
+    return out;
+  }
 
   // ---- Withdrawal building blocks ----
   const TAXABLE_BASIS_KEY = { taxable: 'taxableBasis', bondTaxable: 'bondTaxableBasis' };
@@ -9727,7 +9789,13 @@
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  function runProjection({ mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null }) {
+  // Cliff plan: `planMode` is 'legacy' (the 3C in-path guard, until the switch), 'off' (no steering), 'choose' (the phased
+  // year: converge the natural year, try each candidate plan as its own converged iteration, keep the winner and record its
+  // intent; deterministic run only) or 'apply' (follow `plan.intents`). Undefined: 'legacy' with the guard on, else 'off'.
+  function runProjection({ mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null, planMode, plan = null }) {
+    if (planMode === undefined) planMode = state.cliffGuardEnabled ? 'legacy' : 'off';
+    const phased = planMode === 'choose' || planMode === 'apply',
+      intents = planMode === 'choose' ? {} : null;
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     // Only the historical source reports a start year; it also adds cumFactor to each row.
@@ -9930,10 +9998,32 @@
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
         let forcedPass = false;
-        // 3C: the year's plan (cliff guard) and lambda are chosen on the first MAGI pass and held across the later
+        // 3C (legacy): the year's plan (cliff guard) and lambda are chosen on the first MAGI pass and held across the later
         // passes (re-deciding each pass could stop the iteration converging); lambda is computed only when needed.
+        // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
+        // state lives here, outside the MAGI restore.
+        // - natural: no plan (exactly the `off` year), iterated until it converges or ends in its forced pass;
+        // - trials: if the natural year has a withdrawal and a line is in reach of its MAGI, each candidate plan
+        //   (yearPlanCandidates: up to two stay-unders at real cliffs and a fill) is a fresh converged iteration from the
+        //   year's snapshot with the plan held, seeded from the natural year's realized draw and gains, with its own
+        //   MAGI_ITER_MAX budget;
+        // - each is scored by afterTaxValue at the end of its year less the IRMAA it sets, and carries its cliffCost (the
+        //   healthcare it charges, after the forced-pass refund, plus that IRMAA). A trial wins only if it met its plan,
+        //   left no need unmet, lowers the cliffCost by more than $1 against the natural year (13.7 B: lambda alone never
+        //   wins a year) and beats the natural score by more than $1 (or the best earlier such trial); if the winner is
+        //   not the phase that ran last, its final pass is replayed (same plan, same estimates, so the same pass) and the
+        //   row comes from it.
+        // magiStats count the kept phase only. With no phases (off, legacy) phasePass is the pass index.
         let yearPlan = NO_PLAN,
-          yearLambda = null;
+          yearLambda = null,
+          phasePass = -1,
+          phaseUnresolved = false,
+          replaying = false,
+          naturalRec = null,
+          trials = NO_PLANS,
+          trialIdx = -1,
+          trialRecs = null,
+          planTr = null;
         const ownerShareA0 = profile.ownerShareA;
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
@@ -9944,6 +10034,7 @@
             accountsRestore(accts, acctSnapshot);
           }
           profile.ownerShareA = ownerShareA0;
+          phasePass++;
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
@@ -10056,9 +10147,12 @@
             inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
           return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: Math.max(0, -flow - lumpExpense), tradShare: inv > 0 ? tradNow / inv : 0 }));
         };
-        if (convertsThisYear) {
+        // Phased year: a stay-under plan converts nothing; a fill keeps the natural year's conversion, never more than this
+        // pass's ceiling allows (spec 13.5).
+        if (convertsThisYear && !(phased && yearPlan.kind === 'under')) {
           const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
           conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+          if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
@@ -10184,7 +10278,9 @@
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
             else withdrawStandard(w, wopts);
           };
-          const guard = !!state.cliffGuardEnabled;
+          // The legacy in-path guard (dry runs on the first pass) runs only in 'legacy'; 'off' skips it, and the phased year
+          // holds its own plan (set at the end of a phase, below) on every pass: the cap at the line, or the fill to the floor.
+          const guard = planMode === 'legacy' && !!state.cliffGuardEnabled;
           let planWinner = null;
           if (guard && iter === 0 && !forcedPass) {
             const reachLo = magiBase + wd.traditionalGross + wd.taxableGainGross;
@@ -10238,17 +10334,18 @@
         const realizedTrad = traditionalGross - conversionAmount;
         const unconverged =
           estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;
-        if (usesMagiEstimate && !forcedPass)
+        // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
+        if (usesMagiEstimate && !forcedPass && !replaying)
           passLog.push({ estTrad, estGain, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross) });
-        if (unconverged && !forcedPass && iter < MAGI_ITER_MAX - 1) {
+        if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
-          const w = iter >= 3 ? 0.5 : 1;
+          const w = phasePass >= 3 ? 0.5 : 1;
           estTrad += w * (realizedTrad - estTrad);
           estGain += w * (taxableGainGross - estGain);
           continue;
         }
-        if (unconverged && !forcedPass && usesMagiEstimate) {
+        if (unconverged && !forcedPass && !replaying && usesMagiEstimate) {
           // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
           // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
           // repeats exactly; the realized cost is charged below and the refund goes to cash.
@@ -10264,7 +10361,7 @@
           // Only a real step (the last pass charged more than 5 off its own MAGI) counts as unresolved: a smooth year that
           // ends at the cap a couple of dollars off is the old slow convergence, not a cliff.
           const last = passLog[passLog.length - 1];
-          if (last && Math.abs(last.charged - last.realized) > 5) magiStats.unresolved++;
+          if (last && Math.abs(last.charged - last.realized) > 5) phaseUnresolved = true;
         }
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
@@ -10277,7 +10374,6 @@
           const taxAfter = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           bal.cash += refund + (totalTax - taxAfter);
           totalTax = taxAfter;
-          magiStats.forced++;
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
           const needNet = -flow - refund;
@@ -10285,11 +10381,86 @@
           guardrails.initialWR = guardrailSnapshot.initialWR;
           recordGuardrailWithdrawal(guardrails, Math.max(0, needNet - lumpExpense), guardrailPortfolioNow, working);
         }
-        prevDiscTraditional = realizedTrad;
-        prevTaxableGainGross = taxableGainGross;
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
         const realizedMagi = magiBase + traditionalGross + taxableGainGross;
+        // Phased year, at the end of a phase (see the phase notes above the loop).
+        if (phased && !replaying) {
+          let next = -1;
+          if (trialIdx < 0) {
+            // The natural year has converged (or ended in its forced pass). Lines in reach of its MAGI: from the MAGI with no
+            // discretionary draw and no conversion to the MAGI with the conversion plus REACH_GROSS_UP x the need.
+            if (flow < 0) {
+              if (planTrace) planTr = { year };
+              const lo = magiBase + ladderGain,
+                hi = lo + conversionAmount + REACH_GROSS_UP * -flow,
+                convA = conversionAmount * profile.ownerShareA;
+              const lines = magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi });
+              if (planMode === 'choose' && lines.length) {
+                trials = yearPlanCandidates({ thresholds: lines, natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, gain: taxableGainGross, lo, hi, magiBase, canFill: freeTraditional(wd) > 0, premiumAt: costAt, irmaaAt });
+                // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
+                const lam = trials.length ? lambdaOf() : null;
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                if (trials.length) {
+                  trialRecs = [];
+                  next = 0;
+                } else if (planTr) planTr.candidates = [{ kind: 'none', magi: realizedMagi, realized: realizedMagi, label: '', conversion: conversionAmount, cliffCost: naturalRec.cliffCost, score: null, ok: true }];
+              }
+            }
+          } else {
+            // A trial's iteration is done: record it. It counts only if it met its plan (a cap limits traditional draws only, so
+            // gains, the bond reserve and the release can carry MAGI over the line), left no need unmet and saves more than $1
+            // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
+            const lam = lambdaOf(),
+              met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
+              cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+            if (trialIdx + 1 < trials.length) next = trialIdx + 1;
+            else {
+              let best = naturalRec;
+              for (const t of trialRecs) if (t.ok && t.score > best.score + (best === naturalRec ? 1 : 0)) best = t;
+              if (planTr) {
+                planTr.candidates = [naturalRec, ...trialRecs].map((t) => ({ kind: t.plan.kind, magi: t.plan.kind === 'none' ? t.realized : t.plan.magi, realized: t.realized, label: t.plan.label, conversion: t.conversion, cliffCost: t.cliffCost, score: t.score, ok: t.ok }));
+                planTr.chosenScore = best.score;
+              }
+              // The winning intent, recorded once.
+              if (best !== naturalRec) intents[age] = { kind: best.plan.kind, line: best.plan.id, ret: best.plan.ret };
+              if (best !== trialRecs[trialRecs.length - 1]) {
+                // Replay the winner's final pass from the snapshot: same plan, same estimates, same forced flag.
+                yearPlan = best.plan;
+                estTrad = best.estTrad;
+                estGain = best.estGain;
+                forcedPass = best.forced;
+                phaseUnresolved = best.unresolved;
+                replaying = true;
+                continue;
+              }
+            }
+          }
+          if (next >= 0) {
+            // Start a trial: a fresh iteration from the year's snapshot with the plan held, seeded from the natural year.
+            trialIdx = next;
+            yearPlan = trials[next];
+            estTrad = naturalRec.realizedTrad;
+            estGain = naturalRec.gain;
+            forcedPass = false;
+            phaseUnresolved = false;
+            passLog.length = 0;
+            phasePass = -1;
+            continue;
+          }
+        }
+        // The kept phase's statistics only.
+        if (forcedPass && flow < 0) magiStats.forced++;
+        if (phaseUnresolved) magiStats.unresolved++;
+        // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be.
+        prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
+        prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;
+        if (phased && planTr) {
+          planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
+          planTr.intent = (intents && intents[age]) || null;
+          planTrace.push(planTr);
+        }
         magiHistory[year] = realizedMagi;
         if (twoReturns) [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);
         bal.mortgage = Math.max(0, bal.mortgage);
@@ -10346,8 +10517,15 @@
           row.magiA = magiHistoryA[year];
           row.magiB = magiHistoryB[year];
         }
-        if (yearPlan.kind !== 'none') row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
-        if (yearLambda) row.lambda = yearLambda.lambda;
+        if (!phased) {
+          if (yearPlan.kind !== 'none') row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
+          if (yearLambda && planMode === 'legacy') row.lambda = yearLambda.lambda;
+        } else if (yearPlan.kind !== 'none') {
+          // Phased year: the label says only what happened: the kept pass's realized MAGI met the plan (a missed plan is counted).
+          if (yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1)
+            row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
+          else magiStats.planMissed++;
+        }
         rows.push(row);
         if (year === projectionYears) endTax = { profile: { ...profile }, lastGain: wd.taxableGainGross, lastTrad: wd.traditionalGross };
         if (trace) {
@@ -10381,6 +10559,8 @@
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(futureBuy, schedule),
     };
+    // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
+    if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
     // enumerable, so the result's own fields and every snapshot stay as they were.
     Object.defineProperty(result, 'estate', {
@@ -15713,6 +15893,63 @@
   window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
   window.__test_HIST = HIST;
   // @@shared:block end
+  // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
+  window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false }) => {
+    const tr = planTrace ? [] : null;
+    let sim;
+    if (!rowFn) sim = runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+    else {
+      const prev = histTaxFactors;
+      histTaxFactors = [];
+      try {
+        sim = runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+      } finally {
+        histTaxFactors = prev;
+      }
+    }
+    return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim };
+  };
+  window.__test_yearPlanCandidates = yearPlanCandidates;
+  window.__test_planStats = planStats;
+  // tests/snapshot.js's rowFnFor and mulberry32, verbatim: a year-row function for one of its SERIES entries.
+  window.__test_rowFnFor = (() => {
+    function mulberry32(a) {
+      return function () {
+        a |= 0; a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function rowFnFor(series) {
+      const wrap = (i) => HIST[((i % HIST.length) + HIST.length) % HIST.length];
+      switch (series.type) {
+        case 'real': {
+          const i0 = series.start - HIST[0][0];
+          return (y) => wrap(i0 + y);
+        }
+        case 'crashFirst':
+          return (y) => [2000 + y, [-30, -18, -5][y] ?? 9, y < 3 ? -3 : 3, y < 3 ? 6 : 4, y < 3 ? 2 : 4.5];
+        case 'sawtooth':
+          return (y) => [2000 + y, y % 2 ? -15 : 25, 3, y % 2 ? 6 : 2, 4];
+        case 'boom':
+          return (y) => [2000 + y, 15, 2, 3, null].slice(0, 4);
+        case 'flat':
+          return (y) => [2000 + y, 0, 0, 0, 0];
+        case 'mc': {
+          const rnd = mulberry32(series.seed), B = 5, out = [];
+          const maxStart = HIST.length - B;
+          while (out.length < 120) {
+            const s = Math.floor(rnd() * (maxStart + 1));
+            for (let i = 0; i < B; i++) out.push(HIST[s + i]);
+          }
+          return (y) => out[y];
+        }
+      }
+      throw new Error('unknown series ' + series.type);
+    }
+    return rowFnFor;
+  })();
   window.__test_afterTaxEndValueUS = afterTaxEndValueUS;
   window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
   window.__test_optimizeMultiLever = optimizeMultiLever;
