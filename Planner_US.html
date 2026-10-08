@@ -7150,15 +7150,22 @@
     if (k2 <= k3) (a = k2), (b = k3), (c = k4);
     else if (k2 <= k4) (a = k3), (b = k2), (c = k4);
     else (a = k3), (b = k4), (c = k2);
-    const pf = k1 + taxableSocialSecurity(ss, k1, filing);
+    const pf = k1 + taxableSsOnRow(ss, k1, lower, upper, base);
     if (line <= pf) return line + ss; // at or below the first kink nothing is taxable: f(x) = x
-    const af = a + taxableSocialSecurity(ss, a, filing);
+    const af = a + taxableSsOnRow(ss, a, lower, upper, base);
     if (line <= af) return (af > pf ? k1 + ((line - pf) * (a - k1)) / (af - pf) : a) + ss;
-    const bf = b + taxableSocialSecurity(ss, b, filing);
+    const bf = b + taxableSsOnRow(ss, b, lower, upper, base);
     if (line <= bf) return (bf > af ? a + ((line - af) * (b - a)) / (bf - af) : b) + ss;
-    const cf = c + taxableSocialSecurity(ss, c, filing);
+    const cf = c + taxableSsOnRow(ss, c, lower, upper, base);
     if (line <= cf) return (cf > bf ? b + ((line - bf) * (c - b)) / (cf - bf) : c) + ss;
     return c + (line - cf) + ss; // above the last kink: slope 1
+  }
+  // taxableSocialSecurity on an SS_BASE row already read: the same arithmetic, for magiForIrmaaLine's four kinks.
+  function taxableSsOnRow(benefits, otherIncome, lower, upper, base) {
+    const provisional = otherIncome + benefits * 0.5;
+    if (provisional <= lower) return 0;
+    if (provisional <= upper) return Math.min(benefits * 0.5, (provisional - lower) * 0.5);
+    return Math.min(benefits * 0.85, (provisional - upper) * 0.85 + Math.min(base, benefits * 0.5));
   }
   // The highest engine MAGI that keeps a single-tier return's IRMAA MAGI inside the tier engine MAGI m puts it in.
   function irmaaRoomFor(m, ss, st, year) {
@@ -10130,16 +10137,18 @@
         let filing2 = null;
         const irmaaFiling2 = () =>
           filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
+        const irmaaSsH = irmaaSsOf(profile),
+          irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
         const irmaaAt = (trad, gain) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
             const [ma, mb] = returnMagis(profile, trad, gain);
             return (
-              (medA ? irmaaSurcharge(irmaaMagiOf(ma, profile.ssA || 0, returnStatusA(profile.dependents)) / irmaaGrowth2, 'single', year) : 0) +
+              (medA ? irmaaSurcharge(irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(magiBase + trad + gain, irmaaSsOf(profile), filing) / irmaaGrowth2, irmaaFiling2(), year);
+          const s = irmaaSurcharge(irmaaMagiOf(magiBase + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
@@ -10162,7 +10171,7 @@
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
         // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
-        irmaaMagiHistory[year] = irmaaMagiOf(magiProxy, irmaaSsOf(profile), filing);
+        irmaaMagiHistory[year] = irmaaMagiOf(magiProxy, irmaaSsH, filing);
         twoReturnHistory[year] = twoReturns;
         magiA = 0;
         magiB = 0;
@@ -10170,7 +10179,7 @@
           [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);
           magiHistoryA[year] = magiA;
           magiHistoryB[year] = magiB;
-          irmaaMagiHistoryA[year] = irmaaMagiOf(magiA, profile.ssA || 0, returnStatusA(profile.dependents));
+          irmaaMagiHistoryA[year] = irmaaMagiOf(magiA, profile.ssA || 0, irmaaStA);
           irmaaMagiHistoryB[year] = irmaaMagiOf(magiB, profile.ssB || 0, 'single');
         }
         // Display-only running total: like totalTax below, this starts as the
