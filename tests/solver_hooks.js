@@ -72,6 +72,17 @@ const taxCall = (page, patch, fn, args) =>
   assert(grown.includes(208900) && grown.includes(248900), `two-return growth: ${JSON.stringify(grown)}`);
   const plain = magis(await call({ acaEnabled: false }, 'magiThresholds', ctx(twoIr)));
   assert(plain.includes(198000) && plain.includes(238000), `two-return default: ${JSON.stringify(plain)}`);
+  // Review follow-up 3: two lines within $1 are one line, and a cliff line (irmaa/aca) wins over a tax-family line. Single,
+  // 66, 2026: the senior-deduction phase-out starts at 75,000 (not indexed) and irmaa1 at 109,000 x (75000.5 / 109000).
+  {
+    const lines = await call({ acaEnabled: false }, 'magiThresholds', ctx({ age: 66, acaEligibleA: false, irmaaGrowth: 75000.5 / 109000 }));
+    const ir = lines.find((l) => l.id === 'irmaa1');
+    assert(ir && ir.family === 'irmaa', `FU3: irmaa1 kept: ${JSON.stringify(lines)}`);
+    near(ir.magi, 75000.5, 1e-6, 'FU3: irmaa1 line at 75,000.5');
+    assert(!lines.some((l) => l.family === 'tax' && Math.abs(l.magi - 75000) <= 1), `FU3: no tax line at 75,000: ${JSON.stringify(lines)}`);
+    // (Two non-tax lines within $1, an ACA line and an IRMAA line, keep the first one by the unchanged rule; no easy
+    // context puts them within $1 without a contrived growth factor, so that case is not built here.)
+  }
   // Child tax credit phase-out start (joint).
   assert.deepStrictEqual(
     magis(await call({ acaEnabled: false, children: [{ birthYear: 2016, student: false }] }, 'magiThresholds', ctx({ filing: 'mfj', singlePerson: false, ageB: 50, age: 50, acaEligibleA: false }))),

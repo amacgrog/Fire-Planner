@@ -8927,7 +8927,13 @@
     if (!out.length) return NO_THRESHOLDS;
     out.sort((a, b) => a.magi - b.magi);
     const deduped = [];
-    for (const t of out) if (!deduped.length || t.magi - deduped[deduped.length - 1].magi > 1) deduped.push(t);
+    // Two lines within $1 are one line. Keep the earlier one, except that a cliff line (aca or irmaa family) replaces a
+    // tax-family line (senior, ctc): those are priced by taxFor and are never candidates, so an intent must not name one.
+    for (const t of out) {
+      const last = deduped[deduped.length - 1];
+      if (!last || t.magi - last.magi > 1) deduped.push(t);
+      else if (last.family === 'tax' && t.family !== 'tax') deduped[deduped.length - 1] = t;
+    }
     return deduped;
   }
 

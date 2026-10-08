@@ -690,6 +690,20 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert.deepStrictEqual(out.reportDiffer, [], "F2: the 'none' candidate differs from a real off run");
   }
 
+  // Review follow-up 3 invariant: no recorded intent names a tax-family line (senior, ctc): those are priced by taxFor and
+  // are never candidates. Every std G household, plus the plan refreshCliffPlan stores for each.
+  {
+    let n = 0;
+    for (const sc of ALL.filter((x) => x.kind === 'std' && x.shift === 0 && x.name.startsWith('std G '))) {
+      const ch = await runMode(page, sc, 'choose');
+      for (const a of Object.keys(ch.intents || {})) {
+        n++;
+        assert(!['senior', 'ctc'].includes(ch.intents[a].line), `FU3: ${sc.name} age ${a} intent names ${ch.intents[a].line}`);
+      }
+    }
+    assert(n > 0, 'FU3: some intents were checked');
+  }
+
   assert.deepStrictEqual(errors, []);
   console.log('cliff_plan: OK');
   await browser.close();
