@@ -691,7 +691,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   }
 
   // Review follow-up 3 invariant: no recorded intent names a tax-family line (senior, ctc): those are priced by taxFor and
-  // are never candidates. Every std G household, plus the plan refreshCliffPlan stores for each.
+  // are never candidates. Every std G household's `choose` intents.
   {
     let n = 0;
     for (const sc of ALL.filter((x) => x.kind === 'std' && x.shift === 0 && x.name.startsWith('std G '))) {

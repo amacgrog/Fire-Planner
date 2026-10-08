@@ -71,7 +71,8 @@ feature list.
 - `tests/account_ledger.js` — the US per-account share ledger (contribution routing,
   conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
   how the eight account inputs, the Roth basis rules, single-person mode and the opening
-  ownership ratio feed the engine. `tests/legacy_balances.js` — test helper that turns the old
+  ownership ratio feed the engine; `tests/contribution_limits.js` — the plan limits, catch-ups,
+  compensation limit, contribution order and profit sharing (hand-computed). `tests/legacy_balances.js` — test helper that turns the old
   pooled vocabulary (`traditional`, `roth`, `traditionalSharePctA`, `rothBasisPct`) into the
   per-partner account fields (`legacyToAccounts` for state patches, `translateFieldList` and
   `setBalance` for DOM-driven tests); the snapshot grid and many older tests still speak the old
@@ -385,6 +386,14 @@ Each planner is one big IIFE. Core shape:
   72(t) amount is drawn from that partner's own accounts (`accountsDraw`; a single person or the
   survivor owns everything, so the draw is pro rata and no share moves). Roth conversions come from the
   IRAs first. Batch 3B replaces the fractional blend with a per-account status.
+- **Contribution limits and profit sharing (US, E1a).** `PLAN_LIMITS` (2026 values: the $72,000 annual limit, the
+  catch-ups outside it, the $360,000 compensation limit; indexed by `limitFactor`) and `allocatePlanRoom(room, amounts,
+  out)` (pure, country-neutral, allocation-free; moves to `shared/` at E1-CA) sit above `retirementContributions`, which
+  returns the limited `matchA/B`, `profitA/B` and `employerContrib` (the year loop's `employerMatch`). One room per
+  partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
+  `min(compensation, limit) - deferrals`, so a match over the room is cut. `profitSharingPctA/B` (0-25, clamped in
+  `normalizeState` and while typing) is the employer's share of pay into the traditional 401(k). Partner income
+  (`incomeA/B`) is a money field, not a slider. Test: `tests/contribution_limits.js`.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
