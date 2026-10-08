@@ -476,7 +476,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
       'T7 c2'
     );
     assert(
-      (await sum({ intents: { 70: U('irmaa1') }, family: 'irmaa' }, { ...rep, kept: 'irmaa' })).endsWith(' ACA stay-unders not used (no gain over the whole plan).'),
+      (await sum({ intents: { 70: U('irmaa1') }, family: 'irmaa' }, { ...rep, kept: 'irmaa' })).endsWith(' ACA steering not used (no gain over the whole plan).'),
       'T7 c3'
     );
     // (d) after a render the element equals the summary of the module plan; (e) tooltip; (f) the real checkbox.
@@ -561,6 +561,91 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(/stay under/.test(mob.t) && mob.t.length > 60, 'T7 mobile: long summary: ' + mob.t);
     assert.strictEqual(mob.over, false, 'T7 mobile: no horizontal overflow');
     await page.setViewportSize({ width: 1280, height: 800 });
+  }
+
+  // ---- Fix wave (final review) ----
+  // F1 The plan is re-chosen only when the inputs change: a render with nothing changed does not re-plan; a changed input,
+  // or (test hooks) a changed tax year, does.
+  {
+    const toggle = () => page.evaluate(() => document.getElementById('themeToggleBtn').click());
+    const count = () => page.evaluate(() => window.__test_cliffPlanComputes());
+    await toggle();
+    const c0 = await count();
+    await toggle();
+    await toggle();
+    assert.strictEqual(await count(), c0, 'F1: two renders with no change plan nothing');
+    const before = await page.evaluate(() => window.__test_getState().spending);
+    await page.evaluate(() => { window.__test_getState().spending += 1000; });
+    await toggle();
+    assert.strictEqual(await count(), c0 + 1, 'F1: a changed input re-plans once');
+    await page.evaluate((v) => { window.__test_getState().spending = v; }, before);
+    await toggle();
+    const c1 = await count();
+    // A hand-set plan (scans) is not kept by the next refresh.
+    await page.evaluate(() => { window.__test_setCliffPlan(null); window.__test_refreshCliffPlan(); });
+    assert.strictEqual(await count(), c1 + 1, 'F1: refresh after __test_setCliffPlan re-plans');
+    // ensureTestPlan keys on the tax year too: a wrapped hook after __test_setCurrentYear re-plans.
+    const c2 = await count();
+    await page.evaluate(() => {
+      const y = new Date().getFullYear();
+      window.__test_setCurrentYear(y + 1);
+      window.__test_rothScheduleCost(window.__test_simulateRaw());
+      window.__test_setCurrentYear(y);
+      window.__test_rothScheduleCost(window.__test_simulateRaw());
+    });
+    assert.strictEqual(await count(), c2 + 2, 'F1: a changed tax year re-plans (and changing it back re-plans again)');
+  }
+
+  // F2 A choose run that records no intent equals the off run (computeCliffPlan reuses it as the 'none' candidate): rows,
+  // depletion, after-tax value and ending balances, on the std G households and a sample of tests/solver_scan.js's grid.
+  // (A full sweep of the grid in both modes plus every std scenario, 1,114 households without intents, found no difference.)
+  {
+    const gridPatch = (filing, age, trad, taxable, spending, elections, conv, mode) => ({
+      ...(filing === 'mfj' ? { singlePerson: false, filingStatus: 'mfj' } : filing === 'single-couple' ? { singlePerson: false, filingStatus: 'single' } : { singlePerson: true }),
+      children: filing === 'hoh' ? [{ birthYear: 2016, student: false }] : [],
+      ageA: age, ageB: age, retireAgeA: age, retireAgeB: age, lifeExpectancyA: 95, lifeExpectancyB: 95,
+      acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable, spending, smoothWithdrawals: mode === 'smooth', withdrawalMixEnabled: false,
+      rothConvEnabled: conv, rothConvStartAge: age, rothConvEndAge: Math.max(age, 72), rothConvBracket: 22,
+      ruleOf55A: elections === 'rule55', ruleOf55B: elections === 'rule55', sepp72tK401A: elections === 'sepp', cliffGuardEnabled: true,
+      ...legacyToAccounts({ traditional: trad, roth: 200000 }, { singlePerson: filing === 'single-person' || filing === 'hoh' }),
+    });
+    const patches = ALL.filter((x) => x.kind === 'std' && x.shift === 0 && x.name.startsWith('std G ')).map((x) => ({ ...legacyToAccounts(x.patch, { singlePerson: !!x.patch.singlePerson }), cliffGuardEnabled: true }));
+    let gi = 0;
+    for (const filing of ['mfj', 'single-couple', 'single-person', 'hoh'])
+      for (const age of [52, 58, 62, 66])
+        for (const trad of [500000, 1500000])
+          for (const taxable of [300000, 2000000])
+            for (const spending of [60000, 130000])
+              for (const elections of ['none', 'rule55', 'sepp'])
+                for (const conv of [false, true])
+                  if (gi++ % 16 === 0) for (const mode of ['default', 'smooth']) patches.push(gridPatch(filing, age, trad, taxable, spending, elections, conv, mode));
+    const out = await page.evaluate((patches) => {
+      const st = window.__test_getState(),
+        saved = JSON.parse(JSON.stringify(st)),
+        res = { none: 0, differ: [], reportDiffer: [] };
+      try {
+        patches.forEach((patch, i) => {
+          for (const k of Object.keys(st)) delete st[k];
+          Object.assign(st, JSON.parse(JSON.stringify(saved)), patch);
+          const c = window.__test_runPlanMode({ planMode: 'choose', endValue: true }),
+            o = window.__test_runPlanMode({ planMode: 'off', endValue: true });
+          if (Object.keys(c.intents).length) return;
+          res.none++;
+          if (JSON.stringify(c.rows) !== JSON.stringify(o.rows) || c.depletedAge !== o.depletedAge || !Object.is(c.value, o.value) || JSON.stringify(c.estate) !== JSON.stringify(o.estate)) res.differ.push(i);
+          // The reused candidate is the off run's.
+          const none = window.__test_refreshCliffPlan().report.candidates.find((x) => x.family === 'none');
+          if (none.depletedAge !== o.depletedAge || !Object.is(none.value, o.value)) res.reportDiffer.push(i);
+        });
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+        window.__test_refreshCliffPlan();
+      }
+      return res;
+    }, patches);
+    assert(out.none >= 40, `F2: ${out.none} households without intents`);
+    assert.deepStrictEqual(out.differ, [], 'F2: choose without intents differs from off');
+    assert.deepStrictEqual(out.reportDiffer, [], "F2: the 'none' candidate differs from a real off run");
   }
 
   assert.deepStrictEqual(errors, []);

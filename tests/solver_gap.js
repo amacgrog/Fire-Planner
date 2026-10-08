@@ -1,4 +1,4 @@
-// Gap table (Batch 3C, spec sections 7 and 13.3): the shipped engine (cliff guard on, default withdrawal order,
+// Gap table (Batch 3C, spec sections 7 and 13.3): the shipped engine (cliff plan on, default withdrawal order,
 // the bracket conversion: `withdrawalMixEnabled: false`, `cliffGuardEnabled: true`) against a slow reference, the
 // multi-lever coordinate ascent (per-year Roth bracket, per-year withdrawal mix, smooth on/off) with a
 // 200,000-evaluation budget, on short plans (life expectancy 75) so the reference finishes. Objective: the

@@ -837,7 +837,8 @@
     bondYears: 5,
     smoothWithdrawals: false,
     withdrawalMixEnabled: false,
-    // 3C cliff guard: steer each withdrawal year's MAGI around the federal cost lines (on by default).
+    // Cliff plan (the checkbox keeps its 3C key): steer withdrawal years' MAGI around the federal cost lines, planned once on
+    // the plan's own assumptions (on by default).
     cliffGuardEnabled: true,
     // Per-year schedules written by the "Apply this schedule" button on the
     // Withdrawal & conversion optimizer card (see renderMultiLeverOptimizer/
@@ -7041,7 +7042,13 @@
   let cliffPlan = null,
     cliffPlanKey = null,
     cliffPlanReport = null,
-    cliffPlanState = null;
+    cliffPlanState = null,
+    // What else the kept plan was made under (refreshCliffPlan keeps it while all of these are unchanged), and whether
+    // cliffPlan / cliffPlanReport hold a computed plan (false after a test hook set the plan by hand).
+    cliffPlanYear = null,
+    cliffPlanOverrides = null,
+    cliffPlanComputed = false,
+    cliffPlanComputes = 0; // computeCliffPlan calls from refreshCliffPlan (tests)
   const cliffPlanCache = new Map(), // JSON of a swapped-in state -> its plan (planForState)
     CLIFF_PLAN_CACHE_MAX = 16;
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
@@ -9191,7 +9198,7 @@
   // solveTraditionalForNetFromNeed). Draws the penalty-free accounts only (no 10%); the penalized
   // ones are takePenalized's job. Every account holds the same stock/bond mix, so a group's room in a
   // bucket is its share of the pool times the bucket. `uncapped` ignores a MAGI cap (the bond reserve's draw in both
-  // strategies: cash and bonds keep their place, so the cliff guard never reorders the reserve).
+  // strategies: cash and bonds keep their place, so the cliff plan never reorders the reserve).
   function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet, penalized = false, uncapped = false) {
     const { bal } = wd;
     const { slots, share } = tradGroup(wd, penalized);
@@ -9413,7 +9420,7 @@
       wd.need -= takeTaxable(wd, 'taxable', wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
     }
-    // The bond reserve keeps its place under a MAGI cap (uncapped draw): the cliff guard steers the stock-account step
+    // The bond reserve keeps its place under a MAGI cap (uncapped draw): the cliff plan steers the stock-account step
     // and what precedes the reserve, never the reserve's own order.
     const bondTrad = () => {
       if (wd.need > 0 && bal.bondTraditional > 0)
@@ -9809,7 +9816,7 @@
     const projectionYears = singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
-    // 3C cliff guard: growth of the IRMAA tiers over the two-year lookback, at the plan's assumed inflation.
+    // Cliff plan: growth of the IRMAA tiers over the two-year lookback, at the plan's assumed inflation.
     const irmaaGrowth2 = (1 + source.inflation) * (1 + source.inflation);
     for (let age = state.ageA, year = 0; year <= projectionYears; age++, year++) {
       const { stockReturn, bondReturn, bondYield, factor, limitFactor } = source.yearInputs(year);
@@ -10572,8 +10579,9 @@
       const chosen = run('choose', null),
         all = chosen.cliffIntents,
         pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
-      const cands = [measure('none', {}, run('off', null))];
       const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
+      // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
+      const cands = [measure('none', {}, fams.size ? run('off', null) : chosen)];
       if (fams.size > 1)
         for (const fam of ['aca', 'irmaa']) {
           const sub = pick(fam);
@@ -10590,11 +10598,18 @@
       histTaxFactors = prevFactors;
     }
   }
-  // Plans for the current state (top of render()) and records which state object the plan belongs to.
+  // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
+  // only when the inputs change: same state JSON, tax year and optimizer overrides keep the plan already computed.
   function refreshCliffPlan() {
-    cliffPlanKey = JSON.stringify(state);
+    const key = JSON.stringify(state);
     cliffPlanState = state;
+    if (cliffPlanComputed && key === cliffPlanKey && cliffPlanYear === currentYear && cliffPlanOverrides && cliffPlanOverrides[0] === rothBracketOverrideByAge && cliffPlanOverrides[1] === withdrawalMixOverrideByAge) return;
+    cliffPlanKey = key;
+    cliffPlanYear = currentYear;
+    cliffPlanOverrides = [rothBracketOverrideByAge, withdrawalMixOverrideByAge];
     ({ plan: cliffPlan, report: cliffPlanReport } = computeCliffPlan());
+    cliffPlanComputed = true;
+    cliffPlanComputes++;
   }
   // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
   // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
@@ -12736,8 +12751,8 @@
     let text = 'Cliff plan: ' + ordered.map(clause).join('; ') + '.';
     if (report) {
       const fams = new Set(report.candidates.map((c) => c.family));
-      for (const [fam, name] of [['aca', 'ACA'], ['irmaa', 'IRMAA']])
-        if (fams.has(fam) && report.kept !== fam && report.kept !== 'all') text += ` ${name} stay-unders not used (no gain over the whole plan).`;
+      for (const [fam, name] of [['aca', 'ACA steering'], ['irmaa', 'IRMAA stay-unders']])
+        if (fams.has(fam) && report.kept !== fam && report.kept !== 'all') text += ` ${name} not used (no gain over the whole plan).`;
     }
     return text;
   }
@@ -15954,11 +15969,13 @@
   // Cliff plan in tests: a test changes state and calls a shared hook without render(), so the hooks plan for the state
   // they see (production plans in render()). Benchmarks use the raw hooks after one explicit refresh.
   const ensureTestPlan = () => {
-    if (JSON.stringify(state) !== cliffPlanKey) refreshCliffPlan();
+    if (JSON.stringify(state) !== cliffPlanKey || cliffPlanYear !== currentYear) refreshCliffPlan();
   };
   window.__test_simulateRaw = simulate;
   window.__test_simulateHistoricalRaw = simulateHistorical;
-  window.__test_setCliffPlan = (p) => { cliffPlan = p; cliffPlanKey = JSON.stringify(state); cliffPlanState = state; }; // scans: run a path with no plan
+  // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).
+  window.__test_setCliffPlan = (p) => { cliffPlan = p; cliffPlanKey = JSON.stringify(state); cliffPlanYear = currentYear; cliffPlanState = state; cliffPlanComputed = false; };
+  window.__test_cliffPlanComputes = () => cliffPlanComputes;
   window.__test_simulate = (...a) => (ensureTestPlan(), simulate(...a));
   window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
   window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
@@ -16045,9 +16062,9 @@
     return rowFnFor;
   })();
   window.__test_afterTaxEndValueUS = afterTaxEndValueUS;
-  window.__test_optimizeRothLadderPerYear = optimizeRothLadderPerYear;
-  window.__test_optimizeMultiLever = optimizeMultiLever;
-  window.__test_rothScheduleCost = rothScheduleCost;
+  window.__test_optimizeRothLadderPerYear = (...a) => (ensureTestPlan(), optimizeRothLadderPerYear(...a));
+  window.__test_optimizeMultiLever = (...a) => (ensureTestPlan(), optimizeMultiLever(...a));
+  window.__test_rothScheduleCost = (...a) => (ensureTestPlan(), rothScheduleCost(...a));
   window.__test_setOptimizerBudget = (n) => {
     rothPerYearEvalBudget = n;
   };
@@ -16128,6 +16145,7 @@
   };
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
+    ensureTestPlan();
     lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();
   };

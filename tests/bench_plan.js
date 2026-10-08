@@ -53,7 +53,12 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
         const timePlan = () => {
           const t0 = performance.now();
           let rep;
-          for (let i = 0; i < REFRESH_REPS; i++) rep = window.__test_refreshCliffPlan();
+          // __test_setCliffPlan(null) first: refreshCliffPlan keeps a plan already computed for unchanged inputs, and the
+          // gate is the cost of choosing one (the hook's own JSON.stringify is timed too: conservative).
+          for (let i = 0; i < REFRESH_REPS; i++) {
+            window.__test_setCliffPlan(null);
+            rep = window.__test_refreshCliffPlan();
+          }
           return [(performance.now() - t0) / REFRESH_REPS, rep];
         };
         const timeOff = () => {
