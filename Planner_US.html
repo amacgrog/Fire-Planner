@@ -9155,12 +9155,30 @@
   // Lines count only inside the reach: from the MAGI with no discretionary draw and no conversion (c.lo) to the
   // MAGI with the conversion and no draw plus REACH_GROSS_UP x the need (c.hi). c.thresholds is sorted by MAGI.
   // Each candidate carries its line's id and ret. Returns NO_PLANS when none.
+  // The eligibility tests, shared by choose (yearPlanCandidates) and apply so the two cannot drift. c carries the converged
+  // natural year: natTrad (its cappable traditional draw), natMagi, natConv, lo, hi, canFill. Which side of the natural MAGI a
+  // line is on is tested by the caller.
+  // A stay-under: the natural draw took traditional money the cap can limit, the natural MAGI less its conversion is over the
+  // line, and the target is inside the reach.
+  function underEligible(t, c) {
+    return c.natTrad > 0 && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo;
+  }
+  // A fill: penalty-free traditional money, and the target inside the reach.
+  function fillEligible(t, c) {
+    return c.canFill && t.magi + 1 <= c.hi;
+  }
+  function underPlanOf(t) {
+    return { kind: 'under', magi: t.magi - 1, label: t.label, id: t.id, ret: t.ret };
+  }
+  function fillPlanOf(t) {
+    return { kind: 'fill', magi: t.magi + 1, label: t.label, id: t.id, ret: t.ret };
+  }
   function yearPlanCandidates(c) {
     let out = NO_PLANS;
     const gain = c.gain,
       costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + c.irmaaAt(m - c.magiBase - gain, gain),
-      offerUnder = (t) => c.natTrad > 0 && c.natMagi - c.natConv > t.magi,
-      underOf = (t) => ({ kind: 'under', magi: t.magi - 1, label: t.label, id: t.id, ret: t.ret });
+      offerUnder = (t) => underEligible(t, c),
+      underOf = underPlanOf;
     let near = null,
       big = null,
       bigJump = 0;
@@ -9179,9 +9197,9 @@
     if (big && big !== near && offerUnder(big)) out = out === NO_PLANS ? [underOf(big)] : [out[0], underOf(big)];
     if (c.canFill) {
       for (const t of c.thresholds) {
-        if (t.magi <= c.natMagi || t.magi + 1 > c.hi) continue;
+        if (t.magi <= c.natMagi || !fillEligible(t, c)) continue;
         if (costNear(t.magi + 1) < costNear(t.magi - 1)) {
-          const fill = { kind: 'fill', magi: t.magi + 1, label: t.label, id: t.id, ret: t.ret };
+          const fill = fillPlanOf(t);
           out = out === NO_PLANS ? [fill] : [...out, fill];
           break;
         }
@@ -9823,6 +9841,8 @@
     const schedule = mortgageSchedule(),
       loans = loanSchedules(),
       rows = [],
+      // Cliff plan (apply): the IRMAA stay-unders kept on a household return, checked after the loop (planStats).
+      irmaaChecks = [],
       magiHistory = [],
       // Two-return years (an unmarried couple, or before a marry-later wedding): each partner's own MAGI,
       // and which years had two returns, for the per-person IRMAA lookback.
@@ -10396,8 +10416,36 @@
                 hi = lo + conversionAmount + REACH_GROSS_UP * -flow,
                 convA = conversionAmount * profile.ownerShareA;
               const lines = magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi });
+              // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
+              const natOf = () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 });
+              const intent = planMode === 'apply' && plan && plan.intents ? plan.intents[age] : null;
+              if (intent) {
+                // apply (spec section 6): follow the plan literally. The intent's line is looked up by id and return among the very
+                // lines choose builds (same call, same lo / hi from the converged natural year); a line that does not exist this
+                // year, a natural MAGI already on the plan's side, or a plan the year cannot carry keeps the natural year.
+                planStats.intentYears++;
+                const t = lines.find((l) => l.id === intent.line && l.ret === intent.ret),
+                  nat = t ? natOf() : null;
+                let trial = null;
+                if (!t) planStats.absent++;
+                else if (intent.kind === 'under') {
+                  if (t.magi > realizedMagi) planStats.skippedSide++;
+                  else if (!underEligible(t, nat)) planStats.skippedIneligible++;
+                  else trial = underPlanOf(t);
+                } else {
+                  if (t.magi <= realizedMagi) planStats.skippedSide++;
+                  else if (!fillEligible(t, nat)) planStats.skippedIneligible++;
+                  else trial = fillPlanOf(t);
+                }
+                if (trial) {
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  trials = [trial];
+                  trialRecs = [];
+                  next = 0;
+                }
+              }
               if (planMode === 'choose' && lines.length) {
-                trials = yearPlanCandidates({ thresholds: lines, natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, gain: taxableGainGross, lo, hi, magiBase, canFill: freeTraditional(wd) > 0, premiumAt: costAt, irmaaAt });
+                trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
                 naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
@@ -10406,6 +10454,25 @@
                   next = 0;
                 } else if (planTr) planTr.candidates = [{ kind: 'none', magi: realizedMagi, realized: realizedMagi, label: '', conversion: conversionAmount, cliffCost: naturalRec.cliffCost, score: null, ok: true }];
               }
+            }
+          } else if (planMode === 'apply') {
+            // apply: the plan's trial is done. Kept if it met its plan and left no need unmet (no lambda, no score, no healthcare
+            // test: spec section 6); otherwise the natural year's final pass is replayed, as choose replays a non-last winner.
+            const met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1;
+            if (met && wd.need <= 1) {
+              planStats.applied++;
+              if (yearPlan.kind === 'under') planStats.rothShift += rothWithdrawn - naturalRec.roth;
+              if (yearPlan.kind === 'under' && lineFamily(yearPlan.id) === 'irmaa' && yearPlan.ret === 'H')
+                irmaaChecks.push({ y: year + 2, filing: irmaaFiling2(), nat: naturalRec.realized, trial: realizedMagi });
+            } else {
+              planStats.fallback++;
+              yearPlan = NO_PLAN;
+              estTrad = naturalRec.estTrad;
+              estGain = naturalRec.estGain;
+              forcedPass = naturalRec.forced;
+              phaseUnresolved = naturalRec.unresolved;
+              replaying = true;
+              continue;
             }
           } else {
             // A trial's iteration is done: record it. It counts only if it met its plan (a cap limits traditional draws only, so
@@ -10559,6 +10626,13 @@
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(futureBuy, schedule),
     };
+    // Cliff plan scan measure (spec 6, "Known, accepted"): a path stay-under under an IRMAA line saves nothing when the
+    // path's own charged tier puts both MAGIs in the same tier.
+    for (const c of irmaaChecks) {
+      if (c.y > projectionYears) continue;
+      planStats.irmaaStayUnders++;
+      if (irmaaSurcharge(c.nat, c.filing, c.y) === irmaaSurcharge(c.trial, c.filing, c.y)) planStats.irmaaZeroSaving++;
+    }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not

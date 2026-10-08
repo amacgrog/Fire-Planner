@@ -88,6 +88,124 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // A plan wins only when it met its line, so no kept plan year missed it.
   assert.strictEqual(await page.evaluate(() => window.__test_magiStats.planMissed), 0, 'magiStats.planMissed');
 
+  // ---- Task 4: `apply` follows a plan literally; on the deterministic run it replays `choose` exactly. ----
+  const resetStats = () =>
+    page.evaluate(() => {
+      for (const k of Object.keys(window.__test_planStats)) window.__test_planStats[k] = 0;
+    });
+  const stats = () => page.evaluate(() => ({ ...window.__test_planStats }));
+  const same = (a, b, msg) => {
+    assert.strictEqual(JSON.stringify(a.rows), JSON.stringify(b.rows), `${msg}: rows differ`);
+    assert.strictEqual(a.depletedAge, b.depletedAge, `${msg}: depletedAge`);
+  };
+  // A hand-built household in the corpus's shape (legacy pooled fields, translated by runMode).
+  const hand = (patch) => ({ name: 'hand', patch });
+
+  // T4.1 Exact replay: apply with choose's intents gives choose's rows.
+  for (const name of ['std G hoh 62 aca smooth', 'std G single 62 aca smooth', 'std G mfj 62 aca 400% smooth', 'std G hoh 66 1966 household', 'std G mfj 58 aca default']) {
+    const ch = await runMode(page, household(name), 'choose');
+    await resetStats();
+    const ap = await runMode(page, household(name), 'apply', { intents: ch.intents });
+    same(ap, ch, `T4.1 ${name}: apply replays choose`);
+    const s = await stats();
+    assert.strictEqual(s.intentYears, Object.keys(ch.intents).length, `T4.1 ${name}: intentYears`);
+    assert.strictEqual(s.applied, Object.keys(ch.intents).length, `T4.1 ${name}: every intent applied (${JSON.stringify(s)})`);
+  }
+
+  // T4.2 Marry-later replay. The brief's household (std G two returns 62 aca smooth with marryLater, wedding at 64) records
+  // only an 'H' intent at 64 (choose: {64: under aca400 H}), so the pre-wedding check would be vacuous. Found by a grid over
+  // spending 40k-100k, traditional 0.5M/1M/1.5M, taxable 0/300k, smooth on/off (all with marryLater, wedding at 64): from
+  // spending 80,000 up, choose stays under Partner A's own 400% line at 62 and 63 (ret 'A') and the household line at 64. No
+  // grid point gave a 'B' intent: the partners are symmetric, so A's and B's lines translate to the same household MAGI and
+  // magiThresholds' $1 dedup keeps A's (Task 1 code, left as is).
+  {
+    const ML = hand({ ...household('std G two returns 62 aca smooth').patch, marryLater: true, marriageAgeA: 64, spending: 80000 });
+    const ch = await runMode(page, ML, 'choose');
+    const ages = Object.keys(ch.intents).map(Number);
+    assert(ages.length > 0, 'T4.2: choose records intents');
+    assert(ages.some((a) => a < 64), `T4.2: an intent before the wedding (${JSON.stringify(ch.intents)})`);
+    for (const a of ages) {
+      if (a < 64) assert(['A', 'B'].includes(ch.intents[a].ret), `T4.2: age ${a} before the wedding has ret ${ch.intents[a].ret}`);
+      else assert.strictEqual(ch.intents[a].ret, 'H', `T4.2: age ${a} after the wedding`);
+    }
+    same(await runMode(page, ML, 'apply', { intents: ch.intents }), ch, 'T4.2: marry-later replay');
+  }
+
+  // T4.3 / T4.4 / T4.7 on std G hoh 62 aca smooth: its first stay-under intent alone.
+  const H62 = household('std G hoh 62 aca smooth');
+  const h62 = await runMode(page, H62, 'choose');
+  const x = Number(Object.keys(h62.intents).find((a) => h62.intents[a].kind === 'under'));
+  assert(Number.isFinite(x), 'T4.3: precondition: an under intent');
+  const one = { intents: { [x]: h62.intents[x] } };
+  {
+    // T4.3 Already on the right side: lower spending puts the natural MAGI under the line. (The brief's 30% cut is not enough
+    // here: at 42,000 the natural MAGI is still over the 400% line and the intent is applied; the first of 30%, 50%, 70% cuts
+    // that puts it under is used.)
+    let lower = null,
+      ap = null,
+      s = null;
+    for (const cut of [0.7, 0.5, 0.3]) {
+      lower = { spending: H62.patch.spending * cut };
+      await resetStats();
+      ap = await runMode(page, H62, 'apply', one, null, lower);
+      s = await stats();
+      if (s.skippedSide) break;
+    }
+    assert.strictEqual(s.skippedSide, 1, `T4.3: skippedSide (${JSON.stringify(s)}, spending ${lower.spending})`);
+    assert(!ap.rows.find((r) => r.age === x).cliffChoice, 'T4.3: row unlabelled');
+    same(ap, await runMode(page, H62, 'off', null, null, lower), 'T4.3: equals off');
+  }
+  {
+    // T4.4 Cannot meet the plan: no Roth, cash or taxable money to switch to.
+    const broke = { rothIraA: 0, roth401kA: 0, cash: 0, taxable: 0 };
+    await resetStats();
+    const ap = await runMode(page, H62, 'apply', one, null, broke);
+    const s = await stats();
+    assert(s.fallback + s.skippedIneligible === 1, `T4.4: fallback or skippedIneligible (${JSON.stringify(s)})`);
+    assert(!ap.rows.find((r) => r.age === x).cliffChoice, 'T4.4: row unlabelled');
+    same(ap, await runMode(page, H62, 'off', null, null, broke), 'T4.4: equals off');
+  }
+  {
+    // T4.5 Absent: an IRMAA line at 62 (IRMAA is charged two years on, at 64: no Medicare, no IRMAA line built).
+    const absent = { intents: { 62: { kind: 'under', line: 'irmaa1', ret: 'H' } } };
+    for (const series of [null, { id: 'boom', type: 'boom' }]) {
+      await resetStats();
+      const ap = await runMode(page, H62, 'apply', absent, series);
+      const s = await stats();
+      assert.strictEqual(s.absent, 1, `T4.5 (${series ? 'boom' : 'standard'}): absent (${JSON.stringify(s)})`);
+      same(ap, await runMode(page, H62, 'off', null, series), `T4.5 (${series ? 'boom' : 'standard'}): equals off`);
+    }
+  }
+
+  // T4.6 Fill. The brief's household (std G single 58 aca default, Medicaid declined) records no fill. Found by a grid over
+  // spending 20k-60k, traditional 300k/1.5M, taxable 0/50k/300k, conversions on/off: with traditional 300,000, taxable 0 and
+  // conversions off, spending 30,000 to 45,000 fills to the 100% credit floor at 61 (and stays under the 400% line at 60).
+  {
+    const F = hand({ ...household('std G single 58 aca default').patch, medicaidWhenEligible: false, spending: 30000, traditional: 300000, taxable: 0, rothConvEnabled: false });
+    const ch = await runMode(page, F, 'choose');
+    const fa = Object.keys(ch.intents).find((a) => ch.intents[a].kind === 'fill');
+    assert(fa !== undefined, `T4.6: choose records a fill (${JSON.stringify(ch.intents)})`);
+    same(await runMode(page, F, 'apply', { intents: ch.intents }), ch, 'T4.6: fill replay');
+    // Spending raised until the natural MAGI at that age is over the floor: the fill is already done.
+    let raised = null;
+    for (const sp of [40000, 50000, 60000, 80000, 100000]) {
+      await resetStats();
+      await runMode(page, F, 'apply', { intents: { [fa]: ch.intents[fa] } }, null, { spending: sp });
+      if ((await stats()).skippedSide === 1) {
+        raised = sp;
+        break;
+      }
+    }
+    assert(raised !== null, 'T4.6: raised spending counts skippedSide');
+  }
+
+  // T4.7 Variant: the plan of std G hoh 62 aca smooth on the household retiring 3 years later.
+  {
+    const later = { retireAgeA: H62.patch.retireAgeA + 3, retireAgeB: H62.patch.retireAgeB + 3 };
+    const ap = await runMode(page, H62, 'apply', { intents: h62.intents }, null, later);
+    for (const r of ap.rows) if (r.age < later.retireAgeA) assert(!r.cliffChoice, `T4.7: working age ${r.age} labelled ${r.cliffChoice}`);
+  }
+
   // 5. yearPlanCandidates, hand-computed (ported from the 8a patch's cliff_guard cases). Common inputs: magiBase 20,000,
   // gain 0, reach 20,000 to 300,000; the premium is 24,697 over a MAGI of 80,000 and 8,059 at or under it (an ACA cliff of
   // 16,638).
