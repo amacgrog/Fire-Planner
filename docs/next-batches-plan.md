@@ -981,8 +981,9 @@ calls (a two-element loop over module scratch arrays, no allocation) per project
 **For the owner:**
 - `kA` / `kB` in `retirementContributions` are now unused (they only fed the old mega room); left as they were, remove at
   your choice.
-- The MCP path stores `profitSharingPctA/B` values above 25 until the next reload's `normalizeState` clamps them (the same
-  as `matchA` today).
+- The MCP path stores `profitSharingPctA/B` values above 25 until the next reload's `normalizeState` clamps them;
+  `matchA` has no normalizeState clamp at all (never clamped, even on reload), so the profit-sharing gap is smaller
+  than the match's.
 - The snapshot grid has no case for movers (a) or (b); only the hand-computed unit tests cover them. Say if you want a
   snapshot scenario for each (a 50+ partner with the mega backdoor and positive room; pay over 360,000 with a match).
 - `snapshot_ui` `histSuccess` is timing-flaky (an `--update` can write 85% instead of a dash); the committed value is the

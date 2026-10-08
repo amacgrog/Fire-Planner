@@ -391,7 +391,7 @@ Each planner is one big IIFE. Core shape:
   out)` (pure, country-neutral, allocation-free; moves to `shared/` at E1-CA) sit above `retirementContributions`, which
   returns the limited `matchA/B`, `profitA/B` and `employerContrib` (the year loop's `employerMatch`). One room per
   partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
-  `min(compensation, limit) - deferrals`, so a match over the room is cut. `profitSharingPctA/B` (0-25, clamped in
+  `min(pay, annual limit) - deferrals` (catch-ups outside it); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
   `normalizeState` and while typing) is the employer's share of pay into the traditional 401(k). Partner income
   (`incomeA/B`) is a money field, not a slider. Test: `tests/contribution_limits.js`.
 - **Account balances live in one `bal` object** (`bal.taxable`,
