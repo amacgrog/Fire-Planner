@@ -28,7 +28,7 @@
 
 ## Review Focus
 
-1. **State replaced while a plan exists** (scenario import, undo, reset, autosave load): the next projection must not apply the old household's plan. Pinned in Task 6, Step 9.
+1. **State replaced while a plan exists** (scenario import, undo, reset, autosave load, the comparison and overlay swaps): the next projection runs the plan of the state it projects, never the old household's; the main plan survives the swaps. Pinned in Task 6, Step 9 (amended 2026-10-07, option (e)).
 2. **The guard toggled off and back on in the UI:** off must equal the `off` run exactly; on must re-plan. Pinned in Task 7, Step 1, case (f).
 3. **A variant where an intent's age becomes a working or surplus year** (the +3-year retirement line): no trial runs (`flow >= 0`), the year runs as `off`, nothing throws. Pinned in Task 4, Step 1 (case "variant").
 4. **A marry-later household** (two returns, then joint): intents recorded with `ret` 'A'/'B' before the wedding and 'H' after; replay stays exact across the switch. Pinned in Task 4, Step 1 (case "marry-later replay").
@@ -46,7 +46,7 @@
   - `runProjection` (~9722-10374): `planMode` / `plan` arguments, the phased year, intents, `estate`.
   - New, just after `runProjection` (US-only, before `// @@shared:13-simulate begin`): `afterTaxEndValueUS`, `planCandidateBetter`, `refreshCliffPlan`, `cliffPlan`, `cliffPlanKey`, `cliffPlanReport`, `cliffPlanSummary`.
   - `render()` (~10446): refresh at the top; summary line.
-  - State replacement sites (~1537, 12985, 13014, 13128, 14642): clear the plan.
+  - State replacement sites (~1537, 13189, 13218, 13332, 14826, 14846): all inside shared regions, NOT edited; `planForState()` (Task 6) covers them.
   - `annotateSolverRows` (~12467).
   - Test hooks (after `// @@shared:block end`, ~15676): new US-only hooks and wrappers.
   - Markup: the `cliffGuardEnabled` label and info bubble (~534); a summary element under "More results".
@@ -494,15 +494,16 @@ git commit -m "Cliff plan 5: keep rule (rule A) and refreshCliffPlan with family
 
 **Interfaces:**
 - Consumes: everything above.
-- Produces: `runProjection` default `planMode = cliffPlan ? 'apply' : 'off'` with `plan = cliffPlan`; US-only wrappers redefining `window.__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo`, `__test_accountTrace` to call `ensureTestPlan()` first; raw hooks `window.__test_simulateRaw = simulate`, `window.__test_simulateHistoricalRaw = simulateHistorical`; `window.__test_planTrace(rowFn)`: standard `choose` trace without `rowFn`, an `apply` trace on that path with it.
+- Amended 2026-10-07 (owner, after the Task 6 stop): the live-mix cappable fix (Step 2a), `planForState()` instead of clearing the plan at the state-replacement sites (Step 2b), lines built only in an `apply` year with an intent (Step 2c), the stale-plan test rewritten (Step 9).
+- Produces: `runProjection` default `plan = planForState(); planMode = plan ? 'apply' : 'off'`; `computeCliffPlan() -> { plan, report }` (the body of Task 5's `refreshCliffPlan`, for the current `state`, touching no module plan variable); `refreshCliffPlan()` sets `cliffPlan`, `cliffPlanKey`, `cliffPlanReport` and `cliffPlanState`; `planForState() -> plan | null`; `cliffPlanCache` (a `Map`, string -> plan); US-only wrappers redefining `window.__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo`, `__test_accountTrace` to call `ensureTestPlan()` first; raw hooks `window.__test_simulateRaw = simulate`, `window.__test_simulateHistoricalRaw = simulateHistorical`; `window.__test_planTrace(rowFn)`: standard `choose` trace without `rowFn`, an `apply` trace on that path with it.
 
 - [ ] **Step 1: Write the off-anchor script** `tests/plan_off_anchor.js --base DIR`: open `DIR/Planner_US.html` and this tree's in two pages (clock pinned as in `tests/snapshot.js`); for every US scenario in `tests/snapshot_scenarios.js` run it with the scenario patch plus `{ cliffGuardEnabled: false }` through `__test_simulate` / `__test_simulateHistorical` (translate with `legacyToAccounts` as the snapshot harness does; reuse its `resetState` and `rowFnFor` code); compare `JSON.stringify` of canonical rows (copy `canon` from `tests/snapshot.js`) and print the count identical / different; exit 1 on any difference. Run it now against `../fp-3c-A`: expected all identical.
 
 - [ ] **Step 2: Switch the default and remove the legacy path.**
-  - `if (planMode === undefined) { planMode = cliffPlan ? 'apply' : 'off'; plan = cliffPlan; }`.
+  - `if (planMode === undefined) { plan = planForState(); planMode = plan ? 'apply' : 'off'; }`, as the FIRST statement of `runProjection` (before it touches any module state: `planForState` may run nested `runProjection` calls with an explicit `planMode`).
   - Delete the legacy in-path block (the `guard && iter === 0 && !forcedPass` plan context, `planWinner`, `adoptWithdrawal` use), `chooseYearPlan`, and any of `cloneWithdrawal` / `adoptWithdrawal` / `NO_PLAN` fields left unused; remove their test exports and the `tests/solver_primitives.js` cases that only tested them (8a patch lines 695-722 show which). `row.lambda` is gone everywhere (the trace keeps lambda).
   - `render()`: first line `refreshCliffPlan();`.
-  - State replacement: right after each `state = normalizeState(...)` / `state = {` at the sites listed in the File map, add `cliffPlan = null; cliffPlanKey = null;` (render follows each of them; the clear is the safety net, spec section 3).
+  - State replacement sites: NOT edited (all are in shared regions). Steps 2a to 2c below replace that bullet.
   - After `// @@shared:block end` (US only):
 ```js
   // Cliff plan in tests: a test changes state and calls a shared hook without render(), so the hooks plan for the state
@@ -512,13 +513,72 @@ git commit -m "Cliff plan 5: keep rule (rule A) and refreshCliffPlan with family
   };
   window.__test_simulateRaw = simulate;
   window.__test_simulateHistoricalRaw = simulateHistorical;
-  window.__test_setCliffPlan = (p) => { cliffPlan = p; cliffPlanKey = JSON.stringify(state); }; // scans: run a path with no plan
+  window.__test_setCliffPlan = (p) => { cliffPlan = p; cliffPlanKey = JSON.stringify(state); cliffPlanState = state; }; // scans: run a path with no plan
   window.__test_simulate = (...a) => (ensureTestPlan(), simulate(...a));
   window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
   window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
   window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
 ```
   and wrap the existing `window.__test_accountTrace` the same way. `ensureTestPlan` must not be called from production code.
+
+- [ ] **Step 2a: The live-mix draw is cappable** (owner accepted 2026-10-07; spec section 4 step 3). In `drawMixedStockAccounts`' live branch, right after `wd.traditionalWithdrawn += live.fromTraditional;`:
+```js
+      wd.cappableTraditional += live.fromTraditional;
+```
+  (The draw comes from the penalty-free group, `tradGroup(wd, false)`, and is sized under `magiCapLeft(wd)`.) Test, appended to `tests/cliff_plan.js`: load the `std R rothConv+aca+live` patch from `tests/snapshot_scenarios.js` (through the same `resetState` / `legacyToAccounts` path the file already uses for snapshot patches); `__test_refreshCliffPlan()` keeps `all`, its intents include `under aca400` at ages 62 to 65, and its report's kept `depletedAge` is later than the `none` entry's (95 vs 94 when this was written). Without the line the test fails (choose records no intent for a live-mix household).
+
+- [ ] **Step 2b: Each projection uses the plan of its own state** (owner decision (e), 2026-10-07; spec section 3, "Stale plans"). Refactor Task 5's `refreshCliffPlan` into a pure `computeCliffPlan` and a setter, and add `planForState`, all just after `afterTaxEndValueUS`:
+```js
+  let cliffPlan = null,
+    cliffPlanKey = null,
+    cliffPlanReport = null,
+    cliffPlanState = null; // the state object refreshCliffPlan() planned for
+  const cliffPlanCache = new Map(), // JSON of a swapped-in state -> its plan (spec section 3)
+    CLIFF_PLAN_CACHE_MAX = 16;
+  // The plan for the current `state`, touching no module plan variable. Planning never sees a historical path's tax
+  // factors: a nested call (planForState inside a run) saves and restores them.
+  function computeCliffPlan() {
+    if (!state.cliffGuardEnabled) return { plan: null, report: null };
+    const prevFactors = histTaxFactors;
+    histTaxFactors = null;
+    try {
+      // ... Task 5's body unchanged from `const run = ...` to `let best = ...` and the loop ...
+      return {
+        plan: { intents: best.intents, family: best.family, madeFor: JSON.stringify(state) },
+        report: { candidates: cands.map(({ intents, ...rest }) => rest), kept: best.family },
+      };
+    } finally {
+      histTaxFactors = prevFactors;
+    }
+  }
+  function refreshCliffPlan() {
+    cliffPlanKey = JSON.stringify(state);
+    cliffPlanState = state;
+    ({ plan: cliffPlan, report: cliffPlanReport } = computeCliffPlan());
+  }
+  // The plan a default projection applies (spec section 3): the dashboard and in-place variants project the object
+  // render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render) gets
+  // the plan of its own inputs, cached by their JSON.
+  function planForState() {
+    if (state === cliffPlanState) return cliffPlan;
+    if (!state.cliffGuardEnabled) return null;
+    const key = JSON.stringify(state);
+    if (key === cliffPlanKey) return cliffPlan;
+    if (cliffPlanCache.has(key)) return cliffPlanCache.get(key);
+    const plan = computeCliffPlan().plan;
+    if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
+    cliffPlanCache.set(key, plan);
+    return plan;
+  }
+```
+  Keep `madeFor` equal to the key (Task 5's tests read it). Check that `histTaxFactors` is `null` outside a historical run (its declaration, `let histTaxFactors = null`, and `simulateHistorical`'s restore); if a standard run anywhere sets it to something else, stop and report. `window.__test_refreshCliffPlan` and `__test_setCliffPlan` stay as above; add `window.__test_planForState = () => JSON.parse(JSON.stringify(planForState()));` and `window.__test_replaceState = (raw) => { state = normalizeState(raw); };` (no render: the stale-plan test's "replaced before render" case) and `window.__test_scenarioMetrics = (raw) => computeScenarioMetrics(raw);` (the comparison row's own function; it is defined in a shared region but in scope here).
+
+- [ ] **Step 2c: `apply` builds lines only in an intent year** (spec section 6; number-neutral). In the phased block of `runProjection`, compute `intent` before `magiThresholds`, and build the lines only when `planMode === 'choose' || intent`:
+```js
+              const intent = planMode === 'apply' && plan && plan.intents ? plan.intents[age] : null;
+              const lines = planMode === 'choose' || intent ? magiThresholds({ /* the existing argument object, unchanged */ }) : NO_THRESHOLDS;
+```
+  (`natOf` and the rest are unchanged.) `npm test`'s replay test (Task 4) and Step 5's "apply with an empty plan equals off" check pin that nothing moved; `tests/plan_off_anchor.js` stays all identical.
 
 - [ ] **Step 3: Run the anchor and the new tests.** `node tests/plan_off_anchor.js --base ../fp-3c-A` (all identical: guard-off is untouched); `node tests/cliff_plan.js` (all pass; Task 3 case 1 now compares `off` with the default guard-off run).
 
@@ -536,11 +596,17 @@ Build the movers table (scenario | first moved age | depletion before -> after |
 
 - [ ] **Step 7: `npm run snapshot:update`**, then `npm test` green. Also run the root scripts that drive the optimizer and the mix: `node test_apply_optimizer_schedule.js`, `node test_live_withdrawal_mix.js`, `node test_multi_lever_optimizer.js`, `node test_roth_optimizer_per_year.js`; fix only test expectations that pinned legacy-guard numbers, and list them.
 
-- [ ] **Step 8: Docs and badge.** US badge V116 -> V117; `README.md`: the cliff-guard feature line becomes the cliff plan (chosen on the plan's assumptions, applied unchanged in historical and Monte Carlo runs, kept only if it lasts at least as long and leaves more after tax than no steering); `CLAUDE.md`: rewrite the "Per-year solver (3C, US ...)" bullet to the plan (modes, `refreshCliffPlan`, rule A, `apply` semantics, `ensureTestPlan` for tests, `estate` / `afterTaxEndValueUS`, `planStats`, the scripts) and remove what no longer exists (`chooseYearPlan`, the dry runs, `row.lambda`).
+- [ ] **Step 8: Docs and badge.** US badge V116 -> V117; `README.md`: the cliff-guard feature line becomes the cliff plan (chosen on the plan's assumptions, applied unchanged in historical and Monte Carlo runs, kept only if it lasts at least as long and leaves more after tax than no steering); `CLAUDE.md`: rewrite the "Per-year solver (3C, US ...)" bullet to the plan (modes, `refreshCliffPlan` / `computeCliffPlan`, `planForState` (identity, then the inputs' JSON, then the cache; why the state-replacement sites are not edited; a new code path that swaps `state` needs nothing, one that mutates it in place without restoring must call `render()`), rule A, `apply` semantics, `ensureTestPlan` for tests, `estate` / `afterTaxEndValueUS`, `planStats`, the scripts) and remove what no longer exists (`chooseYearPlan`, the dry runs, `row.lambda`).
 
-- [ ] **Step 9: Stale-plan test** (Review Focus 1), in `tests/cliff_plan.js`: load a scenario whose plan has intents, call `__test_refreshCliffPlan()`, then replace the state through the app's import path (find the function behind the `state = normalizeState(scenarioState)` sites; drive it the way `test_*.js` scripts import a scenario, or call it through a test hook you add) with a household that has no line in reach; assert the next `__test_simulateRaw()` (no auto-plan) gives rows equal to that household's `off` run.
+- [ ] **Step 9: Stale-plan tests** (Review Focus 1; amended 2026-10-07 for option (e)), in `tests/cliff_plan.js`. Households: P = a `std G` scenario whose plan keeps intents (the one Task 5 case 3 found), Q = a household with no line in reach (`stateTax: 'tx', acaEnabled: false`, both 66, spending 60k), R = a second household whose plan keeps intents different from P's (another `std G` ACA scenario; record which in a comment). `rowsOf(sim)` = `JSON.stringify` of the rows. Cases:
+  1. **Replaced before render.** Set P, `__test_refreshCliffPlan()`; `__test_replaceState(Q)`; `__test_simulateRaw()` equals `__test_runPlanMode({ planMode: 'off' })` (both now on Q). Then `__test_replaceState(R)`: `__test_simulateRaw()` equals `__test_runPlanMode({ planMode: 'apply', plan: __test_planForState() })`, and `__test_planForState().intents` differs from P's plan's intents.
+  2. **The main plan survives a swap.** Set P, refresh, note `rowsOf(__test_simulateRaw())`; call `__test_scenarioMetrics(R)` and `__test_scenarioMetrics(Q)`; `__test_simulateRaw()` on P is unchanged and `__test_refreshCliffPlan` was not needed (`window.__test_getState()` is still P's object: call `__test_simulateRaw()` without any refresh).
+  3. **A compared scenario shows what loading it shows.** With P live: `__test_scenarioMetrics(R).lastsToAge` and `.endAssets` equal those of R loaded and planned (`__test_replaceState(R)`, `__test_refreshCliffPlan()`, then `__test_scenarioMetrics(__test_getState())`).
+  4. **The "Current" row equals the dashboard.** Set P, refresh. `a = __test_scenarioMetrics(__test_getState())`; then `__test_setCliffPlan(null)` and `b = __test_scenarioMetrics(__test_getState())` (P with no plan); then refresh again. Assert `a` equals the metrics of P loaded and planned (case 3's procedure with P), and, since P's plan keeps intents, that `a.endAssets !== b.endAssets` (the row really applied the plan).
+  5. **Guard off in a swapped state** runs `off`: with P live, `__test_scenarioMetrics({ ...R, cliffGuardEnabled: false })` equals the metrics of R loaded with the guard off (`__test_replaceState({ ...R, cliffGuardEnabled: false })`, `__test_refreshCliffPlan()`, `__test_scenarioMetrics(__test_getState())`).
+  6. **Cache churn:** with P live, 17 distinct swapped states (R with `spending` 50,000 + 1,000 x i) each give the same metrics on a second pass as on the first (the cache emptied at 16 and re-planned; results are unchanged either way).
 
-- [ ] **Step 10: Commit** (snapshot update in the same commit, with the movers table in the message body or in the batch notes of Task 10, and the cliff_guard cases removed listed):
+- [ ] **Step 10: Commit** (snapshot update in the same commit, with the movers table in the message body or in the batch notes of Task 10, the cliff_guard cases removed listed, and one line each for Steps 2a to 2c: the live-mix cappable fix to Task 1's code, `planForState`, lines only in intent years):
 ```bash
 git commit -m "Cliff plan 6: the switch: plan chosen once per render, applied everywhere; in-path guard removed (V117; snapshot update)" -- Planner_US.html tests/ README.md CLAUDE.md
 ```
@@ -591,6 +657,7 @@ git commit -m "Cliff plan 7: label, info bubble, plan summary line, row tooltip 
   - `plan = __test_refreshCliffPlan()`: the kept family and the report;
   - standard: `__test_simulateRaw()` (plan applied) vs `__test_runPlanMode({ planMode: 'off' })`: depletion, value (`__test_afterTaxEndValueUS`), cost; exit 1 if the plan run depletes earlier than `off` (cannot happen by construction; the scan asserts it);
   - historical (all start years, `runHistoricalCycles` through the raw path with the plan, then with `cliffPlan` cleared through a hook `__test_setCliffPlan(null)`) and seeded Monte Carlo (200 paths, fixed seed: build the paths with the snapshot harness's `mulberry32` + block bootstrap and run them through `__test_runPlanMode({ planMode: 'apply', plan, rowFn })` and `planMode: 'off'`): success rates with and without the plan; per-path earlier / later depletion counts (information only);
+  - per path (historical and Monte Carlo; amended 2026-10-07): the ending after-tax value with the plan and with `off`, and the ending Roth, traditional (pool plus bond) and taxable (stocks plus bonds) balances from `sim.estate`. Add an `endValue: true` option to `__test_runPlanMode` that computes `afterTaxEndValueUS(sim)` INSIDE its `try`, before `histTaxFactors` is restored (so the slices use the path's own tax factors), and returns it as `value` with `estate: { roth, traditional, taxable }`. Report, per household: median, p10 and p90 of `(plan - off) / off` for the after-tax value, the count of paths where the plan is lower by more than $1, and the median Roth difference. Print the five largest per-path losses across the grid (household, path, both values, the Roth / traditional / taxable differences). Information only: no gate (decision 1);
   - `planStats` deltas over the historical and Monte Carlo runs: `intentYears`, `applied`, `skippedSide`, `skippedIneligible`, `fallback`, `absent`, `rothShift` (compare with the standard run's own `rothShift`), `irmaaStayUnders`, `irmaaZeroSaving`;
   - from `__test_planTrace()`: the years with `movedSample`, and whether the family containing those years was rejected by the keep rule; report the count of households where a family with moved-sample years was rejected, and where it was kept.
   Print the tables in the same markdown style; keep `--json` and `--md`.
@@ -617,7 +684,7 @@ git commit -m "Cliff plan 8: scan with/without rates, path counters, moved-sampl
 
 ### Task 9 (only if a timing gate missed): number-neutral speedups
 
-- [ ] Allowed, each verified by `npm test` with snapshots identical to Task 7 and `tests/plan_off_anchor.js` still identical: reuse the kept candidate's run as `render()`'s `selected` instead of calling `simulate()` again (identical by the replay test); skip building `lines` in an `apply` year with no intent; avoid allocations in the phase records on the `off` path. Not allowed: any new threshold, skip rule or gate. Re-run Task 8 Step 4's benches; commit with the before/after timings in the message. Still over: stop and report.
+- [ ] Allowed, each verified by `npm test` with snapshots identical to Task 7 and `tests/plan_off_anchor.js` still identical: reuse the kept candidate's run as `render()`'s `selected` instead of calling `simulate()` again (identical by the replay test); avoid allocations in the phase records on the `off` path. Not allowed: any new threshold, skip rule or gate. Re-run Task 8 Step 4's benches; commit with the before/after timings in the message. Still over: stop and report.
 
 ---
 

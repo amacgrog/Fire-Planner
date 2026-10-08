@@ -1,7 +1,9 @@
 # Cliff plan: chosen once on the deterministic projection, applied unchanged everywhere (3C redesign): design
 
 Status: approved in brainstorming with the owner, 2026-10-07. Next step: owner review of this spec, then the
-implementation plan (`docs/superpowers/plans/2026-10-07-cliff-plan.md`).
+implementation plan (`docs/superpowers/plans/2026-10-07-cliff-plan.md`). Amended 2026-10-07 after the Task 6 stop
+(owner): the live-mix draw is cappable (section 4), each projection uses the plan of its own state (section 3),
+`apply` builds lines only in an intent year (section 6), the scan compares after-tax values per path (section 8).
 
 Supersedes, in `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md`: section 2 decisions 1 (a policy
 followed in every run), 4 (lambda estimated per path from each path's own balances) and 6 (the cliff guard in every
@@ -86,12 +88,30 @@ With the guard off, `cliffPlan = null`.
 null. `simulate()` and `simulateHistorical()` sit in a shared region and are not edited; through them this covers every
 call site (83 at `3ebee0e`): the main projection, every variant, historical, Monte Carlo, MCP. `simulate()` never plans.
 
-**Stale plans.** Every place that replaces state outside `render()` (autosave load, scenario import, reset; the
-implementer lists the sites) clears `cliffPlan`. Tests change state and call the shared `window.__test_simulate*` hooks
-without `render()`; US-only code after the shared hook block redefines those hooks to re-plan first whenever the state
-differs from the one the plan was made for (`JSON.stringify(state)`, a test-only cost), so a test always runs the plan
-of the state it set, never a stale one. Benchmarks use raw hooks (`__test_simulateRaw`) after one explicit refresh. Test
-hook: `window.__test_refreshCliffPlan()` (returns the plan and the keep-rule table).
+**Stale plans: every projection uses the plan of the state it projects** (amended 2026-10-07, owner decision (e)
+after the Task 6 stop). Clearing the plan where state is replaced is impossible: every such site (boot load, scenario
+load, the comparison and overlay swaps, undo, reset) sits in a shared region, and a clear at the comparison swap would
+wipe the plan partway through `render()`. Instead `runProjection`, called with no `planMode`, asks `planForState()`:
+- `state` is the very object `refreshCliffPlan()` planned for (`cliffPlanState`): `cliffPlan`. This covers the
+  dashboard and every variant that mutates `state` in place and restores it (tornado, sensitivity, optimizer), which
+  is decision 7.
+- Otherwise, with the guard on in that state: its `JSON.stringify` equal to `cliffPlanKey` gives `cliffPlan` (the
+  comparison's "Current" row, a normalized copy); else a cache keyed by that string (`cliffPlanCache`, at most 16
+  entries, emptied when full) gives or stores the plan computed for it now (`computeCliffPlan`). This covers the saved
+  scenarios in the comparison and the overlay (each gets its own plan, as each had its own guard at `3ebee0e`, so a
+  compared scenario shows what loading it shows) and a state replaced by load, undo or reset before `render()` runs.
+- Guard off in that state: no plan (`off`).
+The string compare runs only when the object differs (the swap paths), never on a dashboard, variant, historical or
+Monte Carlo run. `normalizeState` is not idempotent on every edited state (measured: an edited state's normalized
+copy can stringify differently), which is why a miss plans rather than falling back to `off`. Planning saves and
+restores `histTaxFactors` (sets it to `null`, the standard value) so a plan is never made with a historical path's tax
+factors. Planning adds to the module counters (`planStats`, `magiStats`); scans read deltas, as before.
+
+Tests change state and call the shared `window.__test_simulate*` hooks without `render()`; US-only code after the
+shared hook block redefines those hooks to re-plan first whenever the state differs from the one the plan was made for
+(`JSON.stringify(state)`, a test-only cost), so a test always runs the plan of the state it set, never a stale one.
+Benchmarks use raw hooks (`__test_simulateRaw`) after one explicit refresh. Test hook:
+`window.__test_refreshCliffPlan()` (returns the plan and the keep-rule table).
 
 **Precedence, unchanged.** Applied Roth and mix schedules still set the conversion bracket and the order; the plan's
 intents sit on top; a stay-under year sets that year's conversion to 0 (8a rule 2).
@@ -110,7 +130,9 @@ Per withdrawal year (`flow < 0`) with a real cliff in reach, 8a's procedure:
 3. **Eligibility.** A stay-under is offered only if the natural MAGI less the natural conversion is over the line
    (13.5 item 2) and the natural year drew traditional money the cap can limit: a new `wd` field records the
    cappable traditional draw, excluding the uncapped bond-reserve draw (fixes the 8a review's finding 3, where
-   `realizedTrad` was used). A stay-under sets the year's conversion to 0. A fill keeps
+   `realizedTrad` was used). It counts every penalty-free draw the cap limits, including the live-mix branch's
+   direct draw (`live.fromTraditional`, sized under `magiCapLeft`; amended 2026-10-07: Task 1 missed it, and
+   `std R rothConv+aca+live` then ran out at 94 instead of 95). A stay-under sets the year's conversion to 0. A fill keeps
    `min(natural conversion, that pass's ceiling-sized conversion)`.
 4. **Trials.** Each candidate is its own converged MAGI iteration with the plan held, seeded from the natural pass's
    realized draw and gains (13.5 item 3), from the natural pass's start-of-year snapshot.
@@ -150,7 +172,8 @@ Lifetime real tax plus healthcare is computed for every candidate and reported (
 
 ## 6. Execution on a path (`apply`, rule (a))
 
-In a year with an intent for Partner A's age:
+In a year with an intent for Partner A's age (a year without one builds no lines and runs as `off`; amended
+2026-10-07: the first build of `apply` built the lines in every withdrawal year):
 1. The year's lines are built on this path (`magiThresholds` with the path's own tax factors; IRMAA lines at the
    charged year's tiers at plan inflation, `irmaaGrowth2`, as decided). The intent's line is found by `id` and `ret`.
    No such line this year: run as `off`.
@@ -214,14 +237,19 @@ with the guard off at `3ebee0e`.
 - `afterTaxEndValueUS`: hand-computed (ten slices; single filing after a death; taxable and home at face value).
 - The cappable-draw field: a bond-reserve draw is not cappable.
 - `movedSample`: set exactly when the walk empties the pool before a sample year.
-- Stale plans: state replacement clears `cliffPlan`; the test hooks re-plan when the state changed.
+- Stale plans: a state replaced without `render()` runs its own plan (or `off`), never the old household's; a
+  compared saved scenario runs its own plan; the "Current" row equals the dashboard; the main `cliffPlan` is untouched
+  by those runs; the test hooks re-plan when the state changed.
 - Variants: the +-1-year line applies the main plan by age and never plans.
 - `tests/cliff_guard.js` rewritten to these semantics; `tests/historical_parity.js` covers `apply` and `off`; the
   snapshot harness and `tests/historical_rates.js` plan per scenario through the re-planning hooks (no edit needed).
 
 **Scan** (`tests/solver_scan.js`, extended; not in `npm test`). Per household: the family kept; standard depletion,
 value and cost against `off`; historical and seeded Monte Carlo success rates with and without the plan; per-path
-earlier / later depletion counts (information); skip and fallback counts; Roth used by stay-unders on paths against
+earlier / later depletion counts (information); per path, the ending after-tax value with the plan against
+without it (`afterTaxEndValueUS` computed inside the path's own tax factors) and the ending Roth / traditional /
+taxable split, as a distribution (amended 2026-10-07: face-value totals hid that a boom path's stay-unders moved $9.2M
+out of Roth); skip and fallback counts; Roth used by stay-unders on paths against
 the deterministic run; path IRMAA stay-unders with $0 realized saving; `movedSample` years crossed with family
 rejections. Exit 1 only if a standard plan runs out earlier than `off`.
 
@@ -287,5 +315,6 @@ cliffs as candidates; IRMAA discounting; the life events (Batch E); the with/wit
 - **A plan optimized for one market.** On a boom or crash path an intent can be pointless (skipped) or impossible
   (fallback), and an IRMAA stay-under can use Roth for a tier the path never charges. Rule (a) bounds the harm; the
   scan measures it; a cost bound (option (b) of the brainstorm) comes back to the owner only with numbers.
-- **Stale plans** in code paths that change state without `render()`; cleared at every state replacement, and tests
-  that never plan run `off`.
+- **Stale plans** in code paths that change state without `render()`: each projection plans for its own state
+  (section 3), by object identity first and its inputs' string second; a variant that mutates `state` in place and
+  never restores it would keep the main plan until the next `render()` (none exists today).

@@ -113,8 +113,9 @@ redesigned, owner decision 2026-10-06, see `docs/superpowers/specs/2026-10-06-pe
 **Revised 2026-10-07 (owner):** 3C is paused and redesigned as the **cliff plan** (a plan chosen once on the
 deterministic projection and applied unchanged in historical and Monte Carlo runs; spec
 `docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md` is superseded in part by
-`docs/superpowers/specs/2026-10-07-cliff-plan-design.md`). Order from here: cliff plan -> Batch E (E1 to E4, life
-events, small PRs) -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the Canada province move are scheduled later.
+`docs/superpowers/specs/2026-10-07-cliff-plan-design.md`). Order from here: cliff plan -> IRMAA MAGI fix (added
+2026-10-07, below) -> Batch E (E1 to E4, life events, small PRs) -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the
+Canada province move are scheduled later.
 
 Why 3C moved after Batch 7 (owner decision): Batch 7 adds the
 cliffs and phase-outs (senior deduction, child tax credit, state circuit-breaker
@@ -539,6 +540,21 @@ tax-aware conversion sizing. The live-mix toggle keeps its old behavior (`pickLi
 (the cap uses `target - magiBase`, not `incomeRoom`). See the notes.
 
 ---
+
+## IRMAA MAGI fix (after the cliff plan, before Batch E; owner decision 2026-10-07)
+
+Found while reviewing the cliff plan's Task 6 stop (the owner asked whether credits and benefits could throw a household
+over a cliff it is steering under). The engine carries one MAGI, the ACA definition (all of Social Security), and uses it
+for IRMAA too; Medicare's MAGI is AGI plus tax-exempt interest (42 U.S.C. 1395r(i)(4)(A)), which counts only the taxable
+part (at most 85%). IRMAA MAGI is overstated by the untaxed benefit (at least 15% of benefits; about $10,500 for a
+couple with $70,000 of benefits near the first tier): surcharges charged that a real return would not owe, conversions
+held under a cap set too low, and cliff-plan IRMAA stay-unders placed too low. Predates the cliff plan (Batch 2).
+Spec `docs/superpowers/specs/2026-10-07-irmaa-magi-design.md`, plan `docs/superpowers/plans/2026-10-07-irmaa-magi.md`:
+two primitives (`irmaaMagiOf` and its exact inverse), one MAGI scale for steering with IRMAA edges translated into it,
+its own movers table. No separate measurement first (owner: the movers table is the measurement). Checked at the same
+time and found correct: credits never enter MAGI (they reduce tax); state exclusions, deductions and credits never enter
+federal MAGI; federal deductions lower taxable income, not AGI; the ACA and Medicaid MAGI count all of Social Security,
+as the engine does; one-time income (tax-free) is correctly outside MAGI.
 
 ## Batch E: life events (after the cliff plan; owner decision 2026-10-07)
 
@@ -2592,6 +2608,45 @@ path from that path's own tax; Batch 5 replaces it with plan intents.
 applied unchanged in both engines by Partner A's age: the precedent for the plan. `simulate(` has 83 call sites, all
 of which pick up the plan through the wrappers. `magiThresholds` labels lines but has no stable ids (added in commit 1).
 The US has no ending after-tax value (Canada has `afterTaxEstate`, 7N N8).
+
+##### Cliff plan: review of Tasks 1-5 and the Task 6 stop (2026-10-07)
+
+Tasks 1-5 on `claude/3c-cliff-plan` (`44239fe`, `211c2a0`, `aaaa087` + `2bb06d4`, `2834ae3`, `f94b9d6`), each with
+snapshots identical. The implementer stopped in Task 6 (the switch) on two stop conditions; nothing of Task 6 was
+committed. Re-checked by the reviewer in a scratch copy of the tree (`f94b9d6` plus the uncommitted Task 6 work):
+- `tests/plan_off_anchor.js --base ../fp-3c-A`: 543 identical, 0 different (guard off untouched).
+- Dump/compare against `3ebee0e`: 64 of 543 differ; 13 of them only in `cliffChoice` labels or the removed `row.lambda`;
+  no depletion age changes in any scenario.
+- `std G hoh 62 aca default` ends $26,727 lower in total but higher by the after-tax measure: Roth +$268,723, taxable
+  -$175,867, traditional bonds -$119,583 (RMDs $14,144 lower). Face value hides the tax the traditional money carries.
+- Historical movers are 0.1% to 6.6% of each path's ending total, measured against the old in-path guard, not against
+  `off`. `hist R aca boom`: Roth -$9.2M, traditional +$2.9M, taxable +$5.6M on a $245M ending; the face-value total
+  (-$0.7M) hides that composition shift. Decision: the Task 8 scan reports per path the after-tax value with and without
+  the plan (with the path's own tax factors) and the Roth / traditional / taxable split (spec section 8, amended).
+
+**Decisions (owner, 2026-10-07):**
+1. **Live-mix draw is cappable** [accepted]. Task 1 counted only `takeTraditional` draws in `wd.cappableTraditional`;
+   the live-mix branch draws `live.fromTraditional` directly (penalty-free group, sized under `magiCapLeft`), so choose
+   never offered a stay-under in a live-mix household, and `std R rothConv+aca+live` ran out at 94 against 95 at
+   `3ebee0e` (its own `off` is 94: rule A held, the `3ebee0e` hard rule did not). One line; with it the scenario lasts
+   to 95, the anchor is unchanged. A Task 1 defect, not a new rule (spec section 4 step 3, amended).
+2. **Stale plans: option (e), each projection uses the plan of the state it projects** [chosen over (a) identity only,
+   (b) identity plus a string compare falling back to `off`, (c) a hook in the shared regions, (d) relying on
+   `render()`]. Every state-replacement site (boot load, scenario load, the comparison and overlay swaps, undo, reset)
+   is in a shared region, and a clear at the comparison swap would wipe the plan partway through `render()`. (e):
+   identity with the state `render()` planned for, then its JSON, then a cache of plans for swapped-in states (16
+   entries), planning on a miss with `histTaxFactors` saved. Reason over (b): saved scenarios in the comparison had
+   their own guard at `3ebee0e` and would otherwise show guard-off numbers that differ from loading them, and
+   `normalizeState` is not idempotent on an edited state (measured: the "Current" row's normalized copy stringified 3
+   characters shorter after edits), so (b) would quietly drop the plan from the "Current" row (spec section 3, amended).
+3. **`apply` builds lines only in an intent year** (reviewer, number-neutral): the first build of `apply` called
+   `magiThresholds` in every withdrawal year, plan or not (spec section 6, amended; it was a Task 9 speedup candidate).
+4. **Noted, no change:** a household that runs out at the same age with every candidate ranks them all at value 0, so
+   rule A keeps no steering (the spec as written; the safe choice).
+5. **State-law effects (owner question).** Every state and federal tax, credit and phase-out is priced through `taxFor`
+   (cash, the solvers, lambda, the ending value, rule A's whole-run comparison); state-law cliffs are priced, not
+   targeted (spec section 11). The MAGI check that followed found the IRMAA defect: see "IRMAA MAGI fix" (after the
+   cliff plan, before Batch E).
 
 ##### Scripts (not in `npm test`)
 
