@@ -48,16 +48,16 @@ times `limitFactor`.
 - **Partner A / B income: a money field**, not a slider: `class="money"` (formatted in place, digits stripped when read,
   per `CLAUDE.md` "Money-field formatting"), no maximum. Same label, descriptor and payroll-tax tooltip; the `incomeAOut` /
   `incomeBOut` labels are removed. The `FIELDS` entries keep `type: 'number'` (same key, MCP property and estimate badge;
-  drop `out` / `outSync`). `normalizeState` floors the value at 0 with no upper clamp; old saves load unchanged. The
+  drop `out` / `outSync`). No `normalizeState` change: it never clamped the income (the slider did), a money field cannot hold a negative, and old saves load unchanged. The
   markup is US-only (just after the shared `html-timelineGroupState` region). Any test that drives these controls as
   sliders is updated to type into the field.
-- **New per-partner slider, "Employer profit sharing (% of pay)"**: keys `profitSharingPctA` / `profitSharingPctB`,
-  0 to 25, step 0.5, default 0, beside the match; B's hidden in single-person mode as B's match is. Descriptor:
+- **New per-partner field, "Employer profit sharing (% of pay)"**: keys `profitSharingPctA` / `profitSharingPctB`,
+  a number box like the match (`min="0" max="25" step="0.5"`), default 0, right after each partner's match; B's hidden in single-person mode as B's match is. Descriptor:
   "Employer contribution to the traditional 401(k)". Tooltip (from what the engine does): an employer contribution as a
   percentage of pay; only pay up to the IRS compensation limit counts ($360,000 in 2026, indexed); it shares the annual
   limit ($72,000 in 2026, indexed; catch-up contributions are outside it) with your deferrals, the match and after-tax
   money, and is reduced when they would exceed it; 25% is the most an employer can deduct across its payroll and the
-  usual ceiling for an owner-employee. Registered in `FIELDS` (`type: 'number'`, an `out` label like the match), in
+  usual ceiling for an owner-employee. Registered in `FIELDS` (`type: 'number'`, like the match), in
   `ESTIMATE_ALWAYS_IDS` like `matchA/B`, clamped 0 to 25 in `normalizeState`. Exposed through MCP (every numeric field is).
 - **Match tooltip:** add that only pay up to the compensation limit counts and that the match shares the annual limit.
 - **Mega-backdoor tooltip:** the room is the annual limit less your deferrals (not the catch-up), the match and profit
@@ -115,7 +115,8 @@ model keeps the deferrals the user chose (they set the Roth / traditional split 
   or B, as the match today). No payroll tax, no income tax, no change to wages or MAGI.
 - Mega backdoor: the Roth 401(k), as today.
 - `retirementContributions` returns the limited `matchA/B` and `profitA/B` (and the per-account `acct` dollars, as
-  today); the year loop stops computing `matchA/B` itself and passes `workingA/B` instead; `employerMatch` (the loop's
+  today); the year loop stops computing `matchA/B` itself (wages are already 0 for a retired partner and for B in
+  single-person mode, so pay-based amounts are 0 there); `employerMatch` (the loop's
   employer total, used by `routeSurplus`, `bal.traditional` and the ledger) becomes match + profit sharing. No new
   balance, scalar or ledger state: the MAGI-iteration snapshot is untouched. The cliff plan, lambda and the optimizer
   see the change through the balances; no hook changes.
@@ -126,7 +127,10 @@ model keeps the deferrals the user chose (they set the Roth / traditional split 
   taxable.
 - **(b) Compensation limit:** wages above `360,000 x limitFactor` with a match (wage growth faster than inflation can
   cross it in later years even below today's $350,000 slider cap).
-- **(c) 100% of pay:** low wages with deferrals already filling pay: the match is cut to the room left.
+- **(c) Match cut to the room:** the match is limited to the room left under the annual limit (the lesser of
+  $72,000f and 100% of pay, less deferrals): low wages with deferrals already filling pay, or a match percentage that
+  exceeds the room. The snapshot scenario `default megaBackdoor+match` enters `matchA: 5000, matchB: 3000` (percent,
+  so 50x and 30x pay today): it moves heavily into this group, and its mega backdoor, 0 today, stays 0.
 
 Any mover outside (a)-(c) stops the work. Profit sharing defaults to 0, so it moves nothing by itself.
 
