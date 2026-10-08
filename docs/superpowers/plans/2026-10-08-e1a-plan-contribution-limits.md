@@ -389,3 +389,87 @@ git commit -m "E1a 4: README, CLAUDE.md, notes (E1 split; E1a implementation), c
 ```
   Report: branch tip and commits, the failing-then-passing table, the movers table, the legacy proof, timing, open
   questions.
+
+---
+
+### Task 5: Review fixes (owner decisions, 2026-10-08, after the Task 1-4 review at `9ba26fc`)
+
+The reviewer re-checked `9ba26fc` (`npm test` exits 0; the one mover `default megaBackdoor+match`, never depleting; the
+UI snapshot's DOM hashes all change because the sidebar gained two fields; code as planned). Owner decisions:
+1. **Employee money never exceeds pay.** Two rules bind a partner's contributions: the annual-additions limit
+   (deferral + match + profit sharing + after-tax <= min(limit, pay); catch-ups outside), which Task 3 enforces, and the
+   employee's own money (deferral + catch-up + after-tax) coming out of pay, so at most pay (IRC 414(v)(2) also limits the
+   catch-up to pay less the other deferrals). Task 3 enforces only the first: at 55 on $40,000 the employee puts in
+   24,500 + 8,000 + 15,500 = $48,000. Fix: cap the mega backdoor at pay less deferral and catch-up.
+2. **Three snapshot scenarios** so groups (a), (b) and the cap have engine-level coverage (today only unit tests).
+3. **MCP keeps profit sharing strictly 0 to 25**: `mcpAccepts` (US-only, ~line 1312, outside every shared region)
+   rejects a number outside a field's `min` / `max`. The MCP `execute` (inside shared region `29-dismissFirstRunBanner`)
+   is not touched.
+4. Recorded, no change: the match has no clamp, now harmless (the engine limits any match to the room); the UI
+   snapshot's `histSuccess` text is timing-flaky (the committed dash is the stable value); the E1 pointer's placement in
+   the notes stays.
+
+**Files:** `Planner_US.html` (`retirementContributions` mega lines; `FIELDS` profit-sharing entries; `mcpAccepts`),
+`tests/contribution_limits.js`, `tests/snapshot_scenarios.js`, `tests/snapshots/us.json` (new entries only),
+`tests/snapshots/ui_us.json` only if the MCP schema records `min` / `max` (it should not: the schema is built from the
+key list), `CLAUDE.md`, `docs/next-batches-plan.md`.
+
+**Interfaces:** `retirementContributions` unchanged in signature and return; `FIELDS` entries gain optional `min` / `max`
+(numbers) read only by `mcpAccepts`.
+
+- [ ] **Step 1: Failing tests** in `tests/contribution_limits.js` (hand computation in a comment):
+  - pay cap: `rc(P0, { wageA: 40000, age: 55 })`: deferral 24,500 (traditional); catch-up min(40,000 - 24,500, 8,000) =
+    8,000 (traditional: pay under 150,000); room 40,000 - 24,500 = 15,500; employee money left 40,000 - 24,500 - 8,000 =
+    7,500 -> mega 7,500: `acct.trad[1] === 32500`, `acct.roth[1] === 7500` (today 15,500).
+  - pay cap with a match: `rc({ ...P0, matchA: 10 }, { wageA: 40000, age: 55 })`: match 4,000 (room 15,500 -> 11,500 left);
+    mega min(11,500, 7,500) = 7,500: `matchA === 4000`, `acct.roth[1] === 7500`, `acct.trad[1] === 36500`.
+  - the cap does not bind when the room is smaller: `rc({ ...P0, matchA: 30 }, { wageA: 40000, age: 55 })`: match 12,000
+    (room 15,500 -> 3,500); mega min(3,500, 7,500) = 3,500: `acct.roth[1] === 3500`.
+  - unchanged above it: the Task 3 catch-up cases (200,000 at 55 and 61) still give 55,500 and 58,750.
+  - MCP bounds: through `document.modelContext` if the test page registers the tool, else a hook
+    `window.__test_mcpAccepts = (key, v) => mcpAccepts(FIELDS.find((f) => f.key === key), v)`: `('profitSharingPctA', 26)`
+    false, `(…, -1)` false, `(…, 25)` true, `(…, 0)` true, `('matchA', 5000)` true (no bounds on the match).
+  Run: they fail (mega 15,500; no hook or `true` for 26).
+- [ ] **Step 2: The cap.** In `retirementContributions`, the employee's own deferral and catch-up are already `kA` / `kB`
+  (Task 2's constants, unused since Task 3). Replace the mega lines with:
+```js
+    // After-tax money is the employee's own, like the deferral and catch-up, so it comes out of pay: at most the pay left
+    // after them (the room above already keeps annual additions within 100% of pay; catch-ups sit outside that room).
+    const megaA = state.megaBackdoor ? Math.min(leftA, Math.max(0, wageA - kA)) * pct(state.megaPctA) : 0,
+      megaB = state.megaBackdoor ? Math.min(leftB, Math.max(0, wageB - kB)) * pct(state.megaPctB) : 0;
+```
+- [ ] **Step 3: MCP bounds.** The two profit-sharing `FIELDS` entries get `min: 0, max: 25`. `mcpAccepts`:
+```js
+  const mcpAccepts = (field, v) =>
+    field.type === 'number'
+      ? Number.isFinite(v) && (field.min === undefined || v >= field.min) && (field.max === undefined || v <= field.max)
+      : field.type === 'bool'
+        ? typeof v === 'boolean'
+        : field.values.includes(v);
+```
+  Add `window.__test_mcpAccepts` (Step 1) beside the other US-only hooks if the test needs it. Confirm
+  `tests/field_registry.js` accepts the new optional keys (extend its allowed-option list if it checks one).
+- [ ] **Step 4: Snapshot scenarios.** In `tests/snapshot_scenarios.js`, `usStd()`, right after
+  `'default megaBackdoor+match'`:
+```js
+    ['default megaBackdoor 50+', { ...D, megaBackdoor: true, ageA: 52, ageB: 51, retireAgeA: 60, retireAgeB: 60 }],
+    ['default pay over comp limit+match', { ...D, incomeA: 500000, matchA: 6, profitSharingPctA: 10 }],
+    ['default low pay 55 megaBackdoor', { ...D, singlePerson: true, ageA: 55, retireAgeA: 62, incomeA: 40000, megaBackdoor: true }],
+```
+- [ ] **Step 5: Run.** `node tests/contribution_limits.js` passes. `node tests/snapshot.js` fails only on the new
+  scenarios being absent. Check against `4df6e02`'s tree is not possible for new names, so: run
+  `node tests/snapshot.js --root ../fp-e1a-base --dump A --update-nothing` and `--dump B` on this tree, `--compare A B`:
+  every scenario present in both is identical except `default megaBackdoor+match` as already accepted (the cap must move
+  no existing scenario; if one moves, stop and report). Then `npm run snapshot:update` and confirm with
+  `git diff tests/snapshots/us.json` that only the new entries were added. `npm test` green; restore `canada.json` /
+  `ui_canada.json` if rewritten with no content change.
+- [ ] **Step 6: Timing** as in the Global Constraints (`bench_runs_interleaved.js` 21 rounds; `bench_solver.js` with
+  `--rounds 21`, since its default 7 rounds proved too noisy in Task 3).
+- [ ] **Step 7: Docs.** `CLAUDE.md` ("Retirement accounts (US)" E1a paragraph): the after-tax money is capped at pay less
+  deferral and catch-up; `FIELDS` `min` / `max` bound MCP input. `docs/next-batches-plan.md`, "E1a: implementation": a
+  "Review fixes" paragraph with these decisions, the new cases, the snapshot result and timing.
+- [ ] **Step 8: Commit.**
+```bash
+git commit -m "E1a 5: after-tax (mega backdoor) money capped at pay less deferral and catch-up; MCP bounds for profit sharing; three snapshot scenarios (new entries only; no existing number change)" -- Planner_US.html tests/contribution_limits.js tests/snapshot_scenarios.js tests/snapshots/us.json CLAUDE.md docs/next-batches-plan.md
+```
+  Report: the commit, the failing-then-passing cases, the compare result, timing, open questions.
