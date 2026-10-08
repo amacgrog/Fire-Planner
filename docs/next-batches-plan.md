@@ -2648,6 +2648,47 @@ committed. Re-checked by the reviewer in a scratch copy of the tree (`f94b9d6` p
    targeted (spec section 11). The MAGI check that followed found the IRMAA defect: see "IRMAA MAGI fix" (after the
    cliff plan, before Batch E).
 
+##### Cliff plan: final review and acceptance (2026-10-08)
+
+The implementer finished at `0af0bef` on `claude/3c-cliff-plan` (commits and full notes, "Cliff plan: implementation
+(V117-V118)", are on that branch; they are reconciled into this file at the merge). Re-checked by the reviewer in a
+scratch copy of `0af0bef`: `npm test` exits 0; `plan_off_anchor.js --base ../fp-3c-A` 543 identical; dump/compare against
+`3ebee0e` 64 movers, 13 label-only, no depletion change; the six stale-plan cases (T6.9) are present and test the agreed
+semantics. The fix-wave commit `0bdc229` added two number-neutral speedups the plan did not list: `refreshCliffPlan`
+re-plans only when the state JSON, `currentYear` or the optimizer override maps change (checked: those are the only
+non-state inputs `runProjection` reads; the maps are null outside the optimizer functions, which set and restore them),
+and a `choose` run with no intent is reused as the `none` candidate (equal to `off` row for row: 1,114 households swept,
+pinned in `tests/cliff_plan.js` F2). Accepted.
+
+Reviewer timing (`tests/bench_runs_interleaved.js`, 15 rounds, one process; `tests/bench_solver.js`):
+
+| Against | 400 simulate per state (tx / ca / ny / pa / ct / wa) | 120 historical per state |
+|---|---|---|
+| `24f6585` | +4.5 / +4.2 / +4.6 / +2.7 / +2.6 / +3.4% | +3.8 / +3.9 / +3.7 / +5.6 / +5.9 / +5.0% |
+| `3ebee0e` | -0.5 / +0.4 / +2.0 / -0.4 / 0.0 / 0.0% | 0.0 / +1.3 / +1.2 / 0.0 / +1.0 / +1.6% |
+
+ACA early retiree (CA) against `24f6585`: simulate +11.9%, path +6.0% (gate +30%). Default household: +7.8% / +5.0%.
+
+**Decisions (owner, 2026-10-08):**
+1. **Per-path timing gate: accepted** inside the +8% band. The cliff plan itself costs about 0-2% (against `3ebee0e`);
+   the rest of the gap to `24f6585` is the committed 3C work (B1 per-return MAGI, the B2/B3 hooks, B5). The
+   implementer's one +9.8% reading (tx historical) did not reproduce in the reviewer's run.
+2. **Badge V119**: the fix wave changed the summary wording ("ACA steering not used") after V118 without a bump; a
+   badge-only commit on the cliff branch.
+3. **Merge later**: the cliff branch is not merged into `claude/batch-3b-penalty-rules` now. The IRMAA MAGI fix is
+   built on the cliff branch's V119 commit, and both merge together once the IRMAA fix is accepted. At that merge the
+   owner sets aside the uncommitted Stage 8a work in the main checkout (superseded by the cliff plan; saved as
+   `.superpowers/sdd/2026-10-06-per-year-solver-3c/task-B8-stage8a-wip.patch`), and the reviewer reconciles this file
+   (both branches edit the 3C notes).
+4. **Boom-path losses: accepted** (decision 4 of the redesign: literal execution; the cost bound comes back only with
+   numbers, and these are them): the largest per-path after-tax losses are 1.4% to 3.1% on one Monte Carlo boom path,
+   with no depletion; the per-household p10 and median of (plan - off) / off are about 0%; mean success with / without
+   64.85% / 64.31% historical, 64.04% / 63.42% Monte Carlo (default order).
+5. **Recorded, no change:** the plan is carried out in under 40% of its intent years on paths (skipped when already on
+   the right side or ineligible, or a fallback; literal execution as designed); depleting households keep no steering
+   (rule A as written); `magiThresholds`' $1 dedup drops B's line when the partners' lines coincide, so `ret 'B'` intents
+   never arise (two-return draw handling is Batch 5's; fix it there); the 57 MB scan JSON stays git-excluded.
+
 ##### Scripts (not in `npm test`)
 
 - `tests/solver_scan.js [--root DIR] [--json OUT] [--md OUT]`: the guard sweep above; exit 1 on any earlier depletion
