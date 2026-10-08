@@ -76,6 +76,14 @@ const taxCall = (page, patch, fn, args) =>
     wd = S.newTestWithdrawal({ traditional: 500000 }, profile);
     wd.onlyPartner = 1;
     r.onlyB = S.takeTraditional(wd, 'traditional', 10000);
+    // Cliff plan, Task 1: only the draw a MAGI cap can limit counts as cappable.
+    wd = S.newTestWithdrawal({ traditional: 100000, bondTraditional: 50000 }, profile);
+    S.takeTraditional(wd, 'bondTraditional', 10000, undefined, false, true); // the bond reserve's uncapped draw
+    r.afterReserve = wd.cappableTraditional;
+    S.takeTraditional(wd, 'traditional', 10000); // a capped stock-account draw
+    r.cappableAfter = wd.cappableTraditional;
+    r.cappableGross = wd.traditionalWithdrawn;
+    r.reserveGross = 0;
     return r;
   });
   near(out.capGross, 20000, 1e-6, 'cap: gross stops at the room');
@@ -90,6 +98,8 @@ const taxCall = (page, patch, fn, args) =>
   assert.deepStrictEqual(out.origShares, [1, 0, 0, 0], 'clone: original ledger untouched');
   assert(out.cloneTrad < 500000, 'clone drew');
   near(out.onlyB, 0, 1e-9, 'onlyPartner B: A’s accounts are not drawn');
+  assert.strictEqual(out.afterReserve, 0, 'reserve draw is not cappable');
+  assert(out.cappableAfter > 0 && out.cappableAfter < out.cappableGross, 'stock draw is cappable, the reserve draw is not');
   assert.deepStrictEqual(errors, []);
   console.log('solver_primitives: OK');
   await browser.close();

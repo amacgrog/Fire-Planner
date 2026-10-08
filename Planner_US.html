@@ -8785,23 +8785,23 @@
       taxYear = taxYearOf(y),
       lo = c.lo === undefined ? -Infinity : c.lo,
       hi = c.hi === undefined ? Infinity : c.hi,
-      add = (magi, label) => {
-        if (Number.isFinite(magi) && magi > 0 && magi > lo && magi <= hi) out.push({ magi, label });
+      add = (magi, label, id, ret, family) => {
+        if (Number.isFinite(magi) && magi > 0 && magi > lo && magi <= hi) out.push({ magi, label, id, ret, family });
       },
       toHousehold = (line, m, frac) => (frac > 0 ? c.preMagi + (line - m) / frac : NaN),
       shareA = c.profile.ownerShareA === undefined ? 0.5 : c.profile.ownerShareA,
       acaLines = (fpl, put) => {
         const mcd = medicaidLimit(state.stateTax);
-        if (mcd > 0) put(fpl * mcd, 'Medicaid line');
-        put(fpl * MEDICAID_RULES.ptcFloor, 'ACA credit floor (100%)');
-        if (!state.acaEnhanced) put(fpl * 4, 'ACA 400% line');
+        if (mcd > 0) put(fpl * mcd, 'Medicaid line', 'medicaid');
+        put(fpl * MEDICAID_RULES.ptcFloor, 'ACA credit floor (100%)', 'acaFloor');
+        if (!state.acaEnhanced) put(fpl * 4, 'ACA 400% line', 'aca400');
       },
       kids = qualifyingChildCount(taxYear);
     if (state.acaEnabled && (c.acaEligibleA || c.acaEligibleB)) {
       if (c.twoReturns) {
-        if (c.acaEligibleA) acaLines(fplForHousehold(1 + kids, y), (line, label) => add(toHousehold(line, c.preMagiA, shareA), label));
-        if (c.acaEligibleB) acaLines(fplForHousehold(1, y), (line, label) => add(toHousehold(line, c.preMagiB, 1 - shareA), label));
-      } else acaLines(fplForHousehold(acaHouseholdSize(c.singlePerson, c.isSurvivorPeriod, y), y), add);
+        if (c.acaEligibleA) acaLines(fplForHousehold(1 + kids, y), (line, label, id) => add(toHousehold(line, c.preMagiA, shareA), label, id, 'A', 'aca'));
+        if (c.acaEligibleB) acaLines(fplForHousehold(1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca'));
+      } else acaLines(fplForHousehold(acaHouseholdSize(c.singlePerson, c.isSurvivorPeriod, y), y), (line, label, id) => add(line, label, id, 'H', 'aca'));
     }
     // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, under that
     // year's filing status; a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
@@ -8815,20 +8815,23 @@
       const g = c.irmaaGrowth === undefined ? 1 : c.irmaaGrowth;
       if (c.twoReturns) {
         const f = taxIndexFactor(y);
+        let k = 0;
         for (const [edge] of IRMAA_TIERS[filingKey('single', 'irmaa')]) {
           const cap = edge * f * g;
-          if (irmaaA && cap < Infinity) add(toHousehold(cap, c.preMagiA, shareA), 'IRMAA tier');
-          if (irmaaB && cap < Infinity) add(toHousehold(cap, c.preMagiB, 1 - shareA), 'IRMAA tier');
+          if (cap < Infinity) k++;
+          if (irmaaA && cap < Infinity) add(toHousehold(cap, c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa');
+          if (irmaaB && cap < Infinity) add(toHousehold(cap, c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
         }
       } else {
         const f = taxIndexFactor(y);
-        for (const [edge] of IRMAA_TIERS[filingKey(ir ? ir.filing : c.filing, 'irmaa')]) if (edge < Infinity) add(edge * f * g, 'IRMAA tier');
+        let k = 0;
+        for (const [edge] of IRMAA_TIERS[filingKey(ir ? ir.filing : c.filing, 'irmaa')]) if (edge < Infinity) add(edge * f * g, 'IRMAA tier', 'irmaa' + ++k, 'H', 'irmaa');
       }
     }
     if (taxYear <= SENIOR_DEDUCTION_LAST_YEAR && (c.age >= 65 || (!c.singlePerson && c.ageB >= 65)))
-      add(SENIOR_PHASE_START[filingKey(c.twoReturns ? 'single' : c.filing, 'senior')], 'senior deduction phase-out');
+      add(SENIOR_PHASE_START[filingKey(c.twoReturns ? 'single' : c.filing, 'senior')], 'senior deduction phase-out', 'senior', 'H', 'tax');
     if (dependentsInYear(taxYear).some((d) => d.age <= CTC_MAX_AGE))
-      add(CTC_PHASE_START[filingKey(c.twoReturns ? 'single' : c.filing, 'ctc')], 'child tax credit phase-out');
+      add(CTC_PHASE_START[filingKey(c.twoReturns ? 'single' : c.filing, 'ctc')], 'child tax credit phase-out', 'ctc', 'H', 'tax');
     if (!out.length) return NO_THRESHOLDS;
     out.sort((a, b) => a.magi - b.magi);
     const deduped = [];
@@ -8891,11 +8894,13 @@
       }
       return [ys0, tradPool, drawIn(year)];
     };
-    let rateSum = 0,
+    let moved = false,
+      rateSum = 0,
       tauSum = 0;
     for (const ys0 of samples) {
       // With need 0 or tradShare 0 this is B2's plain compounding and no draw, to the bit.
       const [ys, trad, draw] = need > 0 && tradShare > 0 ? walkTo(ys0) : [ys0, tradPool * Math.pow(1 + real, Math.max(0, ys0 - year)), 0];
+      if (ys !== ys0) moved = true;
       const ageAs = state.ageA + ys,
         ageBs = state.ageB + ys,
         survivorIsB = isSurvivorPeriod ? deceasedIsA : ys > firstDeath && aDiesFirst,
@@ -8962,6 +8967,7 @@
     return {
       lambda: Math.min(LAMBDA_MAX, Math.max(0, (SOLVER_LAMBDA_MULT * rateSum) / 3)),
       tauGain: Math.min(TAU_GAIN_MAX, Math.max(0, tauSum / 3)),
+      movedSample: moved,
     };
   }
 
@@ -9144,6 +9150,7 @@
       taxableGainGross: 0,
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
+      cappableTraditional: 0,
       taxableWithdrawn: 0,
       rothWithdrawn: 0,
       earlyPenalty: 0,
@@ -9223,6 +9230,7 @@
     bal[bucket] -= fromTrad;
     wd.traditionalGross += fromTrad;
     wd.traditionalWithdrawn += fromTrad;
+    if (!penalized && !uncapped) wd.cappableTraditional += fromTrad;
     wd.earlyPenalty += penalty;
     return tradNet;
   }
