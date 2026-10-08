@@ -129,6 +129,23 @@ const path = require('path');
   assert(onB < onA, `two returns: the owner changes the tax (${onB} vs ${onA})`);
   console.log('test_income_streams: part 2 passed');
 
-  // Part 3 (Task 4)
+  // ---- Part 3: a contributing W-2 stream ----
+  const traditionalAfter = () => page.evaluate(() => window.fireProjectionRows[1].traditional);
+  await fresh(RET, [stream({ owner: 'A', kind: 'wages', amount: 50000, startAge: 50 })]);
+  const taxOff = await tax0();
+  const tradOff = await traditionalAfter();
+  await fresh(RET, [stream({ owner: 'A', kind: 'wages', amount: 50000, startAge: 50 })]);
+  await setCheck('incSrc0Contribute', true);
+  await page.evaluate(() => {
+    const el = document.getElementById('incSrc0DeferralPct');
+    el.value = '100';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(200);
+  const taxOn = await tax0();
+  const tradOn = await traditionalAfter();
+  assert(taxOn < taxOff, `a traditional deferral lowers tax (${taxOn} vs ${taxOff})`);
+  assert(tradOn > tradOff, `and raises the next year's traditional balance (${tradOn} vs ${tradOff})`);
+  console.log('test_income_streams: part 3 passed');
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

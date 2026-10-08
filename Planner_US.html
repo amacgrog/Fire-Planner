@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V123</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V124</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -8136,6 +8136,48 @@
     }
     return left;
   }
+  // E1b: retirement contributions from contributing W-2 income streams, after the salary. Pure (rooms, limits and rates
+  // passed in; country-neutral names; no allocation). The deferral and IRA rooms are per person and are what the salary
+  // left (IRC 402(g), 219(b)); each stream is its own employer for the annual-additions room (415(c)) and the
+  // compensation limit. Order per stream: deferral (base, then catch-up), the match, after-tax money; then the IRA.
+  // Slots: ACCOUNT_SLOTS order (IRA A, 401(k) A, IRA B, 401(k) B).
+  const STREAM_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employer: 0, employeeTrad: 0, employeeRoth: 0, wageCut: [0, 0] },
+    STREAM_REQ = [0],
+    STREAM_GOT = [0],
+    NO_STREAM_LIST = { n: 0, items: [] },
+    STREAM_ROOMS = { deferral: [0, 0], catchUp: [0, 0], personal: [0, 0] },
+    STREAM_LIMITS = { annualAdditions: 0, compensation: 0, rothCatchUpWages: 0 };
+  function streamPlanContributions(list, rooms, limits, personalPretax, out) {
+    for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
+    out.employer = 0; out.employeeTrad = 0; out.employeeRoth = 0; out.wageCut[0] = 0; out.wageCut[1] = 0;
+    for (let i = 0; i < list.n; i++) {
+      const it = list.items[i], s = it.stream, o = it.owner, pay = it.pay,
+        plan = o * 2 + 1, ira = o * 2;
+      if (s.kind !== 'wages' || s.contribute !== true) continue;
+      const want = Math.min(pay, rooms.deferral[o] + rooms.catchUp[o]) * pct(s.deferralPct),
+        base = Math.min(want, rooms.deferral[o]),
+        cu = want - base;
+      rooms.deferral[o] -= base;
+      rooms.catchUp[o] -= cu;
+      const baseRoth = s.deferralType === 'roth',
+        cuRoth = baseRoth || pay > limits.rothCatchUpWages;
+      if (baseRoth) out.roth[plan] += base; else { out.trad[plan] += base; out.wageCut[o] += base; }
+      if (cuRoth) out.roth[plan] += cu; else { out.trad[plan] += cu; out.wageCut[o] += cu; }
+      STREAM_REQ[0] = Math.min(pay, limits.compensation) * pct(s.matchPct);
+      const left = allocatePlanRoom(Math.min(pay, limits.annualAdditions) - base, STREAM_REQ, STREAM_GOT),
+        match = STREAM_GOT[0],
+        afterTax = Math.min(left, Math.max(0, pay - base - cu)) * pct(s.afterTaxPct);
+      out.trad[plan] += match;
+      out.employer += match;
+      out.roth[plan] += afterTax;
+      const personal = rooms.personal[o] * pct(s.personalPct);
+      rooms.personal[o] -= personal;
+      if (personalPretax) { out.trad[ira] += personal; out.wageCut[o] += personal; } else out.roth[ira] += personal;
+      out.employeeTrad += (baseRoth ? 0 : base) + (cuRoth ? 0 : cu) + (personalPretax ? personal : 0);
+      out.employeeRoth += (baseRoth ? base : 0) + (cuRoth ? cu : 0) + afterTax + (personalPretax ? 0 : personal);
+    }
+    return out;
+  }
   // 401(k) / IRA / mega-backdoor and employer (match, profit sharing) contributions for one year. Wages are already
   // zero for a partner who has retired, and for B in single-person mode, which zeroes every pay-based amount. The
   // limits come from PLAN_LIMITS (2026 values scaled by limitFactor). Each partner's annual-additions room (the lesser
@@ -8144,7 +8186,7 @@
   // limited employer money.
   const PLAN_REQ = [0, 0],
     PLAN_GOT = [0, 0]; // allocatePlanRoom scratch: [match, profit sharing]
-  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor }) {
+  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0 }) {
     const catchupBaseA =
         age >= 60 && age <= 63
           ? PLAN_LIMITS.catchUp60to63 * limitFactor
@@ -8186,7 +8228,7 @@
       (state.k401Type === 'traditional' ? kBaseB : 0) +
       (catchupTypeB === 'traditional' ? kCatchupB : 0) +
       (state.iraType === 'traditional' ? iraB : 0);
-    const traditionalContrib = traditionalContribA + traditionalContribB;
+    const traditionalContribSalary = traditionalContribA + traditionalContribB;
     // The annual-additions room (IRC 415(c)): the lesser of the limit and 100% of pay, less the deferrals; catch-ups are
     // outside it. A plan in operation fills it in this order: deferrals as elected, the match, profit sharing, then
     // after-tax (mega backdoor) money. A percentage-of-pay contribution counts pay only up to the compensation limit.
@@ -8208,6 +8250,17 @@
     // after them (the room above already keeps annual additions within 100% of pay; catch-ups sit outside that room).
     const megaA = state.megaBackdoor ? Math.min(leftA, Math.max(0, wageA - kA)) * pct(state.megaPctA) : 0,
       megaB = state.megaBackdoor ? Math.min(leftB, Math.max(0, wageB - kB)) * pct(state.megaPctB) : 0;
+    // Contributing W-2 streams (E1b): what the salary left of each person's limits, then the streams in list order.
+    STREAM_ROOMS.deferral[0] = Math.max(0, baseLimitA - kBaseA);
+    STREAM_ROOMS.deferral[1] = singlePerson ? 0 : Math.max(0, baseLimitB - kBaseB);
+    STREAM_ROOMS.catchUp[0] = Math.max(0, catchupBaseA - kCatchupA);
+    STREAM_ROOMS.catchUp[1] = Math.max(0, catchupBaseB - kCatchupB);
+    STREAM_ROOMS.personal[0] = Math.max(0, Math.min(iraLimitA - iraA, wageA + streamWagesA - iraA));
+    STREAM_ROOMS.personal[1] = Math.max(0, Math.min(iraLimitB - iraB, wageB + streamWagesB - iraB));
+    STREAM_LIMITS.annualAdditions = annualAdditionLimit;
+    STREAM_LIMITS.compensation = compLimit;
+    STREAM_LIMITS.rothCatchUpWages = rothCatchupThreshold;
+    const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, state.iraType === 'traditional', STREAM_PLAN);
     const rothContribA =
       (state.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
@@ -8218,33 +8271,35 @@
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
-    const rothContrib = rothContribA + rothContribB;
+    const rothContrib = rothContribA + rothContribB + sp.employeeRoth;
+    const traditionalContrib = traditionalContribSalary + sp.employeeTrad;
     // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
     // IRA B, 401(k) B). Employer money (match and profit sharing) always goes to the traditional 401(k);
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
-        state.iraType === 'traditional' ? iraA : 0,
+        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
         (state.k401Type === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
           matchA +
-          profitA,
-        state.iraType === 'traditional' ? iraB : 0,
+          profitA + sp.trad[1],
+        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
         (state.k401Type === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
           matchB +
-          profitB,
+          profitB + sp.trad[3],
       ],
       roth: [
-        state.iraType === 'roth' ? iraA : 0,
-        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA,
-        state.iraType === 'roth' ? iraB : 0,
-        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB,
+        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0],
+        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
+        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2],
+        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
       ],
     };
     return {
       traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
-      matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB,
+      matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB + sp.employer,
+      streamWageCutA: sp.wageCut[0], streamWageCutB: sp.wageCut[1],
     };
   }
 
@@ -10042,8 +10097,11 @@
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
-        employerContrib: employerMatch,
-      } = retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor });
+        employerContrib: employerMatch, streamWageCutA, streamWageCutB,
+      } = retirementContributions({
+        wageA, wageB, age, ageB, singlePerson, limitFactor,
+        streamList: streams.contrib, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB,
+      });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
@@ -10087,6 +10145,8 @@
         streamWagesB: streams.wagesB,
         streamOtherA: streams.otherA,
         streamOtherB: streams.otherB,
+        streamWageCutA,
+        streamWageCutB,
         ssA,
         ssB,
         age,
@@ -16367,10 +16427,16 @@
     };
   };
   window.__test_payrollTax = payrollTax;
+  window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
+    const r = JSON.parse(JSON.stringify(rooms));
+    streamPlanContributions({ n: items.length, items }, r, limits, personalPretax, STREAM_PLAN);
+    return { out: JSON.parse(JSON.stringify(STREAM_PLAN)), rooms: r };
+  };
   window.__test_retirementContributions = (patch, args) => {
     const saved = JSON.parse(JSON.stringify(state));
     try {
       Object.assign(state, patch);
+      if (Array.isArray(args.streamList)) args = { ...args, streamList: { n: args.streamList.length, items: args.streamList } };
       return retirementContributions(args);
     } finally {
       for (const k of Object.keys(state)) delete state[k];

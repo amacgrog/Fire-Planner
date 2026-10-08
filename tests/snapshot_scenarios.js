@@ -99,6 +99,7 @@ function usStd() {
     ['R incomeSources B wages', { ...R, incomeSources: [{ amount: 30000, startAge: 52, endAge: 60, followGrowth: true, growth: 3, owner: 'B', kind: 'wages' }] }],
     ['R incomeSources B other two returns', { ...R, filingStatus: 'single', incomeSources: [{ amount: 40000, startAge: 50, endAge: 70, followGrowth: true, growth: 3, owner: 'B', kind: 'other' }] }],
     ['R survivor streams', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 58, incomeSources: [{ amount: 25000, startAge: 52, endAge: 65, followGrowth: true, growth: 3, owner: 'A', kind: 'wages' }, { amount: 15000, startAge: 52, endAge: 90, followGrowth: true, growth: 3, owner: 'A', kind: 'other' }] }],
+    ['R stream contributions', { ...R, incomeSources: [{ amount: 60000, startAge: 52, endAge: 62, followGrowth: true, growth: 3, owner: 'A', kind: 'wages', contribute: true, deferralType: 'roth', deferralPct: 100, matchPct: 5, afterTaxPct: 50, personalPct: 100 }] }],
     ['R oneTimeIncome', { ...R, oneTimeIncome: LISTS.oneTimeIncome }],
     ['R extraExpenses', { ...R, extraExpenses: LISTS.extraExpenses }],
     ['R spendingTiers', { ...R, spendingTiers: LISTS.spendingTiers }],
