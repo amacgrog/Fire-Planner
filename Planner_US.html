@@ -8569,6 +8569,8 @@
     streamOtherB = 0,
     streamWageCutA = 0,
     streamWageCutB = 0,
+    streamPremiumA = 0,
+    streamPremiumB = 0,
     ssA,
     ssB,
     age,
@@ -8587,8 +8589,8 @@
     workingA = false,
     workingB = false,
   }) {
-    const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA),
-      profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB);
+    const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
+      profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
     const otherA = profileWageA + pensionA + rmdA + streamOtherA,
       otherB = profileWageB + pensionB + rmdB + streamOtherB;
     // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
@@ -8741,7 +8743,8 @@
       // Medicare below is what covers them from then on.
       healthcare = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
     }
-    // Medicare starts at max(65, retirement age): a partner still working at 65
+    // Medicare starts at 65 for a partner without employer coverage (workingX here is employer coverage: a W-2 job still
+    // worked, or a W-2 stream with a premium): a partner still working at 65
     // is assumed to stay on the employer plan (no late-enrollment penalty,
     // which is not modeled) and to enroll the year they stop working.
     const medicareEligibleA = age >= 65 && !workingA && !(isSurvivorPeriod && deceasedIsA),
@@ -8900,9 +8903,9 @@
   // Employee-side payroll tax on this year's wages (Social Security + Medicare
   // per partner, wages net of pre-tax health premiums) plus the 0.9% Additional
   // Medicare Tax. Separate from taxFor(), which covers income tax.
-  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0 }) {
-    const taxableWagesA = Math.max(0, wageA - healthPremiumA) + streamWagesA,
-      taxableWagesB = Math.max(0, wageB - healthPremiumB) + streamWagesB;
+  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0, streamPremiumA = 0, streamPremiumB = 0 }) {
+    const taxableWagesA = Math.max(0, wageA - healthPremiumA) + Math.max(0, streamWagesA - streamPremiumA),
+      taxableWagesB = Math.max(0, wageB - healthPremiumB) + Math.max(0, streamWagesB - streamPremiumB);
     return (
       wageFica(taxableWagesA, year) +
       wageFica(taxableWagesB, year) +
@@ -9799,11 +9802,12 @@
   // dead; income that is not earned moves to the survivor. `total` is one running sum in list order (the old
   // extraIncome expression, bit for bit). Contributing W-2 streams are listed for streamPlanContributions (E1b 5.4).
   const STREAM_OUT = {
-    total: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0,
+    total: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, selfA: 0, selfB: 0, premiumA: 0, premiumB: 0, coverA: false, coverB: false,
     contrib: { n: 0, items: Array.from({ length: LIST_MAX }, () => ({ owner: 0, pay: 0, stream: null })) },
   };
   function streamAmountsForYear(streams, ctx, out) {
     out.total = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0; out.contrib.n = 0;
+    out.selfA = 0; out.selfB = 0; out.premiumA = 0; out.premiumB = 0; out.coverA = false; out.coverB = false;
     for (let i = 0; i < streams.length; i++) {
       const s = streams[i],
         b = !ctx.single && s.owner === 'B',
@@ -9811,9 +9815,17 @@
       if (!(age >= s.startAge && age <= s.endAge)) continue;
       const amount = s.amount * itemGrowthFactor(s, ctx.year, 'income', ctx.factor, ctx.incomeFactor),
         dead = b ? ctx.deadB : ctx.deadA;
-      if (s.kind === 'wages') {
+      if (s.kind === 'wages' || s.kind === 'self') {
         if (dead) continue;
-        if (b) out.wagesB += amount; else out.wagesA += amount;
+        if (s.kind === 'wages') {
+          if (b) out.wagesB += amount; else out.wagesA += amount;
+          // E1c: a W-2 stream with a health premium is its owner's employer coverage; the premium is pre-tax pay.
+          if (s.healthPremium > 0) {
+            const premium = s.healthPremium * ctx.premiumFactor;
+            if (b) { out.premiumB += premium; out.coverB = true; } else { out.premiumA += premium; out.coverA = true; }
+          }
+        } else if (b) out.selfB += amount;
+        else out.selfA += amount;
         if (s.contribute === true) {
           const it = out.contrib.items[out.contrib.n++];
           it.owner = b ? 1 : 0; it.pay = amount; it.stream = s;
@@ -9824,10 +9836,11 @@
     }
     return out;
   }
-  const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1 };
+  const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1, premiumFactor: 1 };
   function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
     STREAM_CTX.single = single; STREAM_CTX.year = year; STREAM_CTX.factor = factor; STREAM_CTX.incomeFactor = incomeFactor;
+    STREAM_CTX.premiumFactor = factor * medicalGrowth(year);
     const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
       extraIncome = streams.total;
     const oneTimeAmount = state.oneTimeIncome
@@ -9841,6 +9854,22 @@
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
     return { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense };
   }
+
+  // E1c: which partners a W-2 stream with a health premium covers at the ages in ctx (bit 1: A, bit 2: B); the IRMAA
+  // lookback asks it about the year two ahead. Same owner and window rules as streamAmountsForYear.
+  function streamCoverBits(streams, ctx) {
+    let bits = 0;
+    for (let i = 0; i < streams.length; i++) {
+      const s = streams[i];
+      if (s.kind !== 'wages' || !(s.healthPremium > 0)) continue;
+      const b = !ctx.single && s.owner === 'B',
+        age = b ? ctx.ageB : ctx.ageA;
+      if (!(age >= s.startAge && age <= s.endAge) || (b ? ctx.deadB : ctx.deadA)) continue;
+      bits |= b ? 2 : 1;
+    }
+    return bits;
+  }
+  const COVER_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false };
 
   // @@shared:11-makeProjectedExpense begin
   // Projected total living expense for a future year in nominal dollars at the plan's
@@ -10103,8 +10132,13 @@
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      // E1c: employer health coverage this year: a W-2 main job while working, or a W-2 stream with a premium. It replaces
+      // "working" in every health-insurance rule (marketplace eligibility, Medicare, IRMAA); `workingX` keeps its meaning
+      // for pay, contributions and account statuses.
+      const employerA = (workingA && state.incomeKindA !== 'self') || streams.coverA,
+        employerB = (workingB && state.incomeKindB !== 'self') || streams.coverB;
       const wages =
-        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
+        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
         employerContrib: employerMatch, streamWageCutA, streamWageCutB,
@@ -10157,6 +10191,8 @@
         streamOtherB: streams.otherB,
         streamWageCutA,
         streamWageCutB,
+        streamPremiumA: streams.premiumA,
+        streamPremiumB: streams.premiumB,
         ssA,
         ssB,
         age,
@@ -10181,8 +10217,8 @@
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
         ageB,
-        workingA,
-        workingB,
+        workingA: employerA,
+        workingB: employerB,
         singlePerson,
         isSurvivorPeriod,
         deceasedIsA,
@@ -10233,6 +10269,9 @@
           trialRecs = null,
           planTr = null;
         const ownerShareA0 = profile.ownerShareA;
+        COVER_CTX.ageA = age + 2; COVER_CTX.ageB = singlePerson ? null : ageB + 2; COVER_CTX.single = singlePerson;
+        COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
+        const cover2 = streamCoverBits(state.incomeSources, COVER_CTX);
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
@@ -10268,8 +10307,8 @@
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
-          workingA,
-          workingB,
+          workingA: employerA,
+          workingB: employerB,
           age,
           ageB,
           preConvMagi,
@@ -10296,8 +10335,8 @@
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
-          workingA,
-          workingB,
+          workingA: employerA,
+          workingB: employerB,
           factor,
           year,
           age,
@@ -10332,8 +10371,8 @@
         // year's filing status is looked up only when a solver asks for it.
         const year2 = year + 2,
           survivor2 = year2 >= deathYear,
-          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && age + 2 >= retireAgeA,
-          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && ageB + 2 >= retireAgeB;
+          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((state.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
+          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((state.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
         let filing2 = null;
         const irmaaFiling2 = () =>
           filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
@@ -10405,7 +10444,7 @@
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
         // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
         profile.medicalExpense = healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB });
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
@@ -10583,7 +10622,7 @@
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
+                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
@@ -10778,6 +10817,8 @@
             conversionAmount,
             profile: { ...profile },
             ficaTax,
+            medA,
+            medB,
             rothBasis: rothAccts.map((L) => L.basis),
             rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
           });
@@ -16446,10 +16487,12 @@
     const o = streamAmountsForYear(streams, ctx, STREAM_OUT);
     return {
       total: o.total, wagesA: o.wagesA, wagesB: o.wagesB, otherA: o.otherA, otherB: o.otherB,
+      selfA: o.selfA, selfB: o.selfB, premiumA: o.premiumA, premiumB: o.premiumB, coverA: o.coverA, coverB: o.coverB,
       contrib: o.contrib.items.slice(0, o.contrib.n).map((it) => ({ owner: it.owner, pay: it.pay })),
     };
   };
   window.__test_payrollTax = payrollTax;
+  window.__test_streamCoverBits = streamCoverBits;
   window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
     const r = JSON.parse(JSON.stringify(rooms));
     streamPlanContributions({ n: items.length, items }, r, limits, personalPretax, STREAM_PLAN);
