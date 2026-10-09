@@ -1184,6 +1184,131 @@ shared-region change.
   1.199A-3(b)(1)(vi)); the year's recorded MAGI uses the realized deduction; two broken test cases; six tests from spec
   section 7 restored; a cliff-plan replay test, an in-band test and an eighth scenario added.
 
+##### E1c: implementation (US V124 -> V125)
+
+Commits on `claude/e1c-self-employment` (base `ee7a789`, US V124, Canada V59 unchanged; no shared-region change): c74e439 (1: the
+inputs, `incomeKindA/B`, stream kind `self`, `profitSharingPct`, `healthPremium`), 6e2f36a (2: coverage as `employerA/B` +
+`streamCoverBits`, the W-2 stream premium), 88ab2a4 (3: self-employment tax), de7fc94 (4: Solo 401(k) and IRA from self-employment),
+06ed7fd (5: the 162(l) deduction inside the MAGI iteration), 0f274db (6: the QBI deduction, eight new scenarios, V125). Task 7 is this
+documentation commit.
+
+**Red, then green** (the first failure of each new test before implementing):
+
+| Task | Test | First failure |
+|---|---|---|
+| 1 | `test_self_employment.js` part 1 | `state.incomeKindA` undefined (expected `'wages'`) |
+| 2 | `tests/se_health.js` | `premiumB` / `coverB` / `coverA` undefined |
+| 3 | `tests/self_employment.js` | `window.__test_selfEmploymentTax` is not a function |
+| 4 | `tests/self_employment.js` | `window.__test_soloPlanContributions` is not a function |
+| 5 | `tests/se_health.js` | `window.__test_seHealthDeduction` is not a function |
+| 6 | `tests/qbi.js` | `window.__test_qbiDeduction` is not a function |
+
+**Legacy proof (Task 1).** A scratch script loaded all 58 corpus cases (US 41, Canada 17) on the base worktree and on the working tree;
+after deleting `incomeKindA/B` (raw unknown keys, which the old code kept) and the per-stream `profitSharingPct` / `healthPremium`, and
+mapping the three `kind: 'self'` streams back to the old kind, 0 cases differ. Canada unchanged. `ui_canada.json` was rewritten with no
+content change and restored.
+
+**MAGI-iteration sites changed (Task 5; lines at 06ed7fd).** 1 `prevSeHealthA/B` seed (10307); 2 `magiBase0` / `let magiBase` (10497);
+3 `estSeA/estSeB` (10509); 4 per-pass `profile.seHealthA/B` and `magiBase` (10562); 5 `costAt(trad, gain, sa, sb)` and `lastCost`
+(10636); 6 `irmaaAt` with `returnMagis` wrapped (10672); 7 the `seRealA/B` block with the `estUsed` setter, medical expense less the
+deduction (10739); 8 the convergence test (10865); 9 pass log `estSeA/B`, realized cost on the realized pair (10868); 10 the damped
+update (10875); 11 the pick restore (10889); 12 the forced pass: realized-pair `costAt`, the deduction re-run on `lastCost`, the medical
+line (10902-10915); 18b `realizedMagi = magiBase0 - (seRealA + seRealB) + draws` (10928); 13/14 `naturalRec` (10967 / 10977); 15 fallback
+replay (10998); 16 `trialRecs` (11012); 17 winner replay (11028); 18 trial seed (11043); 19 `prevSeHealthA/B` written after convergence
+(11058). Also: `healthcareCost` returns `premA/premB` (~8910-8975), `seHealthDeduction` (8996), `seAllowA/B` at 10431, the
+`buildTaxProfile` parameters and remap, `returnMagis` (7255), `taxFor` (6710+), `solveRothConversionTo` (7333), the test hook (16824).
+All the readers that need no edit were confirmed to still hold. Ruling: each `taxFor` branch computes the net other income once
+(`otherAB`, `otherA1`, `otherA2` / `otherB2`): the same sums in the same order, the same doubles, done to bring `tx` under +5%.
+
+**Deviations from the spec's first draft.**
+- Coverage is built as `employerA/B` plus `streamCoverBits` (no `coverageOf`).
+- No `scalarSnapshot` entry: `prevSeHealthA/B` is written only after convergence.
+- The 162(l) band rule (decision 8b, above): where the deduction and the credit have no consistent answer the existing cliff rule
+  decides. Band test (single, `incomeA` 82,000, `sePlanNet` 76,206.89): `magiStats` {forced 0, unresolved 0} -> {forced 30, unresolved 0}
+  (the count spans the cliff plan's own runs plus the trace and `simulate` runs). Year 0: H = 5,797.41, D = 5,797.41, M = 70,409.48;
+  asserted agreements hold (D = min(H, `sePlanNet`) to 1e-9; M = `sePlanNet` - D within 1).
+- The Roth conversion fill sees 162(l) but not QBI (decision 8c). Test: conversion higher by 18,000 within 1.
+- The row's `income` stays before the 162(l) deduction.
+- Other engine cases: fixed point H 5,050.71, D 5,050.71, M 50,710.43; two returns magiA 35,395.10, A's part 1,779.10, D 1,778.99.
+  Cliff-plan replay: the stream stayed at 40,000; `choose` recorded 5 intents; `apply(choose's intents)` equals `choose` row for row;
+  with every line id replaced `planStats.absent` rose by 5 and the rows equal the `off` run.
+
+**Snapshots.** Task 6 added exactly eight entries to `tests/snapshots/us.json` (56 insertions, 0 deletions): US 550 -> 558 scenarios,
+Canada 376. No existing entry changed in any commit.
+
+**Timing** (baseline `ee7a789`; `tests/bench_runs_interleaved.js --rounds 21`, base -> new, medians).
+
+Task 2 (6e2f36a):
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 191 -> 189 ms (-1.0%) | 56 -> 55 ms (-1.8%) |
+| ca | 277 -> 278 ms (0.4%) | 79 -> 79 ms (0.0%) |
+| ny | 297 -> 304 ms (2.4%) | 85 -> 86 ms (1.2%) |
+| pa | 269 -> 277 ms (3.0%) | 75 -> 76 ms (1.3%) |
+| ct | 363 -> 367 ms (1.1%) | 105 -> 106 ms (1.0%) |
+| wa | 216 -> 220 ms (1.9%) | 62 -> 64 ms (3.2%) |
+
+Task 2, `tests/bench_solver.js --rounds 31`: ACA early retiree (CA): simulate 2.38 -> 2.42 ms (1.7%), path 2.35 -> 2.35 ms (0.0%);
+default: simulate 1.20 -> 1.26 ms (5.0%), path 0.90 -> 0.95 ms (5.6%).
+
+Task 5 (06ed7fd), final gate (an earlier run before the `taxFor` refactor showed `tx` +6.6% / +7.1% and was not accepted):
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 194 -> 196 ms (1.0%) | 58 -> 58 ms (0.0%) |
+| ca | 275 -> 275 ms (0.0%) | 78 -> 79 ms (1.3%) |
+| ny | 292 -> 299 ms (2.4%) | 84 -> 85 ms (1.2%) |
+| pa | 268 -> 273 ms (1.9%) | 75 -> 76 ms (1.3%) |
+| ct | 355 -> 363 ms (2.3%) | 104 -> 105 ms (1.0%) |
+| wa | 214 -> 220 ms (2.8%) | 63 -> 64 ms (1.6%) |
+
+Task 5, `bench_solver.js --rounds 31`, first run on the final tree: ACA early retiree (CA): simulate 2.26 -> 2.80 ms (23.9%), path
+2.20 -> 2.65 ms (20.5%); default: simulate 1.18 -> 1.24 ms (5.1%), path 0.85 -> 0.95 ms (11.8%). Re-run: ACA early retiree (CA):
+simulate 2.30 -> 2.40 ms (4.3%), path 2.20 -> 2.30 ms (4.5%); default: simulate 1.18 -> 1.24 ms (5.1%), path 0.85 -> 0.95 ms (11.8%).
+(Timer steps are 0.05 ms.)
+
+Task 6 (0f274db): **the +5% gate was NOT met.** Run 1:
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 183 -> 192 ms (4.9%) | 54 -> 56 ms (3.7%) |
+| ca | 271 -> 279 ms (3.0%) | 78 -> 79 ms (1.3%) |
+| ny | 298 -> 307 ms (3.0%) | 85 -> 88 ms (3.5%) |
+| pa | 266 -> 280 ms (5.3%) | 74 -> 78 ms (5.4%) |
+| ct | 355 -> 369 ms (3.9%) | 104 -> 107 ms (2.9%) |
+| wa | 215 -> 225 ms (4.7%) | 62 -> 66 ms (6.5%) |
+
+Run 2:
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 184 -> 194 ms (5.4%) | 54 -> 58 ms (7.4%) |
+| ca | 270 -> 284 ms (5.2%) | 77 -> 81 ms (5.2%) |
+| ny | 293 -> 309 ms (5.5%) | 85 -> 88 ms (3.5%) |
+| pa | 267 -> 281 ms (5.2%) | 75 -> 79 ms (5.3%) |
+| ct | 354 -> 370 ms (4.5%) | 103 -> 108 ms (4.9%) |
+| wa | 214 -> 228 ms (6.5%) | 63 -> 67 ms (6.3%) |
+
+Run 3 gave 3.9% to 9.3%. A temporary worktree of the Task 5 tip, benchmarked the same way: Task 6 vs the Task 5 tip 0-2% per path;
+the Task 5 tip vs base 2.7-6.5% in the same machine state. So the excess comes from Tasks 2-5 plus machine noise (wall-clock noise is
++-10% on this machine), not Task 6; nothing was tuned. Task 6 `bench_solver.js --rounds 31`, run 1: ACA early retiree (CA): simulate
+2.30 -> 2.62 ms (13.9%), path 2.20 -> 2.55 ms (15.9%); default: simulate 1.20 -> 1.28 ms (6.7%), path 0.90 -> 0.95 ms (5.6%). Run 2:
+ACA early retiree (CA): simulate 2.24 -> 2.50 ms (11.6%), path 2.20 -> 2.45 ms (11.4%); default: simulate 1.18 -> 1.28 ms (8.5%),
+path 0.90 -> 1.00 ms (11.1%).
+
+Side-business timing (recorded, not gated): 400 `simulateRaw()` over 31 interleaved rounds, median 951.0 ms for the R side business
+stream with kind `self` vs 583.0 ms with kind `wages` (ratio 1.631).
+
+**For the owner.**
+1. The timing gate was not met at Task 6 (tables above): decide whether to accept it or have Tasks 2-5 re-checked.
+2. Band inconsistency: H is the credit-rate premium at MAGI 58,207 (the MAGI with the full 18,000 deduction), while the recorded MAGI
+   70,409 is above the 400% line, where `acaNetCost` gives 18,000. The forced pass prices the realized cost at the MAGI from the
+   pre-refund deduction, the deduction then follows that lower premium, and the recorded MAGI rises past the line. The plan's rule was
+   implemented as written.
+3. The test "ACA off still converges" does not guard site 7's `estUsed` line (site 18b already records the MAGI from the realized
+   pair); only the Step 8b Roth-fill test fails without it.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
