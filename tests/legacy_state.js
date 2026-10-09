@@ -69,6 +69,11 @@ const US = {
   'stream junk': { incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'C', kind: 'self', contribute: 'yes', deferralType: 'x', deferralPct: 400, matchPct: -3, afterTaxPct: 'q' }] },
   'stream no keys': { incomeSources: [{ amount: 10000, startAge: 60, endAge: 70 }] },
   'stream stored B single': { singlePerson: true, incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'B' }] },
+  // E1c: income type and the self-employment stream kind.
+  'income kind self': { incomeKindA: 'self', incomeKindB: 'wages' },
+  'income kind junk': { incomeKindA: 'freelance', incomeKindB: 7 },
+  'stream self': { incomeSources: [{ amount: 30000, startAge: 50, endAge: 60, kind: 'self', contribute: true, profitSharingPct: 20, deferralPct: 100 }] },
+  'stream self junk': { incomeSources: [{ amount: 30000, startAge: 50, endAge: 60, kind: 'self', profitSharingPct: 99, healthPremium: -1 }, { amount: 5000, startAge: 50, endAge: 60, kind: 'wages', healthPremium: '4000' }] },
 };
 const CA = {
   ...COMMON,

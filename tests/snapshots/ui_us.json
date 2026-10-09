@@ -11,7 +11,7 @@
   }
  },
  "mcp": {
-  "schemaHash": "d47a1f564c454702",
+  "schemaHash": "6bc1822e56eaea07",
   "toolNames": [
    "update_fire_assumptions",
    "read_fire_projection"
@@ -129,6 +129,8 @@
    "tenure",
    "buyCash",
    "k401Type",
+   "incomeKindA",
+   "incomeKindB",
    "iraType",
    "pensionCoverage",
    "filingStatus",
@@ -145,6 +147,14 @@
    "k401Type": [
     "traditional",
     "roth"
+   ],
+   "incomeKindA": [
+    "wages",
+    "self"
+   ],
+   "incomeKindB": [
+    "wages",
+    "self"
    ],
    "iraType": [
     "traditional",
@@ -166,29 +176,29 @@
    ]
   },
   "executeProjectionHash": "3ce1dcdb881ae259",
-  "executeStateHash": "db4caedf9f8fa580",
+  "executeStateHash": "27e7318c932ceace",
   "readMatchesExecute": true
  },
  "surfaces": {
   "std default": {
-   "textHash": "c897fad14b917d19",
-   "textLength": 27900,
+   "textHash": "4735816affe9c18c",
+   "textLength": 27998,
    "projectionHash": "2fe7a27107168a77",
    "rowsHash": "702245fcdd7af2a4",
    "histSuccess": "—",
    "errors": []
   },
   "std R": {
-   "textHash": "22838b44c2c4292a",
-   "textLength": 27515,
+   "textHash": "76252be3e707c409",
+   "textLength": 27613,
    "projectionHash": "73dad8c139e6fb21",
    "rowsHash": "4f381e8f76fa135b",
    "histSuccess": "—",
    "errors": []
   },
   "std R everything": {
-   "textHash": "282b5f0eb43d014e",
-   "textLength": 29332,
+   "textHash": "f7de1517a0adf1a0",
+   "textLength": 29430,
    "projectionHash": "1937d5e7083b0eae",
    "rowsHash": "c75656c14b428e96",
    "histSuccess": "—",
@@ -2467,11 +2477,13 @@
     "chartXAxisAgeBBtn",
     "filingStatusFields",
     "firstRunBanner",
+    "healthPremiumBField",
+    "matchBField",
     "planHeadlineBanner",
     "survivorGroup"
    ],
-   "domHash": "24c80b5d2266",
-   "reloadDomHash": "24c80b5d2266",
+   "domHash": "eef516db5229",
+   "reloadDomHash": "eef516db5229",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3230,11 +3242,13 @@
     "chartXAxisAgeBBtn",
     "filingStatusFields",
     "firstRunBanner",
+    "healthPremiumBField",
+    "matchBField",
     "planHeadlineBanner",
     "survivorGroup"
    ],
-   "domHash": "24c80b5d2266",
-   "reloadDomHash": "24c80b5d2266",
+   "domHash": "eef516db5229",
+   "reloadDomHash": "eef516db5229",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
