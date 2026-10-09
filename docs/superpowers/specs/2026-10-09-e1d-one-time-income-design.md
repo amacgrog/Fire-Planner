@@ -367,6 +367,11 @@ lever); annual RMDs within the 10 years when the decedent died on or after the r
 under the SECURE Act, Treas. Reg. 1.401(a)(9)-5, to confirm); eligible designated beneficiaries (a sibling not more than 10 years younger);
 an inherited Roth (tax-free, 10-year rule, no annual RMDs); `singleLifeDivisor` only covers ages 18-65 today.
 
+Owner, 2026-10-09 (after the E1d merge): the inherited Roth IRA and designated Roth 401(k) are expected in E1e's scope beside the
+traditional kinds (with and without yearly RMDs); the facts to research first are listed in the E1e scope note in
+`docs/next-batches-plan.md` (after the E1d acceptance record). A deceased partner's accounts are not E1e (the survivor model is the
+spousal rollover).
+
 ## 12. Review record (independent Opus review of `41fd93a`, 2026-10-09)
 
 Two blocking findings, both fixed above: (1) the guardrails and `firstWithdrawal` would read a lump year's smaller need

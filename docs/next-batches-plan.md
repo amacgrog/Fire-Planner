@@ -853,7 +853,7 @@ would confound that batch's movers). Statuses were checked against `Planner_US.h
 **After the cliff plan, small PRs, in this order:**
 - **E1 is split (owner, 2026-10-08) into E1a (contribution limits and profit sharing; spec
   `docs/superpowers/specs/2026-10-08-e1a-plan-contribution-limits-design.md`), E1b (stream owner and W-2 kind), E1c (full
-  self-employment, main income and streams), E1d (one-time income treatments), E1e (inherited traditional IRA / 401(k), split from E1d 2026-10-09), and E1-CA (the Canada port, later, near the
+  self-employment, main income and streams), E1d (one-time income treatments), E1e (inherited traditional and Roth IRA / 401(k), split from E1d 2026-10-09; scope note after the E1d acceptance record), and E1-CA (the Canada port, later, near the
   province move); see the E1a spec section 1.** The original E1 text below is the source for E1b to E1d.
 - **E1. Income character.**
   - Income streams: an owner choice (Partner A / B; hidden in single-person mode) and an "earned income (wages)"
@@ -1826,6 +1826,24 @@ and an independent Opus code review with mutation probes; the code after it is d
 reviewer and the spec owner). Merged into `claude/batch-3b-penalty-rules` (US V126, Canada V59 unchanged); this file resolved with
 the branch's implementation block first, then the review and this record. Open: the UI-snapshot `histSuccess` race (Open items);
 E1e (the inherited traditional IRA / 401(k), spec section 11) is next in Batch E.
+
+**E1e scope note (owner, 2026-10-09; to research at the start of E1e, primary sources with retrieval dates):** E1e covers
+inherited accounts from someone outside the household (typically a parent); a deceased partner's accounts are not E1e (a surviving
+spouse is an eligible designated beneficiary who can roll over or treat the account as their own, which the survivor model already
+does: the survivor owns every account). Three inherited kinds are expected, not decided:
+- Inherited traditional IRA / 401(k), owner died BEFORE the required beginning date: no yearly distributions; empty by December 31
+  of the tenth year after the year of death (IRC 401(a)(9)(H), SECURE Act). Ordinary income; no 10% penalty (IRC 72(t)(2)(A)(ii)).
+- Inherited traditional IRA / 401(k), owner died ON OR AFTER the required beginning date: yearly RMDs in years 1-9 (the
+  beneficiary's single life expectancy, or the decedent's remaining one if longer) plus empty by year 10 (final regulations, T.D.
+  10001, Treas. Reg. 1.401(a)(9)-5; the missed-RMD penalty was waived for 2021-2024, Notice 2024-35, so enforced from 2025).
+- Inherited Roth IRA / designated Roth 401(k): the 10-year rule, no yearly distributions (a Roth IRA owner has no lifetime RMDs,
+  IRC 408A(c)(5), so is always treated as dying before the required beginning date; designated Roth 401(k)s have had no lifetime
+  RMDs since 2024, SECURE 2.0 section 325); tax-free once the decedent's five-year holding period is met (earnings taxable
+  otherwise, no penalty). The usual best path is tax-free growth to year 10, then cash: no MAGI effect.
+To confirm at E1e (all cited from memory 2026-10-09, not yet checked): each citation above; the eligible-designated-beneficiary
+classes (a minor child of the decedent, disabled, chronically ill, not more than 10 years younger) and which are worth an input;
+the single life table beyond age 65 (`singleLifeDivisor` covers 18-65); an inherited 401(k)'s plan rules versus an IRA's;
+whether the 5-year Roth rule needs an input.
 
 ---
 
