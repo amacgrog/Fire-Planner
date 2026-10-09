@@ -1595,8 +1595,8 @@ shared-region change.
 - The inherited traditional IRA / 401(k) is split out as its own sub-batch, **E1e** (after E1d, before E1-CA); the spec's
   section 11 records the preferred shape (a real `bal.inheritedTrad` account) and the open questions.
 - Four kinds per lump: tax-free (default; every legacy row), wages (severance, bonus: payroll tax; *Quality Stores*, 572 U.S.
-  141), ordinary income with no payroll tax (nonqualified deferred compensation: FICA at vesting, IRC 3121(v)(2)), long-term
-  capital gain with a gain share.
+  141), ordinary income with no payroll tax (nonqualified deferred compensation: FICA at vesting, IRC 3121(v)(2); not a pension
+  lump or an annuity, after the review), long-term capital gain with a gain share.
 - An owner per taxable lump (Partner A / B), hidden in single-person mode and for tax-free; timing stays Partner A's age. A dead
   owner's wages or ordinary lump goes to the survivor as ordinary income with no payroll tax (IRC 691); a dead owner's gain is
   tax-free (IRC 1014).
@@ -1607,6 +1607,22 @@ shared-region change.
 - Approach: a pure splitter `lumpAmountsForYear(lumps, ctx, out)` (scratch `LUMP_OUT`); wages and ordinary lumps ride the
   existing `streamWagesA/B` / `streamOtherA/B` arguments, gains go on new profile fields read only when `profile.lumpOn`.
 - No existing snapshot entry may move; the timing gate is the usual one.
+
+**Spec review (independent Opus review of `41fd93a`, 2026-10-09).** Two blocking findings: the guardrails and
+`firstWithdrawal` would read a lump year's smaller need (a severance in the retirement year sets a low baseline rate and
+later years are cut toward 0.5x; `Planner_US.html` ~10917, ~11111); tests load raw rows through `Object.assign`
+(`tests/snapshot.js:78`), so a row with no `kind` must be tax-free in the engine, and a `gainPct` 0 row could lose cash.
+Should-fix: an annuity payout is net investment income (1411(c)(1)(A)(i)) and a pension lump or annuity owes the 10% under
+72(t) / 72(q) before 59 1/2 (both removed from the ordinary kind); Washington's capital gains tax would be charged on a
+real-estate gain lump; a wages lump must use up the self-employment tax wage base; the lump gain must be added inside each
+`taxFor` branch (not before the two-filer 50/50 split); eight missing tests. Minor: law notes (joint-property step-up,
+121(b)(4), the 3121(v)(2) caveat), a fixed profile shape, E1b's legacy alignment copied exactly, `row.income`, the Roth
+fill's provisional income, the final-year end value. All adopted; spec section 12 is the record.
+
+**Decisions (owner, 2026-10-09; spec decisions 7-10):** A1, a year with a taxable lump records no guardrail withdrawal and
+no `firstWithdrawal` (as a surplus year today); B1, asset-specific state rules for gains are not modeled in E1d (named in the
+gain tip; E5); C1, only the gain share of a gain lump enters the flow, the basis goes to cash; D1, the death year counts as
+after death, as for streams.
 
 ---
 
