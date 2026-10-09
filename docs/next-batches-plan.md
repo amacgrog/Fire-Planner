@@ -1624,6 +1624,11 @@ no `firstWithdrawal` (as a surplus year today); B1, asset-specific state rules f
 gain tip; E5); C1, only the gain share of a gain lump enters the flow, the basis goes to cash; D1, the death year counts as
 after death, as for streams.
 
+**Spec re-review (same reviewer, of 1a90e77, 2026-10-09).** All first-review findings resolved except an incomplete gain-reader
+list; seven new should-fix or minor findings, all adopted (spec section 12). **Decision (owner, 2026-10-09; spec decision 11):**
+the year after a lump year holds the guardrail multiplier (a lump year clears prevPortfolio after its own step), so one
+observation never moves spending twice; retired surplus years keep the existing double step.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

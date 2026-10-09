@@ -1,7 +1,7 @@
 # E1d: one-time income tax treatments (US) — design
 
 Date: 2026-10-09. Owner decisions from the brainstorm of this date, revised the same day after an independent Opus
-review of `41fd93a` (decisions 7-10, section 12). Base: `14dde9a` on `claude/batch-3b-penalty-rules`
+review of `41fd93a` (decisions 7-10) and again after its re-review of `1a90e77` (decision 11; section 12). Base: `14dde9a` on `claude/batch-3b-penalty-rules`
 (US V125, Canada V59; E1c merged as `24defcd`). US only; no shared-region change; Canada untouched.
 
 ## 1. Where this sits
@@ -51,8 +51,9 @@ section (section 10).
    premiums and contributions and has no gain kind; the split inline in `listAmountsForYear`).
 7. **Guardrails in a lump year (after the review; option A1):** a year with a taxable lump (`LUMP_OUT.flowTotal > 0`) records
    no guardrail withdrawal and no `firstWithdrawal`, as a retired surplus year (`flow >= 0`) already records nothing today.
-   The guardrail baseline (`initialWR`) comes from the first retired deficit year without a taxable lump, and the next year's
-   multiplier reads the last recorded year. Reason: with the lump in the flow, `wd.need` shrinks by the lump's net, so a
+   The guardrail baseline (`initialWR`) comes from the first retired deficit year without a taxable lump. If the lump lands
+   in the retirement year, `firstWithdrawal` stays 0 for the run (it is set only when `year === retirementYear`, ~10917; its
+   only reader is `tests/historical_parity.js`). The year after a lump year holds the multiplier (decision 11). Reason: with the lump in the flow, `wd.need` shrinks by the lump's net, so a
    severance in the retirement year would set a very low baseline rate and later years would be cut toward 0.5x. (Rejected,
    A2: record the need without the lump and its tax, which needs a second `buildTaxProfile`, `payrollTax` and `taxFor`
    per pass in lump years.)
@@ -68,6 +69,14 @@ section (section 10).
     ~10439; `tests/survivor_salary.js`): a lump in the death year is the survivor's (wages and ordinary without payroll tax,
     a gain tax-free). (Rejected, D2: the death year as before death, which needs a second dead flag and care with the
     survivor remap in that year.)
+11. **The year after a lump year holds the guardrail multiplier (re-review finding 1; owner, 2026-10-09).**
+    `guardrailSpendingMultiplier` (~9098, called each retired year at ~10812) steps the multiplier from the last recorded
+    year. A lump year records nothing (decision 7), so without a change the year after it would repeat the lump year's step:
+    two 10% cuts (or raises) from one observation. So a lump year, after its own step, clears the last record
+    (`guardrails.prevPortfolio = null`; the guard `g.prevPortfolio > 0`, ~9100, then skips the next year's step), and the year
+    after holds. The change is in `guardrails`, which the MAGI-iteration snapshot rewinds (~10633-10635), and runs only in a
+    lump year, so no existing number moves. A retired surplus year keeps today's behaviour (the same double step), outside
+    E1d. (Rejected: state the double step as a limitation.)
 
 ## 4. Facts (primary sources; retrieved 2026-10-09)
 
@@ -178,7 +187,9 @@ Called from `listAmountsForYear` with `STREAM_CTX` (ages, `deadA/deadB`, `single
 - `out.flowTotal` = the sum of `wagesA/B`, `otherA/B` and `gainA/B` (the gain share only). It is the one gate: a year is a
   lump year when `flowTotal > 0`, so a `gainPct` 0 row (all basis) is simply tax-free and no cash can be lost.
 
-`oneTimeAmount` returned by `listAmountsForYear` becomes `out.taxFree` (unchanged for a legacy save: every row is free).
+The year loop copies `LUMP_OUT`'s values into locals right after the `listAmountsForYear` call (~10437), as it does with
+`streams`, because the guardrail skip and `row.income` read them late in the year body. `oneTimeAmount` returned by
+`listAmountsForYear` becomes `out.taxFree` (unchanged for a legacy save: every row is free).
 The sum starts at 0 and runs in list order, so it is the old `reduce(..., 0)` bit for bit when every row is free.
 
 ### 6.2 Cash flow
@@ -191,7 +202,9 @@ surplus path.
 **Guardrails and `firstWithdrawal` (decision 7).** In a lump year (`flowTotal > 0`) both sites that record the year's need,
 the deficit branch (~10917-10918) and the forced pass (~11109-11111), skip `firstWithdrawal` and `recordGuardrailWithdrawal`.
 In the forced pass the restore `guardrails.initialWR = guardrailSnapshot.initialWR` still runs (it undoes the deficit branch's
-record, which a lump year never made, so it is a no-op there). Everything else in those branches runs as before.
+record, which a lump year never made, so it is a no-op there). Everything else in those branches runs as before. A lump year
+also sets `guardrails.prevPortfolio = null` once its own multiplier step has run (decision 11), so the next year holds; it
+runs on every pass of the lump year (the snapshot rewinds it with the rest of `guardrails`).
 
 **`row.income`.** `totalIncome` (~10809, ~10943) adds `lumpGainA + lumpGainB` in a lump year (wages and ordinary lumps are
 already in it through `otherA/B`).
@@ -208,16 +221,19 @@ already in it through `otherA/B`).
   moved by the survivor remap as today.
 - **Gain kind:** new profile fields `lumpGainA/B` and `lumpGainNoNiitA/B` (the survivor remap moves B's to slot A as it
   moves `extraB`; a dead owner's gain never reaches the profile, section 6.1). In `taxFor` the lump gain is added inside each branch, never at the top beside
-  `invQual` (the top value feeds the two-filer branch's 50/50 split, `gainA = gains / 2`, ~6884):
-  - joint and one-person branches: the branch's gain becomes `gains + lumpGainA + lumpGainB`; every reader of the branch's
-    gain sees it: Social Security provisional income, `longTermGainTax`, `sources.gains`, `federalDeduction`'s income,
-    QBI's `netGain`, the lagged pass `federalLiabilityForState`, and `niitTax`, whose net investment income argument
-    leaves out `lumpGainNoNiitA + lumpGainNoNiitB` (its MAGI argument keeps them);
-  - two-filer branch: `gainA = gains / 2 + lumpGainA`, `gainB = gains / 2 + lumpGainB`, and every per-return reader uses
-    them: each return's provisional income, `longTermGainTax`, `sourcesA/B.gains`, `federalDeduction`, QBI's `netGain`
-    (~6966-6971), `federalLiabilityForState`, and `niitTax`, whose net investment income argument leaves out that return's
-    `lumpGainNoNiitA/B`. The child credits stay on A as today.
-  The plan lists each line it changes, by function and line, so the review can check none is missed.
+  `invQual` (the top value feeds the two-filer branch's 50/50 split, `gainA = gains / 2`, ~6889):
+  - joint (~6754-6813) and one-person (~6823-6877) branches: one reassignment at the start of the branch, `gains += lumpGainA +
+    lumpGainB` (under `lumpOn`), so no reader can be missed. The readers it reaches: Social Security provisional income,
+    `longTermGainTax`, `sources.gains`, `federalDeduction`'s income, QBI's taxable income (`ordinary + gains - deduction`,
+    ~6804, ~6868) and its `netGain`, the lagged pass `federalLiabilityForState`, the child credits' MAGI
+    (`ordinary + gains`, ~6809, ~6873), and `niitTax`, whose net investment income argument leaves out `lumpGainNoNiitA +
+    lumpGainNoNiitB` (its MAGI argument keeps them);
+  - two-filer branch (~6889-7000): `gainA = gains / 2 + lumpGainA`, `gainB = gains / 2 + lumpGainB` at their definition
+    (~6889), and every per-return reader uses them: each return's provisional income, `longTermGainTax` (both calls, including
+    the one in the children block, ~6988), `sourcesA/B.gains`, `federalDeduction`, QBI's taxable income and `netGain`
+    (~6976, ~6980), `federalLiabilityForState`, A's child credits' MAGI (`ordinaryA + gainA`, ~6989), and `niitTax`, whose net
+    investment income argument leaves out that return's `lumpGainNoNiitA/B`. The child credits stay on A as today.
+  The plan lists every reader line in these ranges, so the review can check none is missed.
 - **MAGI:** `magiBase0` (~10565) adds `lumpGainA + lumpGainB` (wages and ordinary lumps are already in `otherA/B`);
   `returnMagis` adds `lumpGainA` to A's return and `lumpGainB` to B's. ACA, IRMAA (two years on, through
   `irmaaMagiHistory`), the conversion ceiling, `magiThresholds` and the cliff plan read these, so they see the lump with no
@@ -259,12 +275,17 @@ already in it through `otherA/B`).
     gain lump on one return and on two returns (`netGain` includes the owner's lump gain); the lagged federal pass in a
     two-return year with a lump gain (a state row that deducts federal tax); B's wages lump in a two-return year (B's payroll
     tax and wage base; the child credits still on A); a row with no `kind` loaded through `Object.assign` gives today's numbers.
-  - Cash conservation: in a lump year, end-of-year balances equal those of the same scenario with the lump as tax-free plus
-    the taxable share less its added tax (payroll and income), within a cent; with `gainPct` 0 the two runs are identical.
-  - Guardrails (decision 7): guardrails on, a wages lump in the retirement year: `initialWR` is not set in the lump year and
-    is set by the first retired deficit year without a lump; `firstWithdrawal` is not recorded in the lump year; a lump in a
-    later retired year leaves `prevNeed` / `prevPortfolio` at the previous recorded year (the guardrail state read through a
-    test hook after each year).
+  - Cash conservation (re-review finding 3): in a working surplus year, standard mode, with no ACA or IRMAA line in reach,
+    total investable assets at the end of the lump year equal those of the same scenario with the lump as tax-free, less the
+    difference in `row.tax` (payroll and income tax), within a cent; with `gainPct` 0 the two runs are identical (exact).
+  - Guardrails (decisions 7 and 11), read through a new field on the `__test_accountTrace` entry (~11332): `guardrails:
+    { ...guardrails }` at the end of each year. Guardrails on, a wages lump in the retirement year: `initialWR` is not set in
+    the lump year and is set by the first retired deficit year without a lump; `firstWithdrawal` stays 0. A lump in a later
+    retired year: the lump year records nothing, and the next year holds the multiplier (equal to the lump year's), where
+    a run without the fix would step it again. A lump year that runs the forced pass (an ACA step-down cliff, `magiStats.forced`
+    rising) records nothing either (re-review finding 4).
+  - Child tax credit (re-review finding 5): a gain lump that pushes MAGI past the credit's phase-out threshold, in a joint
+    year and in a two-return year (A's credits on A's MAGI including A's lump gain), with the credit hand-computed.
 - **`tests/legacy_state.js`:** new corpus cases (a junk `kind`, owner missing or `'b'`, `gainPct` -5 / 250 / `'x'`,
   `activeBusiness: 'yes'`, a legacy `otherIncomeEnabled` save with lumps), pinned in `tests/snapshots/legacy_state.json`.
 - **`tests/field_registry.js`, `tests/snapshot_ui.js`:** the new row fields, show/hide by kind and single-person mode, a reload
@@ -300,7 +321,8 @@ already in it through `otherA/B`).
 - The Roth bracket fill's provisional income leaves out gains (~7397-7406), so a large gain-lump year can convert past
   the target bracket.
 - Asset-specific state treatment of a gain (decision 8; E5).
-- A year with a taxable lump records no guardrail withdrawal (decision 7).
+- A year with a taxable lump records no guardrail withdrawal, and the year after it holds the multiplier (decisions 7, 11);
+  a lump in the retirement year leaves `firstWithdrawal` at 0.
 - The Sankey and table show a taxable lump inside "Wages" (the shared Sankey and table are not changed; not-earned streams
   already appear there).
 - Gift and estate tax; income averaging; state rules beyond what `STATE_RULES` does with wages, other income and gains.
@@ -344,3 +366,14 @@ reviewer could not re-retrieve. What holds per the review: legacy numbers bit-ex
 plumbing complete through `magiBase0` and `returnMagis`; wages lumps through the stream arguments reach every payroll and
 earned-income reader without touching contributions or coverage; ordinary lumps follow not-earned streams; `bondTarget`,
 the refill cap and surplus routing unchanged by design; the same flow in both strategies.
+
+**Re-review (the same reviewer, of `1a90e77`, 2026-10-09).** Findings 1-11 of the first review resolved, except that the
+gain-reader list was incomplete. New: (1) after a lump year the guardrails would apply the same step twice (decision 11,
+the owner chose to hold); (2) three gain readers missing from section 6.3 (the child credits' MAGI, QBI's taxable income,
+the second `longTermGainTax` call; now one reassignment per one-return branch and the full list); (3) the cash-conservation
+test could not pass in a deficit year (narrowed to a working surplus year); (4) the guardrail tests missed the forced pass
+and named no hook (a forced-pass case and a trace field); (5) no test pinned the child-credit readers (added); (6)
+`firstWithdrawal` stays 0 when the lump lands in the retirement year (stated in decision 7); (7) `LUMP_OUT` copied into
+locals (section 6.1). All adopted. The reviewer confirmed A1 in the code (the rewind at ~10633-10635, the forced pass's
+restore a no-op in a lump year), C1's cash conservation for `gainPct` 0, 40, 100, a dead owner and mixed kinds, and that the
+`flowTotal > 0` gate covers `lumpOn`, the wages line, both guardrail sites and `row.income`.
