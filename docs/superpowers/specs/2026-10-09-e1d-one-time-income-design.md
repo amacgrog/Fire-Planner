@@ -70,12 +70,15 @@ section (section 10).
     a gain tax-free). (Rejected, D2: the death year as before death, which needs a second dead flag and care with the
     survivor remap in that year.)
 11. **The year after a lump year holds the guardrail multiplier (re-review finding 1; owner, 2026-10-09).**
-    `guardrailSpendingMultiplier` (~9098, called each retired year at ~10812) steps the multiplier from the last recorded
+    `guardrailSpendingMultiplier` (~9098, called on every pass of every year at ~10812; it returns 1 while anyone is working) steps the multiplier from the last recorded
     year. A lump year records nothing (decision 7), so without a change the year after it would repeat the lump year's step:
     two 10% cuts (or raises) from one observation. So a lump year, after its own step, clears the last record
     (`guardrails.prevPortfolio = null`; the guard `g.prevPortfolio > 0`, ~9100, then skips the next year's step), and the year
     after holds. The change is in `guardrails`, which the MAGI-iteration snapshot rewinds (~10633-10635), and runs only in a
-    lump year, so no existing number moves. A retired surplus year keeps today's behaviour (the same double step), outside
+    lump year, so no existing number moves. The clear must come after the step (~10810-10813) in the same pass: before it, the lump year
+    would hold and lose its own step from year t-1. It is harmless in a working year or with guardrails off (`prevPortfolio`
+    is already null there: nothing is recorded while anyone works), so it needs no extra condition. A retired surplus year
+    keeps today's behaviour (the same double step), outside
     E1d. (Rejected: state the double step as a limitation.)
 
 ## 4. Facts (primary sources; retrieved 2026-10-09)
@@ -281,8 +284,9 @@ already in it through `otherA/B`).
   - Guardrails (decisions 7 and 11), read through a new field on the `__test_accountTrace` entry (~11332): `guardrails:
     { ...guardrails }` at the end of each year. Guardrails on, a wages lump in the retirement year: `initialWR` is not set in
     the lump year and is set by the first retired deficit year without a lump; `firstWithdrawal` stays 0. A lump in a later
-    retired year: the lump year records nothing, and the next year holds the multiplier (equal to the lump year's), where
-    a run without the fix would step it again. A lump year that runs the forced pass (an ACA step-down cliff, `magiStats.forced`
+    retired year, built so that year t-1's record triggers a step (its withdrawal rate outside 0.8-1.2 times the baseline):
+    the lump year records nothing; its multiplier differs from year t-1's (it stepped; this also catches a clear placed
+    before the step); year t+1's multiplier equals the lump year's (it held, where a run without the fix would step again). A lump year that runs the forced pass (an ACA step-down cliff, `magiStats.forced`
     rising) records nothing either (re-review finding 4).
   - Child tax credit (re-review finding 5): a gain lump that pushes MAGI past the credit's phase-out threshold, in a joint
     year and in a two-return year (A's credits on A's MAGI including A's lump gain), with the credit hand-computed.
@@ -377,3 +381,5 @@ and named no hook (a forced-pass case and a trace field); (5) no test pinned the
 locals (section 6.1). All adopted. The reviewer confirmed A1 in the code (the rewind at ~10633-10635, the forced pass's
 restore a no-op in a lump year), C1's cash conservation for `gainPct` 0, 40, 100, a dead owner and mixed kinds, and that the
 `flowTotal > 0` gate covers `lumpOn`, the wages line, both guardrail sites and `row.income`.
+A last check of `5e1a39f` by the same reviewer confirmed decision 11 against the code (the hold, the rewind, the order of
+the clear, no legacy movement) and asked for the hold test to force a step in year t-1 and for two wording points; adopted.
