@@ -116,6 +116,46 @@ const path = require('path');
   assert.deepStrictEqual(errors, []);
   console.log('test_self_employment: part 1 passed');
   // Part 2 (Task 6)
+  // Switching a working partner to Self-employed changes the tax and raises cash wages by the payroll premium no longer paid.
+  await page.evaluate(() =>
+    window.__test_replaceState({
+      singlePerson: false, ageA: 45, ageB: 45, retireAgeA: 60, retireAgeB: 60, incomeA: 100000, incomeB: 0, healthPremiumA: 300, stateTax: 'tx', incomeKindA: 'wages', incomeSources: [],
+    })
+  );
+  await page.waitForTimeout(200);
+  const row0 = () => page.evaluate(() => JSON.parse(JSON.stringify(window.fireProjectionRows[0])));
+  await click('incomeKindAWagesBtn'); // re-render with the replaced state
+  await page.waitForTimeout(200);
+  const w2 = await row0();
+  await click('incomeKindASelfBtn');
+  await page.waitForTimeout(200);
+  const se = await row0();
+  assert.notStrictEqual(se.tax, w2.tax, 'tax changes with the income type');
+  assert(se.wages > w2.wages, 'wages rise by the premium no longer paid (' + w2.wages + ' -> ' + se.wages + ')');
+  // A self stream that contributes raises the next year's traditional balance.
+  await page.evaluate(() =>
+    window.__test_replaceState({
+      singlePerson: false, ageA: 50, ageB: 50, retireAgeA: 60, retireAgeB: 60, incomeA: 0, incomeB: 0, stateTax: 'tx', incomeKindA: 'wages',
+      incomeSources: [{ amount: 40000, startAge: 50, endAge: 60, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, deferralType: 'traditional', deferralPct: 100, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0 }],
+    })
+  );
+  await page.waitForTimeout(200);
+  await click('incomeKindAWagesBtn'); // re-render with the replaced state
+  await page.waitForTimeout(200);
+  const before = await page.evaluate(() => window.fireProjectionRows[1].traditional);
+  await setCheck('incSrc0Contribute', true);
+  await page.waitForTimeout(100);
+  await page.evaluate(() => {
+    const el = document.getElementById('incSrc0ProfitSharingPct');
+    el.value = '25';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => window.fireProjectionRows[1].traditional);
+  assert(after > before, 'traditional rises with a contributing self stream (' + before + ' -> ' + after + ')');
+  assert.deepStrictEqual(errors, []);
+  console.log('test_self_employment: part 2 passed');
 
   await browser.close();
 })().catch((e) => {

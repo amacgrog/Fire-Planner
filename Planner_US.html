@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V124</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V125</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -6666,9 +6666,11 @@
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
-  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0) {
+  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0, qbiBase = 0) {
     const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
-      federal = ordinaryTax(ordinary, year, status, deduction) + longTermGainTax(gains, ordinary, year, status, deduction),
+      // E1c: the qualified business income deduction, below AGI (0 for everyone without self-employment).
+      qbi = qbiBase > 0 ? qbiDeduction(qbiBase, Math.max(0, ordinary + gains - deduction), gains, filingRow(status).joint, year) : 0,
+      federal = ordinaryTax(ordinary, year, status, deduction + qbi) + longTermGainTax(gains, ordinary, year, status, deduction + qbi),
       credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
   }
@@ -6688,6 +6690,23 @@
     SOURCES_SINGLE = newStateSources(1),
     SOURCES_A = newStateSources(1),
     SOURCES_B = newStateSources(1);
+  // E1c: the qualified business income deduction (IRC 199A), federal only, below AGI. 2026 limits from Rev. Proc. 2025-32
+  // section 4.26 (threshold indexed; the phase-in width is a fixed statutory amount since OBBBA section 70105). Every
+  // business is treated as a specified service business with no W-2 wages and no property (owner decision): full 20%
+  // up to the threshold, 20% x ap^2 inside the range, nothing above; capped at 20% of taxable income less net capital
+  // gain (which includes qualified dividends). The $400 minimum (IRC 199A(i)) applies after the cap, to a taxpayer with
+  // $1,000 of QBI from qualified businesses: an SSTB counts only at the applicable percentage, and not at all above the
+  // range (199A(d)(1)(A), (d)(3)).
+  const QBI_LIMITS = { threshold: { joint: 403500, other: 201750 }, width: { joint: 150000, other: 75000 }, minimum: 400, minimumQbi: 1000 };
+  function qbiDeduction(qbi, taxable, netGain, joint, yearIndex) {
+    if (!(qbi > 0)) return 0;
+    const f = taxIndexFactor(yearIndex),
+      threshold = (joint ? QBI_LIMITS.threshold.joint : QBI_LIMITS.threshold.other) * f,
+      width = joint ? QBI_LIMITS.width.joint : QBI_LIMITS.width.other,
+      ap = Math.min(1, Math.max(0, 1 - (taxable - threshold) / width)),
+      d = Math.min(0.2 * qbi * ap * ap, 0.2 * Math.max(0, taxable - netGain));
+    return ap * qbi >= QBI_LIMITS.minimumQbi * f ? Math.max(d, QBI_LIMITS.minimum * f) : d;
+  }
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
     // qualified) are household-level and taxed every year; qualified
@@ -6709,6 +6728,9 @@
       // E1c: the self-employed health insurance deduction (162(l)), above the line on the owner's return.
       seHA = profile.seHealthA || 0,
       seHB = profile.seHealthB || 0,
+      // E1c: the QBI base (profit less half the SE tax and the plan money), before 162(l).
+      sePlanNetA = profile.sePlanNetA || 0,
+      sePlanNetB = profile.sePlanNetB || 0,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6750,7 +6772,7 @@
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0, sePlanNetA + sePlanNetB - seHA - seHB);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6766,10 +6788,14 @@
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
           profile.medicalExpense || 0,
-        );
+        ),
+        // E1c: the QBI deduction, one for the joint return (0 without self-employment).
+        qbi = sePlanNetA + sePlanNetB > 0
+          ? qbiDeduction(sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
+          : 0;
       const federal =
-        ordinaryTax(ordinary, profile.year, 'mfj', deduction) +
-        longTermGainTax(gains, ordinary, profile.year, 'mfj', deduction);
+        ordinaryTax(ordinary, profile.year, 'mfj', deduction + qbi) +
+        longTermGainTax(gains, ordinary, profile.year, 'mfj', deduction + qbi);
       const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, profile.wageA + profile.wageB + (seEarnedA + seEarnedB));
       return (
         federal - credits.nonrefundable - credits.refundable +
@@ -6809,7 +6835,7 @@
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0, sePlanNetA - seHA);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6825,10 +6851,13 @@
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
           profile.medicalExpense || 0,
-        );
+        ),
+        qbi = sePlanNetA > 0
+          ? qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
+          : 0;
       const federal =
-        ordinaryTax(ordinary, profile.year, status, deduction) +
-        longTermGainTax(gains, ordinary, profile.year, status, deduction);
+        ordinaryTax(ordinary, profile.year, status, deduction + qbi) +
+        longTermGainTax(gains, ordinary, profile.year, status, deduction + qbi);
       const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, profile.wageA + seEarnedA);
       return (
         federal - credits.nonrefundable - credits.refundable +
@@ -6887,7 +6916,7 @@
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2, sePlanNetA - seHA);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
@@ -6912,7 +6941,7 @@
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2, sePlanNetB - seHB);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -6925,8 +6954,13 @@
       stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
       halfInterest = (profile.mortgageInterest || 0) / 2,
       halfMedical = (profile.medicalExpense || 0) / 2,
-      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
-      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
+      deductionA0 = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
+      deductionB0 = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical),
+      // E1c: each return's own QBI deduction (0 without self-employment).
+      qbiA = sePlanNetA > 0 ? qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinaryA + gainA - deductionA0), gainA, false, profile.year) : 0,
+      qbiB = sePlanNetB > 0 ? qbiDeduction(sePlanNetB - seHB, Math.max(0, ordinaryB + gainB - deductionB0), gainB, false, profile.year) : 0,
+      deductionA = deductionA0 + qbiA,
+      deductionB = deductionB0 + qbiB;
     // The child credits go on Partner A's return (A claims the children). Computed only when
     // there are children, and subtracted last, so the no-children sum keeps its exact order.
     let creditA = 0;
@@ -16895,6 +16929,7 @@
         rmd: 0,
       }),
   };
+  window.__test_qbiDeduction = qbiDeduction;
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     ensureTestPlan();
