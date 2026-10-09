@@ -139,7 +139,24 @@ Create `test_lump_income.js` (model it on `test_income_streams.js`): load `Plann
   // reload round trip: the row keeps kind, owner, gain share and checkbox through export -> import (or autosave -> reload,
   // whichever test_income_streams.js uses)
   // the mobile check: scrollWidth <= clientWidth at 390 x 844 with the gain row open
+  // a kind change reaches the projection (CLAUDE.md checklist item 4): amount 50,000, fixed, at Partner A's current age + 1
+  // (inside the projection); compare the lump year's row as free and as wages
+  const lumpYearRow = async () => page.evaluate(() => {
+    const age = window.__test_getState().oneTimeIncome[0].age;
+    const r = window.fireProjectionRows.find((x) => x.age === age);
+    return { tax: r.tax, wages: r.wages };
+  });
+  // (fill #oneTime0Amount with 50000, tick #oneTime0Flat, set #oneTime0Age to the state's ageA + 1, through the inputs)
+  await page.selectOption('#oneTime0Kind', 'free');
+  const asFree = await lumpYearRow();
+  await page.selectOption('#oneTime0Kind', 'wages');
+  const asWages = await lumpYearRow();
+  assert(asWages.wages - asFree.wages > 49999, 'wages kind: the lump is in row.wages');
+  assert(asWages.tax > asFree.tax, 'wages kind: the lump is taxed');
 ```
+
+Fill the amount, the checkbox and the age through the inputs (`page.fill`, `page.check`, then the `input` event the app
+listens for; read how `test_income_streams.js` drives a row's money field), so the test goes through the app's own listeners.
 
 Write the round-trip and mobile assertions concretely by copying the matching blocks of `test_income_streams.js`.
 
@@ -294,7 +311,9 @@ some at other ages): evaluate in the page
   assert(exact.same, `raw-row exactness: ${exact.a} vs ${exact.b}`);
 ```
 
-Engine cases (helper `engine(patch, lumps)` that saves state, `Object.assign`s the patch with `oneTimeIncome: lumps`, runs
+Engine cases (helper `engine(patch, lumps)`, written in the pattern of `tests/aca_medicaid.js:243-259`: save
+`JSON.parse(JSON.stringify(state))`, delete every key of `state`, `Object.assign(state, saved, patch, { oneTimeIncome: lumps })`,
+run, and in `finally` delete every key again and `Object.assign(state, saved)`, so no key leaks into the next run; it runs
 `window.__test_accountTrace()` and `window.__test_simulate()`, restores state, and returns per year `ficaTax`,
 `profile.wageA/wageB/extraA/extraB`, `guardrails`, `firstWithdrawal`, `forcedPass` from the trace and `wages`, `tax`,
 `investable`, `baseSpend`, `magiProxy`, `healthcare` from the rows, plus `sim.firstWithdrawal`). Base household `W`:
@@ -337,6 +356,35 @@ children: [] }`.
   const g0 = await engine({ ...W, incomeA: 200000 }, [L({ age: 45, amount: 50000, kind: 'gain', gainPct: 0 })]);
   assert.deepStrictEqual(g0.rows, free.rows, 'gainPct 0 is exactly the tax-free run');
 ```
+
+ACTC from severance (spec section 7): severance is earned income, deferred compensation is not. Compare two profiles
+directly (an engine run would change the year's draws and gains between the two kinds):
+
+```js
+  // hoh, one child (age 6), wages 8,000; a 10,000 lump as wages (earned 18,000) or as ordinary (earned 8,000). Income tax is
+  // 0 either way (the hoh standard deduction is above 18,000), so the unused credit is the full 2,200 and the refundable
+  // part is min(1,700, 15% x (earned - 2,500)): wages 15% x 15,500 = 2,325 -> 1,700; ordinary 15% x 5,500 = 825.
+  // So the wages profile's tax is lower by 1,700 - 825 = 875 (taxFor excludes payroll tax).
+  const actc = await page.evaluate(() => {
+    const t = window.__test_tax, st = window.__test_getState(), saved = st.stateTax;
+    st.stateTax = 'tx';
+    try {
+      const kid = [{ age: 6, student: false, qualifyingChild: true }];
+      const base = { year: 0, filing: 'hoh', singlePerson: true, otherB: 0, extraB: 0, wageB: 0, pensionA: 0, pensionB: 0,
+        rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 40, ageB: null, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0,
+        dependents: kid, seOn: false };
+      const asWages = t.taxFor({ ...base, otherA: 18000, wageA: 18000, extraA: 0 }, 0, 0),
+        asOrdinary = t.taxFor({ ...base, otherA: 18000, wageA: 8000, extraA: 10000 }, 0, 0);
+      return asWages - asOrdinary;
+    } finally { st.stateTax = saved; }
+  });
+  near(actc, -875, 1e-6, 'severance raises the refundable child credit; deferred compensation does not');
+  // and the engine routes them that way: in W with incomeA 8,000, the wages run's trace[0].profile.wageA is 18,000 and the
+  // ordinary run's is 8,000 with extraA 10,000
+```
+
+Write the engine routing line as two asserts on runs of `{ ...W, incomeA: 8000, children: [{ birthYear: 2020, student:
+false }] }`. If the 2026 ACTC cap in `childCredits` is not 1,700, stop and report (do not change the expected value).
 
 Owner B in a two-return year, concretely:
 
@@ -549,8 +597,8 @@ git commit -m "E1d 2: lumpAmountsForYear; taxable lumps in the cash flow; wages 
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `tests/lump_income.js` a `taxFor` block evaluated in the page (`window.__test_taxFor` if it exists; otherwise add the
-hook `window.__test_taxFor = taxFor;` in this task beside the other hooks). Profiles are literals (the `profile(o)` helper of
+Add to `tests/lump_income.js` a `taxFor` block evaluated in the page through the existing hook `window.__test_tax`
+(`taxFor`, `childCredits` and `returnStatusA` are on it, ~17095; add no hook). Profiles are literals (the `profile(o)` helper of
 `tests/self_employment.js`, with `seOn: false`, `lumpOn: false` and all lump fields 0 by default). The equivalences are
 implementation-independent and pin every reader in each branch at once:
 
@@ -564,7 +612,7 @@ implementation-independent and pin every reader in each branch at once:
       lumpGainNoNiitA: 0, lumpGainNoNiitB: 0 }, o);
     const SE = { seOn: true, seNetA: 120000, sePlanNetA: 120000, seEarnedA: 120000, seAllowA: false, seHealthA: 0, seHealthB: 0 };
     try {
-      for (const code of ['tx', 'ca', 'al', 'wa', GAINS_RULE_STATE]) { // al: lagged federal-tax state; wa: gains-only tax
+      for (const code of ['tx', 'ca', 'al', 'wa', 'mt', 'nm']) { // al: lagged federal tax; wa: gains-only tax; mt, nm: gainsRate / gainsDeduction
         st.stateTax = code;
         // joint and one-person branches: a lump gain is taxed exactly like the same gain passed as `gains`
         // (invQual 0, so the branch's gains are arg + 0 + lump: the same double); with and without self-employment (QBI)
@@ -602,10 +650,11 @@ implementation-independent and pin every reader in each branch at once:
   near(tf.ctc, 1000, 1e-6, 'CTC phase-out arithmetic (the joint equivalence above shows the branch passes the lump in the MAGI)');
 ```
 
-The joint equivalence with `otherA` 180,000 is below the joint CTC line; add one more `eq` row with `otherA: 380000,
-wageA: 380000` and the kids (mfj, tx) so the lump crosses 400,000 inside `taxFor`: `Object.is` again. Set `GAINS_RULE_STATE` to the code of the
-first `STATE_RULES` row whose `base.gainsRate` is not null or whose `base.gainsDeduction` is above 0 (find it by reading the
-table; name it in the task report), passed into the `page.evaluate`. Add the engine cases (helper `engine` from Task 2):
+These equivalences replace the spec's separate 0% / 15% / 20% gain-band cases: a lump gain taxed bit for bit like the same
+gain passed as `gains` goes through the very band code a brokerage gain does (in every band), so writing band cases as well
+adds nothing. The joint equivalence with `otherA` 180,000 is below the joint CTC line; add one more `eq` row with `otherA: 380000,
+wageA: 380000` and the kids (mfj, tx) so the lump crosses 400,000 inside `taxFor`: `Object.is` again. (`mt` and `nm` are the first `STATE_RULES` rows with `base.gainsRate` or `base.gainsDeduction` set; confirm by reading the
+table and name them in the task report.) Add the engine cases (helper `engine` from Task 2):
 
 ```js
   // MAGI in a working surplus year: the realized MAGI rises by exactly the gain share (no draws that year)
@@ -644,6 +693,14 @@ table; name it in the task report), passed into the `page.evaluate`. Add the eng
   const sG = await engine(S0, [L({ age: 48, amount: 300000, kind: 'gain', gainPct: 70 })]),
     sF = await engine(S0, [L({ age: 48, amount: 300000, kind: 'free' })]);
   assert.strictEqual(sG.rows[3].tax, sF.rows[3].tax, "dead owner's gain is tax-free");
+  // a dead owner's ordinary lump in the death year (A's 47, index 2, decision 10) and wages lump the year after (48,
+  // index 3): both reach the survivor's return as other income (extraA after the survivor remap), with no payroll tax
+  const sN = await engine(S0, []),
+    sO = await engine(S0, [L({ age: 47, amount: 30000, kind: 'ordinary' }), L({ age: 48, amount: 20000, kind: 'wages' })]);
+  near(sO.trace[2].profile.extraA - sN.trace[2].profile.extraA, 30000, 1e-6, "death year: A's ordinary lump on the survivor's return");
+  near(sO.trace[3].profile.extraA - sN.trace[3].profile.extraA, 20000, 1e-6, "A's wages lump after death: the survivor's other income");
+  assert.strictEqual(sO.trace[2].ficaTax, sN.trace[2].ficaTax, 'no payroll tax on a dead owner\'s lump (death year)');
+  assert.strictEqual(sO.trace[3].ficaTax, sN.trace[3].ficaTax, 'no payroll tax on a dead owner\'s lump');
 ```
 
 The `engine` helper must return `rows` with `magiA` / `magiB` (present in two-return years only) and `healthcare`. If an
@@ -724,9 +781,7 @@ git commit -m "E1d 3: gain lumps in taxFor (every branch reader), NIIT active-bu
 **Files:**
 - Modify: `tests/snapshot_scenarios.js` (US list), `tests/snapshots/us.json` (regenerated: added entries only),
   `Planner_US.html` (the `<span>V125</span>` badge in the topbar `<h1>` -> `V126`), `README.md` (feature list), `CLAUDE.md`
-  (a paragraph), `docs/superpowers/specs/2026-10-09-e1d-one-time-income-design.md` (section 7's line on
-  `field_registry.js` / `snapshot_ui.js`: they skip DYN rows, the UI is covered by `test_lump_income.js`),
-  `docs/next-batches-plan.md` (E1d implementation notes after the E1d design record).
+  (a paragraph), `docs/next-batches-plan.md` (E1d implementation notes after the E1d design record).
 
 - [ ] **Step 1: Add the scenarios** (after `'R W-2 stream premium'` in the US list):
 
@@ -760,9 +815,6 @@ Run: `npm run snapshot:update`, then `git diff --stat tests/snapshots/us.json` a
   `lumpGainA/B`, `lumpGainNoNiitA/B` (both literals always carry them; read only under `lumpOn`), the per-branch gain in
   `taxFor`, `returnMagis`, `magiBase0`, `row.income`; the guardrail rule (no record in a lump year, the next year holds);
   the trace fields `guardrails`, `firstWithdrawal`, `forcedPass`; tests `tests/lump_income.js`, `test_lump_income.js`.
-- Spec section 7: replace "**`tests/field_registry.js`, `tests/snapshot_ui.js`:** the new row fields, show/hide by kind and
-  single-person mode, a reload round trip." with a line saying both skip `[data-dyn-list]` rows by design, so the row fields,
-  show/hide and the round trip are covered by `test_lump_income.js`.
 - `docs/next-batches-plan.md`: "##### E1d: implementation (US V125 -> V126)" after the E1d design record: commits, red
   then green per task, the `wages` readers list (Task 2), the reader lines (Task 3), the legacy diff, the snapshot diff
   (added entries), the three timing tables, deviations, and anything for the owner.
@@ -773,7 +825,7 @@ Run: `npm test`, `npm run check:shared`, `node test_lump_income.js`, `node test_
 `node test_self_employment.js`, the timing gate (median of three), and the mobile check (inside `test_lump_income.js`).
 
 ```bash
-git commit -m "E1d 4: snapshot scenarios (added only), README, CLAUDE.md, spec note, batch notes; US V126" -- tests/snapshot_scenarios.js tests/snapshots/us.json Planner_US.html README.md CLAUDE.md docs/superpowers/specs/2026-10-09-e1d-one-time-income-design.md docs/next-batches-plan.md
+git commit -m "E1d 4: snapshot scenarios (added only), README, CLAUDE.md, batch notes; US V126" -- tests/snapshot_scenarios.js tests/snapshots/us.json Planner_US.html README.md CLAUDE.md docs/next-batches-plan.md
 ```
 
 Report to the owner: the commit list, every red-then-green, the timing tables, the reader lists, and any deviation from this

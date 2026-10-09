@@ -272,7 +272,7 @@ already in it through `otherA/B`).
     and 20% bands; NIIT on and with `activeBusiness` (MAGI unchanged, NIIT lower by 3.8% of the excluded gain over the
     threshold); a two-return year with an owner-B gain (B's return carries it); an ACA year where an ordinary lump crosses
     the 400% line (premium at the realized MAGI); IRMAA two years on; a state whose `base` treats gains specially (a
-    separate gain rate or a gain deduction) and Washington (the gain lump charged as a brokerage gain, decision 8); a
+    separate gain rate or a gain deduction: `mt`, `nm`) and Washington (the gain lump charged as a brokerage gain, decision 8); a
     surviving partner receiving a dead owner's lump.
   - Review finding 7 cases: a self-employed owner receiving a wages lump (SE tax on the wage base left after it); QBI with a
     gain lump on one return and on two returns (`netGain` includes the owner's lump gain); the lagged federal pass in a
@@ -292,8 +292,9 @@ already in it through `otherA/B`).
     year and in a two-return year (A's credits on A's MAGI including A's lump gain), with the credit hand-computed.
 - **`tests/legacy_state.js`:** new corpus cases (a junk `kind`, owner missing or `'b'`, `gainPct` -5 / 250 / `'x'`,
   `activeBusiness: 'yes'`, a legacy `otherIncomeEnabled` save with lumps), pinned in `tests/snapshots/legacy_state.json`.
-- **`tests/field_registry.js`, `tests/snapshot_ui.js`:** the new row fields, show/hide by kind and single-person mode, a reload
-  round trip.
+- **`tests/field_registry.js`, `tests/snapshot_ui.js`** skip `[data-dyn-list]` rows by design (`field_registry.js:38`,
+  `snapshot_ui.js:67`), so they do not change; the row fields, show/hide by kind and single-person mode, the reload round
+  trip and a kind change reaching `window.fireProjectionRows` are covered by `test_lump_income.js` (plan review, 2026-10-09).
 - **Snapshots:** new scenarios (one per taxable kind, an `activeBusiness` gain, a two-return owner-B gain, a dead-owner lump),
   added in the last engine commit; no existing entry moves (dump/compare against the base). No baseline scenario depletes
   earlier.
