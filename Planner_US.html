@@ -6740,6 +6740,9 @@
       extraA = profile.extraA || 0,
       extraB = profile.extraB || 0,
       seOn = profile.seOn === true,
+      // E1d: a year with a taxable one-time gain (buildTaxProfile; a profile built elsewhere has no flag: no lump). The
+      // lump gain is added inside each branch, never here beside invQual (the two-filer branch splits `gains` 50/50).
+      lumpOn = profile.lumpOn === true,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6768,6 +6771,8 @@
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
     if (filingRow(profile.filing).joint) {
+      // E1d: the year's lump gains join the branch's gains once, so every reader below sees them.
+      if (lumpOn) gains += profile.lumpGainA + profile.lumpGainB;
       // The household's other income net of the 162(l) deduction, read once (both sums below start with it).
       const otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
       const other = otherAB + gains + traditionalExtra + invOrd;
@@ -6829,13 +6834,16 @@
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
-        niitTax(ordinary + gains, gains + invOrd, 'mfj')
+        // E1d: an active-business lump gain is not net investment income (IRC 1411(c)(4)); it stays in the MAGI.
+        niitTax(ordinary + gains, lumpOn ? gains + invOrd - (profile.lumpGainNoNiitA + profile.lumpGainNoNiitB) : gains + invOrd, 'mfj')
       );
     }
     // Everyone who is not on a joint return is one person (single, head of household or a
     // qualifying surviving spouse), or, in the last branch, two separate filers.
     const status = FILING[profile.filing] && profile.filing !== 'mfj' ? profile.filing : 'single';
     if (profile.singlePerson) {
+      // E1d: the year's lump gains join the branch's gains once, so every reader below sees them.
+      if (lumpOn) gains += profile.lumpGainA + profile.lumpGainB;
       const otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
@@ -6893,7 +6901,7 @@
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
-        niitTax(ordinary + gains, gains + invOrd, status)
+        niitTax(ordinary + gains, lumpOn ? gains + invOrd - (profile.lumpGainNoNiitA + profile.lumpGainNoNiitB) : gains + invOrd, status)
       );
     }
     // Partner A claims the children (owner decision), so A's return is head of household
@@ -6905,12 +6913,17 @@
     // account ledger; an even split when the profile carries none), so each separate return is taxed
     // on the money that comes out of that partner's own accounts.
     const shareA = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA;
-    const gainA = gains / 2,
-      gainB = gains / 2,
-      tradA = traditionalExtra * shareA,
+    let gainA = gains / 2,
+      gainB = gains / 2;
+    const tradA = traditionalExtra * shareA,
       tradB = traditionalExtra * (1 - shareA),
       invA = invOrd / 2,
       invB = invOrd / 2;
+    // E1d: each owner's lump gain on their own return.
+    if (lumpOn) {
+      gainA += profile.lumpGainA;
+      gainB += profile.lumpGainB;
+    }
     const otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
       otherB2 = seOn ? profile.otherB - seHB : profile.otherB;
     const taxableSSA = taxableSocialSecurity(
@@ -7015,8 +7028,8 @@
       longTermGainTax(gainB, ordinaryB, profile.year, 'single', deductionB) +
       stateTaxA +
       stateTaxB +
-      niitTax(ordinaryA + gainA, gainA + invA, statusA) +
-      niitTax(ordinaryB + gainB, gainB + invB, 'single') -
+      niitTax(ordinaryA + gainA, lumpOn ? gainA + invA - profile.lumpGainNoNiitA : gainA + invA, statusA) +
+      niitTax(ordinaryB + gainB, lumpOn ? gainB + invB - profile.lumpGainNoNiitB : gainB + invB, 'single') -
       creditA
     );
   }
@@ -7328,7 +7341,13 @@
     const s = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA,
       inv = ((profile.invOrd || 0) + (profile.invQual || 0)) / 2;
     // E1c: each return's MAGI is net of its own 162(l) deduction (0 for everyone else).
-    return [profile.otherA - (profile.seHealthA || 0) + profile.ssA + inv + trad * s + gain / 2, profile.otherB - (profile.seHealthB || 0) + profile.ssB + inv + trad * (1 - s) + gain / 2];
+    const m = [profile.otherA - (profile.seHealthA || 0) + profile.ssA + inv + trad * s + gain / 2, profile.otherB - (profile.seHealthB || 0) + profile.ssB + inv + trad * (1 - s) + gain / 2];
+    // E1d: each owner's lump gain on their own return (appended: the sum order of the old terms is unchanged).
+    if (profile.lumpOn === true) {
+      m[0] += profile.lumpGainA;
+      m[1] += profile.lumpGainB;
+    }
+    return m;
   }
   // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
   // that year, against the single tiers. Null when the lookback year was one return (household rule).
@@ -8825,6 +8844,11 @@
     soloIraCutB = 0,
     seAllowA = false,
     seAllowB = false,
+    lumpOn = false,
+    lumpGainA = 0,
+    lumpGainB = 0,
+    lumpNoNiitA = 0,
+    lumpNoNiitB = 0,
   }) {
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
@@ -8898,6 +8922,12 @@
             seAllowB: false,
             seHealthA: 0,
             seHealthB: 0,
+            // E1d: a dead owner's gain never reaches the profile (it is tax-free); B's moves to the survivor's slot.
+            lumpOn,
+            lumpGainA: lumpGainB,
+            lumpGainB: 0,
+            lumpGainNoNiitA: lumpNoNiitB,
+            lumpGainNoNiitB: 0,
             // Children stay with the surviving parent.
             dependents: dependentsInYear(taxYearOf(year)),
           }
@@ -8942,6 +8972,13 @@
             seAllowB,
             seHealthA: 0,
             seHealthB: 0,
+            // E1d: this year's taxable one-time gains per owner (false and zeros outside a lump year; taxFor and
+            // returnMagis read them only when lumpOn is true).
+            lumpOn,
+            lumpGainA,
+            lumpGainB,
+            lumpGainNoNiitA: lumpNoNiitA,
+            lumpGainNoNiitB: lumpNoNiitB,
           };
     return { otherA, otherB, profile };
   }
@@ -10621,6 +10658,11 @@
         soloIraCutB,
         seAllowA,
         seAllowB,
+        lumpOn: lumpYear,
+        lumpGainA,
+        lumpGainB,
+        lumpNoNiitA,
+        lumpNoNiitB,
       });
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
@@ -10635,7 +10677,11 @@
         deceasedIsA,
         deceasedIsB,
       });
-      const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;
+      // otherA/B (buildTaxProfile) already carry the wages and ordinary lumps (through streamWagesA/B and streamOtherA/B);
+      // E1d appends the year's lump gains (skipped outside a lump year, so the old sum is unchanged).
+      const magiBase0 = lumpYear
+        ? otherA + otherB + ss + inv.ordinary + inv.qualified + (lumpGainA + lumpGainB)
+        : otherA + otherB + ss + inv.ordinary + inv.qualified;
       // The pass's MAGI base: magiBase0 less the pass's 162(l) estimate (E1c; set at the top of each pass).
       let magiBase = magiBase0;
       // E1c: false when this year has no self-employment and no deduction carried in from last year: every 162(l) term below is
@@ -10880,6 +10926,7 @@
         // taxable-brokerage gains, so it does not understate income in years
         // funded mostly by withdrawals.
         let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
+        if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
         const baseSpend =
           baseSpendingNominal(age, year, factor, incomeFactor) *
           guardrailSpendingMultiplier(guardrails, working) *
@@ -11019,6 +11066,7 @@
           totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
+          if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;

@@ -210,6 +210,106 @@ const path = require('path');
   assert.strictEqual(fp.cur.initialWR, fp.prev.initialWR, 'forced lump year: no baseline change');
   assert.strictEqual(fp.cur.prevPortfolio, null, 'forced lump year: no record');
 
+  // ---- gain lumps in taxFor (Task 3) ----
+  const tf = await page.evaluate(() => {
+    const t = window.__test_tax, st = window.__test_getState(), saved = st.stateTax, out = { eq: [], two: [], niit: 0, ctc: 0 };
+    const kids = [{ age: 13, student: false, qualifyingChild: true }, { age: 15, student: false, qualifyingChild: true }];
+    const P = (o) => Object.assign({ year: 0, filing: 'single', singlePerson: true, otherA: 0, otherB: 0, extraA: 0, extraB: 0,
+      wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 50, ageB: 50, invOrd: 0, invQual: 0,
+      propertyTax: 0, mortgageInterest: 0, dependents: [], seOn: false, lumpOn: false, lumpGainA: 0, lumpGainB: 0,
+      lumpGainNoNiitA: 0, lumpGainNoNiitB: 0 }, o);
+    const SE = { seOn: true, seNetA: 120000, sePlanNetA: 120000, seEarnedA: 120000, seAllowA: false, seHealthA: 0, seHealthB: 0 };
+    try {
+      for (const code of ['tx', 'ca', 'al', 'wa', 'mt', 'nm']) { // al: lagged federal tax; wa: gains-only tax; mt, nm: gainsRate / gainsDeduction
+        st.stateTax = code;
+        // joint and one-person branches: a lump gain is taxed exactly like the same gain passed as `gains`
+        // (invQual 0, so the branch's gains are arg + 0 + lump: the same double); with and without self-employment (QBI)
+        for (const [filing, single] of [['mfj', false], ['single', true], ['hoh', true]])
+          for (const se of [{}, SE]) {
+            const p = P({ filing, singlePerson: single, otherA: 180000 + (se.seNetA || 0), wageA: 180000, ssA: 20000,
+              dependents: filing === 'single' ? [] : kids, ...se });
+            out.eq.push([code, filing, !!se.seOn, t.taxFor({ ...p, lumpOn: true, lumpGainA: 300000 }, 0, 0), t.taxFor(p, 300000, 0)]);
+          }
+        // two-filer branch = A's one-person return (hoh, the children, A's gain) + B's (single, B's gain), less the
+        // active-business part of B's NIIT. A: other 180,000 + lump 40,000 = MAGI 220,000, past hoh's 200,000 CTC line.
+        // B: other 300,000 + lump 250,000 (50,000 active): NII 250,000, MAGI 550,000 - 200,000 = 350,000 >= 250,000, so the
+        // exclusion removes exactly 3.8% x 50,000 = 1,900.
+        for (const se of [{}, SE]) {
+          const two = t.taxFor(P({ singlePerson: false, otherA: 180000 + (se.seNetA || 0), wageA: 180000, otherB: 300000, wageB: 300000,
+            dependents: kids, ...se, lumpOn: true, lumpGainA: 40000, lumpGainB: 250000, lumpGainNoNiitB: 50000 }), 0, 0);
+          const a = t.taxFor(P({ filing: 'hoh', otherA: 180000 + (se.seNetA || 0), wageA: 180000, dependents: kids, ...se }), 40000, 0),
+            b = t.taxFor(P({ otherA: 300000, wageA: 300000 }), 250000, 0);
+          out.two.push([code, !!se.seOn, two, a + b - 1900]);
+        }
+      }
+      st.stateTax = 'tx';
+      // the joint lump crosses the 400,000 joint CTC line inside taxFor (other 380,000 + lump)
+      {
+        const p = P({ filing: 'mfj', singlePerson: false, otherA: 380000, wageA: 380000, dependents: kids });
+        out.eq.push(['tx', 'mfj-ctc', false, t.taxFor({ ...p, lumpOn: true, lumpGainA: 40000 }, 0, 0), t.taxFor(p, 40000, 0)]);
+      }
+      // NIIT alone: single, other 300,000, lump 100,000: NII 100,000, MAGI - 200,000 = 200,000: 3.8% x 100,000 = 3,800
+      const q = P({ otherA: 300000, wageA: 300000, lumpOn: true, lumpGainA: 100000 });
+      out.niit = t.taxFor(q, 0, 0) - t.taxFor({ ...q, lumpGainNoNiitA: 100000 }, 0, 0);
+      // the excluded gain stays in NIIT's MAGI: other 150,000, lump 100,000 of which 50,000 active. Correct: NII 50,000, MAGI
+      // 250,000 - 200,000 = 50,000 -> NIIT 1,900, the same as with no exclusion (NII 100,000, excess 50,000 -> 1,900). A wrong
+      // implementation that also took the excluded gain out of MAGI (200,000) would give 0.
+      const m = P({ otherA: 150000, wageA: 150000, lumpOn: true, lumpGainA: 100000 });
+      out.niitMagi = t.taxFor(m, 0, 0) - t.taxFor({ ...m, lumpGainNoNiitA: 50000 }, 0, 0);
+      // child credit: joint, other 380,000; a 40,000 lump gain makes MAGI 420,000, over the 400,000 joint line by 20 x 1,000:
+      // the credit falls by 20 x 50 = 1,000 (credits read through childCredits with the branch's MAGI)
+      out.ctc = t.childCredits(kids, 'mfj', 0, 380000, 1e9, 380000).nonrefundable - t.childCredits(kids, 'mfj', 0, 420000, 1e9, 380000).nonrefundable;
+    } finally { st.stateTax = saved; }
+    return out;
+  });
+  for (const [code, filing, se, viaLump, viaArg] of tf.eq) assert(Object.is(viaLump, viaArg), `lump gain = gains arg: ${code} ${filing} se=${se}: ${viaLump} vs ${viaArg}`);
+  for (const [code, se, two, sum] of tf.two) near(two, sum, 1e-6, `two-filer = A's + B's one-person returns: ${code} se=${se}`);
+  near(tf.niit, 3800, 1e-6, 'active business removes the NIIT on that gain');
+  assert.strictEqual(tf.niitMagi, 0, 'the excluded gain stays in the NIIT MAGI test');
+  near(tf.ctc, 1000, 1e-6, 'CTC phase-out arithmetic (the joint equivalence above shows the branch passes the lump in the MAGI)');
+
+  // ---- gain lumps in the engine (Task 3) ----
+  // MAGI in a working surplus year: the realized MAGI rises by exactly the gain share (no draws that year)
+  const base = await engine({ ...W, incomeA: 200000 }, []),
+    gl = await engine({ ...W, incomeA: 200000 }, [L({ age: 45, amount: 100000, kind: 'gain', gainPct: 60 })]);
+  near(gl.rows[0].magiProxy - base.rows[0].magiProxy, 60000, 1e-6, 'gain share in MAGI');
+  near(gl.rows[0].income - base.rows[0].income, 60000, 1e-6, 'row.income carries the gain');
+  near(gl.rows[0].investable, base.rows[0].investable + 100000 - (gl.rows[0].tax - base.rows[0].tax), 0.01, 'cash conservation: gain 60%');
+  const ga = await engine({ ...W, incomeA: 200000 }, [L({ age: 45, amount: 100000, kind: 'gain', gainPct: 60, activeBusiness: true })]);
+  near(ga.rows[0].magiProxy, gl.rows[0].magiProxy, 1e-6, 'active business: the gain stays in MAGI');
+  // ACA: the aca_medicaid guard household (A0 above: TX single 58, IRA 600,000, spending 14,000, premium 12,000, ACA on,
+  // enhanced off, guardrails off); an ordinary lump of 80,000 at 60 (index 2) puts MAGI over 400% of the poverty line: that
+  // year's healthcare equals the same year's healthcare with ACA modeling off (the full premium)
+  const acaLump = [L({ age: 60, amount: 80000, kind: 'ordinary', flat: true })];
+  const on = await engine(A0, acaLump), off = await engine({ ...A0, acaEnabled: false }, acaLump), noL = await engine(A0, []);
+  near(on.rows[2].healthcare, off.rows[2].healthcare, 0.01, 'over 400% FPL: the full premium');
+  assert(on.rows[2].healthcare > noL.rows[2].healthcare + 5000, 'the lump costs the credit');
+  // IRMAA: the same household at 66 on Medicare (medicareYearly 2,400, acaEnabled false), ordinary lump 250,000 at 68
+  // (index 2; years 0 and 1 read the first-year stand-in, so keep the lump out of them): healthcare at 70 (index 4) is
+  // higher than without the lump; at 69 (index 3) it is identical
+  const M0 = { ...A0, ageA: 66, retireAgeA: 66, acaEnabled: false, medicareYearly: 2400 };
+  const mL = await engine(M0, [L({ age: 68, amount: 250000, kind: 'ordinary', flat: true })]), m0 = await engine(M0, []);
+  assert.strictEqual(mL.rows[3].healthcare, m0.rows[3].healthcare, 'IRMAA: nothing the next year');
+  assert(mL.rows[4].healthcare > m0.rows[4].healthcare, 'IRMAA two years on');
+  // two-return engine year (both working, a surplus year): owner-B gain 200,000 at A's 45 (index 0)
+  const T2 = { ...C2, children: [] };
+  const tL = await engine(T2, [L({ age: 45, amount: 200000, kind: 'gain', owner: 'B' })]), t0 = await engine(T2, []);
+  near(tL.rows[0].magiB - t0.rows[0].magiB, 200000, 1e-6, "B's return carries B's gain");
+  near(tL.rows[0].magiA - t0.rows[0].magiA, 0, 1e-6, "A's return does not");
+  // a dead owner's gain: survivor scenario (A dies at 47, index 2); A's gain at 48 (index 3) is tax-free
+  const S0 = { ...T2, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 47 };
+  const sG = await engine(S0, [L({ age: 48, amount: 300000, kind: 'gain', gainPct: 70 })]),
+    sF = await engine(S0, [L({ age: 48, amount: 300000, kind: 'free' })]);
+  assert.strictEqual(sG.rows[3].tax, sF.rows[3].tax, "dead owner's gain is tax-free");
+  // a dead owner's ordinary lump in the death year (A's 47, index 2, decision 10) and wages lump the year after (48,
+  // index 3): both reach the survivor's return as other income (extraA after the survivor remap), with no payroll tax
+  const sN = await engine(S0, []),
+    sO = await engine(S0, [L({ age: 47, amount: 30000, kind: 'ordinary' }), L({ age: 48, amount: 20000, kind: 'wages' })]);
+  near(sO.trace[2].profile.extraA - sN.trace[2].profile.extraA, 30000, 1e-6, "death year: A's ordinary lump on the survivor's return");
+  near(sO.trace[3].profile.extraA - sN.trace[3].profile.extraA, 20000, 1e-6, "A's wages lump after death: the survivor's other income");
+  assert.strictEqual(sO.trace[2].ficaTax, sN.trace[2].ficaTax, 'no payroll tax on a dead owner\'s lump (death year)');
+  assert.strictEqual(sO.trace[3].ficaTax, sN.trace[3].ficaTax, 'no payroll tax on a dead owner\'s lump');
+
   assert.deepStrictEqual(errors, []);
   await browser.close();
   console.log('[US] one-time income (E1d) tests passed');
