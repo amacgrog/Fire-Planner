@@ -8216,9 +8216,101 @@
   // of the limit and 100% of pay, less the deferrals; catch-ups are outside it) is filled in plan order: the match,
   // profit sharing, then the mega backdoor. Returns the dollars that go to traditional vs Roth accounts and the
   // limited employer money.
+  // E1c: the Solo 401(k) and IRA money of self-employment, after every W-2 plan (salary, W-2 streams). Pure (inputs in
+  // `p`, results in `out`; no allocation). All of one person's self-employment is one business: one compensation
+  // C = se - half the SE tax, one annual-additions room (IRC 415(c), common control), deferrals within the per-person room
+  // the W-2 plans left (402(g)). Per person: deferrals (the main income, then `self` streams in list order), profit sharing
+  // per source P_i = C_i x r / (1 + r) with the compensation limit (P = r x (C - P)), the room, after-tax money, then the
+  // IRA on W-2 pay plus C less the traditional Solo money. No Roth catch-up rule (it keys on FICA wages). Every dollar is
+  // the household's own cash. Slots: ACCOUNT_SLOTS order (IRA A, 401(k) A, IRA B, 401(k) B).
+  const SOLO_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] },
+    NO_SOLO = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] },
+    SOLO_P = new Array(LIST_MAX + 1).fill(0),
+    SOLO_GOT = new Array(LIST_MAX + 1).fill(0),
+    SOLO_IN = {
+      se: [0, 0], half: [0, 0], main: [0, 0], w2Comp: [0, 0], iraLeft: [0, 0],
+      mainPct: [{ deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }],
+      list: null, rooms: null, annualAdditions: 0, compensation: 0, mainRoth: false, iraPretax: false, megaOn: false,
+    };
+  function soloPlanContributions(p, out) {
+    for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
+    out.employeeTrad = 0; out.employeeRoth = 0; out.planCut[0] = 0; out.planCut[1] = 0; out.iraCut[0] = 0; out.iraCut[1] = 0;
+    for (let o = 0; o < 2; o++) {
+      const se = p.se[o];
+      if (!(se > 0)) continue;
+      const C = Math.max(0, se - p.half[o]), m = p.mainPct[o], main = p.main[o] > 0, list = p.list, rooms = p.rooms;
+      let base = 0, cu = 0, trad = 0, roth = 0;
+      // 1. Deferrals, at most the compensation left.
+      if (main) {
+        const b = Math.min(rooms.deferral[o], C - base - cu) * pct(m.deferral);
+        rooms.deferral[o] -= b; base += b;
+        const c = Math.min(rooms.catchUp[o], C - base - cu) * pct(m.catchUp);
+        rooms.catchUp[o] -= c; cu += c;
+        if (p.mainRoth) roth += b + c; else trad += b + c;
+      }
+      for (let i = 0; i < list.n; i++) {
+        const it = list.items[i], s = it.stream;
+        if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+        const want = Math.min(rooms.deferral[o] + rooms.catchUp[o], C - base - cu) * pct(s.deferralPct),
+          b = Math.min(want, rooms.deferral[o]);
+        rooms.deferral[o] -= b; rooms.catchUp[o] -= want - b; base += b; cu += want - b;
+        if (s.deferralType === 'roth') roth += want; else trad += want;
+      }
+      // 2-3. Profit sharing per source, then the one annual-additions room (catch-ups outside it).
+      let n = 0, sumP = 0;
+      if (C > 0) {
+        if (main) {
+          const r = pct(m.profit), Ci = (C * p.main[o]) / se;
+          SOLO_P[n++] = Math.min((Ci * r) / (1 + r), (r * p.compensation * Ci) / C);
+        }
+        for (let i = 0; i < list.n; i++) {
+          const it = list.items[i], s = it.stream;
+          if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+          const r = pct(s.profitSharingPct), Ci = (C * it.pay) / se;
+          SOLO_P[n++] = Math.min((Ci * r) / (1 + r), (r * p.compensation * Ci) / C);
+        }
+      }
+      for (let k = n; k < SOLO_P.length; k++) SOLO_P[k] = 0;
+      for (let k = 0; k < n; k++) sumP += SOLO_P[k];
+      let left = allocatePlanRoom(Math.max(0, Math.min(p.annualAdditions, C - sumP) - base), SOLO_P, SOLO_GOT),
+        profit = 0;
+      for (let k = 0; k < n; k++) profit += SOLO_GOT[k];
+      trad += profit;
+      // 4. After-tax money, at most the compensation left.
+      let afterTax = 0;
+      if (main && p.megaOn) {
+        const a = Math.min(left, Math.max(0, C - profit - base - cu - afterTax)) * pct(m.afterTax);
+        left -= a; afterTax += a;
+      }
+      for (let i = 0; i < list.n; i++) {
+        const it = list.items[i], s = it.stream;
+        if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+        const a = Math.min(left, Math.max(0, C - profit - base - cu - afterTax)) * pct(s.afterTaxPct);
+        left -= a; afterTax += a;
+      }
+      roth += afterTax;
+      // 5. IRA: compensation is W-2 pay plus C less the traditional Solo money.
+      let iraRoom = Math.max(0, Math.min(p.iraLeft[o], p.w2Comp[o] + C - trad)), ira = 0;
+      if (main) { const x = iraRoom * pct(m.ira); iraRoom -= x; ira += x; }
+      for (let i = 0; i < list.n; i++) {
+        const it = list.items[i], s = it.stream;
+        if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+        const x = iraRoom * pct(s.personalPct);
+        iraRoom -= x; ira += x;
+      }
+      out.trad[o * 2 + 1] = trad;
+      out.roth[o * 2 + 1] = roth;
+      if (p.iraPretax) out.trad[o * 2] = ira; else out.roth[o * 2] = ira;
+      out.employeeTrad += trad + (p.iraPretax ? ira : 0);
+      out.employeeRoth += roth + (p.iraPretax ? 0 : ira);
+      out.planCut[o] = trad; // section 404 plan money: reduces the 162(l) cap and QBI
+      out.iraCut[o] = p.iraPretax ? ira : 0; // section 219: deducted from income only
+    }
+    return out;
+  }
   const PLAN_REQ = [0, 0],
     PLAN_GOT = [0, 0]; // allocatePlanRoom scratch: [match, profit sharing]
-  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0 }) {
+  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0, seA = 0, seB = 0, seMainA = 0, seMainB = 0, halfA = 0, halfB = 0 }) {
     const catchupBaseA =
         age >= 60 && age <= 63
           ? PLAN_LIMITS.catchUp60to63 * limitFactor
@@ -8293,6 +8385,24 @@
     STREAM_LIMITS.compensation = compLimit;
     STREAM_LIMITS.rothCatchUpWages = rothCatchupThreshold;
     const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, state.iraType === 'traditional', STREAM_PLAN);
+    // E1c: the Solo 401(k) and IRA of self-employment, after every W-2 plan (the rooms the salary and W-2 streams left).
+    let so = NO_SOLO;
+    if (seA + seB > 0) {
+      const P = SOLO_IN;
+      P.se[0] = seA; P.se[1] = seB; P.half[0] = halfA; P.half[1] = halfB; P.main[0] = seMainA; P.main[1] = seMainB;
+      P.mainPct[0].deferral = state.k401PctA; P.mainPct[0].catchUp = state.catchupPctA; P.mainPct[0].profit = state.profitSharingPctA;
+      P.mainPct[0].afterTax = state.megaPctA; P.mainPct[0].ira = state.iraPctA;
+      P.mainPct[1].deferral = state.k401PctB; P.mainPct[1].catchUp = state.catchupPctB; P.mainPct[1].profit = state.profitSharingPctB;
+      P.mainPct[1].afterTax = state.megaPctB; P.mainPct[1].ira = state.iraPctB;
+      P.w2Comp[0] = wageA + streamWagesA - iraA - (sp.trad[0] + sp.roth[0]);
+      P.w2Comp[1] = wageB + streamWagesB - iraB - (sp.trad[2] + sp.roth[2]);
+      P.iraLeft[0] = iraLimitA - iraA - (sp.trad[0] + sp.roth[0]);
+      P.iraLeft[1] = iraLimitB - iraB - (sp.trad[2] + sp.roth[2]);
+      P.list = streamList; P.rooms = STREAM_ROOMS;
+      P.annualAdditions = annualAdditionLimit; P.compensation = compLimit;
+      P.mainRoth = state.k401Type === 'roth'; P.iraPretax = state.iraType === 'traditional'; P.megaOn = !!state.megaBackdoor;
+      so = soloPlanContributions(P, SOLO_PLAN);
+    }
     const rothContribA =
       (state.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
@@ -8303,35 +8413,36 @@
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
-    const rothContrib = rothContribA + rothContribB + sp.employeeRoth;
-    const traditionalContrib = traditionalContribSalary + sp.employeeTrad;
+    const rothContrib = rothContribA + rothContribB + sp.employeeRoth + so.employeeRoth;
+    const traditionalContrib = traditionalContribSalary + sp.employeeTrad + so.employeeTrad;
     // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
     // IRA B, 401(k) B). Employer money (match and profit sharing) always goes to the traditional 401(k);
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
-        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
+        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0] + so.trad[0],
         (state.k401Type === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
           matchA +
-          profitA + sp.trad[1],
-        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
+          profitA + sp.trad[1] + so.trad[1],
+        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2] + so.trad[2],
         (state.k401Type === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
           matchB +
-          profitB + sp.trad[3],
+          profitB + sp.trad[3] + so.trad[3],
       ],
       roth: [
-        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0],
-        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
-        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2],
-        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
+        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0] + so.roth[0],
+        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1] + so.roth[1],
+        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2] + so.roth[2],
+        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3] + so.roth[3],
       ],
     };
     return {
       traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
       matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB + sp.employer,
       streamWageCutA: sp.wageCut[0], streamWageCutB: sp.wageCut[1],
+      soloPlanCutA: so.planCut[0], soloPlanCutB: so.planCut[1], soloIraCutA: so.iraCut[0], soloIraCutB: so.iraCut[1],
     };
   }
 
@@ -10209,10 +10320,11 @@
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB + seMainA + seMainB;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
-        employerContrib: employerMatch, streamWageCutA, streamWageCutB,
+        employerContrib: employerMatch, streamWageCutA, streamWageCutB, soloPlanCutA, soloPlanCutB, soloIraCutA, soloIraCutB,
       } = retirementContributions({
         wageA, wageB, age, ageB, singlePerson, limitFactor,
         streamList: streams.contrib, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB,
+        seA, seB, seMainA, seMainB, halfA, halfB,
       });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
@@ -10282,6 +10394,10 @@
         seB,
         halfA,
         halfB,
+        soloPlanCutA,
+        soloPlanCutB,
+        soloIraCutA,
+        soloIraCutB,
       });
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
@@ -16566,6 +16682,16 @@
   window.__test_payrollTax = payrollTax;
   window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
   window.__test_streamCoverBits = streamCoverBits;
+  window.__test_soloPlanContributions = (q) => {
+    const P = SOLO_IN;
+    for (const k of ['se', 'half', 'main', 'w2Comp', 'iraLeft']) { P[k][0] = q[k][0]; P[k][1] = q[k][1]; }
+    for (let o = 0; o < 2; o++) Object.assign(P.mainPct[o], { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, q.mainPct[o]);
+    P.list = { n: q.list.length, items: q.list };
+    P.rooms = JSON.parse(JSON.stringify(q.rooms));
+    Object.assign(P, { annualAdditions: q.annualAdditions, compensation: q.compensation, mainRoth: !!q.mainRoth, iraPretax: !!q.iraPretax, megaOn: !!q.megaOn });
+    soloPlanContributions(P, SOLO_PLAN);
+    return { out: JSON.parse(JSON.stringify(SOLO_PLAN)), rooms: P.rooms };
+  };
   window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
     const r = JSON.parse(JSON.stringify(rooms));
     streamPlanContributions({ n: items.length, items }, r, limits, personalPretax, STREAM_PLAN);

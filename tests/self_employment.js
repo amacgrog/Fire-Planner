@@ -125,9 +125,94 @@ const path = require('path');
   assert.strictEqual(JSON.stringify(a.trace), JSON.stringify(b.trace), 'legacy identical: trace');
   assert.strictEqual(JSON.stringify(a.rows), JSON.stringify(b.rows), 'legacy identical: rows');
 
+  // ---- Solo 401(k) (Task 4) ----
+  const L = { deferral: 24500, catchUp: 8000, annualAdditions: 72000, compensation: 360000, ira: 7500 };
+  const noPct = { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 };
+  const solo = (q) =>
+    page.evaluate(
+      (x) => window.__test_soloPlanContributions(x),
+      {
+        se: [0, 0], half: [0, 0], main: [0, 0], w2Comp: [0, 0], iraLeft: [L.ira, L.ira],
+        mainPct: [noPct, noPct], list: [], rooms: { deferral: [L.deferral, L.deferral], catchUp: [0, 0], personal: [0, 0] },
+        annualAdditions: L.annualAdditions, compensation: L.compensation, mainRoth: false, iraPretax: false, megaOn: false,
+        ...q,
+      },
+    );
+  const halfOf = async (se) => (await setax(se, 0)).half;
+  const stream = ({ owner = 0, pay = 0, ...o }) => ({ owner, pay, stream: { kind: 'self', contribute: true, deferralPct: 0, deferralType: 'traditional', matchPct: 0, profitSharingPct: 0, afterTaxPct: 0, personalPct: 0, ...o } });
+
+  const h100 = await halfOf(100000), C100 = 100000 - h100;
+  near(C100, 92935.225, 1e-6, 'C for se 100,000');
+  r = await solo({ se: [100000, 0], half: [h100, 0], main: [100000, 0], mainPct: [{ ...noPct, profit: 25 }, noPct] });
+  near(r.out.trad[1], 18587.045, 1e-6, '25% profit sharing: C x 0.25 / 1.25');
+  near(r.out.planCut[0], 18587.045, 1e-6, '25%: planCut');
+  assert.strictEqual(r.out.iraCut[0], 0, '25%: no IRA cut');
+  near(r.out.employeeTrad, 18587.045, 1e-6, '25%: employeeTrad');
+  r = await solo({ se: [100000, 0], half: [h100, 0], main: [100000, 0], mainPct: [{ ...noPct, profit: 10 }, noPct] });
+  near(r.out.trad[1], C100 / 11, 1e-6, '10%: C / 11 = 8,448.656818');
+  r = await solo({ se: [100000, 0], half: [h100, 0], main: [100000, 0], mainPct: [{ ...noPct, deferral: 100, profit: 25, afterTax: 100 }, noPct], megaOn: true });
+  near(r.out.roth[1], 28912.955, 1e-6, 'deferral + profit + after-tax: after-tax money');
+  near(r.out.trad[1], 43087.045, 1e-6, 'deferral 24,500 + profit 18,587.045');
+  near(r.out.trad[1] + r.out.roth[1], 72000, 1e-6, 'all additions 72,000');
+  const h1m = await halfOf(1000000);
+  r = await solo({ se: [1000000, 0], half: [h1m, 0], main: [1000000, 0], mainPct: [{ ...noPct, profit: 10 }, noPct] });
+  near(r.out.trad[1], 36000, 1e-6, 'compensation limit: 10% x 360,000');
+  r = await solo({ se: [1000000, 0], half: [h1m, 0], main: [1000000, 0], mainPct: [{ ...noPct, deferral: 100, profit: 25 }, noPct] });
+  near(r.out.trad[1], 24500 + 47500, 1e-6, 'room binds: profit sharing limited to 72,000 - 24,500 = 47,500');
+  r = await solo({ se: [100000, 0], half: [h100, 0], main: [100000, 0], mainPct: [{ ...noPct, deferral: 100 }, noPct], rooms: { deferral: [12250, 0], catchUp: [0, 0], personal: [0, 0] } });
+  near(r.out.trad[1], 12250, 1e-9, 'deferral room after a W-2 job used 12,250');
+  const h300 = await halfOf(300000);
+  r = await solo({ se: [300000, 0], half: [h300, 0], main: [300000, 0], mainPct: [{ ...noPct, deferral: 100, catchUp: 100 }, noPct], rooms: { deferral: [24500, 0], catchUp: [8000, 0], personal: [0, 0] }, mainRoth: false });
+  near(r.out.trad[1], 32500, 1e-9, 'catch-up at 55: traditional, no forced Roth');
+  assert.strictEqual(r.out.roth[1], 0, 'catch-up: nothing forced to Roth');
+  const h5 = await halfOf(5000);
+  r = await solo({ se: [5000, 0], half: [h5, 0], main: [5000, 0], mainPct: [{ ...noPct, ira: 100 }, noPct], iraPretax: false });
+  near(r.out.roth[0], 4646.76125, 1e-6, 'Roth IRA on self-employment pay (compensation C)');
+  const h20 = await halfOf(20000);
+  r = await solo({ se: [20000, 0], half: [h20, 0], main: [20000, 0], mainPct: [{ ...noPct, ira: 100 }, noPct], iraPretax: true });
+  near(r.out.trad[0], 7500, 1e-9, 'traditional IRA 7,500');
+  near(r.out.iraCut[0], 7500, 1e-9, 'IRA cut');
+  assert.strictEqual(r.out.planCut[0], 0, 'IRA is not plan money');
+  r = await solo({
+    se: [100000, 0], half: [h100, 0], main: [60000, 0], mainPct: [{ ...noPct, profit: 25 }, noPct],
+    list: [stream({ owner: 0, pay: 40000, profitSharingPct: 10 })],
+  });
+  near(r.out.trad[1], 0.6 * C100 * 0.2 + (0.4 * C100) / 11, 1e-6, 'two sources: P_main + P_stream');
+  r = await solo({ se: [0, 100000], half: [0, h100], main: [0, 0], list: [stream({ owner: 1, pay: 100000, profitSharingPct: 10 })] });
+  near(r.out.trad[3], C100 / 11, 1e-6, 'owner B: slot 3');
+  near(r.out.planCut[1], C100 / 11, 1e-6, 'owner B: planCut[1]');
+  assert.strictEqual(r.out.trad[1], 0, 'owner B: nothing in A slot');
+  r = await solo({ se: [100000, 0], half: [h100, 0], main: [0, 0], list: [stream({ owner: 0, pay: 100000, matchPct: 50 })] });
+  assert.strictEqual(r.out.trad[1], 0, 'self stream match ignored');
+
+  // ---- engine: the money lands and leaves cash ----
+  const SOLO = { k401PctA: 100, profitSharingPctA: 25, returnRate: 0, bondReturn: 0, hysaRate: 0, bondYears: 0, taxable: 2000000, spending: 50000 };
+  const eng2 = (patch) =>
+    page.evaluate((p) => {
+      const st = window.__test_getState();
+      Object.assign(st, p);
+      const trace = window.__test_accountTrace();
+      const rows = window.__test_simulate().rows;
+      return { trad: trace[0].trad, roth: trace[0].roth, profile: trace[0].profile, tradStart: st.trad401kA, rows0: rows[0] };
+    }, { ...BASE, ...SOLO, ...patch });
+  const s1 = await eng2({});
+  near(s1.trad[1] - s1.tradStart, 24500 + 18587.045, 1e-6, 'engine: Solo money in the traditional 401(k)');
+  near(s1.profile.seNetA, 92935.225 - 24500 - 18587.045, 1e-6, 'engine: seNetA net of the plan money');
+  near(s1.profile.sePlanNetA, 92935.225 - 24500 - 18587.045, 1e-6, 'engine: sePlanNetA net of the plan money');
+  const s2 = await eng2({ iraPctA: 100, iraType: 'traditional' });
+  near(s2.profile.sePlanNetA, s1.profile.sePlanNetA, 1e-6, 'IRA: sePlanNetA unchanged');
+  near(s1.profile.seNetA - s2.profile.seNetA, 7500, 1e-6, 'IRA: seNetA 7,500 lower');
+  const s0 = await eng2({ k401PctA: 0, profitSharingPctA: 0 });
+  assert(s0.rows0.taxable !== undefined || s0.rows0.cash !== undefined, 'row has balances');
+  const bal = (x) => (x.rows0.taxable || 0) + (x.rows0.cash || 0);
+  assert(bal(s1) < bal(s0) - 1000, `Solo money leaves cash: ${bal(s1)} vs ${bal(s0)}`);
+  const s3 = await eng2({ matchA: 50 });
+  near(s3.trad[1] - s3.tradStart, 24500 + 18587.045, 1e-6, 'stale W-2 fields: no match');
+
   assert.deepStrictEqual(errors, [], 'page errors');
   await browser.close();
   console.log('self_employment: SE tax passed');
+  console.log('self_employment: all passed');
 })().catch((e) => {
   console.error(e);
   process.exit(1);
