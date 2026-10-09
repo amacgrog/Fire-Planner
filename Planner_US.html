@@ -6721,16 +6721,18 @@
       extraA = profile.extraA || 0,
       extraB = profile.extraB || 0,
       // E1c: self-employment net rides in other; the state taxes it as wages, and it is earned income for the ACTC.
-      seNetA = profile.seNetA || 0,
-      seNetB = profile.seNetB || 0,
-      seEarnedA = profile.seEarnedA || 0,
-      seEarnedB = profile.seEarnedB || 0,
+      // The fields are read only when the profile has self-employment (profile.seOn, set by buildTaxProfile); else exact zeros.
+      seOn = profile.seOn === true,
+      seNetA = seOn ? profile.seNetA || 0 : 0,
+      seNetB = seOn ? profile.seNetB || 0 : 0,
+      seEarnedA = seOn ? profile.seEarnedA || 0 : 0,
+      seEarnedB = seOn ? profile.seEarnedB || 0 : 0,
       // E1c: the self-employed health insurance deduction (162(l)), above the line on the owner's return.
-      seHA = profile.seHealthA || 0,
-      seHB = profile.seHealthB || 0,
+      seHA = seOn ? profile.seHealthA || 0 : 0,
+      seHB = seOn ? profile.seHealthB || 0 : 0,
       // E1c: the QBI base (profit less half the SE tax and the plan money), before 162(l).
-      sePlanNetA = profile.sePlanNetA || 0,
-      sePlanNetB = profile.sePlanNetB || 0,
+      sePlanNetA = seOn ? profile.sePlanNetA || 0 : 0,
+      sePlanNetB = seOn ? profile.sePlanNetB || 0 : 0,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -8836,6 +8838,7 @@
             k401FracB: 0,
             mortgageInterest,
             year,
+            seOn: seA > 0 || seB > 0,
             seNetA: seNetB,
             seNetB: 0,
             sePlanNetA: sePlanNetB,
@@ -8879,6 +8882,7 @@
             mortgageInterest,
             year,
             dependents: dependentsInYear(taxYearOf(year)),
+            seOn: seA > 0 || seB > 0,
             seNetA,
             seNetB,
             sePlanNetA,
@@ -9369,7 +9373,7 @@
   // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (on
   // Medicare's MAGI, irmaaMagiOf: only the taxable part of Social Security; per person on two returns) over a step
   // of 10% of that income (at least $1,000), under this year's tax law and indexing.
-  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS };
+  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
   function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0 }) {
     const real = (1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1,
       endYear = singlePerson ? state.lifeExpectancyA - state.ageA : Math.max(state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);

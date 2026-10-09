@@ -38,7 +38,7 @@ const path = require('path');
   const res = await page.evaluate(() => {
     const t = window.__test_tax, st = window.__test_getState(), out = {};
     st.inflation = 0;
-    const profile = (o) => Object.assign({ year: 0, filing: 'single', singlePerson: true, otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 40, ageB: 40, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
+    const profile = (o) => Object.assign({ year: 0, filing: 'single', singlePerson: true, otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 40, ageB: 40, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [], seOn: true }, o);
     st.stateTax = 'tx';
     const one = { otherA: 50000, seNetA: 50000, sePlanNetA: 50000 };
     out.oneQ = t.taxFor(profile(one), 0, 0);
