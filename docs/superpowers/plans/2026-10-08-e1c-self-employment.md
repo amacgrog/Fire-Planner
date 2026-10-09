@@ -667,6 +667,10 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
     (and every retirement account 0): se 60,000 -> half 4,238.865, seNet 55,761.135. Year 0: `H = rows[0].healthcare`,
     `M = rows[0].magiProxy`, `D = trace[0].profile.seHealthA`: `|D - min(H, 55761.135)| <= 1e-9`, `|M - (55761.135 - D)| <= 2`,
     `|H - __test_tax.acaNetCost(M, 1, 18000, 0)| <= 2` (check `acaNetCost`'s argument order against its definition);
+  - `ACA off still converges`: the fixed-point household with `acaEnabled: false`, `incomeGrowth: 5` and `medicalInflation`
+    at its default (the deduction changes every year, the premium does not depend on MAGI and no conversion ceiling is
+    finite): for every working year y, `|rows[y].magiProxy - (seNet_y - trace[y].profile.seHealthA)| <= 1` with `seNet_y`
+    from `trace[y].profile.seNetA` (fails without site 7's `estUsed` line: the MAGI keeps the previous year's deduction);
   - `cap`: the same with `incomeA: 3000` (seNet 2,788.05...) -> `D === seNetA` (the cap binds);
   - `ticked spouse plan, married`: couple, A self-employed 80,000, B W-2 90,000 working, `employerCoversSpouseB: true`,
     `filingStatus: 'mfj'` -> `rows[0].healthcare === 0` and `profile.seHealthA === 0`; unticked -> A on the marketplace,
@@ -744,11 +748,11 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   |---|---|---|---|
   | 1 | 10031 | `let prevDiscTraditional = 0,` | add `prevSeHealthA = 0, prevSeHealthB = 0,` to the same `let` |
   | 2 | 10181 | `const magiBase = otherA + otherB + ss + inv.ordinary + inv.qualified;` | `const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;` and on the next line `let magiBase = magiBase0;` |
-  | 3 | 10187 | `let estTrad = prevDiscTraditional,` | add `estSeA = prevSeHealthA, estSeB = prevSeHealthB,` before `estUsed = false;` |
+  | 3 | 10182-10189 | `// MAGI iteration: estTrad/estGain are the discretionary traditional` ... `let estTrad = prevDiscTraditional,` | add `estSeA = prevSeHealthA, estSeB = prevSeHealthB,` before `estUsed = false;`, and extend the comment above it: "estSeA/estSeB are the self-employed health insurance deductions (E1c) the pass's MAGI assumes; they converge with the other two" |
   | 4 | 10234 | `profile.ownerShareA = ownerShareA0;` (top of each pass) | right after it: `profile.seHealthA = estSeA; profile.seHealthB = estSeB; magiBase = magiBase0 - estSeA - estSeB;` |
-  | 5 | 10307-10309 | `const costAt = (trad, gain) => {` / `if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);` | price on the estimate: replace that `if` line by `if (twoReturns) { const ra = profile.seHealthA, rb = profile.seHealthB; profile.seHealthA = estSeA; profile.seHealthB = estSeB; [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain); profile.seHealthA = ra; profile.seHealthB = rb; }`; and keep the result: `const c = healthcareCost(hcArgs).healthcare;` becomes `lastCost = healthcareCost(hcArgs); const c = lastCost.healthcare;` with `let lastCost = null;` declared just above `const costAt` |
+  | 5 | 10307-10310 | `const costAt = (trad, gain) => {` / `if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);` | price on the estimate: replace that `if` line by `if (twoReturns) { const ra = profile.seHealthA, rb = profile.seHealthB; profile.seHealthA = estSeA; profile.seHealthB = estSeB; [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain); profile.seHealthA = ra; profile.seHealthB = rb; }`; and keep the result: `const c = healthcareCost(hcArgs).healthcare;` becomes `lastCost = healthcareCost(hcArgs); const c = lastCost.healthcare;` with `let lastCost = null;` declared just above `const costAt` |
   | 6 | 10332-10335 | `const irmaaAt = (trad, gain) => {` / `const [ma, mb] = returnMagis(profile, trad, gain);` | the same save / set-estimate / restore around that one `returnMagis` call |
-  | 7 | 10390-10397 | `const hcOut = healthcareCost(hcArgs);` ... `profile.medicalExpense = healthcare + ltc;` | insert the `seRealA / seRealB` block (code below) between them; the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` |
+  | 7 | 10390-10397 | `const hcOut = healthcareCost(hcArgs);` ... `profile.medicalExpense = healthcare + ltc;` | insert the `seRealA / seRealB` block (code below, which also sets `estUsed`: without it a year with ACA modeling off and no finite conversion ceiling never checks the deduction estimate, and the year's MAGI keeps last year's deduction) between them; the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` |
   | 8 | 10509-10510 | `const unconverged =` / `estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;` | append `+ Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB)` before `> MAGI_ITER_TOL` |
   | 9 | 10513 | `passLog.push({ estTrad, estGain, charged: healthcare, ...` | add `estSeA, estSeB,` after `estGain,` |
   | 10 | 10518-10519 | `estTrad += w * (realizedTrad - estTrad);` / `estGain += w * (taxableGainGross - estGain);` | add `estSeA += w * (seRealA - estSeA); estSeB += w * (seRealB - estSeB);` |
@@ -776,10 +780,15 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   | 10369 | `[magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);` | before site 7: estimate |
   | 10489 | `wd.magiCap = { limit: yearPlan.magi - magiBase, off: false };` | the plan's cap on the pass's MAGI scale |
   | 10492 | `const m = magiBase + wd.traditionalGross + wd.taxableGainGross;` (fill) | same scale |
+  | 10236 / 10274 / 10394 | `estUsed = false;` (pass top), `if (magiCeiling < Infinity) estUsed = true;`, `if (usesMagiEstimate) estUsed = true;` | unchanged; site 7 adds the third setter |
+  | 10310-10313 | `const c = healthcareCost(hcArgs).healthcare;` and the three `hcArgs` restores in `costAt` | site 5 changes only the first line; the restores stay |
+  | 10380 / 10497 / 10725 | `let totalIncome = otherA + otherB + ss + ...`, `totalIncome = otherA + otherB + ss + ...`, `income: totalIncome,` | the row's `income` is income before the 162(l) deduction (it already differs from MAGI by nothing else); not a MAGI, left as is and named in the implementation notes |
   | 10560 | `const realizedMagi = magiBase + traditionalGross + taxableGainGross;` | the estimate, within `MAGI_ITER_TOL` of the realized deduction once converged (documented in the implementation notes) |
   | 10569 | `const lo = magiBase + ladderGain,` | same scale as the lines |
-  | 10606 | `yearPlanCandidates({ ..., magiBase, premiumAt: costAt, irmaaAt })` | passes the value at call time (the estimate) |
+  | 10576 | `magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: ..., ... })` | its MAGIs come from `preConvMagi` / `preMagiA/B` (estimate scale); it reads the profile only for `ownerShareA` and Social Security, never `seHealthA/B` |
+  | 10606 and 9304 | `yearPlanCandidates({ ..., magiBase, premiumAt: costAt, irmaaAt })`; inside it `costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + ...` | passes the value at call time (the estimate), and `premiumAt` / `irmaaAt` are `costAt` / `irmaaAt` (sites 5, 6) |
   | 10691 | `[magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);` | after convergence the profile holds the realized pair: the history records the realized per-return MAGI |
+  | 10722 / 10746-10747 | `magiProxy: realizedMagi,`, `row.magiA = magiHistoryA[year];` / `row.magiB = ...` | the row reads the two lines above |
   | (withdrawal) | `drawTaxable` / the traditional solvers call `taxFor(profile, ...)` | they run after site 7: the realized deduction, as the year's tax |
   | (pass start) | `conversionMagiCeiling({ ..., profile })`, `solveRothConversion(profile, ...)` | run before site 7 with the estimate in the profile |
 
@@ -795,6 +804,8 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
         }
         profile.seHealthA = seRealA;
         profile.seHealthB = seRealB;
+        // The pass's MAGI used estSeA/estSeB: the convergence test (site 8) must check them.
+        if (estSeA !== 0 || estSeB !== 0 || seRealA !== 0 || seRealB !== 0) estUsed = true;
 ```
 ```js
           // E1c, site 12: the deduction follows the premium actually charged.
