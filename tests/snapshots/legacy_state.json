@@ -40,7 +40,10 @@
   "income kind self": "47f8fac5ec7805ed",
   "income kind junk": "753f97276d828094",
   "stream self": "54bd1edae481f832",
-  "stream self junk": "ba515a606ee06fde"
+  "stream self junk": "ba515a606ee06fde",
+  "lump kinds": "79c8beeca68a9bea",
+  "lump junk": "54857475a856d5ea",
+  "lump legacy flag": "e7bd6404d110f684"
  },
  "Canada": {
   "empty": "20ac0e4dd9d51e22",

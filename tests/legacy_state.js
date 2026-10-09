@@ -74,6 +74,22 @@ const US = {
   'income kind junk': { incomeKindA: 'freelance', incomeKindB: 7 },
   'stream self': { incomeSources: [{ amount: 30000, startAge: 50, endAge: 60, kind: 'self', contribute: true, profitSharingPct: 20, deferralPct: 100 }] },
   'stream self junk': { incomeSources: [{ amount: 30000, startAge: 50, endAge: 60, kind: 'self', profitSharingPct: 99, healthPremium: -1 }, { amount: 5000, startAge: 50, endAge: 60, kind: 'wages', healthPremium: '4000' }] },
+  // E1d: one-time income tax treatment and owner (exact rows asserted in test_lump_income.js).
+  'lump kinds': { oneTimeIncome: [
+    { amount: 50000, age: 60, flat: true, kind: 'wages', owner: 'B' },
+    { amount: 20000, age: 61, flat: false, kind: 'ordinary', owner: 'A' },
+    { amount: 300000, age: 62, flat: true, kind: 'gain', owner: 'B', gainPct: 40, activeBusiness: true },
+  ] },
+  'lump junk': { oneTimeIncome: [
+    { amount: 1000, age: 60, kind: 'inherited', owner: 'b', gainPct: -5, activeBusiness: 'yes' },
+    { amount: 1000, age: 61, kind: 'gain', gainPct: 250 },
+    { amount: 1000, age: 62, kind: 'gain', gainPct: 'x' },
+    { amount: 1000, age: 63 },
+  ] },
+  'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
+    { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
+    { enabled: false, amount: 9, age: 61 },
+  ] },
 };
 const CA = {
   ...COMMON,

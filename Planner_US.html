@@ -1163,6 +1163,24 @@
       };
     });
   }
+  // E1d: one-time income tax treatment and owner (US). normalizeLists (shared) keeps only amount, age and flat, so these
+  // are read from the raw save, aligned exactly as normalizeUsStreams aligns streams (a legacy save ignores the raw keys).
+  // Unknown values fall back to the legacy meaning: tax-free, Partner A.
+  function normalizeUsLumps(s, raw) {
+    const legacy = !!raw && 'otherIncomeEnabled' in raw,
+      src = !legacy && Array.isArray(raw?.oneTimeIncome) ? raw.oneTimeIncome.filter((x) => x && typeof x === 'object') : [];
+    s.oneTimeIncome = s.oneTimeIncome.map((x, i) => {
+      const r = src[i] || {};
+      const g = r.gainPct !== '' && r.gainPct !== null && Number.isFinite(Number(r.gainPct)) ? Math.min(100, Math.max(0, Number(r.gainPct))) : 100;
+      return {
+        ...x,
+        kind: r.kind === 'wages' || r.kind === 'ordinary' || r.kind === 'gain' ? r.kind : 'free',
+        owner: r.owner === 'B' ? 'B' : 'A',
+        gainPct: g,
+        activeBusiness: r.activeBusiness === true,
+      };
+    });
+  }
   const clampLifeExpectancyA = () =>
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
   const clampLifeExpectancyB = () =>
@@ -1362,6 +1380,7 @@
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));
     normalizeLists(s, raw);
     normalizeUsStreams(s, raw);
+    normalizeUsLumps(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
@@ -14704,10 +14723,24 @@
       rowTitle: (i) => `One-time income ${i + 1}`,
       addLabel: '+ Add a one-time income',
       note: 'Tax-free lump sums received at a specific age.',
-      tip: "e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
-      fresh: () => ({ amount: 0, age: 65, flat: false }),
+      tip: "Tax-free lumps (an inheritance of cash, investments or a house, whose basis steps up to the value at death; life insurance; a gift received; a home-sale gain within the $250,000 / $500,000 exclusion ($500,000 also for a surviving spouse selling within two years); a sale at cost) are added to cash. Taxable lumps are income of the year received and pay their own tax first. Amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
+      fresh: () => ({ amount: 0, age: 65, flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false }),
       fields: [
         { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
+        {
+          key: 'kind', kind: 'select', label: 'Tax treatment',
+          options: [['free', 'Tax-free'], ['wages', 'Wages (severance, bonus)'], ['ordinary', 'Ordinary income, no payroll tax'], ['gain', 'Long-term capital gain']],
+          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation; a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA.",
+        },
+        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: (it) => !state.singlePerson && (it.kind === 'wages' || it.kind === 'ordinary' || it.kind === 'gain') },
+        {
+          key: 'gainPct', kind: 'num', label: 'Gain share of the amount, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'gain',
+          tip: 'The sale price less the basis (what was paid plus improvements, less depreciation), as a share of the amount; the rest comes back tax-free.',
+        },
+        {
+          key: 'activeBusiness', kind: 'check', label: 'Active business (no NIIT)', showIf: (it) => it.kind === 'gain',
+          tip: 'Tick for the sale of a business you actively run, as a sole proprietor or through a partnership or S corporation (not C-corporation stock): the 3.8% net investment income tax does not apply to that gain. Leave it unticked for a rental, a passive investment or other property; the gain still counts as income for the tax\'s threshold, the ACA and IRMAA.',
+        },
         { key: 'age', kind: 'num', label: 'Received at Partner A age', min: 18, max: 100, step: 1 },
         {
           key: 'flat',
