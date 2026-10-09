@@ -1128,6 +1128,34 @@ that is a person's only pay does not count as working for those rules. (3) `retu
 split is checked through the rows' `magiA` / `magiB`. (4) `tests/survivor_salary.js` is in `npm test`; `test_income_streams.js`
 is not (as for the other `test_*.js`).
 
+##### E1b: review and acceptance (2026-10-08)
+
+Re-checked by the reviewer in scratch worktrees of `ad10b88` (tip) and `82f3100` (Task 1): `npm test` exits 0 at the tip and
+`test_income_streams.js` passes (parts 1-3). Movers, base `71451fd` against `82f3100` (926 scenario files): 22 differ, exactly
+the 21 US entries of the implementation notes (`std R work past 65 survivor` and the ten historical paths of it and of its `rich`
+variant) plus the new Canada entry; first difference year 7 (A's death year), no depletion before or after; end investable
+13,973,799 -> 13,359,187; year-7 cash wages 245,974.77 -> 122,987.39 = 100,000 x 1.03^7. Task 1 against the tip: only the four new
+scenarios differ, so Tasks 3 and 4 leave every existing entry byte-identical. The Canada entry's gross income rises in year 4
+(75,369 -> 105,420) because the base paid the dead partner's salary as untaxed cash (wages 168,826) and the fix draws 55,217 from
+taxable instead. The -0.0011 `rothWithdrawn` is old float noise (701 rows of the base dumps, the default scenario included).
+`retireAgeA/B` uses: the lists are complete in both planners, and no engine helper reads `state.retireAgeA/B` directly, so the
+clamp reaches every rule. `normalizeUsStreams` aligns with the shared `normalizeLists` (object rows, first `LIST_MAX`, bridge
+streams appended after). Review Focus 1-5 each have a test; the hand figures (wage base 184,500, payroll 22,439 / 19,125, ACTC
+1,125) re-derived. Ledger sums agree with the cash amounts (traditional + employer, Roth).
+
+Reviewer timing of the tip against `71451fd`: `tests/bench_runs_interleaved.js`, 21 rounds: simulate tx / ca / ny / pa / ct / wa
++0.5 / +1.8 / +2.6 / +2.5 / -0.5 / +2.3%, historical +3.5 / +1.2 / +1.1 / +1.3 / +0.9 / +1.5%. `tests/bench_solver.js`, 31 rounds,
+two runs (simulate / path): ACA early retiree +1.7% / +4.4%, then -0.8% / 0.0%; default +6.7% / 0.0%, then +1.7% / 0.0% (one
+0.05 ms tick; recorded as measured).
+
+Recorded, no change: the Task 2-4 tests were written with the code, not red first (their numbers were re-derived by the
+reviewer); a legacy save's migrated Partner B bridge income stays owner A on A's shifted window (moving it to B would change old
+saves); the deceased's earlier stop can move `retirementYear` (the "Investable at retirement" tile and `firstWithdrawal`),
+intended, no grid scenario moved by it.
+
+**Decision (owner, 2026-10-08):** accepted, merged into `claude/batch-3b-penalty-rules` (`862f0bb`) and pushed. Next: E1c (full
+self-employment), brainstormed from the start.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
