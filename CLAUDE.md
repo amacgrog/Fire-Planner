@@ -250,8 +250,17 @@ Each planner is one big IIFE. Core shape:
   restore, the forced pass (realized-pair `costAt`, the deduction re-run on `lastCost`), the recorded MAGI (`realizedMagi = magiBase0 -
   (seRealA + seRealB) + draws`) and the cliff plan's phases (natural, fallback replay, trial records, winner replay, trial seed) all carry
   it. Where the deduction and the premium credit have no consistent answer (a single person near the 400% line with net self-employment
-  of roughly $69,000 to $81,000), the existing cliff rule decides. A new reader of the year's MAGI inside the loop must use `magiBase`, not
-  `magiBase0`. Test: `tests/se_health.js`.
+  of roughly $69,000 to $81,000, a couple's band, the Medicaid line), the year uses Rev. Proc. 2014-41's alternative calculation (8b,
+  owner decision A): when a pass is unconverged and a 162(l) deduction is allowed (`seAllowA || seAllowB`), the loop prices the
+  deduction at the full premiums (`costAt` at a MAGI of 1e12), then at the premium after the credit the step-1 MAGI allows, sets
+  `estSeA/B` to that deduction and `seHeld = true`, and re-runs the phase: while `seHeld`, site 7 takes the held pair as the
+  realized pair (the deduction term of the convergence test is 0) and the forced pass does not re-price it, so the premium, the draws
+  and the MAGI follow the held deduction. `seHeld` is reset at a trial start and carried in `naturalRec` / the trial records with
+  `estSeA/B`, so the plan's replays restore it. A new reader of the year's MAGI inside the loop must use `magiBase`, not
+  `magiBase0`. **`seOn` (8a):** `buildTaxProfile` sets `profile.seOn = seA > 0 || seB > 0`, and `taxFor` reads the self-employment
+  fields (`seNet*`, `sePlanNet*`, `seHealth*`, ...) only when it is true (exact zeros otherwise, no number changes), so EVERY profile
+  that reaches `taxFor` must carry `seOn` (the lambda, Roth solver and optimizer literals carry `seOn: false`; a test profile with
+  self-employment keys needs `seOn: true`, or the keys are ignored). Test: `tests/se_health.js`.
   Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),

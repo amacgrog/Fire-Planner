@@ -77,6 +77,8 @@ const path = require('path');
   assert(Object.is(res.w2a, res.w2b), 'all-W-2: new keys at zero change nothing');
 
   // ---- engine: the Task 3 single self-employed household ----
+  // The hand-computed pure cases above pin qbiDeduction itself; this case checks the wiring (taxFor takes the deduction off
+  // the taxable income of the right return).
   const ZERO = { taxable: 0, cash: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, hysaRate: 0 };
   const FP = {
     ...ZERO, singlePerson: true, ageA: 50, retireAgeA: 60, incomeA: 60000, incomeKindA: 'self', acaEnabled: true, healthcare: 18000,

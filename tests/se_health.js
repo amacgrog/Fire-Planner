@@ -121,12 +121,12 @@ const path = require('path');
   // no double count: the deducted premium is not also a medical expense.
   near(f.trace[0].profile.medicalExpense, H - D, 1e-9, 'no double count');
 
-  // ACA off still converges: the flat premium grows with medical inflation and the income grows; the deduction changes every
-  // year, and each year's MAGI is built from that year's deduction.
+  // ACA off: the recorded MAGI follows the realized deduction. The flat premium grows with medical inflation and the income
+  // grows; the deduction changes every year, and each year's MAGI is built from that year's deduction.
   f = await run({ ...FP, acaEnabled: false, incomeGrowth: 5, medicalInflation: 1 });
   for (let y = 0; y < 10; y++) {
     const p = f.trace[y].profile;
-    near(f.rows[y].magiProxy, p.seNetA - p.seHealthA, 1, `ACA off: MAGI year ${y}`);
+    near(f.rows[y].magiProxy, p.seNetA - p.seHealthA, 1, `ACA off: recorded MAGI follows the realized deduction, year ${y}`);
     assert(p.seHealthA > 0, `ACA off: deduction year ${y}`);
   }
 
@@ -279,6 +279,8 @@ const path = require('path');
   }
 
   // Roth-conversion bracket fill (decision 8c): the fill sees AGI lower by the 162(l) deduction (ACA off: the flat 18,000).
+  // This is the guard for the `estUsed` line at the convergence test (the one that reads estSeA/estSeB/seRealA/seRealB): with ACA
+  // off nothing else asks for a second pass, so without that line the conversion is sized on a zero deduction and is 18,000 low.
   {
     const RC = { ...FP, acaEnabled: false, rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 55, rothConvBracket: 22, tradIraA: 500000 };
     const c1 = await run(RC), c0 = await run({ ...RC, healthcare: 0 });

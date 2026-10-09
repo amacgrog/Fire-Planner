@@ -1309,6 +1309,38 @@ stream with kind `self` vs 583.0 ms with kind `wages` (ratio 1.631).
 3. The test "ACA off still converges" does not guard site 7's `estUsed` line (site 18b already records the MAGI from the realized
    pair); only the Step 8b Roth-fill test fails without it.
 
+**E1c: review fixes (Task 8).** Commits: 8a ebda26d, 8b f3884fd, 8c (this commit). 8a: `seOn` flag; no number change; its gate run
+(bench_runs_interleaved 21 rounds vs base): tx 1.6%/-1.8%, ca 1.4%/0.0%, ny 4.3%/3.5%, pa 2.5%/2.6%, ct 1.9%/1.9%, wa 1.8%/1.5%
+(simulate/historical); bench_solver: ACA early retiree (CA) simulate 2.40 -> 2.50 ms (4.2%), path 2.30 -> 2.45 ms (6.5%); default
+simulate 1.22 -> 1.30 ms (6.6%), path 0.90 -> 1.00 ms (11.1%); earlier runs of the same tree showed tx 5.3-5.5% and ct 7.1% that
+repeated at 1.0-3.6% (noise ~+-10%). 8b: Rev. Proc. 2014-41 alternative calculation in a non-converging 162(l) year; red run at 8a:
+first failing assert `band, consistent premium (70000)` 5880.58 vs 5893.74; probe differences (healthcare minus the premium at the
+recorded MAGI) at 8a: 70,000: -13.15; 74,000: -12,943.10; 82,000: -12,202.59; 86,000: -11,832.34; joint: -10,032.00; Medicaid line:
+-781.11; converged 60,000: -0.05; all 0.00 after 8b with forced/unresolved +0. Hand values: 82,000 case sePlanNet 76,206.8845, step-1
+MAGI 58,206.8845, D = acaNetCost = 5,797.4057, final MAGI 70,409.4788, premium 18,000; joint band profit 105,449.7904 (sePlanNet
+98,000; line for two 84,600): D 7,968.00, MAGI 90,032.00, premium 18,000; Medicaid line (ca): FPL 15,650, line 1.38 x 15,650 = 21,597,
+profit 23,561.5721 (sePlanNet 21,897): D 0, MAGI 21,897, premium 781.11; converged 60,000: D 5,050.71, MAGI 50,710.43. The 70,000 case
+did not converge at 8a (damped iteration after 8 passes) and now gets the alternative calculation: D 4,686.64, MAGI 60,368.01, premium
+6,012.65 (the true fixed point's D would be about 5,892). Moved E1c snapshot entries: none (the plan expected `R single self-employed
+cliff band` to move; its MAGI is about 83,710 because the R household's investment income lifts it above the band; `R side business
+stream` switches to the alternative calculation in 3 years but its rows are byte-identical, the non-convergence is in the draws and
+goes to the existing forced pass: forced 3 before and after); a dump of ../fp-e1c-base against the tree shows exactly the 8 E1c
+scenario files differ out of 934, no pre-E1c entry. Timing 8b vs base (three runs, tx simulate 8.6%/6.3%/7.6%, ca up to 6.6%, wa up
+to 7.4% in single runs; others within 6%); 8b vs 8a: tx 1.6%, ca -0.4%, ny -3.8%, pa -3.1%, ct -1.6%, wa -2.6% (8b costs nothing
+against 8a); 8a vs base the same day: tx 7.7%, ny 5.8% (so the residual overage is the branch's existing cost plus noise, not 8b);
+bench_solver 8b: ACA early retiree (CA) simulate 2.36 -> 2.44 ms (3.4%), path 2.30 -> 2.35 ms (2.2%); default simulate 1.20 -> 1.28 ms
+(6.7%), path 0.90 -> 0.95 ms (5.6%). OPEN for the owner: the +5% gate against base still fails for tx in single runs. Rulings of 8b:
+the switch fires on any unconverged year with a 162(l) deduction allowed (as the spec says), including slow damped years; the 8b
+commit message says no snapshot:update because nothing moved; the Task 5 test `no consistent answer` was replaced (it pinned decision
+8b's premium = D at MAGI 70,409). Also open: the snapshot grid does not exercise the band (a household without income-paying balances
+would). 8c: copy for the self-employed (the `#healthcare`, `#acaEnabled` and `#medicareYearly` tooltips, the Healthcare callout, the
+employer-plan boxes, the catch-up tooltips, the profit-sharing descriptors); tests: `ACA off` renamed for what it checks, the Roth-fill
+test is documented as the guard for site 7's `estUsed` line (red proof: with that line removed in a scratch copy the first failure is
+`Roth fill: conversion higher by the deduction ... 0 vs 18000`; the other ACA-off asserts still pass, which is why the earlier test
+could not guard it), "Solo money leaves cash" now asserts the hand difference (the 43,087.045 of plan money less the year-0 tax saved,
+from the rows' own tax, within 1e-3 because the taxable sale is solved by bisection), `tests/qbi.js` engine case commented as the
+wiring check. No number changed in 8c.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

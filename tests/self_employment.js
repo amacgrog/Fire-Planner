@@ -205,7 +205,15 @@ const path = require('path');
   const s0 = await eng2({ k401PctA: 0, profitSharingPctA: 0 });
   assert(s0.rows0.taxable !== undefined || s0.rows0.cash !== undefined, 'row has balances');
   const bal = (x) => (x.rows0.taxable || 0) + (x.rows0.cash || 0);
-  assert(bal(s1) < bal(s0) - 1000, `Solo money leaves cash: ${bal(s1)} vs ${bal(s0)}`);
+  // Hand difference: the Solo money (24,500 + 18,587.045) leaves cash and taxable, less the tax it saves. The saving is the
+  // engine's own year-0 tax difference (row.tax: it includes the tax on the year's taxable sales, which taxFor on the bare
+  // profile does not), and taxFor on each run's year-0 profile must show a saving of the same sign.
+  const saved = s0.rows0.tax - s1.rows0.tax;
+  const want = 24500 + 18587.045 - saved;
+  assert(saved > 1000, `Solo money saves tax: ${saved}`);
+  near(bal(s0) - bal(s1), want, 1e-3, 'Solo money leaves cash (hand difference; 1e-3: the taxable sale is solved by bisection)');
+  const taxOf = (x) => page.evaluate((pr) => window.__test_tax.taxFor({ ...pr, seOn: true }, 0, 0), x.profile);
+  assert((await taxOf(s0)) > (await taxOf(s1)), 'taxFor on the profiles also shows the saving');
   const s3 = await eng2({ matchA: 50 });
   near(s3.trad[1] - s3.tradStart, 24500 + 18587.045, 1e-6, 'stale W-2 fields: no match');
 
