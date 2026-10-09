@@ -250,18 +250,21 @@ Each planner is one big IIFE. Core shape:
   restore, the forced pass (realized-pair `costAt`, the deduction re-run on `lastCost`), the recorded MAGI (`realizedMagi = magiBase0 -
   (seRealA + seRealB) + draws`) and the cliff plan's phases (natural, fallback replay, trial records, winner replay, trial seed) all carry
   it. A year whose damped iteration does not converge, with a 162(l) deduction allowed (`seAllowA || seAllowB`; 8b, owner
-  decision A, refined by decisions 10 and 11), holds a deduction chosen once, as Rev. Proc. 2014-41 section 5 allows: the consistent
+  decision A, refined by decisions 10 and 12), holds a deduction chosen once, as Rev. Proc. 2014-41 section 5 allows: the consistent
   deduction when one exists (a bisection, below), else the alternative calculation (the deduction at the full premiums, `costAt` at a
   MAGI of 1e12, then at the premium after the credit the step-1 MAGI allows). It sets `estSeA/B` to it and `seHeld = true`, and re-runs
   the phase: while `seHeld`, site 7 takes the held pair as the realized pair (the deduction term of the convergence test is 0) and the
   forced pass does not re-price it, so the premium, the draws and the MAGI follow the held deduction. The two methods are one closure,
   `seSearch(trad, gain)` (built on first use in a pass: a pass that never searches allocates nothing), which prices the draws it is
-  handed. **Decision 11 (Task 10):** a held year that has converged is searched once more at its final draws, because the held value was
-  priced on the draws of the pass that failed and the re-run's draws moved; if the answer differs by more than $1 the year re-runs once
-  with it held (`seRechecked`, at most one re-hold; a held year that ends in the forced pass keeps its hold). Nothing is held when the
+  handed. **Decision 12 (Task 11, withdrawing decision 11's re-check):** a hold is priced on the draws of the pass that failed to
+  converge and is not re-checked. The re-run's draws move afterwards, so the deduction can be understated (legal, conservative); the
+  one re-hold of decision 11 could flip across the 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst
+  $12,829), which the law forbids, so it is gone. The invariant grid in `tests/se_health.js` asserts the deduction never exceeds the
+  premium paid or the plan net and counts the understated years (a recorded limitation); the exact settlement at the final draws is
+  Batch 5's. Nothing is held when the
   step-1 deduction is 0 (the Solo plan took the whole net): the pass falls through to the forced pass as it did before the switch.
   `magiStats.seFixed` / `seAlternative` count the kept phase only, through `seKind` (1 consistent, 2 alternative), like `forced` /
-  `unresolved`. `seHeld`, `seKind` and `seRechecked` are reset at a trial start and carried in `naturalRec` / the trial records with
+  `unresolved`. `seHeld` and `seKind` are reset at a trial start and carried in `naturalRec` / the trial records with
   `estSeA/B`, so the plan's replays restore them. A new reader of the year's MAGI inside the loop must use `magiBase`, not
   `magiBase0`. **`seOn` (8a):** `buildTaxProfile` sets `profile.seOn = seA > 0 || seB > 0`, and `taxFor` reads the self-employment
   fields (`seNet*`, `sePlanNet*`, `seHealth*`, ...) only when it is true (exact zeros otherwise, no number changes), so EVERY profile
