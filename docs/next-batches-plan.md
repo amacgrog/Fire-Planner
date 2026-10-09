@@ -6207,7 +6207,10 @@ reading (itself secondary).
 
 ## Open items
 
-- **Fixing (owner, 2026-10-09): the UI snapshot's `histSuccess` race.** `tests/snapshot_ui.js` `surfaceChecks` dispatches an input, waits
+- ~~**Fixing (owner, 2026-10-09): the UI snapshot's `histSuccess` race.**~~ **Resolved 2026-10-09** (`e4cd0d9`, merged into
+  `claude/batch-3b-penalty-rules`): the clock-driven capture below; the spec owner checked it plain and at 4x CPU throttling (both
+  planners pass; the implementer ran 3 plain, 3 at 4x and 1 at 8x), and the baselines now pin the success rates (US 85/89/49%,
+  Canada 83/94/60%). The record: `tests/snapshot_ui.js` `surfaceChecks` dispatches an input, waits
   400 ms, dispatches again and captures at once; the planner's historical backtest is debounced 500 ms after the last render
   (`schedulePlanStatusHistRate`), armed inside the first render, before the test's 400 ms timer is armed. When that render takes
   over about 100 ms (a loaded machine), the backtest fires first, its rate persists, and the capture shows "85%" (Canada "83%")
