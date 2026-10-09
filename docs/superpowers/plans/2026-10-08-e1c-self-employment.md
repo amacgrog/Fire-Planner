@@ -733,49 +733,82 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   Two-filer branch: `profile.otherA - seHA + gainA + tradA + invA`, `ordinaryA = profile.otherA - seHA + tradA + ...`, the
   same with `seHB` for B, and `sourcesA.wages` / `sourcesB.wages` last terms `+ (seNetA - seHA)` / `+ (seNetB - seHB)`.
 - [ ] **Step 8: The year loop's MAGI iteration.** Read "MAGI iteration (both engines)" and "Per-year solver and the cliff
-  plan" in `CLAUDE.md` first.
-  1. Next to `let prevDiscTraditional = 0, prevTaxableGainGross = 0;` add `prevSeHealthA = 0, prevSeHealthB = 0`.
-  2. `const magiBase = otherA + otherB + ss + inv.ordinary + inv.qualified;` becomes `const magiBase0 = ...same...; let
-     magiBase = magiBase0;`, and `let estTrad = ..., estGain = ...,` gains `estSeA = prevSeHealthA, estSeB = prevSeHealthB,`.
-  3. At the top of each pass, right after `profile.ownerShareA = ownerShareA0;`:
-     `profile.seHealthA = estSeA; profile.seHealthB = estSeB; magiBase = magiBase0 - estSeA - estSeB;`
-     (every MAGI the pass builds, `preConvMagi`, `costAt`, `irmaaAt`, `magiProxy`, the plan's cap and fill, and
-     `returnMagis`, then carries the estimated deduction; `x - 0 - 0` is `x`).
-  4. After `const hcOut = healthcareCost(hcArgs); let healthcare = hcOut.healthcare;` and before
-     `profile.medicalExpense = ...`:
+  plan" in `CLAUDE.md` first. Every site below was traced at `ee7a789` (line numbers drift as you edit: search for the
+  quoted code). The rule: the deduction is a third estimate (`estSeA`, `estSeB`) that travels everywhere `estTrad` /
+  `estGain` travel; within a pass every MAGI is built from the estimate (through `magiBase` and the profile's
+  `seHealthA/B`), and `taxFor` and the end-of-year history read the realized pair.
+
+  **Edits (in file order):**
+
+  | # | Line | Search for | Edit |
+  |---|---|---|---|
+  | 1 | 10031 | `let prevDiscTraditional = 0,` | add `prevSeHealthA = 0, prevSeHealthB = 0,` to the same `let` |
+  | 2 | 10181 | `const magiBase = otherA + otherB + ss + inv.ordinary + inv.qualified;` | `const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;` and on the next line `let magiBase = magiBase0;` |
+  | 3 | 10187 | `let estTrad = prevDiscTraditional,` | add `estSeA = prevSeHealthA, estSeB = prevSeHealthB,` before `estUsed = false;` |
+  | 4 | 10234 | `profile.ownerShareA = ownerShareA0;` (top of each pass) | right after it: `profile.seHealthA = estSeA; profile.seHealthB = estSeB; magiBase = magiBase0 - estSeA - estSeB;` |
+  | 5 | 10307-10309 | `const costAt = (trad, gain) => {` / `if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);` | price on the estimate: replace that `if` line by `if (twoReturns) { const ra = profile.seHealthA, rb = profile.seHealthB; profile.seHealthA = estSeA; profile.seHealthB = estSeB; [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain); profile.seHealthA = ra; profile.seHealthB = rb; }`; and keep the result: `const c = healthcareCost(hcArgs).healthcare;` becomes `lastCost = healthcareCost(hcArgs); const c = lastCost.healthcare;` with `let lastCost = null;` declared just above `const costAt` |
+  | 6 | 10332-10335 | `const irmaaAt = (trad, gain) => {` / `const [ma, mb] = returnMagis(profile, trad, gain);` | the same save / set-estimate / restore around that one `returnMagis` call |
+  | 7 | 10390-10397 | `const hcOut = healthcareCost(hcArgs);` ... `profile.medicalExpense = healthcare + ltc;` | insert the `seRealA / seRealB` block (code below) between them; the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` |
+  | 8 | 10509-10510 | `const unconverged =` / `estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;` | append `+ Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB)` before `> MAGI_ITER_TOL` |
+  | 9 | 10513 | `passLog.push({ estTrad, estGain, charged: healthcare, ...` | add `estSeA, estSeB,` after `estGain,` |
+  | 10 | 10518-10519 | `estTrad += w * (realizedTrad - estTrad);` / `estGain += w * (taxableGainGross - estGain);` | add `estSeA += w * (seRealA - estSeA); estSeB += w * (seRealB - estSeB);` |
+  | 11 | 10530-10531 | `estTrad = pick.estTrad;` / `estGain = pick.estGain;` | add `estSeA = pick.estSeA; estSeB = pick.estSeB;` |
+  | 12 | 10540-10547 | `if (forcedPass && flow < 0) {` ... `const realizedCost = costAt(traditionalGross, taxableGainGross),` ... `profile.medicalExpense = healthcare + ltc;` | after `healthcare = realizedCost;`, re-run the deduction on the realized cost (code below), then the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` (so `taxAfter` reads the realized pair). Declare `seRealA` / `seRealB` with `let` at site 7 so this block can reassign them |
+  | 13 | 10599 | `naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: ...` (apply branch) | add `estSeA, estSeB, seA: seRealA, seB: seRealB,` after `estGain,` |
+  | 14 | 10609 | `naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: ...` (choose branch) | the same four fields |
+  | 15 | 10628-10629 | `estTrad = naturalRec.estTrad;` / `estGain = naturalRec.estGain;` (apply fallback replay) | add `estSeA = naturalRec.estSeA; estSeB = naturalRec.estSeB;` |
+  | 16 | 10642 | `trialRecs.push({ plan: yearPlan, estTrad, estGain, forced: ...` | add `estSeA, estSeB,` after `estGain,` |
+  | 17 | 10656-10657 | `estTrad = best.estTrad;` / `estGain = best.estGain;` (winner replay; `best` may be `naturalRec`, which has the fields from 13/14) | add `estSeA = best.estSeA; estSeB = best.estSeB;` |
+  | 18 | 10669-10670 | `estTrad = naturalRec.realizedTrad;` / `estGain = naturalRec.gain;` (trial start, seeded from the natural year's realized values) | add `estSeA = naturalRec.seA; estSeB = naturalRec.seB;` |
+  | 19 | 10682-10683 | `prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;` / `prevTaxableGainGross = ...` | add `prevSeHealthA = naturalRec ? naturalRec.seA : seRealA; prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;` |
+
+  **Readers that need no edit** (they read `magiBase` or the profile at call time, so they get the pass's estimate, or,
+  after site 7, the realized pair where that is what they want). Confirm each still holds after your edits and say so in
+  the report:
+
+  | Line | Code | Why it is right as is |
+  |---|---|---|
+  | 10250 | `const preConvMagi = magiBase + estTrad + estGain;` | `magiBase` holds the estimate (site 4) |
+  | 10253 | `returnMagis(profile, estTrad, estGain)` | runs before site 7: the profile still holds the estimate |
+  | 10308 | `hcArgs.magiProxy = magiBase + trad + gain;` (in `costAt`) | estimate via `magiBase` |
+  | 10341 | `irmaaMagiOf(magiBase + trad + gain, ...)` (in `irmaaAt`) | estimate via `magiBase` |
+  | 10361 | `magiProxy = magiBase + conversionAmount + estTrad + estGain;` | estimate |
+  | 10369 | `[magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);` | before site 7: estimate |
+  | 10489 | `wd.magiCap = { limit: yearPlan.magi - magiBase, off: false };` | the plan's cap on the pass's MAGI scale |
+  | 10492 | `const m = magiBase + wd.traditionalGross + wd.taxableGainGross;` (fill) | same scale |
+  | 10560 | `const realizedMagi = magiBase + traditionalGross + taxableGainGross;` | the estimate, within `MAGI_ITER_TOL` of the realized deduction once converged (documented in the implementation notes) |
+  | 10569 | `const lo = magiBase + ladderGain,` | same scale as the lines |
+  | 10606 | `yearPlanCandidates({ ..., magiBase, premiumAt: costAt, irmaaAt })` | passes the value at call time (the estimate) |
+  | 10691 | `[magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);` | after convergence the profile holds the realized pair: the history records the realized per-return MAGI |
+  | (withdrawal) | `drawTaxable` / the traditional solvers call `taxFor(profile, ...)` | they run after site 7: the realized deduction, as the year's tax |
+  | (pass start) | `conversionMagiCeiling({ ..., profile })`, `solveRothConversion(profile, ...)` | run before site 7 with the estimate in the profile |
+
+  `returnMagis` itself is defined at line 7232 (Step 6 above); no other `returnMagis` call exists in the file (check with a
+  grep). The code for sites 7 and 12:
 ```js
-        // E1c: the 162(l) deduction this pass's premiums allow (taxFor reads it); the MAGI it sets is checked below.
+        // E1c, site 7: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at site 8.
         let seRealA = 0, seRealB = 0;
         if (profile.seAllowA || profile.seAllowB) {
           seHealthDeduction(healthcare, hcOut.premA, hcOut.premB, twoReturns, profile, SE_HEALTH);
-          seRealA = SE_HEALTH[0]; seRealB = SE_HEALTH[1];
+          seRealA = SE_HEALTH[0];
+          seRealB = SE_HEALTH[1];
         }
         profile.seHealthA = seRealA;
         profile.seHealthB = seRealB;
 ```
-     and `profile.medicalExpense = healthcare + ltc;` becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);`
-     (deducted premiums are not also medical expenses).
-     **Restore the estimate in the profile before any MAGI is built from it again:** `costAt` and `irmaaAt` run after this
-     point (forced pass, `passLog`, the plan's candidates) and read `magiBase` (still the estimate: correct) and
-     `returnMagis(profile, ...)` (which now reads the realized deduction). Make `returnMagis` consistent by having
-     `costAt` / `irmaaAt` set `profile.seHealthA = estSeA; profile.seHealthB = estSeB;` before their `returnMagis` call and
-     put the realized pair back after it (two assignments each way, only when `twoReturns`).
-  5. Convergence: `unconverged = estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) +
-     Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) > MAGI_ITER_TOL;` (terms appended). In the damped update add
-     `estSeA += w * (seRealA - estSeA); estSeB += w * (seRealB - estSeB);`.
-  6. Carry `estSeA, estSeB` wherever `estTrad, estGain` are stored or restored: the `passLog.push({...})` entry, the
-     forced-pass `pick` restore, both `naturalRec = {...}` literals (also add `seA: seRealA, seB: seRealB`, the realized
-     pair), the `trialRecs.push({...})` entry, the restore from `naturalRec` (`estSeA = naturalRec.estSeA`...), from `best`,
-     and the replay restore that sets `estGain = naturalRec.gain` (set `estSeA = naturalRec.seA; estSeB = naturalRec.seB;`).
-     List every site you changed in the report, with its line.
-  7. Forced pass (`if (forcedPass && flow < 0) {`): after `healthcare = realizedCost;` recompute the deduction from the
-     realized cost when `profile.seAllowA || profile.seAllowB` (on two returns use the `premA/premB` of a
-     `healthcareCost(hcArgs)` call made at the realized MAGI inside `costAt`: keep `costAt`'s last result object in a
-     `let lastCost` and read it here), set `profile.seHealthA/B`, and recompute `profile.medicalExpense` as in item 4
-     before `taxAfter`.
-  8. After the year converged, next to `prevDiscTraditional = ...`: `prevSeHealthA = naturalRec ? naturalRec.seA :
-     seRealA; prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;` (match the `naturalRec ? ... : ...` pattern used
-     there; if the kept phase is a trial, use what that line uses for the other two).
+```js
+          // E1c, site 12: the deduction follows the premium actually charged.
+          if (profile.seAllowA || profile.seAllowB) {
+            seHealthDeduction(healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+            seRealA = SE_HEALTH[0];
+            seRealB = SE_HEALTH[1];
+            profile.seHealthA = seRealA;
+            profile.seHealthB = seRealB;
+          }
+```
+  (At site 12 `lastCost` is the result of the `costAt(traditionalGross, taxableGainGross)` call on the line above, so its
+  `premA/premB` are the realized ones.) Exactness: with no self-employment `seAllowA/B` are false, `seRealA/B` and
+  `estSeA/B` stay 0, and every edited expression adds or subtracts an exact 0.
 - [ ] **Step 9: Hook:** `window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];`.
 - [ ] **Step 10: Run.** `node tests/se_health.js` passes; `node tests/aca_magi_iteration.js`, `node
   tests/two_return_magi.js`, `node tests/irmaa_magi.js`, `node tests/aca_medicaid.js`, `node tests/cliff_plan.js`, `node
