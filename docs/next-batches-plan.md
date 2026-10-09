@@ -853,7 +853,7 @@ would confound that batch's movers). Statuses were checked against `Planner_US.h
 **After the cliff plan, small PRs, in this order:**
 - **E1 is split (owner, 2026-10-08) into E1a (contribution limits and profit sharing; spec
   `docs/superpowers/specs/2026-10-08-e1a-plan-contribution-limits-design.md`), E1b (stream owner and W-2 kind), E1c (full
-  self-employment, main income and streams), E1d (one-time income treatments), and E1-CA (the Canada port, later, near the
+  self-employment, main income and streams), E1d (one-time income treatments), E1e (inherited traditional IRA / 401(k), split from E1d 2026-10-09), and E1-CA (the Canada port, later, near the
   province move); see the E1a spec section 1.** The original E1 text below is the source for E1b to E1d.
 - **E1. Income character.**
   - Income streams: an owner choice (Partner A / B; hidden in single-person mode) and an "earned income (wages)"
@@ -1587,6 +1587,26 @@ runs; the grid's exactness check on summary tuples (the full rows are covered by
 `docs/next-batches-plan.md` resolved with the branch's implementation block first, then review parts 1-5; this record added after the merge. Open:
 the 162(l) settlement at the final draws (Batch 5, the note at the top of that section). Next: E1d (one-time income tax
 treatments, E1a spec section 1), designed with the owner from the start.
+
+##### E1d: design (owner decisions, 2026-10-09)
+
+Spec `docs/superpowers/specs/2026-10-09-e1d-one-time-income-design.md`. Base `14dde9a` (US V125, Canada V59). US only, no
+shared-region change.
+- The inherited traditional IRA / 401(k) is split out as its own sub-batch, **E1e** (after E1d, before E1-CA); the spec's
+  section 11 records the preferred shape (a real `bal.inheritedTrad` account) and the open questions.
+- Four kinds per lump: tax-free (default; every legacy row), wages (severance, bonus: payroll tax; *Quality Stores*, 572 U.S.
+  141), ordinary income with no payroll tax (nonqualified deferred compensation: FICA at vesting, IRC 3121(v)(2)), long-term
+  capital gain with a gain share.
+- An owner per taxable lump (Partner A / B), hidden in single-person mode and for tax-free; timing stays Partner A's age. A dead
+  owner's wages or ordinary lump goes to the survivor as ordinary income with no payroll tax (IRC 691); a dead owner's gain is
+  tax-free (IRC 1014).
+- Gain rows get an "Active business (no NIIT)" checkbox (IRC 1411(c)(1)(A)(iii), (c)(4)): the gain leaves net investment income
+  but stays in MAGI.
+- Taxable lumps enter the year's cash flow (`wages`), so they pay their own tax and the guardrails never record that tax as a
+  withdrawal; tax-free lumps keep today's cash path exactly.
+- Approach: a pure splitter `lumpAmountsForYear(lumps, ctx, out)` (scratch `LUMP_OUT`); wages and ordinary lumps ride the
+  existing `streamWagesA/B` / `streamOtherA/B` arguments, gains go on new profile fields read only when `profile.lumpOn`.
+- No existing snapshot entry may move; the timing gate is the usual one.
 
 ---
 
