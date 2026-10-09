@@ -140,16 +140,18 @@ Copy (written from what the engine does):
 - `kind` tip: Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the
   owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is
   made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it
-  vested) or similar compensation, a taxable prize or award; not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or
+  vested) or similar compensation, a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or
   other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no
   rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part
-  taxed as ordinary income (depreciation recapture, inventory) goes in a separate ordinary lump. If the owner has died
+  taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation
+  (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died
   (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free
-  (the basis of an asset the owner held alone steps up at death). Every kind raises the year's income for the ACA premium credit and, two years on, IRMAA.
+  (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA.
 - `gainPct` tip: the sale price less the basis (what was paid plus improvements, less depreciation), as a share of the
   amount; the rest comes back tax-free.
-- `activeBusiness` tip: tick for the sale of a business you actively run (or your interest in a partnership or S corporation
-  that runs one): the 3.8% net investment income tax does not apply to that gain. Leave it unticked for a rental, a passive
+- `activeBusiness` tip: tick for the sale of a business you actively run, as a sole proprietor or through a partnership or S
+  corporation (not C-corporation stock: its gain is net investment income; 1411(c)(4) covers only partnerships and S
+  corporations): the 3.8% net investment income tax does not apply to that gain. Leave it unticked for a rental, a passive
   investment or other property; the gain still counts as income for the tax's threshold, the ACA and IRMAA.
 
 ### 5.2 Normalization and legacy
@@ -312,7 +314,9 @@ already in it through `otherA/B`).
 
 ## 9. Not modeled
 
-- Depreciation recapture and other ordinary parts of a sale (enter as an ordinary lump); installment sales; the section 1202
+- Depreciation recapture and other ordinary parts of a sale (enter as an ordinary lump; for a rental this approximates the
+  unrecaptured section 1250 gain, taxed at up to 25% and net investment income, IRC 1(h)(1)(E), (h)(6)(A), per the plan's
+  final review); installment sales; the section 1202
   (QSBS) exclusion; the section 1411(c)(4) look-through beyond the all-or-nothing checkbox.
 - A pension lump sum not rolled over and an annuity payout (the 10% early-withdrawal penalty under 72(t) / 72(q), state
   pension exclusions, and, for an annuity, the NIIT); retirement-account money comes with E1e.
@@ -384,3 +388,5 @@ restore a no-op in a lump year), C1's cash conservation for `gainPct` 0, 40, 100
 `flowTotal > 0` gate covers `lumpOn`, the wages line, both guardrail sites and `row.income`.
 A last check of `5e1a39f` by the same reviewer confirmed decision 11 against the code (the hold, the rewind, the order of
 the clear, no legacy movement) and asked for the hold test to force a step in year t-1 and for two wording points; adopted.
+The plan's final fresh review (2026-10-09, of `c8a7a45`) corrected three tooltip lines adopted above (the NIIT checkbox excludes
+C-corporation stock; only taxable kinds raise MAGI; an employer's award is wages) and the depreciation-recapture note.

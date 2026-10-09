@@ -17,7 +17,7 @@ A lump year records no guardrail withdrawal and clears the last record after its
 **Tech Stack:** `Planner_US.html` (one inline `<script>` IIFE, no build), Node + Playwright tests (`tests/*.js`,
 `test_*.js`).
 
-**Spec:** `docs/superpowers/specs/2026-10-09-e1d-one-time-income-design.md` at `537a30f` (read it first, including
+**Spec:** `docs/superpowers/specs/2026-10-09-e1d-one-time-income-design.md` at the plan's own commit (it changed after `537a30f`) (read it first, including
 decisions 1-11 and section 12; this plan argues from it). Background: `CLAUDE.md` ("MAGI iteration (both engines)", "Per-year
 helpers", "Add-as-you-go lists", "Income streams, owner and kind (US, E1b)", "Self-employment (US, E1c)", "Testing
 checklist"); the E1b plan `docs/superpowers/plans/2026-10-08-e1b-income-streams.md` and `tests/income_streams.js` for the
@@ -124,17 +124,19 @@ Create `test_lump_income.js` (model it on `test_income_streams.js`): load `Plann
 ```js
   // fresh row: kind free; owner, gain share and checkbox hidden
   assert.strictEqual(await page.$eval('#oneTime0Kind', (e) => e.value), 'free');
+  // wrapHidden: the helper test_income_streams.js defines (~line 15; it reads the field wrap's hidden attribute, so a collapsed
+  // group or another sidebar category cannot make a "shown" assert fail); copy it
   for (const id of ['oneTime0Owner', 'oneTime0GainPct', 'oneTime0ActiveBusiness'])
-    assert(!(await page.isVisible('#' + id)), id + ' hidden for a tax-free row');
+    assert(await wrapHidden(id), id + ' hidden for a tax-free row');
   await page.selectOption('#oneTime0Kind', 'wages');
-  assert(await page.isVisible('#oneTime0Owner'), 'owner shown for wages (couple)');
-  assert(!(await page.isVisible('#oneTime0GainPct')), 'gain share hidden for wages');
+  assert(!(await wrapHidden('oneTime0Owner')), 'owner shown for wages (couple)');
+  assert(await wrapHidden('oneTime0GainPct'), 'gain share hidden for wages');
   await page.selectOption('#oneTime0Kind', 'gain');
   for (const id of ['oneTime0Owner', 'oneTime0GainPct', 'oneTime0ActiveBusiness'])
-    assert(await page.isVisible('#' + id), id + ' shown for a gain row');
+    assert(!(await wrapHidden(id)), id + ' shown for a gain row');
   // single-person mode hides the owner
   await setCheck('singlePerson', true); // the helper test_income_streams.js defines (~line 62): copy it
-  assert(!(await page.isVisible('#oneTime0Owner')), 'owner hidden in single-person mode');
+  assert(await wrapHidden('oneTime0Owner'), 'owner hidden in single-person mode');
   await setCheck('singlePerson', false);
   // reload round trip: the row keeps kind, owner, gain share and checkbox through export -> import (or autosave -> reload,
   // whichever test_income_streams.js uses)
@@ -203,7 +205,7 @@ Call it right after `normalizeUsStreams(s, raw);` (~1364): `normalizeUsLumps(s, 
         {
           key: 'kind', kind: 'select', label: 'Tax treatment',
           options: [['free', 'Tax-free'], ['wages', 'Wages (severance, bonus)'], ['ordinary', 'Ordinary income, no payroll tax'], ['gain', 'Long-term capital gain']],
-          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation, a taxable prize or award; not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) goes in a separate ordinary lump. If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every kind raises the year's income for the ACA premium credit and, two years on, IRMAA.",
+          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation; a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA.",
         },
         { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: (it) => !state.singlePerson && (it.kind === 'wages' || it.kind === 'ordinary' || it.kind === 'gain') },
         {
@@ -212,7 +214,7 @@ Call it right after `normalizeUsStreams(s, raw);` (~1364): `normalizeUsLumps(s, 
         },
         {
           key: 'activeBusiness', kind: 'check', label: 'Active business (no NIIT)', showIf: (it) => it.kind === 'gain',
-          tip: 'Tick for the sale of a business you actively run (or your interest in a partnership or S corporation that runs one): the 3.8% net investment income tax does not apply to that gain. Leave it unticked for a rental, a passive investment or other property; the gain still counts as income for the tax\'s threshold, the ACA and IRMAA.',
+          tip: 'Tick for the sale of a business you actively run, as a sole proprietor or through a partnership or S corporation (not C-corporation stock): the 3.8% net investment income tax does not apply to that gain. Leave it unticked for a rental, a passive investment or other property; the gain still counts as income for the tax\'s threshold, the ACA and IRMAA.',
         },
         { key: 'age', kind: 'num', label: 'Received at Partner A age', min: 18, max: 100, step: 1 },
         // (the existing `flat` field, unchanged)
@@ -320,7 +322,9 @@ run, and in `finally` delete every key again and `Object.assign(state, saved)`, 
 `{ singlePerson: true, ageA: 45, retireAgeA: 60, lifeExpectancyA: 90, incomeA: 100000, incomeKindA: 'wages', inflation: 0,
 incomeGrowth: 0, stateTax: 'tx', k401PctA: 0, catchupPctA: 0, iraPctA: 0, profitSharingPctA: 0, megaBackdoor: false,
 healthPremiumA: 0, survivorEnabled: false, incomeSources: [], spending: 40000, guardrailsEnabled: false, acaEnabled: false,
-children: [] }`.
+children: [], matchA: 0, bondYears: 0, tenure: 'rent', rent: 0, returnRate: 5, taxable: 0, cash: 0, tradIraA: 0, trad401kA: 0,
+rothIraA: 0, roth401kA: 0, tradIraB: 0, trad401kB: 0, rothIraB: 0, roth401kB: 0 }`. These pins make year 0 a working surplus
+year with no ladder sale and no investment income, which the "same income tax", MAGI and cash-conservation asserts rely on.
 
 ```js
   // severance, under the wage base: payroll +7.65% of 50,000 = 3,825 (2026 wage base 184,500)
@@ -398,21 +402,20 @@ Owner B in a two-return year, concretely:
   near(cB.trace[0].ficaTax - c0.trace[0].ficaTax, 14574 - 12240, 1e-6, "B's payroll tax on B's wage base");
   assert.strictEqual(cB.trace[0].profile.wageA, c0.trace[0].profile.wageA, "A's wage untouched");
   near(cB.trace[0].profile.wageB - c0.trace[0].profile.wageB, 50000, 1e-6, "B's wage");
-  // A's return alone (taxFor on a two-filer profile is A's + B's): the credit on A is the same with and without B's lump
-  const credA = await page.evaluate(([p0, p1]) => {
-    const t = window.__test_tax;
-    return [t.childCredits(p0.dependents, 'hoh', 0, p0.otherA, 1e9, p0.wageA), t.childCredits(p1.dependents, 'hoh', 0, p1.otherA, 1e9, p1.wageA)];
+  // A's own return (with the children) is untouched by B's lump: price it as A's one-person hoh return from each run's profile
+  const retA = await page.evaluate(([p0, p1]) => {
+    const t = window.__test_tax, one = (p) => t.taxFor({ ...p, filing: 'hoh', singlePerson: true, otherB: 0, wageB: 0, extraB: 0, ssB: 0, ageB: null, lumpOn: false }, 0, 0);
+    return [one(p0), one(p1)];
   }, [c0.trace[0].profile, cB.trace[0].profile]);
-  assert.deepStrictEqual(credA[0], credA[1], "A's child credit unchanged by B's lump");
+  assert.strictEqual(retA[0], retA[1], "A's return (and A's child credit) unchanged by B's lump");
 ```
 
-(The `engine` helper must return `profile` with `dependents` and `otherA`; `childCredits`' signature is
-`(dependents, filing, yearIndex, magi, federalTax, earnedIncome)`. If a value needs a figure this plan does not give,
+(The `engine` helper must return the whole `profile` of each trace entry. If a value needs a figure this plan does not give,
 compute it by hand in a comment first, then assert it.)
 
 Guardrail cases (decisions 7 and 11). Base `G`: `{ singlePerson: true, ageA: 60, retireAgeA: 60, lifeExpectancyA: 90,
 incomeA: 0, inflation: 0, stateTax: 'tx', acaEnabled: false, medicareYearly: 0, ssMonthlyA: 0, tenure: 'rent', rent: 0,
-taxable: 600000, cash: 0, cashReserve: 0, bondYears: 0, tradIraA: 0, trad401kA: 0, rothIraA: 0, roth401kA: 0, spending:
+taxable: 600000, cash: 0, cashReserve: 0, bondYears: 0, returnRate: 5, tradIraA: 0, trad401kA: 0, rothIraA: 0, roth401kA: 0, spending:
 30000, guardrailsEnabled: true, survivorEnabled: false, incomeSources: [], children: [] }` (set the remaining account keys
 to 0 as `tests/aca_medicaid.js`'s guard case does).
 
@@ -638,6 +641,11 @@ implementation-independent and pin every reader in each branch at once:
       // NIIT alone: single, other 300,000, lump 100,000: NII 100,000, MAGI - 200,000 = 200,000: 3.8% x 100,000 = 3,800
       const q = P({ otherA: 300000, wageA: 300000, lumpOn: true, lumpGainA: 100000 });
       out.niit = t.taxFor(q, 0, 0) - t.taxFor({ ...q, lumpGainNoNiitA: 100000 }, 0, 0);
+      // the excluded gain stays in NIIT's MAGI: other 150,000, lump 100,000 of which 50,000 active. Correct: NII 50,000, MAGI
+      // 250,000 - 200,000 = 50,000 -> NIIT 1,900, the same as with no exclusion (NII 100,000, excess 50,000 -> 1,900). A wrong
+      // implementation that also took the excluded gain out of MAGI (200,000) would give 0.
+      const m = P({ otherA: 150000, wageA: 150000, lumpOn: true, lumpGainA: 100000 });
+      out.niitMagi = t.taxFor(m, 0, 0) - t.taxFor({ ...m, lumpGainNoNiitA: 50000 }, 0, 0);
       // child credit: joint, other 380,000; a 40,000 lump gain makes MAGI 420,000, over the 400,000 joint line by 20 x 1,000:
       // the credit falls by 20 x 50 = 1,000 (credits read through childCredits with the branch's MAGI)
       out.ctc = t.childCredits(kids, 'mfj', 0, 380000, 1e9, 380000).nonrefundable - t.childCredits(kids, 'mfj', 0, 420000, 1e9, 380000).nonrefundable;
@@ -647,6 +655,7 @@ implementation-independent and pin every reader in each branch at once:
   for (const [code, filing, se, viaLump, viaArg] of tf.eq) assert(Object.is(viaLump, viaArg), `lump gain = gains arg: ${code} ${filing} se=${se}: ${viaLump} vs ${viaArg}`);
   for (const [code, se, two, sum] of tf.two) near(two, sum, 1e-6, `two-filer = A's + B's one-person returns: ${code} se=${se}`);
   near(tf.niit, 3800, 1e-6, 'active business removes the NIIT on that gain');
+  assert.strictEqual(tf.niitMagi, 0, 'the excluded gain stays in the NIIT MAGI test');
   near(tf.ctc, 1000, 1e-6, 'CTC phase-out arithmetic (the joint equivalence above shows the branch passes the lump in the MAGI)');
 ```
 
@@ -663,6 +672,8 @@ table and name them in the task report.) Add the engine cases (helper `engine` f
   near(gl.rows[0].magiProxy - base.rows[0].magiProxy, 60000, 1e-6, 'gain share in MAGI');
   near(gl.rows[0].income - base.rows[0].income, 60000, 1e-6, 'row.income carries the gain');
   near(gl.rows[0].investable, base.rows[0].investable + 100000 - (gl.rows[0].tax - base.rows[0].tax), 0.01, 'cash conservation: gain 60%');
+  const ga = await engine({ ...W, incomeA: 200000 }, [L({ age: 45, amount: 100000, kind: 'gain', gainPct: 60, activeBusiness: true })]);
+  near(ga.rows[0].magiProxy, gl.rows[0].magiProxy, 1e-6, 'active business: the gain stays in MAGI');
   // ACA: the aca_medicaid guard household (TX single 58, IRA 600,000, spending 14,000, premium 12,000, ACA on, enhanced off,
   // guardrails off); an ordinary lump of 80,000 at 60 (index 2) puts MAGI over 400% of the poverty line: that year's
   // healthcare equals the same year's healthcare with ACA modeling off (the full premium)
@@ -794,6 +805,13 @@ git commit -m "E1d 3: gain lumps in taxFor (every branch reader), NIIT active-bu
     ['R lump dead owner', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 58, oneTimeIncome: [{ amount: 80000, age: 58, flat: false, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }, { amount: 300000, age: 60, flat: false, kind: 'gain', owner: 'A', gainPct: 70, activeBusiness: false }] }],
     ['R lump guardrails later', { ...R, guardrailsEnabled: true, oneTimeIncome: [{ amount: 60000, age: 60, flat: false, kind: 'wages', owner: 'A', gainPct: 100, activeBusiness: false }] }],
     ['R lump ACA line', { ...R, acaEnabled: true, oneTimeIncome: [{ amount: 40000, age: 53, flat: false, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+```
+
+Add one historical scenario to the `hist` list (`tests/snapshot_scenarios.js` ~296, the bucket strategy; spec 6.2 says lumps
+enter `flow` in both strategies):
+
+```js
+    ['hist R lump gain | real1966', { ...US_R, oneTimeIncome: [{ amount: 400000, age: 56, flat: false, kind: 'gain', owner: 'A', gainPct: 60, activeBusiness: false }, { amount: 150000, age: 53, flat: false, kind: 'wages', owner: 'B', gainPct: 100, activeBusiness: false }] }, 'real1966'],
 ```
 
 - [ ] **Step 2: Regenerate and check**

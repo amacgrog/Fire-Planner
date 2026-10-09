@@ -1635,6 +1635,12 @@ blocking finding; adopted: a UI check that a kind change reaches the projection,
 ordinary lumps (death year included), the ACTC from severance against deferred compensation, the engine helper's save/restore
 pattern, `mt` / `nm` as the gain-rule states, `__test_tax` (no new hook), the gain-band cases replaced by the bit-exact
 equivalence (stated), and the spec's section 7 note on the DYN rows made by the spec owner instead of Task 4.
+A final fresh Opus review of the plan at `c8a7a45` (2026-10-09): no blocking finding; adopted: a NIIT case where the MAGI excess binds
+(the excluded gain must stay in MAGI) and an engine MAGI check with the box ticked; the engine households pinned (no ladder sale, no
+investment income, rent); the tooltips (the NIIT box excludes C-corporation stock, 1411(c)(4); only taxable kinds raise MAGI; an
+employer's award is wages; depreciation recapture as an ordinary lump is an approximation, a rental's being unrecaptured section 1250
+gain at up to 25%, IRC 1(h)(1)(E), (h)(6)(A)); a historical snapshot scenario (the bucket strategy); `wrapHidden` in the UI test; a
+real check of A's return in the owner-B case; the plan's spec citation.
 
 ---
 
