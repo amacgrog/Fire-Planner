@@ -6706,6 +6706,9 @@
       seNetB = profile.seNetB || 0,
       seEarnedA = profile.seEarnedA || 0,
       seEarnedB = profile.seEarnedB || 0,
+      // E1c: the self-employed health insurance deduction (162(l)), above the line on the owner's return.
+      seHA = profile.seHealthA || 0,
+      seHB = profile.seHealthB || 0,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6716,13 +6719,15 @@
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
     if (filingRow(profile.filing).joint) {
-      const other = profile.otherA + profile.otherB + gains + traditionalExtra + invOrd;
+      // The household's other income net of the 162(l) deduction, read once (both sums below start with it).
+      const otherAB = profile.otherA + profile.otherB - (seHA + seHB);
+      const other = otherAB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
-      const ordinary = profile.otherA + profile.otherB + traditionalExtra + invOrd + taxableSS;
+      const ordinary = otherAB + traditionalExtra + invOrd + taxableSS;
       let sources = null;
       if (stateOn) {
         sources = SOURCES_JOINT;
-        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB) + (seNetA + seNetB);
+        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB) + (seNetA - seHA + (seNetB - seHB));
         sources.pension = profile.pensionA + profile.pensionB;
         sources.retirement = profile.rmdA + profile.rmdB + traditionalExtra;
         sources.gains = gains;
@@ -6776,16 +6781,17 @@
     // qualifying surviving spouse), or, in the last branch, two separate filers.
     const status = FILING[profile.filing] && profile.filing !== 'mfj' ? profile.filing : 'single';
     if (profile.singlePerson) {
+      const otherA1 = profile.otherA - seHA;
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
-        profile.otherA + gains + traditionalExtra + invOrd,
+        otherA1 + gains + traditionalExtra + invOrd,
         status,
       );
-      const ordinary = profile.otherA + traditionalExtra + invOrd + taxableSS;
+      const ordinary = otherA1 + traditionalExtra + invOrd + taxableSS;
       let sources = null;
       if (stateOn) {
         sources = SOURCES_SINGLE;
-        sources.wages = profile.wageA + invOrd + extraA + seNetA;
+        sources.wages = profile.wageA + invOrd + extraA + (seNetA - seHA);
         sources.pension = profile.pensionA;
         sources.retirement = profile.rmdA + traditionalExtra;
         sources.gains = gains;
@@ -6845,23 +6851,25 @@
       tradB = traditionalExtra * (1 - shareA),
       invA = invOrd / 2,
       invB = invOrd / 2;
+    const otherA2 = profile.otherA - seHA,
+      otherB2 = profile.otherB - seHB;
     const taxableSSA = taxableSocialSecurity(
       profile.ssA,
-      profile.otherA + gainA + tradA + invA,
+      otherA2 + gainA + tradA + invA,
       statusA,
     );
     const taxableSSB = taxableSocialSecurity(
       profile.ssB,
-      profile.otherB + gainB + tradB + invB,
+      otherB2 + gainB + tradB + invB,
       'single',
     );
-    const ordinaryA = profile.otherA + tradA + invA + taxableSSA,
-      ordinaryB = profile.otherB + tradB + invB + taxableSSB;
+    const ordinaryA = otherA2 + tradA + invA + taxableSSA,
+      ordinaryB = otherB2 + tradB + invB + taxableSSB;
     let sourcesA = null,
       sourcesB = null;
     if (stateOn) {
       sourcesA = SOURCES_A;
-      sourcesA.wages = profile.wageA + invA + extraA + seNetA;
+      sourcesA.wages = profile.wageA + invA + extraA + (seNetA - seHA);
       sourcesA.pension = profile.pensionA;
       sourcesA.retirement = profile.rmdA + tradA;
       sourcesA.gains = gainA;
@@ -6885,7 +6893,7 @@
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
       sourcesB = SOURCES_B;
-      sourcesB.wages = profile.wageB + invB + extraB + seNetB;
+      sourcesB.wages = profile.wageB + invB + extraB + (seNetB - seHB);
       sourcesB.pension = profile.pensionB;
       sourcesB.retirement = profile.rmdB + tradB;
       sourcesB.gains = gainB;
@@ -7247,7 +7255,8 @@
   function returnMagis(profile, trad, gain) {
     const s = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA,
       inv = ((profile.invOrd || 0) + (profile.invQual || 0)) / 2;
-    return [profile.otherA + profile.ssA + inv + trad * s + gain / 2, profile.otherB + profile.ssB + inv + trad * (1 - s) + gain / 2];
+    // E1c: each return's MAGI is net of its own 162(l) deduction (0 for everyone else).
+    return [profile.otherA - (profile.seHealthA || 0) + profile.ssA + inv + trad * s + gain / 2, profile.otherB - (profile.seHealthB || 0) + profile.ssB + inv + trad * (1 - s) + gain / 2];
   }
   // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
   // that year, against the single tiers. Null when the lookback year was one return (household rule).
@@ -7321,11 +7330,12 @@
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
       if (joint) {
-        const other = profile.otherA + profile.otherB + conv,
+        // E1c (decision 8c): AGI is lower by the 162(l) deduction; QBI is not seen by the fill.
+        const other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
           taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
         return other + taxableSS;
       }
-      const other = profile.otherA + (profile.otherB || 0) + conv,
+      const other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
         taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
       return other + taxableSS;
     };
@@ -8729,6 +8739,8 @@
     soloPlanCutB = 0,
     soloIraCutA = 0,
     soloIraCutB = 0,
+    seAllowA = false,
+    seAllowB = false,
   }) {
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
@@ -8796,6 +8808,11 @@
             sePlanNetB: 0,
             seEarnedA: seB > 0 ? seB - halfB : 0,
             seEarnedB: 0,
+            // E1c: the 162(l) permission follows the survivor; the deduction itself is set every MAGI pass.
+            seAllowA: seAllowB,
+            seAllowB: false,
+            seHealthA: 0,
+            seHealthB: 0,
             // Children stay with the surviving parent.
             dependents: dependentsInYear(taxYearOf(year)),
           }
@@ -8834,6 +8851,11 @@
             sePlanNetB,
             seEarnedA: seA > 0 ? seA - halfA : 0,
             seEarnedB: seB > 0 ? seB - halfB : 0,
+            // E1c: may each person take the 162(l) deduction this year; the deduction itself is set every MAGI pass.
+            seAllowA,
+            seAllowB,
+            seHealthA: 0,
+            seHealthB: 0,
           };
     return { otherA, otherB, profile };
   }
@@ -8884,14 +8906,19 @@
           : inflate(eligibleA ? total / 2 : 0) + inflate(eligibleB ? total / 2 : 0);
     let usesMagiEstimate = false;
     let healthcare;
+    // E1c: each person's own part of the premiums on two returns (the 162(l) deduction's base); 0 on one return.
+    let premA = 0,
+      premB = 0;
     if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
       if (twoReturns) {
         // Two tax households: A's includes the children A claims; each partner's half of the premium is
         // priced on their own MAGI and poverty line.
         const kids = qualifyingChildCount(taxYearOf(year));
-        healthcare =
-          acaNetCost(magiA, 1 + kids, inflate(acaEligibleA ? state.healthcare / 2 : 0), year) +
-          acaNetCost(magiB, 1, inflate(acaEligibleB ? state.healthcare / 2 : 0), year);
+        const ca = acaNetCost(magiA, 1 + kids, inflate(acaEligibleA ? state.healthcare / 2 : 0), year),
+          cb = acaNetCost(magiB, 1, inflate(acaEligibleB ? state.healthcare / 2 : 0), year);
+        healthcare = ca + cb;
+        premA = ca;
+        premB = cb;
       } else {
         const householdSize = acaHouseholdSize(singlePerson, isSurvivorPeriod, year);
         const grossPremium = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
@@ -8903,6 +8930,10 @@
       // modeling off, or both partners past 65) stops for a partner at 65;
       // Medicare below is what covers them from then on.
       healthcare = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
+      if (twoReturns) {
+        premA = inflate(acaEligibleA ? state.healthcare / 2 : 0);
+        premB = inflate(acaEligibleB ? state.healthcare / 2 : 0);
+      }
     }
     // Medicare starts at 65 for a partner without employer coverage (workingX here is employer coverage: a W-2 job still
     // worked, or a W-2 stream with a premium): a partner still working at 65
@@ -8912,17 +8943,37 @@
       medicareEligibleB =
         !singlePerson && ageB >= 65 && !workingB && !(isSurvivorPeriod && deceasedIsB);
     healthcare += sharedCost(state.medicareYearly, medicareEligibleA, medicareEligibleB);
+    if (twoReturns) {
+      premA += inflate(medicareEligibleA ? state.medicareYearly / 2 : 0);
+      premB += inflate(medicareEligibleB ? state.medicareYearly / 2 : 0);
+    }
     // IRMAA applies only to partners actually on Medicare (see above), using
     // the two-year lookback of Medicare's MAGI (irmaaHistory: only the taxable part of Social Security).
     // A lookback year with two returns charges each person on their own MAGI against the single tiers.
     const split = twoReturnHistory ? irmaaLookbackSplit(irmaaHistoryA, irmaaHistoryB, twoReturnHistory, year) : null;
     if (split) {
-      if (medicareEligibleA) healthcare += irmaaSurcharge(split[0], 'single', year);
-      if (medicareEligibleB) healthcare += irmaaSurcharge(split[1], 'single', year);
+      if (medicareEligibleA) {
+        const ia = irmaaSurcharge(split[0], 'single', year);
+        healthcare += ia;
+        if (twoReturns) premA += ia;
+      }
+      if (medicareEligibleB) {
+        const ib = irmaaSurcharge(split[1], 'single', year);
+        healthcare += ib;
+        if (twoReturns) premB += ib;
+      }
     } else {
       const lookbackMagi = irmaaLookbackMagi(irmaaHistory, year);
-      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (medicareEligibleA) {
+        const ia = irmaaSurcharge(lookbackMagi, filing, year);
+        healthcare += ia;
+        if (twoReturns) premA += ia;
+      }
+      if (medicareEligibleB) {
+        const ib = irmaaSurcharge(lookbackMagi, filing, year);
+        healthcare += ib;
+        if (twoReturns) premB += ib;
+      }
     }
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
@@ -8932,7 +8983,29 @@
           : 0) *
           factor * medicalGrowth(year)
       : 0;
-    return { healthcare, ltc, usesMagiEstimate };
+    return { healthcare, ltc, usesMagiEstimate, premA, premB };
+  }
+
+  // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
+  // the credit, the flat premium, Medicare and IRMAA; all of it is insurance for the household). A person may deduct it
+  // only in a year without employer coverage of their own or through a spouse (profile.seAllowX), up to their net
+  // self-employment earned income (sePlanNetX: profit less half the SE tax and the Solo 401(k) plan money, IRC 401(c)(2);
+  // a traditional IRA does not reduce it). One return: the
+  // household's premiums, up to both caps (either spouse may claim the family's). Two returns: each person's own part
+  // (premA includes the children). Pure; fills `out`.
+  const SE_HEALTH = [0, 0];
+  function seHealthDeduction(healthcare, premA, premB, twoReturns, profile, out) {
+    const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0,
+      capB = profile.seAllowB ? profile.sePlanNetB || 0 : 0;
+    if (twoReturns) {
+      out[0] = Math.min(premA, capA);
+      out[1] = Math.min(premB, capB);
+    } else {
+      const total = Math.min(healthcare, capA + capB);
+      out[0] = Math.min(total, capA);
+      out[1] = total - out[0];
+    }
+    return out;
   }
 
   // @@shared:nextGuardrailMultiplier begin
@@ -10231,6 +10304,8 @@
     // the estimate matches this year's realized amounts, so ACA/IRMAA MAGI
     // reflects this year's own withdrawals, not last year's.
     let prevDiscTraditional = 0,
+      prevSeHealthA = 0,
+      prevSeHealthB = 0,
       prevTaxableGainGross = 0;
     // Guyton-Klinger guardrails (simplified, opt-in): once the first
     // portfolio withdrawal occurs, that year's draw as a fraction of the
@@ -10351,6 +10426,11 @@
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
       const { filing } = filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear });
+      // E1c: 162(l) is barred in a year the person has employer coverage, or could join a spouse's employer plan (an
+      // unticked box means no affordable offer; an unmarried partner's employer never bars it).
+      const jointYear = filingRow(filing).joint && !singlePerson && !isSurvivorPeriod,
+        seAllowA = seA > 0 && !employerA && !(jointYear && employerB && state.employerCoversSpouseB),
+        seAllowB = seB > 0 && !employerB && !(jointYear && employerA && state.employerCoversSpouseA);
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
       const inv = investmentIncome(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
@@ -10398,6 +10478,8 @@
         soloPlanCutB,
         soloIraCutA,
         soloIraCutB,
+        seAllowA,
+        seAllowB,
       });
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
@@ -10412,14 +10494,20 @@
         deceasedIsA,
         deceasedIsB,
       });
-      const magiBase = otherA + otherB + ss + inv.ordinary + inv.qualified;
+      const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;
+      // The pass's MAGI base: magiBase0 less the pass's 162(l) estimate (E1c; set at the top of each pass).
+      let magiBase = magiBase0;
       // MAGI iteration: estTrad/estGain are the discretionary traditional
       // withdrawals / taxable gains assumed when sizing ACA, IRMAA-tier and
       // conversion headroom; estUsed records whether this year's result
       // depended on them at all (no ACA premium, no finite MAGI ceiling), in
-      // which case a single pass is already exact.
+      // which case a single pass is already exact. estSeA/estSeB are the
+      // self-employed health insurance deductions (E1c) the pass's MAGI
+      // assumes; they converge with the other two.
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
+        estSeA = prevSeHealthA,
+        estSeB = prevSeHealthB,
         estUsed = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
@@ -10469,6 +10557,9 @@
             accountsRestore(accts, acctSnapshot);
           }
           profile.ownerShareA = ownerShareA0;
+          profile.seHealthA = estSeA;
+          profile.seHealthB = estSeB;
+          magiBase = magiBase0 - estSeA - estSeB;
           phasePass++;
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
@@ -10539,12 +10630,21 @@
           irmaaHistoryB: irmaaMagiHistoryB,
           twoReturnHistory,
         };
-        // The cost at another (discretionary traditional + conversion, gains) pair: the forced pass prices
-        // the realized one, and 3C's solver prices its candidates.
-        const costAt = (trad, gain) => {
-          hcArgs.magiProxy = magiBase + trad + gain;
-          if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
-          const c = healthcareCost(hcArgs).healthcare;
+        // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
+        // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
+        let lastCost = null;
+        const costAt = (trad, gain, sa = estSeA, sb = estSeB) => {
+          hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
+          if (twoReturns) {
+            const ra = profile.seHealthA, rb = profile.seHealthB;
+            profile.seHealthA = sa;
+            profile.seHealthB = sb;
+            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
+            profile.seHealthA = ra;
+            profile.seHealthB = rb;
+          }
+          lastCost = healthcareCost(hcArgs);
+          const c = lastCost.healthcare;
           hcArgs.magiProxy = magiProxy;
           hcArgs.magiA = magiA;
           hcArgs.magiB = magiB;
@@ -10569,7 +10669,13 @@
         const irmaaAt = (trad, gain) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
+            // E1c: priced on the pass's 162(l) estimate, as costAt.
+            const ra = profile.seHealthA, rb = profile.seHealthB;
+            profile.seHealthA = estSeA;
+            profile.seHealthB = estSeB;
             const [ma, mb] = returnMagis(profile, trad, gain);
+            profile.seHealthA = ra;
+            profile.seHealthB = rb;
             return (
               (medA ? irmaaSurcharge(irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
@@ -10629,9 +10735,21 @@
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
         if (usesMagiEstimate) estUsed = true;
-        // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
-        // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
-        profile.medicalExpense = healthcare + ltc;
+        // E1c: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at the convergence test.
+        let seRealA = 0,
+          seRealB = 0;
+        if (profile.seAllowA || profile.seAllowB) {
+          seHealthDeduction(healthcare, hcOut.premA, hcOut.premB, twoReturns, profile, SE_HEALTH);
+          seRealA = SE_HEALTH[0];
+          seRealB = SE_HEALTH[1];
+        }
+        profile.seHealthA = seRealA;
+        profile.seHealthB = seRealB;
+        // The pass's MAGI used estSeA/estSeB: the convergence test must check them.
+        if (estSeA !== 0 || estSeB !== 0 || seRealA !== 0 || seRealB !== 0) estUsed = true;
+        // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself, less the
+        // premiums deducted under 162(l). Set every pass: it follows the premium, which follows this pass's MAGI estimate.
+        profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
         const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
@@ -10744,16 +10862,18 @@
         const resolvedMixCandidate = wd.mixCandidate;
         const realizedTrad = traditionalGross - conversionAmount;
         const unconverged =
-          estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;
+          estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB) });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
           const w = phasePass >= 3 ? 0.5 : 1;
           estTrad += w * (realizedTrad - estTrad);
           estGain += w * (taxableGainGross - estGain);
+          estSeA += w * (seRealA - estSeA);
+          estSeB += w * (seRealB - estSeB);
           continue;
         }
         if (unconverged && !forcedPass && !replaying && usesMagiEstimate) {
@@ -10766,6 +10886,8 @@
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;
+            estSeA = pick.estSeA;
+            estSeB = pick.estSeB;
             forcedPass = true;
             continue;
           }
@@ -10777,11 +10899,19 @@
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds.
-          const realizedCost = costAt(traditionalGross, taxableGainGross),
+          const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
           expenses -= refund;
-          profile.medicalExpense = healthcare + ltc;
+          // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above).
+          if (profile.seAllowA || profile.seAllowB) {
+            seHealthDeduction(healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+            seRealA = SE_HEALTH[0];
+            seRealB = SE_HEALTH[1];
+            profile.seHealthA = seRealA;
+            profile.seHealthB = seRealB;
+          }
+          profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
           const taxAfter = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           bal.cash += refund + (totalTax - taxAfter);
           totalTax = taxAfter;
@@ -10794,7 +10924,8 @@
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
-        const realizedMagi = magiBase + traditionalGross + taxableGainGross;
+        // E1c: net of the realized 162(l) deduction (also after a forced pass).
+        const realizedMagi = magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross;
         // Phased year, at the end of a phase (see the phase notes above the loop).
         if (phased && !replaying) {
           let next = -1;
@@ -10833,7 +10964,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -10843,7 +10974,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -10864,6 +10995,8 @@
               yearPlan = NO_PLAN;
               estTrad = naturalRec.estTrad;
               estGain = naturalRec.estGain;
+              estSeA = naturalRec.estSeA;
+              estSeB = naturalRec.estSeB;
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
               replaying = true;
@@ -10876,7 +11009,7 @@
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -10892,6 +11025,8 @@
                 yearPlan = best.plan;
                 estTrad = best.estTrad;
                 estGain = best.estGain;
+                estSeA = best.estSeA;
+                estSeB = best.estSeB;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
                 replaying = true;
@@ -10905,6 +11040,8 @@
             yearPlan = trials[next];
             estTrad = naturalRec.realizedTrad;
             estGain = naturalRec.gain;
+            estSeA = naturalRec.seA;
+            estSeB = naturalRec.seB;
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;
@@ -10918,6 +11055,8 @@
         // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be.
         prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
         prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;
+        prevSeHealthA = naturalRec ? naturalRec.seA : seRealA;
+        prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;
         if (phased && planTr) {
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
           planTr.intent = (intents && intents[age]) || null;
@@ -16682,6 +16821,7 @@
   window.__test_payrollTax = payrollTax;
   window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
   window.__test_streamCoverBits = streamCoverBits;
+  window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];
   window.__test_soloPlanContributions = (q) => {
     const P = SOLO_IN;
     for (const k of ['se', 'half', 'main', 'w2Comp', 'iraLeft']) { P[k][0] = q[k][0]; P[k][1] = q[k][1]; }
