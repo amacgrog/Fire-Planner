@@ -301,6 +301,13 @@ const path = require('path');
   const sG = await engine(S0, [L({ age: 48, amount: 300000, kind: 'gain', gainPct: 70 })]),
     sF = await engine(S0, [L({ age: 48, amount: 300000, kind: 'free' })]);
   assert.strictEqual(sG.rows[3].tax, sF.rows[3].tax, "dead owner's gain is tax-free");
+  assert.strictEqual(sG.rows[3].magiProxy, sF.rows[3].magiProxy, "dead owner's gain is not in MAGI");
+  // the B-dies twin (both 45, so B also dies at index 2): B's gain at A's 48 (index 3) is tax-free and outside MAGI
+  const SB = { ...S0, survivorPartner: 'B' };
+  const bG = await engine(SB, [L({ age: 48, amount: 300000, kind: 'gain', gainPct: 70, owner: 'B' })]),
+    bF = await engine(SB, [L({ age: 48, amount: 300000, kind: 'free', owner: 'B' })]);
+  assert.strictEqual(bG.rows[3].tax, bF.rows[3].tax, "dead owner's gain is tax-free (B dies)");
+  assert.strictEqual(bG.rows[3].magiProxy, bF.rows[3].magiProxy, "dead owner's gain is not in MAGI (B dies)");
   // a dead owner's ordinary lump in the death year (A's 47, index 2, decision 10) and wages lump the year after (48,
   // index 3): both reach the survivor's return as other income (extraA after the survivor remap), with no payroll tax
   const sN = await engine(S0, []),
