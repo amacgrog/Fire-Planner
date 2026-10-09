@@ -1417,10 +1417,67 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 ## Batch 5: optimizer
 
-**Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** E1c holds a deduction priced
-on the draws of the pass that failed to converge (spec decision 12), which can understate it when the draws move afterwards.
-Batch 5 replaces the hold with an exact settlement at the year's final draws. Design: being worked out with the owner
-(2026-10-09); recorded here when agreed.
+**Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
+the start of Batch 5 (brainstorming, architectural path: a written spec before any plan); the notes below are the starting point,
+not decisions.
+
+*The problem.* In a year whose MAGI iteration does not converge with a 162(l) deduction allowed, E1c holds a deduction (the
+consistent one if a bisection finds it, else Rev. Proc. 2014-41 section 5.02's) computed on the draws of the pass that failed to
+converge, and re-runs the year with it held (spec decisions 9, 10, 12 of `docs/superpowers/specs/2026-10-08-e1c-self-employment-design.md`).
+The re-run's draws respond to the new premium, so the year can end with a deduction that is neither consistent nor 5.02's at its
+own final income. Always an understatement so far (legal, conservative): at `9b47b3a`, in the grid below, the stale hold is off
+by hundreds of dollars in many band years and by about $12,000 in some (5.02 from stale draws, where the final draws' 5.02 gives
+the full premium). A one-shot re-hold at the final draws (decision 11) was tried and withdrawn: it flips across the 400% line and
+deducted more than the premium paid in 224 of 8,610 grid years (worst $12,829; E1c review part 5). Root cause: the draws pay for
+the premium and the tax, which depend on the deduction, which depends on the draws; in the band there is sometimes no year where
+all three agree, so any exact design must let the legal answer at the final draws differ from what the draws paid for, and settle
+the difference somewhere.
+
+*Goal (the spec owner's reading, to confirm).* Every self-employed year ends exactly legal at its own final income: the deduction
+is the consistent one, else 5.02's, for that income; the premium charged is the cost at the resulting MAGI; the deduction never
+exceeds the premium paid. Converged years unchanged (byte-identical); no pre-E1c snapshot entry moves; no new input; timing within
++5% per path; the same behaviour in the standard projection, historical and Monte Carlo runs and the cliff plan's phases.
+
+*First open question (asked, not answered): where the settlement's cash difference goes.*
+- A. Next year, as a real return does (the return and the premium tax credit reconciliation, Form 8962, are filed the next
+  spring): the year keeps its draws and the true-up is an inflow or outflow of the next year's cash flow (the last year: the
+  estate). No same-year shortfall rule, no re-run. Spec owner's lean.
+- B. The same year through cash, like the forced pass's refund today (`bal.cash += refund + (totalTax - taxAfter)`): simple for a
+  refund, but a balance due can take cash below zero after the draws, and the engine has no rule for that (no negative-cash guard
+  exists).
+- C. The same year with one extra draw for a balance due: stays inside the year but changes the MAGI again (gains or traditional
+  money), which reopens the circularity.
+
+*Related, decide together.* The forced pass (7O follow-up F5; spec of the Medicaid and 100%-of-FPL cliffs) already settles the
+premium at the realized MAGI and refunds the difference to cash, for the same reason (no fixed point at a step-down). A Batch 5
+settlement could be one mechanism for both (the premium cliffs and 162(l)), or 162(l) only. Also: whether the settled deduction
+feeds `prevSeHealthA/B` (next year's seed), the recorded MAGI (`realizedMagi`, `irmaaMagiHistory`, the IRMAA lookback), and the
+guardrail and `firstWithdrawal` records (the forced pass re-records them net of its refund).
+
+*Code sites (at the E1c merge; re-read then).* In the US `runProjection` year loop: the switch block after the damped-continue
+block (`if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB))`, the per-pass `seSearch`
+closure, the $0 guard, `seHeld`, `seKind` and the kept-phase counters `magiStats.seFixed` / `seAlternative`); site 7 (the held pair
+taken as the realized pair); the forced-pass pick and its true-up block (`if (forcedPass && flow < 0)`); `costAt`, `lastCost`,
+`seHealthDeduction`, `SE_HEALTH`; `realizedMagi`; the cliff plan's carries (`naturalRec`, `trialRecs`, the fallback and winner
+replays, the trial-start reset), which every new per-phase variable must join; `prevSeHealthA/B`. The historical and Monte Carlo
+paths run the same loop (`BUCKET_MODE`); keep it one loop (a mode switch, never a fork).
+
+*Tests and probes to reuse.* `tests/se_health.js`: the Task 9a cases (single 70,000 / 73,000 / 74,000 and 82,000; joint 99,000 /
+100,000; two returns 70,000-74,000; the Medicaid line), the Task 10a `zero` and `joint` cases and the Task 11 `invariant grid`
+(deduction never above the premium paid, premium = cost at the recorded MAGI; it also counts the understated years, which the
+settlement should take to zero). The spec owner's grid: single, 60, retiring at 60, main income 0, one `kind: 'self'` stream owned
+by A of 20,000-60,000 by 1,000, spending 20,000-40,000 by 1,000, taxable 500,000 at `basisRatio` 30 and 60, `tx`, `acaEnabled`,
+premium 18,000, inflation / income growth / medical inflation 0, `tenure: 'rent'`, `rent: 0`, years 0-4 (8,610 years); per year
+compare `seHealthA` with the search at the final draws (`base = magiProxy + seHealthA`, `cap = sePlanNetA`, the consistent `d` by
+bisection if `|g| < 1`, else 5.02 at `base`). The independent reviewer's eleven probe households (two returns with children, both
+self-employed with `capA` binding, near 100% of the poverty line, the Medicaid box on and off, historical and seeded paths,
+survivors; E1c review part 4) and its mutation list.
+
+*Facts.* Rev. Proc. 2014-41 (IRB 2014-33): section 5.01 (iterative; if it never comes within $1 the taxpayer "should not use the
+iterative calculation method, but may use the alternative calculation method ... or another method that produces amounts that
+satisfy applicable tax law"), 5.02 (alternative: step 1 the deduction at the full premiums, steps 2-3 the deduction at the
+premium less the step-2 credit, step 4 the final credit at the step-3 MAGI), 5.03 (the cap: earned income from the business).
+Retrieved 2026-10-09 (`https://www.irs.gov/pub/irs-irbs/irb14-33.pdf`).
 
 Run after the engine and tax model have settled, since objective values and
 timing both depend on them.
