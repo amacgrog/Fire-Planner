@@ -6701,6 +6701,11 @@
       // Not-earned income streams ride in their owner's slot of `other` (E1b); the state taxes them as wages.
       extraA = profile.extraA || 0,
       extraB = profile.extraB || 0,
+      // E1c: self-employment net rides in other; the state taxes it as wages, and it is earned income for the ACTC.
+      seNetA = profile.seNetA || 0,
+      seNetB = profile.seNetB || 0,
+      seEarnedA = profile.seEarnedA || 0,
+      seEarnedB = profile.seEarnedB || 0,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6717,7 +6722,7 @@
       let sources = null;
       if (stateOn) {
         sources = SOURCES_JOINT;
-        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB);
+        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB) + (seNetA + seNetB);
         sources.pension = profile.pensionA + profile.pensionB;
         sources.retirement = profile.rmdA + profile.rmdB + traditionalExtra;
         sources.gains = gains;
@@ -6740,7 +6745,7 @@
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6760,7 +6765,7 @@
       const federal =
         ordinaryTax(ordinary, profile.year, 'mfj', deduction) +
         longTermGainTax(gains, ordinary, profile.year, 'mfj', deduction);
-      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, profile.wageA + profile.wageB);
+      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, profile.wageA + profile.wageB + (seEarnedA + seEarnedB));
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -6780,7 +6785,7 @@
       let sources = null;
       if (stateOn) {
         sources = SOURCES_SINGLE;
-        sources.wages = profile.wageA + invOrd + extraA;
+        sources.wages = profile.wageA + invOrd + extraA + seNetA;
         sources.pension = profile.pensionA;
         sources.retirement = profile.rmdA + traditionalExtra;
         sources.gains = gains;
@@ -6798,7 +6803,7 @@
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6818,7 +6823,7 @@
       const federal =
         ordinaryTax(ordinary, profile.year, status, deduction) +
         longTermGainTax(gains, ordinary, profile.year, status, deduction);
-      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, profile.wageA);
+      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, profile.wageA + seEarnedA);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -6856,7 +6861,7 @@
       sourcesB = null;
     if (stateOn) {
       sourcesA = SOURCES_A;
-      sourcesA.wages = profile.wageA + invA + extraA;
+      sourcesA.wages = profile.wageA + invA + extraA + seNetA;
       sourcesA.pension = profile.pensionA;
       sourcesA.retirement = profile.rmdA + tradA;
       sourcesA.gains = gainA;
@@ -6874,13 +6879,13 @@
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA, (profile.medicalExpense || 0) / 2);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
       sourcesB = SOURCES_B;
-      sourcesB.wages = profile.wageB + invB + extraB;
+      sourcesB.wages = profile.wageB + invB + extraB + seNetB;
       sourcesB.pension = profile.pensionB;
       sourcesB.retirement = profile.rmdB + tradB;
       sourcesB.gains = gainB;
@@ -6899,7 +6904,7 @@
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB, (profile.medicalExpense || 0) / 2);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -6921,7 +6926,7 @@
       const federalA =
         ordinaryTax(ordinaryA, profile.year, statusA, deductionA) +
         longTermGainTax(gainA, ordinaryA, profile.year, statusA, deductionA);
-      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, profile.wageA);
+      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, profile.wageA + seEarnedA);
       creditA = c.nonrefundable + c.refundable;
     }
     return (
@@ -7887,9 +7892,26 @@
       traditionalFirst = cascade(true);
     return traditionalFirst.cost < taxableFirst.cost ? traditionalFirst : taxableFirst;
   }
+  const SS_WAGE_BASE = 184500; // 2026 Social Security wage base (SSA), indexed with taxIndexFactor
+  // E1c: self-employment tax (IRC 1401, 1402) on one person's year of self-employment profit se. Net earnings are 92.35%
+  // of profit; nothing is due under $400 of net earnings. Social Security (12.4%) stops at the wage base less that person's
+  // W-2 Social Security wages; Medicare is 2.9% of all net earnings. half (IRC 164(f)) is deducted from income; the 0.9%
+  // Additional Medicare Tax is figured in payrollTax on wages plus ne. Pure; fills out.
+  const SE_OUT = { tax: 0, half: 0, ne: 0 };
+  function selfEmploymentTax(se, ssWages, yearIndex, out) {
+    const ne = 0.9235 * se;
+    if (!(ne >= 400)) {
+      out.tax = 0; out.half = 0; out.ne = 0;
+      return out;
+    }
+    out.tax = 0.124 * Math.min(ne, Math.max(0, SS_WAGE_BASE * taxIndexFactor(yearIndex) - ssWages)) + 0.029 * ne;
+    out.half = out.tax / 2;
+    out.ne = ne;
+    return out;
+  }
   function wageFica(wages, yearIndex) {
     const f = taxIndexFactor(yearIndex);
-    return Math.min(wages, 184500 * f) * 0.062 + wages * 0.0145;
+    return Math.min(wages, SS_WAGE_BASE * f) * 0.062 + wages * 0.0145;
   }
   // Additional Medicare Tax (IRC 3101(b)(2)/1401(b)(2)): 0.9% of Medicare
   // wages above $250,000 (MFJ, combined) or $200,000 (single). The thresholds
@@ -8588,11 +8610,27 @@
     tradShares = null,
     workingA = false,
     workingB = false,
+    seA = 0,
+    seB = 0,
+    halfA = 0,
+    halfB = 0,
+    soloPlanCutA = 0,
+    soloPlanCutB = 0,
+    soloIraCutA = 0,
+    soloIraCutB = 0,
   }) {
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
-    const otherA = profileWageA + pensionA + rmdA + streamOtherA,
-      otherB = profileWageB + pensionB + rmdB + streamOtherB;
+    // E1c: self-employment net of half the SE tax and the deductible Solo 401(k) and traditional IRA money (seNet: in
+    // other, so AGI and MAGI, and in the state's wages); sePlanNet is net of the plan money only (IRC 401(c)(2) earned
+    // income: the 162(l) cap, and the QBI base, Treas. Reg. 1.199A-3(b)(1)(vi); an IRA deduction reduces neither);
+    // seEarned (net of half the SE tax only) is earned income for the ACTC.
+    const sePlanNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA) : 0,
+      sePlanNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB) : 0,
+      seNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA - soloIraCutA) : 0,
+      seNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB - soloIraCutB) : 0;
+    const otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
+      otherB = profileWageB + pensionB + rmdB + streamOtherB + seNetB;
     // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
     // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
     // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
@@ -8641,6 +8679,12 @@
             k401FracB: 0,
             mortgageInterest,
             year,
+            seNetA: seNetB,
+            seNetB: 0,
+            sePlanNetA: sePlanNetB,
+            sePlanNetB: 0,
+            seEarnedA: seB > 0 ? seB - halfB : 0,
+            seEarnedB: 0,
             // Children stay with the surviving parent.
             dependents: dependentsInYear(taxYearOf(year)),
           }
@@ -8673,6 +8717,12 @@
             mortgageInterest,
             year,
             dependents: dependentsInYear(taxYearOf(year)),
+            seNetA,
+            seNetB,
+            sePlanNetA,
+            sePlanNetB,
+            seEarnedA: seA > 0 ? seA - halfA : 0,
+            seEarnedB: seB > 0 ? seB - halfB : 0,
           };
     return { otherA, otherB, profile };
   }
@@ -8903,13 +8953,15 @@
   // Employee-side payroll tax on this year's wages (Social Security + Medicare
   // per partner, wages net of pre-tax health premiums) plus the 0.9% Additional
   // Medicare Tax. Separate from taxFor(), which covers income tax.
-  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0, streamPremiumA = 0, streamPremiumB = 0 }) {
+  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0, streamPremiumA = 0, streamPremiumB = 0, seTaxA = 0, seTaxB = 0, seNeA = 0, seNeB = 0 }) {
     const taxableWagesA = Math.max(0, wageA - healthPremiumA) + Math.max(0, streamWagesA - streamPremiumA),
       taxableWagesB = Math.max(0, wageB - healthPremiumB) + Math.max(0, streamWagesB - streamPremiumB);
     return (
       wageFica(taxableWagesA, year) +
       wageFica(taxableWagesB, year) +
-      additionalMedicareTax(taxableWagesA, taxableWagesB, filing)
+      seTaxA +
+      seTaxB +
+      additionalMedicareTax(taxableWagesA + seNeA, taxableWagesB + seNeB, filing)
     );
   }
 
@@ -10123,22 +10175,38 @@
         working = workingA || workingB,
         isSurvivorPeriod = year >= deathYear;
       const incomeFactor = Math.pow(1 + wageGrowth, year);
-      const wageA = workingA ? state.incomeA * incomeFactor : 0,
-        wageB = workingB ? state.incomeB * incomeFactor : 0;
+      // E1c: a self-employed partner's main income is business profit, not wages.
+      const seMainA = workingA && state.incomeKindA === 'self' ? state.incomeA * incomeFactor : 0,
+        seMainB = workingB && state.incomeKindB === 'self' ? state.incomeB * incomeFactor : 0;
+      const wageA = workingA && state.incomeKindA !== 'self' ? state.incomeA * incomeFactor : 0,
+        wageB = workingB && state.incomeKindB !== 'self' ? state.incomeB * incomeFactor : 0;
       const { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({
         age, ageB, year, factor, incomeFactor, single: singlePerson,
         deadA: deceasedIsA && year >= deathYear, deadB: deceasedIsB && year >= deathYear,
       });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      const healthPremiumA = workingA && state.incomeKindA !== 'self' ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
+        healthPremiumB = !singlePerson && workingB && state.incomeKindB !== 'self' ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      // E1c: self-employment profit per person (main income plus self streams), SE tax, its deductible half and the net
+      // earnings that carry the Additional Medicare Tax. Social Security wages (net of the premium) use up the wage base.
+      const seA = seMainA + streams.selfA,
+        seB = seMainB + streams.selfB;
+      let seTaxA = 0, halfA = 0, seNeA = 0, seTaxB = 0, halfB = 0, seNeB = 0;
+      if (seA > 0) {
+        selfEmploymentTax(seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, streams.wagesA - streams.premiumA), year, SE_OUT);
+        seTaxA = SE_OUT.tax; halfA = SE_OUT.half; seNeA = SE_OUT.ne;
+      }
+      if (seB > 0) {
+        selfEmploymentTax(seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, streams.wagesB - streams.premiumB), year, SE_OUT);
+        seTaxB = SE_OUT.tax; halfB = SE_OUT.half; seNeB = SE_OUT.ne;
+      }
       // E1c: employer health coverage this year: a W-2 main job while working, or a W-2 stream with a premium. It replaces
       // "working" in every health-insurance rule (marketplace eligibility, Medicare, IRMAA); `workingX` keeps its meaning
       // for pay, contributions and account statuses.
       const employerA = (workingA && state.incomeKindA !== 'self') || streams.coverA,
         employerB = (workingB && state.incomeKindB !== 'self') || streams.coverB;
       const wages =
-        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB;
+        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB + seMainA + seMainB;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
         employerContrib: employerMatch, streamWageCutA, streamWageCutB,
@@ -10210,6 +10278,10 @@
         tradShares: accts.trad,
         workingA,
         workingB,
+        seA,
+        seB,
+        halfA,
+        halfB,
       });
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
@@ -10444,7 +10516,7 @@
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
         // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
         profile.medicalExpense = healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB });
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
@@ -16492,6 +16564,7 @@
     };
   };
   window.__test_payrollTax = payrollTax;
+  window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
   window.__test_streamCoverBits = streamCoverBits;
   window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
     const r = JSON.parse(JSON.stringify(rooms));
