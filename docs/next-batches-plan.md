@@ -1174,6 +1174,15 @@ shared-region change.
 - Approach: pure functions (`selfEmploymentTax`, `soloPlanContributions`, `qbiDeduction`, `coverageOf`) fed by a per-person
   self-employment total; all of one person's self-employment is one business (one Schedule SE, one Solo 401(k) room).
 - Defaults reproduce today's numbers; no existing snapshot entry may move in any E1c commit.
+- After an independent Opus review of the plan (owner decisions, 2026-10-08): the QBI $400 minimum follows the law for a
+  specified service business (only the applicable percentage of QBI counts toward the $1,000 test, and above the range
+  the deduction is 0; 26 USC 199A(d)(1)(A), (d)(3), (i)(2) checked in the Cornell text); where the 162(l) deduction and
+  the premium credit have no consistent answer (a single person near the 400% line with net self-employment of roughly
+  $69,000-$81,000) the existing cliff rule decides (pass log and forced pass priced on the realized deduction); the
+  Roth-conversion bracket fill subtracts the 162(l) deduction but not QBI. Fixes adopted without a decision: the
+  traditional IRA no longer reduces the 162(l) cap or the QBI base (plan money only: IRC 401(c)(2), Treas. Reg.
+  1.199A-3(b)(1)(vi)); the year's recorded MAGI uses the realized deduction; two broken test cases; six tests from spec
+  section 7 restored; a cliff-plan replay test, an in-band test and an eighth scenario added.
 
 ---
 

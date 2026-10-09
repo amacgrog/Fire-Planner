@@ -28,9 +28,12 @@ section (section 10).
 ## 3. Decisions (owner, 2026-10-08)
 
 1. **QBI is modeled** (an early "drop it" was withdrawn). No new dollar input: it is computed from the self-employment
-   income. **Every business is treated as a specified service trade or business** (no input): identical to a non-SSTB
-   below the threshold and above the phase-in range (no employees and no property assumed, so both reach zero above it),
-   the conservative (smaller) deduction inside the range. The $400 minimum deduction is included.
+   income. **Every business is treated as a specified service trade or business** (no input; no employees and no property
+   assumed): identical to a non-SSTB below the threshold, the conservative (smaller) deduction inside the range, and zero
+   above it. The $400 minimum deduction is included as the law gives it to an SSTB (revised after the independent plan
+   review, owner 2026-10-08): it needs $1,000 of QBI from qualified businesses, an SSTB is not one above the range, and
+   inside the range only the applicable percentage of its QBI counts; so above the range the deduction is 0 (a non-SSTB
+   with no wages would get $400 there: the SSTB assumption stays the conservative side).
 2. **Main income:** a per-partner choice "W-2 / Self-employed" beside the income field (approach 1 of three).
 3. **Health insurance while self-employed:** the ACA marketplace (or the other partner's plan), with the self-employed
    health insurance deduction inside the MAGI iteration, and Medicare from 65 with its premiums deductible.
@@ -44,6 +47,12 @@ section (section 10).
    when self-employed, the 162(l) deduction (today's behaviour for a retired partner; no existing number changes). The
    tooltip tells married users to keep it ticked when the employer offers affordable family coverage.
 7. **Approach:** pure functions fed by a per-person self-employment total (section 6).
+8. **After the independent plan review (owner, 2026-10-08):** (a) the QBI minimum follows the law for an SSTB (decision 1);
+   (b) where the 162(l) deduction and the premium credit have no consistent answer (a band near the 400% line), the
+   existing cliff rule applies: the pass log and the forced pass price on the realized deduction, the pass that overpaid
+   least is re-run, the cost at the realized MAGI is charged with the refund to cash, and the deduction follows the premium
+   charged (counted in `magiStats`); (c) the Roth-conversion bracket fill subtracts the 162(l) deduction; QBI stays out of
+   it (it under-converts a little for the self-employed: the safe side, section 9).
 
 ## 4. Facts (primary sources; retrieved 2026-10-08)
 
@@ -51,8 +60,12 @@ section (section 10).
   separately), $201,750 (all other returns); the phase-in range ends at $553,500 / $276,775 / $276,750, so the range is
   $150,000 joint and $75,000 otherwise (OBBBA section 70105 widened it; the width is a fixed statutory amount, the threshold
   is indexed). **Minimum deduction (Rev. Proc. 2025-32 section 2.12; IRC 199A(i) as amended by OBBBA section 70105):**
-  $400 for a taxpayer with at least $1,000 of qualified business income from active trades or businesses, for taxable years
-  beginning after 2025; both amounts indexed for years after 2026.
+  $400 for an "applicable taxpayer": at least $1,000 of qualified business income from active qualified trades or
+  businesses (199A(i)(2): material participation), for taxable years beginning after 2025; both amounts indexed for years
+  after 2026 (cost-of-living from calendar 2025). A specified service business is not a qualified trade or business
+  (199A(d)(1)(A)) unless taxable income is under threshold + $75,000 / $150,000, and then only the applicable percentage of
+  its QBI counts (199A(d)(3)(A)); so for an SSTB the $1,000 test reads `ap x QBI` and above the range there is no minimum
+  (26 USC 199A, Cornell LII text, retrieved 2026-10-08).
 - **QBI mechanics (IRC 199A(a), (b)(2)-(3), (d)(3), (e)(2)):** deduction = min(20% x QBI, 20% x (taxable income before QBI
   less net capital gain, which includes qualified dividends)). Taxable income at or under the threshold: full. Inside the
   range, an SSTB's QBI, W-2 wages and property are multiplied by the applicable percentage `ap = 1 - (TI - threshold) /
@@ -174,21 +187,27 @@ half (the person's total) and `compLimit` = `PLAN_LIMITS.compensation x limitFac
    self-employed), then streams' `personalPct`. Type `state.iraType`.
 6. **Where it goes:** deferral to the person's 401(k) by type; profit sharing to the traditional 401(k); after-tax to the
    Roth 401(k); IRA by type (`ACCOUNT_SLOTS`). **All of it leaves cash:** it is added to `traditionalContrib` /
-   `rothContrib` (employee totals), never to `employerContrib`. Returns `soloCutA/B` = traditional deferral + profit sharing
-   + traditional IRA (deducted from income) per person.
+   `rothContrib` (employee totals), never to `employerContrib`. Returns, per person, `planCutA/B` = traditional deferral +
+   profit sharing (the section 404 plan deduction) and `iraCutA/B` = the traditional IRA (section 219). Both are deducted
+   from income; only the plan part reduces the 162(l) cap (earned income under 401(c)(2)) and QBI (Treas. Reg.
+   1.199A-3(b)(1)(vi)); the IRA reduces neither (revised after the independent plan review).
 
 ### 6.4 Tax profile, `taxFor`, ACTC, state
 
-- `buildTaxProfile` gains `seNetA/B = max(0, se - half - soloCut)`, added to `otherA/B` after today's terms (so MAGI,
-  `returnMagis` and the survivor remap carry it; the remap moves B's to slot A like `wageB`), and puts `seNetA/B`,
-  `seEarnedA/B = se - half` (ACTC) and `qbiA/B` (section 6.6's base before 162(l)) on the profile.
-- `taxFor`: the state's `sources.wages` adds `seNet` on the owner's return (joint: both); `childCredits`' earned income adds
-  `seEarnedA (+ seEarnedB)`; the 162(l) deduction (6.5) and QBI (6.6) as below.
-- The Roth-conversion solver and optimizer profile literals carry none of these keys (read as 0, as today).
+- `buildTaxProfile` gains `seNetA/B = max(0, se - half - planCut - iraCut)` (the AGI part), added to `otherA/B` after
+  today's terms (so MAGI, `returnMagis` and the survivor remap carry it; the remap moves B's to slot A like `wageB`), and
+  puts on the profile `seNetA/B`, `sePlanNetA/B = max(0, se - half - planCut)` (the 162(l) cap and the QBI base before
+  162(l)) and `seEarnedA/B = se - half` (ACTC).
+- `taxFor`: the state's `sources.wages` adds `seNet` less the 162(l) deduction on the owner's return (joint: both);
+  `childCredits`' earned income adds `seEarnedA (+ seEarnedB)`; the 162(l) deduction (6.5) and QBI (6.6) as below.
+- The optimizer profile literals carry none of these keys (read as 0, as today). The Roth-conversion bracket fill
+  (`solveRothConversionTo`) subtracts `seHealthA + seHealthB` from the `other` it reads (decision 8c); it has no QBI term.
 
 ### 6.5 Coverage and the self-employed health insurance deduction
 
-- **Coverage helper** `coverageOf(...)` (pure; replaces the `!workingX` tests in `acaEligibility` and the Medicare gate):
+- **Coverage** (built inline as the year-loop consts `employerA/B` plus the pure `streamCoverBits` for the year two ahead,
+  rather than one `coverageOf` helper: revised after the independent plan review; E1-CA reuses the same two pieces; it
+  replaces the `!workingX` tests in `acaEligibility` and the Medicare gate):
   `employerX = (workingX && incomeKindX === 'wages') || coverX`. A partner without employer coverage is on the other's
   plan when the other has employer coverage and the other's "covers" box is ticked; else on the marketplace (under 65) or
   Medicare (65 or over). `acaEligibility` and `medicareEligibleA/B` read `employerX` where they read `workingX`; the IRMAA
@@ -197,24 +216,30 @@ half (the person's total) and `compLimit` = `PLAN_LIMITS.compensation x limitFac
   test reduces to today's.
 - **Deduction, per self-employed person:** allowed when the person has no employer coverage and is not on the other
   partner's plan. Deductible premiums: the household's marketplace premium after the credit plus Medicare (`medicareYearly`
-  shares) and IRMAA, for the people the deduction may cover (the person, a spouse, the children). Cap: `se - half -
-  soloCut` of that person. Joint return: `min(deductible premiums, capA + capB)` over the persons allowed. Two returns: each
+  shares) and IRMAA, for the people the deduction may cover (the person, a spouse, the children). Cap: `sePlanNet` (`se -
+  half - planCut`) of that person. Joint return: `min(deductible premiums, capA + capB)` over the persons allowed. Two returns: each
   person's own half (A's half includes the children, as `healthcareCost` splits it), capped at their own cap.
 - **Inside the MAGI iteration:** each pass computes `healthcareCost` from its MAGI estimate, then sets
   `profile.seHealthA/B` (next to `profile.medicalExpense`, which then excludes the deducted premiums so they are not also
   counted toward the 7.5% itemized floor). `taxFor` subtracts `seHealth` from federal income, from the state's
   `sources.wages` on the same return, and from QBI. The realized MAGI is lower by it; the convergence test gains the
   estimated against the realized deduction (`MAGI_ITER_TOL`, the same damping and forced pass); pass 0 is seeded from the
-  previous year's deduction (a new scalar in `scalarSnapshot`). `conversionMagiCeiling` and `magiThresholds` are unchanged.
+  previous year's deduction (`prevSeHealthA/B`, written only after the year converged, so no `scalarSnapshot` entry is
+  needed). The pass log's "realized" cost and the forced pass's cost are priced on the realized deduction, and the year's
+  recorded MAGI is `magiBase0 - (seRealA + seRealB) + draws` (decision 8b). Where no consistent answer exists (a single
+  person near the 400% line with net self-employment of roughly $69,000-$81,000: below the line the deduction pushes MAGI
+  over it, above it pulls MAGI under) the forced pass decides, as for the Medicaid and 100%-of-FPL step-downs.
+  `conversionMagiCeiling` and `magiThresholds` are unchanged.
 
 ### 6.6 `qbiDeduction(qbi, taxableBeforeQbi, netCapitalGain, filing, yearIndex)` (pure)
 
-`qbi = sum over the return's persons of (se - half - seHealth - soloCut)`, floored at 0. Threshold and width from a
+`qbi = sum over the return's persons of (sePlanNet - seHealth)`, floored at 0. Threshold and width from a
 `QBI_LIMITS` row (2026: `{ threshold: { joint: 403500, other: 201750 }, width: { joint: 150000, other: 75000 }, minimum:
 400, minimumQbi: 1000 }`, filing family `joint` for `mfj`, `other` for `single`, `hoh`, `qss` and each return of two
 filers; threshold and the minimum amounts times `taxIndexFactor(yearIndex)`, width fixed). `ap = clamp(1 - (TI -
-threshold) / width, 0, 1)`; deduction `= min(0.2 x qbi x ap^2, 0.2 x max(0, TI - netCapitalGain))`; if `qbi >= minimumQbi`,
-at least `minimum`, after the cap (IRC 199A(i): the deduction determined without (i) shall not be less than $400). Federal only: subtracted from the ordinary taxable income after
+threshold) / width, 0, 1)`; deduction `= min(0.2 x qbi x ap^2, 0.2 x max(0, TI - netCapitalGain))`; if `ap x qbi >= minimumQbi`,
+at least `minimum`, after the cap (IRC 199A(i); an SSTB's QBI counts only at the applicable percentage, and above the
+range `ap = 0` gives no minimum). Federal only: subtracted from the ordinary taxable income after
 the standard or itemized deduction (the gains stacking is unchanged), in each branch of `taxFor` (joint: one; single: one;
 two filers: each return its own) and in the lagged federal pass. Not in MAGI, not in the state base.
 
@@ -222,7 +247,7 @@ two filers: each return its own) and in the lagged federal pass. Not in MAGI, no
 
 With every partner on W-2, no `self` stream and no stream premium: `profit`, `self`, `se`, the SE tax, the Solo money,
 `seNet`, `seHealth`, QBI and the stream premiums are exact zeros added after today's terms (or skipped by an `se > 0` /
-`premium > 0` test), and `coverageOf` reduces to `workingX`. Every existing snapshot entry stays byte-identical. A year
+`premium > 0` test), and `employerX` reduces to `workingX`. Every existing snapshot entry stays byte-identical. A year
 with no self-employment costs one test of `seA + seB`.
 
 ## 7. Tests and gates
@@ -281,10 +306,13 @@ with no self-employment costs one test of `seA + seB`.
 - One person's two self-employment sources with different plan rates: each uses its own rate within the person's one
   annual-additions room.
 - A SEP IRA or SIMPLE IRA (the Solo 401(k) is modeled).
+- QBI in the Roth-conversion bracket fill (decision 8c: the fill sees the 162(l) deduction but not QBI, so it
+  under-converts a little for the self-employed).
+- The row's `income` (display) is income before the 162(l) deduction; MAGI (`magiProxy`) is after it.
 
 ## 10. Canada port (E1-CA)
 
-Carries over: `coverageOf`'s shape (Canada has no marketplace: coverage only decides the private premium), the stream
+Carries over: the coverage pieces (`employerX`, `streamCoverBits`) (Canada has no marketplace: coverage only decides the private premium), the stream
 kinds and keys, the per-person self-employment split. Canada supplies: both halves of CPP/QPP for the self-employed (the
 employer half deducted, the employee half a credit), EI only by opt-in, earned income for RRSP room from self-employment,
 private health premiums as a business expense or medical expense (no 162(l) analogue), an individual pension plan as the

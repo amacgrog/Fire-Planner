@@ -35,7 +35,7 @@ Background: `CLAUDE.md` ("Retirement accounts (US)", "Contribution limits and pr
 - `npm test` green at every commit.
 - **Exactness:** no existing entry of `tests/snapshots/us.json` or `canada.json` may change in any commit. Tasks 1-5 add no
   snapshot scenario: `node tests/snapshot.js` must pass against the committed baseline after each of them (the exactness
-  gate; on a difference, stop and find the changed sum order, never update). Task 6 adds the seven new scenarios: the json
+  gate; on a difference, stop and find the changed sum order, never update). Task 6 adds the eight new scenarios: the json
   diff shows added entries only. Every new term is an exact zero for an all-W-2 household with no `self` stream and no
   stream premium, and is appended AFTER today's terms in each sum (`x + 0`, `x - 0` leave a double unchanged; inserting a
   term in the middle of a sum does not, unless the text below says the grouping is equal).
@@ -127,7 +127,10 @@ Background: `CLAUDE.md` ("Retirement accounts (US)", "Contribution limits and pr
   and the same after `#incomeB`'s field with `data-partner-b` on the outer div, "Partner B", ids `incomeKindBWagesBtn` /
   `incomeKindBSelfBtn`. Tooltips (edit the existing `data-tip` text; HTML-escape apostrophes as `&#x27;`):
   - `#incomeA` / `#incomeB`: append " If you are self-employed, enter business profit (after expenses, before
-    self-employment tax) and choose Self-employed below."
+    self-employment tax) and choose Self-employed below." Their `<small>` "Gross wages, before tax and 401(k)/IRA
+    contributions" becomes "Gross wages or business profit, before tax and contributions".
+  - the 401(k) contribution A / B tooltips: append " Self-employed: this is your Solo 401(k) contribution." The mega
+    backdoor tooltip: append " A Solo 401(k) allows it only if its plan document permits after-tax contributions."
   - profit sharing A / B: append " Self-employed: your plan's rate (0-25%). The contribution is profit less half the
     self-employment tax, times rate / (1 + rate): 25% gives 20%."
   - `employerCoversSpouseA` (and the mirror text for B): "Applies while Partner A has employer coverage (a W-2 main job, or
@@ -143,9 +146,11 @@ Background: `CLAUDE.md` ("Retirement accounts (US)", "Contribution limits and pr
   listener add four listeners: `document.getElementById('incomeKindAWagesBtn').addEventListener('click', () => setContributionType('incomeKindA', 'wages'));`
   and likewise for the other three.
 - [ ] **Step 6: Streams.** `DYN.incomeSources`: `fresh()` gains `profitSharingPct: 0, healthPremium: 0`. `fields`:
-  - `kind`: `options: [['other', 'Not earned'], ['wages', 'W-2 wages'], ['self', 'Self-employment']]`; append to its tip:
-    " Self-employment: business profit; it pays self-employment tax, can fund the owner's Solo 401(k) (shared with a
-    self-employed main income) and IRA, and stops in the owner's death year."
+  - `kind`: `options: [['other', 'Not earned'], ['wages', 'W-2 wages'], ['self', 'Self-employment']]`; in its tip replace
+    "It does not change Medicare or ACA eligibility or the main job's contributions." by "It does not change the main
+    job's contributions; with a health premium entered, this job is the owner's health coverage (no marketplace, and
+    Medicare waits until it ends)." and append: " Self-employment: business profit; it pays self-employment tax, can fund
+    the owner's Solo 401(k) (shared with a self-employed main income) and IRA, and stops in the owner's death year."
   - right after `kind`: `{ key: 'healthPremium', kind: 'money', label: 'Health premium', short: "Yearly; this job's plan", step: 100, showIf: (it) => it.kind === 'wages', tip: "What you pay for this job's health plan each year, before tax. Above zero means this job covers its owner (and the other partner, if the owner's employer-plan box is checked): no marketplace while it runs." }`;
   - `contribute`: `showIf: (it) => it.kind === 'wages' || it.kind === 'self'`;
   - `deferralType`, `deferralPct`, `afterTaxPct`, `personalPct`: `showIf: (it) => (it.kind === 'wages' || it.kind === 'self') && it.contribute`;
@@ -221,6 +226,12 @@ git commit -m "E1c 1: income type (W-2 / self-employed), stream kind self, strea
   - `Medicare while covered`: `ageA: 63, retireAgeA: 63`, a W-2 stream owner A age 60-70 with a premium, `medicareYearly`
     10,000: `rows[2].healthcare` (A 65, still covered) excludes A's Medicare, `rows[8]` (A 71, stream ended at 70)
     includes it (assert by comparing with the same household without the stream from year 8 on; the stream pay is far below every IRMAA tier, so the lookback adds nothing);
+  - `IRMAA lookback (cover2)`: `ageA: 62, retireAgeA: 62`, a W-2 stream owner A age 60-66 with a premium: `trace[y].medA`
+    (Step 6 adds it to the trace) is false for y = 1..2 (A 63-64: at 65-66 A is still covered) and true for y = 3..4
+    (A 65-66: the stream ends at 66, so at 67-68 A is on Medicare); without the stream it is true from y = 1;
+  - `self-employed partner, Medicare at 65`: single, `ageA: 64, retireAgeA: 68, incomeKindA: 'self', incomeA: 50000`:
+    `rows[0].healthcare === 18000` (marketplace, ACA modeling off), `rows[1].healthcare === 10000` (A 65: Medicare, not
+    the employer plan a W-2 worker would stay on; at 65 the marketplace premium stops);
   - `legacy identical`: `R`-like household `{ ageA: 52, ageB: 50, retireAgeA: 60, retireAgeB: 58, incomeA: 90000, incomeB: 60000 }`
     with and without the explicit new keys (`incomeKindA: 'wages'`, a stream with `healthPremium: 0`): `JSON.stringify(rows)` equal.
   End with the error check and `console.log('se_health: coverage passed')`.
@@ -300,7 +311,9 @@ git commit -m "E1c 1: income type (W-2 / self-employed), stream kind self, strea
   starts at 65 for a partner without employer coverage (`workingX` here is employer coverage: a W-2 job still worked, or a
   W-2 stream with a premium)".
 - [ ] **Step 6: Hooks** (after `// @@shared:block end`): extend `__test_streamAmountsForYear`'s returned object with
-  `selfA, selfB, premiumA, premiumB, coverA, coverB`; add `window.__test_streamCoverBits = streamCoverBits;`.
+  `selfA, selfB, premiumA, premiumB, coverA, coverB`; add `window.__test_streamCoverBits = streamCoverBits;`. In the year
+  loop's `trace.push({ ... })` entry (test-only; it already carries `profile` and `ficaTax`) add `medA, medB` (they are
+  in scope there: both sit in the pass body; if not, say so and hoist them).
 - [ ] **Step 7: Run.** `node tests/se_health.js` passes; `node tests/income_streams.js`, `node tests/aca_coverage.js`,
   `node tests/medicare_enrollment.js`, `node tests/irmaa_gating.js`, `node tests/cliff_plan.js` pass; `node
   tests/snapshot.js` passes against the committed baseline (exactness gate). `npm test` green.
@@ -329,8 +342,9 @@ git commit -m "E1c 2: employer health coverage (W-2 main job or a W-2 stream wit
   - `const SE_OUT = { tax: 0, half: 0, ne: 0 }; function selfEmploymentTax(se, ssWages, yearIndex, out)` -> `out`.
   - `payrollTax({ ..., seTaxA = 0, seTaxB = 0, seNeA = 0, seNeB = 0 })`.
   - year-loop consts `seMainA/B` (main self-employment profit), `seA/B`, `seTaxA/B`, `halfA/B`, `seNeA/B`.
-  - `buildTaxProfile({ ..., seA = 0, seB = 0, halfA = 0, halfB = 0, soloCutA = 0, soloCutB = 0 })` (soloCut is 0 until
-    Task 4); profile keys `seNetA`, `seNetB` (in `otherA/B` too), `seEarnedA`, `seEarnedB`.
+  - `buildTaxProfile({ ..., seA = 0, seB = 0, halfA = 0, halfB = 0, soloPlanCutA = 0, soloPlanCutB = 0, soloIraCutA = 0, soloIraCutB = 0 })`
+    (the cuts are 0 until Task 4); profile keys `seNetA`, `seNetB` (the AGI part, in `otherA/B` too), `sePlanNetA`,
+    `sePlanNetB` (net of the plan money only: the 162(l) cap and the QBI base, Tasks 5-6), `seEarnedA`, `seEarnedB`.
   - hook `window.__test_selfEmploymentTax(se, ssWages, yearIndex)` -> a copy of `{ tax, half, ne }`.
 
 - [ ] **Step 1: Write `tests/self_employment.js`** (boilerplate as `tests/income_streams.js`). Pure (`y = 0`, inflation 0):
@@ -348,11 +362,13 @@ git commit -m "E1c 2: employer health coverage (W-2 main job or a W-2 stream wit
   State (synthetic flat-10% `zzx` with no deduction, as in `tests/state_extra_income.js`): single profile
   `otherA: 50000, seNetA: 50000, wageA: 0` -> state tax **5,000** (was 0 when self-employment did not reach the state).
   Engine (`__test_accountTrace`; base `{ singlePerson: true, ageA: 45, retireAgeA: 60, incomeA: 100000, incomeKindA: 'self', inflation: 0, incomeGrowth: 0, stateTax: 'tx', k401PctA: 0, catchupPctA: 0, iraPctA: 0, profitSharingPctA: 0, megaBackdoor: false, healthPremiumA: 0 }`):
-  - year 0: `trace[0].ficaTax` is 14,129.55 (no W-2 wages); `trace[0].profile.seNetA` is 92,935.225; `profile.wageA` 0;
+  - year 0: `trace[0].ficaTax` is 14,129.55 (no W-2 wages); `trace[0].profile.seNetA` and `sePlanNetA` are 92,935.225;
+    `profile.wageA` 0;
     `rows[0].wages` 100,000;
   - `retired self-employed`: `retireAgeA: 45` (retired now) -> `ficaTax 0`, `seNetA 0`;
-  - `dies`: couple with `survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 47`, A self-employed -> year 2
-    `ficaTax 0`;
+  - `dies`: couple (`singlePerson: false, incomeB: 0, ageB: 45, retireAgeB: 45`: B retired with no pay, so the defaults'
+    working Partner B adds no payroll tax) with `survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 47`, A
+    self-employed -> year 1 `ficaTax` 14,129.55 and year 2 `ficaTax 0`;
   - `stale W-2 fields` (payroll part): `matchA: 50, healthPremiumA: 200` stored with `incomeKindA: 'self'` -> year 0
     `ficaTax` still 14,129.55 and `rows[0].wages` still 100,000 (no premium);
   - `legacy identical`: an all-W-2 household with `incomeKindA: 'wages'` present or absent: identical rows.
@@ -390,8 +406,10 @@ git commit -m "E1c 2: employer health coverage (W-2 main job or a W-2 stream wit
 ```
   and change the two wage consts to `wageA = workingA && state.incomeKindA !== 'self' ? state.incomeA * incomeFactor : 0`
   (B likewise). `healthPremiumA/B` are then gated by `employerA/B`'s main-job part: change `workingA ?` to
-  `workingA && state.incomeKindA !== 'self' ?` in `healthPremiumA` (B likewise). After `listAmountsForYear` and the
-  `employerA/B` consts:
+  `workingA && state.incomeKindA !== 'self' ?` in `healthPremiumA` (B likewise). **Placement:** the block below reads
+  `healthPremiumA/B` and `streams`, and Task 4 passes its results to `retirementContributions`: put it after the
+  `healthPremiumA/B` consts and before the `retirementContributions({...})` call (~line 10101), not merely after
+  `listAmountsForYear` (a `const` used before its line is a TDZ error):
 ```js
       const seA = seMainA + streams.selfA,
         seB = seMainB + streams.selfB;
@@ -407,18 +425,23 @@ git commit -m "E1c 2: employer health coverage (W-2 main job or a W-2 stream wit
 ```
   `wages` appends `+ seMainA + seMainB` (the `self` streams are already in `extraIncome`). Pass `seA, seB, halfA, halfB`
   to `buildTaxProfile`, and `seTaxA, seTaxB, seNeA, seNeB` to the `payrollTax` call.
-- [ ] **Step 6: `buildTaxProfile`.** New parameters `seA = 0, seB = 0, halfA = 0, halfB = 0, soloCutA = 0, soloCutB = 0`.
+- [ ] **Step 6: `buildTaxProfile`.** New parameters `seA = 0, seB = 0, halfA = 0, halfB = 0, soloPlanCutA = 0, soloPlanCutB = 0,
+  soloIraCutA = 0, soloIraCutB = 0`.
 ```js
-    // E1c: self-employment net of half the SE tax and the deductible Solo 401(k) money; it is in `other` (AGI, MAGI) and,
-    // as seNet, reaches the state's wages; seEarned (net of half the SE tax only) is earned income for the ACTC.
-    const seNetA = seA > 0 ? Math.max(0, seA - halfA - soloCutA) : 0,
-      seNetB = seB > 0 ? Math.max(0, seB - halfB - soloCutB) : 0;
+    // E1c: self-employment net of half the SE tax and the deductible Solo 401(k) and traditional IRA money (seNet: in
+    // `other`, so AGI and MAGI, and in the state's wages); sePlanNet is net of the plan money only (IRC 401(c)(2) earned
+    // income: the 162(l) cap, and the QBI base, Treas. Reg. 1.199A-3(b)(1)(vi); an IRA deduction reduces neither);
+    // seEarned (net of half the SE tax only) is earned income for the ACTC.
+    const sePlanNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA) : 0,
+      sePlanNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB) : 0,
+      seNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA - soloIraCutA) : 0,
+      seNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB - soloIraCutB) : 0;
     const otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
       otherB = profileWageB + pensionB + rmdB + streamOtherB + seNetB;
 ```
-  Normal profile: `seNetA, seNetB, seEarnedA: seA > 0 ? seA - halfA : 0, seEarnedB: seB > 0 ? seB - halfB : 0,`.
-  A-deceased remap: `seNetA: seNetB, seNetB: 0, seEarnedA: seB > 0 ? seB - halfB : 0, seEarnedB: 0,` (`otherA: otherB`
-  already carries `seNetB`).
+  Normal profile: `seNetA, seNetB, sePlanNetA, sePlanNetB, seEarnedA: seA > 0 ? seA - halfA : 0, seEarnedB: seB > 0 ? seB - halfB : 0,`.
+  A-deceased remap: `seNetA: seNetB, seNetB: 0, sePlanNetA: sePlanNetB, sePlanNetB: 0, seEarnedA: seB > 0 ? seB - halfB : 0,
+  seEarnedB: 0,` (`otherA: otherB` already carries `seNetB`).
 - [ ] **Step 7: `taxFor`.** Add at the top, with `extraA`: `seNetA = profile.seNetA || 0, seNetB = profile.seNetB || 0,
   seEarnedA = profile.seEarnedA || 0, seEarnedB = profile.seEarnedB || 0,`. Joint branch: `sources.wages = profile.wageA +
   profile.wageB + invOrd + (extraA + extraB) + (seNetA + seNetB);`; `childCredits(..., profile.wageA + profile.wageB +
@@ -451,11 +474,11 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
 - Consumes: `STREAM_OUT.contrib` (items with `stream.kind 'self'`), `STREAM_ROOMS` after `streamPlanContributions`,
   `allocatePlanRoom`, `PLAN_LIMITS`, `pct`; Task 3's `seA/B`, `halfA/B`.
 - Produces:
-  - `const SOLO_IN` (input scratch, below), `SOLO_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, cut: [0, 0] }`,
+  - `const SOLO_IN` (input scratch, below), `SOLO_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] }`,
     `NO_SOLO` (same shape, never written), `SOLO_P`, `SOLO_GOT` (arrays of length `LIST_MAX + 1`).
   - `function soloPlanContributions(p, out)` -> `out`.
   - `retirementContributions({ ..., seA = 0, seB = 0, seMainA = 0, seMainB = 0, halfA = 0, halfB = 0 })` additionally
-    returns `soloCutA`, `soloCutB`; its `traditionalContrib`, `rothContrib`, `acct` include the Solo money (never
+    returns `soloPlanCutA/B` (traditional deferral + profit sharing) and `soloIraCutA/B` (traditional IRA); its `traditionalContrib`, `rothContrib`, `acct` include the Solo money (never
     `employerContrib`: all Solo money is the household's own cash).
   - hook `window.__test_soloPlanContributions(p)` (fills `SOLO_IN` from a plain object, returns copies of `out` and of
     `p.rooms` after the call).
@@ -463,7 +486,7 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
 - [ ] **Step 1: Extend `tests/self_employment.js`** (Solo part; `L` limits 2026, factor 1). Hand values (se = 100,000:
   half 7,064.775, C = 92,935.225):
   - `25% profit sharing`: main profit 100,000, rate 25, nothing else: `P = C x 0.25 / 1.25 = 18,587.045` -> `trad[1]`
-    18,587.045, `cut[0]` the same, `employeeTrad` the same;
+    18,587.045, `planCut[0]` the same, `iraCut[0]` 0, `employeeTrad` the same;
   - `10%`: `P = C / 11 = 8,448.656818...` (to 1e-6);
   - `deferral and after-tax`: deferral 100% (room 24,500), rate 25, mega on 100%: deferral 24,500 traditional, P 18,587.045,
     after-tax `min(47,500 - 18,587.045, 92,935.225 - 18,587.045 - 24,500) = 28,912.955` -> `roth[1]` 28,912.955,
@@ -474,14 +497,16 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
   - `catch-up at 55, no Roth rule`: rooms `deferral [24,500, 0], catchUp [8,000, 0]`, se 300,000, main deferral and
     catch-up 100%, `mainRoth false` -> `trad[1]` includes 32,500 (no part forced to Roth);
   - `IRA on self-employment pay`: se 5,000 (half 353.23875, C 4,646.76125), IRA 100%, Roth IRA, no 401(k) money ->
-    `roth[0] 4,646.76125`; se 20,000, traditional IRA -> `trad[0] 7,500`, `cut[0] 7,500`;
+    `roth[0] 4,646.76125`; se 20,000, traditional IRA -> `trad[0] 7,500`, `iraCut[0] 7,500`, `planCut[0] 0` (the IRA is not plan money);
   - `two sources`: main 60,000 (rate 25) and a `self` stream 40,000 of A (`contribute: true`, `deferralPct 0`, `profitSharingPct 10`): C from se 100,000; `P_main = 0.6C x 0.2`,
     `P_stream = 0.4C / 11`;
-  - `owner B`: a `self` stream owned by B -> slots `trad[3]`, `cut[1]`;
+  - `owner B`: a `self` stream owned by B -> slots `trad[3]`, `planCut[1]`;
   - `self stream match ignored`: a `self` stream with `matchPct: 50` and rate 0 -> no `trad[1]` money besides deferrals;
   - engine `lands and leaves cash` (`__test_accountTrace`, single, A 45 self-employed 100,000, `k401PctA 100`,
     `profitSharingPctA 25`, `returnRate 0, bondReturn 0, hysaRate 0, bondYears 0`, `taxable: 2000000, spending: 50000`):
-    `trace[0].trad[1] - state.trad401kA === 24500 + 18587.045`; `trace[0].profile.seNetA === 92935.225 - 24500 - 18587.045`;
+    `|trace[0].trad[1] - state.trad401kA - (24500 + 18587.045)| < 1e-6` (ledger balances are share x pool: use a
+    tolerance, never `===`); `|trace[0].profile.seNetA - (92935.225 - 24500 - 18587.045)| < 1e-6`; with `iraPctA 100` and
+    `iraType: 'traditional'` added, `profile.sePlanNetA` is unchanged and `profile.seNetA` is 7,500 lower;
     `rows[0]` cash flow: the Solo money is subtracted (compare `rows[0].cash` / `taxable` against the same household with
     rate 0 and deferral 0: lower by the after-tax cost);
   - `stale W-2 fields` (contribution part): `matchA: 50` with `incomeKindA: 'self'` -> no match anywhere (`trad[1]` as above).
@@ -496,8 +521,8 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
   // per source P_i = C_i x r / (1 + r) with the compensation limit (P = r x (C - P)), the room, after-tax money, then the
   // IRA on W-2 pay plus C less the traditional Solo money. No Roth catch-up rule (it keys on FICA wages). Every dollar is
   // the household's own cash. Slots: ACCOUNT_SLOTS order (IRA A, 401(k) A, IRA B, 401(k) B).
-  const SOLO_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, cut: [0, 0] },
-    NO_SOLO = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, cut: [0, 0] },
+  const SOLO_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] },
+    NO_SOLO = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] },
     SOLO_P = new Array(LIST_MAX + 1).fill(0),
     SOLO_GOT = new Array(LIST_MAX + 1).fill(0),
     SOLO_IN = {
@@ -507,7 +532,7 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
     };
   function soloPlanContributions(p, out) {
     for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
-    out.employeeTrad = 0; out.employeeRoth = 0; out.cut[0] = 0; out.cut[1] = 0;
+    out.employeeTrad = 0; out.employeeRoth = 0; out.planCut[0] = 0; out.planCut[1] = 0; out.iraCut[0] = 0; out.iraCut[1] = 0;
     for (let o = 0; o < 2; o++) {
       const se = p.se[o];
       if (!(se > 0)) continue;
@@ -576,7 +601,8 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
       if (p.iraPretax) out.trad[o * 2] = ira; else out.roth[o * 2] = ira;
       out.employeeTrad += trad + (p.iraPretax ? ira : 0);
       out.employeeRoth += roth + (p.iraPretax ? 0 : ira);
-      out.cut[o] = trad + (p.iraPretax ? ira : 0);
+      out.planCut[o] = trad; // section 404 plan money: reduces the 162(l) cap and QBI
+      out.iraCut[o] = p.iraPretax ? ira : 0; // section 219: deducted from income only
     }
     return out;
   }
@@ -610,9 +636,10 @@ git commit -m "E1c 3: self-employment tax, payroll, AGI and state base, ACTC ear
   `STREAM_LIMITS` lines use the first two.) Then append, never insert: `rothContrib = rothContribA + rothContribB +
   sp.employeeRoth + so.employeeRoth`, `traditionalContrib = traditionalContribSalary + sp.employeeTrad + so.employeeTrad`,
   each `acct.trad[k]` / `acct.roth[k]` gets `+ so.trad[k]` / `+ so.roth[k]` after its `+ sp...` term, and the return gains
-  `soloCutA: so.cut[0], soloCutB: so.cut[1]`. `employerContrib` is unchanged.
+  `soloPlanCutA: so.planCut[0], soloPlanCutB: so.planCut[1], soloIraCutA: so.iraCut[0], soloIraCutB: so.iraCut[1]`.
+  `employerContrib` is unchanged.
 - [ ] **Step 5: Year loop.** Pass `seA, seB, seMainA, seMainB, halfA, halfB` to `retirementContributions` (its call is
-  after the SE-tax block of Task 3: move the SE-tax block above the call if it is not), and `soloCutA, soloCutB` from its
+  after the SE-tax block of Task 3: move the SE-tax block above the call if it is not), and `soloPlanCutA/B`, `soloIraCutA/B` from its
   result to `buildTaxProfile`.
 - [ ] **Step 6: Hook:**
 ```js
@@ -644,11 +671,12 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
 - Modify: `Planner_US.html`: `seHealthDeduction` + `SE_HEALTH` near `healthcareCost`; `healthcareCost` (per-person
   premiums on two returns); `returnMagis`; `buildTaxProfile` (`seAllowA/B`, `seHealthA/B`); `taxFor` (all branches);
   the year loop (allow flags, `magiBase`, the three-estimate iteration, `passLog`, `naturalRec`, `trialRecs`, the
-  restore points, the forced pass, `prevSeHealthA/B`); hooks
+  restore points, the forced pass, `realizedMagi`, `prevSeHealthA/B`); `solveRothConversionTo` (the 162(l) deduction,
+  owner decision 8c); hooks
 - Modify: `tests/se_health.js` (deduction part)
 
 **Interfaces:**
-- Consumes: Task 2's `employerA/B`; Task 3/4's `seNetA/B` on the profile.
+- Consumes: Task 2's `employerA/B`; Task 3/4's `seNetA/B` and `sePlanNetA/B` on the profile.
 - Produces:
   - `healthcareCost` returns `{ healthcare, ltc, usesMagiEstimate, premA, premB }` (`premA/B` are each person's own part,
     only filled on two returns; 0 otherwise).
@@ -658,9 +686,11 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   - hook `window.__test_seHealthDeduction(healthcare, premA, premB, twoReturns, profile)` -> `[a, b]` copy.
 
 - [ ] **Step 1: Extend `tests/se_health.js`** (deduction part). Pure (`__test_seHealthDeduction`):
-  - joint, `seAllowA true, seNetA 8000, seAllowB false, seNetB 50000`, healthcare 12,000 -> `[8000, 0]`;
-  - joint, both allowed (`seNetA 8000, seNetB 50000`) -> `[8000, 4000]`;
-  - two returns, `premA 7000, premB 5000`, both allowed, `seNetA 3000, seNetB 10000` -> `[3000, 5000]`;
+  - joint, `seAllowA true, sePlanNetA 8000, seAllowB false, sePlanNetB 50000`, healthcare 12,000 -> `[8000, 0]`;
+  - joint, both allowed (`sePlanNetA 8000, sePlanNetB 50000`) -> `[8000, 4000]`;
+  - two returns, `premA 7000, premB 5000`, both allowed, `sePlanNetA 3000, sePlanNetB 10000` -> `[3000, 5000]`;
+  - the cap is the plan net, not the AGI net: `seAllowA true, sePlanNetA 8000, seNetA 500` (a 7,500 traditional IRA),
+    healthcare 12,000 -> `[8000, 0]`;
   - not allowed -> `[0, 0]`.
   Engine (`__test_accountTrace` trace `profile` copies; rows):
   - `fixed point`: `{ singlePerson: true, ageA: 50, retireAgeA: 60, incomeA: 60000, incomeKindA: 'self', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, taxable: 0, cash: 0, hysaRate: 0, k401PctA: 0, profitSharingPctA: 0, iraPctA: 0 }`
@@ -671,17 +701,36 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
     at its default (the deduction changes every year, the premium does not depend on MAGI and no conversion ceiling is
     finite): for every working year y, `|rows[y].magiProxy - (seNet_y - trace[y].profile.seHealthA)| <= 1` with `seNet_y`
     from `trace[y].profile.seNetA` (fails without site 7's `estUsed` line: the MAGI keeps the previous year's deduction);
-  - `cap`: the same with `incomeA: 3000` (seNet 2,788.05...) -> `D === seNetA` (the cap binds);
+  - `cap`: the same with `incomeA: 3000` (sePlanNet 2,788.05675) -> `D === sePlanNetA` (the cap binds);
   - `ticked spouse plan, married`: couple, A self-employed 80,000, B W-2 90,000 working, `employerCoversSpouseB: true`,
     `filingStatus: 'mfj'` -> `rows[0].healthcare === 0` and `profile.seHealthA === 0`; unticked -> A on the marketplace,
     `seHealthA > 0`;
-  - `survivor self-employed`: `survivorEnabled, survivorPartner: 'A', survivorDeathAge: 51` (A 50), B self-employed
-    60,000 retiring at 60, A retired: year 1 (A's death year) the remapped profile has `seNetA` = B's net and
-    `seHealthA <= seNetA`; `ficaTax` equals `__test_selfEmploymentTax(60000, 0, 1).tax`;
+  - `survivor self-employed` (on the Task 2 base, which has `inflation: 0, incomeGrowth: 0`: the stated figures depend on
+    it): `survivorEnabled, survivorPartner: 'A', survivorDeathAge: 51` (A 50), B self-employed 60,000 retiring at 60, A
+    retired: year 1 (A's death year) the remapped profile has `seNetA` and `sePlanNetA` = B's net and `seHealthA <=
+    sePlanNetA`; `ficaTax` equals `__test_selfEmploymentTax(60000, 0, 1).tax`;
   - `unmarried Medicare`: `filingStatus: 'single'` couple, A 66 self-employed 50,000 (retire 70), B 60 W-2 working,
     `employerCoversSpouseB: true`, `medicareYearly: 10000`: A on Medicare (65+), `profile.seHealthA > 0` (A's half of
     Medicare at least); the same with `filingStatus: 'mfj'` -> `seHealthA === 0` (spouse's employer plan available);
   - `no double count`: the fixed-point household with `ltcEnabled` off: `profile.medicalExpense === H - D` (to 1e-9);
+  - `two returns under 65 with a child`: `filingStatus: 'single'` couple, both 50 and retired except A self-employed
+    40,000 (retire 60), B retired with no pay, one child born 2018 (`children: [{ birthYear: 2018, student: false }]`),
+    `acaEnabled: true`: `trace[0].profile.seHealthA` equals `min(A's part, sePlanNetA)` where A's part is
+    `__test_tax.acaNetCost(rows[0].magiA, 2, 9000, 0)` (A's household: A and the child; half the 18,000 premium), within 2;
+    `seHealthB === 0` (B has no self-employment);
+  - `no consistent answer` (decision 8b): single, the fixed-point household with `incomeA: 82000` (sePlanNet 76,206.89: inside the band where below the 400% line the deduction lifts MAGI over it and above it pulls MAGI under):
+    every row finite; `window.__test_magiStats` (an object: read `forced` and `unresolved` before and after the run) shows
+    the year counted as `forced` or `unresolved`; and the charged premium, the deduction and the recorded MAGI agree:
+    `|D - min(H, sePlanNet)| <= 1e-9` and `|rows[0].magiProxy - (sePlanNet - D)| <= 1`;
+  - `cliff plan replay`: the `R side business stream` household of Task 6 Step 7 (an early retiree with a `self` stream,
+    ACA on): as `tests/cliff_plan.js` does (`__test_refreshCliffPlan()`, then `__test_runPlanMode({ planMode: 'choose' })` and
+    `__test_runPlanMode({ planMode: 'apply', plan: { intents: ch.intents } })`), the apply run equals the choose run row
+    for row (`JSON.stringify(rows)`); and with `plan: { intents }` where every intent's line id is replaced by one that
+    does not exist, `window.__test_planStats.absent` (an object, cumulative: read it before and after) has grown and the rows equal the `off` run (the natural year replayed). If `choose` records no intent for this household, raise the stream until the natural MAGI
+    sits just over the 400% line (so a stay-under is chosen) and name the amount used in the report;
+  - `historical path`: the fixed-point household through `__test_accountTrace(undefined, undefined, rowFn)` with a
+    constant-return `rowFn` (as `tests/historical_parity.js` builds one): every year's `profile.seHealthA` is finite and
+    `<= sePlanNetA`, and year 0's `D` equals the standard run's within 2;
   - `legacy identical`: an all-W-2 ACA household (R-like, `acaEnabled: true`) with and without the new keys: identical
     rows (`JSON.stringify`).
   End with `console.log('se_health: all passed')`.
@@ -690,21 +739,24 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   compute the two `acaNetCost(...)` calls into consts `ca`, `cb`, then `healthcare = ca + cb; premA = ca; premB = cb;` (the
   same sum as before). In the flat-premium `else` branch, `if (twoReturns) { premA = inflate(acaEligibleA ? state.healthcare / 2 : 0); premB = inflate(acaEligibleB ? state.healthcare / 2 : 0); }`.
   After the Medicare line: `if (twoReturns) { premA += inflate(medicareEligibleA ? state.medicareYearly / 2 : 0); premB += inflate(medicareEligibleB ? state.medicareYearly / 2 : 0); }`.
-  In both IRMAA branches, compute each surcharge into a const, add it to `healthcare` exactly as now, and when
-  `twoReturns` also to `premA` / `premB`. Return `{ healthcare, ltc, usesMagiEstimate, premA, premB }`. (`healthcare` is
+  In both IRMAA branches, compute each surcharge into a const INSIDE its existing `if (medicareEligibleX)` (so no extra
+  `irmaaSurcharge` call is made on the hot path), add it to `healthcare` exactly as now, and when `twoReturns` also to
+  `premA` / `premB`. Return `{ healthcare, ltc, usesMagiEstimate, premA, premB }`. (`healthcare` is
   built by the same operations in the same order: no number changes.)
-- [ ] **Step 4: `seHealthDeduction`** below `healthcareCost`:
+- [ ] **Step 4: `seHealthDeduction`** between `healthcareCost`'s closing brace and the line
+  `// @@shared:nextGuardrailMultiplier begin` (~line 8764; never inside or past that marker):
 ```js
   // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
   // the credit, the flat premium, Medicare and IRMAA; all of it is insurance for the household). A person may deduct it
   // only in a year without employer coverage of their own or through a spouse (profile.seAllowX), up to their net
-  // self-employment (seNetX: profit less half the SE tax and the deductible Solo 401(k) money). One return: the
+  // self-employment earned income (sePlanNetX: profit less half the SE tax and the Solo 401(k) plan money, IRC 401(c)(2);
+  // a traditional IRA does not reduce it). One return: the
   // household's premiums, up to both caps (either spouse may claim the family's). Two returns: each person's own part
   // (premA includes the children). Pure; fills `out`.
   const SE_HEALTH = [0, 0];
   function seHealthDeduction(healthcare, premA, premB, twoReturns, profile, out) {
-    const capA = profile.seAllowA ? profile.seNetA || 0 : 0,
-      capB = profile.seAllowB ? profile.seNetB || 0 : 0;
+    const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0,
+      capB = profile.seAllowB ? profile.sePlanNetB || 0 : 0;
     if (twoReturns) {
       out[0] = Math.min(premA, capA);
       out[1] = Math.min(premB, capB);
@@ -750,20 +802,21 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   | 2 | 10181 | `const magiBase = otherA + otherB + ss + inv.ordinary + inv.qualified;` | `const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;` and on the next line `let magiBase = magiBase0;` |
   | 3 | 10182-10189 | `// MAGI iteration: estTrad/estGain are the discretionary traditional` ... `let estTrad = prevDiscTraditional,` | add `estSeA = prevSeHealthA, estSeB = prevSeHealthB,` before `estUsed = false;`, and extend the comment above it: "estSeA/estSeB are the self-employed health insurance deductions (E1c) the pass's MAGI assumes; they converge with the other two" |
   | 4 | 10234 | `profile.ownerShareA = ownerShareA0;` (top of each pass) | right after it: `profile.seHealthA = estSeA; profile.seHealthB = estSeB; magiBase = magiBase0 - estSeA - estSeB;` |
-  | 5 | 10307-10310 | `const costAt = (trad, gain) => {` / `if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);` | price on the estimate: replace that `if` line by `if (twoReturns) { const ra = profile.seHealthA, rb = profile.seHealthB; profile.seHealthA = estSeA; profile.seHealthB = estSeB; [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain); profile.seHealthA = ra; profile.seHealthB = rb; }`; and keep the result: `const c = healthcareCost(hcArgs).healthcare;` becomes `lastCost = healthcareCost(hcArgs); const c = lastCost.healthcare;` with `let lastCost = null;` declared just above `const costAt` |
+  | 5 | 10307-10313 | `const costAt = (trad, gain) => {` ... `return c;` | make it price at a given deduction pair, the pass's estimate by default (owner decision 8b): `let lastCost = null;` just above it, and the whole closure becomes the code block 'site 5' below. With the default pair its first line is `magiBase0 - estSeA - estSeB + trad + gain`, the very expression `magiBase + trad + gain` was (site 4), so every existing caller (`yearPlanCandidates`' `premiumAt`, the plan's cliff cost) is unchanged |
   | 6 | 10332-10335 | `const irmaaAt = (trad, gain) => {` / `const [ma, mb] = returnMagis(profile, trad, gain);` | the same save / set-estimate / restore around that one `returnMagis` call |
-  | 7 | 10390-10397 | `const hcOut = healthcareCost(hcArgs);` ... `profile.medicalExpense = healthcare + ltc;` | insert the `seRealA / seRealB` block (code below, which also sets `estUsed`: without it a year with ACA modeling off and no finite conversion ceiling never checks the deduction estimate, and the year's MAGI keeps last year's deduction) between them; the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` |
+  | 7 | 10390-10397 | `const hcOut = healthcareCost(hcArgs);` ... `profile.medicalExpense = healthcare + ltc;` | insert the `seRealA / seRealB` block AFTER `let healthcare = hcOut.healthcare;` (it reads `healthcare`) (code below, which also sets `estUsed`: without it a year with ACA modeling off and no finite conversion ceiling never checks the deduction estimate, and the year's MAGI keeps last year's deduction) between them; the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` |
   | 8 | 10509-10510 | `const unconverged =` / `estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;` | append `+ Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB)` before `> MAGI_ITER_TOL` |
-  | 9 | 10513 | `passLog.push({ estTrad, estGain, charged: healthcare, ...` | add `estSeA, estSeB,` after `estGain,` |
+  | 9 | 10513 | `passLog.push({ estTrad, estGain, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross) });` | add `estSeA, estSeB,` after `estGain,`, and price `realized` on the realized pair: `costAt(traditionalGross, taxableGainGross, seRealA, seRealB)` (decision 8b: the forced pass must see what the realized deduction costs) |
   | 10 | 10518-10519 | `estTrad += w * (realizedTrad - estTrad);` / `estGain += w * (taxableGainGross - estGain);` | add `estSeA += w * (seRealA - estSeA); estSeB += w * (seRealB - estSeB);` |
   | 11 | 10530-10531 | `estTrad = pick.estTrad;` / `estGain = pick.estGain;` | add `estSeA = pick.estSeA; estSeB = pick.estSeB;` |
-  | 12 | 10540-10547 | `if (forcedPass && flow < 0) {` ... `const realizedCost = costAt(traditionalGross, taxableGainGross),` ... `profile.medicalExpense = healthcare + ltc;` | after `healthcare = realizedCost;`, re-run the deduction on the realized cost (code below), then the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` (so `taxAfter` reads the realized pair). Declare `seRealA` / `seRealB` with `let` at site 7 so this block can reassign them |
+  | 12 | 10540-10547 | `if (forcedPass && flow < 0) {` ... `const realizedCost = costAt(traditionalGross, taxableGainGross),` ... `profile.medicalExpense = healthcare + ltc;` | price `realizedCost` on the realized pair (`costAt(traditionalGross, taxableGainGross, seRealA, seRealB)`); after `healthcare = realizedCost;`, re-run the deduction on the realized cost (code below), then the medical line becomes `profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);` (so `taxAfter` reads the realized pair). Declare `seRealA` / `seRealB` with `let` at site 7 so this block can reassign them |
   | 13 | 10599 | `naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: ...` (apply branch) | add `estSeA, estSeB, seA: seRealA, seB: seRealB,` after `estGain,` |
   | 14 | 10609 | `naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: ...` (choose branch) | the same four fields |
   | 15 | 10628-10629 | `estTrad = naturalRec.estTrad;` / `estGain = naturalRec.estGain;` (apply fallback replay) | add `estSeA = naturalRec.estSeA; estSeB = naturalRec.estSeB;` |
   | 16 | 10642 | `trialRecs.push({ plan: yearPlan, estTrad, estGain, forced: ...` | add `estSeA, estSeB,` after `estGain,` |
   | 17 | 10656-10657 | `estTrad = best.estTrad;` / `estGain = best.estGain;` (winner replay; `best` may be `naturalRec`, which has the fields from 13/14) | add `estSeA = best.estSeA; estSeB = best.estSeB;` |
   | 18 | 10669-10670 | `estTrad = naturalRec.realizedTrad;` / `estGain = naturalRec.gain;` (trial start, seeded from the natural year's realized values) | add `estSeA = naturalRec.seA; estSeB = naturalRec.seB;` |
+  | 18b | 10560 | `const realizedMagi = magiBase + traditionalGross + taxableGainGross;` | `const realizedMagi = magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross;` (the year's recorded MAGI follows the realized deduction, also after a forced pass; for everyone else `magiBase0 - 0` is `magiBase`) |
   | 19 | 10682-10683 | `prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;` / `prevTaxableGainGross = ...` | add `prevSeHealthA = naturalRec ? naturalRec.seA : seRealA; prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;` |
 
   **Readers that need no edit** (they read `magiBase` or the profile at call time, so they get the pass's estimate, or,
@@ -783,17 +836,39 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
   | 10236 / 10274 / 10394 | `estUsed = false;` (pass top), `if (magiCeiling < Infinity) estUsed = true;`, `if (usesMagiEstimate) estUsed = true;` | unchanged; site 7 adds the third setter |
   | 10310-10313 | `const c = healthcareCost(hcArgs).healthcare;` and the three `hcArgs` restores in `costAt` | site 5 changes only the first line; the restores stay |
   | 10380 / 10497 / 10725 | `let totalIncome = otherA + otherB + ss + ...`, `totalIncome = otherA + otherB + ss + ...`, `income: totalIncome,` | the row's `income` is income before the 162(l) deduction (it already differs from MAGI by nothing else); not a MAGI, left as is and named in the implementation notes |
-  | 10560 | `const realizedMagi = magiBase + traditionalGross + taxableGainGross;` | the estimate, within `MAGI_ITER_TOL` of the realized deduction once converged (documented in the implementation notes) |
   | 10569 | `const lo = magiBase + ladderGain,` | same scale as the lines |
   | 10576 | `magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: ..., ... })` | its MAGIs come from `preConvMagi` / `preMagiA/B` (estimate scale); it reads the profile only for `ownerShareA` and Social Security, never `seHealthA/B` |
   | 10606 and 9304 | `yearPlanCandidates({ ..., magiBase, premiumAt: costAt, irmaaAt })`; inside it `costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + ...` | passes the value at call time (the estimate), and `premiumAt` / `irmaaAt` are `costAt` / `irmaaAt` (sites 5, 6) |
   | 10691 | `[magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);` | after convergence the profile holds the realized pair: the history records the realized per-return MAGI |
   | 10722 / 10746-10747 | `magiProxy: realizedMagi,`, `row.magiA = magiHistoryA[year];` / `row.magiB = ...` | the row reads the two lines above |
   | (withdrawal) | `drawTaxable` / the traditional solvers call `taxFor(profile, ...)` | they run after site 7: the realized deduction, as the year's tax |
-  | (pass start) | `conversionMagiCeiling({ ..., profile })`, `solveRothConversion(profile, ...)` | run before site 7 with the estimate in the profile |
+  | (pass start) | `conversionMagiCeiling({ ..., profile })`, `solveRothConversion(profile, ...)` | run before site 7 with the estimate in the profile; `solveRothConversionTo` reads `profile.otherA + profile.otherB` itself and subtracts the deduction only after Step 8b |
 
   `returnMagis` itself is defined at line 7232 (Step 6 above); no other `returnMagis` call exists in the file (check with a
-  grep). The code for sites 7 and 12:
+  grep). The code for sites 5, 7 and 12:
+```js
+        // E1c, site 5: the healthcare cost at another (discretionary traditional + conversion, gains) pair and a 162(l)
+        // deduction pair (the pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices
+        // its candidates.
+        let lastCost = null;
+        const costAt = (trad, gain, sa = estSeA, sb = estSeB) => {
+          hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
+          if (twoReturns) {
+            const ra = profile.seHealthA, rb = profile.seHealthB;
+            profile.seHealthA = sa;
+            profile.seHealthB = sb;
+            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
+            profile.seHealthA = ra;
+            profile.seHealthB = rb;
+          }
+          lastCost = healthcareCost(hcArgs);
+          const c = lastCost.healthcare;
+          hcArgs.magiProxy = magiProxy;
+          hcArgs.magiA = magiA;
+          hcArgs.magiB = magiB;
+          return c;
+        };
+```
 ```js
         // E1c, site 7: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at site 8.
         let seRealA = 0, seRealB = 0;
@@ -817,9 +892,21 @@ git commit -m "E1c 4: Solo 401(k) and IRA from self-employment (deferral room af
             profile.seHealthB = seRealB;
           }
 ```
-  (At site 12 `lastCost` is the result of the `costAt(traditionalGross, taxableGainGross)` call on the line above, so its
-  `premA/premB` are the realized ones.) Exactness: with no self-employment `seAllowA/B` are false, `seRealA/B` and
+  (At site 12 `lastCost` is the result of the `costAt(traditionalGross, taxableGainGross, seRealA, seRealB)` call on the
+  line above, so its `premA/premB` are the realized ones. In the band with no consistent answer, decision 8b, this is
+  the existing cliff rule: the pass that overpaid least is re-run, the cost at the realized MAGI is charged with the
+  refund to cash, and the deduction follows the premium charged.) Exactness: with no self-employment `seAllowA/B` are false, `seRealA/B` and
   `estSeA/B` stay 0, and every edited expression adds or subtracts an exact 0.
+- [ ] **Step 8b: The Roth-conversion bracket fill** (owner decision 8c). In `solveRothConversionTo` (~line 7293) the two
+  lines `const other = profile.otherA + profile.otherB + conv,` and `const other = profile.otherA + (profile.otherB || 0) + conv,`
+  become `profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv` and
+  `profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv` (`x - 0` is `x`).
+  QBI stays out of the fill (it under-converts a little for the self-employed; recorded in the spec's section 9). Test
+  in `tests/se_health.js`: the fixed-point household with `acaEnabled: false` (the flat 18,000 premium, deducted in full; ACA
+  off so no 400%-line ceiling caps the conversion), `rothConvEnabled: true`, conversion ages 50-55, `rothConvBracket: 22` and
+  a 500,000 traditional IRA: year 0's `conversionAmount` (trace) exceeds the same household's with `healthcare: 0` (no
+  deduction) by 18,000 within 1 (the fill sees AGI 18,000 lower; if the bracket room makes the difference smaller,
+  assert it is positive and explain the figure in the report).
 - [ ] **Step 9: Hook:** `window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];`.
 - [ ] **Step 10: Run.** `node tests/se_health.js` passes; `node tests/aca_magi_iteration.js`, `node
   tests/two_return_magi.js`, `node tests/irmaa_magi.js`, `node tests/aca_medicaid.js`, `node tests/cliff_plan.js`, `node
@@ -833,17 +920,17 @@ git commit -m "E1c 5: self-employed health insurance deduction (162(l)) inside t
 
 ---
 
-### Task 6: QBI, the new scenarios and the badge (US; existing snapshots byte-identical, seven new entries)
+### Task 6: QBI, the new scenarios and the badge (US; existing snapshots byte-identical, eight new entries)
 
 **Files:**
 - Modify: `Planner_US.html`: `QBI_LIMITS` + `qbiDeduction` just above `taxFor`; `taxFor` (all branches);
   `federalLiabilityForState`; hooks; badge `V124` -> `V125`
 - Create: `tests/qbi.js`; Modify: `package.json` (`test`: add `node tests/qbi.js` right after `node tests/self_employment.js`)
-- Modify: `tests/snapshot_scenarios.js` (seven new US scenarios), `test_self_employment.js` (part 2)
+- Modify: `tests/snapshot_scenarios.js` (eight new US scenarios), `test_self_employment.js` (part 2)
 - Update (allowed, new entries only): `tests/snapshots/us.json`
 
 **Interfaces:**
-- Consumes: profile `seNetA/B`, `seHealthA/B`.
+- Consumes: profile `sePlanNetA/B` (the QBI base before 162(l)), `seHealthA/B`.
 - Produces: `const QBI_LIMITS = { threshold: { joint: 403500, other: 201750 }, width: { joint: 150000, other: 75000 }, minimum: 400, minimumQbi: 1000 };`,
   `function qbiDeduction(qbi, taxable, netGain, joint, yearIndex)` -> number;
   `federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0, qbiBase = 0)`;
@@ -853,24 +940,37 @@ git commit -m "E1c 5: self-employed health insurance deduction (162(l)) inside t
   (`joint false` unless said):
   - `qbi 50,000, taxable 80,000, netGain 0` -> **10,000**;
   - `inside the range`: `qbi 100,000, taxable 239,250` (threshold + 37,500, ap 0.5) -> 0.2 x 100,000 x 0.25 = **5,000**;
-  - `above the range`: `qbi 100,000, taxable 300,000` -> **400** (the minimum; QBI >= 1,000);
+  - `above the range`: `qbi 100,000, taxable 300,000` -> **0** (an SSTB is not a qualified business above the range, so no
+    $400 minimum: 199A(d)(1)(A), (d)(3), (i)(2));
+  - `minimum inside the range`: `qbi 1,500, taxable 239,250` (ap 0.5: only 750 of QBI counts, under 1,000) ->
+    0.2 x 1,500 x 0.25 = **75**; `qbi 3,000, taxable 239,250` (1,500 counts) -> **400** (0.2 x 3,000 x 0.25 = 150, raised
+    to the minimum);
   - `cap with gains`: `qbi 50,000, taxable 60,000, netGain 30,000` -> **6,000**;
   - `minimum`: `qbi 1,500, taxable 50,000` -> **400**; `qbi 900, taxable 50,000` -> **180**;
   - `joint`: `qbi 100,000, taxable 478,500` (403,500 + 75,000) -> **5,000**;
+  - `two returns`: a `taxFor` profile literal with `filing: 'single'`, `singlePerson: false` (two filers), `sePlanNetA
+    40,000, seNetA 40,000, otherA 40,000, sePlanNetB 60,000, seNetB 60,000, otherB 60,000` in `tx`: equals the sum of the two
+    single-return taxes worked by hand with QBI on each return (A: taxable 23,900, QBI 4,780; B: taxable 43,900, QBI 8,780;
+    recompute from `STD_DEDUCTION` / `ORDINARY_BRACKETS` and show it in a comment), not one joint QBI;
+  - `lagged pass`: the same single profile in `or` (Oregon deducts federal tax through the lagged pass; check its row's
+    `federalTaxSubtraction.kind === 'lagged'`): `taxFor` with QBI is lower than with `sePlanNetA: 0` by less than the
+    federal QBI effect alone (the state's federal-tax subtraction shrinks as federal tax falls, so the state tax rises a
+    little): assert the difference lies between zero (exclusive) and the federal effect (inclusive: equal when Oregon's
+    subtraction cap or phase-out already binds), and print both;
   - `indexing`: `state.inflation = 10`, year index 1 (check `taxIndexFactor(1)` is 1.1 with the hook `__test_tax.taxIndexFactor`;
     if it differs, use its value `f` in place of 1.1): threshold `201,750 f`, width 75,000: `taxable = 201,750 f + 37,500`
-    -> 5,000 for `qbi 100,000`; the minimum is `400 f`.
-  `taxFor` (`tx`, profile literal, single, `seNetA 50,000, otherA 50,000`, no wages): equals the same profile's tax
+    -> 5,000 for `qbi 100,000`; the minimum is `400 f` (with `qbi 3,000` there: `400 f`).
+  `taxFor` (`tx`, profile literal, single, `seNetA 50,000, sePlanNetA 50,000, otherA 50,000`, no wages): equals the same profile's tax
   without `seNetA` minus the QBI's tax effect worked by hand: taxable before QBI `50,000 - 16,100 = 33,900` (check the 2026
   single standard deduction `16,100` in `STD_DEDUCTION`), QBI `min(10,000, 6,780) = 6,780`, ordinary tax on 27,120 against
   33,900 at 2026 brackets (10% to 12,400, 12% above: 1,240 + 12% x (27,120 - 12,400) = 3,006.40 against 1,240 + 12% x
   21,500 = 3,820): **difference 813.60** (check the 2026 bracket edges in `ORDINARY_BRACKETS` and recompute if they
   differ, showing the arithmetic in a comment).
-  Engine: the Task 3 single self-employed household (`tx`, no children): with `p = trace[0].profile`,
-  `__test_tax.taxFor(p, 0, 0) - __test_tax.taxFor({ ...p, seNetA: 0 }, 0, 0)` equals `-(ordinaryTax(o, 0, 'single', d) -
+  Engine: the Task 3 single self-employed household (`tx`, no children, and `taxable: 0, cash: 0` so there is no
+  qualified dividend: the gains term of the cap is then truly 0): with `p = trace[0].profile`,
+  `__test_tax.taxFor(p, 0, 0) - __test_tax.taxFor({ ...p, sePlanNetA: 0 }, 0, 0)` (removes QBI only) equals `-(ordinaryTax(o, 0, 'single', d) -
   ordinaryTax(o, 0, 'single', d + q))` with `o` the profile's ordinary income, `d` the standard deduction and
-  `q = qbiDeduction(p.seNetA - p.seHealthA, o - d, 0, false, 0)` (worked in the test from the hooks; in `tx` and with no
-  children `seNetA` changes nothing else); an all-W-2 household is identical (`JSON.stringify(rows)` with and without
+  `q = qbiDeduction(p.sePlanNetA - p.seHealthA, o - d, 0, false, 0)` (worked in the test from the hooks); an all-W-2 household is identical (`JSON.stringify(rows)` with and without
   the new keys).
   End with `console.log('qbi: all passed')`.
 - [ ] **Step 2: Run it; it fails** (`__test_qbiDeduction is not a function`).
@@ -880,7 +980,9 @@ git commit -m "E1c 5: self-employed health insurance deduction (162(l)) inside t
   // section 4.26 (threshold indexed; the phase-in width is a fixed statutory amount since OBBBA section 70105). Every
   // business is treated as a specified service business with no W-2 wages and no property (owner decision): full 20%
   // up to the threshold, 20% x ap^2 inside the range, nothing above; capped at 20% of taxable income less net capital
-  // gain (which includes qualified dividends). The $400 minimum (IRC 199A(i), $1,000 of QBI) applies after the cap.
+  // gain (which includes qualified dividends). The $400 minimum (IRC 199A(i)) applies after the cap, to a taxpayer with
+  // $1,000 of QBI from qualified businesses: an SSTB counts only at the applicable percentage, and not at all above the
+  // range (199A(d)(1)(A), (d)(3)).
   const QBI_LIMITS = { threshold: { joint: 403500, other: 201750 }, width: { joint: 150000, other: 75000 }, minimum: 400, minimumQbi: 1000 };
   function qbiDeduction(qbi, taxable, netGain, joint, yearIndex) {
     if (!(qbi > 0)) return 0;
@@ -889,23 +991,25 @@ git commit -m "E1c 5: self-employed health insurance deduction (162(l)) inside t
       width = joint ? QBI_LIMITS.width.joint : QBI_LIMITS.width.other,
       ap = Math.min(1, Math.max(0, 1 - (taxable - threshold) / width)),
       d = Math.min(0.2 * qbi * ap * ap, 0.2 * Math.max(0, taxable - netGain));
-    return qbi >= QBI_LIMITS.minimumQbi * f ? Math.max(d, QBI_LIMITS.minimum * f) : d;
+    return ap * qbi >= QBI_LIMITS.minimumQbi * f ? Math.max(d, QBI_LIMITS.minimum * f) : d;
   }
 ```
-- [ ] **Step 4: `taxFor`.** Joint branch, after `deduction` is computed:
+- [ ] **Step 4: `taxFor`.** At the top, with the other self-employment reads: `sePlanNetA = profile.sePlanNetA || 0,
+  sePlanNetB = profile.sePlanNetB || 0,`. Joint branch, after `deduction` is computed:
 ```js
-      const qbi = seNetA + seNetB > 0
-        ? qbiDeduction(seNetA - seHA + (seNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
+      const qbi = sePlanNetA + sePlanNetB > 0
+        ? qbiDeduction(sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
         : 0;
 ```
   and pass `deduction + qbi` (not `deduction`) to `ordinaryTax` and `longTermGainTax` (`d + 0` is `d`). Single branch: the
-  same with `seNetA - seHA` and `joint = false`. Two-filer branch: `qbiA` from `seNetA - seHA` against `ordinaryA + gainA -
+  same with `sePlanNetA - seHA` and `joint = false`. Two-filer branch: `qbiA` from `sePlanNetA - seHA` against `ordinaryA + gainA -
   deductionA`, `qbiB` likewise, both `joint = false`; use `deductionA + qbiA` in every `ordinaryTax` / `longTermGainTax`
   call for A (including `federalA` for the credits) and `deductionB + qbiB` for B. Lagged pass:
   `federalLiabilityForState(..., medical = 0, qbiBase = 0)` computes, when `qbiBase > 0`,
   `q = qbiDeduction(qbiBase, Math.max(0, ordinary + gains - deduction), gains, filingRow(status).joint, year)` and uses
-  `deduction + q` in its two tax calls; pass `seNetA + seNetB - seHA - seHB` (joint), `seNetA - seHA` (single, A of two
-  filers), `seNetB - seHB` (B) as the new last argument at each call site.
+  `deduction + q` in its two tax calls; pass `sePlanNetA + sePlanNetB - seHA - seHB` (joint), `sePlanNetA - seHA` (single,
+  A of two filers), `sePlanNetB - seHB` (B) as the new last argument at each call site (0 when there is no
+  self-employment, so the lagged pass is unchanged for everyone else).
 - [ ] **Step 5: Hook:** `window.__test_qbiDeduction = qbiDeduction;`.
 - [ ] **Step 6: Run.** `node tests/qbi.js` passes; `node tests/tax_brackets.js`, `node tests/state_reference.js`, `node
   tests/state_7d_households.js`, `node tests/tax_caches.js`, `node tests/self_employment.js`, `node tests/se_health.js`
@@ -919,13 +1023,15 @@ git commit -m "E1c 5: self-employed health insurance deduction (162(l)) inside t
     ['R solo 401k 25% mega', { ...R, retireAgeA: 60, incomeA: 200000, incomeKindA: 'self', k401PctA: 100, profitSharingPctA: 25, megaBackdoor: true, megaPctA: 100 }],
     ['R self-employed past 65', { ...R, ageA: 63, ageB: 61, retireAgeA: 70, retireAgeB: 61, incomeA: 80000, incomeKindA: 'self' }],
     ['R W-2 stream premium', { ...R, acaEnabled: true, incomeSources: [{ amount: 30000, startAge: 52, endAge: 58, followGrowth: true, growth: 3, owner: 'A', kind: 'wages', healthPremium: 6000 }] }],
+    ['R single self-employed cliff band', { ...R, singlePerson: true, retireAgeA: 60, incomeA: 82000, incomeKindA: 'self', acaEnabled: true }],
 ```
-  `npm run snapshot:update`; `git diff tests/snapshots/us.json` shows exactly these seven added entries and their
+  `npm run snapshot:update`; `git diff tests/snapshots/us.json` shows exactly these eight added entries and their
   historical runs, no changed line; the UI snapshot must not change (if `snapshot_ui.js --update` rewrote `ui_us.json`
   with only the timing-flaky `histSuccess` text, restore it).
 - [ ] **Step 8: `test_self_employment.js` part 2:** clicking `#incomeKindASelfBtn` on a working partner changes
-  `window.fireProjectionRows[0].tax` and lowers `fireProjectionRows[0].wages` by the health premium no longer paid when a
-  per-paycheck premium was set; a `self` stream with `#incSrc0Contribute` and `#incSrc0ProfitSharingPct` 25 raises the next
+  `window.fireProjectionRows[0].tax` and RAISES `fireProjectionRows[0].wages` by the health premium no longer paid when a
+  per-paycheck premium was set (a self-employed partner has no payroll-deducted premium; their coverage is priced in
+  `healthcare` instead); a `self` stream with `#incSrc0Contribute` and `#incSrc0ProfitSharingPct` 25 raises the next
   row's `traditional`. Run it.
 - [ ] **Step 9: Badge** US `V124` -> `V125`. `npm test` green.
 - [ ] **Step 10: Timing** (Global Constraints), both tables. Plus, recorded only: in a scratch script (not committed),
@@ -933,7 +1039,7 @@ git commit -m "E1c 5: self-employed health insurance deduction (162(l)) inside t
   stream's `kind: 'wages'`, both on the working tree; report the two medians.
 - [ ] **Step 11: Commit.**
 ```bash
-git commit -m "E1c 6: qualified business income deduction (specified service, no employees; 2026 Rev. Proc. 2025-32 limits, the \$400 minimum); seven new scenarios (new entries only); US V125" -- Planner_US.html tests/qbi.js package.json tests/snapshot_scenarios.js tests/snapshots/us.json test_self_employment.js
+git commit -m "E1c 6: qualified business income deduction (specified service, no employees; 2026 Rev. Proc. 2025-32 limits, the \$400 minimum as the law gives it to a specified service business); eight new scenarios (new entries only); US V125" -- Planner_US.html tests/qbi.js package.json tests/snapshot_scenarios.js tests/snapshots/us.json test_self_employment.js
 ```
   (`git add tests/qbi.js` first.)
 
@@ -954,8 +1060,12 @@ git commit -m "E1c 6: qualified business income deduction (specified service, no
   income-streams paragraph: kind `self`, `profitSharingPct`, `healthPremium`.
 - Modify: `docs/next-batches-plan.md`: a new `##### E1c: implementation (US V124 -> V125)` block right after the E1c
   design block (before `---` / `## Batch 4`), in the E1b block's shape: commits with hashes, the red-then-green table, the
-  legacy proof, the list of MAGI-iteration sites changed, the snapshot notes (seven entries added, no existing entry
-  changed), timing tables per measured task and the side-business timing, and "For the owner" items.
+  legacy proof, the list of MAGI-iteration sites changed, the snapshot notes (eight entries added, no existing entry
+  changed), timing tables per measured task and the side-business timing, and "For the owner" items. Record there the
+  deviations the plan made from the spec's first draft: coverage built as `employerA/B` + `streamCoverBits` (no
+  `coverageOf`), no `scalarSnapshot` entry (`prevSeHealthA/B` is written only after convergence), the 162(l) band rule
+  (decision 8b) with the band test's outcome, the Roth fill seeing 162(l) but not QBI (8c), and the row's `income`
+  staying before the 162(l) deduction.
 
 - [ ] **Step 1:** Write the three edits (text to a file, then insert with a node script; keep CRLF).
 - [ ] **Step 2:** `npm test` green (docs only).
