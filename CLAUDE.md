@@ -67,6 +67,7 @@ feature list.
   two-return and survivor cases, hand-computed. `tests/stream_contributions.js` — `streamPlanContributions` and its rooms through
   `retirementContributions` and the engine. `tests/survivor_salary.js` — a partner who dies before retiring stops working at death
   (both planners). `test_income_streams.js` (Playwright, not in CI) covers the stream rows' owner/kind/panel controls.
+- `tests/lump_income.js` — E1d (US): `lumpAmountsForYear`, payroll tax and the return placement of taxable lumps, gain lumps in `taxFor`, the NIIT active-business exclusion, dead-owner and survivor cases, hand-computed. `test_lump_income.js` (Playwright, not in CI) covers the one-time income rows' kind/owner/gain controls.
 - `tests/self_employment.js` — E1c (US): `selfEmploymentTax` (the 92.35% base, the $400 floor, the wage-base interaction, half deducted),
   `soloPlanContributions` (deferral room after W-2 plans, profit sharing C x r / (1 + r), one annual-additions room, IRA, all from household
   cash) and the engine plumbing, hand-computed. `tests/se_health.js` — W-2 stream premium as coverage (`streamCoverBits`), the 162(l)
@@ -803,7 +804,7 @@ long-term gain), `owner` ('A'/'B'), `gainPct` (the taxable share of a gain, 0-10
 net investment income but stays in MAGI), normalized by the US-only `normalizeUsLumps(s, raw)` (read from the raw save and aligned like
 `normalizeUsStreams`; anything unknown is the legacy meaning, tax-free for Partner A). `lumpAmountsForYear(lumps, ctx, out)` (pure, scratch
 `LUMP_OUT`, just below `streamAmountsForYear`) reads the rows defensively (a raw row loaded through `Object.assign` with no `kind` is tax-free,
-any owner but `'B'` is A, a non-number `gainPct` reads as 100), puts owner A in single-person mode, treats the owner as dead from the death year
+any owner but `'B'` is A, a non-number `gainPct` reads as 100 and a boolean `true` reads as 1; hand-edited saves only), puts owner A in single-person mode, treats the owner as dead from the death year
 on (a dead owner's wages or ordinary lump goes to the survivor as ordinary income with no payroll tax; a dead owner's gain is tax-free), sends a
 gain's basis to `taxFree`, and sums the taxable part in `flowTotal`, the one gate (a lump year is `flowTotal > 0`). `oneTimeAmount` =
 `taxFree` (today's cash path, `bal.cash += oneTimeAmount`, bit for bit); taxable lumps join the year's `wages` (so they pay their own tax
