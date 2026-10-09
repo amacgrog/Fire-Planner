@@ -1077,3 +1077,150 @@ git commit -m "E1c 7: README, CLAUDE.md and implementation notes (docs only)" --
 Report to the owner: the branch tip, each commit's hash and one-line summary, the red runs, the legacy proof, the
 MAGI-iteration sites changed, the timing tables for Tasks 2, 5 and 6 and the side-business timing, and anything that did
 not go as planned.
+
+---
+
+### Task 8: Review fixes (owner decisions A and B, 2026-10-09; spec decision 9)
+
+Two reviews of the branch tip `5fef95b` (the spec owner's and an independent Opus review; `docs/next-batches-plan.md`,
+"E1c: review, part 1" and the E1c review record) found: the 162(l) band charges a subsidized premium at a MAGI above the
+400% line (decision 8b's rule; illegal under Rev. Proc. 2014-41), the timing gate fails for every household, stale copy,
+and three tests that pass when wrong. Three commits, in this order. Line numbers are at `5fef95b`.
+
+**Global rules for this task:** every entry of `tests/snapshots/us.json` / `canada.json` that existed at `ee7a789` stays
+byte-identical in every commit (prove it with a dump of `../fp-e1c-base` against the working tree, using the working
+tree's scenario list: only E1c's eight new scenario files may differ from the base). Commit 8a changes no number at all
+(`node tests/snapshot.js` passes against the committed baseline). Commit 8b may change only E1c's new entries, each one
+listed with the reason in the report. Badge stays V125 (unreleased).
+
+#### Commit 8a: speed (decision B; no number change)
+
+- [ ] **Step 1: The flag.** `buildTaxProfile` sets `seOn: seA > 0 || seB > 0` in both profile literals (the A-deceased
+  remap too). `LAMBDA_PROFILE` (~line 9372) gains `seOn: false`; grep every other object literal or factory that reaches
+  `taxFor` (`taxFor(` callers, the Roth solver and optimizer profile literals, `newTestWithdrawal`-style test hooks) and
+  give each `seOn: false`. Test profile literals in `tests/self_employment.js`, `tests/qbi.js`, `tests/se_health.js` and
+  `tests/income_streams.js` that carry self-employment keys gain `seOn: true`.
+- [ ] **Step 2: `taxFor` reads the self-employment fields only when `profile.seOn` is true.** Today's top-of-function
+  block reads ten `profile.x || 0` fields on every call. Replace it by declarations that are 0 unless the flag is set,
+  e.g. `const seOn = profile.seOn === true, seNetA = seOn ? profile.seNetA : 0, ...` (or one `if (seOn) { ... }`
+  assigning `let`s, or a nested `profile.se` object: pick the form that measures fastest). Every expression that uses
+  them stays exactly as it is (they are exact zeros for everyone else), so no number changes.
+- [ ] **Step 3: Other per-call additions.** List every E1c addition that runs per `taxFor` call or per MAGI pass for a
+  household with no self-employment (site 4's three assignments, `costAt`'s default parameters, `healthcareCost`'s
+  `premA/premB`, the `estUsed` test at site 7, the convergence term) and keep each only if it is not measurable; skip
+  work behind `seOn` / `twoReturns` where it is. No change may alter a number.
+- [ ] **Step 4: Gate.** `node tests/snapshot.js` passes against the committed baseline. Then
+  `node tests/bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21` (+5% per path) and
+  `node tests/bench_solver.js --base ../fp-e1c-base --rounds 31` (recorded). If any path is still over +5%, bisect:
+  run the interleaved bench of each E1c commit against its parent (`c74e439`, `6e2f36a`, `88ab2a4`, `de7fc94`, `06ed7fd`,
+  `0f274db`, and this commit's tree, each as a temporary detached worktree), report the per-commit table, and stop for
+  the owner's decision rather than trying unplanned changes.
+- [ ] **Step 5: Commit** `E1c 8a: self-employment fields read in taxFor only when the profile has self-employment (seOn); no number change` with
+  `Planner_US.html` and the test files touched.
+
+#### Commit 8b: the 162(l) band uses Rev. Proc. 2014-41's alternative calculation (decision A)
+
+- [ ] **Step 1: Tests first** (`tests/se_health.js`; run red at `5fef95b` + 8a and record the output). Single,
+  self-employed, `tx`, `acaEnabled: true`, `healthcare: 18000`, the fixed-point household otherwise (`inflation: 0`,
+  `incomeGrowth: 0`, no balances that pay income):
+  - `band, consistent premium`: for profits 70,000, 74,000, 82,000 and 86,000, year 0:
+    `|rows[0].healthcare - __test_tax.acaNetCost(rows[0].magiProxy, 1, 18000, 0)| <= 2` (fails today at 74,000-86,000
+    by about 12,000);
+  - `band, the alternative calculation by hand` (82,000; sePlanNet 76,206.8845): step 1 deduction 18,000, MAGI
+    58,206.88; steps 2-3 deduction = `acaNetCost(58206.8845, 1, 18000, 0)` (about 5,797.41); step 4: MAGI
+    `76,206.8845 - D` (about 70,409.5), premium 18,000. Assert `trace[0].profile.seHealthA` equals that `D` within 1e-6,
+    `rows[0].magiProxy` within 1, `rows[0].healthcare === 18000`;
+  - `joint band`: married couple, both 50, A self-employed, B retired with no pay, `filingStatus: 'mfj'`, premium
+    18,000: choose A's profit so that sePlanNet is 98,000 (solve with `__test_selfEmploymentTax`, report the profit): the
+    same consistency assertion with household size 2;
+  - `Medicaid line` (`stateTax: 'ca'`, an expansion state): single, profit chosen so that sePlanNet sits $300 above the
+    Medicaid line for one person (1.38 x the 2026 poverty line the engine uses; read it with the existing FPL hook or
+    `acaNetCost` probing, and report it): consistency `|H - acaNetCost(M, 1, 18000, 0)| <= 2`;
+  - `converged years unchanged`: the fixed-point household (profit 60,000) keeps the Task 5 values (`D` and `M` as that
+    test computes them), and `magiStats.forced` does not grow for it.
+- [ ] **Step 2: The code.** Year loop (all edits guarded by the 162(l) allow flags, so no other household is touched):
+  1. Next to `let forcedPass = false;` (~line 10555) add
+     `let seHeld = false; // E1c decision A: the alternative calculation's deduction, held for the rest of the phase`.
+  2. Site 7 (~line 10775): `if (profile.seAllowA || profile.seAllowB) {` becomes
+     `if (seHeld) { seRealA = estSeA; seRealB = estSeB; } else if (profile.seAllowA || profile.seAllowB) {` (the held
+     pair is the realized pair, so the deduction term of the convergence test is 0).
+  3. Insert this block between the damped-continue block (`if (unconverged && !forcedPass && !replaying && phasePass <
+     MAGI_ITER_MAX - 1) {` ~line 10903) and the forced-pass block (`if (unconverged && !forcedPass && !replaying &&
+     usesMagiEstimate) {` ~line 10913):
+```js
+        if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB)) {
+          // E1c decision A (Rev. Proc. 2014-41 section 5.02): the iterative calculation did not converge, so the year uses
+          // the alternative calculation. Step 1: the deduction at the full premiums (priced at a MAGI above every line);
+          // steps 2-3: the deduction at the premium after the credit the step-1 MAGI allows; step 4: this pass re-run with
+          // that deduction held, so the premium, the draws and the MAGI follow it. The draws are this pass's.
+          costAt(traditionalGross, taxableGainGross, -1e12, -1e12);
+          seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+          const d1A = SE_HEALTH[0], d1B = SE_HEALTH[1];
+          costAt(traditionalGross, taxableGainGross, d1A, d1B);
+          seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+          estSeA = SE_HEALTH[0];
+          estSeB = SE_HEALTH[1];
+          estTrad = realizedTrad;
+          estGain = taxableGainGross;
+          seHeld = true;
+          passLog.length = 0;
+          phasePass = -1;
+          continue;
+        }
+```
+     Check first that `healthcareCost` at a MAGI of about 2e12 returns the full premiums (no credit, no Medicaid; with
+     `acaEnhanced` on too) and is finite; if not, use the gross premium another way and say how.
+  4. Site 12 (the forced pass, ~line 10941): `if (profile.seAllowA || profile.seAllowB) {` becomes
+     `if (!seHeld && (profile.seAllowA || profile.seAllowB)) {` (a held deduction does not follow the premium).
+  5. Carry `seHeld` with the phase: add `seHeld` to both `naturalRec = { ... }` literals and the `trialRecs.push({ ... })`
+     entry; set `seHeld = naturalRec.seHeld` at the apply fallback replay (with `estSeA = naturalRec.estSeA`, ~line 11032)
+     and `seHeld = best.seHeld` at the winner replay (~line 11062); set `seHeld = false` at the trial start (with
+     `forcedPass = false`, ~line 11079). The pick restore (forced pass) keeps `seHeld` as it is.
+  6. Update the comment on the forced pass (`The cash can only rise` stays true there: a held deduction is not
+     re-priced) and the iteration comment block (sites 3/7) to describe the switch.
+- [ ] **Step 3: Run.** The Step 1 tests pass; `node tests/se_health.js`, `node tests/cliff_plan.js`,
+  `node tests/aca_magi_iteration.js`, `node tests/aca_medicaid.js`, `node tests/two_return_magi.js` pass.
+  `node tests/snapshot.js` fails only on E1c's new entries. Dump against the 8a commit and against `../fp-e1c-base`:
+  list every E1c scenario that moved (expected: `R single self-employed cliff band`; any other must have a forced year
+  in the band or at the Medicaid line: say which year), with first differing year, `healthcare`, `magiProxy` before ->
+  after, and depletion before -> after. No pre-E1c entry may differ. Then `npm run snapshot:update` and confirm the json
+  diff touches only those E1c entries.
+- [ ] **Step 4: Timing:** `bench_runs_interleaved` (21) and `bench_solver` (31) against `../fp-e1c-base`, tables in
+  the report (the change is behind the allow flags, so no-self-employment households should not move).
+- [ ] **Step 5: Commit** `E1c 8b: in a year whose 162(l) iteration does not converge, Rev. Proc. 2014-41's alternative calculation (deduction held, premium and draws follow it); snapshot:update for E1c's new entries only` with `Planner_US.html`, `tests/se_health.js`, `tests/snapshots/us.json`.
+
+#### Commit 8c: copy, the remaining tests, docs
+
+- [ ] **Step 1: Copy** (`Planner_US.html`; HTML-escape apostrophes as `&#x27;`):
+  - `#healthcare` tooltip and `<small>` (~line 505): "once retired and under 65" -> "while without employer coverage
+    (retired, or self-employed) and under 65";
+  - `#acaEnabled` tooltip (~line 506): "while retired and under 65" -> "while without employer coverage (retired, or
+    self-employed) and under 65";
+  - `#medicareYearly` tooltip (~line 507) and the "Healthcare, ACA, Medicare & IRMAA" callout (~line 713): Medicare
+    starts "at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65
+    stops (a self-employed partner enrolls at 65)"; the callout's "while they are retired and under 65" as for
+    `#healthcare`;
+  - the employer-plan boxes' `<small>` (~lines 416-417): "B buys ACA coverage once B retires" -> "Otherwise B buys
+    marketplace coverage while without employer coverage" (A's box mirrored);
+  - the catch-up tooltips (~lines 368, 373): append " Not for a self-employed partner's Solo 401(k): self-employment
+    has no FICA wages, so its catch-up follows the 401(k) type.";
+  - the profit-sharing field `<small>` for A and B: "Employer contribution, % of pay" (or the current text) -> "Employer
+    contribution, or your Solo 401(k) plan rate, % of pay".
+- [ ] **Step 2: Tests** (each new assertion run red where it can be):
+  - `tests/se_health.js`: rename `ACA off still converges` to say what it checks (the recorded MAGI follows the realized
+    deduction); make the Roth-fill test's header say it is the guard for site 7's `estUsed` line, and prove it: run it with
+    that line removed in a scratch copy, record the red output in the report;
+  - `tests/self_employment.js` "Solo money leaves cash" (~line 208): replace `bal(s1) < bal(s0) - 1000` by the hand
+    difference: cash + taxable lower by `(24,500 + 18,587.045) - (tax without - tax with)`, the two taxes from
+    `__test_tax.taxFor` on each run's `trace[0].profile` (with `seOn` set), within 1e-6;
+  - `tests/qbi.js` engine case (~lines 84-97): a comment saying the hand-computed pure cases pin `qbiDeduction` and this
+    case checks the wiring.
+- [ ] **Step 3: Docs:** `CLAUDE.md` (the alternative-calculation switch and `seHeld`; the `seOn` flag and that every
+  profile reaching `taxFor` carries it) and an `E1c: review fixes (Task 8)` paragraph in the E1c implementation block of
+  `docs/next-batches-plan.md` (commits, red runs, the moved E1c entries table, timing tables).
+- [ ] **Step 4:** `npm test` green; `snapshot_ui.js --update` only if the copy changed the US DOM hashes (say so);
+  `ui_canada.json` untouched.
+- [ ] **Step 5: Commit** `E1c 8c: coverage copy for the self-employed, test fixes, docs` with the touched paths.
+
+Report: the three commits, the red runs, the moved E1c entries table, both timing tables for 8a and 8b (and the
+per-commit bisect if 8a's gate failed), and anything that did not go as planned.

@@ -1223,6 +1223,24 @@ Findings:
   only when the profile carries one "has self-employment" flag; re-run the gate, commit by commit if it still fails.
 - Both go to the implementer as one more task, together with the independent review's accepted findings.
 
+##### E1c: review, part 2 (independent Opus review of `5fef95b`, 2026-10-09)
+
+Verdict: accept after fixes. Confirmed by the spec owner in the code: (1) the 162(l) band (as part 1; the reviewer
+probed profits 70,000 / 74,000 / 82,000 / 86,000: premium charged 5,881 / 5,057 / 5,797 / 6,168 against recorded MAGIs
+whose premium is 5,894 / 18,000 / 18,000 / 18,000; the 70,000 year is also forced, with a gap of 13); (2) stale copy:
+`#healthcare`, `#acaEnabled`, `#medicareYearly`, the healthcare callout, the employer-plan boxes' small text and the
+catch-up tooltips still describe coverage as retirement-only; (3) tests that pass when wrong: the band test (no premium
+consistency check), the ACA-off test (the Roth-fill test is the real `estUsed` guard), "Solo money leaves cash" (only a
+loose inequality); (4) `LAMBDA_PROFILE` and the other profile literals lack the new keys (fits the timing overrun);
+(5) the profit-sharing field's label text for a self-employed partner. Checked correct by the reviewer: spec 3-9 and
+Tasks 1-7 as written (decision 8b aside), every MAGI-iteration site, exactness of every edited expression, the law in
+the pure functions, and probes (single-person stored B, survivor both ways, two returns, SE plus a W-2 stream with and
+without a premium, ACA off, historical and Monte Carlo paths, the $400 floor, the cliff plan's apply replay on three side
+businesses and the band household, `planMissed` 0).
+
+Fixes: plan Task 8 (commits 8a speed, 8b the alternative calculation, 8c copy, tests, docs); spec decision 9 supersedes
+8b.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

@@ -53,6 +53,13 @@ section (section 10).
    least is re-run, the cost at the realized MAGI is charged with the refund to cash, and the deduction follows the premium
    charged (counted in `magiStats`); (c) the Roth-conversion bracket fill subtracts the 162(l) deduction; QBI stays out of
    it (it under-converts a little for the self-employed: the safe side, section 9).
+9. **After the implementation review (owner, 2026-10-09), superseding 8b:** where the iteration does not converge in a
+   year with a 162(l) deduction allowed, the year uses Rev. Proc. 2014-41's alternative calculation (section 5.02): the
+   deduction at the full premiums (step 1), the deduction at the premium after the credit those MAGIs allow (steps 2-3),
+   and the year re-run with that deduction held (step 4: the premium, the draws and the MAGI follow it). 8b's rule charged
+   a subsidized premium at a MAGI above the 400% line, which no method allows (section 5.01: a taxpayer whose iteration
+   does not converge "should not use the iterative calculation method"). Elsewhere the iterative calculation stays.
+   Speed: the self-employment reads in `taxFor` happen only for a profile that has self-employment (one flag, `seOn`).
 
 ## 4. Facts (primary sources; retrieved 2026-10-08)
 
@@ -226,9 +233,13 @@ half (the person's total) and `compLimit` = `PLAN_LIMITS.compensation x limitFac
   estimated against the realized deduction (`MAGI_ITER_TOL`, the same damping and forced pass); pass 0 is seeded from the
   previous year's deduction (`prevSeHealthA/B`, written only after the year converged, so no `scalarSnapshot` entry is
   needed). The pass log's "realized" cost and the forced pass's cost are priced on the realized deduction, and the year's
-  recorded MAGI is `magiBase0 - (seRealA + seRealB) + draws` (decision 8b). Where no consistent answer exists (a single
-  person near the 400% line with net self-employment of roughly $69,000-$81,000: below the line the deduction pushes MAGI
-  over it, above it pulls MAGI under) the forced pass decides, as for the Medicaid and 100%-of-FPL step-downs.
+  recorded MAGI is `magiBase0 - (seRealA + seRealB) + draws`. Where no consistent answer exists (a single person near
+  the 400% line with net self-employment of roughly $69,000-$81,000: below the line the deduction pushes MAGI over it,
+  above it pulls MAGI under; the same can happen in a narrow band at the Medicaid line) the year switches to the
+  alternative calculation (decision 9): the deduction is computed by Rev. Proc. 2014-41 section 5.02 from the pass's
+  draws and then held while the year re-runs, so the premium charged is the one the recorded MAGI allows. Example
+  (single, $18,000 premium, net self-employment 76,207): deduction 5,797, MAGI 70,410, premium 18,000. Only a
+  trad/gain step-down left after that falls to the existing forced pass (with the deduction still held).
   `conversionMagiCeiling` and `magiThresholds` are unchanged.
 
 ### 6.6 `qbiDeduction(qbi, taxableBeforeQbi, netCapitalGain, filing, yearIndex)` (pure)
@@ -248,7 +259,9 @@ two filers: each return its own) and in the lagged federal pass. Not in MAGI, no
 With every partner on W-2, no `self` stream and no stream premium: `profit`, `self`, `se`, the SE tax, the Solo money,
 `seNet`, `seHealth`, QBI and the stream premiums are exact zeros added after today's terms (or skipped by an `se > 0` /
 `premium > 0` test), and `employerX` reduces to `workingX`. Every existing snapshot entry stays byte-identical. A year
-with no self-employment costs one test of `seA + seB`.
+with no self-employment costs one test of `seA + seB`, and `taxFor` reads its self-employment fields only when the
+profile's `seOn` flag is set (decision 9; every profile `taxFor` sees, including `LAMBDA_PROFILE` and any other literal,
+carries `seOn`).
 
 ## 7. Tests and gates
 
