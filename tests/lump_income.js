@@ -365,8 +365,8 @@ const path = require('path');
     assert.strictEqual(fw.initialWR, null, 'forced retirement lump year: no baseline');
   } else console.log('NOTE (d): no forced retirement lump year in the scan; report it (the owner accepts the case as unreachable)');
   // (e) decision 12: lambda's need in a lump year adds back the lump's flow. Against a tax-free twin, the lump run's need
-  // is the twin's need plus the extra tax the lump puts in the pre-draw `tax` (0 <= that <= lumpFlow); without the fix it
-  // would be the twin's need LESS the lump (plus that tax), i.e. below the twin's.
+  // is the twin's need plus the extra tax (and any premium the lump's MAGI raises) the lump puts in the pre-draw `flow`
+  // (0 <= that <= lumpFlow); without the fix it would be the twin's need LESS the lump (plus that), i.e. below the twin's.
   const LN = { ...RD, acaEnabled: true };
   const needAt = (lumps, age) => page.evaluate(([p, l, a]) => {
     const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
@@ -385,6 +385,9 @@ const path = require('path');
   const nL = await needAt(lumpE, 60), nF = await needAt([{ ...lumpE[0], kind: 'free' }], 60);
   assert(typeof nL === 'number' && typeof nF === 'number', `lambda computed in both runs at 60 (got ${nL}, ${nF})`);
   assert(nL - nF >= -1e-6 && nL - nF <= 30000 + 1e-6, `lambda need adds back the lump: ${nL} vs twin ${nF}`);
+  // In this fixture the lump is untaxed before the draw (the pre-draw `tax` and premium in `flow` do not move with it), so
+  // the need is the twin's exactly; this also catches an over-add-back (e.g. 2 x lumpFlow), which the bounds above allow.
+  near(nL, nF, 1e-6, 'lambda need in the lump year equals the tax-free twin (no pre-draw lump tax here)');
 
   assert.deepStrictEqual(errors, []);
   await browser.close();
