@@ -6207,10 +6207,17 @@ reading (itself secondary).
 
 ## Open items
 
-- `tests/snapshot_ui.js` (US) can capture `#dashHistSuccess` before the historical success rate is computed (a dash instead of
-  "85%" on `std R everything`); seen once by the E1d implementer and once by the E1d code reviewer on a clean tree, older than
-  E1d. It also hit Canada (83%) during E1d Task 5, whose `ui_us.json` text hashes had to be patched by hand from a clean capture
-  because `--update` kept capturing the race. A timing race in the test (wait for the value, not a fixed delay); not fixed in E1d.
+- **Fixing (owner, 2026-10-09): the UI snapshot's `histSuccess` race.** `tests/snapshot_ui.js` `surfaceChecks` dispatches an input, waits
+  400 ms, dispatches again and captures at once; the planner's historical backtest is debounced 500 ms after the last render
+  (`schedulePlanStatusHistRate`), armed inside the first render, before the test's 400 ms timer is armed. When that render takes
+  over about 100 ms (a loaded machine), the backtest fires first, its rate persists, and the capture shows "85%" (Canada "83%")
+  instead of the baseline's dash. Reproduced by the spec owner with Chrome CPU throttling (scratch probe, `1fc8683`): unthrottled
+  first render 26-49 ms, dash 3 of 3; 4x 137-146 ms and 8x 417-448 ms, "85%" 6 of 6. A race in the test, not the app. Fix
+  (test-only): after the second input, wait (poll) until `#dashHistSuccess` shows a percentage, then capture, so the snapshot pins
+  the settled page and the success rate itself; regenerate the three surfaces of `ui_us.json` and `ui_canada.json` (`textHash`,
+  `textLength`, `histSuccess` only; `projectionHash` and `rowsHash` must not move); a `--cpu-throttle N` option proves it red before
+  and green after. Rejected: cancelling the backtest so the dash is always captured (needs an app hook, pins nothing). It also
+  replaces E1d Task 5's hand-patched `ui_us.json` hashes with a real capture.
 - ~~Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages.~~ Pulled into E1c (owner,
   2026-10-08): a yearly premium on W-2 streams, which also makes that job the owner's coverage.
 - 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.
