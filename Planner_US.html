@@ -7144,7 +7144,8 @@
     MAGI_ITER_TOL = 1;
   // Years that ended the MAGI iteration through the forced pass (7O follow-up F5), and years that hit the cap on a cost step with no
   // pass to force; planMissed: plan years (choose / apply) whose final realized MAGI missed the plan's target (a plan wins only
-  // when it met its line, so this guards an invariant). Counted for the phase of the year that is kept.
+  // when it met its line, so this guards an invariant). Counted for the phase of the year that is kept. seFixed / seAlternative (E1c
+  // decisions 10 and 11): years whose kept phase held the consistent 162(l) deduction / Rev. Proc. 2014-41's alternative calculation.
   const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
@@ -10594,6 +10595,8 @@
         const passLog = [];
         let forcedPass = false;
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
+        let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
+        let seRechecked = false; // decision 11: the held deduction was re-checked at the final draws (once; a second change is not chased)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
         // state lives here, outside the MAGI restore.
         // - natural: no plan (exactly the `off` year), iterated until it converges or ends in its forced pass;
@@ -10711,6 +10714,12 @@
         // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
         // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
         let lastCost = null;
+        // E1c decisions 9-11: the search for the deduction to hold (below the convergence test), built on first use in this pass, so a
+        // pass that never searches allocates nothing. Results in seFixA / seFixB / seNeedAlt.
+        let seSearch = null,
+          seFixA = 0,
+          seFixB = 0,
+          seNeedAlt = false;
         const costAt = (trad, gain, sa = estSeA, sb = estSeB) => {
           hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
           if (twoReturns) {
@@ -10959,80 +10968,95 @@
           estSeB += w * (seRealB - estSeB);
           continue;
         }
-        if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB)) {
-          // E1c decisions 9 and 10 (Rev. Proc. 2014-41 section 5): the damped iteration did not come within $1. Step 1 of either
-          // method: the deduction at the full premiums (priced at a MAGI above every line).
-          costAt(traditionalGross, taxableGainGross, -1e12, -1e12);
-          seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
-          const d1A = SE_HEALTH[0],
-            d1B = SE_HEALTH[1];
-          // Decision 10: first the consistent deduction (D equal to the deduction the premium at D's MAGI allows, within $1), holding
-          // this pass's draws: the iterative method's own answer where it converges, and "another method that produces amounts that
-          // satisfy applicable tax law" (section 5.01). The deduction the premium allows falls as D rises (D lowers the MAGI), so
-          // g(D) = allowed(D) - D is decreasing and a bisection on [0, step-1 deduction] finds the one crossing. One return: one
-          // search on the total (seHealthDeduction splits it, A first). Two returns: one per return (a return's premium reads only
-          // its own MAGI). Where g is not monotone (below 100% of the poverty line in a non-expansion state, or with
-          // medicaidWhenEligible off, the premium rises as MAGI falls) the search may miss a consistent answer and the part takes the
-          // alternative calculation: legal either way. A part with no consistent answer takes section 5.02's steps 2-3: the deduction
-          // at the premium after the credit the step-1 MAGIs allow.
-          const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0;
-          let fixA = 0,
-            fixB = 0,
-            okA = false,
-            okB = false;
-          // The deduction the premium at the MAGI of the pair (sa, sb) allows: the total on one return (slot -1), else a return's slot.
-          const allowedAt = (sa, sb, slot) => {
-            costAt(traditionalGross, taxableGainGross, sa, sb);
+        // E1c decisions 9-11: the 162(l) search is needed by an unconverged year that has not switched, and by a held year that has
+        // converged and not been re-checked. It runs at the draws it is handed (this pass's).
+        if ((profile.seAllowA || profile.seAllowB) && !forcedPass && !replaying && seSearch === null && (seHeld ? !seRechecked && !unconverged : unconverged)) {
+          seSearch = (trad, gain) => {
+            // Step 1 of either method (Rev. Proc. 2014-41 section 5): the deduction at the full premiums (priced at a MAGI above
+            // every line). Nothing to hold at a $0 deduction (the Solo plan took the whole net, no premium, no cap): the year
+            // goes on as it did before the switch existed.
+            costAt(trad, gain, -1e12, -1e12);
             seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
-            return slot < 0 ? SE_HEALTH[0] + SE_HEALTH[1] : SE_HEALTH[slot];
-          };
-          // The crossing of g on [0, top] (g(0) >= 0, g decreasing): the left end of the final bracket, or -1 when it is not within $1.
-          const rootOf = (top, slot, otherSe) => {
-            const probe = (d) => (slot < 0 ? allowedAt(Math.min(d, capA), d - Math.min(d, capA), -1) : slot === 0 ? allowedAt(d, otherSe, 0) : allowedAt(otherSe, d, 1)) - d;
-            if (!(top > 0)) return 0;
-            if (probe(top) >= 0) return top;
-            let lo = 0,
-              hi = top;
-            for (let i = 0; i < 60 && hi - lo > 0.01; i++) {
-              const mid = (lo + hi) / 2;
-              if (probe(mid) >= 0) lo = mid;
-              else hi = mid;
+            const d1A = SE_HEALTH[0],
+              d1B = SE_HEALTH[1];
+            seFixA = 0;
+            seFixB = 0;
+            seNeedAlt = false;
+            if (!(d1A + d1B > 0)) return false;
+            // Decision 10: first the consistent deduction (D equal to the deduction the premium at D's MAGI allows, within $1), holding
+            // these draws: the iterative method's own answer where it converges, and "another method that produces amounts that
+            // satisfy applicable tax law" (section 5.01). The deduction the premium allows falls as D rises (D lowers the MAGI), so
+            // g(D) = allowed(D) - D is decreasing and a bisection on [0, step-1 deduction] finds the one crossing. One return: one
+            // search on the total (seHealthDeduction splits it, A first). Two returns: one per return (a return's premium reads only
+            // its own MAGI). Where g is not monotone (below 100% of the poverty line in a non-expansion state, or with
+            // medicaidWhenEligible off, the premium rises as MAGI falls) the search may miss a consistent answer and the part takes the
+            // alternative calculation: legal either way. A part with no consistent answer takes section 5.02's steps 2-3: the deduction
+            // at the premium after the credit the step-1 MAGIs allow.
+            const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0;
+            let okA = false,
+              okB = false;
+            // The deduction the premium at the MAGI of the pair (sa, sb) allows: the total on one return (slot -1), else a return's slot.
+            const allowedAt = (sa, sb, slot) => {
+              costAt(trad, gain, sa, sb);
+              seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+              return slot < 0 ? SE_HEALTH[0] + SE_HEALTH[1] : SE_HEALTH[slot];
+            };
+            // The crossing of g on [0, top] (g(0) >= 0, g decreasing): the left end of the final bracket, or -1 when it is not within $1.
+            const rootOf = (top, slot, otherSe) => {
+              const probe = (d) => (slot < 0 ? allowedAt(Math.min(d, capA), d - Math.min(d, capA), -1) : slot === 0 ? allowedAt(d, otherSe, 0) : allowedAt(otherSe, d, 1)) - d;
+              if (!(top > 0)) return 0;
+              if (probe(top) >= 0) return top;
+              let lo = 0,
+                hi = top;
+              for (let i = 0; i < 60 && hi - lo > 0.01; i++) {
+                const mid = (lo + hi) / 2;
+                if (probe(mid) >= 0) lo = mid;
+                else hi = mid;
+              }
+              return probe(lo) <= 1 ? lo : -1;
+            };
+            if (!twoReturns) {
+              const t = rootOf(d1A + d1B, -1, 0);
+              if (t >= 0) {
+                seFixA = Math.min(t, capA);
+                seFixB = t - seFixA;
+                okA = okB = true;
+              } else seNeedAlt = true;
+            } else {
+              const ra = rootOf(d1A, 0, d1B),
+                rb = rootOf(d1B, 1, d1A);
+              okA = ra >= 0;
+              okB = rb >= 0;
+              if (okA) seFixA = ra;
+              if (okB) seFixB = rb;
+              seNeedAlt = !okA || !okB;
             }
-            return probe(lo) <= 1 ? lo : -1;
+            if (seNeedAlt) {
+              costAt(trad, gain, d1A, d1B);
+              seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+              if (!okA) seFixA = SE_HEALTH[0];
+              if (!okB) seFixB = SE_HEALTH[1];
+            }
+            return true;
           };
-          let needAlt = false;
-          if (!twoReturns) {
-            const t = rootOf(d1A + d1B, -1, 0);
-            if (t >= 0) {
-              fixA = Math.min(t, capA);
-              fixB = t - fixA;
-              okA = okB = true;
-            } else needAlt = true;
-          } else {
-            const ra = rootOf(d1A, 0, d1B),
-              rb = rootOf(d1B, 1, d1A);
-            okA = ra >= 0;
-            okB = rb >= 0;
-            if (okA) fixA = ra;
-            if (okB) fixB = rb;
-            needAlt = !okA || !okB;
+        }
+        if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB)) {
+          // E1c decisions 9-11 (Rev. Proc. 2014-41 section 5): the damped iteration did not come within $1. Hold the consistent
+          // deduction if there is one, else the alternative calculation's (seSearch); the year re-runs with it held, so the premium
+          // charged is the one the recorded MAGI allows. Nothing is held at a $0 step-1 deduction: the pass falls through to the
+          // forced pass below as it did before the switch (the step-1 costAt left lastCost changed; every reader of lastCost
+          // below calls costAt first).
+          if (seSearch(traditionalGross, taxableGainGross)) {
+            estSeA = seFixA;
+            estSeB = seFixB;
+            seKind = seNeedAlt ? 2 : 1;
+            estTrad = realizedTrad;
+            estGain = taxableGainGross;
+            seHeld = true;
+            passLog.length = 0;
+            phasePass = -1;
+            continue;
           }
-          if (needAlt) {
-            costAt(traditionalGross, taxableGainGross, d1A, d1B);
-            seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
-            if (!okA) fixA = SE_HEALTH[0];
-            if (!okB) fixB = SE_HEALTH[1];
-            magiStats.seAlternative++;
-          } else magiStats.seFixed++;
-          // Step 4: this pass re-run with that deduction held, so the premium, the draws and the MAGI follow it.
-          estSeA = fixA;
-          estSeB = fixB;
-          estTrad = realizedTrad;
-          estGain = taxableGainGross;
-          seHeld = true;
-          passLog.length = 0;
-          phasePass = -1;
-          continue;
         }
         if (unconverged && !forcedPass && !replaying && usesMagiEstimate) {
           // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
@@ -11053,6 +11077,26 @@
           // ends at the cap a couple of dollars off is the old slow convergence, not a cliff.
           const last = passLog[passLog.length - 1];
           if (last && Math.abs(last.charged - last.realized) > 5) phaseUnresolved = true;
+        }
+        // Decision 11: the held deduction was priced on the draws of the pass that failed to converge, and the year then re-ran with draws
+        // that respond to it. A held year that has converged runs the search once more at its final draws; if the deduction it gives
+        // differs by more than $1 the year re-runs once with that one held. One re-hold at most (seRechecked); a held year that ends
+        // in the forced pass keeps its hold. Reached by a converged pass only: an unconverged pass either continued above or is
+        // out of passes (then it is not re-checked).
+        if (seHeld && !seRechecked && !unconverged && !forcedPass && !replaying) {
+          // A search that holds nothing (a $0 step-1 deduction) leaves seFixA / seFixB at 0.
+          seSearch(traditionalGross, taxableGainGross);
+          if (Math.abs(seFixA - estSeA) + Math.abs(seFixB - estSeB) > 1) {
+            estSeA = seFixA;
+            estSeB = seFixB;
+            seKind = seNeedAlt ? 2 : 1;
+            seRechecked = true;
+            estTrad = realizedTrad;
+            estGain = taxableGainGross;
+            passLog.length = 0;
+            phasePass = -1;
+            continue;
+          }
         }
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
@@ -11124,7 +11168,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, seRechecked, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -11134,7 +11178,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, seRechecked, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -11158,6 +11202,8 @@
               estSeA = naturalRec.estSeA;
               estSeB = naturalRec.estSeB;
               seHeld = naturalRec.seHeld;
+              seKind = naturalRec.seKind;
+              seRechecked = naturalRec.seRechecked;
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
               replaying = true;
@@ -11170,7 +11216,7 @@
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, seKind, seRechecked, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -11189,6 +11235,8 @@
                 estSeA = best.estSeA;
                 estSeB = best.estSeB;
                 seHeld = best.seHeld;
+                seKind = best.seKind;
+                seRechecked = best.seRechecked;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
                 replaying = true;
@@ -11205,6 +11253,8 @@
             estSeA = naturalRec.seA;
             estSeB = naturalRec.seB;
             seHeld = false;
+            seKind = 0;
+            seRechecked = false;
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;
@@ -11215,6 +11265,8 @@
         // The kept phase's statistics only.
         if (forcedPass && flow < 0) magiStats.forced++;
         if (phaseUnresolved) magiStats.unresolved++;
+        if (seKind === 1) magiStats.seFixed++;
+        else if (seKind === 2) magiStats.seAlternative++;
         // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be.
         prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
         prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;

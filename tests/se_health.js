@@ -301,6 +301,113 @@ const path = require('path');
     assert.strictEqual(after.forced, before.forced, 'converged: magiStats.forced does not grow');
     assert.strictEqual(after.unresolved, before.unresolved, 'converged: magiStats.unresolved does not grow');
   }
+  // ==== Task 10a (decision 11): a held deduction is re-checked once at the year's final draws; nothing is held at a $0
+  // deduction; the counters count the kept phase. SE_CASE=<name> runs one case alone (used to record the red runs). ====
+  const want = (n) => !process.env.SE_CASE || process.env.SE_CASE === n;
+  const held = (s0, s1) => s1.seFixed + s1.seAlternative - s0.seFixed - s0.seAlternative;
+  // S: the search at a row's final draws (decision 10 else 9): the consistent deduction if |g| < 1 there, else section 5.02 at those
+  // draws. base = the row's MAGI with the deduction added back; cap = the plan net; the premium is the gross premium of the year.
+  const dfpAt = async (base, cap, n, prem, y) => {
+    let lo = 0, hi = Math.min(cap, prem);
+    const g = async (d) => Math.min(cap, await aca(base - d, n, prem, y)) - d;
+    if ((await g(hi)) >= 0) return { D: hi, ok: true };
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      if ((await g(mid)) >= 0) lo = mid;
+      else hi = mid;
+    }
+    return { D: lo, ok: Math.abs(await g(lo)) < 1 };
+  };
+  const searchAt = async (row, prof, y, prem, n) => {
+    const base = row.magiProxy + prof.seHealthA, cap = prof.sePlanNetA;
+    const c = await dfpAt(base, cap, n, prem, y);
+    return c.ok ? c.D : Math.min(cap, await aca(base - Math.min(cap, prem), n, prem, y));
+  };
+  const NOHOUSE = { tenure: 'rent', rent: 0 };
+  const selfStream = (amount, startAge, endAge) => ({ amount, startAge, endAge, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, deferralType: 'traditional', deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0 });
+  const runS = (patch) =>
+    page.evaluate((p) => {
+      window.__test_replaceState(p);
+      const s0 = { ...window.__test_magiStats };
+      const trace = window.__test_accountTrace();
+      const rows = window.__test_simulate().rows;
+      return JSON.parse(JSON.stringify({ s0, s1: { ...window.__test_magiStats }, profiles: trace.map((t) => t.profile), rows }));
+    }, patch);
+  // a one-person household with a $48,000 self stream (no main income), $26,000 spending, $500,000 taxable at 60% basis, no housing
+  // cost, Texas, premium 18,000. The reviewer's household (a $30,000 stream, 30% basis, held 6,224.54, MAGI 74,561) was not reproduced
+  // (a scan of spending 20,000-40,000 by 2,000, streams 20,000-40,000 by 2,000, 300,000 and 600,000 taxable found no year with that
+  // gap in the shape described; the housing and reserve settings of the reviewer's household are not stated). This one has the same
+  // kind of gap: year 0 switches and the held 5,260.8 is 205 below the search at the final draws (5,465.7) at 9b47b3a.
+  const REC = { ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, incomeA: 0, incomeKindA: 'wages', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, spending: 26000, taxable: 500000, basisRatio: 60, ssMonthlyA: 0, ...NOHOUSE, incomeSources: [selfStream(48000, 60, 70)] };
+  if (want('recheck')) {
+    const x = await runS(REC);
+    const p = x.profiles[0], row = x.rows[0];
+    assert(held(x.s0, x.s1) > 0, 'recheck: year 0 holds a deduction');
+    const S = await searchAt(row, p, 0, 18000, 1);
+    near(p.seHealthA, S, 1, `held year re-checked at its final draws: D ${p.seHealthA.toFixed(2)} vs the search ${S.toFixed(2)}`);
+    near(row.healthcare, await aca(row.magiProxy, 1, 18000, 0), 2, 'recheck: the premium charged is the one the recorded MAGI allows');
+    console.log(`  recheck: D ${p.seHealthA.toFixed(2)} S ${S.toFixed(2)} premium ${row.healthcare.toFixed(2)} MAGI ${row.magiProxy.toFixed(2)}`);
+  }
+  // a draw grid: single, 55, a self stream of 20,000-60,000, spending 30,000 and 60,000, $500,000 taxable at 30% basis, no housing,
+  // years 0-9. A held alternative year (D not the premium charged) must end within $1 of the search at its final draws.
+  if (want('grid')) {
+    const GR = { ...REC, ageA: 55, retireAgeA: 55, taxable: 500000, basisRatio: 30 };
+    let years = 0, alt = 0, off = 0, worst = 0;
+    for (const spending of [30000, 60000])
+      for (let amt = 20000; amt <= 60000; amt += 5000) {
+        const x = await runS({ ...GR, spending, incomeSources: [selfStream(amt, 55, 70)] });
+        for (let y = 0; y < 10; y++) {
+          const p = x.profiles[y], row = x.rows[y];
+          years++;
+          if (!(p.seHealthA > 0) || !(Math.abs(p.seHealthA - Math.min(p.sePlanNetA, row.healthcare)) > 1)) continue;
+          alt++;
+          const S = await searchAt(row, p, y, 18000, 1);
+          if (Math.abs(p.seHealthA - S) > 1) {
+            off++;
+            worst = Math.max(worst, Math.abs(p.seHealthA - S));
+            console.log(`  grid: spending ${spending} stream ${amt} year ${y}: D ${p.seHealthA.toFixed(2)} vs search ${S.toFixed(2)}`);
+          }
+        }
+      }
+    console.log(`  grid: ${years} years, ${alt} held alternative years, ${off} more than $1 off the search (worst ${worst.toFixed(2)})`);
+    // One re-hold at most (decision 11): the second pass's draws move the answer again by a few dollars in a few years. At 9b47b3a: 7 of 10
+    // held years were off, by up to 335. At the tip: 1 of 10, by 2.4.
+    assert(off <= 1 && worst <= 5, 'held years over a draw grid: held alternative years end within $1 of the search at their final draws, at most one year off by a few dollars');
+  }
+  // no hold at a $0 deduction: R side business stream (the Solo plan takes the whole net, so the step-1 deduction is 0).
+  if (want('zero')) {
+    const { legacyToAccounts } = require('./legacy_balances');
+    const US_R = { ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50, lifeExpectancyA: 95, lifeExpectancyB: 95, taxable: 700000, traditional: 900000, roth: 200000, cash: 60000, spending: 90000, stateTax: 'tx' };
+    const stream = { amount: 40000, startAge: 52, endAge: 60, followGrowth: true, growth: 3, owner: 'A', kind: 'self', contribute: true, deferralType: 'traditional', deferralPct: 100, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 25, healthPremium: 0 };
+    const x = await runS({ ...legacyToAccounts({ ...US_R, acaEnabled: true }, { singlePerson: false }), incomeSources: [stream] });
+    assert.strictEqual(held(x.s0, x.s1), 0, 'no hold at a $0 deduction: nothing counted');
+    // the rows pinned at 9b47b3a (sha256 of JSON.stringify(rows)): the $0 hold changed no number.
+    const hash = require('crypto').createHash('sha256').update(JSON.stringify(x.rows)).digest('hex');
+    assert.strictEqual(hash, '4f0cfe41da0fca0a2e6954151b77cb16c20af76af1c20d44676bec2c48d33940', 'no hold at a $0 deduction: rows identical to 9b47b3a');
+  }
+  // a held joint year, both self-employed, A's cap binding: the total is split A first (A = min(total, capA), B the rest).
+  if (want('joint')) {
+    const k = 1 - (await page.evaluate(() => window.__test_selfEmploymentTax(100000, 0, 0).half)) / 100000;
+    const JS = { ...ZERO, singlePerson: false, ageA: 50, ageB: 50, retireAgeA: 60, retireAgeB: 60, incomeA: 3000 / k, incomeKindA: 'self', incomeB: 90000, incomeKindB: 'self', filingStatus: 'mfj', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, k401PctB: 0, catchupPctB: 0, profitSharingPctB: 0, iraPctB: 0, megaBackdoor: false, ...NOHOUSE };
+    const x = await runS(JS);
+    const p = x.profiles[0];
+    assert(held(x.s0, x.s1) > 0, 'joint split: year 0 holds a deduction');
+    near(p.sePlanNetA, 3000, 1e-6, 'joint split: A\'s cap');
+    const total = p.seHealthA + p.seHealthB;
+    const c = await dfp(p.sePlanNetA + p.sePlanNetB, 2, 18000);
+    assert(c.ok, 'joint split: a consistent total exists');
+    near(total, c.D, 1, `joint split: the total ${total.toFixed(2)} vs the consistent ${c.D.toFixed(2)}`);
+    assert.strictEqual(p.seHealthA, Math.min(total, p.sePlanNetA), 'joint split: A first, up to A\'s cap');
+    near(p.seHealthB, total - p.seHealthA, 1e-9, 'joint split: B the rest');
+    assert(p.seHealthB > 0, 'joint split: B gets a share');
+    console.log(`  joint split: A ${p.seHealthA} B ${p.seHealthB.toFixed(2)} total ${total.toFixed(2)}`);
+  }
+  if (process.env.SE_CASE) {
+    await browser.close();
+    console.log('se_health: case ' + process.env.SE_CASE + ' passed');
+    process.exit(0);
+  }
+
   // tests below use Texas again
   await page.evaluate(() => window.__test_replaceState({ stateTax: 'tx' }));
 
