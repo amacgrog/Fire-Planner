@@ -6212,12 +6212,21 @@ reading (itself secondary).
   (`schedulePlanStatusHistRate`), armed inside the first render, before the test's 400 ms timer is armed. When that render takes
   over about 100 ms (a loaded machine), the backtest fires first, its rate persists, and the capture shows "85%" (Canada "83%")
   instead of the baseline's dash. Reproduced by the spec owner with Chrome CPU throttling (scratch probe, `1fc8683`): unthrottled
-  first render 26-49 ms, dash 3 of 3; 4x 137-146 ms and 8x 417-448 ms, "85%" 6 of 6. A race in the test, not the app. Fix
-  (test-only): after the second input, wait (poll) until `#dashHistSuccess` shows a percentage, then capture, so the snapshot pins
-  the settled page and the success rate itself; regenerate the three surfaces of `ui_us.json` and `ui_canada.json` (`textHash`,
-  `textLength`, `histSuccess` only; `projectionHash` and `rowsHash` must not move); a `--cpu-throttle N` option proves it red before
-  and green after. Rejected: cancelling the backtest so the dash is always captured (needs an app hook, pins nothing). It also
-  replaces E1d Task 5's hand-patched `ui_us.json` hashes with a real capture.
+  first render 26-49 ms, dash 3 of 3; 4x 137-146 ms and 8x 417-448 ms, "85%" 6 of 6. A race in the test, not the app.
+  **First fix, withdrawn (the spec owner's error):** polling until the tile is not a dash. Under throttling the load-time backtest
+  (500 ms after load, on the default state) fires before the test's patch, so the tile already shows the default rate and the poll
+  exits with a stale value (the implementer's throttled run: Canada std R 83% against 94%, std R everything 83% against 60%).
+  **Fix (owner, 2026-10-09):** drive the page clock the test already installs: in `surfaceChecks`, after `newPage`,
+  `page.clock.pauseAt` (fires what is due, then time stands still); patch, first input, open the cards; `page.clock.runFor(400)`
+  (replacing the in-page 400 ms wait); second input (arms a fresh 500 ms backtest); `page.clock.runFor(600)` (fires it on the
+  patched state); capture. Spike (spec owner, scratch, `1fc8683`, both planners x 3 surfaces x CPU 1x/4x/8x x 3 runs): every surface
+  one histSuccess, text, projection and rows hash across all 9 runs, equal to the backtest computed directly on the patched state
+  (US 85/89/49%, Canada 83/94/60%), projection and rows hashes equal to the committed baselines, text lengths equal to an
+  unthrottled capture (no rendering blocked by the paused clock). Baselines: the three surfaces of `ui_us.json` and
+  `ui_canada.json` change in `textHash`, `textLength` and `histSuccess` only. A `--cpu-throttle N` option proves it. Rejected:
+  cancelling the backtest (needs an app hook, pins nothing); waiting for the value to change (hangs when the patched rate equals
+  the default's); a fixed longer wait (still a race). It also replaces E1d Task 5's hand-patched `ui_us.json` hashes with a real
+  capture.
 - ~~Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages.~~ Pulled into E1c (owner,
   2026-10-08): a yearly premium on W-2 streams, which also makes that job the owner's coverage.
 - 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.
