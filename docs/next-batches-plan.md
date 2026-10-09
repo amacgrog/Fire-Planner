@@ -1629,6 +1629,13 @@ list; seven new should-fix or minor findings, all adopted (spec section 12). **D
 the year after a lump year holds the guardrail multiplier (a lump year clears prevPortfolio after its own step), so one
 observation never moves spending twice; retired surplus years keep the existing double step.
 
+**Plan** `docs/superpowers/plans/2026-10-09-e1d-one-time-income.md` (four tasks: inputs; the splitter, cash flow, wages and ordinary
+lumps, guardrails; gains in the tax code and MAGI; scenarios and docs). Reviewed by the same reviewer at `1571c02` (2026-10-09): no
+blocking finding; adopted: a UI check that a kind change reaches the projection, an engine case for a dead owner's wages and
+ordinary lumps (death year included), the ACTC from severance against deferred compensation, the engine helper's save/restore
+pattern, `mt` / `nm` as the gain-rule states, `__test_tax` (no new hook), the gain-band cases replaced by the bit-exact
+equivalence (stated), and the spec's section 7 note on the DYN rows made by the spec owner instead of Task 4.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
