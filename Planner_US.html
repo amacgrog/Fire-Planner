@@ -10541,7 +10541,10 @@
       // depended on them at all (no ACA premium, no finite MAGI ceiling), in
       // which case a single pass is already exact. estSeA/estSeB are the
       // self-employed health insurance deductions (E1c) the pass's MAGI
-      // assumes; they converge with the other two.
+      // assumes; they converge with the other two. If the iteration does not
+      // converge in a year with a deduction allowed, the year switches to Rev.
+      // Proc. 2014-41's alternative calculation (seHeld, decision 9): the
+      // deduction is computed once and held, and only the draws iterate on.
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
         estSeA = prevSeHealthA,
@@ -10557,6 +10560,7 @@
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
         let forcedPass = false;
+        let seHeld = false; // E1c decision A: the alternative calculation's deduction, held for the rest of the phase
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
         // state lives here, outside the MAGI restore.
         // - natural: no plan (exactly the `off` year), iterated until it converges or ends in its forced pass;
@@ -10774,9 +10778,14 @@
           usesMagiEstimate = hcOut.usesMagiEstimate;
         if (usesMagiEstimate) estUsed = true;
         // E1c: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at the convergence test.
+        // Once the year has switched to Rev. Proc. 2014-41's alternative calculation (seHeld, below the convergence test) the
+        // deduction is held at the estimate it computed, so the realized pair is the held pair and only the draws iterate.
         let seRealA = 0,
           seRealB = 0;
-        if (profile.seAllowA || profile.seAllowB) {
+        if (seHeld) {
+          seRealA = estSeA;
+          seRealB = estSeB;
+        } else if (profile.seAllowA || profile.seAllowB) {
           seHealthDeduction(healthcare, hcOut.premA, hcOut.premB, twoReturns, profile, SE_HEALTH);
           seRealA = SE_HEALTH[0];
           seRealB = SE_HEALTH[1];
@@ -10914,6 +10923,25 @@
           estSeB += w * (seRealB - estSeB);
           continue;
         }
+        if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB)) {
+          // E1c decision A (Rev. Proc. 2014-41 section 5.02): the iterative calculation did not converge, so the year uses
+          // the alternative calculation. Step 1: the deduction at the full premiums (priced at a MAGI above every line);
+          // steps 2-3: the deduction at the premium after the credit the step-1 MAGI allows; step 4: this pass re-run with
+          // that deduction held, so the premium, the draws and the MAGI follow it. The draws are this pass's.
+          costAt(traditionalGross, taxableGainGross, -1e12, -1e12);
+          seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+          const d1A = SE_HEALTH[0], d1B = SE_HEALTH[1];
+          costAt(traditionalGross, taxableGainGross, d1A, d1B);
+          seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+          estSeA = SE_HEALTH[0];
+          estSeB = SE_HEALTH[1];
+          estTrad = realizedTrad;
+          estGain = taxableGainGross;
+          seHeld = true;
+          passLog.length = 0;
+          phasePass = -1;
+          continue;
+        }
         if (unconverged && !forcedPass && !replaying && usesMagiEstimate) {
           // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
           // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
@@ -10936,13 +10964,15 @@
         }
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
-          // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds.
+          // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
+          // deduction, below, is not re-priced at all).
           const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
           expenses -= refund;
-          // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above).
-          if (profile.seAllowA || profile.seAllowB) {
+          // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above), unless the
+          // year uses the alternative calculation (seHeld): its deduction is held, and only a trad/gain step is forced here.
+          if (!seHeld && (profile.seAllowA || profile.seAllowB)) {
             seHealthDeduction(healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
             seRealA = SE_HEALTH[0];
             seRealB = SE_HEALTH[1];
@@ -11002,7 +11032,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -11012,7 +11042,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -11035,6 +11065,7 @@
               estGain = naturalRec.estGain;
               estSeA = naturalRec.estSeA;
               estSeB = naturalRec.estSeB;
+              seHeld = naturalRec.seHeld;
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
               replaying = true;
@@ -11047,7 +11078,7 @@
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -11065,6 +11096,7 @@
                 estGain = best.estGain;
                 estSeA = best.estSeA;
                 estSeB = best.estSeB;
+                seHeld = best.seHeld;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
                 replaying = true;
@@ -11080,6 +11112,7 @@
             estGain = naturalRec.gain;
             estSeA = naturalRec.seA;
             estSeB = naturalRec.seB;
+            seHeld = false;
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;

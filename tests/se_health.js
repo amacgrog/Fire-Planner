@@ -172,23 +172,67 @@ const path = require('path');
     console.log(`  two returns: magiA ${f.rows[0].magiA.toFixed(2)} A part ${partA.toFixed(2)} D ${p.seHealthA.toFixed(2)}`);
   }
 
-  // no consistent answer (decision 8b): sePlanNet 76,206.89; below the 400% line the deduction lifts MAGI over it, above it
-  // pulls MAGI under. The forced pass decides; charged premium, deduction and recorded MAGI agree.
-  {
-    const before = await page.evaluate(() => ({ ...window.__test_magiStats }));
-    f = await run({ ...FP, incomeA: 82000 });
-    const after = await page.evaluate(() => ({ ...window.__test_magiStats }));
-    for (const r of f.rows) assert(Object.values(r).every((v) => v === undefined || Number.isFinite(v)), 'band: finite rows');
-    const sp = f.trace[0].profile.sePlanNetA;
-    near(sp, 76206.89, 0.01, 'band: sePlanNet');
-    H = f.rows[0].healthcare; D = f.trace[0].profile.seHealthA; M = f.rows[0].magiProxy;
-    near(D, Math.min(H, sp), 1e-9, 'band: D = min(H, sePlanNet)');
-    near(M, sp - D, 1, 'band: MAGI = sePlanNet - D');
-    // Two runs (trace and rows): the year is counted at least once per run.
-    const grew = after.forced - before.forced + (after.unresolved - before.unresolved);
-    assert(grew >= 1, `band: counted as forced or unresolved (${JSON.stringify(before)} -> ${JSON.stringify(after)})`);
-    console.log(`  band: magiStats ${JSON.stringify(before)} -> ${JSON.stringify(after)}; H ${H.toFixed(2)} D ${D.toFixed(2)} M ${M.toFixed(2)}`);
+  // ==== Task 8b (decision 9): where the 162(l) iteration has no consistent answer, Rev. Proc. 2014-41's alternative
+  // calculation (section 5.02). The premium charged is always the one the recorded MAGI allows. ====
+  const stats = () => page.evaluate(() => ({ ...window.__test_magiStats }));
+  // band, consistent premium: single, 400% line 62,600 (1 person, 2026); below it the deduction lifts MAGI over it, above
+  // it pulls MAGI under.
+  for (const profit of [70000, 74000, 82000, 86000]) {
+    f = await run({ ...FP, incomeA: profit });
+    for (const r of f.rows) assert(Object.values(r).every((v) => v === undefined || Number.isFinite(v)), `band ${profit}: finite rows`);
+    const want = await aca(f.rows[0].magiProxy, 1, 18000, 0);
+    near(f.rows[0].healthcare, want, 2, `band, consistent premium (${profit}): H vs the premium at the recorded MAGI ${f.rows[0].magiProxy}`);
   }
+  // band, the alternative calculation by hand (82,000; sePlanNet 76,206.8845): step 1 deduction 18,000 (the full premium),
+  // MAGI 58,206.8845; steps 2-3 deduction D = the premium after the credit at that MAGI; step 4: MAGI 76,206.8845 - D
+  // (over the 400% line), premium 18,000. (Task 5 asserted decision 8b here: H = D = 5,797.41 at MAGI 70,409, a
+  // subsidized premium above the 400% line.)
+  {
+    f = await run({ ...FP, incomeA: 82000 });
+    const sp = f.trace[0].profile.sePlanNetA;
+    near(sp, 76206.8845, 1e-6, 'band: sePlanNet');
+    const m1 = sp - 18000, Dh = await aca(m1, 1, 18000, 0);
+    D = f.trace[0].profile.seHealthA; M = f.rows[0].magiProxy; H = f.rows[0].healthcare;
+    near(D, Dh, 1e-6, 'band: D = the premium after the credit at the step-1 MAGI');
+    near(M, sp - Dh, 1, 'band: MAGI = sePlanNet - D');
+    assert.strictEqual(H, 18000, 'band: premium 18,000 (the MAGI is over the 400% line)');
+    console.log(`  band: step-1 MAGI ${m1.toFixed(4)} D ${D.toFixed(4)} M ${M.toFixed(4)} H ${H.toFixed(2)}`);
+  }
+  // joint band: married, both 50, A self-employed, B retired with no pay; 400% line 84,600 (2 persons); sePlanNet 98,000.
+  {
+    const k = 1 - (await page.evaluate(() => window.__test_selfEmploymentTax(100000, 0, 0).half)) / 100000;
+    const profit = 98000 / k;
+    const JB = { ...ZERO, singlePerson: false, ageA: 50, ageB: 50, retireAgeA: 60, retireAgeB: 50, incomeA: profit, incomeKindA: 'self', incomeB: 0, filingStatus: 'mfj', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, k401PctB: 0, iraPctB: 0, megaBackdoor: false };
+    f = await run(JB);
+    near(f.trace[0].profile.sePlanNetA, 98000, 1e-6, 'joint band: sePlanNet');
+    const want = await aca(f.rows[0].magiProxy, 2, 18000, 0);
+    near(f.rows[0].healthcare, want, 2, 'joint band: consistent premium');
+    console.log(`  joint band: profit ${profit.toFixed(4)} D ${f.trace[0].profile.seHealthA.toFixed(2)} M ${f.rows[0].magiProxy.toFixed(2)} H ${f.rows[0].healthcare.toFixed(2)}`);
+  }
+  // Medicaid line (California, an expansion state): 1.38 x the 2026 poverty line for one (15,650) = 21,597; sePlanNet $300 above.
+  {
+    const line = 1.38 * 15650;
+    assert.strictEqual(await page.evaluate(([m]) => { window.__test_replaceState({ stateTax: 'ca' }); return window.__test_tax.acaNetCost(m, 1, 18000, 0); }, [line]), 0, 'Medicaid line: $0 at the line');
+    assert(await page.evaluate(([m]) => window.__test_tax.acaNetCost(m, 1, 18000, 0), [line + 1]) > 0, 'Medicaid line: a premium just over it');
+    const k = 1 - (await page.evaluate(() => window.__test_selfEmploymentTax(100000, 0, 0).half)) / 100000;
+    f = await run({ ...FP, stateTax: 'ca', incomeA: (line + 300) / k });
+    near(f.trace[0].profile.sePlanNetA, line + 300, 1e-6, 'Medicaid line: sePlanNet');
+    const want = await aca(f.rows[0].magiProxy, 1, 18000, 0);
+    near(f.rows[0].healthcare, want, 2, 'Medicaid line: consistent premium');
+    console.log(`  Medicaid line ${line.toFixed(2)}: profit ${((line + 300) / k).toFixed(4)} D ${f.trace[0].profile.seHealthA.toFixed(2)} M ${f.rows[0].magiProxy.toFixed(2)} H ${f.rows[0].healthcare.toFixed(2)}`);
+  }
+  // converged years unchanged: the fixed-point household keeps the Task 5 values and is never forced.
+  {
+    const before = await stats();
+    f = await run(FP);
+    const after = await stats();
+    near(f.trace[0].profile.seHealthA, 5050.71, 0.005, 'converged: D (Task 5)');
+    near(f.rows[0].magiProxy, 50710.43, 0.005, 'converged: MAGI (Task 5)');
+    assert.strictEqual(after.forced, before.forced, 'converged: magiStats.forced does not grow');
+    assert.strictEqual(after.unresolved, before.unresolved, 'converged: magiStats.unresolved does not grow');
+  }
+  // tests below use Texas again
+  await page.evaluate(() => window.__test_replaceState({ stateTax: 'tx' }));
 
   // cliff plan replay: the side-business household (R with a self stream, ACA on).
   {
