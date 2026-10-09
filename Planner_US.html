@@ -10158,6 +10158,47 @@
     }
     return out;
   }
+  // E1d: this year's one-time income split by kind and owner. Pure (reads no state). Any kind but wages, ordinary or gain is
+  // tax-free and any owner but 'B' is A (rows may arrive unnormalized); owner A in single-person mode. A dead owner's
+  // wages or ordinary income goes to the living partner as ordinary income (no payroll tax); a dead owner's gain is
+  // tax-free (stepped-up basis); the owner is dead from the death year on. Only the gain share of a gain row is taxable;
+  // its basis joins taxFree. flowTotal (the taxable part) is the one gate: a lump year is flowTotal > 0. taxFree runs from
+  // 0 in list order: for all-free rows it is the old oneTimeAmount, bit for bit.
+  const LUMP_OUT = { taxFree: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, gainA: 0, gainB: 0, gainNoNiitA: 0, gainNoNiitB: 0, flowTotal: 0 };
+  function lumpAmountsForYear(lumps, ctx, out) {
+    out.taxFree = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0;
+    out.gainA = 0; out.gainB = 0; out.gainNoNiitA = 0; out.gainNoNiitB = 0; out.flowTotal = 0;
+    for (let i = 0; i < lumps.length; i++) {
+      const o = lumps[i];
+      if (Math.round(o.age) !== ctx.ageA) continue;
+      const amt = o.amount * (o.flat ? 1 : ctx.factor),
+        k = o.kind;
+      if (k !== 'wages' && k !== 'ordinary' && k !== 'gain') {
+        out.taxFree += amt;
+        continue;
+      }
+      const b = !ctx.single && o.owner === 'B',
+        dead = b ? ctx.deadB : ctx.deadA;
+      if (k === 'gain') {
+        if (dead) {
+          out.taxFree += amt;
+          continue;
+        }
+        const p = o.gainPct !== '' && o.gainPct !== null && Number.isFinite(Number(o.gainPct)) ? Math.min(100, Math.max(0, Number(o.gainPct))) : 100,
+          g = (amt * p) / 100;
+        if (b) out.gainB += g; else out.gainA += g;
+        if (o.activeBusiness === true) { if (b) out.gainNoNiitB += g; else out.gainNoNiitA += g; }
+        out.taxFree += amt - g;
+        out.flowTotal += g;
+      } else {
+        if (k === 'wages' && !dead) { if (b) out.wagesB += amt; else out.wagesA += amt; }
+        else if (b !== dead) out.otherB += amt; // owner B alive, or owner A dead: the money is B's
+        else out.otherA += amt;
+        out.flowTotal += amt;
+      }
+    }
+    return out;
+  }
   const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1, premiumFactor: 1 };
   function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
@@ -10166,16 +10207,15 @@
     STREAM_CTX.premiumFactor = state.incomeSources.length ? factor * medicalGrowth(year) : 1;
     const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
       extraIncome = streams.total;
-    const oneTimeAmount = state.oneTimeIncome
-      .filter((o) => Math.round(o.age) === age)
-      .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
+    const lumps = lumpAmountsForYear(state.oneTimeIncome, STREAM_CTX, LUMP_OUT),
+      oneTimeAmount = lumps.taxFree;
     const extraExpense = state.extraExpenses
       .filter((e) => age >= e.startAge && age <= e.endAge)
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
     const lumpExpense = state.lumpExpenses
       .filter((e) => lumpExpenseHits(e, age))
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-    return { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense };
+    return { extraIncome, streams, lumps, oneTimeAmount, extraExpense, lumpExpense };
   }
 
   // E1c: which partners a W-2 stream with a health premium covers at the ages in ctx (bit 1: A, bit 2: B); the IRMAA
@@ -10453,10 +10493,22 @@
         seMainB = workingB && state.incomeKindB === 'self' ? state.incomeB * incomeFactor : 0;
       const wageA = workingA && state.incomeKindA !== 'self' ? state.incomeA * incomeFactor : 0,
         wageB = workingB && state.incomeKindB !== 'self' ? state.incomeB * incomeFactor : 0;
-      const { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({
+      const { extraIncome, streams, lumps, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({
         age, ageB, year, factor, incomeFactor, single: singlePerson,
         deadA: deceasedIsA && year >= deathYear, deadB: deceasedIsB && year >= deathYear,
       });
+      // E1d: this year's taxable one-time income (LUMP_OUT is a scratch object; the guardrail skip and row.income read
+      // these late in the year body).
+      const lumpFlow = lumps.flowTotal,
+        lumpYear = lumpFlow > 0,
+        lumpWagesA = lumps.wagesA, lumpWagesB = lumps.wagesB,
+        lumpOtherA = lumps.otherA, lumpOtherB = lumps.otherB,
+        lumpGainA = lumps.gainA, lumpGainB = lumps.gainB,
+        lumpNoNiitA = lumps.gainNoNiitA, lumpNoNiitB = lumps.gainNoNiitB;
+      // E1d: Social Security wages for the wage base, payroll tax and the profile (a wages lump has no premium, no
+      // contribution and no coverage, so it never touches `streams`).
+      const ssWagesA = lumpYear ? streams.wagesA + lumpWagesA : streams.wagesA,
+        ssWagesB = lumpYear ? streams.wagesB + lumpWagesB : streams.wagesB;
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA && state.incomeKindA !== 'self' ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
         healthPremiumB = !singlePerson && workingB && state.incomeKindB !== 'self' ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
@@ -10466,11 +10518,11 @@
         seB = seMainB + streams.selfB;
       let seTaxA = 0, halfA = 0, seNeA = 0, seTaxB = 0, halfB = 0, seNeB = 0;
       if (seA > 0) {
-        selfEmploymentTax(seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, streams.wagesA - streams.premiumA), year, SE_OUT);
+        selfEmploymentTax(seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, ssWagesA - streams.premiumA), year, SE_OUT);
         seTaxA = SE_OUT.tax; halfA = SE_OUT.half; seNeA = SE_OUT.ne;
       }
       if (seB > 0) {
-        selfEmploymentTax(seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, streams.wagesB - streams.premiumB), year, SE_OUT);
+        selfEmploymentTax(seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, ssWagesB - streams.premiumB), year, SE_OUT);
         seTaxB = SE_OUT.tax; halfB = SE_OUT.half; seNeB = SE_OUT.ne;
       }
       // E1c: employer health coverage this year: a W-2 main job while working, or a W-2 stream with a premium. It replaces
@@ -10478,8 +10530,10 @@
       // for pay, contributions and account statuses.
       const employerA = (workingA && state.incomeKindA !== 'self') || streams.coverA,
         employerB = (workingB && state.incomeKindB !== 'self') || streams.coverB;
-      const wages =
+      let wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB + seMainA + seMainB;
+      // E1d: the taxable part of the year's one-time income enters the cash flow (appended: the old sum order is unchanged).
+      if (lumpYear) wages += lumpFlow;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
         employerContrib: employerMatch, streamWageCutA, streamWageCutB, soloPlanCutA, soloPlanCutB, soloIraCutA, soloIraCutB,
@@ -10532,10 +10586,10 @@
         pensionB,
         rmdA,
         rmdB,
-        streamWagesA: streams.wagesA,
-        streamWagesB: streams.wagesB,
-        streamOtherA: streams.otherA,
-        streamOtherB: streams.otherB,
+        streamWagesA: ssWagesA,
+        streamWagesB: ssWagesB,
+        streamOtherA: lumpYear ? streams.otherA + lumpOtherA : streams.otherA,
+        streamOtherB: lumpYear ? streams.otherB + lumpOtherB : streams.otherB,
         streamWageCutA,
         streamWageCutB,
         streamPremiumA: streams.premiumA,
@@ -10830,6 +10884,7 @@
           baseSpendingNominal(age, year, factor, incomeFactor) *
           guardrailSpendingMultiplier(guardrails, working) *
           (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+        if (lumpYear) guardrails.prevPortfolio = null; // E1d decision 11: the year after a lump year holds
         // acaEligibleA/B (computed above, before the Roth-conversion guard) say
         // which partners are on the individual market this year.
         hcArgs.magiProxy = magiProxy;
@@ -10860,7 +10915,7 @@
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself, less the
         // premiums deducted under 162(l). Set every pass: it follows the premium, which follows this pass's MAGI estimate.
         profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
@@ -10933,8 +10988,11 @@
           }
         } else {
           wd.need = -flow;
-          if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
-          recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
+          // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
+          if (!lumpYear) {
+            if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
+            recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
+          }
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
           // penalty from an account unless its owner is 59.5+ or the account is a 401(k) covered
@@ -11125,9 +11183,9 @@
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
           const needNet = -flow - refund;
-          if (!working && year === retirementYear) firstWithdrawal = Math.max(0, needNet - lumpExpense);
+          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = Math.max(0, needNet - lumpExpense);
           guardrails.initialWR = guardrailSnapshot.initialWR;
-          recordGuardrailWithdrawal(guardrails, Math.max(0, needNet - lumpExpense), guardrailPortfolioNow, working);
+          if (!lumpYear) recordGuardrailWithdrawal(guardrails, Math.max(0, needNet - lumpExpense), guardrailPortfolioNow, working); // E1d decision 7
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
@@ -11359,6 +11417,9 @@
             conversionAmount,
             profile: { ...profile },
             ficaTax,
+            guardrails: { ...guardrails },
+            firstWithdrawal,
+            forcedPass,
             medA,
             medB,
             rothBasis: rothAccts.map((L) => L.basis),
@@ -17047,6 +17108,7 @@
       contrib: o.contrib.items.slice(0, o.contrib.n).map((it) => ({ owner: it.owner, pay: it.pay })),
     };
   };
+  window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
   window.__test_payrollTax = payrollTax;
   window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
   window.__test_streamCoverBits = streamCoverBits;

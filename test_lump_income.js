@@ -89,11 +89,9 @@ const path = require('path');
   await setSelect('oneTime0Kind', 'wages');
   await page.waitForTimeout(200);
   const asWages = await lumpYearRow();
-  // Task 1 changes no number; the engine reads the kind from Task 2 on (set LUMP_ENGINE=1 then, or drop the guard).
-  if (process.env.LUMP_ENGINE === '1') {
-    assert(asWages.wages - asFree.wages > 49999, 'wages kind: the lump is in row.wages');
-    assert(asWages.tax > asFree.tax, 'wages kind: the lump is taxed');
-  }
+  // the engine reads the kind: a wages lump enters the flow and is taxed
+  assert(asWages.wages - asFree.wages > 49999, 'wages kind: the lump is in row.wages');
+  assert(asWages.tax > asFree.tax, 'wages kind: the lump is taxed');
 
   // normalization through the same normalizer
   const norm = (raw) =>
