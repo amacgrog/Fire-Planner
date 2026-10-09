@@ -1184,6 +1184,45 @@ shared-region change.
   1.199A-3(b)(1)(vi)); the year's recorded MAGI uses the realized deduction; two broken test cases; six tests from spec
   section 7 restored; a cliff-plan replay test, an in-band test and an eighth scenario added.
 
+##### E1c: review, part 1 (spec owner, 2026-10-09; the independent review is still running)
+
+Checked in a scratch worktree of the tip `5fef95b`: `npm test` exits 0; snapshot dump of `ee7a789` against the tip (the
+tip's scenario list): 934 files, 8 differ, exactly the 8 new E1c scenarios (US 550 -> 558), so no existing projection
+moved. The implementer's rulings hold (`taxFor` computing the household's other income once per branch keeps the
+snapshots exact; `planStats.absent > 0`; the QBI engine test on the itemized deduction).
+
+Findings:
+1. **The 162(l) band breaks tax law (a design error of decision 8b, not an implementation error).** For a single person
+   near the 400% line with net self-employment of about $69,000-$81,000 the forced pass charges a subsidized premium
+   (5,797) at a recorded MAGI above the line (70,409), where no credit exists: the cost is understated by about $12,000 a
+   year. Rev. Proc. 2014-41 section 5.01 (IRB 2014-33, read 2026-10-09): when the iterative calculation never comes within
+   $1, the taxpayer "should not use the iterative calculation method" and uses the alternative calculation (5.02) or
+   another method that satisfies the law. Probe (single, $18,000 premium, 2026, throwaway):
+
+   | Net self-employment | Iterative: premium / deduction | Alternative 5.02: premium / deduction |
+   |---|---|---|
+   | 45,000 | 3,666 / 3,666 | 4,054 / 1,424 |
+   | 55,761 | 5,051 / 5,051 | 5,248 / 3,066 |
+   | 69,000-80,000 | no fixed point | 18,000 / 5,080-6,175 |
+   | 84,000 | 18,000 / 18,000 | 18,000 / 18,000 |
+
+2. **Timing gate fails** (`tests/bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21`, the independent reviewer
+   probing on the same machine): simulate tx / ca / ny / pa / ct / wa +8.5 / +4.7 / +3.6 / +3.7 / -3.7 / +6.2%, historical
+   +5.5 / +3.8 / +5.8 / +5.3 / -4.5 / +6.3%. `tests/bench_solver.js`, 31 rounds, two runs (simulate / path): ACA early
+   retiree +0.8 / +2.1% then +1.7 / +4.3%; default +8.1 / +5.3% then +4.8 / +5.3%. The lightest-tax states move most, which
+   fits a fixed cost per `taxFor` call: it now reads eight self-employment fields on every call for every household. A
+   self-employed household runs 1.63x the time of the same household with W-2 pay (extra MAGI passes; expected, recorded).
+3. **Test gap:** since the recorded MAGI uses the realized deduction (site 18b), `ACA off still converges` passes even
+   without site 7's `estUsed` line; only the Roth-fill test catches it. The test must assert on a pass-priced quantity.
+
+**Decisions (owner, 2026-10-09):**
+- A. Keep the iterative calculation where it converges; in a year where it cannot (the forced pass with a 162(l) deduction
+  in play) use Rev. Proc. 2014-41's alternative calculation, re-running the year with the deduction held at the
+  alternative amount so the premium, the draws and the MAGI follow the law's answer (no refund step).
+- B. Fix the timing rather than accept it: read the self-employment fields in `taxFor` (and the other per-pass additions)
+  only when the profile carries one "has self-employment" flag; re-run the gate, commit by commit if it still fails.
+- Both go to the implementer as one more task, together with the independent review's accepted findings.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
