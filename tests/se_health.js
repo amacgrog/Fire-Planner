@@ -221,6 +221,76 @@ const path = require('path');
     near(f.rows[0].healthcare, want, 2, 'Medicaid line: consistent premium');
     console.log(`  Medicaid line ${line.toFixed(2)}: profit ${((line + 300) / k).toFixed(4)} D ${f.trace[0].profile.seHealthA.toFixed(2)} M ${f.rows[0].magiProxy.toFixed(2)} H ${f.rows[0].healthcare.toFixed(2)}`);
   }
+  // ==== Task 9a (decision 10): the consistent deduction first. A year whose iteration does not converge holds the deduction D
+  // that equals the deduction the premium at D's MAGI allows (within $1), when there is one; else the alternative calculation. ====
+  // Dfp: bisection on g(D) = min(cap, acaNetCost(sePlanNet - D, n, premium, 0)) - D, decreasing, on [0, min(cap, premium)]
+  // (80 halvings); a consistent deduction exists when |g| < 1 at the end.
+  const dfp = async (net, n, prem) => {
+    let lo = 0, hi = Math.min(net, prem);
+    const g = async (d) => Math.min(net, await aca(net - d, n, prem, 0)) - d;
+    if ((await g(hi)) >= 0) return { D: hi, ok: true };
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      if ((await g(mid)) >= 0) lo = mid;
+      else hi = mid;
+    }
+    return { D: lo, ok: Math.abs(await g(lo)) < 1 };
+  };
+  // sliver, single: just below the band the iteration zigzags across the 400% line although a consistent deduction exists
+  // (70,000: D 5,892.55; 73,000: D 6,145.08; 74,000: the engine charged the full 18,000 against a consistent 6,229).
+  for (const profit of [70000, 73000, 74000]) {
+    const s0 = await stats();
+    f = await run({ ...FP, incomeA: profit });
+    const s1 = await stats();
+    const sp = f.trace[0].profile.sePlanNetA, c = await dfp(sp, 1, 18000);
+    assert(c.ok, `sliver ${profit}: a consistent deduction exists`);
+    near(f.trace[0].profile.seHealthA, c.D, 1, `sliver, single (${profit}): D vs the consistent ${c.D.toFixed(2)}`);
+    near(f.rows[0].healthcare, await aca(f.rows[0].magiProxy, 1, 18000, 0), 2, `sliver, single (${profit}): premium at the recorded MAGI`);
+    assert(f.rows[0].healthcare < 7000, `sliver, single (${profit}): a subsidized premium (${f.rows[0].healthcare})`);
+    assert(s1.seFixed > s0.seFixed && s1.seAlternative === s0.seAlternative, `sliver, single (${profit}): counted as a consistent hold`);
+  }
+  // the alternative calculation is still the answer where no consistent deduction exists (82,000: counted as alternative)
+  {
+    const s0 = await stats();
+    f = await run({ ...FP, incomeA: 82000 });
+    const s1 = await stats();
+    assert(!(await dfp(f.trace[0].profile.sePlanNetA, 1, 18000)).ok, '82,000: no consistent deduction');
+    assert(s1.seAlternative > s0.seAlternative && s1.seFixed === s0.seFixed, '82,000: counted as the alternative calculation');
+  }
+  // sliver, joint: the Task 8 joint household with A's profit 99,000 (engine at 5399f23: premium 18,000; consistent D about 8,334)
+  const JB9 = { ...ZERO, singlePerson: false, ageA: 50, ageB: 50, retireAgeA: 60, retireAgeB: 50, incomeA: 99000, incomeKindA: 'self', incomeB: 0, filingStatus: 'mfj', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, k401PctB: 0, iraPctB: 0, megaBackdoor: false };
+  for (const profit of [99000, 100000]) {
+    f = await run({ ...JB9, incomeA: profit });
+    const c = await dfp(f.trace[0].profile.sePlanNetA, 2, 18000);
+    assert(c.ok, `sliver joint ${profit}: a consistent deduction exists`);
+    near(f.trace[0].profile.seHealthA, c.D, 1, `sliver, joint (${profit}): D vs the consistent ${c.D.toFixed(2)}`);
+    near(f.rows[0].healthcare, await aca(f.rows[0].magiProxy, 2, 18000, 0), 2, `sliver, joint (${profit}): premium at the recorded MAGI`);
+    assert(f.rows[0].healthcare < 12000, `sliver, joint (${profit}): a subsidized premium (${f.rows[0].healthcare})`);
+  }
+  // the joint band case of Task 8b (sePlanNet 98,000): is there a consistent answer? (reported)
+  {
+    const k = 1 - (await page.evaluate(() => window.__test_selfEmploymentTax(100000, 0, 0).half)) / 100000;
+    const c = await dfp(98000, 2, 18000);
+    console.log(`  joint band (sePlanNet 98,000, profit ${(98000 / k).toFixed(4)}): consistent deduction exists: ${c.ok} (D ${c.D.toFixed(2)})`);
+    assert(!c.ok, 'joint band 98,000: no consistent answer, so the 8b expectations stand');
+  }
+  // sliver, two returns: unmarried couple, both 50, A self-employed, B retired with no pay, no children, premium 18,000 so A's
+  // part is 9,000 on a one-person line (B's 9,000 is the full premium: Texas, MAGI 0). Scanned at 5399f23 in 500 steps: A's
+  // profits 67,500-74,000 switched with a consistent answer (engine D 5,768 at 72,000, consistent 6,061).
+  {
+    const TR = { ...ZERO, singlePerson: false, ageA: 50, ageB: 50, retireAgeA: 60, retireAgeB: 50, incomeA: 0, incomeKindA: 'self', incomeB: 0, filingStatus: 'single', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, k401PctB: 0, iraPctB: 0, megaBackdoor: false, children: [] };
+    for (const profit of [70000, 72000, 74000]) {
+      const s0 = await stats();
+      f = await run({ ...TR, incomeA: profit });
+      const s1 = await stats();
+      const p = f.trace[0].profile, c = await dfp(p.sePlanNetA, 1, 9000);
+      assert(c.ok, `sliver two returns ${profit}: a consistent deduction exists`);
+      near(p.seHealthA, c.D, 1, `sliver, two returns (${profit}): A's D vs the consistent ${c.D.toFixed(2)}`);
+      near(p.seHealthA, await aca(f.rows[0].magiA, 1, 9000, 0), 1, `sliver, two returns (${profit}): A's part priced on magiA`);
+      assert.strictEqual(p.seHealthB, 0, `sliver, two returns (${profit}): none for B`);
+      assert(s1.seFixed > s0.seFixed, `sliver, two returns (${profit}): counted as a consistent hold`);
+    }
+  }
   // converged years unchanged: the fixed-point household keeps the Task 5 values and is never forced.
   {
     const before = await stats();
