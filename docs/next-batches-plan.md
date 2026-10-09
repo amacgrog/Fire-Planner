@@ -1156,6 +1156,25 @@ intended, no grid scenario moved by it.
 **Decision (owner, 2026-10-08):** accepted, merged into `claude/batch-3b-penalty-rules` (`862f0bb`) and pushed. Next: E1c (full
 self-employment), brainstormed from the start.
 
+##### E1c: design (owner decisions, 2026-10-08)
+
+Spec `docs/superpowers/specs/2026-10-08-e1c-self-employment-design.md`. Base `ee7a789` (US V124, Canada V59). US only, no
+shared-region change.
+- QBI is modeled (an early "drop it" was withdrawn), with no new dollar input; every business is treated as a specified
+  service business (no input; conservative inside the phase-in range, exact below and above it, assuming no employees and
+  no property); the $400 minimum is included. 2026 figures from Rev. Proc. 2025-32 sections 4.26 and 2.12: threshold
+  $403,500 joint / $201,750 other, range $150,000 / $75,000 (fixed), minimum $400 with $1,000 of QBI.
+- Main income: a per-partner "W-2 / Self-employed" choice (`incomeKindA/B`); streams gain the kind `self` with a plan-rate
+  `profitSharingPct`.
+- Health insurance while self-employed: the marketplace (or the other partner's plan) with the 162(l) deduction inside the
+  MAGI iteration; Medicare from 65 with its premiums deductible. Couples use the existing "employer plan covers" boxes;
+  an unticked box means no affordable offer (credit and deduction apply); married couples are not forced onto the W-2 plan.
+- W-2 streams get an optional yearly health premium; above zero means that job covers its owner (the E1b backlog item,
+  pulled into E1c).
+- Approach: pure functions (`selfEmploymentTax`, `soloPlanContributions`, `qbiDeduction`, `coverageOf`) fed by a per-person
+  self-employment total; all of one person's self-employment is one business (one Schedule SE, one Solo 401(k) room).
+- Defaults reproduce today's numbers; no existing snapshot entry may move in any E1c commit.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
@@ -5474,8 +5493,8 @@ reading (itself secondary).
 
 ## Open items
 
-- Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages (today only the main
-  salary carries the per-paycheck premium).
+- ~~Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages.~~ Pulled into E1c (owner,
+  2026-10-08): a yearly premium on W-2 streams, which also makes that job the owner's coverage.
 - 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.
 
 Everything raised so far is answered or recorded as a decision above. What
