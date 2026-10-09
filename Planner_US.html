@@ -10732,6 +10732,7 @@
         // computed once, on first use (choose only), and held.
         let yearPlan = NO_PLAN,
           yearLambda = null,
+          yearLambdaNeed = null, // test-only: the need passed to lambdaEstimate (planTr.lambdaNeed)
           phasePass = -1,
           phaseUnresolved = false,
           replaying = false,
@@ -10897,7 +10898,11 @@
           const b = balSnapshot,
             tradNow = b.traditional + b.bondTraditional,
             inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
-          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: Math.max(0, -flow - lumpExpense), tradShare: inv > 0 ? tradNow / inv : 0 }));
+          // E1d decision 12: one-time income, like a one-time expense, is not part of the yearly draw the walk assumes (it
+          // overstates the need by the lump's own tax)
+          const lambdaNeed = Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
+          yearLambdaNeed = lambdaNeed;
+          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0 }));
         };
         // Phased year: a stay-under plan converts nothing; a fill keeps the natural year's conversion, never more than this
         // pass's ceiling allows (spec 13.5).
@@ -11380,6 +11385,7 @@
         prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;
         if (phased && planTr) {
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
+          planTr.lambdaNeed = yearLambda ? yearLambdaNeed : null;
           planTr.intent = (intents && intents[age]) || null;
           planTrace.push(planTr);
         }

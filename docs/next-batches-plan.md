@@ -1746,6 +1746,57 @@ defensively by the engine); the `gainPct` parse is duplicated in `normalizeUsLum
 a negative raw amount with a taxable kind vanishes (only through a hand-edited save); junk `''` / `null` `gainPct`
 are not in the legacy corpus. The 162(l) and E1e items are unchanged by E1d.
 
+**Task 6 (code-review fixes, decision 12).** The independent code review of `12d2970` found four cases of correct code with no
+test and one modelling gap. Code: in `lambdaOf` the need passed to `lambdaEstimate` is
+`Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense)` (decision 12: one-time income, like a one-time
+expense, is not part of the yearly draw the pool walk assumes); a test-only `yearLambdaNeed` (declared beside `yearLambda`) is
+recorded as `planTr.lambdaNeed` (null when lambda was not computed). Tests in `tests/lump_income.js`:
+- (a) the survivor's own gain after A's death (S0, B sells 300,000 at A's 48): taxed, MAGI +300,000, and the active-business
+  twin's tax is lower by exactly 9,880 (3.8% x 260,000) with the same MAGI. Mutations: `lumpGainA: 0` in the survivor literal fails
+  `the survivor's own gain is taxed`; `lumpGainNoNiitA: 0` there fails `survivor's active-business gain: no NIIT on it: 0 vs 9880`.
+- (b) A's gain in a two-return year: `magiA` +200,000, `magiB` +0. Mutation (drop `m[0] += profile.lumpGainA` in `returnMagis`):
+  `A's return carries A's gain: 0 vs 200000`.
+- (c) `row.income` equals `magiProxy` in a lump year that still draws (retired couple, gain lump 20,000 at 53). Mutation (drop the
+  withdrawal-branch `totalIncome` lump line): `71489.15... vs 91489.15...`.
+- (d) the forced pass's `firstWithdrawal` guard: found at the first scan step (ordinary lump 50 at 58, A0 with guardrails);
+  `firstWithdrawal` 0 and `initialWR` null. Mutation (drop `!lumpYear &&`): `firstWithdrawal` 14,284.35 instead of 0.
+- (e) decision 12: red before the fix (`lambdaNeed` undefined). The plan's age 54 does not work: in this household lambda is not
+  computed at any age 53-59 (every plan-trace entry has `lambdaNeed` null, lump or not; the first plan-candidate year is 60), so the
+  case uses age 60, the first age where both runs compute it. At 60: fixed, lump run 161,155.49 vs tax-free twin 161,155.49
+  (difference about 3e-11); old formula, 131,155.49 vs 161,155.49 (30,000 below), which fails the assertion.
+
+No snapshot mover: `node tests/snapshot.js` exact (US 569, Canada 376) with the fix, so `us.json` is unchanged (no lump scenario
+has a lambda year with a lump in it). `npm test` green; `npm run check:shared` OK.
+
+Timing (Task 6 tree vs `../fp-e1d-base`, 21 rounds):
+
+```
+=== run 1
+US tx  400 simulate 195 -> 207 ms (6.2%), 120 historical 58 -> 61 ms (5.2%)
+US ca  400 simulate 293 -> 300 ms (2.4%), 120 historical 84 -> 85 ms (1.2%)
+US ny  400 simulate 342 -> 339 ms (-0.9%), 120 historical 96 -> 97 ms (1.0%)
+US pa  400 simulate 316 -> 320 ms (1.3%), 120 historical 89 -> 88 ms (-1.1%)
+US ct  400 simulate 395 -> 387 ms (-2.0%), 120 historical 116 -> 112 ms (-3.4%)
+US wa  400 simulate 234 -> 231 ms (-1.3%), 120 historical 69 -> 68 ms (-1.4%)
+=== run 2
+US tx  400 simulate 197 -> 200 ms (1.5%), 120 historical 60 -> 59 ms (-1.7%)
+US ca  400 simulate 291 -> 293 ms (0.7%), 120 historical 83 -> 82 ms (-1.2%)
+US ny  400 simulate 311 -> 320 ms (2.9%), 120 historical 90 -> 90 ms (0.0%)
+US pa  400 simulate 284 -> 288 ms (1.4%), 120 historical 80 -> 80 ms (0.0%)
+US ct  400 simulate 378 -> 383 ms (1.3%), 120 historical 110 -> 110 ms (0.0%)
+US wa  400 simulate 226 -> 229 ms (1.3%), 120 historical 66 -> 67 ms (1.5%)
+=== run 3
+US tx  400 simulate 198 -> 201 ms (1.5%), 120 historical 58 -> 59 ms (1.7%)
+US ca  400 simulate 289 -> 291 ms (0.7%), 120 historical 83 -> 83 ms (0.0%)
+US ny  400 simulate 321 -> 320 ms (-0.3%), 120 historical 92 -> 91 ms (-1.1%)
+US pa  400 simulate 292 -> 291 ms (-0.3%), 120 historical 82 -> 81 ms (-1.2%)
+US ct  400 simulate 386 -> 386 ms (0.0%), 120 historical 114 -> 112 ms (-1.8%)
+US wa  400 simulate 232 -> 233 ms (0.4%), 120 historical 68 -> 68 ms (0.0%)
+```
+
+Median of three (simulate / historical): tx +1.5% / +1.7%; ca +0.7% / 0.0%; ny -0.3% / 0.0%; pa +1.3% / -1.1%; ct 0.0% / -1.8%;
+wa +0.4% / 0.0%. Run 1 alone had tx at +6.2% / +5.2% (noise; the change adds one comparison in a year that computes lambda).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
