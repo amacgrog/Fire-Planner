@@ -1363,3 +1363,93 @@ entries; 9c changes no number at all (`node tests/snapshot.js` passes against th
 
 Report: the three commits, the red runs, the scan tables, the moved E1c entries table, the two new scenarios (profits, kinds), the
 per-commit bisect table, the timing runs, and anything that did not go as planned.
+
+### Task 10: Review fixes, round 3 (owner decisions, 2026-10-09; spec decision 11)
+
+Two reviews of `9b47b3a` (the spec owner's and an independent Opus review; `docs/next-batches-plan.md`, "E1c: review, part 4")
+accepted Task 9 and found: (1) the held deduction is computed on the draws of the pass that failed to converge; after the hold
+the year re-runs, the draws respond to the new premium, and the year can end with a deduction that is neither the consistent
+one nor section 5.02's for its final income (always an understatement; the reviewer's example: single, 60, a $30,000 self
+stream, spending $24,000, taxable with 30% basis, `tx`, $18,000 premium, year 0: held 6,224.54, premium 18,000, MAGI 74,561,
+where both methods give 18,000 at the final draws; 26 of 6,160 band years with draws); (2) the switch also fires when the
+step-1 deduction is 0 (`R side business stream`: the Solo plan uses the whole net), holding $0 and restarting the passes, and
+`magiStats.seFixed` / `seAlternative` count every phase of a phased cliff-plan year, not only the kept one; (3) no test of the
+A-first split in a held joint year with both partners self-employed; (4) docs. Two commits, in this order. Line numbers are at
+`9b47b3a`.
+
+**Global rules:** as Task 9: every entry that existed at `ee7a789` stays byte-identical in every commit (dump of `../fp-e1c-base`
+against the tree, the tree's scenario list: only E1c's ten scenario files may differ). 10a may change only E1c's entries (each
+listed with its reason). 10b changes no number. Badge stays V125. No other change.
+
+#### Commit 10a: the re-check, the $0 guard, kept-phase counters
+
+- [ ] **Step 1: Tests first** (`tests/se_health.js`, after the Task 9a section; run red at `9b47b3a`, record the output; the test
+  file stops at the first failure, so run each new case alone once to record its red output).
+  - `held year re-checked at its final draws`: reproduce the reviewer's household above (`incomeSources` with one `kind: 'self'`
+    stream owned by A, `contribute: false`; the main income 0; check the taxable-basis field's real name in `defaults`). If year 0
+    does not show the gap at `9b47b3a`, scan spending 20,000-40,000 by 2,000 and stream amount 20,000-40,000 by 2,000 for a year
+    where `|D - S|` > 1, with `S` = the search at the final draws (below), and report the household used. Assert at the tip:
+    `|D - S| <= 1`, where `S` is computed in the test from the year's own row and profile: `base = magiProxy + seHealthA`,
+    `cap = sePlanNetA`, `g(d) = min(cap, acaNetCost(base - d, 1, premium, y)) - d`; `S` = the consistent `d` (bisection as `dfp`
+    does) if `|g| < 1` there, else section 5.02 at those draws: `min(cap, acaNetCost(base - min(cap, premium), 1, premium, y))`.
+  - `held years over a draw grid`: single, 55, retiring at 55, a self stream of 20,000-60,000 by 5,000, spending 30,000 and 60,000,
+    taxable 500,000 at 30% basis, `tx`, premium 18,000, inflation 0, years 0-9: every year with `seHealthA > 0` and
+    `|seHealthA - min(sePlanNetA, healthcare)| > 1` (a held alternative year) satisfies `|D - S| <= 1`, OR is a year whose re-check
+    already ran (count those: the bound allows one re-hold; report how many years end more than $1 off after it, expected 0 or
+    near it). Report the counts at `9b47b3a` and at the tip.
+  - `no hold at a $0 deduction`: `R side business stream`'s household (copy its patch from `tests/snapshot_scenarios.js`): its
+    `seFixed + seAlternative` delta over one `__test_simulate()` is 0 at the tip (today 3 or more), and its rows are byte-identical to
+    `9b47b3a`'s (pin a JSON hash of the rows taken at `9b47b3a`).
+  - `held joint split, both self-employed`: married, both 50, both self-employed, `capA` small enough to bind (choose A's profit so
+    that `sePlanNetA` is about 3,000), B's profit in the joint sliver (scan for a year-0 `seFixed` hold); assert
+    `seHealthA === min(total, sePlanNetA)` exactly and `seHealthB === total - seHealthA` (A first).
+- [ ] **Step 2: The code.**
+  1. **Kind of hold, counted for the kept phase.** Next to `let seHeld = false;` add `let seKind = 0; // 1: the consistent
+     deduction held, 2: the alternative calculation's`. In the 9a block replace `magiStats.seAlternative++` /
+     `magiStats.seFixed++` by `seKind = needAlt ? 2 : 1`. Carry `seKind` everywhere `seHeld` is carried (both `naturalRec` literals,
+     `trialRecs.push`, the fallback replay, the winner replay; `seKind = 0` at the trial start). Next to
+     `if (phaseUnresolved) magiStats.unresolved++;` (~line 11217): `if (seKind === 1) magiStats.seFixed++; else if (seKind === 2)
+     magiStats.seAlternative++;`. Update the `magiStats` comment (~line 7129) to name the two counters.
+  2. **The $0 guard.** In the 9a block, right after step 1 (`const d1A = SE_HEALTH[0], d1B = SE_HEALTH[1];`), hold only when
+     `d1A + d1B > 0`: restructure so that a zero step-1 deduction does not set `seHeld` and does not `continue`, and the pass falls
+     through to the forced-pass block exactly as it did before 8b (at `ebda26d`) (the step-1 `costAt` call leaves
+     `lastCost` changed; confirm that nothing on the fall-through path reads `lastCost` before calling `costAt` itself, and say so).
+     `R side business stream` must stay byte-identical.
+  3. **The search as one helper.** Move the search (step 1, the bisections, the 5.02 fallback; it sets `fixA`, `fixB`, `needAlt`
+     and returns whether anything is held) into a closure built on first use in the year (`let seSearch = null;` next to
+     `costAt`; `if (seSearch === null) seSearch = ...`), so a year that never switches allocates nothing, and both the switch and
+     the re-check call it with the draws they price.
+  4. **The re-check (decision 11).** Next to `seKind` add `let seRechecked = false;` and carry and reset it exactly like `seHeld`.
+     Between the forced-pass pick block (it ends with `if (last && Math.abs(last.charged - last.realized) > 5) phaseUnresolved =
+     true;` and its closing brace, ~line 11056) and `if (forcedPass && flow < 0) {` (~line 11057), insert:
+     `if (seHeld && !seRechecked && !unconverged && !forcedPass && !replaying) {` run the search at this pass's draws
+     (`traditionalGross`, `taxableGainGross`); if `|fixA - estSeA| + |fixB - estSeB| > 1`: `estSeA = fixA; estSeB = fixB;
+     seKind = needAlt ? 2 : 1; seRechecked = true; estTrad = realizedTrad; estGain = taxableGainGross; passLog.length = 0;
+     phasePass = -1; continue;` (one re-hold at most; a held year that ends in the forced pass keeps its hold). Check that the
+     ~line 11056 position is reached by a converged held pass and not by an unconverged one that `continue`d earlier; if the loop's
+     exit for a converged pass is elsewhere, put the re-check just before that exit and say where.
+  5. Comments: the iteration comment (~line 10541), the 9a block's comment and the forced-pass comment mention the re-check and
+     the $0 guard.
+- [ ] **Step 3: Run.** The Step 1 tests pass; `node tests/se_health.js`, `node tests/cliff_plan.js`, `node tests/aca_magi_iteration.js`,
+  `node tests/aca_medicaid.js`, `node tests/two_return_magi.js`, `node tests/tax_caches.js` pass. Re-run the Task 9 scans (single
+  66,000-76,000 by 250 and joint 90,000-101,000 by 500, year 0, and the inflated consistency check): unchanged. Then
+  `node tests/snapshot.js`: list every E1c entry that moved, with the first differing year, `healthcare`, `magiProxy`, the
+  deduction before -> after, depletion before -> after and which change moved it; then `npm run snapshot:update` (restore
+  `ui_*.json` if it rewrites them with a flaky `histSuccess`) and confirm the `us.json` diff touches only those entries.
+- [ ] **Step 4: Timing.** `node tests/bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21` three times (median per path
+  within +5%) and `node tests/bench_solver.js --base ../fp-e1c-base --rounds 31` twice, on a quiet machine. If a path fails, also
+  run the interleaved bench against `9b47b3a` (a temporary worktree) and report both; do not try unplanned changes.
+- [ ] **Step 5: Commit** `E1c 10a: a held 162(l) deduction is re-checked once at the year's final draws; no hold at a $0 deduction; the hold counters count the kept phase` with `Planner_US.html`, `tests/se_health.js` and `tests/snapshots/us.json` if it changed.
+
+#### Commit 10b: docs
+
+- [ ] **Step 1:** `CLAUDE.md`: remove the duplicate `Test: tests/se_health.js.` line; rewrite the 8b sentence that says the switch
+  fires where there is "no consistent answer ... $69,000 to $81,000" (the switch fires in a year whose iteration does not
+  converge; it holds the consistent deduction when one exists, else the alternative calculation; a held year is re-checked once
+  at its final draws; nothing is held at a $0 step-1 deduction; the counters count the kept phase).
+- [ ] **Step 2:** `docs/next-batches-plan.md`: an `E1c: review fixes, round 3 (Task 10)` paragraph after the Task 9 one (commits,
+  red runs, the grid counts at `9b47b3a` and at the tip, the moved entries table, timing).
+- [ ] **Step 3:** `npm test` green. **Commit** `E1c 10b: docs for Task 10` with the touched paths.
+
+Report: the two commits, the red runs, the households used, the grid counts before and after, the moved E1c entries table, the
+timing runs, and anything that did not go as planned.

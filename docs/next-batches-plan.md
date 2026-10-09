@@ -1281,6 +1281,42 @@ Findings:
 calculation (spec decision 10), 9b two band scenarios on a household with no income-paying balances (profits 82,000 and 73,000),
 9c the per-commit timing bisect, then Task 8a step 3 behind the flags, gated on the median of three interleaved runs.
 
+##### E1c: review, part 4 (Task 9 at `9b47b3a`: spec owner and an independent Opus review, 2026-10-09)
+
+Spec owner, in a scratch worktree of `9b47b3a`: `npm test` exits 0; snapshot dump of `ee7a789` against the tip: 936 files, 10
+differ (the 8 E1c scenarios and the 2 new ones); `5399f23` against the tip (the tip's list): 1 differs, `single self-employed band,
+consistent`, as intended; `us.json` only gains the two entries. Scans at the tip: no profit with a consistent deduction is missed
+(single 66,000-76,000 by 250; joint 90,000-101,000 by 500); the premium charged matches the recorded MAGI (worst $0.15; $0.18
+with inflation 3 / 5); a band household with taxable draws (single, $600,000 taxable, spending $90,000, profits 40,000-90,000,
+years 0-9): worst gap $0.17, and every alternative year has no consistent deduction at its final draws. 9a and 9c read correct
+(9c: every guard skips exact zeros, the order of every sum kept). Timing on a quiet machine (`bench_runs_interleaved`, 21 rounds,
+three runs, median per path; simulate / historical): tx -0.5 / 1.8, ca 2.5 / 3.8, ny 1.0 / 1.1, pa 1.8 / **5.3** (runs 5.3, 0.0,
+8.0), ct -0.3 / -0.9, wa 2.8 / 1.6; an earlier triple taken while the other review ran probes was noisier (ny simulate median 5.9,
+ct 7.0). `bench_solver` 31 rounds, two runs: ACA early retiree simulate 0.0 / +2.9, path +6.4 / +6.0; default simulate +5.0 / +6.5,
+path +5.6 / +5.3. The implementer's quiet triple passed every path.
+
+Independent review (verdict: accept; no blocking defect): 9a's bracket, split, per-return independence, the $1 test (a held `lo`
+is always consistent, even where `g` is not monotone), the draws, `lastCost` and the cliff-plan carries are correct; eleven
+households built to trip the probes (two returns with children, both self-employed with `capA` binding, near 100% of the poverty
+line, the Medicaid box on and off, historical and seeded paths, survivors) pass both checks; twelve households built to trip 9c's
+guards are identical to `5399f23` (one moved in 9a, correctly); mutations of 9a go red except the lo/hi swap (the bracket ends
+under $0.01), a proportional split (no test) and B's search given a zero A deduction (confirms independence). Findings:
+1. (medium) The held deduction is priced on the draws of the pass that failed to converge; the re-run's draws move, and the year
+   can keep a deduction that is neither consistent nor 5.02's at its final income (always an understatement). Example: single,
+   60, a $30,000 self stream, spending $24,000, taxable at 30% basis, `tx`, $18,000 premium, year 0: held 6,224.54, premium 18,000,
+   MAGI 74,561, where both methods give 18,000 at the final draws (about $2,600 of tax). 26 of 6,160 band years with draws at the
+   tip (142 at `5399f23`). A design gap of decision 10, not an implementation error.
+2. (low) The switch fires at a $0 step-1 deduction (`R side business stream`: holds $0 and restarts the passes; numbers
+   unchanged), and `seFixed` / `seAlternative` count every phase of a phased year, not the kept one.
+3. (low) No test of the A-first split in a held joint year with both self-employed.
+4. (low) `CLAUDE.md`: a duplicate `Test:` line and the 8b sentence still describing decision 9's premise; spec 6.5 (the spec
+   owner's) still describes the switch without the search.
+
+**Decisions (owner, 2026-10-09):** accept the timing, with PA historical recorded at a median of 5.3% (single runs 0.0-8.0; the
+implementer's triple passed); fix findings 1-4 as plan Task 10 (spec decision 11: one re-check at the final draws with at most
+one re-hold, no hold at a $0 deduction, kept-phase counters; the joint split test; docs). Spec 6.5 updated by the spec owner in
+the same commit as this record. After Task 10 the spec owner reviews alone, then merges.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
