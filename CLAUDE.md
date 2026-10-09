@@ -260,7 +260,21 @@ Each planner is one big IIFE. Core shape:
   `magiBase0`. **`seOn` (8a):** `buildTaxProfile` sets `profile.seOn = seA > 0 || seB > 0`, and `taxFor` reads the self-employment
   fields (`seNet*`, `sePlanNet*`, `seHealth*`, ...) only when it is true (exact zeros otherwise, no number changes), so EVERY profile
   that reaches `taxFor` must carry `seOn` (the lambda, Roth solver and optimizer literals carry `seOn: false`; a test profile with
-  self-employment keys needs `seOn: true`, or the keys are ignored). Test: `tests/se_health.js`.
+  self-employment keys needs `seOn: true`, or the keys are ignored). **Decision 10 (9a):** before the alternative calculation the
+  block searches for the consistent deduction (D equal to the deduction the premium at D's MAGI allows, within $1) by bisection, holding the
+  pass's draws: the deduction the premium allows falls as D rises, so `g(D) = allowed(D) - D` is decreasing on `[0, step-1 deduction]` and
+  has at most one crossing (one search on the total on one return, one per return on two; a return's slot of `seHealthDeduction` reads only
+  its own MAGI). Found: held (`seHeld`), counted in `magiStats.seFixed`; not found (a jump in `g`, or a non-monotone `g` below 100% of the
+  poverty line in a non-expansion state or with `medicaidWhenEligible` off): section 5.02's alternative calculation for that part, counted in
+  `magiStats.seAlternative`. The damped 8-pass iteration alone zigzags across the 400% line just below the band, so without the search the
+  year charged a premium up to $11,800 too high (single, $18,000 premium, profits 72,750 to 74,000). **9c (speed):** every E1c term is
+  skipped, not added as a zero, for a household without self-employment: `taxFor` tests `seOn` once and builds each self-employment term
+  inside `if (seOn)` / `seOn ? ... : ...`; the year loop's `seLive` (`profile.seOn` or a deduction carried in from last year) gates the
+  162(l) terms of the pass (`magiBase`, the `estUsed` line, the medical expense, the convergence test, `realizedMagi`); the Solo terms of
+  `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
+  `state.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a block),
+  `tests/tax_caches.js`.
+  Test: `tests/se_health.js`.
   Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),

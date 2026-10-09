@@ -6720,38 +6720,45 @@
       // Not-earned income streams ride in their owner's slot of `other` (E1b); the state taxes them as wages.
       extraA = profile.extraA || 0,
       extraB = profile.extraB || 0,
-      // E1c: self-employment net rides in other; the state taxes it as wages, and it is earned income for the ACTC.
-      // The fields are read only when the profile has self-employment (profile.seOn, set by buildTaxProfile); else exact zeros.
       seOn = profile.seOn === true,
-      seNetA = seOn ? profile.seNetA || 0 : 0,
-      seNetB = seOn ? profile.seNetB || 0 : 0,
-      seEarnedA = seOn ? profile.seEarnedA || 0 : 0,
-      seEarnedB = seOn ? profile.seEarnedB || 0 : 0,
-      // E1c: the self-employed health insurance deduction (162(l)), above the line on the owner's return.
-      seHA = seOn ? profile.seHealthA || 0 : 0,
-      seHB = seOn ? profile.seHealthB || 0 : 0,
-      // E1c: the QBI base (profit less half the SE tax and the plan money), before 162(l).
-      sePlanNetA = seOn ? profile.sePlanNetA || 0 : 0,
-      sePlanNetB = seOn ? profile.sePlanNetB || 0 : 0,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
       stateOn = !!stateRule && !stateRule.noTax,
       lagged = stateOn && stateRule.lagged !== null,
       perPerson = stateOn && stateRule.needsPerPerson;
+    // E1c: self-employment net rides in other; the state taxes it as wages, and it is earned income for the ACTC. The fields
+    // (and every term built from them below) are read only when the profile has self-employment (profile.seOn, set by
+    // buildTaxProfile); every term is skipped, not added as a zero, so a household without it pays one test per call.
+    let seNetA = 0, seNetB = 0, seEarnedA = 0, seEarnedB = 0,
+      // the self-employed health insurance deduction (162(l)), above the line on the owner's return
+      seHA = 0, seHB = 0,
+      // the QBI base (profit less half the SE tax and the plan money), before 162(l)
+      sePlanNetA = 0, sePlanNetB = 0;
+    if (seOn) {
+      seNetA = profile.seNetA || 0;
+      seNetB = profile.seNetB || 0;
+      seEarnedA = profile.seEarnedA || 0;
+      seEarnedB = profile.seEarnedB || 0;
+      seHA = profile.seHealthA || 0;
+      seHB = profile.seHealthB || 0;
+      sePlanNetA = profile.sePlanNetA || 0;
+      sePlanNetB = profile.sePlanNetB || 0;
+    }
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
     if (filingRow(profile.filing).joint) {
       // The household's other income net of the 162(l) deduction, read once (both sums below start with it).
-      const otherAB = profile.otherA + profile.otherB - (seHA + seHB);
+      const otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
       const other = otherAB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
       const ordinary = otherAB + traditionalExtra + invOrd + taxableSS;
       let sources = null;
       if (stateOn) {
         sources = SOURCES_JOINT;
-        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB) + (seNetA - seHA + (seNetB - seHB));
+        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB);
+        if (seOn) sources.wages += seNetA - seHA + (seNetB - seHB);
         sources.pension = profile.pensionA + profile.pensionB;
         sources.retirement = profile.rmdA + profile.rmdB + traditionalExtra;
         sources.gains = gains;
@@ -6791,14 +6798,15 @@
           profile.mortgageInterest || 0,
           profile.medicalExpense || 0,
         ),
-        // E1c: the QBI deduction, one for the joint return (0 without self-employment).
-        qbi = sePlanNetA + sePlanNetB > 0
-          ? qbiDeduction(sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
-          : 0;
+        // E1c: the QBI deduction, one for the joint return, below the federal deduction (only with self-employment).
+        deductionQ =
+          seOn && sePlanNetA + sePlanNetB > 0
+            ? deduction + qbiDeduction(sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
+            : deduction;
       const federal =
-        ordinaryTax(ordinary, profile.year, 'mfj', deduction + qbi) +
-        longTermGainTax(gains, ordinary, profile.year, 'mfj', deduction + qbi);
-      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, profile.wageA + profile.wageB + (seEarnedA + seEarnedB));
+        ordinaryTax(ordinary, profile.year, 'mfj', deductionQ) +
+        longTermGainTax(gains, ordinary, profile.year, 'mfj', deductionQ);
+      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, seOn ? profile.wageA + profile.wageB + (seEarnedA + seEarnedB) : profile.wageA + profile.wageB);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -6809,7 +6817,7 @@
     // qualifying surviving spouse), or, in the last branch, two separate filers.
     const status = FILING[profile.filing] && profile.filing !== 'mfj' ? profile.filing : 'single';
     if (profile.singlePerson) {
-      const otherA1 = profile.otherA - seHA;
+      const otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
         otherA1 + gains + traditionalExtra + invOrd,
@@ -6819,7 +6827,8 @@
       let sources = null;
       if (stateOn) {
         sources = SOURCES_SINGLE;
-        sources.wages = profile.wageA + invOrd + extraA + (seNetA - seHA);
+        sources.wages = profile.wageA + invOrd + extraA;
+        if (seOn) sources.wages += seNetA - seHA;
         sources.pension = profile.pensionA;
         sources.retirement = profile.rmdA + traditionalExtra;
         sources.gains = gains;
@@ -6854,13 +6863,14 @@
           profile.mortgageInterest || 0,
           profile.medicalExpense || 0,
         ),
-        qbi = sePlanNetA > 0
-          ? qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
-          : 0;
+        deductionQ =
+          seOn && sePlanNetA > 0
+            ? deduction + qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
+            : deduction;
       const federal =
-        ordinaryTax(ordinary, profile.year, status, deduction + qbi) +
-        longTermGainTax(gains, ordinary, profile.year, status, deduction + qbi);
-      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, profile.wageA + seEarnedA);
+        ordinaryTax(ordinary, profile.year, status, deductionQ) +
+        longTermGainTax(gains, ordinary, profile.year, status, deductionQ);
+      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, seOn ? profile.wageA + seEarnedA : profile.wageA);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -6882,8 +6892,8 @@
       tradB = traditionalExtra * (1 - shareA),
       invA = invOrd / 2,
       invB = invOrd / 2;
-    const otherA2 = profile.otherA - seHA,
-      otherB2 = profile.otherB - seHB;
+    const otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
+      otherB2 = seOn ? profile.otherB - seHB : profile.otherB;
     const taxableSSA = taxableSocialSecurity(
       profile.ssA,
       otherA2 + gainA + tradA + invA,
@@ -6900,7 +6910,8 @@
       sourcesB = null;
     if (stateOn) {
       sourcesA = SOURCES_A;
-      sourcesA.wages = profile.wageA + invA + extraA + (seNetA - seHA);
+      sourcesA.wages = profile.wageA + invA + extraA;
+      if (seOn) sourcesA.wages += seNetA - seHA;
       sourcesA.pension = profile.pensionA;
       sourcesA.retirement = profile.rmdA + tradA;
       sourcesA.gains = gainA;
@@ -6924,7 +6935,8 @@
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
       sourcesB = SOURCES_B;
-      sourcesB.wages = profile.wageB + invB + extraB + (seNetB - seHB);
+      sourcesB.wages = profile.wageB + invB + extraB;
+      if (seOn) sourcesB.wages += seNetB - seHB;
       sourcesB.pension = profile.pensionB;
       sourcesB.retirement = profile.rmdB + tradB;
       sourcesB.gains = gainB;
@@ -6957,12 +6969,16 @@
       halfInterest = (profile.mortgageInterest || 0) / 2,
       halfMedical = (profile.medicalExpense || 0) / 2,
       deductionA0 = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
-      deductionB0 = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical),
-      // E1c: each return's own QBI deduction (0 without self-employment).
-      qbiA = sePlanNetA > 0 ? qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinaryA + gainA - deductionA0), gainA, false, profile.year) : 0,
-      qbiB = sePlanNetB > 0 ? qbiDeduction(sePlanNetB - seHB, Math.max(0, ordinaryB + gainB - deductionB0), gainB, false, profile.year) : 0,
-      deductionA = deductionA0 + qbiA,
-      deductionB = deductionB0 + qbiB;
+      deductionB0 = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
+    // E1c: each return's own QBI deduction, below its federal deduction (only with self-employment).
+    const deductionA =
+        seOn && sePlanNetA > 0
+          ? deductionA0 + qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinaryA + gainA - deductionA0), gainA, false, profile.year)
+          : deductionA0,
+      deductionB =
+        seOn && sePlanNetB > 0
+          ? deductionB0 + qbiDeduction(sePlanNetB - seHB, Math.max(0, ordinaryB + gainB - deductionB0), gainB, false, profile.year)
+          : deductionB0;
     // The child credits go on Partner A's return (A claims the children). Computed only when
     // there are children, and subtracted last, so the no-children sum keeps its exact order.
     let creditA = 0;
@@ -6970,7 +6986,7 @@
       const federalA =
         ordinaryTax(ordinaryA, profile.year, statusA, deductionA) +
         longTermGainTax(gainA, ordinaryA, profile.year, statusA, deductionA);
-      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, profile.wageA + seEarnedA);
+      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, seOn ? profile.wageA + seEarnedA : profile.wageA);
       creditA = c.nonrefundable + c.refundable;
     }
     return (
@@ -8459,36 +8475,48 @@
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
-    const rothContrib = rothContribA + rothContribB + sp.employeeRoth + so.employeeRoth;
-    const traditionalContrib = traditionalContribSalary + sp.employeeTrad + so.employeeTrad;
+    // The Solo terms are added after today's terms and only when the year has self-employment.
+    const soOn = so !== NO_SOLO;
+    let rothContrib = rothContribA + rothContribB + sp.employeeRoth;
+    let traditionalContrib = traditionalContribSalary + sp.employeeTrad;
+    if (soOn) {
+      rothContrib += so.employeeRoth;
+      traditionalContrib += so.employeeTrad;
+    }
     // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
     // IRA B, 401(k) B). Employer money (match and profit sharing) always goes to the traditional 401(k);
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
-        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0] + so.trad[0],
+        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
         (state.k401Type === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
           matchA +
-          profitA + sp.trad[1] + so.trad[1],
-        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2] + so.trad[2],
+          profitA + sp.trad[1],
+        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
         (state.k401Type === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
           matchB +
-          profitB + sp.trad[3] + so.trad[3],
+          profitB + sp.trad[3],
       ],
       roth: [
-        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0] + so.roth[0],
-        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1] + so.roth[1],
-        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2] + so.roth[2],
-        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3] + so.roth[3],
+        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0],
+        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
+        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2],
+        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
       ],
     };
+    if (soOn) {
+      for (let i = 0; i < 4; i++) {
+        acct.trad[i] += so.trad[i];
+        acct.roth[i] += so.roth[i];
+      }
+    }
     return {
       traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
       matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB + sp.employer,
       streamWageCutA: sp.wageCut[0], streamWageCutB: sp.wageCut[1],
-      soloPlanCutA: so.planCut[0], soloPlanCutB: so.planCut[1], soloIraCutA: so.iraCut[0], soloIraCutB: so.iraCut[1],
+      soloPlanCutA: soOn ? so.planCut[0] : 0, soloPlanCutB: soOn ? so.planCut[1] : 0, soloIraCutA: soOn ? so.iraCut[0] : 0, soloIraCutB: soOn ? so.iraCut[1] : 0,
     };
   }
 
@@ -10114,7 +10142,8 @@
   function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
     STREAM_CTX.single = single; STREAM_CTX.year = year; STREAM_CTX.factor = factor; STREAM_CTX.incomeFactor = incomeFactor;
-    STREAM_CTX.premiumFactor = factor * medicalGrowth(year);
+    // (the premium's growth factor is a Math.pow: only worth computing when there is a stream to carry a premium)
+    STREAM_CTX.premiumFactor = state.incomeSources.length ? factor * medicalGrowth(year) : 1;
     const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
       extraIncome = streams.total;
     const oneTimeAmount = state.oneTimeIncome
@@ -10535,6 +10564,9 @@
       const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;
       // The pass's MAGI base: magiBase0 less the pass's 162(l) estimate (E1c; set at the top of each pass).
       let magiBase = magiBase0;
+      // E1c: false when this year has no self-employment and no deduction carried in from last year: every 162(l) term below is
+      // then an exact zero and is skipped, not added (a household without self-employment pays one test per pass).
+      const seLive = profile.seOn === true || prevSeHealthA !== 0 || prevSeHealthB !== 0;
       // MAGI iteration: estTrad/estGain are the discretionary traditional
       // withdrawals / taxable gains assumed when sizing ACA, IRMAA-tier and
       // conversion headroom; estUsed records whether this year's result
@@ -10588,9 +10620,12 @@
           trialRecs = null,
           planTr = null;
         const ownerShareA0 = profile.ownerShareA;
-        COVER_CTX.ageA = age + 2; COVER_CTX.ageB = singlePerson ? null : ageB + 2; COVER_CTX.single = singlePerson;
-        COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
-        const cover2 = streamCoverBits(state.incomeSources, COVER_CTX);
+        let cover2 = 0;
+        if (state.incomeSources.length > 0) {
+          COVER_CTX.ageA = age + 2; COVER_CTX.ageB = singlePerson ? null : ageB + 2; COVER_CTX.single = singlePerson;
+          COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
+          cover2 = streamCoverBits(state.incomeSources, COVER_CTX);
+        }
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
@@ -10602,7 +10637,7 @@
           profile.ownerShareA = ownerShareA0;
           profile.seHealthA = estSeA;
           profile.seHealthB = estSeB;
-          magiBase = magiBase0 - estSeA - estSeB;
+          magiBase = seLive ? magiBase0 - estSeA - estSeB : magiBase0;
           phasePass++;
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
@@ -10794,10 +10829,10 @@
         profile.seHealthA = seRealA;
         profile.seHealthB = seRealB;
         // The pass's MAGI used estSeA/estSeB: the convergence test must check them.
-        if (estSeA !== 0 || estSeB !== 0 || seRealA !== 0 || seRealB !== 0) estUsed = true;
+        if (seLive && (estSeA !== 0 || estSeB !== 0 || seRealA !== 0 || seRealB !== 0)) estUsed = true;
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself, less the
         // premiums deducted under 162(l). Set every pass: it follows the premium, which follows this pass's MAGI estimate.
-        profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
+        profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
         const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
@@ -10909,8 +10944,8 @@
         const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
         const resolvedMixCandidate = wd.mixCandidate;
         const realizedTrad = traditionalGross - conversionAmount;
-        const unconverged =
-          estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) > MAGI_ITER_TOL;
+        const drift = Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain);
+        const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
           passLog.push({ estTrad, estGain, estSeA, estSeB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB) });
@@ -11050,7 +11085,7 @@
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
         // E1c: net of the realized 162(l) deduction (also after a forced pass).
-        const realizedMagi = magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross;
+        const realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
         // Phased year, at the end of a phase (see the phase notes above the loop).
         if (phased && !replaying) {
           let next = -1;

@@ -1341,6 +1341,60 @@ could not guard it), "Solo money leaves cash" now asserts the hand difference (t
 from the rows' own tax, within 1e-3 because the taxable sale is solved by bisection), `tests/qbi.js` engine case commented as the
 wiring check. No number changed in 8c.
 
+**E1c: review fixes, round 2 (Task 9).** Commits: 9a 1e4b747, 9b a0a2082, 9c (this commit). Spec decision 10 (owner, 2026-10-09).
+
+9a (the consistent deduction first). Red run at 5399f23 (the new block of `tests/se_health.js`): first failing assert `sliver, single (70000): D vs the
+consistent 5892.55: 4686.643887000001 vs 5892.546277737359`. Green after the code: `seHealthDeduction`-style bisection in the 8b block (60 halvings or a
+bracket under $0.01, consistent when `allowed(lo) - lo <= 1`; one search on the total for one return, one per return on two; the part with no consistent
+answer takes the alternative calculation; `magiStats.seFixed` / `seAlternative` count a year's hold; a two-return year with one part of each counts as an
+alternative). A return's slot of `seHealthDeduction` reads only its own MAGI (`returnMagis` subtracts each return's own deduction; premA on magiA, premB on
+magiB), so the per-return searches are independent. The search closures (`allowedAt`, `rootOf`) are created inside the block, which runs only in an unconverged
+year with a deduction allowed (not once per run as the plan sketched; no allocation on any other path). Scans, year 0, `tx`, $18,000 premium, engine D (premium) at
+5399f23 -> now, against the consistent D: single 66,000-67,250: unchanged (converged, D = premium, within $0.05 of the consistent); 67,500 4,262 (5,824) -> 5,682.09
+(5,682.10), 68,000 4,348 (5,861) -> 5,724.19, 70,000 4,687 (6,013) -> 5,892.54 (5,892.55), 72,500 4,918 (6,221) -> 6,102.99, 72,750 4,941 (18,000) -> 6,124.04 (6,124.04),
+73,000 4,964 (18,000) -> 6,145.08, 74,000 5,057 (18,000) -> 6,229.26; every profit 67,500-74,000 by 250 is within $0.01 of the consistent D after (27 rows, all "ok");
+74,250-76,000: no consistent deduction (`dfp` finds none), unchanged from 5399f23 (alternative calculation: D 5,080-5,242, premium 18,000). Joint (`mfj`, A
+self-employed, B no pay): 90,000-91,000 converged and unchanged; 91,500 6,677 (7,805) -> 7,702.39 (7,702.40); 95,000 7,001 (8,096) -> 7,997.03; 98,500 7,325 (8,388) ->
+8,291.65; 99,000 7,371 (18,000) -> 8,333.74 (8,333.74); 100,000 7,464 (18,000) -> 8,417.92; 100,500 and 101,000: none, unchanged. The Task 8b joint band case
+(sePlanNet 98,000, profit 105,449.7904) has no consistent deduction, so its 8b expectations stand (D 7,968.00, MAGI 90,032.00, premium 18,000). Two returns
+(unmarried couple, both 50, A self-employed, B no pay, no children, premium 18,000 so A's part is 9,000): scanned at 5399f23 in 500 steps from 40,000 to 130,000:
+A's profits 67,500-74,000 switched with a consistent answer (engine D 5,768 at 72,000 against a consistent 6,061; 74,000 charged A's full 9,000 against 6,229), 74,500-77,000
+switched with none; the test uses 70,000, 72,000 and 74,000 and asserts A's D within $1 of the consistent one and priced on `rows[0].magiA`. Inflated multi-year check (inflation 3,
+income growth 3, medical inflation 5, single profits 30,000-110,000 by 1,000, years 0-9, gross premium of the year from the same run with ACA off): the largest
+|healthcare - acaNetCost(magiProxy, 1, gross, y)| is $0.18 (profit 53,000, year 3), the same at 5399f23 (limit 2). Moved snapshot entries: none (`node tests/snapshot.js`
+passes against the committed baseline; `R side business stream` did not move), so no snapshot:update in 9a.
+
+9b (two band scenarios, new entries only): `single self-employed band, alternative` (profit 82,000) and `single self-employed band, consistent` (73,000), single, age 50,
+retiring at 60, self-employed main income, ACA on, $18,000 premium, `tx`, taxable 0, cash 0, `hysaRate` 0, traditional 300,000, Roth 100,000, default inflation and
+growth; the contribution defaults are zeroed (`k401PctA`, `catchupPctA`, `profitSharingPctA`, `iraPctA` 0, no mega backdoor), because the default 401(k) deferral cuts
+sePlanNet from 76,207 to 43,707 and takes the household out of the band (checked at the tip: 82,000 -> sePlanNet 76,206.8845, one `seAlternative` per `simulate()`, D 5,797.41,
+premium 18,000, MAGI 70,409.48; 73,000 -> sePlanNet 67,842.71, one `seFixed`, D 6,145.08, premium 6,145.08, MAGI 61,697.63; default inflation does not move year 0).
+`npm run snapshot:update` was run; its rewrite of `ui_us.json` (a Monte Carlo `histSuccess` timing flake: "—" vs "85%") was discarded and `snapshot_ui.js` passes against the
+committed files twice, so only `us.json` carries the two new entries. A dump of ../fp-e1c-base against the tree: 936 files, 10 differ, exactly the E1c scenario files.
+
+9c (timing, no number change). Per-commit bisect (bench_runs_interleaved, 21 rounds, each commit's tree against its parent's, temporary worktrees; simulate/historical % per
+state, wall-clock noise about +-3% per cell): no single commit costs more than a few percent; the largest repeatable cells are 6 (QBI) tx 4.7/1.7, ca 2.5/2.5 and 3
+(SE tax) +1/+2; the cost is diffuse:
+  - c74e439 (1) vs base: tx -0.5/1.8, ca 1.4/2.5, ny -0.6/1.1, pa 0.7/0.0, ct -3.8/-2.8, wa -0.8/-5.7
+  - 6e2f36a (2) vs c74e439: tx -1.6/0.0, ca -0.7/0.0, ny -1.3/-2.2, pa 1.7/1.2, ct -0.8/0.0, wa 1.4/0.0
+  - 88ab2a4 (3) vs 6e2f36a: tx 1.1/1.8, ca 0.7/1.3, ny 1.3/2.3, pa 1.1/2.6, ct -0.5/-0.9, wa 0.5/1.5
+  - de7fc94 (4) vs 88ab2a4: tx 0.5/3.5, ca -3.1/-2.5, ny -1.6/-2.2, pa -1.4/-1.3, ct 2.8/3.8, wa -3.1/-1.5
+  - 06ed7fd (5) vs de7fc94: tx 0.5/0.0, ca 0.0/0.0, ny -0.3/-1.1, pa 0.0/1.3, ct -4.7/0.9, wa 0.4/1.5
+  - 0f274db (6) vs 06ed7fd: tx 4.7/1.7, ca 2.5/2.5, ny 0.6/1.1, pa 1.1/2.5, ct 1.6/1.8, wa 1.7/1.5
+  - ebda26d (8a) vs 0f274db: tx 1.0/3.4, ca 1.0/0.0, ny -0.6/0.0, pa 0.7/0.0, ct -2.1/-0.9, wa -1.3/1.5
+  - f3884fd (8b) vs ebda26d: tx -0.5/-1.7, ca -0.7/0.0, ny -1.6/0.0, pa 2.8/2.6, ct 5.3/4.8, wa 0.4/3.0
+  - 5399f23 (8c) vs f3884fd: tx -3.5/-1.7, ca -1.4/1.2, ny 0.6/2.3, pa 1.1/2.6, ct 4.7/3.8, wa -0.4/1.5
+  - 1e4b747 (9a) vs 5399f23: tx -0.5/0.0, ca -0.4/0.0, ny -0.6/-1.1, pa 0.0/0.0, ct -1.1/-0.9, wa -2.2/-1.5
+The tip against base before the 9c edits (one run): tx 4.8/5.4, ca 3.2/3.8, ny 2.6/3.4, pa 2.9/3.9, ct 11.5/9.6, wa 3.2/3.1. At 400 simulations in about 190 ms a
+`simulate()` is under 0.5 ms with a few hundred `taxFor` calls, so one added operation per call or per year is a measurable fraction of the 5% budget; the 9c edits
+(CLAUDE.md, "9c") skip every E1c term for a household without self-employment: `taxFor` (one `seOn` test, the terms inside `if (seOn)`), the pass terms behind `seLive`, the Solo
+sums, the stream premium factor (a `Math.pow`) and the IRMAA cover bits when there are no streams. `tests/tax_caches.js` and the snapshots are unchanged. Gate, three runs of
+`bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21` (simulate/historical %): run 1 tx 1.6/3.6, ca 0.7/0.0, ny 0.3/1.1, pa 1.8/1.3, ct 6.2/6.8, wa 0.9/0.0; run 2 tx 2.1/1.8,
+ca 0.0/1.2, ny -2.5/-2.2, pa -4.9/-1.2, ct 3.3/3.8, wa -0.9/-2.9; run 3 tx 5.0/5.0, ca 2.9/2.5, ny 4.7/4.7, pa 4.4/3.9, ct 2.7/3.7, wa 4.1/4.6. Medians: tx 2.1/3.6, ca 0.7/1.2, ny
+0.3/1.1, pa 1.8/1.3, ct 3.3/3.8, wa 0.9/0.0 (every path within +5%). An intermediate triple (after the `taxFor` edit and the `seLive` terms, before the stream-factor and Solo-sum
+edits) had tx historical at 5.7% (11.3, 3.8, 5.7), which is why those were added. bench_solver (31 rounds vs base, two runs, recorded): ACA early retiree (CA) simulate 2.42 -> 2.52 ms
+(4.1%) and 2.38 -> 2.58 ms (8.4%), path 2.35 -> 2.45 ms (4.3%) twice; default simulate 1.26 -> 1.34 ms (6.3%) and 1.24 -> 1.30 ms (4.8%), path 0.95 -> 1.00 ms (5.3%) and 0.90 -> 1.00 ms (11.1%).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
