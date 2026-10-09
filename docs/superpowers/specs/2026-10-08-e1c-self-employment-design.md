@@ -60,6 +60,18 @@ section (section 10).
    a subsidized premium at a MAGI above the 400% line, which no method allows (section 5.01: a taxpayer whose iteration
    does not converge "should not use the iterative calculation method"). Elsewhere the iterative calculation stays.
    Speed: the self-employment reads in `taxFor` happen only for a profile that has self-employment (one flag, `seOn`).
+10. **After the second implementation review (owner, 2026-10-09), refining 9:** "the iteration does not converge" is not "there is
+   no consistent answer". The engine's damped iteration also fails just below the band, where it zigzags across the 400% line
+   although a consistent deduction exists (single, $18,000 premium: profits about 67,500-74,000; at 72,750-74,000 decision 9's
+   alternative calculation charged the full $18,000 against a consistent premium of about $6,150). So in an unconverged year
+   with a 162(l) deduction allowed, the engine first searches for the consistent deduction (D equal to the deduction the premium
+   at D's MAGI allows, within $1) by bisection, holding the pass's draws: the deduction the premium allows falls as D rises, so
+   there is at most one crossing (away from the 100%-of-poverty floor and the Medicaid-off case, where a miss is still legal).
+   Found: it is held (the iterative method's own answer, and "another method that produces amounts that satisfy applicable tax
+   law", Rev. Proc. 2014-41 section 5.01). Not found: section 5.02's alternative calculation, as in 9. One return: one search on
+   the total; two returns: one per return. Decision 9's premise was the spec owner's error (the part-1 probe found no consistent
+   answer only for net self-employment of about $69,000-$80,000 and the decision did not ask whether the engine reaches the
+   answer below that).
 
 ## 4. Facts (primary sources; retrieved 2026-10-08)
 

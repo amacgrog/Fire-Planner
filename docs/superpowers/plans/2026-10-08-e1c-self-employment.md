@@ -1224,3 +1224,142 @@ listed with the reason in the report. Badge stays V125 (unreleased).
 
 Report: the three commits, the red runs, the moved E1c entries table, both timing tables for 8a and 8b (and the
 per-commit bisect if 8a's gate failed), and anything that did not go as planned.
+
+### Task 9: Review fixes, round 2 (owner decision, 2026-10-09; spec decision 10)
+
+The spec owner's review of `5399f23` (`docs/next-batches-plan.md`, "E1c: review, part 3") found that Task 8b's switch fires on
+**any** unconverged year with a 162(l) deduction allowed, but the engine's damped 8-pass iteration also fails where a consistent
+answer exists: it zigzags across the 400% line. Measured (single, `tx`, $18,000 premium, the fixed-point household of
+`tests/se_health.js`, year 0):
+
+| Profit | Engine at `5399f23`: D / premium | Consistent answer: D = premium |
+|---|---|---|
+| 67,500-72,500 | alternative calculation, premium $118-141 too high | 5,682-6,103 |
+| 72,750-74,000 | D 4,941-5,057, **premium 18,000** | 6,124-6,229 (about $11,800 a year lower) |
+| 74,250 and up (to the top of the band) | alternative calculation | none: the alternative calculation is right |
+
+Joint (`mfj`, A self-employed, B no pay): 91,500-98,500 about $100 too high; 99,000-100,000 premium 18,000 against a consistent
+8,334-8,418. The consistent answer is legal: Rev. Proc. 2014-41 section 5.01 lets a taxpayer whose iteration never comes within
+$1 use the alternative calculation "or another method that produces amounts that satisfy applicable tax law", and the fixed point
+(deduction = the premium after the credit at the MAGI it gives, within the cap) is such an amount; where the iteration does
+converge, it is the same answer. The timing gate also still fails (spec owner's two runs of `bench_runs_interleaved` 21 rounds:
+tx simulate +2.1 / +8.0, tx historical +3.6 / +7.1, ca historical +2.5 / +6.3, ny historical +5.8 / +2.3, pa historical +5.2 / +1.3,
+wa historical +6.3 / +3.1; the implementer's three 8b runs put tx simulate at 8.6 / 6.3 / 7.6), and the snapshot grid never reaches
+the band (`R single self-employed cliff band` sits at MAGI about 83,710).
+
+Three commits, in this order. Line numbers are at `5399f23`. **Global rules:** every entry of `tests/snapshots/us.json` /
+`canada.json` that existed at `ee7a789` stays byte-identical in every commit (prove it with a dump of `../fp-e1c-base` against the
+working tree, the working tree's scenario list). 9a may change only E1c's entries (list each with its reason); 9b only adds
+entries; 9c changes no number at all (`node tests/snapshot.js` passes against the committed baseline). Badge stays V125.
+
+#### Commit 9a: find the consistent deduction before the alternative calculation (decision 10)
+
+- [ ] **Step 1: Tests first** (`tests/se_health.js`, Task 8b's section; run red at `5399f23`, record the output). For each case
+  compute the consistent deduction by hand in the test with a bisection on `__test_tax.acaNetCost` (as the spec owner's probe did:
+  `g(D) = min(cap, acaNetCost(sePlanNet - D, n, premium, 0)) - D`, decreasing; 80 halvings on `[0, min(cap, premium)]`; it exists when
+  `|g| < 1` at the end):
+  - `sliver, single` (the fixed-point household, profits 70,000 and 73,000): `|trace[0].profile.seHealthA - Dfp| <= 1`,
+    `|rows[0].healthcare - acaNetCost(rows[0].magiProxy, 1, 18000, 0)| <= 2`, and at 73,000 `rows[0].healthcare < 7000` (today 18,000).
+    Expected: 70,000 D about 5,892.55; 73,000 D about 6,145.08.
+  - `sliver, joint` (the Task 8 joint band household with A's profit 99,000): the same with household size 2 (expected D about
+    8,334).
+  - `sliver, two returns`: an unmarried couple (`filingStatus: 'single'`, both 50, A self-employed, B retired with no pay, no
+    children, premium 18,000 so A's part is 9,000 on a one-person line). Scan A's profit in 500 steps at `5399f23` for a year-0
+    case where the year switched (A's deduction is not within $1 of A's consistent one) and a consistent one exists; report the
+    profit; assert `|seHealthA - Dfp(A)| <= 1` with A's part priced on `rows[0].magiA`.
+  - The Task 8b cases keep passing unchanged: 82,000 and 86,000 (no consistent answer: the alternative calculation's by-hand
+    values), the joint band at sePlanNet 98,000 (check whether a consistent answer exists there and report it: if it does, the
+    test's expected values change with this commit; say so), the Medicaid line case and `converged years unchanged`.
+- [ ] **Step 2: The code.** In the 8b block (`if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA ||
+  profile.seAllowB)) {`, ~line 10926), before the alternative calculation, search for the consistent deduction holding this pass's
+  draws (`traditionalGross`, `taxableGainGross`), and hold it if found; else the alternative calculation as today. Sketch:
+```js
+          // Step 1 of either method: the deduction at the full premiums.
+          costAt(traditionalGross, taxableGainGross, -1e12, -1e12);
+          seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+          const d1A = SE_HEALTH[0], d1B = SE_HEALTH[1];
+          // E1c decision 10: the consistent deduction (D = the deduction the premium at D's MAGI allows), if there is one: the
+          // iteration's own answer where it converges, and an amount that satisfies the law (Rev. Proc. 2014-41 section 5.01's
+          // last sentence). The deduction the premium allows falls as D rises (D lowers the MAGI), so g(D) = allowed(D) - D is
+          // decreasing and a bisection on [0, step-1 deduction] finds the one crossing; it is consistent when |g| < 1 there.
+          // One return: one search on the total (seHealthDeduction splits it, A first). Two returns: one search per return
+          // (each return's premium reads only its own MAGI); a return with no consistent answer takes the alternative value.
+          ... seFixedPoint(...) -> estSeA / estSeB, or the alternative calculation for the part that has none ...
+          estTrad = realizedTrad;
+          estGain = taxableGainGross;
+          seHeld = true;
+          passLog.length = 0;
+          phasePass = -1;
+          continue;
+```
+  Requirements:
+  1. One return (`!twoReturns`): bisect the total `T` on `[0, d1A + d1B]`; for a probe `T`, `sa = min(T, capA)`, `sb = T - sa`
+     (the split `seHealthDeduction` uses; `capX = profile.seAllowX ? profile.sePlanNetX : 0`), `allowed = total of
+     seHealthDeduction(costAt(trad, gain, sa, sb), lastCost.premA, lastCost.premB, ...)`. Two returns: bisect `sa` on `[0, d1A]`
+     with `sb = d1B`, then `sb` on `[0, d1B]` with `sa` at its result, each `allowed` read from its own slot. Check that a return's
+     slot of `seHealthDeduction` depends only on its own MAGI (premA on `magiA`, premB on `magiB`); if it does not, stop and report.
+  2. Stop the bisection when the bracket is narrower than $0.01 (or at 60 halvings). Consistent when `allowed(lo) - lo <= 1`
+     (`lo` is the bracket's left end, where `g >= 0`); hold `lo`. Otherwise the alternative calculation for that sum / return
+     (steps 2-3 of section 5.02 exactly as 8b does today: `costAt` at the step-1 pair, `seHealthDeduction`).
+  3. Allocation-free (scalars only; a small helper function at module level or a closure defined once per run, not per pass;
+     `costAt` and `SE_HEALTH` as today). `costAt` restores `hcArgs` itself; leave `lastCost` as the last call left it (nothing
+     after the block reads it before the `continue`).
+  4. Where `g` is not monotone (below 100% of the poverty line in a non-expansion state the premium rises as MAGI falls; the
+     `medicaidWhenEligible` box off), the bisection may miss a consistent answer and the year takes the alternative calculation:
+     legal either way. Say so in the comment.
+  5. Count it: `magiStats.seFixed` (a consistent deduction held) and `magiStats.seAlternative` (the alternative calculation used),
+     next to the existing counters (cumulative, like them).
+  6. Update the iteration comment (~line 10541), the 8b comment and the forced-pass comment wording if they name the alternative
+     calculation alone.
+- [ ] **Step 3: Run.** Step 1 tests pass; `node tests/se_health.js`, `node tests/cliff_plan.js`, `node tests/aca_magi_iteration.js`,
+  `node tests/aca_medicaid.js`, `node tests/two_return_magi.js` pass. Re-run the spec owner's scan and report the table: single
+  profits 66,000-76,000 by 250 and joint 90,000-101,000 by 500, year 0: engine D / premium against the consistent D (expected: every
+  profit with a consistent answer now within $1; the rest unchanged from `5399f23`). Also: with inflation 3, income growth 3, medical
+  inflation 5, single profits 30,000-110,000 by 1,000, years 0-9: the largest `|healthcare - acaNetCost(magiProxy, 1, gross premium of
+  that year, y)|` (gross premium from the same run with `acaEnabled: false`); must stay <= 2. Then `node tests/snapshot.js`: list
+  every E1c entry that moved (expected: possibly `R side business stream`, whose 3 switched years now hold the consistent
+  deduction; any other: say which year and why) with the first differing year, `healthcare`, `magiProxy` before -> after and
+  depletion before -> after; then `npm run snapshot:update` and confirm the json diff touches only those entries.
+- [ ] **Step 4: Commit** `E1c 9a: in a year whose 162(l) iteration does not converge, hold the consistent deduction when one exists (bisection), else Rev. Proc. 2014-41's alternative calculation` with `Planner_US.html`, `tests/se_health.js` and `tests/snapshots/us.json` if it changed.
+
+#### Commit 9b: snapshot scenarios that reach the band (new entries only)
+
+- [ ] **Step 1:** In `tests/snapshot_scenarios.js`, beside the E1c scenarios, add two US scenarios on a household with no
+  income-paying balances (cash and taxable 0, `hysaRate: 0`; traditional and Roth balances are fine, they pay no income until
+  drawn), single, age 50, retiring at 60, self-employed main income, `acaEnabled: true`, `healthcare: 18000`, `stateTax: 'tx'`,
+  default inflation and growth: `single self-employed band, alternative` (profit 82,000) and `single self-employed band, consistent`
+  (profit 73,000). Before adding them, run each at the tip and confirm year 0 is a switched year of the intended kind (read
+  `magiStats.seAlternative` / `seFixed` around one `__test_simulate()`); if default inflation moves a case out of its kind, adjust
+  the profit and report it.
+- [ ] **Step 2:** `npm run snapshot:update`; confirm the json diff only adds the two entries (and a dump of `../fp-e1c-base` shows
+  only E1c's scenario files differ: now ten).
+- [ ] **Step 3: Commit** `E1c 9b: two snapshot scenarios inside the 162(l) band (new entries only)` with the scenario file and `tests/snapshots/us.json`.
+
+#### Commit 9c: timing (decision B, continued; no number change)
+
+- [ ] **Step 1: Measure first.** The per-commit bisect that Task 8a step 4 required: for each E1c code commit against its parent
+  (`c74e439`, `6e2f36a`, `88ab2a4`, `de7fc94`, `06ed7fd`, `0f274db`, `ebda26d`, `f3884fd`, and 9a), make two temporary detached
+  worktrees (with `node_modules` linked as a directory junction from `../fp-e1b`) and run
+  `node <commit tree>/tests/bench_runs_interleaved.js --base <parent tree> --rounds 21` (the script times its own tree against
+  `--base`). Report the table (each commit, each state, simulate / historical). Remove the
+  temporary worktrees afterwards (only those you made).
+- [ ] **Step 2: Task 8a step 3, done now.** Move behind `profile.seOn` (or the `seAllowA || seAllowB` / `twoReturns` flags where they
+  fit) every E1c addition that runs per `taxFor` call or per MAGI pass for a household with no self-employment, starting with the
+  commits Step 1 shows cost the most. Known candidates: site 4's three assignments, `costAt`'s default parameters and its
+  `profile.seHealthA/B` save and restore, `healthcareCost`'s `premA` / `premB` (computed for every household), the `estUsed` test
+  at site 7, the deduction term of the convergence test, `realizedMagi`'s deduction term, `streamAmountsForYear`'s `selfA/B` and
+  premium fields, and the `buildTaxProfile` self-employment block (`selfEmploymentTax`, `soloPlanContributions`, `qbiDeduction`
+  calls made with zeros). Every change keeps each number exactly (`node tests/snapshot.js` passes against the committed baseline,
+  `node tests/tax_caches.js` passes).
+- [ ] **Step 3: Gate.** `node tests/bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21` **three times**; the gate passes
+  when every path's median over the three runs is within +5%. `node tests/bench_solver.js --base ../fp-e1c-base --rounds 31` twice
+  (recorded). If the gate still fails, stop and report Step 1's table and the three runs for the owner's decision; do not try
+  unplanned changes.
+- [ ] **Step 4: Docs** (in this commit): `CLAUDE.md` (decision 10: the consistent-deduction search and the counters; the 9c rule
+  that the self-employment work is skipped for a household without it), and an `E1c: review fixes, round 2 (Task 9)` paragraph after
+  the Task 8 paragraph in `docs/next-batches-plan.md` (commits, red runs, the scans, the moved entries table, the bisect table, the
+  timing runs).
+- [ ] **Step 5:** `npm test` green. **Commit** `E1c 9c: self-employment work skipped for households without it (timing); no number change; docs` with the touched paths.
+
+Report: the three commits, the red runs, the scan tables, the moved E1c entries table, the two new scenarios (profits, kinds), the
+per-commit bisect table, the timing runs, and anything that did not go as planned.

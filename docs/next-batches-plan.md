@@ -1241,6 +1241,46 @@ businesses and the band household, `planMissed` 0).
 Fixes: plan Task 8 (commits 8a speed, 8b the alternative calculation, 8c copy, tests, docs); spec decision 9 supersedes
 8b.
 
+##### E1c: review, part 3 (spec owner, Task 8 at `5399f23`, 2026-10-09)
+
+Checked in a scratch worktree of `5399f23`: `npm test` exits 0; snapshot dump of `ee7a789` against the tip (the tip's scenario
+list): 934 files, 8 differ, the 8 E1c scenarios; `5fef95b` against the tip: 0 differ (no entry moved in Task 8, as reported). The
+8a / 8b / 8c code matches Task 8 (`seOn` in both `buildTaxProfile` literals and `LAMBDA_PROFILE`; no other profile literal reaches
+`taxFor`; the 8b block and the `seHeld` carries as written; the copy and test changes are fine, and the implementer's deviations,
+the "Solo money leaves cash" test on `rows[0].tax` within 1e-3 among them, are accepted).
+
+Holds: the 82,000 case by hand (step-1 MAGI 58,206.8845, D 5,797.4057 by hand and in the engine, MAGI 70,409.4788, premium
+18,000); the premium charged is the one the recorded MAGI allows in every year scanned (single, profits 30,000-110,000 by 1,000,
+years 0-9: largest gap $0.15; with inflation 3, income growth 3 and medical inflation 5: $0.18). The illegal understatement is gone.
+
+Findings:
+1. **The switch fires where a consistent answer exists (decision 9's premise was wrong; spec owner's error).** The damped 8-pass
+   iteration zigzags across the 400% line and gives up although a consistent deduction exists. Year 0, `tx`, $18,000 premium:
+
+   | Household, profit | Engine at `5399f23`: D / premium | Consistent D = premium |
+   |---|---|---|
+   | single 67,500 / 70,000 / 72,500 | 4,262 / 5,823; 4,687 / 6,013; 4,918 / 6,221 | 5,682; 5,893; 6,103 |
+   | single 72,750 / 73,000 / 74,000 | 4,941 / 18,000; 4,964 / 18,000; 5,057 / 18,000 | 6,124; 6,145; 6,229 |
+   | single 74,250 and up | alternative calculation | none |
+   | joint 91,500 / 98,500 | 6,677 / 7,805; 7,325 / 8,388 | 7,702; 8,292 |
+   | joint 99,000 / 100,000 | 7,371 / 18,000; 7,464 / 18,000 | 8,334; 8,418 |
+
+   Rev. Proc. 2014-41 section 5.01 (IRB 2014-33, read 2026-10-09): a taxpayer whose iteration never comes within $1 "may use the
+   alternative calculation method ... or another method that produces amounts that satisfy applicable tax law"; the consistent
+   deduction is such an amount (and the iterative method's own answer where that converges).
+2. **Timing still fails** (`bench_runs_interleaved`, 21 rounds, two runs, simulate / historical): tx +2.1 / +3.6 then +8.0 / +7.1;
+   ca +2.5 / +2.5 then +4.7 / +6.3; ny +5.0 / +5.8 then +2.0 / +2.3; pa +4.7 / +5.2 then -0.7 / +1.3; ct +2.4 / +2.8 then +3.4 / +2.9;
+   wa +4.5 / +6.3 then +2.3 / +3.1. Texas, the cheapest `taxFor`, is over in most runs (the implementer's three 8b runs: tx simulate
+   8.6 / 6.3 / 7.6): a real fixed cost of roughly 4-7% there. Task 8a step 3 (the per-pass additions) and its per-commit bisect
+   were not done. `bench_solver` (31 rounds, two runs): ACA early retiree simulate +10.8 / +5.0, path +8.5 / +4.3; default simulate
+   +4.8 / +6.6, path +0.0 / +5.6.
+3. **The snapshot grid does not reach the band** (the implementer's finding: `R single self-employed cliff band` sits at MAGI about
+   83,710).
+
+**Decisions (owner, 2026-10-09):** fix all three as plan Task 9: 9a the consistent-deduction search before the alternative
+calculation (spec decision 10), 9b two band scenarios on a household with no income-paying balances (profits 82,000 and 73,000),
+9c the per-commit timing bisect, then Task 8a step 3 behind the flags, gated on the median of three interleaved runs.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
