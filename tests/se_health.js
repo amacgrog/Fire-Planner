@@ -301,8 +301,8 @@ const path = require('path');
     assert.strictEqual(after.forced, before.forced, 'converged: magiStats.forced does not grow');
     assert.strictEqual(after.unresolved, before.unresolved, 'converged: magiStats.unresolved does not grow');
   }
-  // ==== Task 10a (decision 11): a held deduction is re-checked once at the year's final draws; nothing is held at a $0
-  // deduction; the counters count the kept phase. SE_CASE=<name> runs one case alone (used to record the red runs). ====
+  // ==== Task 10a/11a (decisions 11, 12): nothing is held at a $0 deduction; the counters count the kept phase; a hold is not
+  // re-checked (the invariant grid). SE_CASE=<name> runs one case alone (used to record the red runs). ====
   const want = (n) => !process.env.SE_CASE || process.env.SE_CASE === n;
   const held = (s0, s1) => s1.seFixed + s1.seAlternative - s0.seFixed - s0.seAlternative;
   // S: the search at a row's final draws (decision 10 else 9): the consistent deduction if |g| < 1 there, else section 5.02 at those
@@ -333,46 +333,70 @@ const path = require('path');
       const rows = window.__test_simulate().rows;
       return JSON.parse(JSON.stringify({ s0, s1: { ...window.__test_magiStats }, profiles: trace.map((t) => t.profile), rows }));
     }, patch);
-  // a one-person household with a $48,000 self stream (no main income), $26,000 spending, $500,000 taxable at 60% basis, no housing
-  // cost, Texas, premium 18,000. The reviewer's household (a $30,000 stream, 30% basis, held 6,224.54, MAGI 74,561) was not reproduced
-  // (a scan of spending 20,000-40,000 by 2,000, streams 20,000-40,000 by 2,000, 300,000 and 600,000 taxable found no year with that
-  // gap in the shape described; the housing and reserve settings of the reviewer's household are not stated). This one has the same
-  // kind of gap: year 0 switches and the held 5,260.8 is 205 below the search at the final draws (5,465.7) at 9b47b3a.
-  const REC = { ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, incomeA: 0, incomeKindA: 'wages', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, spending: 26000, taxable: 500000, basisRatio: 60, ssMonthlyA: 0, ...NOHOUSE, incomeSources: [selfStream(48000, 60, 70)] };
-  if (want('recheck')) {
-    const x = await runS(REC);
-    const p = x.profiles[0], row = x.rows[0];
-    assert(held(x.s0, x.s1) > 0, 'recheck: year 0 holds a deduction');
-    const S = await searchAt(row, p, 0, 18000, 1);
-    near(p.seHealthA, S, 1, `held year re-checked at its final draws: D ${p.seHealthA.toFixed(2)} vs the search ${S.toFixed(2)}`);
-    near(row.healthcare, await aca(row.magiProxy, 1, 18000, 0), 2, 'recheck: the premium charged is the one the recorded MAGI allows');
-    console.log(`  recheck: D ${p.seHealthA.toFixed(2)} S ${S.toFixed(2)} premium ${row.healthcare.toFixed(2)} MAGI ${row.magiProxy.toFixed(2)}`);
-  }
-  // a draw grid: single, 55, a self stream of 20,000-60,000, spending 30,000 and 60,000, $500,000 taxable at 30% basis, no housing,
-  // years 0-9. A held alternative year (D not the premium charged) must end within $1 of the search at its final draws.
-  if (want('grid')) {
-    const GR = { ...REC, ageA: 55, retireAgeA: 55, taxable: 500000, basisRatio: 30 };
-    let years = 0, alt = 0, off = 0, worst = 0;
-    for (const spending of [30000, 60000])
-      for (let amt = 20000; amt <= 60000; amt += 5000) {
-        const x = await runS({ ...GR, spending, incomeSources: [selfStream(amt, 55, 70)] });
-        for (let y = 0; y < 10; y++) {
-          const p = x.profiles[y], row = x.rows[y];
-          years++;
-          if (!(p.seHealthA > 0) || !(Math.abs(p.seHealthA - Math.min(p.sePlanNetA, row.healthcare)) > 1)) continue;
-          alt++;
-          const S = await searchAt(row, p, y, 18000, 1);
-          if (Math.abs(p.seHealthA - S) > 1) {
-            off++;
-            worst = Math.max(worst, Math.abs(p.seHealthA - S));
-            console.log(`  grid: spending ${spending} stream ${amt} year ${y}: D ${p.seHealthA.toFixed(2)} vs search ${S.toFixed(2)}`);
+  // invariant grid (decision 12): single, 60, retiring at 60, one self stream owned by A (20,000-60,000 by 2,000), spending
+  // 20,000-40,000 by 2,000, $500,000 taxable at 30% and 60% basis, Texas, premium 18,000, no inflation, no housing, years 0-4. In
+  // every year with a plan net the deduction never exceeds the premium paid or the plan net, and the premium is the one the recorded
+  // MAGI allows. The years where the deduction is more than $1 below the search at the final draws are counted, not asserted: the
+  // recorded limitation (a hold priced on the draws of the pass that failed to converge; Batch 5 settles it at the final draws).
+  if (want('invariant grid')) {
+    const IG = { ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, incomeA: 0, incomeKindA: 'wages', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, ssMonthlyA: 0, ...NOHOUSE };
+    const grid = await page.evaluate(
+      (IG) => {
+        const stream = (amount) => ({ amount, startAge: 60, endAge: 70, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, deferralType: 'traditional', deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0 });
+        const acaNet = window.__test_tax.acaNetCost;
+        // the consistent deduction at the row's final draws (bisection), else section 5.02 at those draws
+        const searchAt = (row, prof, y) => {
+          const base = row.magiProxy + prof.seHealthA, cap = prof.sePlanNetA, prem = 18000;
+          const g = (d) => Math.min(cap, acaNet(base - d, 1, prem, y)) - d;
+          let lo = 0, hi = Math.min(cap, prem);
+          if (g(hi) >= 0) return hi;
+          for (let i = 0; i < 80; i++) {
+            const mid = (lo + hi) / 2;
+            if (g(mid) >= 0) lo = mid;
+            else hi = mid;
           }
-        }
-      }
-    console.log(`  grid: ${years} years, ${alt} held alternative years, ${off} more than $1 off the search (worst ${worst.toFixed(2)})`);
-    // One re-hold at most (decision 11): the second pass's draws move the answer again by a few dollars in a few years. At 9b47b3a: 7 of 10
-    // held years were off, by up to 335. At the tip: 1 of 10, by 2.4.
-    assert(off <= 1 && worst <= 5, 'held years over a draw grid: held alternative years end within $1 of the search at their final draws, at most one year off by a few dollars');
+          return Math.abs(g(lo)) < 1 ? lo : Math.min(cap, acaNet(base - Math.min(cap, prem), 1, prem, y));
+        };
+        const out = { years: 0, overPremium: [], overNet: [], badPremium: [], understated: 0, gap: 0, worstOver: 0, worstPremium: 0, rows: [] };
+        for (const basisRatio of [30, 60])
+          for (let spending = 20000; spending <= 40000; spending += 2000)
+            for (let amt = 20000; amt <= 60000; amt += 2000) {
+              window.__test_replaceState({ ...IG, taxable: 500000, spending, basisRatio, incomeSources: [stream(amt)] });
+              const trace = window.__test_accountTrace();
+              const rows = window.__test_simulate().rows;
+              for (let y = 0; y < 5 && y < rows.length; y++) {
+                const p = trace[y].profile, row = rows[y];
+                if (!(p.sePlanNetA > 0)) continue;
+                out.years++;
+                const tag = `basis ${basisRatio} spending ${spending} stream ${amt} year ${y}`;
+                out.rows.push([basisRatio, spending, amt, y, p.seHealthA, p.sePlanNetA, row.healthcare, row.magiProxy]);
+                if (p.seHealthA > row.healthcare + 1) {
+                  out.overPremium.push(`${tag}: D ${p.seHealthA.toFixed(2)} premium ${row.healthcare.toFixed(2)}`);
+                  out.worstOver = Math.max(out.worstOver, p.seHealthA - row.healthcare);
+                }
+                if (p.seHealthA > p.sePlanNetA + 1e-6) out.overNet.push(`${tag}: D ${p.seHealthA} net ${p.sePlanNetA}`);
+                const dp = Math.abs(row.healthcare - acaNet(row.magiProxy, 1, 18000, y));
+                if (dp > 2) {
+                  out.badPremium.push(`${tag}: premium ${row.healthcare.toFixed(2)} vs ${acaNet(row.magiProxy, 1, 18000, y).toFixed(2)}`);
+                  out.worstPremium = Math.max(out.worstPremium, dp);
+                }
+                const gap = searchAt(row, p, y) - p.seHealthA;
+                if (gap > 1) {
+                  out.understated++;
+                  out.gap = Math.max(out.gap, gap);
+                }
+              }
+            }
+        return out;
+      },
+      IG
+    );
+    console.log(`  invariant grid: ${grid.years} years checked; deduction above the premium paid: ${grid.overPremium.length} (worst ${grid.worstOver.toFixed(2)}); above the plan net: ${grid.overNet.length}; premium off the recorded MAGI by more than $2: ${grid.badPremium.length} (worst ${grid.worstPremium.toFixed(2)}); understated against the search at the final draws: ${grid.understated} (largest gap ${grid.gap.toFixed(2)})`);
+    if (process.env.SE_GRID_OUT) require('fs').writeFileSync(process.env.SE_GRID_OUT, JSON.stringify(grid.rows));
+    for (const m of grid.overPremium.slice(0, 5)) console.log('    ' + m);
+    assert.strictEqual(grid.overPremium.length, 0, 'invariant grid: the deduction never exceeds the premium paid (' + grid.overPremium[0] + ')');
+    assert.strictEqual(grid.overNet.length, 0, 'invariant grid: the deduction never exceeds the plan net (' + grid.overNet[0] + ')');
+    assert.strictEqual(grid.badPremium.length, 0, 'invariant grid: the premium is the one the recorded MAGI allows (' + grid.badPremium[0] + ')');
   }
   // no hold at a $0 deduction: R side business stream (the Solo plan takes the whole net, so the step-1 deduction is 0).
   if (want('zero')) {

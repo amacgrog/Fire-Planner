@@ -10596,7 +10596,6 @@
         let forcedPass = false;
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
         let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
-        let seRechecked = false; // decision 11: the held deduction was re-checked at the final draws (once; a second change is not chased)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
         // state lives here, outside the MAGI restore.
         // - natural: no plan (exactly the `off` year), iterated until it converges or ends in its forced pass;
@@ -10714,7 +10713,7 @@
         // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
         // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
         let lastCost = null;
-        // E1c decisions 9-11: the search for the deduction to hold (below the convergence test), built on first use in this pass, so a
+        // E1c decisions 9, 10 and 12: the search for the deduction to hold (below the convergence test), built on first use in this pass, so a
         // pass that never searches allocates nothing. Results in seFixA / seFixB / seNeedAlt.
         let seSearch = null,
           seFixA = 0,
@@ -10968,9 +10967,9 @@
           estSeB += w * (seRealB - estSeB);
           continue;
         }
-        // E1c decisions 9-11: the 162(l) search is needed by an unconverged year that has not switched, and by a held year that has
-        // converged and not been re-checked. It runs at the draws it is handed (this pass's).
-        if ((profile.seAllowA || profile.seAllowB) && !forcedPass && !replaying && seSearch === null && (seHeld ? !seRechecked && !unconverged : unconverged)) {
+        // E1c decisions 9, 10 and 12: the 162(l) search is needed by an unconverged year that has not switched (a held year is not
+        // re-checked). It runs at the draws it is handed (this pass's).
+        if ((profile.seAllowA || profile.seAllowB) && !forcedPass && !replaying && seSearch === null && !seHeld && unconverged) {
           seSearch = (trad, gain) => {
             // Step 1 of either method (Rev. Proc. 2014-41 section 5): the deduction at the full premiums (priced at a MAGI above
             // every line). Nothing to hold at a $0 deduction (the Solo plan took the whole net, no premium, no cap): the year
@@ -11041,7 +11040,7 @@
           };
         }
         if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB)) {
-          // E1c decisions 9-11 (Rev. Proc. 2014-41 section 5): the damped iteration did not come within $1. Hold the consistent
+          // E1c decisions 9, 10 and 12 (Rev. Proc. 2014-41 section 5): the damped iteration did not come within $1. Hold the consistent
           // deduction if there is one, else the alternative calculation's (seSearch); the year re-runs with it held, so the premium
           // charged is the one the recorded MAGI allows. Nothing is held at a $0 step-1 deduction: the pass falls through to the
           // forced pass below as it did before the switch (the step-1 costAt left lastCost changed; every reader of lastCost
@@ -11078,26 +11077,11 @@
           const last = passLog[passLog.length - 1];
           if (last && Math.abs(last.charged - last.realized) > 5) phaseUnresolved = true;
         }
-        // Decision 11: the held deduction was priced on the draws of the pass that failed to converge, and the year then re-ran with draws
-        // that respond to it. A held year that has converged runs the search once more at its final draws; if the deduction it gives
-        // differs by more than $1 the year re-runs once with that one held. One re-hold at most (seRechecked); a held year that ends
-        // in the forced pass keeps its hold. Reached by a converged pass only: an unconverged pass either continued above or is
-        // out of passes (then it is not re-checked).
-        if (seHeld && !seRechecked && !unconverged && !forcedPass && !replaying) {
-          // A search that holds nothing (a $0 step-1 deduction) leaves seFixA / seFixB at 0.
-          seSearch(traditionalGross, taxableGainGross);
-          if (Math.abs(seFixA - estSeA) + Math.abs(seFixB - estSeB) > 1) {
-            estSeA = seFixA;
-            estSeB = seFixB;
-            seKind = seNeedAlt ? 2 : 1;
-            seRechecked = true;
-            estTrad = realizedTrad;
-            estGain = taxableGainGross;
-            passLog.length = 0;
-            phasePass = -1;
-            continue;
-          }
-        }
+        // A held deduction is not re-checked at the final draws (decision 12). It was priced on the draws of the pass that failed to
+        // converge, and the year then re-ran with draws that respond to it; a second search there (decision 11) could flip across the
+        // 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst $12,829), which the law forbids. The hold
+        // stays: where the draws move afterwards it can be understated (legal, conservative), never above the premium paid in the
+        // grid (tests/se_health.js, invariant grid). The exact settlement at the final draws is Batch 5's.
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
@@ -11168,7 +11152,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, seRechecked, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -11178,7 +11162,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, seRechecked, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -11203,7 +11187,6 @@
               estSeB = naturalRec.estSeB;
               seHeld = naturalRec.seHeld;
               seKind = naturalRec.seKind;
-              seRechecked = naturalRec.seRechecked;
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
               replaying = true;
@@ -11216,7 +11199,7 @@
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, seKind, seRechecked, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -11236,7 +11219,6 @@
                 estSeB = best.estSeB;
                 seHeld = best.seHeld;
                 seKind = best.seKind;
-                seRechecked = best.seRechecked;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
                 replaying = true;
@@ -11254,7 +11236,6 @@
             estSeB = naturalRec.seB;
             seHeld = false;
             seKind = 0;
-            seRechecked = false;
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;
