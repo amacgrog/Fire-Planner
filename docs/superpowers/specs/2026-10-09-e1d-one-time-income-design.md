@@ -80,6 +80,13 @@ section (section 10).
     is already null there: nothing is recorded while anyone works), so it needs no extra condition. A retired surplus year
     keeps today's behaviour (the same double step), outside
     E1d. (Rejected: state the double step as a limitation.)
+12. **Lambda's need adds back a lump year's flow (owner, 2026-10-09, after the independent code review of `12d2970`).**
+    `lambdaOf` sizes the walk of `lambdaEstimate` from `need = max(0, -flow - lumpExpense)`; with decision 5 the taxable lump
+    is in `flow`, so in a lump year the walk took one-time cash as a lasting cut in the yearly draw (a lump covering the whole
+    need gave 0). Like a one-time expense, one-time income is taken out: `need = max(0, -flow - lumpExpense + lumpFlow)` in a
+    lump year. It overstates the need by the lump's own tax (no extra tax call; lambda is an estimate). It changes only how
+    `choose` scores candidates in a lump year with a line in reach; no legacy number moves (plan Task 6). (Rejected: name it
+    in section 9 and leave it to Batch 5.)
 
 ## 4. Facts (primary sources; retrieved 2026-10-09)
 
@@ -325,7 +332,8 @@ already in it through `otherA/B`).
   whole death year counts as after death, decision 10).
 - Jointly held property of spouses (the step-up of half in a common-law state; community property): a dead owner's gain
   lump is treated as solely owned.
-- A future lump in `lambdaEstimate`'s sample years. A lump in the final projection year is in `endTax.profile` (~11328),
+- A future lump in `lambdaEstimate`'s sample years; in the lump year itself the walk's need adds the lump back, overstated by
+  the lump's tax (decision 12). A lump in the final projection year is in `endTax.profile` (~11328),
   which prices the after-tax end value the cliff plan scores with.
 - The Roth bracket fill's provisional income leaves out gains (~7397-7406), so a large gain-lump year can convert past
   the target bracket.
@@ -390,3 +398,10 @@ A last check of `5e1a39f` by the same reviewer confirmed decision 11 against the
 the clear, no legacy movement) and asked for the hold test to force a step in year t-1 and for two wording points; adopted.
 The plan's final fresh review (2026-10-09, of `c8a7a45`) corrected three tooltip lines adopted above (the NIIT checkbox excludes
 C-corporation stock; only taxable kinds raise MAGI; an employer's award is wages) and the depreciation-recapture note.
+
+**Code review (independent Opus review of `12d2970`, 2026-10-09).** No blocking bug. Mutation probes found four test gaps (the
+survivor's own gain through the remap, Partner A's gain on two returns, the lump gain in `row.income` in a withdrawal year, the
+forced pass's `firstWithdrawal` guard) and one modelling gap our decision 5 caused (lambda's need in a lump year; decision 12).
+All fixed in plan Task 6. Confirmed: the MAGI iteration needs no new snapshot field (the lump locals are per-year constants;
+`guardrails.prevPortfolio` is rewound by the existing guardrail snapshot), every MAGI consumer reads the lump through
+`magiBase0`, `returnMagis` or `otherA/B` once, and the dead-owner routing matches the year loop's flags.

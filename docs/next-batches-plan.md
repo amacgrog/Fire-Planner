@@ -1642,6 +1642,19 @@ employer's award is wages; depreciation recapture as an ordinary lump is an appr
 gain at up to 25%, IRC 1(h)(1)(E), (h)(6)(A)); a historical snapshot scenario (the bucket strategy); `wrapHidden` in the UI test; a
 real check of A's return in the owner-B case; the plan's spec citation.
 
+**Review of the implementation (spec owner, 2026-10-09, tip `12d2970` of `claude/e1d-one-time-income`).** `npm test` passes; a
+snapshot dump of `14dde9a` against the tip (the tip's list) compares 945 files and only the 9 new lump scenarios differ (936
+bit-identical, Canada included). Probes (294 retired households drawing from the portfolio: TX, CA, NY two returns, ACA,
+guardrails, single 60 ACA, single 67 Medicare in PA; 3 kinds x 3 amounts x 2 ages x owner / checkbox variants, each against a twin
+with the lump tax-free; plus 15 historical paths): in the lump year the change in investable plus tax plus expenses is zero within
+2.1 cents (the twin's own draw-solver residual); tax never falls and never exceeds 37.3% of the lump; a 150,000 severance for a
+married couple adds exactly 11,475 of payroll tax; the NIIT box on a 2,000,000 business sale (80% gain) lowers tax by 51,300 with
+MAGI unchanged (the MAGI excess binds: 3.8% x 1,350,000); the guardrail hold works (0.590 -> 0.531 stepped, cleared, held at
+0.531); no missed cliff-plan year. In an ACA household a 20,000 severance costs 10,742 of credit (the 400% line; the law).
+Not holding: the Methodology callout (since E1b), the E1b UI test's junk kind, the CLAUDE.md files list and a comment citation
+(plan Task 5, owner decision A). An independent Opus code review (owner decision B, run in parallel) found no blocking bug, four
+test gaps confirmed by mutation, and lambda's need in a lump year (spec decision 12, owner: fix now; plan Task 6).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
@@ -6022,6 +6035,9 @@ reading (itself secondary).
 
 ## Open items
 
+- `tests/snapshot_ui.js` (US) can capture `#dashHistSuccess` before the historical success rate is computed (a dash instead of
+  "85%" on `std R everything`); seen once by the E1d implementer and once by the E1d code reviewer on a clean tree, older than
+  E1d. A timing race in the test (wait for the value, not a fixed delay); not fixed in E1d.
 - ~~Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages.~~ Pulled into E1c (owner,
   2026-10-08): a yearly premium on W-2 streams, which also makes that job the owner's coverage.
 - 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.

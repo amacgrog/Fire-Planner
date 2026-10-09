@@ -848,3 +848,138 @@ git commit -m "E1d 4: snapshot scenarios (added only), README, CLAUDE.md, batch 
 
 Report to the owner: the commit list, every red-then-green, the timing tables, the reader lists, and any deviation from this
 plan with its reason.
+
+---
+
+### Task 6: Code-review fixes: lambda's need in a lump year (decision 12), four tests (US)
+
+Added 2026-10-09 after the independent Opus code review of `12d2970` (spec section 12, decision 12). Runs after Task 5, on
+the same branch and worktree (`../fp-e1d`). Same Global Constraints, with one exception: the new lump snapshot scenarios
+(Task 4's nine, the `R lump ...` and `hist R lump gain ...` entries) MAY move in this task, and only those; every other
+entry of `us.json` and `canada.json` must not change.
+
+**Files:**
+- Modify: `Planner_US.html`: `lambdaOf` in the year loop (~10895-10901 at `12d2970`, found by
+  `need: Math.max(0, -flow - lumpExpense)`); the plan-trace record (~11382, found by
+  `planTr.movedSample = yearLambda ? yearLambda.movedSample : false;`).
+- Modify: `tests/lump_income.js`; `tests/snapshots/us.json` only if a lump scenario moves (Step 6).
+- Modify: `docs/next-batches-plan.md` (E1d implementation notes: a Task 6 entry).
+
+**Interfaces:**
+- Consumes: Task 2's year-loop locals `lumpYear`, `lumpFlow`; Task 2/3's test helpers `engine`, `L`, `W`, `C2`, `T2`, `S0`, `A0`.
+- Produces: `planTr.lambdaNeed` (the number passed as `need` to `lambdaEstimate` in that year, or `null` when lambda was not
+  computed), read only by tests.
+
+- [ ] **Step 1: Write the failing tests** (in `tests/lump_income.js`, after the Task 3 engine cases)
+
+```js
+  // (a) the survivor's OWN gain after A's death (the remap of B's gain into slot A; a dead owner's gain is tax-free on
+  // purpose, so every earlier survivor case missed this). S0: A dies at 47 (index 2); B (alive, working, 160,000) sells
+  // at A's 48 (index 3), a surplus year, so MAGI rises by exactly the gain share.
+  const sb = await engine(S0, [L({ age: 48, amount: 300000, kind: 'gain', owner: 'B' })]),
+    sbF = await engine(S0, [L({ age: 48, amount: 300000, kind: 'free', owner: 'B' })]);
+  assert(sb.rows[3].tax > sbF.rows[3].tax + 1000, "the survivor's own gain is taxed");
+  near(sb.rows[3].magiProxy - sbF.rows[3].magiProxy, 300000, 1e-6, "the survivor's own gain is in MAGI");
+  // the NIIT exclusion survives the remap: B files single after the death (threshold 200,000). Passive: NII 300,000 + i,
+  // excess 160,000 + 300,000 + i - 200,000 = 260,000 + i -> NIIT 3.8% x (260,000 + i). Active: NII i -> 3.8% x i.
+  // Difference 3.8% x 260,000 = 9,880 (i, the investment income, cancels); MAGI identical.
+  const sbA = await engine(S0, [L({ age: 48, amount: 300000, kind: 'gain', owner: 'B', activeBusiness: true })]);
+  near(sb.rows[3].tax - sbA.rows[3].tax, 9880, 1e-6, "survivor's active-business gain: no NIIT on it");
+  near(sbA.rows[3].magiProxy, sb.rows[3].magiProxy, 1e-6, 'the excluded gain stays in MAGI after the remap');
+  // (b) Partner A's gain in a two-return year: on A's return only (A's ACA household, A's IRMAA, A's conversion room)
+  const tA = await engine(T2, [L({ age: 45, amount: 200000, kind: 'gain', owner: 'A' })]);
+  near(tA.rows[0].magiA - t0.rows[0].magiA, 200000, 1e-6, "A's return carries A's gain");
+  near(tA.rows[0].magiB - t0.rows[0].magiB, 0, 1e-6, "B's return does not");
+  // (c) row.income in a year that still draws: R-like retired couple, a small gain lump that leaves a deficit. With no
+  // conversion and no self-employment, the year's row.income equals its realized MAGI (both sum other income, Social
+  // Security, investment income, the draws and the lump gain), so a missing lump term in either breaks the equality.
+  const RD = { ageA: 52, ageB: 50, retireAgeA: 52, retireAgeB: 50, lifeExpectancyA: 95, lifeExpectancyB: 95, spending: 90000,
+    stateTax: 'tx', taxable: 700000, cash: 60000, tradIraA: 450000, tradIraB: 450000, trad401kA: 0, trad401kB: 0, rothIraA: 100000,
+    rothIraB: 100000, roth401kA: 0, roth401kB: 0, rothConvEnabled: false, acaEnabled: false, guardrailsEnabled: false,
+    survivorEnabled: false, incomeSources: [], children: [] };
+  const rd = await engine(RD, [L({ age: 53, amount: 20000, kind: 'gain' })]);
+  assert(rd.rows[1].taxableWithdrawn + rd.rows[1].traditionalWithdrawn > 1000, 'the lump year still draws');
+  near(rd.rows[1].income, rd.rows[1].magiProxy, 1e-6, 'row.income carries the lump gain in a withdrawal year');
+  // (d) the forced pass's firstWithdrawal guard: a lump in the retirement year that runs the forced pass. A0 retires at 58
+  // (index 0 is the retirement year); scan ordinary lumps of 50, 100, ..., 20,000 at 58 for trace[0].forcedPass.
+  const fw = await page.evaluate((base) => {
+    const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+    try {
+      for (let amt = 50; amt <= 20000; amt += 50) {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, JSON.parse(JSON.stringify(saved)), base, { oneTimeIncome: [{ amount: amt, age: 58, flat: true, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }] });
+        const tr = window.__test_accountTrace();
+        if (tr[0].forcedPass) return { found: true, amt, first: window.__test_simulate().firstWithdrawal, initialWR: tr[0].guardrails.initialWR };
+      }
+      return { found: false };
+    } finally { for (const k of Object.keys(s)) delete s[k]; Object.assign(s, saved); }
+  }, { ...A0, guardrailsEnabled: true });
+  if (fw.found) {
+    assert.strictEqual(fw.first, 0, 'forced retirement lump year: no firstWithdrawal');
+    assert.strictEqual(fw.initialWR, null, 'forced retirement lump year: no baseline');
+  } else console.log('NOTE (d): no forced retirement lump year in the scan; report it (the owner accepts the case as unreachable)');
+  // (e) decision 12: lambda's need in a lump year adds back the lump's flow. Against a tax-free twin, the lump run's need
+  // is the twin's need plus the extra tax the lump puts in the pre-draw `tax` (0 <= that <= lumpFlow); without the fix it
+  // would be the twin's need LESS the lump (plus that tax), i.e. below the twin's.
+  const LN = { ...RD, acaEnabled: true };
+  const needAt = (lumps, age) => page.evaluate(([p, l, a]) => {
+    const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+    try {
+      for (const k of Object.keys(s)) delete s[k];
+      Object.assign(s, JSON.parse(JSON.stringify(saved)), p, { oneTimeIncome: l });
+      const tr = window.__test_planTrace();
+      const e = tr.find((x) => x.year === a - p.ageA);
+      return e ? e.lambdaNeed : undefined;
+    } finally { for (const k of Object.keys(s)) delete s[k]; Object.assign(s, saved); }
+  }, [LN, lumps, age]);
+  const lumpE = [L({ age: 54, amount: 30000, kind: 'ordinary' })];
+  const nL = await needAt(lumpE, 54), nF = await needAt([{ ...lumpE[0], kind: 'free' }], 54);
+  assert(typeof nL === 'number' && typeof nF === 'number', `lambda computed in both runs at 54 (got ${nL}, ${nF}); if not, pick the first age 53-58 where both are numbers and report it`);
+  assert(nL - nF >= -1e-6 && nL - nF <= 30000 + 1e-6, `lambda need adds back the lump: ${nL} vs twin ${nF}`);
+```
+
+- [ ] **Step 2: Run them red**
+
+Run: `node tests/lump_income.js`. Expected: (a) to (d) PASS on the current code (they are coverage for code that is
+already right; confirm each is not vacuous by a scratch mutation as the reviewer did: zero `lumpGainA: lumpGainB` in the
+survivor literal for (a), drop `m[0] += profile.lumpGainA` for (b), drop the withdrawal-branch `totalIncome` lump line for (c),
+drop the forced pass's `!lumpYear &&` for (d) when it was found; each mutation must make its case fail; revert). (e) FAILS
+(`lambdaNeed` is undefined). Record all of it in the task report.
+
+- [ ] **Step 3: Implement decision 12**
+
+In `lambdaOf`, replace `need: Math.max(0, -flow - lumpExpense)` with
+
+```js
+need: Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense)
+```
+
+and record the value for the trace: compute it once into a local just before the `lambdaEstimate` call
+(`const lambdaNeed = ...; ` then `need: lambdaNeed`), and keep it in a year-scoped `let yearLambdaNeed = null` declared beside
+`yearLambda` (~10734) and reset wherever `yearLambda` is reset. Beside `planTr.movedSample = ...` (~11382) add
+`planTr.lambdaNeed = yearLambda ? yearLambdaNeed : null;`. The comment on the need line: "E1d decision 12: one-time income,
+like a one-time expense, is not part of the yearly draw the walk assumes (it overstates the need by the lump's own tax)".
+
+- [ ] **Step 4: Run green**
+
+Run: `node tests/lump_income.js` (PASS), `npm test`.
+
+- [ ] **Step 5: Snapshot movers**
+
+Run `node tests/snapshot.js`. Only lump scenarios may differ. If any non-lump scenario differs, stop and report. If lump
+scenarios differ: dump the Task 5 tip (`node tests/snapshot.js --root <worktree of the Task 5 commit> --dump A
+--update-nothing`), dump the working tree (`--dump B`), `--compare A B`, and for each mover give a before/after table (first
+differing year, the year's `cliffChoice`, tax, magiProxy, end-of-run `investable`, depletion age before -> after). No mover may
+deplete earlier (the hard rule); if one does, stop and report. Then `npm run snapshot:update` and confirm the `us.json` diff
+touches only those entries.
+
+- [ ] **Step 6: Timing, notes, commit**
+
+The timing gate (median of three, `--base ../fp-e1d-base`). Add "Task 6" to the E1d implementation notes in
+`docs/next-batches-plan.md` (the review findings, red/green with the mutations, the movers table or "no mover", timing).
+
+```bash
+git commit -m "E1d 6: lambda's need adds back a lump year's flow (decision 12); tests for the survivor's own gain, A's gain on two returns, income in a withdrawal year, the forced pass's firstWithdrawal guard" -- Planner_US.html tests/lump_income.js tests/snapshots/us.json docs/next-batches-plan.md
+```
+
+(Leave `tests/snapshots/us.json` out of the path list if it did not change.)
