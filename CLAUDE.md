@@ -67,6 +67,7 @@ feature list.
   two-return and survivor cases, hand-computed. `tests/stream_contributions.js` — `streamPlanContributions` and its rooms through
   `retirementContributions` and the engine. `tests/survivor_salary.js` — a partner who dies before retiring stops working at death
   (both planners). `test_income_streams.js` (Playwright, not in CI) covers the stream rows' owner/kind/panel controls.
+- `tests/lump_income.js` — E1d (US): `lumpAmountsForYear`, payroll tax and the return placement of taxable lumps, gain lumps in `taxFor`, the NIIT active-business exclusion, dead-owner and survivor cases, hand-computed. `test_lump_income.js` (Playwright, not in CI) covers the one-time income rows' kind/owner/gain controls.
 - `tests/self_employment.js` — E1c (US): `selfEmploymentTax` (the 92.35% base, the $400 floor, the wage-base interaction, half deducted),
   `soloPlanContributions` (deferral room after W-2 plans, profit sharing C x r / (1 + r), one annual-additions room, IRA, all from household
   cash) and the engine plumbing, hand-computed. `tests/se_health.js` — W-2 stream premium as coverage (`streamCoverBits`), the 162(l)
@@ -559,7 +560,8 @@ Each planner is one big IIFE. Core shape:
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
   `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,
   `__test_scenarioMetrics`, `__test_planStats`; `window.__test_planTrace(rowFn)` returns the `choose` trace (each
-  year's candidates, `movedSample`, the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
+  year's candidates, `movedSample`, `lambdaNeed` (the need passed to `lambdaEstimate`, null when lambda was not computed),
+  the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
   irmaaZeroSaving; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
@@ -797,6 +799,24 @@ existing snapshots did not move. Tests: `tests/income_streams.js`, `tests/stream
 `profitSharingPct`, 0-25, the same panel and rooms as the salary's Solo 401(k) in `soloPlanContributions`) and a W-2 stream gets an
 optional yearly `healthPremium` (pre-tax, reduces the stream's wages; above zero the job covers its owner, see `streamCoverBits`).
 See "Self-employment (US, E1c)".
+**One-time income (US, E1d; spec `docs/superpowers/specs/2026-10-09-e1d-one-time-income-design.md`).** A `oneTimeIncome` row also
+carries `kind` (`'free'` default = tax-free, `'wages'` = severance or bonus with payroll tax, `'ordinary'` = no payroll tax, `'gain'` =
+long-term gain), `owner` ('A'/'B'), `gainPct` (the taxable share of a gain, 0-100, default 100) and `activeBusiness` (the gain leaves
+net investment income but stays in MAGI), normalized by the US-only `normalizeUsLumps(s, raw)` (read from the raw save and aligned like
+`normalizeUsStreams`; anything unknown is the legacy meaning, tax-free for Partner A). `lumpAmountsForYear(lumps, ctx, out)` (pure, scratch
+`LUMP_OUT`, just below `streamAmountsForYear`) reads the rows defensively (a raw row loaded through `Object.assign` with no `kind` is tax-free,
+any owner but `'B'` is A, a non-number `gainPct` reads as 100 and a boolean `true` reads as 1; hand-edited saves only), puts owner A in single-person mode, treats the owner as dead from the death year
+on (a dead owner's wages or ordinary lump goes to the survivor as ordinary income with no payroll tax; a dead owner's gain is tax-free), sends a
+gain's basis to `taxFree`, and sums the taxable part in `flowTotal`, the one gate (a lump year is `flowTotal > 0`). `oneTimeAmount` =
+`taxFree` (today's cash path, `bal.cash += oneTimeAmount`, bit for bit); taxable lumps join the year's `wages` (so they pay their own tax
+inside the flow). Wages lumps reach the owner's return and payroll through `streamWagesA/B` (also the self-employment Social Security wage
+base, `ssWagesA/B`), ordinary lumps through `streamOtherA/B`; neither makes a retirement contribution. Gains ride the profile: `lumpOn`,
+`lumpGainA/B`, `lumpGainNoNiitA/B` (both `buildTaxProfile` literals always carry them, the survivor remap moves B's into slot A; read only
+under `lumpOn`): `taxFor` adds them inside each branch (joint and one-person: to `gains`; two filers: to each return's own `gainA/B`; the NIIT
+leaves out the no-NIIT part from net investment income only), `returnMagis` appends each owner's gain, and `magiBase0` and `row.income`
+include them. Guardrails: a lump year records no guardrail withdrawal and no `firstWithdrawal`, and clears `prevPortfolio` after its own step,
+so the next year holds the multiplier. The trace carries `guardrails`, `firstWithdrawal` and `forcedPass`. Tests: `tests/lump_income.js`,
+`test_lump_income.js`.
 **Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
 ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.

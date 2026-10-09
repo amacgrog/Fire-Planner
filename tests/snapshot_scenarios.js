@@ -107,6 +107,14 @@ function usStd() {
     ['R solo 401k 25% mega', { ...R, retireAgeA: 60, incomeA: 200000, incomeKindA: 'self', k401PctA: 100, profitSharingPctA: 25, megaBackdoor: true, megaPctA: 100 }],
     ['R self-employed past 65', { ...R, ageA: 63, ageB: 61, retireAgeA: 70, retireAgeB: 61, incomeA: 80000, incomeKindA: 'self' }],
     ['R W-2 stream premium', { ...R, acaEnabled: true, incomeSources: [{ amount: 30000, startAge: 52, endAge: 58, followGrowth: true, growth: 3, owner: 'A', kind: 'wages', healthPremium: 6000 }] }],
+    ['R lump severance retirement year', { ...R, guardrailsEnabled: true, oneTimeIncome: [{ amount: 150000, age: 52, flat: true, kind: 'wages', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+    ['R lump deferred comp B', { ...R, oneTimeIncome: [{ amount: 120000, age: 55, flat: false, kind: 'ordinary', owner: 'B', gainPct: 100, activeBusiness: false }] }],
+    ['R lump gain', { ...R, oneTimeIncome: [{ amount: 400000, age: 56, flat: false, kind: 'gain', owner: 'A', gainPct: 60, activeBusiness: false }] }],
+    ['R lump business sale', { ...R, oneTimeIncome: [{ amount: 2000000, age: 57, flat: true, kind: 'gain', owner: 'A', gainPct: 80, activeBusiness: true }] }],
+    ['R lump gain B two returns', { ...R, filingStatus: 'single', oneTimeIncome: [{ amount: 300000, age: 54, flat: false, kind: 'gain', owner: 'B', gainPct: 50, activeBusiness: false }] }],
+    ['R lump dead owner', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 58, oneTimeIncome: [{ amount: 80000, age: 58, flat: false, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }, { amount: 300000, age: 60, flat: false, kind: 'gain', owner: 'A', gainPct: 70, activeBusiness: false }] }],
+    ['R lump guardrails later', { ...R, guardrailsEnabled: true, oneTimeIncome: [{ amount: 60000, age: 60, flat: false, kind: 'wages', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+    ['R lump ACA line', { ...R, acaEnabled: true, oneTimeIncome: [{ amount: 40000, age: 53, flat: false, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }] }],
     ['R single self-employed cliff band', { ...R, singlePerson: true, retireAgeA: 60, incomeA: 82000, incomeKindA: 'self', acaEnabled: true }],
     // E1c 9b: inside the 162(l) band with no income-paying balances (cash and taxable 0, no contributions), year 0 at a MAGI near the
     // 400% line: 82,000 has no consistent deduction (the alternative calculation), 73,000 has one (held).
@@ -302,6 +310,7 @@ function usGuard() {
     ['hist G hoh 58 aca smooth | real1973', gHousehold('hoh', 58, 1500000, 300000, 60000, true), 'real1973'],
     ['hist G single 58 aca default | real1966', gHousehold('single', 58, 1500000, 300000, 60000, false), 'real1966'],
     ['hist G hoh 62 aca default | real1966', gHousehold('hoh', 62, 1500000, 300000, 60000, false), 'real1966'],
+    ['hist R lump gain | real1966', { ...US_R, oneTimeIncome: [{ amount: 400000, age: 56, flat: false, kind: 'gain', owner: 'A', gainPct: 60, activeBusiness: false }, { amount: 150000, age: 53, flat: false, kind: 'wages', owner: 'B', gainPct: 100, activeBusiness: false }] }, 'real1966'],
   ].map(([name, patch, id]) => ({ name, kind: 'hist', patch, series: SERIES.find((x) => x.id === id) }));
   return [...std, ...hist];
 }

@@ -77,7 +77,7 @@ const path = require('path');
       window.__test_replaceState(r);
       return JSON.parse(JSON.stringify(window.__test_getState().incomeSources[0]));
     }, raw);
-  let n = await norm({ incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'C', kind: 'self', contribute: 'yes', deferralType: 'x', deferralPct: 400, matchPct: -3, afterTaxPct: 'q' }] });
+  let n = await norm({ incomeSources: [{ amount: 10000, startAge: 60, endAge: 70, owner: 'C', kind: 'x', contribute: 'yes', deferralType: 'x', deferralPct: 400, matchPct: -3, afterTaxPct: 'q' }] });
   assert.strictEqual(n.owner, 'A');
   assert.strictEqual(n.kind, 'other');
   assert.strictEqual(n.contribute, false);

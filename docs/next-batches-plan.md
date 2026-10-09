@@ -1642,6 +1642,163 @@ employer's award is wages; depreciation recapture as an ordinary lump is an appr
 gain at up to 25%, IRC 1(h)(1)(E), (h)(6)(A)); a historical snapshot scenario (the bucket strategy); `wrapHidden` in the UI test; a
 real check of A's return in the owner-B case; the plan's spec citation.
 
+##### E1d: implementation (US V125 -> V126)
+
+Branch `claude/e1d-one-time-income`, base `9c390e5` (planner code identical to `14dde9a`); US only, no shared-region change
+(`npm run check:shared` OK at every commit), Canada V59 unchanged. Timing baseline: a detached worktree of `14dde9a`.
+
+Commits:
+- `c618a9f` E1d 1: the inputs (`kind`, `owner`, `gainPct`, `activeBusiness` on `DYN.oneTimeIncome`) and `normalizeUsLumps`;
+  `legacy_state.json` gains three corpus cases (`lump kinds`, `lump junk`, `lump legacy flag`), no existing hash changed.
+- `85cffd0` E1d 2: `lumpAmountsForYear` (scratch `LUMP_OUT`), taxable lumps in the year's `wages`, wages and ordinary lumps on the
+  owner's return (payroll tax and the self-employment wage base through `ssWagesA/B`), the guardrail rule (decisions 7 and 11).
+- `670941d` E1d 3: gain lumps in `taxFor` (every branch), the NIIT active-business exclusion, `returnMagis`, `magiBase0`,
+  `row.income`.
+- Task 4 (this record's commit): nine snapshot scenarios (added only), README, CLAUDE.md, these notes, the note text, US V126.
+
+Red then green, per task:
+- Task 1: red `legacy-state corpus MISMATCH: US lump kinds / lump junk / lump legacy flag` and `test_lump_income.js`
+  `Failed to find element matching selector "#oneTime0Kind"`; green after the inputs (legacy baseline updated: 3 added keys).
+- Task 2: red `window.__test_lumpAmountsForYear is not a function`, then (splitter only) `severance: payroll tax: 0 vs 3825`;
+  green `tests/lump_income.js`; snapshots exact (US 560, Canada 376).
+- Task 3: red `lump gain = gains arg: tx mfj se=false: 21280 vs 80066`; green; snapshots exact.
+- Task 4: red `node tests/snapshot.js`: `[US] snapshot MISMATCH (9 of 569 scenarios)`, each `not in baseline`; green after
+  `npm run snapshot:update`. `tests/lump_income.js` gained the strengthening the Task 3 review suggested (it passed with no expected
+  value changed): the dead-owner gain case also asserts `magiProxy` equal to the tax-free run, and a B-dies twin (owner B, B dies at
+  47) asserts the same tax and `magiProxy`. Checked not vacuous: with the twin's gain owned by the living A, the tax assert fails.
+
+The `wages` readers in the year body (Task 2): the definition (`let wages = ...`, then `if (lumpYear) wages += lumpFlow;`), the
+bucket and standard `flow` expressions, and `row.wages`. Nothing else in the year body reads `wages`; the lump wages reach the tax
+and payroll code through `ssWagesA/B` (both `selfEmploymentTax` calls, `buildTaxProfile`'s and `payrollTax`'s `streamWagesA/B`).
+`retirementContributions` still gets `streams.wagesA/B` (a lump makes no contribution, spec 6.3).
+
+The gain reader lines (Task 3, at `670941d`): `taxFor` reads `lumpOn` once at the top. Joint and one-person branches: the gain is
+added to `gains` as the branch's first statement, and every later reader sees it (provisional income and taxable Social Security,
+`sources.gains`, `federalLiabilityForState`, `federalDeduction`, QBI taxable income and net gain, `longTermGainTax`, the
+`childCredits` MAGI, `niitTax`, whose MAGI keeps the excluded part and whose net investment income leaves it out). Two filers:
+`gainA/gainB` become `let` and each gets its owner's gain, then the same readers per return. Elsewhere: `returnMagis` (appends each
+owner's gain), `buildTaxProfile` (parameters, the survivor literal with B's gain in slot A, the normal literal), the year loop's
+`buildTaxProfile` call, `magiBase0` and `totalIncome` (two places: after the initial `let` and after the deficit branch).
+
+Legacy diff (Task 1 only): `tests/snapshots/legacy_state.json` adds `lump kinds`, `lump junk` and `lump legacy flag`; no existing
+hash moved.
+
+Snapshot diff (Task 4): `tests/snapshots/us.json` gains nine entries and nothing else (`git diff tests/snapshots/us.json | grep
+'^-' | grep -v '^---'` prints nothing): `std R lump severance retirement year`, `std R lump deferred comp B`, `std R lump gain`,
+`std R lump business sale`, `std R lump gain B two returns`, `std R lump dead owner`, `std R lump guardrails later`, `std R lump
+ACA line`, and `hist R lump gain | real1966` (the bucket strategy). `canada.json`, `ui_canada.json` and `legacy_state.json`
+unchanged.
+
+**Owner ruling (2026-10-09, Task 4): the one-time income note.** Task 1 kept the old `DYN.oneTimeIncome` note ("Tax-free lump sums
+received at a specific age.") because the rendered-results text in `tests/snapshot_ui.js` includes it (the plan's claim that the
+DYN rows are outside `snapshot_ui.js` holds for the controls, not for the rendered text). The owner ruled that Task 4 switches it to
+the spec's "Lump sums received at a specific age, each with its own tax treatment." and regenerates `ui_us.json`
+(`node tests/snapshot_ui.js --update --only US`), the diff limited to the text the note changes. Result: exactly three surfaces
+moved, `textHash` and `textLength` only (+24 characters each, the note's length difference): `std default` 28,238 -> 28,262,
+`std R` 27,853 -> 27,877, `std R everything` 29,670 -> 29,694; every `projectionHash`, `rowsHash`, `histSuccess` and every control
+entry unchanged. The version badge is not in that text (the UI check passed after V126). One flake seen while checking: on one
+run `std R everything` read `histSuccess` "85%" (and a longer text) instead of "—", a timing race in the capture; the immediate
+re-run read "—" and the baseline was written from a run that matched the committed `histSuccess`.
+
+Timing, `node tests/bench_runs_interleaved.js --base ../fp-e1d-base --rounds 21`, three runs, quiet machine.
+
+Task 2 (median simulate / historical): tx +1.5% / +1.8%; ca -0.3% / -2.4%; ny -2.3% / -2.2%; pa -2.1% / -2.5%; ct -1.8% / -2.7%;
+wa -2.2% / -3.0%.
+
+Task 3 (median): tx +1.0% / 0.0%; ca +3.2% / +3.7%; ny +1.9% / +2.3%; pa +2.1% / +2.6%; ct +2.4% / +2.8%; wa +0.9% / +1.5%
+(run 2 alone had tx at +5.2% / +5.3%, inside the noise).
+
+Task 4 (final tree):
+
+```
+=== run 1
+US tx  400 simulate 194 -> 196 ms (1.0%), 120 historical 58 -> 57 ms (-1.7%)
+US ca  400 simulate 312 -> 296 ms (-5.1%), 120 historical 86 -> 86 ms (0.0%)
+US ny  400 simulate 307 -> 314 ms (2.3%), 120 historical 88 -> 90 ms (2.3%)
+US pa  400 simulate 281 -> 288 ms (2.5%), 120 historical 78 -> 80 ms (2.6%)
+US ct  400 simulate 378 -> 381 ms (0.8%), 120 historical 110 -> 111 ms (0.9%)
+US wa  400 simulate 225 -> 228 ms (1.3%), 120 historical 66 -> 67 ms (1.5%)
+=== run 2
+US tx  400 simulate 193 -> 194 ms (0.5%), 120 historical 58 -> 58 ms (0.0%)
+US ca  400 simulate 286 -> 287 ms (0.3%), 120 historical 82 -> 82 ms (0.0%)
+US ny  400 simulate 319 -> 311 ms (-2.5%), 120 historical 91 -> 89 ms (-2.2%)
+US pa  400 simulate 288 -> 283 ms (-1.7%), 120 historical 81 -> 78 ms (-3.7%)
+US ct  400 simulate 372 -> 374 ms (0.5%), 120 historical 107 -> 109 ms (1.9%)
+US wa  400 simulate 232 -> 226 ms (-2.6%), 120 historical 67 -> 66 ms (-1.5%)
+=== run 3
+US tx  400 simulate 196 -> 194 ms (-1.0%), 120 historical 58 -> 58 ms (0.0%)
+US ca  400 simulate 293 -> 283 ms (-3.4%), 120 historical 84 -> 82 ms (-2.4%)
+US ny  400 simulate 322 -> 323 ms (0.3%), 120 historical 94 -> 91 ms (-3.2%)
+US pa  400 simulate 295 -> 294 ms (-0.3%), 120 historical 81 -> 82 ms (1.2%)
+US ct  400 simulate 385 -> 391 ms (1.6%), 120 historical 112 -> 114 ms (1.8%)
+US wa  400 simulate 238 -> 235 ms (-1.3%), 120 historical 69 -> 69 ms (0.0%)
+```
+
+Median of three (simulate / historical): tx +0.5% / 0.0%; ca -3.4% / 0.0%; ny +0.3% / -2.2%; pa -0.3% / +1.2%; ct +0.8% / +1.8%;
+wa -1.3% / 0.0%. Every path is within +5% at every task.
+
+Deviations: Task 1 kept the old note (superseded by the owner ruling above); Task 2 removed the `LUMP_ENGINE=1` gate in
+`test_lump_income.js` (owner ruling), added a pure `gainPct: null` case, and wrote the forced-pass `!lumpYear` guard as two
+conditions (the `initialWR` restore sits between them; same behaviour); Task 3 did not redeclare `A0` (already defined, identical).
+
+For the owner: deferred minors from the task reviews: `gainPct` is not clamped while typing (it is clamped on load and read
+defensively by the engine); the `gainPct` parse is duplicated in `normalizeUsLumps` and `lumpAmountsForYear`, and `true` reads as 1%;
+a negative raw amount with a taxable kind vanishes (only through a hand-edited save); junk `''` / `null` `gainPct`
+are not in the legacy corpus. The 162(l) and E1e items are unchanged by E1d.
+
+**Task 6 (code-review fixes, decision 12).** The independent code review of `12d2970` found four cases of correct code with no
+test and one modelling gap. Code: in `lambdaOf` the need passed to `lambdaEstimate` is
+`Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense)` (decision 12: one-time income, like a one-time
+expense, is not part of the yearly draw the pool walk assumes); a test-only `yearLambdaNeed` (declared beside `yearLambda`) is
+recorded as `planTr.lambdaNeed` (null when lambda was not computed). Tests in `tests/lump_income.js`:
+- (a) the survivor's own gain after A's death (S0, B sells 300,000 at A's 48): taxed, MAGI +300,000, and the active-business
+  twin's tax is lower by exactly 9,880 (3.8% x 260,000) with the same MAGI. Mutations: `lumpGainA: 0` in the survivor literal fails
+  `the survivor's own gain is taxed`; `lumpGainNoNiitA: 0` there fails `survivor's active-business gain: no NIIT on it: 0 vs 9880`.
+- (b) A's gain in a two-return year: `magiA` +200,000, `magiB` +0. Mutation (drop `m[0] += profile.lumpGainA` in `returnMagis`):
+  `A's return carries A's gain: 0 vs 200000`.
+- (c) `row.income` equals `magiProxy` in a lump year that still draws (retired couple, gain lump 20,000 at 53). Mutation (drop the
+  withdrawal-branch `totalIncome` lump line): `71489.15... vs 91489.15...`.
+- (d) the forced pass's `firstWithdrawal` guard: found at the first scan step (ordinary lump 50 at 58, A0 with guardrails);
+  `firstWithdrawal` 0 and `initialWR` null. Mutation (drop `!lumpYear &&`): `firstWithdrawal` 14,284.35 instead of 0.
+- (e) decision 12: red before the fix (`lambdaNeed` undefined). The plan's age 54 does not work: in this household lambda is not
+  computed at any age 53-59 (every plan-trace entry has `lambdaNeed` null, lump or not; the first plan-candidate year is 60), so the
+  case uses age 60, the first age where both runs compute it. At 60: fixed, lump run 161,155.49 vs tax-free twin 161,155.49
+  (difference about 3e-11); old formula, 131,155.49 vs 161,155.49 (30,000 below), which fails the assertion.
+
+No snapshot mover: `node tests/snapshot.js` exact (US 569, Canada 376) with the fix, so `us.json` is unchanged (no lump scenario
+has a lambda year with a lump in it). `npm test` green; `npm run check:shared` OK.
+
+Timing (Task 6 tree vs `../fp-e1d-base`, 21 rounds):
+
+```
+=== run 1
+US tx  400 simulate 195 -> 207 ms (6.2%), 120 historical 58 -> 61 ms (5.2%)
+US ca  400 simulate 293 -> 300 ms (2.4%), 120 historical 84 -> 85 ms (1.2%)
+US ny  400 simulate 342 -> 339 ms (-0.9%), 120 historical 96 -> 97 ms (1.0%)
+US pa  400 simulate 316 -> 320 ms (1.3%), 120 historical 89 -> 88 ms (-1.1%)
+US ct  400 simulate 395 -> 387 ms (-2.0%), 120 historical 116 -> 112 ms (-3.4%)
+US wa  400 simulate 234 -> 231 ms (-1.3%), 120 historical 69 -> 68 ms (-1.4%)
+=== run 2
+US tx  400 simulate 197 -> 200 ms (1.5%), 120 historical 60 -> 59 ms (-1.7%)
+US ca  400 simulate 291 -> 293 ms (0.7%), 120 historical 83 -> 82 ms (-1.2%)
+US ny  400 simulate 311 -> 320 ms (2.9%), 120 historical 90 -> 90 ms (0.0%)
+US pa  400 simulate 284 -> 288 ms (1.4%), 120 historical 80 -> 80 ms (0.0%)
+US ct  400 simulate 378 -> 383 ms (1.3%), 120 historical 110 -> 110 ms (0.0%)
+US wa  400 simulate 226 -> 229 ms (1.3%), 120 historical 66 -> 67 ms (1.5%)
+=== run 3
+US tx  400 simulate 198 -> 201 ms (1.5%), 120 historical 58 -> 59 ms (1.7%)
+US ca  400 simulate 289 -> 291 ms (0.7%), 120 historical 83 -> 83 ms (0.0%)
+US ny  400 simulate 321 -> 320 ms (-0.3%), 120 historical 92 -> 91 ms (-1.1%)
+US pa  400 simulate 292 -> 291 ms (-0.3%), 120 historical 82 -> 81 ms (-1.2%)
+US ct  400 simulate 386 -> 386 ms (0.0%), 120 historical 114 -> 112 ms (-1.8%)
+US wa  400 simulate 232 -> 233 ms (0.4%), 120 historical 68 -> 68 ms (0.0%)
+```
+
+Median of three (simulate / historical): tx +1.5% / +1.7%; ca +0.7% / 0.0%; ny -0.3% / 0.0%; pa +1.3% / -1.1%; ct 0.0% / -1.8%;
+wa +0.4% / 0.0%. Run 1 alone had tx at +6.2% / +5.2% (noise; the change adds one comparison in a year that computes lambda).
+
+##### E1d: review and acceptance (2026-10-09)
+
 **Review of the implementation (spec owner, 2026-10-09, tip `12d2970` of `claude/e1d-one-time-income`).** `npm test` passes; a
 snapshot dump of `14dde9a` against the tip (the tip's list) compares 945 files and only the 9 new lump scenarios differ (936
 bit-identical, Canada included). Probes (294 retired households drawing from the portfolio: TX, CA, NY two returns, ACA,
@@ -1654,6 +1811,21 @@ MAGI unchanged (the MAGI excess binds: 3.8% x 1,350,000); the guardrail hold wor
 Not holding: the Methodology callout (since E1b), the E1b UI test's junk kind, the CLAUDE.md files list and a comment citation
 (plan Task 5, owner decision A). An independent Opus code review (owner decision B, run in parallel) found no blocking bug, four
 test gaps confirmed by mutation, and lambda's need in a lump year (spec decision 12, owner: fix now; plan Task 6).
+
+Tasks 5 and 6 checked by the spec owner at `1fc8683` (a scratch worktree): `npm test` exits 0, including a fresh UI-snapshot
+capture that matches Task 5's hand-patched `ui_us.json` hashes (the three `textHash` / `textLength` pairs, +257 characters each,
+from the Methodology sentence only); a snapshot dump of `14dde9a` against the tip compares 945 files and only the 9 new lump
+scenarios differ; `us.json` is unchanged since `12d2970` (Task 6 moved nothing: none of the nine lump scenarios has a cliff-plan
+candidate in its lump year, so decision 12 is exercised by its test only); the spec owner's probe grid gives the same results on the
+tip. Decision 12's code is the one term the spec names, read only in a lump year; the test-only `yearLambdaNeed` sits beside
+`yearLambda` (once per year). Accepted deviation: Task 6's lambda test runs at age 60 (before 59 1/2 the household has no
+penalty-free traditional money, so no candidate and no lambda), with an added exact match to the tax-free twin's need.
+
+**Decision (owner, 2026-10-09):** E1d accepted (no further code review: the engine diff had per-task reviews, a whole-branch review
+and an independent Opus code review with mutation probes; the code after it is decision 12, about 6 lines, checked by its task
+reviewer and the spec owner). Merged into `claude/batch-3b-penalty-rules` (US V126, Canada V59 unchanged); this file resolved with
+the branch's implementation block first, then the review and this record. Open: the UI-snapshot `histSuccess` race (Open items);
+E1e (the inherited traditional IRA / 401(k), spec section 11) is next in Batch E.
 
 ---
 
@@ -6037,7 +6209,8 @@ reading (itself secondary).
 
 - `tests/snapshot_ui.js` (US) can capture `#dashHistSuccess` before the historical success rate is computed (a dash instead of
   "85%" on `std R everything`); seen once by the E1d implementer and once by the E1d code reviewer on a clean tree, older than
-  E1d. A timing race in the test (wait for the value, not a fixed delay); not fixed in E1d.
+  E1d. It also hit Canada (83%) during E1d Task 5, whose `ui_us.json` text hashes had to be patched by hand from a clean capture
+  because `--update` kept capturing the race. A timing race in the test (wait for the value, not a fixed delay); not fixed in E1d.
 - ~~Backlog (owner, E1b design 2026-10-08): a pre-tax health premium on W-2 income-stream wages.~~ Pulled into E1c (owner,
   2026-10-08): a yearly premium on W-2 streams, which also makes that job the owner's coverage.
 - 7D part 2 (state-tax performance): three optimizations after the 7D PR; see the "7D part 2" section in Batch 7. The 7D PR carries the timing overrun by decision.
@@ -6146,3 +6319,5 @@ remains is detail to settle when the relevant batch is scoped:
   scoped.
 - US tax, credit and benefit gap assessment (2026-10-06): moved into Batch 7O (decision 21), which keeps the
   corrections to the external catalog, the items to build, the deferred ones (HSA, pension type) and the left-out list.
+
+Task 5 (text and tests only, no number change): the Methodology callout sentence on income streams and lump sums rewritten to match the engine (ten streams with owner and kind, ten lumps tax-free or taxable); the junk-kind case of test_income_streams.js uses kind x (self is valid since E1c); CLAUDE.md files list gains tests/lump_income.js and test_lump_income.js and the gainPct / boolean-true note; the NIIT comment in taxFor cites IRC 1411(c)(1)(A)(iii) and 1411(c)(4). ui_us.json: textHash and textLength only, for the three surfaces, +257 characters each (28,262 -> 28,519; 27,877 -> 28,134; 29,694 -> 29,951); projection and rows hashes unchanged. The baseline was patched by hand from a clean capture because node tests/snapshot_ui.js --update captured the histSuccess flake (85% instead of the dash) on three tries in a row; the known timing race also makes the check itself fail intermittently, in both planners.
