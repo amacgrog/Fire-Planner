@@ -275,7 +275,7 @@ const BASE = {
     Object.assign(st, { stateTax: 'tx', inflation: 0, singlePerson: true, tenure: 'rent' });
     try {
       const S = window.__test_solver;
-      const profile = { filing: 'single', otherA: 0, otherB: 0, extraIncome: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 60, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: [] };
+      const profile = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 60, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: [] };
       const r = {};
       let wd = S.newTestWithdrawal({ traditional: 400000, bondTraditional: 100000 }, profile);
       r.freeAll = S.freeTraditional(wd);

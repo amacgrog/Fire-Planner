@@ -1049,6 +1049,85 @@ Spec `docs/superpowers/specs/2026-10-08-e1b-income-streams-design.md`, plan
 - Defaults (owner A, not earned, no contribution) reproduce today's numbers exactly; Tasks 3 and 4 must leave every
   existing snapshot entry byte-identical.
 
+##### E1b: implementation (US V122 -> V124, Canada V58 -> V59)
+
+Commits on `claude/e1b-income-streams` (base plan commit `84e13b3`, code of `71451fd`): 82f3100 (1: the death clamp, both
+planners; `snapshot:update`), 393230b (2: shared `select` field kind, stream owner / kind / panel inputs, `normalizeUsStreams`;
+legacy snapshot updated, no number change), b93a74c (3: the engine reads owner and kind), 186d353 (4: contributions from W-2
+streams). `npm run check:shared` OK (55 x 2) after Task 2 (the only shared-region change: `23-dynFieldHtml`).
+
+**Task 1 movers** (all with the first difference in year index 7, Partner A's death year, age 67; none depletes before or after):
+
+| Scenario | Kind | End total before -> after |
+|---|---|---|
+| R work past 65 survivor | std | 13,973,799 -> 13,359,187 |
+| R work past 65 survivor (real1929 / real1966 / real1973 / real2000) | hist | 18,655,352 -> 17,050,881 / 54,118,297 -> 50,635,107 / 48,556,712 -> 46,428,968 / 11,910,827 -> 10,993,186 |
+| (crashFirst / sawtooth / boom / flat / mc1 / mc2) | hist | 9,573,792 -> 8,557,567 / 3,893,501 -> 3,612,201 / 187,659,252 -> 183,513,428 / 898,031 -> 794,600 / 40,388,714 -> 38,200,117 / 128,794,006 -> 125,675,694 |
+| the same ten paths for `R work past 65 survivor rich` | hist | all lower by about 1% to 3% (e.g. real1929 57,370,531 -> 55,789,961) |
+| R death before retirement (new Canada entry, A dies at 64, retires at 68) | std | first difference in year index 4 (tax 21,796 -> 20,048, grossIncome 75,369 -> 105,420 because the unfunded salary no longer arrives) |
+
+No other scenario moved (22 of 922 files differ in the compare, including the new Canada one). No scenario depletes earlier. Every
+mover is a scenario where a partner dies before their retirement age. Hand check, `std R work past 65 survivor`, year 7: cash
+`wages` 245,974.77 -> 122,987.39, exactly Partner A's salary 100,000 x 1.03^7 = 122,987.39; `income` 203,201.39 -> 134,299.28
+and `tax` 26,078.56 -> 16,670.02 fall with it, and Partner A's 401(k) and IRA stop receiving contributions in that year. The
+`rothWithdrawn` field moves by -0.0011 (float noise from the changed Roth ledger sums).
+
+**`retireAgeA/B` inside `runProjection`, and why the clamped value is right:** US: `retirementYear` (the both-retired year: the
+deceased is retired from death, so the ladder and `firstWithdrawal` are sized from then), `makeProjectedExpense` (pre-retirement
+spending steps follow the clamped age), `workingA/B` (the whole point), `requiredDistributions` (`retireAge` gates the 72(t)
+and RMD working tests; the deceased's slots are zeroed by the survivor guard anyway), the Medicare lookback (`medA` / `medB`; the
+deceased is excluded by `survivor2`), and `statusCtx` (account statuses: the deceased no longer works). Canada: `retirementYear`,
+`makeProjectedExpense` and `workingA/B` only. No use needed the raw age, so no `rawRetireAge` was kept.
+
+**Failing, then passing:** `tests/survivor_salary.js` failed on `death year` (`rows[7].wages` 150000, expected 50000) before the clamp in
+both planners. The tests of Tasks 2 to 4 were written together with, not before, the code (a hand-checked set; they passed on the
+first run, including the hand-computed payroll 22,439 / 19,125, ACTC -1,125, two-return state tax 3,000 and 4,000, and the
+contribution cases), so there is no red run to record for them; the exactness gate (`tests/snapshot.js` against the committed
+baseline) was run before the new scenarios were added in Tasks 3 and 4 and passed.
+
+**Legacy proof (Task 2):** a scratch copy of `tests/legacy_state.js` dumped the full normalized state of every corpus case on the
+base tree and on the working tree; after deleting the eight new stream keys from every stream the two are equal for all 54 cases
+(US 37, Canada 17), so the new keys are the only change. Canada's hashes are unchanged; the US ones changed for the cases that
+carry streams (`legacy bridge plan`, `legacy loans and income`) plus the four new cases (`stream owner kind`, `stream junk`,
+`stream no keys`, `stream stored B single`). `ui_us.json` needed no update (the default state has no stream rows).
+
+**Snapshots:** Task 1 updated 21 US entries (the movers above) and added one Canada entry. Task 3 added `R incomeSources B wages`,
+`R incomeSources B other two returns`, `R survivor streams`; Task 4 added `R stream contributions`. Their `git diff` shows added lines
+only; every other `us.json` / `canada.json` entry is byte-identical.
+
+**Timing**, `tests/bench_runs_interleaved.js --rounds 21` (base `71451fd`) and `tests/bench_solver.js --rounds 31`.
+Task 1 (`82f3100`):
+
+```
+US tx  400 simulate 183 -> 187 ms (2.2%), 120 historical 54 -> 55 ms (1.9%)
+US ca  400 simulate 299 -> 297 ms (-0.7%), 120 historical 84 -> 85 ms (1.2%)
+US ny  400 simulate 324 -> 326 ms (0.6%), 120 historical 95 -> 94 ms (-1.1%)
+US pa  400 simulate 268 -> 267 ms (-0.4%), 120 historical 75 -> 75 ms (0.0%)
+US ct  400 simulate 340 -> 348 ms (2.4%), 120 historical 100 -> 100 ms (0.0%)
+US wa  400 simulate 214 -> 215 ms (0.5%), 120 historical 63 -> 63 ms (0.0%)
+ACA early retiree (CA): simulate 2.38 -> 2.38 ms (0.0%), path 2.30 -> 2.30 ms (0.0%)
+default: simulate 1.20 -> 1.20 ms (0.0%), path 0.90 -> 0.90 ms (0.0%)
+```
+
+Task 4 (tip, `186d353`):
+
+```
+US tx  400 simulate 185 -> 180 ms (-2.7%), 120 historical 55 -> 54 ms (-1.8%)
+US ca  400 simulate 266 -> 266 ms (0.0%), 120 historical 77 -> 77 ms (0.0%)
+US ny  400 simulate 291 -> 293 ms (0.7%), 120 historical 83 -> 85 ms (2.4%)
+US pa  400 simulate 263 -> 268 ms (1.9%), 120 historical 74 -> 75 ms (1.4%)
+US ct  400 simulate 354 -> 351 ms (-0.8%), 120 historical 104 -> 103 ms (-1.0%)
+US wa  400 simulate 211 -> 213 ms (0.9%), 120 historical 62 -> 63 ms (1.6%)
+ACA early retiree (CA): simulate 2.28 -> 2.32 ms (1.8%), path 2.15 -> 2.20 ms (2.3%)
+default: simulate 1.18 -> 1.18 ms (0.0%), path 0.85 -> 0.85 ms (0.0%)
+```
+
+**For the owner:** (1) the Task 2 to 4 tests were written alongside the code rather than red first (see above). (2) A stream's
+`kind: 'wages'` leaves Medicare, ACA eligibility and the salary's contributions on the main salary only, as designed; a stream
+that is a person's only pay does not count as working for those rules. (3) `returnMagis` has no direct test hook; the two-return
+split is checked through the rows' `magiA` / `magiB`. (4) `tests/survivor_salary.js` is in `npm test`; `test_income_streams.js`
+is not (as for the other `test_*.js`).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V122</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V124</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -1135,6 +1135,28 @@
   const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
   const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
   // @@shared:01-LIST_MAX end
+  // E1b: income stream owner, kind and retirement-contribution panel (US; Canada carries none of these keys until E1-CA).
+  // normalizeLists (shared) keeps only the common stream keys, so these are read from the raw save, aligned the way
+  // normalizeLists filtered it. Unknown values fall back to the legacy meaning: Partner A, not earned, no contribution.
+  function normalizeUsStreams(s, raw) {
+    const legacy = !!raw && 'otherIncomeEnabled' in raw,
+      src = !legacy && Array.isArray(raw?.incomeSources) ? raw.incomeSources.filter((x) => x && typeof x === 'object') : [],
+      pct0 = (v) => (v !== '' && v !== null && Number.isFinite(Number(v)) ? Math.min(100, Math.max(0, Number(v))) : 0);
+    s.incomeSources = s.incomeSources.map((x, i) => {
+      const r = src[i] || {};
+      return {
+        ...x,
+        owner: r.owner === 'B' ? 'B' : 'A',
+        kind: r.kind === 'wages' ? 'wages' : 'other',
+        contribute: r.contribute === true,
+        deferralType: r.deferralType === 'roth' ? 'roth' : 'traditional',
+        deferralPct: pct0(r.deferralPct),
+        matchPct: pct0(r.matchPct),
+        afterTaxPct: pct0(r.afterTaxPct),
+        personalPct: pct0(r.personalPct),
+      };
+    });
+  }
   const clampLifeExpectancyA = () =>
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
   const clampLifeExpectancyB = () =>
@@ -1329,6 +1351,7 @@
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));
     normalizeLists(s, raw);
+    normalizeUsStreams(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
@@ -6665,8 +6688,9 @@
     const dependents = profile.dependents || NO_DEPENDENTS,
       propertyTax = profile.propertyTax || 0,
       rent = profile.rent || 0,
-      // Income streams and one-time income ride in Partner A's slot of `other`; the state taxes them as wages.
-      extra = profile.extraIncome || 0,
+      // Not-earned income streams ride in their owner's slot of `other` (E1b); the state taxes them as wages.
+      extraA = profile.extraA || 0,
+      extraB = profile.extraB || 0,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6683,7 +6707,7 @@
       let sources = null;
       if (stateOn) {
         sources = SOURCES_JOINT;
-        sources.wages = profile.wageA + profile.wageB + invOrd + extra;
+        sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB);
         sources.pension = profile.pensionA + profile.pensionB;
         sources.retirement = profile.rmdA + profile.rmdB + traditionalExtra;
         sources.gains = gains;
@@ -6746,7 +6770,7 @@
       let sources = null;
       if (stateOn) {
         sources = SOURCES_SINGLE;
-        sources.wages = profile.wageA + invOrd + extra;
+        sources.wages = profile.wageA + invOrd + extraA;
         sources.pension = profile.pensionA;
         sources.retirement = profile.rmdA + traditionalExtra;
         sources.gains = gains;
@@ -6822,7 +6846,7 @@
       sourcesB = null;
     if (stateOn) {
       sourcesA = SOURCES_A;
-      sourcesA.wages = profile.wageA + invA + extra;
+      sourcesA.wages = profile.wageA + invA + extraA;
       sourcesA.pension = profile.pensionA;
       sourcesA.retirement = profile.rmdA + tradA;
       sourcesA.gains = gainA;
@@ -6846,7 +6870,7 @@
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
       sourcesB = SOURCES_B;
-      sourcesB.wages = profile.wageB + invB;
+      sourcesB.wages = profile.wageB + invB + extraB;
       sourcesB.pension = profile.pensionB;
       sourcesB.retirement = profile.rmdB + tradB;
       sourcesB.gains = gainB;
@@ -8112,6 +8136,48 @@
     }
     return left;
   }
+  // E1b: retirement contributions from contributing W-2 income streams, after the salary. Pure (rooms, limits and rates
+  // passed in; country-neutral names; no allocation). The deferral and IRA rooms are per person and are what the salary
+  // left (IRC 402(g), 219(b)); each stream is its own employer for the annual-additions room (415(c)) and the
+  // compensation limit. Order per stream: deferral (base, then catch-up), the match, after-tax money; then the IRA.
+  // Slots: ACCOUNT_SLOTS order (IRA A, 401(k) A, IRA B, 401(k) B).
+  const STREAM_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employer: 0, employeeTrad: 0, employeeRoth: 0, wageCut: [0, 0] },
+    STREAM_REQ = [0],
+    STREAM_GOT = [0],
+    NO_STREAM_LIST = { n: 0, items: [] },
+    STREAM_ROOMS = { deferral: [0, 0], catchUp: [0, 0], personal: [0, 0] },
+    STREAM_LIMITS = { annualAdditions: 0, compensation: 0, rothCatchUpWages: 0 };
+  function streamPlanContributions(list, rooms, limits, personalPretax, out) {
+    for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
+    out.employer = 0; out.employeeTrad = 0; out.employeeRoth = 0; out.wageCut[0] = 0; out.wageCut[1] = 0;
+    for (let i = 0; i < list.n; i++) {
+      const it = list.items[i], s = it.stream, o = it.owner, pay = it.pay,
+        plan = o * 2 + 1, ira = o * 2;
+      if (s.kind !== 'wages' || s.contribute !== true) continue;
+      const want = Math.min(pay, rooms.deferral[o] + rooms.catchUp[o]) * pct(s.deferralPct),
+        base = Math.min(want, rooms.deferral[o]),
+        cu = want - base;
+      rooms.deferral[o] -= base;
+      rooms.catchUp[o] -= cu;
+      const baseRoth = s.deferralType === 'roth',
+        cuRoth = baseRoth || pay > limits.rothCatchUpWages;
+      if (baseRoth) out.roth[plan] += base; else { out.trad[plan] += base; out.wageCut[o] += base; }
+      if (cuRoth) out.roth[plan] += cu; else { out.trad[plan] += cu; out.wageCut[o] += cu; }
+      STREAM_REQ[0] = Math.min(pay, limits.compensation) * pct(s.matchPct);
+      const left = allocatePlanRoom(Math.min(pay, limits.annualAdditions) - base, STREAM_REQ, STREAM_GOT),
+        match = STREAM_GOT[0],
+        afterTax = Math.min(left, Math.max(0, pay - base - cu)) * pct(s.afterTaxPct);
+      out.trad[plan] += match;
+      out.employer += match;
+      out.roth[plan] += afterTax;
+      const personal = rooms.personal[o] * pct(s.personalPct);
+      rooms.personal[o] -= personal;
+      if (personalPretax) { out.trad[ira] += personal; out.wageCut[o] += personal; } else out.roth[ira] += personal;
+      out.employeeTrad += (baseRoth ? 0 : base) + (cuRoth ? 0 : cu) + (personalPretax ? personal : 0);
+      out.employeeRoth += (baseRoth ? base : 0) + (cuRoth ? cu : 0) + afterTax + (personalPretax ? 0 : personal);
+    }
+    return out;
+  }
   // 401(k) / IRA / mega-backdoor and employer (match, profit sharing) contributions for one year. Wages are already
   // zero for a partner who has retired, and for B in single-person mode, which zeroes every pay-based amount. The
   // limits come from PLAN_LIMITS (2026 values scaled by limitFactor). Each partner's annual-additions room (the lesser
@@ -8120,7 +8186,7 @@
   // limited employer money.
   const PLAN_REQ = [0, 0],
     PLAN_GOT = [0, 0]; // allocatePlanRoom scratch: [match, profit sharing]
-  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor }) {
+  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0 }) {
     const catchupBaseA =
         age >= 60 && age <= 63
           ? PLAN_LIMITS.catchUp60to63 * limitFactor
@@ -8162,7 +8228,7 @@
       (state.k401Type === 'traditional' ? kBaseB : 0) +
       (catchupTypeB === 'traditional' ? kCatchupB : 0) +
       (state.iraType === 'traditional' ? iraB : 0);
-    const traditionalContrib = traditionalContribA + traditionalContribB;
+    const traditionalContribSalary = traditionalContribA + traditionalContribB;
     // The annual-additions room (IRC 415(c)): the lesser of the limit and 100% of pay, less the deferrals; catch-ups are
     // outside it. A plan in operation fills it in this order: deferrals as elected, the match, profit sharing, then
     // after-tax (mega backdoor) money. A percentage-of-pay contribution counts pay only up to the compensation limit.
@@ -8184,6 +8250,17 @@
     // after them (the room above already keeps annual additions within 100% of pay; catch-ups sit outside that room).
     const megaA = state.megaBackdoor ? Math.min(leftA, Math.max(0, wageA - kA)) * pct(state.megaPctA) : 0,
       megaB = state.megaBackdoor ? Math.min(leftB, Math.max(0, wageB - kB)) * pct(state.megaPctB) : 0;
+    // Contributing W-2 streams (E1b): what the salary left of each person's limits, then the streams in list order.
+    STREAM_ROOMS.deferral[0] = Math.max(0, baseLimitA - kBaseA);
+    STREAM_ROOMS.deferral[1] = singlePerson ? 0 : Math.max(0, baseLimitB - kBaseB);
+    STREAM_ROOMS.catchUp[0] = Math.max(0, catchupBaseA - kCatchupA);
+    STREAM_ROOMS.catchUp[1] = Math.max(0, catchupBaseB - kCatchupB);
+    STREAM_ROOMS.personal[0] = Math.max(0, Math.min(iraLimitA - iraA, wageA + streamWagesA - iraA));
+    STREAM_ROOMS.personal[1] = Math.max(0, Math.min(iraLimitB - iraB, wageB + streamWagesB - iraB));
+    STREAM_LIMITS.annualAdditions = annualAdditionLimit;
+    STREAM_LIMITS.compensation = compLimit;
+    STREAM_LIMITS.rothCatchUpWages = rothCatchupThreshold;
+    const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, state.iraType === 'traditional', STREAM_PLAN);
     const rothContribA =
       (state.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
@@ -8194,33 +8271,35 @@
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
-    const rothContrib = rothContribA + rothContribB;
+    const rothContrib = rothContribA + rothContribB + sp.employeeRoth;
+    const traditionalContrib = traditionalContribSalary + sp.employeeTrad;
     // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
     // IRA B, 401(k) B). Employer money (match and profit sharing) always goes to the traditional 401(k);
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
-        state.iraType === 'traditional' ? iraA : 0,
+        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
         (state.k401Type === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
           matchA +
-          profitA,
-        state.iraType === 'traditional' ? iraB : 0,
+          profitA + sp.trad[1],
+        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
         (state.k401Type === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
           matchB +
-          profitB,
+          profitB + sp.trad[3],
       ],
       roth: [
-        state.iraType === 'roth' ? iraA : 0,
-        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA,
-        state.iraType === 'roth' ? iraB : 0,
-        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB,
+        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0],
+        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
+        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2],
+        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
       ],
     };
     return {
       traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
-      matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB,
+      matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB + sp.employer,
+      streamWageCutA: sp.wageCut[0], streamWageCutB: sp.wageCut[1],
     };
   }
 
@@ -8460,8 +8539,8 @@
 
   // The tax profile handed to taxFor() for the year, plus each partner's
   // "other" ordinary income (wages net of pre-tax contributions and premiums,
-  // pension, distributions; household extra income streams ride in Partner
-  // A's slot). The survivor period remaps the surviving partner into the A slot,
+  // pension, distributions; not-earned income streams ride in their owner's slot,
+  // W-2 stream wages join the owner's wages). The survivor period remaps the surviving partner into the A slot,
   // because taxFor()'s single-person branch reads only the A fields.
   function buildTaxProfile({
     wageA,
@@ -8474,7 +8553,12 @@
     pensionB,
     rmdA,
     rmdB,
-    extraIncome,
+    streamWagesA = 0,
+    streamWagesB = 0,
+    streamOtherA = 0,
+    streamOtherB = 0,
+    streamWageCutA = 0,
+    streamWageCutB = 0,
     ssA,
     ssB,
     age,
@@ -8493,13 +8577,10 @@
     workingA = false,
     workingB = false,
   }) {
-    const otherA =
-        Math.max(0, wageA - traditionalContribA - healthPremiumA) +
-        pensionA +
-        rmdA +
-        extraIncome,
-      otherB =
-        Math.max(0, wageB - traditionalContribB - healthPremiumB) + pensionB + rmdB;
+    const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA),
+      profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB);
+    const otherA = profileWageA + pensionA + rmdA + streamOtherA,
+      otherB = profileWageB + pensionB + rmdB + streamOtherB;
     // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
     // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
     // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
@@ -8516,18 +8597,15 @@
         k401FracB = !workingB && ownB > 0 ? tradShares[3] / ownB : 0;
       }
     }
-    const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA),
-      profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB);
     const profile =
       isSurvivorPeriod && deceasedIsA
         ? {
             filing,
-            // Household income streams (extraIncome) ride in Partner A's slot
-            // (otherA), so when A is the deceased they must follow the
-            // survivor into the remapped single-filer profile, or they'd be
-            // paid out but never taxed.
-            otherA: otherB + extraIncome,
-            extraIncome,
+            // Not-earned streams ride in their owner's slot; when A is the deceased the engine has already
+            // moved A's streams into B's bucket (streamAmountsForYear), so B's slot is the survivor's.
+            otherA: otherB,
+            extraA: streamOtherB,
+            extraB: 0,
             otherB: 0,
             wageA: profileWageB,
             wageB: 0,
@@ -8557,7 +8635,8 @@
         : {
             filing,
             otherA,
-            extraIncome,
+            extraA: streamOtherA,
+            extraB: streamOtherB,
             otherB,
             wageA: profileWageA,
             wageB: profileWageB,
@@ -8811,9 +8890,9 @@
   // Employee-side payroll tax on this year's wages (Social Security + Medicare
   // per partner, wages net of pre-tax health premiums) plus the 0.9% Additional
   // Medicare Tax. Separate from taxFor(), which covers income tax.
-  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year }) {
-    const taxableWagesA = Math.max(0, wageA - healthPremiumA),
-      taxableWagesB = Math.max(0, wageB - healthPremiumB);
+  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0 }) {
+    const taxableWagesA = Math.max(0, wageA - healthPremiumA) + streamWagesA,
+      taxableWagesB = Math.max(0, wageB - healthPremiumB) + streamWagesB;
     return (
       wageFica(taxableWagesA, year) +
       wageFica(taxableWagesB, year) +
@@ -9007,7 +9086,7 @@
   // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (on
   // Medicare's MAGI, irmaaMagiOf: only the taxable part of Social Security; per person on two returns) over a step
   // of 10% of that income (at least $1,000), under this year's tax law and indexing.
-  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraIncome: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS };
+  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS };
   function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0 }) {
     const real = (1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1,
       endYear = singlePerson ? state.lifeExpectancyA - state.ageA : Math.max(state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
@@ -9705,10 +9784,42 @@
   // and extra expenses (active between their start and end age, growing with
   // inflation or their own rate), one-time income at an exact age, and lump
   // expenses (which may repeat). Ages are Partner A's.
-  function listAmountsForYear({ age, year, factor, incomeFactor }) {
-    const extraIncome = state.incomeSources
-      .filter((s) => age >= s.startAge && age <= s.endAge)
-      .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
+  // E1b: this year's income streams split by owner and kind. Pure (reads no state): owner A in single-person mode, else
+  // the stored owner (anything but 'B' is A); the window is tested on the owner's age. W-2 wages stop once the owner is
+  // dead; income that is not earned moves to the survivor. `total` is one running sum in list order (the old
+  // extraIncome expression, bit for bit). Contributing W-2 streams are listed for streamPlanContributions (E1b 5.4).
+  const STREAM_OUT = {
+    total: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0,
+    contrib: { n: 0, items: Array.from({ length: LIST_MAX }, () => ({ owner: 0, pay: 0, stream: null })) },
+  };
+  function streamAmountsForYear(streams, ctx, out) {
+    out.total = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0; out.contrib.n = 0;
+    for (let i = 0; i < streams.length; i++) {
+      const s = streams[i],
+        b = !ctx.single && s.owner === 'B',
+        age = b ? ctx.ageB : ctx.ageA;
+      if (!(age >= s.startAge && age <= s.endAge)) continue;
+      const amount = s.amount * itemGrowthFactor(s, ctx.year, 'income', ctx.factor, ctx.incomeFactor),
+        dead = b ? ctx.deadB : ctx.deadA;
+      if (s.kind === 'wages') {
+        if (dead) continue;
+        if (b) out.wagesB += amount; else out.wagesA += amount;
+        if (s.contribute === true) {
+          const it = out.contrib.items[out.contrib.n++];
+          it.owner = b ? 1 : 0; it.pay = amount; it.stream = s;
+        }
+      } else if (b !== dead) out.otherB += amount; // owner B alive, or owner A dead: the money is B's
+      else out.otherA += amount;
+      out.total += amount;
+    }
+    return out;
+  }
+  const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1 };
+  function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
+    STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
+    STREAM_CTX.single = single; STREAM_CTX.year = year; STREAM_CTX.factor = factor; STREAM_CTX.incomeFactor = incomeFactor;
+    const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
+      extraIncome = streams.total;
     const oneTimeAmount = state.oneTimeIncome
       .filter((o) => Math.round(o.age) === age)
       .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
@@ -9718,7 +9829,7 @@
     const lumpExpense = state.lumpExpenses
       .filter((e) => lumpExpenseHits(e, age))
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-    return { extraIncome, oneTimeAmount, extraExpense, lumpExpense };
+    return { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense };
   }
 
   // @@shared:11-makeProjectedExpense begin
@@ -9948,6 +10059,10 @@
         : deceasedIsB
           ? state.survivorDeathAge - state.ageB
           : Infinity;
+    // A partner who dies before their retirement age stops working at death (E1b): every rule keyed on the
+    // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
+    if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
+    if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
     const retirementYear = singlePerson
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
@@ -9971,8 +10086,10 @@
       const incomeFactor = Math.pow(1 + wageGrowth, year);
       const wageA = workingA ? state.incomeA * incomeFactor : 0,
         wageB = workingB ? state.incomeB * incomeFactor : 0;
-      const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } =
-        listAmountsForYear({ age, year, factor, incomeFactor });
+      const { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({
+        age, ageB, year, factor, incomeFactor, single: singlePerson,
+        deadA: deceasedIsA && year >= deathYear, deadB: deceasedIsB && year >= deathYear,
+      });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
@@ -9980,8 +10097,11 @@
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
-        employerContrib: employerMatch,
-      } = retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor });
+        employerContrib: employerMatch, streamWageCutA, streamWageCutB,
+      } = retirementContributions({
+        wageA, wageB, age, ageB, singlePerson, limitFactor,
+        streamList: streams.contrib, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB,
+      });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
@@ -10021,7 +10141,12 @@
         pensionB,
         rmdA,
         rmdB,
-        extraIncome,
+        streamWagesA: streams.wagesA,
+        streamWagesB: streams.wagesB,
+        streamOtherA: streams.otherA,
+        streamOtherB: streams.otherB,
+        streamWageCutA,
+        streamWageCutB,
         ssA,
         ssB,
         age,
@@ -10270,7 +10395,7 @@
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
         // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
         profile.medicalExpense = healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year });
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
@@ -10641,6 +10766,8 @@
             tradShares: accts.trad.slice(),
             rothShares: accts.roth.slice(),
             conversionAmount,
+            profile: { ...profile },
+            ficaTax,
             rothBasis: rothAccts.map((L) => L.basis),
             rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
           });
@@ -13947,9 +14074,18 @@
       rowTitle: (i) => `Income stream ${i + 1}`,
       addLabel: '+ Add an income stream',
       note: 'Recurring income over an age window.',
-      tip: 'e.g. rental income, a pension not modeled above, or alimony. Taxed as ordinary income attributed to Partner A. Add as many streams as you need; remove one with the × on its row.',
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth }),
+      tip: 'e.g. rental income, a pension not modeled above, or alimony. Choose who receives it and whether it is W-2 wages. Add as many streams as you need; remove one with the × on its row.',
+      fresh: () => ({
+        amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth,
+        owner: 'A', kind: 'other', contribute: false, deferralType: 'traditional',
+        deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0,
+      }),
       fields: [
+        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: () => !state.singlePerson },
+        {
+          key: 'kind', kind: 'select', label: 'Kind', options: [['other', 'Not earned'], ['wages', 'W-2 wages']],
+          tip: "W-2 wages: pay from an employer. It pays Social Security and Medicare tax (sharing the owner's wage base with their salary), counts as earned income for the child tax credit, is taxed on the owner's return, and can fund the owner's 401(k) and IRA (tick Contribute to retirement accounts). It does not change Medicare or ACA eligibility or the main job's contributions. It stops in the owner's death year. Not earned (rent, an annuity, alimony): no payroll tax; it continues to the survivor.",
+        },
         {
           key: 'amount',
           kind: 'money',
@@ -13958,9 +14094,27 @@
           tip: "Entered in today's dollars and grown from today at the rate chosen below, so a stream that starts years from now begins higher than the number you enter.",
           step: 1000,
         },
-        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 100, step: 1 },
-        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: "Last age it's received", min: 18, max: 100, step: 1 },
+        { key: 'startAge', kind: 'num', label: 'Starts at age', short: "Owner's age", min: 18, max: 100, step: 1 },
+        { key: 'endAge', kind: 'num', label: 'Ends at age', short: "Owner's age; last year received", min: 18, max: 100, step: 1 },
         ...DYN_GROWTH_FIELDS('income'),
+        { key: 'contribute', kind: 'check', label: 'Contribute to retirement accounts', short: "From this job's pay", showIf: (it) => it.kind === 'wages' },
+        { key: 'deferralType', kind: 'select', label: '401(k) type', options: [['traditional', 'Traditional'], ['roth', 'Roth']], showIf: (it) => it.kind === 'wages' && it.contribute },
+        {
+          key: 'deferralPct', kind: 'num', label: '401(k) contribution', short: 'Share of the deferral room left, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "100% fills the yearly 401(k) deferral limit (and the age-50 catch-up) that this person has left after their main job's contribution, up to this job's pay. The limit is per person across all jobs; the main salary is filled first.",
+        },
+        {
+          key: 'matchPct', kind: 'num', label: 'Employer match', short: "% of this job's pay", min: 0, max: 100, step: 0.1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "Added to the owner's traditional 401(k). It uses this employer's own annual limit ($72,000 in 2026, never more than this job's pay, less the deferral); only pay up to the compensation limit ($360,000 in 2026) counts.",
+        },
+        {
+          key: 'afterTaxPct', kind: 'num', label: 'After-tax (mega backdoor) Roth', short: "Share of this employer's room left, %", min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "Share of the room left under this employer's annual limit after the deferral and the match, and never more than this job's pay less the deferral and catch-up. Goes to the owner's Roth 401(k).",
+        },
+        {
+          key: 'personalPct', kind: 'num', label: 'IRA contribution', short: 'Share of the IRA room left, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          tip: "100% fills the IRA limit this person has left after their main job's IRA contribution, up to their total pay. Traditional or Roth follows the IRA type chosen above.",
+        },
       ],
     },
     oneTimeIncome: {
@@ -14123,6 +14277,12 @@
     if (f.kind === 'check') {
       return `<div ${wrapAttrs}><label for="${id}"><input id="${id}" type="checkbox" data-dyn-i="${i}" data-dyn-k="${f.key}" ${item[f.key] ? 'checked' : ''}> ${dynLabel(f.label, f.tip)}${small}</label></div>`;
     }
+    if (f.kind === 'select') {
+      const opts = f.options
+        .map(([v, l]) => `<option value="${escapeHtml(v)}"${String(item[f.key]) === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
+        .join('');
+      return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><select id="${id}" data-dyn-i="${i}" data-dyn-k="${f.key}">${opts}</select></div>`;
+    }
     const money = f.kind === 'money' ? ' class="money"' : '',
       bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`;
     return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds} value="${Number(item[f.key]) || 0}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
@@ -14176,6 +14336,7 @@
         item = state[spec.key][i];
       if (!item || !f) return;
       if (f.kind === 'check') item[f.key] = el.checked;
+      else if (f.kind === 'select') item[f.key] = el.value;
       else if (f.kind === 'money') item[f.key] = Number(String(el.value).replace(/[^0-9]/g, '')) || 0;
       else {
         const n = Number(el.value) || 0;
@@ -14189,7 +14350,7 @@
       if (e.target.matches('input[data-dyn-k]') && e.target.type !== 'checkbox') apply(e.target);
     });
     container.addEventListener('change', (e) => {
-      if (e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') apply(e.target);
+      if ((e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') || e.target.matches('select[data-dyn-k]')) apply(e.target);
     });
     container.addEventListener('click', (e) => {
       const add = e.target.closest('[data-dyn-add]'),
@@ -14282,6 +14443,7 @@
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
+    dynApplyVisibility('incomeSources');
     [
       ['ownBtn', 'own'],
       ['rentBtn', 'rent'],
@@ -16257,10 +16419,24 @@
     const left = allocatePlanRoom(room, amounts, out);
     return { out, left };
   };
+  window.__test_streamAmountsForYear = (streams, ctx) => {
+    const o = streamAmountsForYear(streams, ctx, STREAM_OUT);
+    return {
+      total: o.total, wagesA: o.wagesA, wagesB: o.wagesB, otherA: o.otherA, otherB: o.otherB,
+      contrib: o.contrib.items.slice(0, o.contrib.n).map((it) => ({ owner: it.owner, pay: it.pay })),
+    };
+  };
+  window.__test_payrollTax = payrollTax;
+  window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
+    const r = JSON.parse(JSON.stringify(rooms));
+    streamPlanContributions({ n: items.length, items }, r, limits, personalPretax, STREAM_PLAN);
+    return { out: JSON.parse(JSON.stringify(STREAM_PLAN)), rooms: r };
+  };
   window.__test_retirementContributions = (patch, args) => {
     const saved = JSON.parse(JSON.stringify(state));
     try {
       Object.assign(state, patch);
+      if (Array.isArray(args.streamList)) args = { ...args, streamList: { n: args.streamList.length, items: args.streamList } };
       return retirementContributions(args);
     } finally {
       for (const k of Object.keys(state)) delete state[k];
