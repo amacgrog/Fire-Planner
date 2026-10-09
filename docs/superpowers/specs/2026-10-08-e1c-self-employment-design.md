@@ -214,7 +214,7 @@ half (the person's total) and `compLimit` = `PLAN_LIMITS.compensation x limitFac
 400, minimumQbi: 1000 }`, filing family `joint` for `mfj`, `other` for `single`, `hoh`, `qss` and each return of two
 filers; threshold and the minimum amounts times `taxIndexFactor(yearIndex)`, width fixed). `ap = clamp(1 - (TI -
 threshold) / width, 0, 1)`; deduction `= min(0.2 x qbi x ap^2, 0.2 x max(0, TI - netCapitalGain))`; if `qbi >= minimumQbi`,
-at least `minimum` (still within the taxable-income cap). Federal only: subtracted from the ordinary taxable income after
+at least `minimum`, after the cap (IRC 199A(i): the deduction determined without (i) shall not be less than $400). Federal only: subtracted from the ordinary taxable income after
 the standard or itemized deduction (the gains stacking is unchanged), in each branch of `taxFor` (joint: one; single: one;
 two filers: each return its own) and in the lagged federal pass. Not in MAGI, not in the state base.
 
