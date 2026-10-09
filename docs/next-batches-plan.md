@@ -1184,6 +1184,241 @@ shared-region change.
   1.199A-3(b)(1)(vi)); the year's recorded MAGI uses the realized deduction; two broken test cases; six tests from spec
   section 7 restored; a cliff-plan replay test, an in-band test and an eighth scenario added.
 
+##### E1c: implementation (US V124 -> V125)
+
+Commits on `claude/e1c-self-employment` (base `ee7a789`, US V124, Canada V59 unchanged; no shared-region change): c74e439 (1: the
+inputs, `incomeKindA/B`, stream kind `self`, `profitSharingPct`, `healthPremium`), 6e2f36a (2: coverage as `employerA/B` +
+`streamCoverBits`, the W-2 stream premium), 88ab2a4 (3: self-employment tax), de7fc94 (4: Solo 401(k) and IRA from self-employment),
+06ed7fd (5: the 162(l) deduction inside the MAGI iteration), 0f274db (6: the QBI deduction, eight new scenarios, V125). Task 7 is this
+documentation commit.
+
+**Red, then green** (the first failure of each new test before implementing):
+
+| Task | Test | First failure |
+|---|---|---|
+| 1 | `test_self_employment.js` part 1 | `state.incomeKindA` undefined (expected `'wages'`) |
+| 2 | `tests/se_health.js` | `premiumB` / `coverB` / `coverA` undefined |
+| 3 | `tests/self_employment.js` | `window.__test_selfEmploymentTax` is not a function |
+| 4 | `tests/self_employment.js` | `window.__test_soloPlanContributions` is not a function |
+| 5 | `tests/se_health.js` | `window.__test_seHealthDeduction` is not a function |
+| 6 | `tests/qbi.js` | `window.__test_qbiDeduction` is not a function |
+
+**Legacy proof (Task 1).** A scratch script loaded all 58 corpus cases (US 41, Canada 17) on the base worktree and on the working tree;
+after deleting `incomeKindA/B` (raw unknown keys, which the old code kept) and the per-stream `profitSharingPct` / `healthPremium`, and
+mapping the three `kind: 'self'` streams back to the old kind, 0 cases differ. Canada unchanged. `ui_canada.json` was rewritten with no
+content change and restored.
+
+**MAGI-iteration sites changed (Task 5; lines at 06ed7fd).** 1 `prevSeHealthA/B` seed (10307); 2 `magiBase0` / `let magiBase` (10497);
+3 `estSeA/estSeB` (10509); 4 per-pass `profile.seHealthA/B` and `magiBase` (10562); 5 `costAt(trad, gain, sa, sb)` and `lastCost`
+(10636); 6 `irmaaAt` with `returnMagis` wrapped (10672); 7 the `seRealA/B` block with the `estUsed` setter, medical expense less the
+deduction (10739); 8 the convergence test (10865); 9 pass log `estSeA/B`, realized cost on the realized pair (10868); 10 the damped
+update (10875); 11 the pick restore (10889); 12 the forced pass: realized-pair `costAt`, the deduction re-run on `lastCost`, the medical
+line (10902-10915); 18b `realizedMagi = magiBase0 - (seRealA + seRealB) + draws` (10928); 13/14 `naturalRec` (10967 / 10977); 15 fallback
+replay (10998); 16 `trialRecs` (11012); 17 winner replay (11028); 18 trial seed (11043); 19 `prevSeHealthA/B` written after convergence
+(11058). Also: `healthcareCost` returns `premA/premB` (~8910-8975), `seHealthDeduction` (8996), `seAllowA/B` at 10431, the
+`buildTaxProfile` parameters and remap, `returnMagis` (7255), `taxFor` (6710+), `solveRothConversionTo` (7333), the test hook (16824).
+All the readers that need no edit were confirmed to still hold. Ruling: each `taxFor` branch computes the net other income once
+(`otherAB`, `otherA1`, `otherA2` / `otherB2`): the same sums in the same order, the same doubles, done to bring `tx` under +5%.
+
+**Deviations from the spec's first draft.**
+- Coverage is built as `employerA/B` plus `streamCoverBits` (no `coverageOf`).
+- No `scalarSnapshot` entry: `prevSeHealthA/B` is written only after convergence.
+- The 162(l) band rule (decision 8b, above): where the deduction and the credit have no consistent answer the existing cliff rule
+  decides. Band test (single, `incomeA` 82,000, `sePlanNet` 76,206.89): `magiStats` {forced 0, unresolved 0} -> {forced 30, unresolved 0}
+  (the count spans the cliff plan's own runs plus the trace and `simulate` runs). Year 0: H = 5,797.41, D = 5,797.41, M = 70,409.48;
+  asserted agreements hold (D = min(H, `sePlanNet`) to 1e-9; M = `sePlanNet` - D within 1).
+- The Roth conversion fill sees 162(l) but not QBI (decision 8c). Test: conversion higher by 18,000 within 1.
+- The row's `income` stays before the 162(l) deduction.
+- Other engine cases: fixed point H 5,050.71, D 5,050.71, M 50,710.43; two returns magiA 35,395.10, A's part 1,779.10, D 1,778.99.
+  Cliff-plan replay: the stream stayed at 40,000; `choose` recorded 5 intents; `apply(choose's intents)` equals `choose` row for row;
+  with every line id replaced `planStats.absent` rose by 5 and the rows equal the `off` run.
+
+**Snapshots.** Task 6 added exactly eight entries to `tests/snapshots/us.json` (56 insertions, 0 deletions): US 550 -> 558 scenarios,
+Canada 376. No existing entry changed in any commit.
+
+**Timing** (baseline `ee7a789`; `tests/bench_runs_interleaved.js --rounds 21`, base -> new, medians).
+
+Task 2 (6e2f36a):
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 191 -> 189 ms (-1.0%) | 56 -> 55 ms (-1.8%) |
+| ca | 277 -> 278 ms (0.4%) | 79 -> 79 ms (0.0%) |
+| ny | 297 -> 304 ms (2.4%) | 85 -> 86 ms (1.2%) |
+| pa | 269 -> 277 ms (3.0%) | 75 -> 76 ms (1.3%) |
+| ct | 363 -> 367 ms (1.1%) | 105 -> 106 ms (1.0%) |
+| wa | 216 -> 220 ms (1.9%) | 62 -> 64 ms (3.2%) |
+
+Task 2, `tests/bench_solver.js --rounds 31`: ACA early retiree (CA): simulate 2.38 -> 2.42 ms (1.7%), path 2.35 -> 2.35 ms (0.0%);
+default: simulate 1.20 -> 1.26 ms (5.0%), path 0.90 -> 0.95 ms (5.6%).
+
+Task 5 (06ed7fd), final gate (an earlier run before the `taxFor` refactor showed `tx` +6.6% / +7.1% and was not accepted):
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 194 -> 196 ms (1.0%) | 58 -> 58 ms (0.0%) |
+| ca | 275 -> 275 ms (0.0%) | 78 -> 79 ms (1.3%) |
+| ny | 292 -> 299 ms (2.4%) | 84 -> 85 ms (1.2%) |
+| pa | 268 -> 273 ms (1.9%) | 75 -> 76 ms (1.3%) |
+| ct | 355 -> 363 ms (2.3%) | 104 -> 105 ms (1.0%) |
+| wa | 214 -> 220 ms (2.8%) | 63 -> 64 ms (1.6%) |
+
+Task 5, `bench_solver.js --rounds 31`, first run on the final tree: ACA early retiree (CA): simulate 2.26 -> 2.80 ms (23.9%), path
+2.20 -> 2.65 ms (20.5%); default: simulate 1.18 -> 1.24 ms (5.1%), path 0.85 -> 0.95 ms (11.8%). Re-run: ACA early retiree (CA):
+simulate 2.30 -> 2.40 ms (4.3%), path 2.20 -> 2.30 ms (4.5%); default: simulate 1.18 -> 1.24 ms (5.1%), path 0.85 -> 0.95 ms (11.8%).
+(Timer steps are 0.05 ms.)
+
+Task 6 (0f274db): **the +5% gate was NOT met.** Run 1:
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 183 -> 192 ms (4.9%) | 54 -> 56 ms (3.7%) |
+| ca | 271 -> 279 ms (3.0%) | 78 -> 79 ms (1.3%) |
+| ny | 298 -> 307 ms (3.0%) | 85 -> 88 ms (3.5%) |
+| pa | 266 -> 280 ms (5.3%) | 74 -> 78 ms (5.4%) |
+| ct | 355 -> 369 ms (3.9%) | 104 -> 107 ms (2.9%) |
+| wa | 215 -> 225 ms (4.7%) | 62 -> 66 ms (6.5%) |
+
+Run 2:
+
+| State | 400 simulate | 120 historical |
+|---|---|---|
+| tx | 184 -> 194 ms (5.4%) | 54 -> 58 ms (7.4%) |
+| ca | 270 -> 284 ms (5.2%) | 77 -> 81 ms (5.2%) |
+| ny | 293 -> 309 ms (5.5%) | 85 -> 88 ms (3.5%) |
+| pa | 267 -> 281 ms (5.2%) | 75 -> 79 ms (5.3%) |
+| ct | 354 -> 370 ms (4.5%) | 103 -> 108 ms (4.9%) |
+| wa | 214 -> 228 ms (6.5%) | 63 -> 67 ms (6.3%) |
+
+Run 3 gave 3.9% to 9.3%. A temporary worktree of the Task 5 tip, benchmarked the same way: Task 6 vs the Task 5 tip 0-2% per path;
+the Task 5 tip vs base 2.7-6.5% in the same machine state. So the excess comes from Tasks 2-5 plus machine noise (wall-clock noise is
++-10% on this machine), not Task 6; nothing was tuned. Task 6 `bench_solver.js --rounds 31`, run 1: ACA early retiree (CA): simulate
+2.30 -> 2.62 ms (13.9%), path 2.20 -> 2.55 ms (15.9%); default: simulate 1.20 -> 1.28 ms (6.7%), path 0.90 -> 0.95 ms (5.6%). Run 2:
+ACA early retiree (CA): simulate 2.24 -> 2.50 ms (11.6%), path 2.20 -> 2.45 ms (11.4%); default: simulate 1.18 -> 1.28 ms (8.5%),
+path 0.90 -> 1.00 ms (11.1%).
+
+Side-business timing (recorded, not gated): 400 `simulateRaw()` over 31 interleaved rounds, median 951.0 ms for the R side business
+stream with kind `self` vs 583.0 ms with kind `wages` (ratio 1.631).
+
+**For the owner.**
+1. The timing gate was not met at Task 6 (tables above): decide whether to accept it or have Tasks 2-5 re-checked.
+2. Band inconsistency: H is the credit-rate premium at MAGI 58,207 (the MAGI with the full 18,000 deduction), while the recorded MAGI
+   70,409 is above the 400% line, where `acaNetCost` gives 18,000. The forced pass prices the realized cost at the MAGI from the
+   pre-refund deduction, the deduction then follows that lower premium, and the recorded MAGI rises past the line. The plan's rule was
+   implemented as written.
+3. The test "ACA off still converges" does not guard site 7's `estUsed` line (site 18b already records the MAGI from the realized
+   pair); only the Step 8b Roth-fill test fails without it.
+
+**E1c: review fixes (Task 8).** Commits: 8a ebda26d, 8b f3884fd, 8c (this commit). 8a: `seOn` flag; no number change; its gate run
+(bench_runs_interleaved 21 rounds vs base): tx 1.6%/-1.8%, ca 1.4%/0.0%, ny 4.3%/3.5%, pa 2.5%/2.6%, ct 1.9%/1.9%, wa 1.8%/1.5%
+(simulate/historical); bench_solver: ACA early retiree (CA) simulate 2.40 -> 2.50 ms (4.2%), path 2.30 -> 2.45 ms (6.5%); default
+simulate 1.22 -> 1.30 ms (6.6%), path 0.90 -> 1.00 ms (11.1%); earlier runs of the same tree showed tx 5.3-5.5% and ct 7.1% that
+repeated at 1.0-3.6% (noise ~+-10%). 8b: Rev. Proc. 2014-41 alternative calculation in a non-converging 162(l) year; red run at 8a:
+first failing assert `band, consistent premium (70000)` 5880.58 vs 5893.74; probe differences (healthcare minus the premium at the
+recorded MAGI) at 8a: 70,000: -13.15; 74,000: -12,943.10; 82,000: -12,202.59; 86,000: -11,832.34; joint: -10,032.00; Medicaid line:
+-781.11; converged 60,000: -0.05; all 0.00 after 8b with forced/unresolved +0. Hand values: 82,000 case sePlanNet 76,206.8845, step-1
+MAGI 58,206.8845, D = acaNetCost = 5,797.4057, final MAGI 70,409.4788, premium 18,000; joint band profit 105,449.7904 (sePlanNet
+98,000; line for two 84,600): D 7,968.00, MAGI 90,032.00, premium 18,000; Medicaid line (ca): FPL 15,650, line 1.38 x 15,650 = 21,597,
+profit 23,561.5721 (sePlanNet 21,897): D 0, MAGI 21,897, premium 781.11; converged 60,000: D 5,050.71, MAGI 50,710.43. The 70,000 case
+did not converge at 8a (damped iteration after 8 passes) and now gets the alternative calculation: D 4,686.64, MAGI 60,368.01, premium
+6,012.65 (the true fixed point's D would be about 5,892). Moved E1c snapshot entries: none (the plan expected `R single self-employed
+cliff band` to move; its MAGI is about 83,710 because the R household's investment income lifts it above the band; `R side business
+stream` switches to the alternative calculation in 3 years but its rows are byte-identical, the non-convergence is in the draws and
+goes to the existing forced pass: forced 3 before and after); a dump of ../fp-e1c-base against the tree shows exactly the 8 E1c
+scenario files differ out of 934, no pre-E1c entry. Timing 8b vs base (three runs, tx simulate 8.6%/6.3%/7.6%, ca up to 6.6%, wa up
+to 7.4% in single runs; others within 6%); 8b vs 8a: tx 1.6%, ca -0.4%, ny -3.8%, pa -3.1%, ct -1.6%, wa -2.6% (8b costs nothing
+against 8a); 8a vs base the same day: tx 7.7%, ny 5.8% (so the residual overage is the branch's existing cost plus noise, not 8b);
+bench_solver 8b: ACA early retiree (CA) simulate 2.36 -> 2.44 ms (3.4%), path 2.30 -> 2.35 ms (2.2%); default simulate 1.20 -> 1.28 ms
+(6.7%), path 0.90 -> 0.95 ms (5.6%). OPEN for the owner: the +5% gate against base still fails for tx in single runs. Rulings of 8b:
+the switch fires on any unconverged year with a 162(l) deduction allowed (as the spec says), including slow damped years; the 8b
+commit message says no snapshot:update because nothing moved; the Task 5 test `no consistent answer` was replaced (it pinned decision
+8b's premium = D at MAGI 70,409). Also open: the snapshot grid does not exercise the band (a household without income-paying balances
+would). 8c: copy for the self-employed (the `#healthcare`, `#acaEnabled` and `#medicareYearly` tooltips, the Healthcare callout, the
+employer-plan boxes, the catch-up tooltips, the profit-sharing descriptors); tests: `ACA off` renamed for what it checks, the Roth-fill
+test is documented as the guard for site 7's `estUsed` line (red proof: with that line removed in a scratch copy the first failure is
+`Roth fill: conversion higher by the deduction ... 0 vs 18000`; the other ACA-off asserts still pass, which is why the earlier test
+could not guard it), "Solo money leaves cash" now asserts the hand difference (the 43,087.045 of plan money less the year-0 tax saved,
+from the rows' own tax, within 1e-3 because the taxable sale is solved by bisection), `tests/qbi.js` engine case commented as the
+wiring check. No number changed in 8c.
+
+**E1c: review fixes, round 2 (Task 9).** Commits: 9a 1e4b747, 9b a0a2082, 9c (this commit). Spec decision 10 (owner, 2026-10-09).
+
+9a (the consistent deduction first). Red run at 5399f23 (the new block of `tests/se_health.js`): first failing assert `sliver, single (70000): D vs the
+consistent 5892.55: 4686.643887000001 vs 5892.546277737359`. Green after the code: `seHealthDeduction`-style bisection in the 8b block (60 halvings or a
+bracket under $0.01, consistent when `allowed(lo) - lo <= 1`; one search on the total for one return, one per return on two; the part with no consistent
+answer takes the alternative calculation; `magiStats.seFixed` / `seAlternative` count a year's hold; a two-return year with one part of each counts as an
+alternative). A return's slot of `seHealthDeduction` reads only its own MAGI (`returnMagis` subtracts each return's own deduction; premA on magiA, premB on
+magiB), so the per-return searches are independent. The search closures (`allowedAt`, `rootOf`) are created inside the block, which runs only in an unconverged
+year with a deduction allowed (not once per run as the plan sketched; no allocation on any other path). Scans, year 0, `tx`, $18,000 premium, engine D (premium) at
+5399f23 -> now, against the consistent D: single 66,000-67,250: unchanged (converged, D = premium, within $0.05 of the consistent); 67,500 4,262 (5,824) -> 5,682.09
+(5,682.10), 68,000 4,348 (5,861) -> 5,724.19, 70,000 4,687 (6,013) -> 5,892.54 (5,892.55), 72,500 4,918 (6,221) -> 6,102.99, 72,750 4,941 (18,000) -> 6,124.04 (6,124.04),
+73,000 4,964 (18,000) -> 6,145.08, 74,000 5,057 (18,000) -> 6,229.26; every profit 67,500-74,000 by 250 is within $0.01 of the consistent D after (27 rows, all "ok");
+74,250-76,000: no consistent deduction (`dfp` finds none), unchanged from 5399f23 (alternative calculation: D 5,080-5,242, premium 18,000). Joint (`mfj`, A
+self-employed, B no pay): 90,000-91,000 converged and unchanged; 91,500 6,677 (7,805) -> 7,702.39 (7,702.40); 95,000 7,001 (8,096) -> 7,997.03; 98,500 7,325 (8,388) ->
+8,291.65; 99,000 7,371 (18,000) -> 8,333.74 (8,333.74); 100,000 7,464 (18,000) -> 8,417.92; 100,500 and 101,000: none, unchanged. The Task 8b joint band case
+(sePlanNet 98,000, profit 105,449.7904) has no consistent deduction, so its 8b expectations stand (D 7,968.00, MAGI 90,032.00, premium 18,000). Two returns
+(unmarried couple, both 50, A self-employed, B no pay, no children, premium 18,000 so A's part is 9,000): scanned at 5399f23 in 500 steps from 40,000 to 130,000:
+A's profits 67,500-74,000 switched with a consistent answer (engine D 5,768 at 72,000 against a consistent 6,061; 74,000 charged A's full 9,000 against 6,229), 74,500-77,000
+switched with none; the test uses 70,000, 72,000 and 74,000 and asserts A's D within $1 of the consistent one and priced on `rows[0].magiA`. Inflated multi-year check (inflation 3,
+income growth 3, medical inflation 5, single profits 30,000-110,000 by 1,000, years 0-9, gross premium of the year from the same run with ACA off): the largest
+|healthcare - acaNetCost(magiProxy, 1, gross, y)| is $0.18 (profit 53,000, year 3), the same at 5399f23 (limit 2). Moved snapshot entries: none (`node tests/snapshot.js`
+passes against the committed baseline; `R side business stream` did not move), so no snapshot:update in 9a.
+
+9b (two band scenarios, new entries only): `single self-employed band, alternative` (profit 82,000) and `single self-employed band, consistent` (73,000), single, age 50,
+retiring at 60, self-employed main income, ACA on, $18,000 premium, `tx`, taxable 0, cash 0, `hysaRate` 0, traditional 300,000, Roth 100,000, default inflation and
+growth; the contribution defaults are zeroed (`k401PctA`, `catchupPctA`, `profitSharingPctA`, `iraPctA` 0, no mega backdoor), because the default 401(k) deferral cuts
+sePlanNet from 76,207 to 43,707 and takes the household out of the band (checked at the tip: 82,000 -> sePlanNet 76,206.8845, one `seAlternative` per `simulate()`, D 5,797.41,
+premium 18,000, MAGI 70,409.48; 73,000 -> sePlanNet 67,842.71, one `seFixed`, D 6,145.08, premium 6,145.08, MAGI 61,697.63; default inflation does not move year 0).
+`npm run snapshot:update` was run; its rewrite of `ui_us.json` (a Monte Carlo `histSuccess` timing flake: "—" vs "85%") was discarded and `snapshot_ui.js` passes against the
+committed files twice, so only `us.json` carries the two new entries. A dump of ../fp-e1c-base against the tree: 936 files, 10 differ, exactly the E1c scenario files.
+
+9c (timing, no number change). Per-commit bisect (bench_runs_interleaved, 21 rounds, each commit's tree against its parent's, temporary worktrees; simulate/historical % per
+state, wall-clock noise about +-3% per cell): no single commit costs more than a few percent; the largest repeatable cells are 6 (QBI) tx 4.7/1.7, ca 2.5/2.5 and 3
+(SE tax) +1/+2; the cost is diffuse:
+  - c74e439 (1) vs base: tx -0.5/1.8, ca 1.4/2.5, ny -0.6/1.1, pa 0.7/0.0, ct -3.8/-2.8, wa -0.8/-5.7
+  - 6e2f36a (2) vs c74e439: tx -1.6/0.0, ca -0.7/0.0, ny -1.3/-2.2, pa 1.7/1.2, ct -0.8/0.0, wa 1.4/0.0
+  - 88ab2a4 (3) vs 6e2f36a: tx 1.1/1.8, ca 0.7/1.3, ny 1.3/2.3, pa 1.1/2.6, ct -0.5/-0.9, wa 0.5/1.5
+  - de7fc94 (4) vs 88ab2a4: tx 0.5/3.5, ca -3.1/-2.5, ny -1.6/-2.2, pa -1.4/-1.3, ct 2.8/3.8, wa -3.1/-1.5
+  - 06ed7fd (5) vs de7fc94: tx 0.5/0.0, ca 0.0/0.0, ny -0.3/-1.1, pa 0.0/1.3, ct -4.7/0.9, wa 0.4/1.5
+  - 0f274db (6) vs 06ed7fd: tx 4.7/1.7, ca 2.5/2.5, ny 0.6/1.1, pa 1.1/2.5, ct 1.6/1.8, wa 1.7/1.5
+  - ebda26d (8a) vs 0f274db: tx 1.0/3.4, ca 1.0/0.0, ny -0.6/0.0, pa 0.7/0.0, ct -2.1/-0.9, wa -1.3/1.5
+  - f3884fd (8b) vs ebda26d: tx -0.5/-1.7, ca -0.7/0.0, ny -1.6/0.0, pa 2.8/2.6, ct 5.3/4.8, wa 0.4/3.0
+  - 5399f23 (8c) vs f3884fd: tx -3.5/-1.7, ca -1.4/1.2, ny 0.6/2.3, pa 1.1/2.6, ct 4.7/3.8, wa -0.4/1.5
+  - 1e4b747 (9a) vs 5399f23: tx -0.5/0.0, ca -0.4/0.0, ny -0.6/-1.1, pa 0.0/0.0, ct -1.1/-0.9, wa -2.2/-1.5
+The tip against base before the 9c edits (one run): tx 4.8/5.4, ca 3.2/3.8, ny 2.6/3.4, pa 2.9/3.9, ct 11.5/9.6, wa 3.2/3.1. At 400 simulations in about 190 ms a
+`simulate()` is under 0.5 ms with a few hundred `taxFor` calls, so one added operation per call or per year is a measurable fraction of the 5% budget; the 9c edits
+(CLAUDE.md, "9c") skip every E1c term for a household without self-employment: `taxFor` (one `seOn` test, the terms inside `if (seOn)`), the pass terms behind `seLive`, the Solo
+sums, the stream premium factor (a `Math.pow`) and the IRMAA cover bits when there are no streams. `tests/tax_caches.js` and the snapshots are unchanged. Gate, three runs of
+`bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21` (simulate/historical %): run 1 tx 1.6/3.6, ca 0.7/0.0, ny 0.3/1.1, pa 1.8/1.3, ct 6.2/6.8, wa 0.9/0.0; run 2 tx 2.1/1.8,
+ca 0.0/1.2, ny -2.5/-2.2, pa -4.9/-1.2, ct 3.3/3.8, wa -0.9/-2.9; run 3 tx 5.0/5.0, ca 2.9/2.5, ny 4.7/4.7, pa 4.4/3.9, ct 2.7/3.7, wa 4.1/4.6. Medians: tx 2.1/3.6, ca 0.7/1.2, ny
+0.3/1.1, pa 1.8/1.3, ct 3.3/3.8, wa 0.9/0.0 (every path within +5%). An intermediate triple (after the `taxFor` edit and the `seLive` terms, before the stream-factor and Solo-sum
+edits) had tx historical at 5.7% (11.3, 3.8, 5.7), which is why those were added. bench_solver (31 rounds vs base, two runs, recorded): ACA early retiree (CA) simulate 2.42 -> 2.52 ms
+(4.1%) and 2.38 -> 2.58 ms (8.4%), path 2.35 -> 2.45 ms (4.3%) twice; default simulate 1.26 -> 1.34 ms (6.3%) and 1.24 -> 1.30 ms (4.8%), path 0.95 -> 1.00 ms (5.3%) and 0.90 -> 1.00 ms (11.1%).
+
+**E1c: review fixes, round 3 (Task 10).** Commits: 10a 4bf26a5, 10b (this commit). Spec decision 11 (owner, 2026-10-09). No snapshot entry moved.
+
+10a. Red runs at 9b47b3a (the Task 10a block of `tests/se_health.js`, each case alone with `SE_CASE=<name>`): `recheck` (single, 60, a 48,000 self stream, spending 26,000, 500,000 taxable at 60% basis, no housing, `tx`, premium 18,000, year 0): `held year re-checked at its final draws: D 5260.79 vs the search 5465.70`; `grid`: 7 of 10 held alternative years off the search, worst 335.52, assert `held years over a draw grid ...`; `zero` (`R side business stream`): `no hold at a $0 deduction: nothing counted` (4 years counted over one `__test_simulate()`, which includes the cliff plan's phases); `joint` (married, both 50, both self-employed, A's plan net 3,000, B's profit 90,000): passes at 9b47b3a (the test gap, not a defect): A 3,000, B 4,847.86, total 7,847.86 against the consistent 7,847.86 (A first, B the rest to 1e-9). The reviewer's household (a 30,000 stream, spending 24,000, 30% basis) was **not reproduced**: a scan of taxable 200,000-2,000,000 with and without housing, the cash reserve and the bond ladder found no year-0 switch with the described held 6,224.54 against 18,000, so the household above was found by scanning (it has the same shape: switched year 0, a held deduction 205 below the search at the final draws, 88 of the 187 year-0 households in the 20,000-30,000 spending by 24,000-40,000 stream grid held). Draw grid (single, 55, retiring at 55, a 20,000-60,000 self stream by 5,000, spending 30,000 and 60,000, 500,000 taxable at 30% basis, no housing, `tx`, inflation 0, medical inflation 0, years 0-9; 180 years): at 9b47b3a 10 held alternative years, 7 more than $1 off the search at their final draws (worst 335.52); at the tip 10 held years, 1 off (stream 55,000 year 9, D 5,575.55 against 5,573.17, worst 2.38).
+
+Code. The 9a search moved into one closure, `seSearch(trad, gain)`, with results in `seFixA` / `seFixB` / `seNeedAlt`. It is built lazily at its first use **in the pass**, not in the year as the plan asked: `costAt` and `hcArgs` are per-pass closures (they live inside the `for (iter)` body), so a year-level closure cannot call them. A pass that never searches allocates nothing, which is the plan's point. One construction site serves both users (an unconverged year that has not switched; a converged held year not yet re-checked). `seKind` (1 consistent, 2 alternative) replaces the two counter increments; `magiStats.seFixed` / `seAlternative` are incremented once, next to `unresolved`, from the kept phase. `seKind` and `seRechecked` are carried wherever `seHeld` is (both `naturalRec` literals, `trialRecs.push`, the fallback replay, the winner replay) and reset at a trial start. The $0 guard: the search returns false when the step-1 deduction is 0, the switch holds nothing and the pass falls to the forced pass as before 8b; the step-1 `costAt` leaves `lastCost` changed, and every reader of `lastCost` (the forced-pass block, `allowedAt`, the alternative calculation) calls `costAt` first, so nothing reads the stale value. The re-check sits just before `if (forcedPass && flow < 0)`: it is reached by a converged pass (an unconverged one continued above or is out of passes and is excluded by `!unconverged`). A re-check whose search holds nothing (a $0 step-1 deduction after a non-zero hold, practically unreachable) reads 0 for both parts and re-holds 0.
+
+The re-check cannot close every year: it allows one re-hold, and the re-run's draws move again. Results at the tip over the larger scans: of 88 held year-0 households (taxable 600,000, 30% basis, spending 20,000-30,000, stream 24,000-40,000 by 1,000) almost every one that was off by 20 to 900 at 9b47b3a ends within about 1 to 20 of the search (D equals the search at the draws of the pass before the re-hold). Where the two answers sit on either side of the 400% line the single re-hold can flip the sign instead of closing the gap: stream 39,000 / spending 23,000: held 6,139.9 against a search of 18,000 at 9b47b3a, held 18,000 against a search of 5,595 at the tip (the section 5.02 value is legal in a year whose iteration does not converge). The test therefore asserts the grid at one year off by at most 5; the `recheck` case asserts the household where the re-hold closes the gap to under $1 (D 5,465.70, search 5,464.86).
+
+Scans, unchanged against 9b47b3a (identical to the cent): single profits 66,000-76,000 by 250 and joint 90,000-101,000 by 500, year 0 (D, premium and MAGI equal in all 64 cells); inflation 3, income growth 3, medical inflation 5, single profits 30,000-110,000 by 1,000, years 0-9: the largest |healthcare - acaNetCost(magiProxy, 1, gross, y)| is $0.18 (profit 53,000, year 3), as at 9b47b3a. `node tests/snapshot.js` passes against the committed baseline: **no entry moved** (so no `npm run snapshot:update`, and `ui_*.json` were not touched); a dump of ../fp-e1c-base against the tree: 936 files, 10 differ, exactly E1c's ten scenario files (including `R side business stream`, byte-identical to 9b47b3a). `npm test` green; `npm run check:shared` OK.
+
+Timing (quiet machine). `bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21`, three runs (simulate / historical %): run 1 tx 9.1/5.5, ca 3.6/2.5, ny 3.7/7.1, pa 2.2/2.6, ct 0.8/1.9, wa 4.1/3.1; run 2 tx 2.4/-1.6, ca 3.2/2.5, ny 2.3/1.1, pa 3.2/2.6, ct -1.9/-1.9, wa 5.0/3.1; run 3 tx 1.0/5.5, ca 2.2/3.8, ny 4.3/3.5, pa 5.1/3.9, ct 7.4/7.9, wa 5.0/0.0. Medians over the three runs: tx 2.4/5.5, ca 3.2/2.5, ny 3.7/3.5, pa 3.2/2.6, ct 0.8/1.9, wa 5.0/3.1. **One path misses the gate: tx historical, median 5.5%** (55 -> 58 ms in two of the three runs; the script reports whole milliseconds, so one millisecond on 55 is 1.8%). The same three-run protocol against 9b47b3a (`--base` a temporary worktree of 9b47b3a): tx 0.0/-1.7, -0.5/0.0, 4.3/1.8 (medians 0.0/0.0); ca -0.7/-1.2, 1.4/0.0, 2.1/1.2 (1.4/0.0); ny -1.9/-2.3, 3.3/1.1, 3.0/3.4 (3.0/1.1); pa -0.4/-1.3, 2.5/2.6, 2.6/2.6 (2.5/2.6); ct -5.3/-5.4, -2.2/-2.8, -2.5/-2.8 (-2.5/-2.8); wa 0.4/0.0, 2.7/3.1, 1.8/3.1 (1.8/3.1). So Task 10's own cost is within noise; the tx historical figure is the carried cost of E1c against the base (the owner accepted 5.3% for PA historical after Task 9). Nothing unplanned was tried. `bench_solver.js --base ../fp-e1c-base --rounds 31`, two runs: ACA early retiree (CA) simulate 5.6% / -1.6%, path 4.3% / 2.1%; default simulate 2.9% / 3.2%, path 5.3% / 5.6%.
+
+**E1c: review fixes, round 4 (Task 11).** Commits: 11a a63ce6c, 11b (this commit). Spec decision 12 (owner, 2026-10-09): the decision 11 re-check is withdrawn. No snapshot entry moved.
+
+Red run at 1f43dac (`SE_CASE="invariant grid" node tests/se_health.js`): `invariant grid: 2310 years checked; deduction above the premium paid: 55 (worst 12828.59)` and the assertion `the deduction never exceeds the premium paid (basis 30 spending 22000 stream 40000 year 4: D 18000.00 premium 5649.86)`. The test grid is single, 60, retiring at 60, one self stream of 20,000-60,000 by 2,000, spending 20,000-40,000 by 2,000, 500,000 taxable at 30% and 60% basis, `tx`, premium 18,000, inflation, income growth and medical inflation 0, no housing, years 0-4, run inside one `page.evaluate`; the spec owner's grid (stride 1,000, 8,610 years) found 224 years, this stride-2,000 grid finds 55 and the same worst, 12,828.59. An early draft of the test forgot `taxable: 500000` (the `ZERO` base sets it to 0) and passed at 1f43dac; the case is red only with the balance in place.
+
+Code. The decision 11 block (just before `if (forcedPass && flow < 0)`) and `seRechecked` are gone (declaration, both `naturalRec` literals, `trialRecs.push`, the replays, the trial-start reset). The `seSearch` build condition is now `!seHeld && unconverged`, which is the switch's own condition. `seSearch`, the $0 guard, `seKind` with kept-phase counting and the `zero` and `joint` tests stay. Comments say a hold is not re-checked and why.
+
+At the tip, invariant grid: 2,310 years checked, 0 above the premium paid, 0 above the plan net, 0 with a premium more than $2 off the recorded MAGI (worst 0.00), **422 understated** against the search at the final draws, largest gap **12,699.56** (the recorded limitation; legal and conservative; Batch 5 settles it). The grid's rows (basis, spending, stream, year, deduction, plan net, premium, MAGI) are byte-identical at 9b47b3a and at the tip (`cmp` of the two dumps).
+
+Exactness: `node tests/snapshot.js` passes (US 560, Canada 376, exact). A dump of a temporary 9b47b3a worktree against the tree, with the tree's scenario list: 936 files compared, **0 differ**. A dump of ../fp-e1c-base against the tree: 10 differ, exactly E1c's ten scenario files. `tests/snapshots/*.json` untouched.
+
+Timing (`bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21`, three runs, simulate / historical %): run 1 tx 2.0/6.7, ca 2.7/4.8, ny 0.0/2.2, pa -5.4/-5.4, ct 3.7/-3.4, wa 3.4/1.4; run 2 tx 3.8/-1.6, ca 1.6/1.2, ny 1.9/0.0, pa -0.7/1.3, ct 0.3/1.9, wa 2.3/1.6; run 3 tx 2.6/0.0, ca 1.8/0.0, ny 2.7/1.2, pa 5.9/3.9, ct 7.6/7.8, wa 3.7/3.1. Medians: tx 2.6/0.0, ca 1.8/1.2, ny 1.9/1.2, pa -0.7/1.3, ct 3.7/1.9, wa 3.4/1.6. Against a 9b47b3a worktree (one run): tx 2.1/3.7, ca -2.4/0.0, ny -2.2/-3.4, pa 0.4/-1.3, ct 1.4/1.9, wa -3.9/-3.0. No median is over +5%; one run's ct (7.6/7.8) and pa simulate (5.9) were over, in a run whose other paths were also high.
+
 ##### E1c: review, part 1 (spec owner, 2026-10-09; the independent review is still running)
 
 Checked in a scratch worktree of the tip `5fef95b`: `npm test` exits 0; snapshot dump of `ee7a789` against the tip (the

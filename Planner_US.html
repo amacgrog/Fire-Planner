@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V124</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V125</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -354,25 +354,27 @@
         <details class="group" data-cat="income" open>
           <summary><span class="group-summary-text"><span class="group-title">Income</span><span class="group-state" id="incomeGroupState"></span></span></summary>
     <!-- @@shared:html-timelineGroupState end -->
-          <div class="field"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><input id="incomeA" type="number" class="money" min="0" step="1000"></div>
-          <div class="field" data-partner-b><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay.">i</button></span><small>Gross wages, before tax and 401(k)/IRA contributions</small></label><input id="incomeB" type="number" class="money" min="0" step="1000"></div>
+          <div class="field"><label for="incomeA">Partner A <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay. If you are self-employed, enter business profit (after expenses, before self-employment tax) and choose Self-employed below.">i</button></span><small>Gross wages or business profit, before tax and contributions</small></label><input id="incomeA" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" style="display:block"><label style="display:block;margin-bottom:8px">Partner A income <span class="info-nw">type<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Self-employed: business profit, after expenses. It pays self-employment tax (half of it is deducted), gets the qualified business income deduction (treated as a specified service business with no employees), can fund a Solo 401(k) (contribution, profit sharing at the plan rate, after-tax money) and an IRA, and puts you on the ACA marketplace (or your partner&#x27;s employer plan, see the employer-plan boxes) with the self-employed health insurance deduction; Medicare starts at 65.">i</button></span></label><div class="choice" role="radiogroup" aria-label="Partner A income type"><button type="button" id="incomeKindAWagesBtn" role="radio">W-2</button><button type="button" id="incomeKindASelfBtn" role="radio">Self-employed</button></div></div>
+          <div class="field" data-partner-b><label for="incomeB">Partner B <span class="info-nw">income<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="The model calculates payroll tax (Social Security, Medicare, and the 0.9% Additional Medicare Tax above $200,000 single / $250,000 joint) and income tax on this figure itself, so enter pre-tax pay, not take-home pay. If you are self-employed, enter business profit (after expenses, before self-employment tax) and choose Self-employed below.">i</button></span><small>Gross wages or business profit, before tax and contributions</small></label><input id="incomeB" type="number" class="money" min="0" step="1000"></div>
+          <div class="field" data-partner-b style="display:block"><label style="display:block;margin-bottom:8px">Partner B income <span class="info-nw">type<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Self-employed: business profit, after expenses. It pays self-employment tax (half of it is deducted), gets the qualified business income deduction (treated as a specified service business with no employees), can fund a Solo 401(k) (contribution, profit sharing at the plan rate, after-tax money) and an IRA, and puts you on the ACA marketplace (or your partner&#x27;s employer plan, see the employer-plan boxes) with the self-employed health insurance deduction; Medicare starts at 65.">i</button></span></label><div class="choice" role="radiogroup" aria-label="Partner B income type"><button type="button" id="incomeKindBWagesBtn" role="radio">W-2</button><button type="button" id="incomeKindBSelfBtn" role="radio">Self-employed</button></div></div>
           <div class="field"><label for="incomeGrowth">Annual income <span class="info-nw">growth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Yearly raise on your pay, in nominal terms — it already includes inflation, so a raise equal to inflation means no real growth.">i</button></span></label><input id="incomeGrowth" type="number" min="0" max="15" step="0.1"></div>
         </details>
         <details class="group" data-cat="income">
           <summary><span class="group-summary-text"><span class="group-title">Retirement contributions</span><span class="group-state" id="retireContribGroupState"></span></span></summary>
-          <div class="field"><label for="matchA">Partner A employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own. Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions, profit sharing and after-tax money.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
-          <div class="field"><label for="profitSharingPctA">Partner A employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice.">i</button></span><small>Employer contribution to the traditional 401(k)</small></label><input id="profitSharingPctA" type="number" min="0" max="25" step="0.5"></div>
-          <div class="range-field"><div class="range-head"><label for="k401PctA">Partner A 401(k) <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full federal elective-deferral limit (or all of your pay, if that&#x27;s lower); 50% contributes half of that. It&#x27;s a share of the maximum, not a percentage of your salary.">i</button></span><small>Share of the annual 401(k) limit you contribute</small></label><span class="range-value" id="k401PctAOut"></span></div><input id="k401PctA" type="range" min="0" max="100" step="1"></div>
-          <div class="range-field"><div class="range-head"><label for="catchupPctA">Partner A catch-up <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the available catch-up room you use (100% = the full catch-up amount). Only applies at age 50+, and is automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed).">i</button></span><small>Age 50+ only; Roth above ~$150k pay</small></label><span class="range-value" id="catchupPctAOut"></span></div><input id="catchupPctA" type="range" min="0" max="100" step="1"></div>
+          <div class="field" id="matchAField"><label for="matchA">Partner A employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own. Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions, profit sharing and after-tax money.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchA" type="number" min="0" max="100" step="0.1"></div>
+          <div class="field"><label for="profitSharingPctA">Partner A employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice. Self-employed: your plan&#x27;s rate (0-25%). The contribution is profit less half the self-employment tax, times rate / (1 + rate): 25% gives 20%.">i</button></span><small>Employer contribution, or your Solo 401(k) plan rate, % of pay</small></label><input id="profitSharingPctA" type="number" min="0" max="25" step="0.5"></div>
+          <div class="range-field"><div class="range-head"><label for="k401PctA">Partner A 401(k) <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full federal elective-deferral limit (or all of your pay, if that&#x27;s lower); 50% contributes half of that. It&#x27;s a share of the maximum, not a percentage of your salary. Self-employed: this is your Solo 401(k) contribution.">i</button></span><small>Share of the annual 401(k) limit you contribute</small></label><span class="range-value" id="k401PctAOut"></span></div><input id="k401PctA" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field"><div class="range-head"><label for="catchupPctA">Partner A catch-up <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the available catch-up room you use (100% = the full catch-up amount). Only applies at age 50+, and is automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed). Not for a self-employed partner&#x27;s Solo 401(k): self-employment has no FICA wages, so its catch-up follows the 401(k) type.">i</button></span><small>Age 50+ only; Roth above ~$150k pay</small></label><span class="range-value" id="catchupPctAOut"></span></div><input id="catchupPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field"><div class="range-head"><label for="iraPctA">Partner A IRA <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full IRA limit (or your pay, if lower), including the age-50+ catch-up once eligible.">i</button></span><small>Share of the annual IRA limit</small></label><span class="range-value" id="iraPctAOut"></span></div><input id="iraPctA" type="range" min="0" max="100" step="1"></div>
-          <div class="field" data-partner-b><label for="matchB">Partner B employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own. Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions, profit sharing and after-tax money.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchB" type="number" min="0" max="100" step="0.1"></div>
-          <div class="field" data-partner-b><label for="profitSharingPctB">Partner B employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice.">i</button></span><small>Employer contribution to the traditional 401(k)</small></label><input id="profitSharingPctB" type="number" min="0" max="25" step="0.5"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="k401PctB">Partner B 401(k) <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full federal elective-deferral limit (or all of your pay, if that&#x27;s lower); 50% contributes half of that. It&#x27;s a share of the maximum, not a percentage of your salary.">i</button></span><small>Share of the annual 401(k) limit you contribute</small></label><span class="range-value" id="k401PctBOut"></span></div><input id="k401PctB" type="range" min="0" max="100" step="1"></div>
-          <div class="range-field" data-partner-b><div class="range-head"><label for="catchupPctB">Partner B catch-up <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the available catch-up room you use (100% = the full catch-up amount). Only applies at age 50+, and is automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed).">i</button></span><small>Age 50+ only; Roth above ~$150k pay</small></label><span class="range-value" id="catchupPctBOut"></span></div><input id="catchupPctB" type="range" min="0" max="100" step="1"></div>
+          <div class="field" data-partner-b id="matchBField"><label for="matchB">Partner B employer 401(k) <span class="info-nw">match<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Employer contribution as a percentage of your annual pay; modeled as an additional traditional (pre-tax) 401(k) contribution on top of your own. Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation), and the match shares the plan&#x27;s total annual limit ($72,000 in 2026) with your own contributions, profit sharing and after-tax money.">i</button></span><small>% of pay, added as a traditional 401(k) contribution</small></label><input id="matchB" type="number" min="0" max="100" step="0.1"></div>
+          <div class="field" data-partner-b><label for="profitSharingPctB">Partner B employer profit <span class="info-nw">sharing<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="An employer contribution as a percentage of your pay, added to your traditional (pre-tax) 401(k). Only pay up to the IRS compensation limit counts ($360,000 in 2026, rising with inflation). It shares the plan&#x27;s total annual limit ($72,000 in 2026; catch-up contributions are outside it) with your own 401(k) contributions, the match and any after-tax money, and is reduced when they would exceed it. 25% is the most an employer can deduct across its payroll, and the usual ceiling when you own the company. To estimate it, divide last year&#x27;s employer profit-sharing (nonelective) contribution on your 401(k) statement by that year&#x27;s pay; if it varies, use a typical year. If you own the company, it is your choice. Self-employed: your plan&#x27;s rate (0-25%). The contribution is profit less half the self-employment tax, times rate / (1 + rate): 25% gives 20%.">i</button></span><small>Employer contribution, or your Solo 401(k) plan rate, % of pay</small></label><input id="profitSharingPctB" type="number" min="0" max="25" step="0.5"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="k401PctB">Partner B 401(k) <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full federal elective-deferral limit (or all of your pay, if that&#x27;s lower); 50% contributes half of that. It&#x27;s a share of the maximum, not a percentage of your salary. Self-employed: this is your Solo 401(k) contribution.">i</button></span><small>Share of the annual 401(k) limit you contribute</small></label><span class="range-value" id="k401PctBOut"></span></div><input id="k401PctB" type="range" min="0" max="100" step="1"></div>
+          <div class="range-field" data-partner-b><div class="range-head"><label for="catchupPctB">Partner B catch-up <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the available catch-up room you use (100% = the full catch-up amount). Only applies at age 50+, and is automatically Roth above the SECURE 2.0 wage threshold (~$150k, 2026-indexed). Not for a self-employed partner&#x27;s Solo 401(k): self-employment has no FICA wages, so its catch-up follows the 401(k) type.">i</button></span><small>Age 50+ only; Roth above ~$150k pay</small></label><span class="range-value" id="catchupPctBOut"></span></div><input id="catchupPctB" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" data-partner-b><div class="range-head"><label for="iraPctB">Partner B IRA <span class="info-nw">contribution<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="100% contributes the full IRA limit (or your pay, if lower), including the age-50+ catch-up once eligible.">i</button></span><small>Share of the annual IRA limit</small></label><span class="range-value" id="iraPctBOut"></span></div><input id="iraPctB" type="range" min="0" max="100" step="1"></div>
           <div class="field" style="display:block"><label style="display:block;margin-bottom:8px">401(k) contribution <span class="info-nw">type<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional contributions are pre-tax: they lower taxable income now and are taxed when withdrawn. Roth contributions are after-tax and come out tax-free later.">i</button></span></label><div class="choice" role="radiogroup" aria-label="401(k) contribution type"><button type="button" id="k401TraditionalBtn" role="radio">Traditional</button><button type="button" id="k401RothBtn" role="radio">Roth</button></div></div>
           <div class="field" style="display:block"><label style="display:block;margin-bottom:8px">IRA contribution <span class="info-nw">type<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Traditional contributions are pre-tax: they lower taxable income now and are taxed when withdrawn. Roth contributions are after-tax and come out tax-free later.">i</button></span></label><div class="choice" role="radiogroup" aria-label="IRA contribution type"><button type="button" id="iraTraditionalBtn" role="radio">Traditional</button><button type="button" id="iraRothBtn" role="radio">Roth</button></div></div>
-          <div class="field"><label for="megaBackdoor"><input id="megaBackdoor" type="checkbox"> Enable mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Requires a plan that allows after-tax contributions and an in-plan Roth conversion or rollover. The sliders below set how much of the remaining room you fill — the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing.">i</button></span><small>Needs after-tax plan contributions + in-plan Roth conversion</small></label></div>
+          <div class="field"><label for="megaBackdoor"><input id="megaBackdoor" type="checkbox"> Enable mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Requires a plan that allows after-tax contributions and an in-plan Roth conversion or rollover. The sliders below set how much of the remaining room you fill — the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing. A Solo 401(k) allows it only if its plan document permits after-tax contributions.">i</button></span><small>Needs after-tax plan contributions + in-plan Roth conversion</small></label></div>
           <div class="range-field" id="megaAField"><div class="range-head"><label for="megaPctA">Partner A mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing.">i</button></span></label><span class="range-value" id="megaPctAOut"></span></div><input id="megaPctA" type="range" min="0" max="100" step="1"></div>
           <div class="range-field" id="megaBField"><div class="range-head"><label for="megaPctB">Partner B mega backdoor <span class="info-nw">Roth<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Share of the room left under the plan&#x27;s total annual limit ($72,000 in 2026, and never more than your pay) after your own 401(k) contribution (catch-up contributions do not use it), the employer match and profit sharing.">i</button></span></label><span class="range-value" id="megaPctBOut"></span></div><input id="megaPctB" type="range" min="0" max="100" step="1"></div>
         </details>
@@ -409,10 +411,10 @@
         <details class="group" data-cat="spending">
           <summary><span class="group-summary-text"><span class="group-title">Pre-retirement healthcare</span><span class="group-state" id="preRetireHealthGroupState"></span></span></summary>
     <!-- @@shared:html-spendingTiersGroup end -->
-          <div class="field"><label for="healthPremiumA">Partner A health insurance premium, per <span class="info-nw">paycheck<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Reduces taxable wages, just like a 401(k) (e.g. an employer medical plan). If your spouse is (or will be) retired while you&#x27;re still working, this is assumed to cover both of you (unless you uncheck the &quot;employer plan covers spouse&quot; box below) — so use the employee+spouse rate here if that&#x27;s the real cost. Fold medications, copays, and other after-tax healthcare costs into household spending instead.">i</button></span><small id="healthPremiumHint">Pre-tax payroll deduction while you work</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
-          <div data-partner-b class="field"><label for="healthPremiumB">Partner B health insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
-          <div data-partner-b class="field"><label for="employerCoversSpouseA"><input id="employerCoversSpouseA" type="checkbox"> Partner A&#x27;s employer plan covers <span class="info-nw">Partner B<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies only while Partner A is working and Partner B has retired and is under 65. Checked (default): B rides on A&#x27;s employer plan, so B owes no separate pre-65 premium until A also stops working — include B in A&#x27;s per-paycheck premium above. Unchecked: B buys their own individual (ACA) coverage starting the year B retires, even while A still works; the subsidy, when modeled, uses your household size of 2 and household income including A&#x27;s wages.">i</button></span><small>If unchecked, B buys ACA coverage once B retires</small></label></div>
-          <div data-partner-b class="field"><label for="employerCoversSpouseB"><input id="employerCoversSpouseB" type="checkbox"> Partner B&#x27;s employer plan covers <span class="info-nw">Partner A<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies only while Partner B is working and Partner A has retired and is under 65. Checked (default): A rides on B&#x27;s employer plan, so A owes no separate pre-65 premium until B also stops working — include A in B&#x27;s per-paycheck premium above. Unchecked: A buys their own individual (ACA) coverage starting the year A retires, even while B still works; the subsidy, when modeled, uses your household size of 2 and household income including B&#x27;s wages.">i</button></span><small>If unchecked, A buys ACA coverage once A retires</small></label></div>
+          <div class="field" id="healthPremiumAField"><label for="healthPremiumA">Partner A health insurance premium, per <span class="info-nw">paycheck<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Reduces taxable wages, just like a 401(k) (e.g. an employer medical plan). If your spouse is (or will be) retired while you&#x27;re still working, this is assumed to cover both of you (unless you uncheck the &quot;employer plan covers spouse&quot; box below) — so use the employee+spouse rate here if that&#x27;s the real cost. Fold medications, copays, and other after-tax healthcare costs into household spending instead.">i</button></span><small id="healthPremiumHint">Pre-tax payroll deduction while you work</small></label><input id="healthPremiumA" type="number" class="money" min="0" step="10"></div>
+          <div data-partner-b class="field" id="healthPremiumBField"><label for="healthPremiumB">Partner B health insurance premium, per paycheck</label><input id="healthPremiumB" type="number" class="money" min="0" step="10"></div>
+          <div data-partner-b class="field"><label for="employerCoversSpouseA"><input id="employerCoversSpouseA" type="checkbox"> Partner A&#x27;s employer plan covers <span class="info-nw">Partner B<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while Partner A has employer coverage (a W-2 main job, or a W-2 income stream with a health premium) and Partner B has none. Checked (default): B is on A&#x27;s plan (a self-employed B then gets no self-employed health insurance deduction). Unchecked: B buys marketplace coverage, with the premium tax credit and, if self-employed, the deduction. If A&#x27;s employer offers affordable family coverage to a spouse, keep it checked: the marketplace would cost the full premium with no credit and no deduction.">i</button></span><small>Otherwise B buys marketplace coverage while without employer coverage</small></label></div>
+          <div data-partner-b class="field"><label for="employerCoversSpouseB"><input id="employerCoversSpouseB" type="checkbox"> Partner B&#x27;s employer plan covers <span class="info-nw">Partner A<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while Partner B has employer coverage (a W-2 main job, or a W-2 income stream with a health premium) and Partner A has none. Checked (default): A is on B&#x27;s plan (a self-employed A then gets no self-employed health insurance deduction). Unchecked: A buys marketplace coverage, with the premium tax credit and, if self-employed, the deduction. If B&#x27;s employer offers affordable family coverage to a spouse, keep it checked: the marketplace would cost the full premium with no credit and no deduction.">i</button></span><small>Otherwise A buys marketplace coverage while without employer coverage</small></label></div>
           <div class="field"><label for="payFrequency">Paycheck <span class="info-nw">frequency<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Used to turn the per-paycheck premium into a yearly amount.">i</button></span></label><select id="payFrequency"><option value="weekly">Weekly (52/yr)</option><option value="biweekly">Biweekly (26/yr)</option><option value="semimonthly">Semimonthly (24/yr)</option><option value="monthly">Monthly (12/yr)</option></select></div>
         </details>
         <details class="group" data-cat="assets" open>
@@ -500,9 +502,9 @@
           <div class="field"><label for="pensionStartAgeA">Partner A pension start age</label><input id="pensionStartAgeA" type="number" min="50" max="100" step="1"></div>
           <div data-partner-b class="field"><label for="pensionYearlyB">Partner B annual <span class="info-nw">pension<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Entered in today&#x27;s dollars; treated as fully inflation-indexed from the start age.">i</button></span></label><input id="pensionYearlyB" type="number" class="money" min="0" step="500"></div>
           <div data-partner-b class="field"><label for="pensionStartAgeB">Partner B pension start age</label><input id="pensionStartAgeB" type="number" min="50" max="100" step="1"></div>
-          <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies once retired and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; once retired and under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
-          <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while retired and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
-          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at the later of 65 and their own retirement age (the full amount for a single person), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare. Federal tax: your health premiums (the ACA premium after the credit, Medicare and IRMAA) and the long-term-care cost, which is assumed to be qualified care for a chronically ill person under a plan of care, count as medical expenses over 7.5% of AGI when itemizing beats the standard deduction, which in practice means the care years. State itemized deductions are not modeled.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="healthcare">Annual pre-65 health insurance <span class="info-nw">premium<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Insurance premium only (e.g. ACA marketplace or COBRA), before any subsidy. Applies while without employer coverage (retired, or self-employed) and under age 65 (ends at 65 for whichever partner gets there first; see the Medicare field below for coverage after that). For a couple, a retired partner is assumed to be covered under the other partner&#x27;s employer plan (via that partner&#x27;s own premium field above) until both have stopped working; uncheck &quot;employer plan covers spouse&quot; above to start it when that partner retires instead. Fold medications and copays into household spending instead.">i</button></span><small id="healthcareHint">Premium before subsidy; without employer coverage, under 65</small></label><input id="healthcare" type="number" class="money" min="0" step="500"></div>
+          <div class="field"><label for="acaEnabled"><input id="acaEnabled" type="checkbox"> Model ACA premium <span class="info-nw">subsidy<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Applies while without employer coverage (retired, or self-employed) and under 65; nets the premium above against the 2026 federal poverty-line subsidy schedule for your household size and income. Turn off if you&#x27;ll have employer retiree coverage, COBRA, or are self-pay.">i</button></span><small>Nets the premium against the 2026 federal subsidy</small></label></div>
+          <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65 stops (a self-employed partner enrolls at 65), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare. Federal tax: your health premiums (the ACA premium after the credit, Medicare and IRMAA) and the long-term-care cost, which is assumed to be qualified care for a chronically ill person under a plan of care, count as medical expenses over 7.5% of AGI when itemizing beats the standard deduction, which in practice means the care years. State itemized deductions are not modeled.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
           <div class="field" id="medicaidWhenEligibleField"><label for="medicaidWhenEligible"><input id="medicaidWhenEligible" type="checkbox"> Enroll in Medicaid when <span class="info-nw">eligible<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="In the 41 states with Medicaid expansion (and Wisconsin, to 100% of poverty), an adult under 65 with income at or below 138% of the poverty line (100% in Wisconsin) is eligible for Medicaid: a $0 premium and no premium tax credit. Checked, the plan charges $0 in those years; unchecked, it charges the full unsubsidized premium (you cannot take the credit instead). Medicaid pays back from the estate of anyone 55 or older (estate recovery), and its provider networks are narrower, so some households decline it. In the ten states that did not expand (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY), income below 100% of poverty gets no credit and pays the full premium. From 2027, expansion adults 19 to 64 must show 80 hours a month of work, service or school (a parent or caregiver of a child 13 or younger is exempt); a retired adult with no such child fails the test, loses Medicaid, and is also barred from the premium credit, so pays the full premium. Not modeled: other exemptions (medical frailty, disability, SNAP or TANF compliance), the income route to the requirement, state delays of up to the end of 2028, and Medicaid&#x27;s use of monthly rather than annual income.">i</button></span><small>$0 premium when income is low enough; full premium otherwise</small></label></div>
           <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
@@ -708,7 +710,7 @@
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to three additional recurring income sources (each with its own start/end age) are taxed as Partner A's ordinary income and added to cash flow, in today's dollars; up to three one-time lump sums (e.g. an inheritance) are added directly to cash, tax-free, in the year received. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity. While anyone would owe the 10% early-withdrawal penalty on some of their money, the order protects the penalty-free money instead: taxable and penalty-free traditional accounts (59½ or older, or a 401(k) under Rule of 55) first, then cash, then the taxable bond reserve, then Roth contributions (basis), and only then penalized money, cheapest per dollar first, with home equity last. Once everyone is 59½ or older (or exempt) the order above applies.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled. Federal deductions: each year uses the larger of the standard deduction (plus $1,650 per married filer, $2,050 if single, aged 65+) and a simplified itemized total (state income tax plus property tax under the SALT cap, plus mortgage interest on up to $750,000 of loan; charitable gifts, QCDs and medical expenses are not modeled), and the temporary $6,000-per-person senior deduction (phased out above $75,000 single / $150,000 joint of income) is added on top for tax years 2025 through 2028 only. The Roth-conversion bracket target uses a conservative deduction (standard, or property tax plus mortgage interest if larger), so it converts slightly less than an exact calculation would.</div>
-            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while they are retired and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (the adults plus qualifying children from the Children list). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at the later of 65 and their own retirement age: a partner still working at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
+            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while without employer coverage (retired, or self-employed) and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (the adults plus qualifying children from the Children list). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65 stops (a self-employed partner enrolls at 65): a partner still working for an employer at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (traditional first, then Roth, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI, and the moves inside traditional and Roth create no income and no early-withdrawal penalty). The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. While anyone would owe the early-withdrawal penalty on some of their money, only penalty-free money is used in those steps, Roth basis waits until after cash and the bond reserve in an up year too, and penalized money is the last resort before home equity. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
@@ -809,6 +811,8 @@
     matchB: 0,
     profitSharingPctA: 0,
     profitSharingPctB: 0,
+    incomeKindA: 'wages',
+    incomeKindB: 'wages',
     k401Type: 'traditional',
     iraType: 'traditional',
     spending: 60000,
@@ -1147,13 +1151,15 @@
       return {
         ...x,
         owner: r.owner === 'B' ? 'B' : 'A',
-        kind: r.kind === 'wages' ? 'wages' : 'other',
+        kind: r.kind === 'wages' || r.kind === 'self' ? r.kind : 'other',
         contribute: r.contribute === true,
         deferralType: r.deferralType === 'roth' ? 'roth' : 'traditional',
         deferralPct: pct0(r.deferralPct),
         matchPct: pct0(r.matchPct),
         afterTaxPct: pct0(r.afterTaxPct),
         personalPct: pct0(r.personalPct),
+        profitSharingPct: Math.min(25, pct0(r.profitSharingPct)),
+        healthPremium: r.healthPremium !== '' && r.healthPremium !== null && Number.isFinite(Number(r.healthPremium)) ? Math.max(0, Number(r.healthPremium)) : 0,
       };
     });
   }
@@ -1287,6 +1293,10 @@
     { key: 'tenure', type: 'choice', manual: true, values: ['own', 'rent', 'rentThenBuy'], fallback: 'own', mcp: true },
     { key: 'buyCash', type: 'bool', manual: true, mcp: true },
     { key: 'k401Type', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
+    // E1c: a partner's main income is W-2 pay or self-employment (business profit). Self-employed hides the match and the
+    // per-paycheck premium (the engine ignores them: wageX is 0 for a self-employed partner).
+    { key: 'incomeKindA', type: 'choice', manual: true, values: ['wages', 'self'], fallback: 'wages', mcp: true, reveals: [{ id: 'matchAField', hidden: (s) => s.incomeKindA === 'self' }, { id: 'healthPremiumAField', hidden: (s) => s.incomeKindA === 'self' }] },
+    { key: 'incomeKindB', type: 'choice', manual: true, values: ['wages', 'self'], fallback: 'wages', mcp: true, reveals: [{ id: 'matchBField', hidden: (s) => s.singlePerson || s.incomeKindB === 'self' }, { id: 'healthPremiumBField', hidden: (s) => s.singlePerson || s.incomeKindB === 'self' }] },
     { key: 'iraType', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
     { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
     { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
@@ -6656,9 +6666,11 @@
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
-  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0) {
+  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0, qbiBase = 0) {
     const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
-      federal = ordinaryTax(ordinary, year, status, deduction) + longTermGainTax(gains, ordinary, year, status, deduction),
+      // E1c: the qualified business income deduction, below AGI (0 for everyone without self-employment).
+      qbi = qbiBase > 0 ? qbiDeduction(qbiBase, Math.max(0, ordinary + gains - deduction), gains, filingRow(status).joint, year) : 0,
+      federal = ordinaryTax(ordinary, year, status, deduction + qbi) + longTermGainTax(gains, ordinary, year, status, deduction + qbi),
       credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
   }
@@ -6678,6 +6690,23 @@
     SOURCES_SINGLE = newStateSources(1),
     SOURCES_A = newStateSources(1),
     SOURCES_B = newStateSources(1);
+  // E1c: the qualified business income deduction (IRC 199A), federal only, below AGI. 2026 limits from Rev. Proc. 2025-32
+  // section 4.26 (threshold indexed; the phase-in width is a fixed statutory amount since OBBBA section 70105). Every
+  // business is treated as a specified service business with no W-2 wages and no property (owner decision): full 20%
+  // up to the threshold, 20% x ap^2 inside the range, nothing above; capped at 20% of taxable income less net capital
+  // gain (which includes qualified dividends). The $400 minimum (IRC 199A(i)) applies after the cap, to a taxpayer with
+  // $1,000 of QBI from qualified businesses: an SSTB counts only at the applicable percentage, and not at all above the
+  // range (199A(d)(1)(A), (d)(3)).
+  const QBI_LIMITS = { threshold: { joint: 403500, other: 201750 }, width: { joint: 150000, other: 75000 }, minimum: 400, minimumQbi: 1000 };
+  function qbiDeduction(qbi, taxable, netGain, joint, yearIndex) {
+    if (!(qbi > 0)) return 0;
+    const f = taxIndexFactor(yearIndex),
+      threshold = (joint ? QBI_LIMITS.threshold.joint : QBI_LIMITS.threshold.other) * f,
+      width = joint ? QBI_LIMITS.width.joint : QBI_LIMITS.width.other,
+      ap = Math.min(1, Math.max(0, 1 - (taxable - threshold) / width)),
+      d = Math.min(0.2 * qbi * ap * ap, 0.2 * Math.max(0, taxable - netGain));
+    return ap * qbi >= QBI_LIMITS.minimumQbi * f ? Math.max(d, QBI_LIMITS.minimum * f) : d;
+  }
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
     // qualified) are household-level and taxed every year; qualified
@@ -6691,23 +6720,45 @@
       // Not-earned income streams ride in their owner's slot of `other` (E1b); the state taxes them as wages.
       extraA = profile.extraA || 0,
       extraB = profile.extraB || 0,
+      seOn = profile.seOn === true,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
       stateOn = !!stateRule && !stateRule.noTax,
       lagged = stateOn && stateRule.lagged !== null,
       perPerson = stateOn && stateRule.needsPerPerson;
+    // E1c: self-employment net rides in other; the state taxes it as wages, and it is earned income for the ACTC. The fields
+    // (and every term built from them below) are read only when the profile has self-employment (profile.seOn, set by
+    // buildTaxProfile); every term is skipped, not added as a zero, so a household without it pays one test per call.
+    let seNetA = 0, seNetB = 0, seEarnedA = 0, seEarnedB = 0,
+      // the self-employed health insurance deduction (162(l)), above the line on the owner's return
+      seHA = 0, seHB = 0,
+      // the QBI base (profit less half the SE tax and the plan money), before 162(l)
+      sePlanNetA = 0, sePlanNetB = 0;
+    if (seOn) {
+      seNetA = profile.seNetA || 0;
+      seNetB = profile.seNetB || 0;
+      seEarnedA = profile.seEarnedA || 0;
+      seEarnedB = profile.seEarnedB || 0;
+      seHA = profile.seHealthA || 0;
+      seHB = profile.seHealthB || 0;
+      sePlanNetA = profile.sePlanNetA || 0;
+      sePlanNetB = profile.sePlanNetB || 0;
+    }
     // Taxable brokerage gains and additional traditional distributions can
     // increase provisional income, so calculate taxable SS only after the
     // year's withdrawal amounts are known.
     if (filingRow(profile.filing).joint) {
-      const other = profile.otherA + profile.otherB + gains + traditionalExtra + invOrd;
+      // The household's other income net of the 162(l) deduction, read once (both sums below start with it).
+      const otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
+      const other = otherAB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
-      const ordinary = profile.otherA + profile.otherB + traditionalExtra + invOrd + taxableSS;
+      const ordinary = otherAB + traditionalExtra + invOrd + taxableSS;
       let sources = null;
       if (stateOn) {
         sources = SOURCES_JOINT;
         sources.wages = profile.wageA + profile.wageB + invOrd + (extraA + extraB);
+        if (seOn) sources.wages += seNetA - seHA + (seNetB - seHB);
         sources.pension = profile.pensionA + profile.pensionB;
         sources.retirement = profile.rmdA + profile.rmdB + traditionalExtra;
         sources.gains = gains;
@@ -6730,7 +6781,7 @@
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0, sePlanNetA + sePlanNetB - seHA - seHB);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6746,11 +6797,16 @@
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
           profile.medicalExpense || 0,
-        );
+        ),
+        // E1c: the QBI deduction, one for the joint return, below the federal deduction (only with self-employment).
+        deductionQ =
+          seOn && sePlanNetA + sePlanNetB > 0
+            ? deduction + qbiDeduction(sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
+            : deduction;
       const federal =
-        ordinaryTax(ordinary, profile.year, 'mfj', deduction) +
-        longTermGainTax(gains, ordinary, profile.year, 'mfj', deduction);
-      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, profile.wageA + profile.wageB);
+        ordinaryTax(ordinary, profile.year, 'mfj', deductionQ) +
+        longTermGainTax(gains, ordinary, profile.year, 'mfj', deductionQ);
+      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, seOn ? profile.wageA + profile.wageB + (seEarnedA + seEarnedB) : profile.wageA + profile.wageB);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -6761,16 +6817,18 @@
     // qualifying surviving spouse), or, in the last branch, two separate filers.
     const status = FILING[profile.filing] && profile.filing !== 'mfj' ? profile.filing : 'single';
     if (profile.singlePerson) {
+      const otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
-        profile.otherA + gains + traditionalExtra + invOrd,
+        otherA1 + gains + traditionalExtra + invOrd,
         status,
       );
-      const ordinary = profile.otherA + traditionalExtra + invOrd + taxableSS;
+      const ordinary = otherA1 + traditionalExtra + invOrd + taxableSS;
       let sources = null;
       if (stateOn) {
         sources = SOURCES_SINGLE;
         sources.wages = profile.wageA + invOrd + extraA;
+        if (seOn) sources.wages += seNetA - seHA;
         sources.pension = profile.pensionA;
         sources.retirement = profile.rmdA + traditionalExtra;
         sources.gains = gains;
@@ -6788,7 +6846,7 @@
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA, profile.medicalExpense || 0);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0, sePlanNetA - seHA);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -6804,11 +6862,15 @@
           profile.propertyTax || 0,
           profile.mortgageInterest || 0,
           profile.medicalExpense || 0,
-        );
+        ),
+        deductionQ =
+          seOn && sePlanNetA > 0
+            ? deduction + qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
+            : deduction;
       const federal =
-        ordinaryTax(ordinary, profile.year, status, deduction) +
-        longTermGainTax(gains, ordinary, profile.year, status, deduction);
-      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, profile.wageA);
+        ordinaryTax(ordinary, profile.year, status, deductionQ) +
+        longTermGainTax(gains, ordinary, profile.year, status, deductionQ);
+      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, seOn ? profile.wageA + seEarnedA : profile.wageA);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -6830,23 +6892,26 @@
       tradB = traditionalExtra * (1 - shareA),
       invA = invOrd / 2,
       invB = invOrd / 2;
+    const otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
+      otherB2 = seOn ? profile.otherB - seHB : profile.otherB;
     const taxableSSA = taxableSocialSecurity(
       profile.ssA,
-      profile.otherA + gainA + tradA + invA,
+      otherA2 + gainA + tradA + invA,
       statusA,
     );
     const taxableSSB = taxableSocialSecurity(
       profile.ssB,
-      profile.otherB + gainB + tradB + invB,
+      otherB2 + gainB + tradB + invB,
       'single',
     );
-    const ordinaryA = profile.otherA + tradA + invA + taxableSSA,
-      ordinaryB = profile.otherB + tradB + invB + taxableSSB;
+    const ordinaryA = otherA2 + tradA + invA + taxableSSA,
+      ordinaryB = otherB2 + tradB + invB + taxableSSB;
     let sourcesA = null,
       sourcesB = null;
     if (stateOn) {
       sourcesA = SOURCES_A;
       sourcesA.wages = profile.wageA + invA + extraA;
+      if (seOn) sourcesA.wages += seNetA - seHA;
       sourcesA.pension = profile.pensionA;
       sourcesA.retirement = profile.rmdA + tradA;
       sourcesA.gains = gainA;
@@ -6864,13 +6929,14 @@
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA, (profile.medicalExpense || 0) / 2);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2, sePlanNetA - seHA);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
       sourcesB = SOURCES_B;
       sourcesB.wages = profile.wageB + invB + extraB;
+      if (seOn) sourcesB.wages += seNetB - seHB;
       sourcesB.pension = profile.pensionB;
       sourcesB.retirement = profile.rmdB + tradB;
       sourcesB.gains = gainB;
@@ -6889,7 +6955,7 @@
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB, (profile.medicalExpense || 0) / 2);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2, sePlanNetB - seHB);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -6902,8 +6968,17 @@
       stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
       halfInterest = (profile.mortgageInterest || 0) / 2,
       halfMedical = (profile.medicalExpense || 0) / 2,
-      deductionA = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
-      deductionB = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
+      deductionA0 = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
+      deductionB0 = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
+    // E1c: each return's own QBI deduction, below its federal deduction (only with self-employment).
+    const deductionA =
+        seOn && sePlanNetA > 0
+          ? deductionA0 + qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinaryA + gainA - deductionA0), gainA, false, profile.year)
+          : deductionA0,
+      deductionB =
+        seOn && sePlanNetB > 0
+          ? deductionB0 + qbiDeduction(sePlanNetB - seHB, Math.max(0, ordinaryB + gainB - deductionB0), gainB, false, profile.year)
+          : deductionB0;
     // The child credits go on Partner A's return (A claims the children). Computed only when
     // there are children, and subtracted last, so the no-children sum keeps its exact order.
     let creditA = 0;
@@ -6911,7 +6986,7 @@
       const federalA =
         ordinaryTax(ordinaryA, profile.year, statusA, deductionA) +
         longTermGainTax(gainA, ordinaryA, profile.year, statusA, deductionA);
-      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, profile.wageA);
+      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, seOn ? profile.wageA + seEarnedA : profile.wageA);
       creditA = c.nonrefundable + c.refundable;
     }
     return (
@@ -7069,8 +7144,9 @@
     MAGI_ITER_TOL = 1;
   // Years that ended the MAGI iteration through the forced pass (7O follow-up F5), and years that hit the cap on a cost step with no
   // pass to force; planMissed: plan years (choose / apply) whose final realized MAGI missed the plan's target (a plan wins only
-  // when it met its line, so this guards an invariant). Counted for the phase of the year that is kept.
-  const magiStats = { forced: 0, unresolved: 0, planMissed: 0 };
+  // when it met its line, so this guards an invariant). Counted for the phase of the year that is kept. seFixed / seAlternative (E1c
+  // decisions 10 and 11): years whose kept phase held the consistent 162(l) deduction / Rev. Proc. 2014-41's alternative calculation.
+  const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
   // Cliff plan: the kept plan (null with the guard off), the state it was made for (JSON), the keep-rule table and the
@@ -7232,7 +7308,8 @@
   function returnMagis(profile, trad, gain) {
     const s = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA,
       inv = ((profile.invOrd || 0) + (profile.invQual || 0)) / 2;
-    return [profile.otherA + profile.ssA + inv + trad * s + gain / 2, profile.otherB + profile.ssB + inv + trad * (1 - s) + gain / 2];
+    // E1c: each return's MAGI is net of its own 162(l) deduction (0 for everyone else).
+    return [profile.otherA - (profile.seHealthA || 0) + profile.ssA + inv + trad * s + gain / 2, profile.otherB - (profile.seHealthB || 0) + profile.ssB + inv + trad * (1 - s) + gain / 2];
   }
   // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
   // that year, against the single tiers. Null when the lookback year was one return (household rule).
@@ -7306,11 +7383,12 @@
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
       if (joint) {
-        const other = profile.otherA + profile.otherB + conv,
+        // E1c (decision 8c): AGI is lower by the 162(l) deduction; QBI is not seen by the fill.
+        const other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
           taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
         return other + taxableSS;
       }
-      const other = profile.otherA + (profile.otherB || 0) + conv,
+      const other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
         taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
       return other + taxableSS;
     };
@@ -7877,9 +7955,26 @@
       traditionalFirst = cascade(true);
     return traditionalFirst.cost < taxableFirst.cost ? traditionalFirst : taxableFirst;
   }
+  const SS_WAGE_BASE = 184500; // 2026 Social Security wage base (SSA), indexed with taxIndexFactor
+  // E1c: self-employment tax (IRC 1401, 1402) on one person's year of self-employment profit se. Net earnings are 92.35%
+  // of profit; nothing is due under $400 of net earnings. Social Security (12.4%) stops at the wage base less that person's
+  // W-2 Social Security wages; Medicare is 2.9% of all net earnings. half (IRC 164(f)) is deducted from income; the 0.9%
+  // Additional Medicare Tax is figured in payrollTax on wages plus ne. Pure; fills out.
+  const SE_OUT = { tax: 0, half: 0, ne: 0 };
+  function selfEmploymentTax(se, ssWages, yearIndex, out) {
+    const ne = 0.9235 * se;
+    if (!(ne >= 400)) {
+      out.tax = 0; out.half = 0; out.ne = 0;
+      return out;
+    }
+    out.tax = 0.124 * Math.min(ne, Math.max(0, SS_WAGE_BASE * taxIndexFactor(yearIndex) - ssWages)) + 0.029 * ne;
+    out.half = out.tax / 2;
+    out.ne = ne;
+    return out;
+  }
   function wageFica(wages, yearIndex) {
     const f = taxIndexFactor(yearIndex);
-    return Math.min(wages, 184500 * f) * 0.062 + wages * 0.0145;
+    return Math.min(wages, SS_WAGE_BASE * f) * 0.062 + wages * 0.0145;
   }
   // Additional Medicare Tax (IRC 3101(b)(2)/1401(b)(2)): 0.9% of Medicare
   // wages above $250,000 (MFJ, combined) or $200,000 (single). The thresholds
@@ -8184,9 +8279,101 @@
   // of the limit and 100% of pay, less the deferrals; catch-ups are outside it) is filled in plan order: the match,
   // profit sharing, then the mega backdoor. Returns the dollars that go to traditional vs Roth accounts and the
   // limited employer money.
+  // E1c: the Solo 401(k) and IRA money of self-employment, after every W-2 plan (salary, W-2 streams). Pure (inputs in
+  // `p`, results in `out`; no allocation). All of one person's self-employment is one business: one compensation
+  // C = se - half the SE tax, one annual-additions room (IRC 415(c), common control), deferrals within the per-person room
+  // the W-2 plans left (402(g)). Per person: deferrals (the main income, then `self` streams in list order), profit sharing
+  // per source P_i = C_i x r / (1 + r) with the compensation limit (P = r x (C - P)), the room, after-tax money, then the
+  // IRA on W-2 pay plus C less the traditional Solo money. No Roth catch-up rule (it keys on FICA wages). Every dollar is
+  // the household's own cash. Slots: ACCOUNT_SLOTS order (IRA A, 401(k) A, IRA B, 401(k) B).
+  const SOLO_PLAN = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] },
+    NO_SOLO = { trad: [0, 0, 0, 0], roth: [0, 0, 0, 0], employeeTrad: 0, employeeRoth: 0, planCut: [0, 0], iraCut: [0, 0] },
+    SOLO_P = new Array(LIST_MAX + 1).fill(0),
+    SOLO_GOT = new Array(LIST_MAX + 1).fill(0),
+    SOLO_IN = {
+      se: [0, 0], half: [0, 0], main: [0, 0], w2Comp: [0, 0], iraLeft: [0, 0],
+      mainPct: [{ deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }],
+      list: null, rooms: null, annualAdditions: 0, compensation: 0, mainRoth: false, iraPretax: false, megaOn: false,
+    };
+  function soloPlanContributions(p, out) {
+    for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
+    out.employeeTrad = 0; out.employeeRoth = 0; out.planCut[0] = 0; out.planCut[1] = 0; out.iraCut[0] = 0; out.iraCut[1] = 0;
+    for (let o = 0; o < 2; o++) {
+      const se = p.se[o];
+      if (!(se > 0)) continue;
+      const C = Math.max(0, se - p.half[o]), m = p.mainPct[o], main = p.main[o] > 0, list = p.list, rooms = p.rooms;
+      let base = 0, cu = 0, trad = 0, roth = 0;
+      // 1. Deferrals, at most the compensation left.
+      if (main) {
+        const b = Math.min(rooms.deferral[o], C - base - cu) * pct(m.deferral);
+        rooms.deferral[o] -= b; base += b;
+        const c = Math.min(rooms.catchUp[o], C - base - cu) * pct(m.catchUp);
+        rooms.catchUp[o] -= c; cu += c;
+        if (p.mainRoth) roth += b + c; else trad += b + c;
+      }
+      for (let i = 0; i < list.n; i++) {
+        const it = list.items[i], s = it.stream;
+        if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+        const want = Math.min(rooms.deferral[o] + rooms.catchUp[o], C - base - cu) * pct(s.deferralPct),
+          b = Math.min(want, rooms.deferral[o]);
+        rooms.deferral[o] -= b; rooms.catchUp[o] -= want - b; base += b; cu += want - b;
+        if (s.deferralType === 'roth') roth += want; else trad += want;
+      }
+      // 2-3. Profit sharing per source, then the one annual-additions room (catch-ups outside it).
+      let n = 0, sumP = 0;
+      if (C > 0) {
+        if (main) {
+          const r = pct(m.profit), Ci = (C * p.main[o]) / se;
+          SOLO_P[n++] = Math.min((Ci * r) / (1 + r), (r * p.compensation * Ci) / C);
+        }
+        for (let i = 0; i < list.n; i++) {
+          const it = list.items[i], s = it.stream;
+          if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+          const r = pct(s.profitSharingPct), Ci = (C * it.pay) / se;
+          SOLO_P[n++] = Math.min((Ci * r) / (1 + r), (r * p.compensation * Ci) / C);
+        }
+      }
+      for (let k = n; k < SOLO_P.length; k++) SOLO_P[k] = 0;
+      for (let k = 0; k < n; k++) sumP += SOLO_P[k];
+      let left = allocatePlanRoom(Math.max(0, Math.min(p.annualAdditions, C - sumP) - base), SOLO_P, SOLO_GOT),
+        profit = 0;
+      for (let k = 0; k < n; k++) profit += SOLO_GOT[k];
+      trad += profit;
+      // 4. After-tax money, at most the compensation left.
+      let afterTax = 0;
+      if (main && p.megaOn) {
+        const a = Math.min(left, Math.max(0, C - profit - base - cu - afterTax)) * pct(m.afterTax);
+        left -= a; afterTax += a;
+      }
+      for (let i = 0; i < list.n; i++) {
+        const it = list.items[i], s = it.stream;
+        if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+        const a = Math.min(left, Math.max(0, C - profit - base - cu - afterTax)) * pct(s.afterTaxPct);
+        left -= a; afterTax += a;
+      }
+      roth += afterTax;
+      // 5. IRA: compensation is W-2 pay plus C less the traditional Solo money.
+      let iraRoom = Math.max(0, Math.min(p.iraLeft[o], p.w2Comp[o] + C - trad)), ira = 0;
+      if (main) { const x = iraRoom * pct(m.ira); iraRoom -= x; ira += x; }
+      for (let i = 0; i < list.n; i++) {
+        const it = list.items[i], s = it.stream;
+        if (it.owner !== o || s.kind !== 'self' || s.contribute !== true) continue;
+        const x = iraRoom * pct(s.personalPct);
+        iraRoom -= x; ira += x;
+      }
+      out.trad[o * 2 + 1] = trad;
+      out.roth[o * 2 + 1] = roth;
+      if (p.iraPretax) out.trad[o * 2] = ira; else out.roth[o * 2] = ira;
+      out.employeeTrad += trad + (p.iraPretax ? ira : 0);
+      out.employeeRoth += roth + (p.iraPretax ? 0 : ira);
+      out.planCut[o] = trad; // section 404 plan money: reduces the 162(l) cap and QBI
+      out.iraCut[o] = p.iraPretax ? ira : 0; // section 219: deducted from income only
+    }
+    return out;
+  }
   const PLAN_REQ = [0, 0],
     PLAN_GOT = [0, 0]; // allocatePlanRoom scratch: [match, profit sharing]
-  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0 }) {
+  function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0, seA = 0, seB = 0, seMainA = 0, seMainB = 0, halfA = 0, halfB = 0 }) {
     const catchupBaseA =
         age >= 60 && age <= 63
           ? PLAN_LIMITS.catchUp60to63 * limitFactor
@@ -8261,6 +8448,24 @@
     STREAM_LIMITS.compensation = compLimit;
     STREAM_LIMITS.rothCatchUpWages = rothCatchupThreshold;
     const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, state.iraType === 'traditional', STREAM_PLAN);
+    // E1c: the Solo 401(k) and IRA of self-employment, after every W-2 plan (the rooms the salary and W-2 streams left).
+    let so = NO_SOLO;
+    if (seA + seB > 0) {
+      const P = SOLO_IN;
+      P.se[0] = seA; P.se[1] = seB; P.half[0] = halfA; P.half[1] = halfB; P.main[0] = seMainA; P.main[1] = seMainB;
+      P.mainPct[0].deferral = state.k401PctA; P.mainPct[0].catchUp = state.catchupPctA; P.mainPct[0].profit = state.profitSharingPctA;
+      P.mainPct[0].afterTax = state.megaPctA; P.mainPct[0].ira = state.iraPctA;
+      P.mainPct[1].deferral = state.k401PctB; P.mainPct[1].catchUp = state.catchupPctB; P.mainPct[1].profit = state.profitSharingPctB;
+      P.mainPct[1].afterTax = state.megaPctB; P.mainPct[1].ira = state.iraPctB;
+      P.w2Comp[0] = wageA + streamWagesA - iraA - (sp.trad[0] + sp.roth[0]);
+      P.w2Comp[1] = wageB + streamWagesB - iraB - (sp.trad[2] + sp.roth[2]);
+      P.iraLeft[0] = iraLimitA - iraA - (sp.trad[0] + sp.roth[0]);
+      P.iraLeft[1] = iraLimitB - iraB - (sp.trad[2] + sp.roth[2]);
+      P.list = streamList; P.rooms = STREAM_ROOMS;
+      P.annualAdditions = annualAdditionLimit; P.compensation = compLimit;
+      P.mainRoth = state.k401Type === 'roth'; P.iraPretax = state.iraType === 'traditional'; P.megaOn = !!state.megaBackdoor;
+      so = soloPlanContributions(P, SOLO_PLAN);
+    }
     const rothContribA =
       (state.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
@@ -8271,8 +8476,14 @@
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
       (state.iraType === 'roth' ? iraB : 0) +
       megaB;
-    const rothContrib = rothContribA + rothContribB + sp.employeeRoth;
-    const traditionalContrib = traditionalContribSalary + sp.employeeTrad;
+    // The Solo terms are added after today's terms and only when the year has self-employment.
+    const soOn = so !== NO_SOLO;
+    let rothContrib = rothContribA + rothContribB + sp.employeeRoth;
+    let traditionalContrib = traditionalContribSalary + sp.employeeTrad;
+    if (soOn) {
+      rothContrib += so.employeeRoth;
+      traditionalContrib += so.employeeTrad;
+    }
     // Where each dollar lands, by account (ACCOUNT_SLOTS order: IRA A, 401(k) A,
     // IRA B, 401(k) B). Employer money (match and profit sharing) always goes to the traditional 401(k);
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
@@ -8296,10 +8507,17 @@
         (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
       ],
     };
+    if (soOn) {
+      for (let i = 0; i < 4; i++) {
+        acct.trad[i] += so.trad[i];
+        acct.roth[i] += so.roth[i];
+      }
+    }
     return {
       traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
       matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB + sp.employer,
       streamWageCutA: sp.wageCut[0], streamWageCutB: sp.wageCut[1],
+      soloPlanCutA: soOn ? so.planCut[0] : 0, soloPlanCutB: soOn ? so.planCut[1] : 0, soloIraCutA: soOn ? so.iraCut[0] : 0, soloIraCutB: soOn ? so.iraCut[1] : 0,
     };
   }
 
@@ -8559,6 +8777,8 @@
     streamOtherB = 0,
     streamWageCutA = 0,
     streamWageCutB = 0,
+    streamPremiumA = 0,
+    streamPremiumB = 0,
     ssA,
     ssB,
     age,
@@ -8576,11 +8796,29 @@
     tradShares = null,
     workingA = false,
     workingB = false,
+    seA = 0,
+    seB = 0,
+    halfA = 0,
+    halfB = 0,
+    soloPlanCutA = 0,
+    soloPlanCutB = 0,
+    soloIraCutA = 0,
+    soloIraCutB = 0,
+    seAllowA = false,
+    seAllowB = false,
   }) {
-    const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA),
-      profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB);
-    const otherA = profileWageA + pensionA + rmdA + streamOtherA,
-      otherB = profileWageB + pensionB + rmdB + streamOtherB;
+    const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
+      profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
+    // E1c: self-employment net of half the SE tax and the deductible Solo 401(k) and traditional IRA money (seNet: in
+    // other, so AGI and MAGI, and in the state's wages); sePlanNet is net of the plan money only (IRC 401(c)(2) earned
+    // income: the 162(l) cap, and the QBI base, Treas. Reg. 1.199A-3(b)(1)(vi); an IRA deduction reduces neither);
+    // seEarned (net of half the SE tax only) is earned income for the ACTC.
+    const sePlanNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA) : 0,
+      sePlanNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB) : 0,
+      seNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA - soloIraCutA) : 0,
+      seNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB - soloIraCutB) : 0;
+    const otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
+      otherB = profileWageB + pensionB + rmdB + streamOtherB + seNetB;
     // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
     // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
     // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
@@ -8629,6 +8867,18 @@
             k401FracB: 0,
             mortgageInterest,
             year,
+            seOn: seA > 0 || seB > 0,
+            seNetA: seNetB,
+            seNetB: 0,
+            sePlanNetA: sePlanNetB,
+            sePlanNetB: 0,
+            seEarnedA: seB > 0 ? seB - halfB : 0,
+            seEarnedB: 0,
+            // E1c: the 162(l) permission follows the survivor; the deduction itself is set every MAGI pass.
+            seAllowA: seAllowB,
+            seAllowB: false,
+            seHealthA: 0,
+            seHealthB: 0,
             // Children stay with the surviving parent.
             dependents: dependentsInYear(taxYearOf(year)),
           }
@@ -8661,6 +8911,18 @@
             mortgageInterest,
             year,
             dependents: dependentsInYear(taxYearOf(year)),
+            seOn: seA > 0 || seB > 0,
+            seNetA,
+            seNetB,
+            sePlanNetA,
+            sePlanNetB,
+            seEarnedA: seA > 0 ? seA - halfA : 0,
+            seEarnedB: seB > 0 ? seB - halfB : 0,
+            // E1c: may each person take the 162(l) deduction this year; the deduction itself is set every MAGI pass.
+            seAllowA,
+            seAllowB,
+            seHealthA: 0,
+            seHealthB: 0,
           };
     return { otherA, otherB, profile };
   }
@@ -8711,14 +8973,19 @@
           : inflate(eligibleA ? total / 2 : 0) + inflate(eligibleB ? total / 2 : 0);
     let usesMagiEstimate = false;
     let healthcare;
+    // E1c: each person's own part of the premiums on two returns (the 162(l) deduction's base); 0 on one return.
+    let premA = 0,
+      premB = 0;
     if (state.acaEnabled && (acaEligibleA || acaEligibleB)) {
       if (twoReturns) {
         // Two tax households: A's includes the children A claims; each partner's half of the premium is
         // priced on their own MAGI and poverty line.
         const kids = qualifyingChildCount(taxYearOf(year));
-        healthcare =
-          acaNetCost(magiA, 1 + kids, inflate(acaEligibleA ? state.healthcare / 2 : 0), year) +
-          acaNetCost(magiB, 1, inflate(acaEligibleB ? state.healthcare / 2 : 0), year);
+        const ca = acaNetCost(magiA, 1 + kids, inflate(acaEligibleA ? state.healthcare / 2 : 0), year),
+          cb = acaNetCost(magiB, 1, inflate(acaEligibleB ? state.healthcare / 2 : 0), year);
+        healthcare = ca + cb;
+        premA = ca;
+        premB = cb;
       } else {
         const householdSize = acaHouseholdSize(singlePerson, isSurvivorPeriod, year);
         const grossPremium = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
@@ -8730,25 +8997,50 @@
       // modeling off, or both partners past 65) stops for a partner at 65;
       // Medicare below is what covers them from then on.
       healthcare = sharedCost(state.healthcare, acaEligibleA, acaEligibleB);
+      if (twoReturns) {
+        premA = inflate(acaEligibleA ? state.healthcare / 2 : 0);
+        premB = inflate(acaEligibleB ? state.healthcare / 2 : 0);
+      }
     }
-    // Medicare starts at max(65, retirement age): a partner still working at 65
+    // Medicare starts at 65 for a partner without employer coverage (workingX here is employer coverage: a W-2 job still
+    // worked, or a W-2 stream with a premium): a partner still working at 65
     // is assumed to stay on the employer plan (no late-enrollment penalty,
     // which is not modeled) and to enroll the year they stop working.
     const medicareEligibleA = age >= 65 && !workingA && !(isSurvivorPeriod && deceasedIsA),
       medicareEligibleB =
         !singlePerson && ageB >= 65 && !workingB && !(isSurvivorPeriod && deceasedIsB);
     healthcare += sharedCost(state.medicareYearly, medicareEligibleA, medicareEligibleB);
+    if (twoReturns) {
+      premA += inflate(medicareEligibleA ? state.medicareYearly / 2 : 0);
+      premB += inflate(medicareEligibleB ? state.medicareYearly / 2 : 0);
+    }
     // IRMAA applies only to partners actually on Medicare (see above), using
     // the two-year lookback of Medicare's MAGI (irmaaHistory: only the taxable part of Social Security).
     // A lookback year with two returns charges each person on their own MAGI against the single tiers.
     const split = twoReturnHistory ? irmaaLookbackSplit(irmaaHistoryA, irmaaHistoryB, twoReturnHistory, year) : null;
     if (split) {
-      if (medicareEligibleA) healthcare += irmaaSurcharge(split[0], 'single', year);
-      if (medicareEligibleB) healthcare += irmaaSurcharge(split[1], 'single', year);
+      if (medicareEligibleA) {
+        const ia = irmaaSurcharge(split[0], 'single', year);
+        healthcare += ia;
+        if (twoReturns) premA += ia;
+      }
+      if (medicareEligibleB) {
+        const ib = irmaaSurcharge(split[1], 'single', year);
+        healthcare += ib;
+        if (twoReturns) premB += ib;
+      }
     } else {
       const lookbackMagi = irmaaLookbackMagi(irmaaHistory, year);
-      if (medicareEligibleA) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
-      if (medicareEligibleB) healthcare += irmaaSurcharge(lookbackMagi, filing, year);
+      if (medicareEligibleA) {
+        const ia = irmaaSurcharge(lookbackMagi, filing, year);
+        healthcare += ia;
+        if (twoReturns) premA += ia;
+      }
+      if (medicareEligibleB) {
+        const ib = irmaaSurcharge(lookbackMagi, filing, year);
+        healthcare += ib;
+        if (twoReturns) premB += ib;
+      }
     }
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
@@ -8758,7 +9050,29 @@
           : 0) *
           factor * medicalGrowth(year)
       : 0;
-    return { healthcare, ltc, usesMagiEstimate };
+    return { healthcare, ltc, usesMagiEstimate, premA, premB };
+  }
+
+  // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
+  // the credit, the flat premium, Medicare and IRMAA; all of it is insurance for the household). A person may deduct it
+  // only in a year without employer coverage of their own or through a spouse (profile.seAllowX), up to their net
+  // self-employment earned income (sePlanNetX: profit less half the SE tax and the Solo 401(k) plan money, IRC 401(c)(2);
+  // a traditional IRA does not reduce it). One return: the
+  // household's premiums, up to both caps (either spouse may claim the family's). Two returns: each person's own part
+  // (premA includes the children). Pure; fills `out`.
+  const SE_HEALTH = [0, 0];
+  function seHealthDeduction(healthcare, premA, premB, twoReturns, profile, out) {
+    const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0,
+      capB = profile.seAllowB ? profile.sePlanNetB || 0 : 0;
+    if (twoReturns) {
+      out[0] = Math.min(premA, capA);
+      out[1] = Math.min(premB, capB);
+    } else {
+      const total = Math.min(healthcare, capA + capB);
+      out[0] = Math.min(total, capA);
+      out[1] = total - out[0];
+    }
+    return out;
   }
 
   // @@shared:nextGuardrailMultiplier begin
@@ -8890,13 +9204,15 @@
   // Employee-side payroll tax on this year's wages (Social Security + Medicare
   // per partner, wages net of pre-tax health premiums) plus the 0.9% Additional
   // Medicare Tax. Separate from taxFor(), which covers income tax.
-  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0 }) {
-    const taxableWagesA = Math.max(0, wageA - healthPremiumA) + streamWagesA,
-      taxableWagesB = Math.max(0, wageB - healthPremiumB) + streamWagesB;
+  function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0, streamPremiumA = 0, streamPremiumB = 0, seTaxA = 0, seTaxB = 0, seNeA = 0, seNeB = 0 }) {
+    const taxableWagesA = Math.max(0, wageA - healthPremiumA) + Math.max(0, streamWagesA - streamPremiumA),
+      taxableWagesB = Math.max(0, wageB - healthPremiumB) + Math.max(0, streamWagesB - streamPremiumB);
     return (
       wageFica(taxableWagesA, year) +
       wageFica(taxableWagesB, year) +
-      additionalMedicareTax(taxableWagesA, taxableWagesB, filing)
+      seTaxA +
+      seTaxB +
+      additionalMedicareTax(taxableWagesA + seNeA, taxableWagesB + seNeB, filing)
     );
   }
 
@@ -9086,7 +9402,7 @@
   // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (on
   // Medicare's MAGI, irmaaMagiOf: only the taxable part of Social Security; per person on two returns) over a step
   // of 10% of that income (at least $1,000), under this year's tax law and indexing.
-  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS };
+  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
   function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0 }) {
     const real = (1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1,
       endYear = singlePerson ? state.lifeExpectancyA - state.ageA : Math.max(state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
@@ -9789,11 +10105,12 @@
   // dead; income that is not earned moves to the survivor. `total` is one running sum in list order (the old
   // extraIncome expression, bit for bit). Contributing W-2 streams are listed for streamPlanContributions (E1b 5.4).
   const STREAM_OUT = {
-    total: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0,
+    total: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, selfA: 0, selfB: 0, premiumA: 0, premiumB: 0, coverA: false, coverB: false,
     contrib: { n: 0, items: Array.from({ length: LIST_MAX }, () => ({ owner: 0, pay: 0, stream: null })) },
   };
   function streamAmountsForYear(streams, ctx, out) {
     out.total = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0; out.contrib.n = 0;
+    out.selfA = 0; out.selfB = 0; out.premiumA = 0; out.premiumB = 0; out.coverA = false; out.coverB = false;
     for (let i = 0; i < streams.length; i++) {
       const s = streams[i],
         b = !ctx.single && s.owner === 'B',
@@ -9801,9 +10118,17 @@
       if (!(age >= s.startAge && age <= s.endAge)) continue;
       const amount = s.amount * itemGrowthFactor(s, ctx.year, 'income', ctx.factor, ctx.incomeFactor),
         dead = b ? ctx.deadB : ctx.deadA;
-      if (s.kind === 'wages') {
+      if (s.kind === 'wages' || s.kind === 'self') {
         if (dead) continue;
-        if (b) out.wagesB += amount; else out.wagesA += amount;
+        if (s.kind === 'wages') {
+          if (b) out.wagesB += amount; else out.wagesA += amount;
+          // E1c: a W-2 stream with a health premium is its owner's employer coverage; the premium is pre-tax pay.
+          if (s.healthPremium > 0) {
+            const premium = s.healthPremium * ctx.premiumFactor;
+            if (b) { out.premiumB += premium; out.coverB = true; } else { out.premiumA += premium; out.coverA = true; }
+          }
+        } else if (b) out.selfB += amount;
+        else out.selfA += amount;
         if (s.contribute === true) {
           const it = out.contrib.items[out.contrib.n++];
           it.owner = b ? 1 : 0; it.pay = amount; it.stream = s;
@@ -9814,10 +10139,12 @@
     }
     return out;
   }
-  const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1 };
+  const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1, premiumFactor: 1 };
   function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
     STREAM_CTX.single = single; STREAM_CTX.year = year; STREAM_CTX.factor = factor; STREAM_CTX.incomeFactor = incomeFactor;
+    // (the premium's growth factor is a Math.pow: only worth computing when there is a stream to carry a premium)
+    STREAM_CTX.premiumFactor = state.incomeSources.length ? factor * medicalGrowth(year) : 1;
     const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
       extraIncome = streams.total;
     const oneTimeAmount = state.oneTimeIncome
@@ -9831,6 +10158,22 @@
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
     return { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense };
   }
+
+  // E1c: which partners a W-2 stream with a health premium covers at the ages in ctx (bit 1: A, bit 2: B); the IRMAA
+  // lookback asks it about the year two ahead. Same owner and window rules as streamAmountsForYear.
+  function streamCoverBits(streams, ctx) {
+    let bits = 0;
+    for (let i = 0; i < streams.length; i++) {
+      const s = streams[i];
+      if (s.kind !== 'wages' || !(s.healthPremium > 0)) continue;
+      const b = !ctx.single && s.owner === 'B',
+        age = b ? ctx.ageB : ctx.ageA;
+      if (!(age >= s.startAge && age <= s.endAge) || (b ? ctx.deadB : ctx.deadA)) continue;
+      bits |= b ? 2 : 1;
+    }
+    return bits;
+  }
+  const COVER_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false };
 
   // @@shared:11-makeProjectedExpense begin
   // Projected total living expense for a future year in nominal dollars at the plan's
@@ -10029,6 +10372,8 @@
     // the estimate matches this year's realized amounts, so ACA/IRMAA MAGI
     // reflects this year's own withdrawals, not last year's.
     let prevDiscTraditional = 0,
+      prevSeHealthA = 0,
+      prevSeHealthB = 0,
       prevTaxableGainGross = 0;
     // Guyton-Klinger guardrails (simplified, opt-in): once the first
     // portfolio withdrawal occurs, that year's draw as a fraction of the
@@ -10084,23 +10429,45 @@
         working = workingA || workingB,
         isSurvivorPeriod = year >= deathYear;
       const incomeFactor = Math.pow(1 + wageGrowth, year);
-      const wageA = workingA ? state.incomeA * incomeFactor : 0,
-        wageB = workingB ? state.incomeB * incomeFactor : 0;
+      // E1c: a self-employed partner's main income is business profit, not wages.
+      const seMainA = workingA && state.incomeKindA === 'self' ? state.incomeA * incomeFactor : 0,
+        seMainB = workingB && state.incomeKindB === 'self' ? state.incomeB * incomeFactor : 0;
+      const wageA = workingA && state.incomeKindA !== 'self' ? state.incomeA * incomeFactor : 0,
+        wageB = workingB && state.incomeKindB !== 'self' ? state.incomeB * incomeFactor : 0;
       const { extraIncome, streams, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({
         age, ageB, year, factor, incomeFactor, single: singlePerson,
         deadA: deceasedIsA && year >= deathYear, deadB: deceasedIsB && year >= deathYear,
       });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      const healthPremiumA = workingA && state.incomeKindA !== 'self' ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
+        healthPremiumB = !singlePerson && workingB && state.incomeKindB !== 'self' ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      // E1c: self-employment profit per person (main income plus self streams), SE tax, its deductible half and the net
+      // earnings that carry the Additional Medicare Tax. Social Security wages (net of the premium) use up the wage base.
+      const seA = seMainA + streams.selfA,
+        seB = seMainB + streams.selfB;
+      let seTaxA = 0, halfA = 0, seNeA = 0, seTaxB = 0, halfB = 0, seNeB = 0;
+      if (seA > 0) {
+        selfEmploymentTax(seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, streams.wagesA - streams.premiumA), year, SE_OUT);
+        seTaxA = SE_OUT.tax; halfA = SE_OUT.half; seNeA = SE_OUT.ne;
+      }
+      if (seB > 0) {
+        selfEmploymentTax(seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, streams.wagesB - streams.premiumB), year, SE_OUT);
+        seTaxB = SE_OUT.tax; halfB = SE_OUT.half; seNeB = SE_OUT.ne;
+      }
+      // E1c: employer health coverage this year: a W-2 main job while working, or a W-2 stream with a premium. It replaces
+      // "working" in every health-insurance rule (marketplace eligibility, Medicare, IRMAA); `workingX` keeps its meaning
+      // for pay, contributions and account statuses.
+      const employerA = (workingA && state.incomeKindA !== 'self') || streams.coverA,
+        employerB = (workingB && state.incomeKindB !== 'self') || streams.coverB;
       const wages =
-        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
+        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB + seMainA + seMainB;
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
-        employerContrib: employerMatch, streamWageCutA, streamWageCutB,
+        employerContrib: employerMatch, streamWageCutA, streamWageCutB, soloPlanCutA, soloPlanCutB, soloIraCutA, soloIraCutB,
       } = retirementContributions({
         wageA, wageB, age, ageB, singlePerson, limitFactor,
         streamList: streams.contrib, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB,
+        seA, seB, seMainA, seMainB, halfA, halfB,
       });
       const { ssA, ssB, ss } =
         socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
@@ -10127,6 +10494,11 @@
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
       const { filing } = filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear });
+      // E1c: 162(l) is barred in a year the person has employer coverage, or could join a spouse's employer plan (an
+      // unticked box means no affordable offer; an unmarried partner's employer never bars it).
+      const jointYear = filingRow(filing).joint && !singlePerson && !isSurvivorPeriod,
+        seAllowA = seA > 0 && !employerA && !(jointYear && employerB && state.employerCoversSpouseB),
+        seAllowB = seB > 0 && !employerB && !(jointYear && employerA && state.employerCoversSpouseA);
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
       const inv = investmentIncome(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
@@ -10147,6 +10519,8 @@
         streamOtherB: streams.otherB,
         streamWageCutA,
         streamWageCutB,
+        streamPremiumA: streams.premiumA,
+        streamPremiumB: streams.premiumB,
         ssA,
         ssB,
         age,
@@ -10164,6 +10538,16 @@
         tradShares: accts.trad,
         workingA,
         workingB,
+        seA,
+        seB,
+        halfA,
+        halfB,
+        soloPlanCutA,
+        soloPlanCutB,
+        soloIraCutA,
+        soloIraCutB,
+        seAllowA,
+        seAllowB,
       });
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
@@ -10171,21 +10555,34 @@
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
         ageB,
-        workingA,
-        workingB,
+        workingA: employerA,
+        workingB: employerB,
         singlePerson,
         isSurvivorPeriod,
         deceasedIsA,
         deceasedIsB,
       });
-      const magiBase = otherA + otherB + ss + inv.ordinary + inv.qualified;
+      const magiBase0 = otherA + otherB + ss + inv.ordinary + inv.qualified;
+      // The pass's MAGI base: magiBase0 less the pass's 162(l) estimate (E1c; set at the top of each pass).
+      let magiBase = magiBase0;
+      // E1c: false when this year has no self-employment and no deduction carried in from last year: every 162(l) term below is
+      // then an exact zero and is skipped, not added (a household without self-employment pays one test per pass).
+      const seLive = profile.seOn === true || prevSeHealthA !== 0 || prevSeHealthB !== 0;
       // MAGI iteration: estTrad/estGain are the discretionary traditional
       // withdrawals / taxable gains assumed when sizing ACA, IRMAA-tier and
       // conversion headroom; estUsed records whether this year's result
       // depended on them at all (no ACA premium, no finite MAGI ceiling), in
-      // which case a single pass is already exact.
+      // which case a single pass is already exact. estSeA/estSeB are the
+      // self-employed health insurance deductions (E1c) the pass's MAGI
+      // assumes; they converge with the other two. If the iteration does not
+      // converge in a year with a deduction allowed, the year holds the consistent
+      // deduction when one exists (decision 10, a bisection), else switches to
+      // Rev. Proc. 2014-41's alternative calculation (seHeld, decision 9): the
+      // deduction is computed once and held, and only the draws iterate on.
       let estTrad = prevDiscTraditional,
         estGain = prevTaxableGainGross,
+        estSeA = prevSeHealthA,
+        estSeB = prevSeHealthB,
         estUsed = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
@@ -10197,6 +10594,8 @@
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
         let forcedPass = false;
+        let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
+        let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
         // state lives here, outside the MAGI restore.
         // - natural: no plan (exactly the `off` year), iterated until it converges or ends in its forced pass;
@@ -10223,6 +10622,12 @@
           trialRecs = null,
           planTr = null;
         const ownerShareA0 = profile.ownerShareA;
+        let cover2 = 0;
+        if (state.incomeSources.length > 0) {
+          COVER_CTX.ageA = age + 2; COVER_CTX.ageB = singlePerson ? null : ageB + 2; COVER_CTX.single = singlePerson;
+          COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
+          cover2 = streamCoverBits(state.incomeSources, COVER_CTX);
+        }
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
@@ -10232,6 +10637,9 @@
             accountsRestore(accts, acctSnapshot);
           }
           profile.ownerShareA = ownerShareA0;
+          profile.seHealthA = estSeA;
+          profile.seHealthB = estSeB;
+          magiBase = seLive ? magiBase0 - estSeA - estSeB : magiBase0;
           phasePass++;
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
@@ -10258,8 +10666,8 @@
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
-          workingA,
-          workingB,
+          workingA: employerA,
+          workingB: employerB,
           age,
           ageB,
           preConvMagi,
@@ -10286,8 +10694,8 @@
           isSurvivorPeriod,
           deceasedIsA,
           deceasedIsB,
-          workingA,
-          workingB,
+          workingA: employerA,
+          workingB: employerB,
           factor,
           year,
           age,
@@ -10302,12 +10710,27 @@
           irmaaHistoryB: irmaaMagiHistoryB,
           twoReturnHistory,
         };
-        // The cost at another (discretionary traditional + conversion, gains) pair: the forced pass prices
-        // the realized one, and 3C's solver prices its candidates.
-        const costAt = (trad, gain) => {
-          hcArgs.magiProxy = magiBase + trad + gain;
-          if (twoReturns) [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
-          const c = healthcareCost(hcArgs).healthcare;
+        // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
+        // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
+        let lastCost = null;
+        // E1c decisions 9, 10 and 12: the search for the deduction to hold (below the convergence test), built on first use in this pass, so a
+        // pass that never searches allocates nothing. Results in seFixA / seFixB / seNeedAlt.
+        let seSearch = null,
+          seFixA = 0,
+          seFixB = 0,
+          seNeedAlt = false;
+        const costAt = (trad, gain, sa = estSeA, sb = estSeB) => {
+          hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
+          if (twoReturns) {
+            const ra = profile.seHealthA, rb = profile.seHealthB;
+            profile.seHealthA = sa;
+            profile.seHealthB = sb;
+            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
+            profile.seHealthA = ra;
+            profile.seHealthB = rb;
+          }
+          lastCost = healthcareCost(hcArgs);
+          const c = lastCost.healthcare;
           hcArgs.magiProxy = magiProxy;
           hcArgs.magiA = magiA;
           hcArgs.magiB = magiB;
@@ -10322,8 +10745,8 @@
         // year's filing status is looked up only when a solver asks for it.
         const year2 = year + 2,
           survivor2 = year2 >= deathYear,
-          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && age + 2 >= retireAgeA,
-          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && ageB + 2 >= retireAgeB;
+          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((state.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
+          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((state.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
         let filing2 = null;
         const irmaaFiling2 = () =>
           filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
@@ -10332,7 +10755,13 @@
         const irmaaAt = (trad, gain) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
+            // E1c: priced on the pass's 162(l) estimate, as costAt.
+            const ra = profile.seHealthA, rb = profile.seHealthB;
+            profile.seHealthA = estSeA;
+            profile.seHealthB = estSeB;
             const [ma, mb] = returnMagis(profile, trad, gain);
+            profile.seHealthA = ra;
+            profile.seHealthB = rb;
             return (
               (medA ? irmaaSurcharge(irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
@@ -10392,10 +10821,27 @@
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
         if (usesMagiEstimate) estUsed = true;
-        // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself.
-        // Set every pass: it follows the premium, which follows this pass's MAGI estimate.
-        profile.medicalExpense = healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB });
+        // E1c: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at the convergence test.
+        // Once the year has switched to a held deduction (seHeld, below the convergence test: the consistent one, else Rev. Proc. 2014-41's alternative calculation) the
+        // deduction is held at the estimate it computed, so the realized pair is the held pair and only the draws iterate.
+        let seRealA = 0,
+          seRealB = 0;
+        if (seHeld) {
+          seRealA = estSeA;
+          seRealB = estSeB;
+        } else if (profile.seAllowA || profile.seAllowB) {
+          seHealthDeduction(healthcare, hcOut.premA, hcOut.premB, twoReturns, profile, SE_HEALTH);
+          seRealA = SE_HEALTH[0];
+          seRealB = SE_HEALTH[1];
+        }
+        profile.seHealthA = seRealA;
+        profile.seHealthB = seRealB;
+        // The pass's MAGI used estSeA/estSeB: the convergence test must check them.
+        if (seLive && (estSeA !== 0 || estSeB !== 0 || seRealA !== 0 || seRealB !== 0)) estUsed = true;
+        // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself, less the
+        // premiums deducted under 162(l). Set every pass: it follows the premium, which follows this pass's MAGI estimate.
+        profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
+        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
@@ -10506,18 +10952,110 @@
         const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
         const resolvedMixCandidate = wd.mixCandidate;
         const realizedTrad = traditionalGross - conversionAmount;
-        const unconverged =
-          estUsed && Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) > MAGI_ITER_TOL;
+        const drift = Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain);
+        const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB) });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
           const w = phasePass >= 3 ? 0.5 : 1;
           estTrad += w * (realizedTrad - estTrad);
           estGain += w * (taxableGainGross - estGain);
+          estSeA += w * (seRealA - estSeA);
+          estSeB += w * (seRealB - estSeB);
           continue;
+        }
+        // E1c decisions 9, 10 and 12: the 162(l) search is needed by an unconverged year that has not switched (a held year is not
+        // re-checked). It runs at the draws it is handed (this pass's).
+        if ((profile.seAllowA || profile.seAllowB) && !forcedPass && !replaying && seSearch === null && !seHeld && unconverged) {
+          seSearch = (trad, gain) => {
+            // Step 1 of either method (Rev. Proc. 2014-41 section 5): the deduction at the full premiums (priced at a MAGI above
+            // every line). Nothing to hold at a $0 deduction (the Solo plan took the whole net, no premium, no cap): the year
+            // goes on as it did before the switch existed.
+            costAt(trad, gain, -1e12, -1e12);
+            seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+            const d1A = SE_HEALTH[0],
+              d1B = SE_HEALTH[1];
+            seFixA = 0;
+            seFixB = 0;
+            seNeedAlt = false;
+            if (!(d1A + d1B > 0)) return false;
+            // Decision 10: first the consistent deduction (D equal to the deduction the premium at D's MAGI allows, within $1), holding
+            // these draws: the iterative method's own answer where it converges, and "another method that produces amounts that
+            // satisfy applicable tax law" (section 5.01). The deduction the premium allows falls as D rises (D lowers the MAGI), so
+            // g(D) = allowed(D) - D is decreasing and a bisection on [0, step-1 deduction] finds the one crossing. One return: one
+            // search on the total (seHealthDeduction splits it, A first). Two returns: one per return (a return's premium reads only
+            // its own MAGI). Where g is not monotone (below 100% of the poverty line in a non-expansion state, or with
+            // medicaidWhenEligible off, the premium rises as MAGI falls) the search may miss a consistent answer and the part takes the
+            // alternative calculation: legal either way. A part with no consistent answer takes section 5.02's steps 2-3: the deduction
+            // at the premium after the credit the step-1 MAGIs allow.
+            const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0;
+            let okA = false,
+              okB = false;
+            // The deduction the premium at the MAGI of the pair (sa, sb) allows: the total on one return (slot -1), else a return's slot.
+            const allowedAt = (sa, sb, slot) => {
+              costAt(trad, gain, sa, sb);
+              seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+              return slot < 0 ? SE_HEALTH[0] + SE_HEALTH[1] : SE_HEALTH[slot];
+            };
+            // The crossing of g on [0, top] (g(0) >= 0, g decreasing): the left end of the final bracket, or -1 when it is not within $1.
+            const rootOf = (top, slot, otherSe) => {
+              const probe = (d) => (slot < 0 ? allowedAt(Math.min(d, capA), d - Math.min(d, capA), -1) : slot === 0 ? allowedAt(d, otherSe, 0) : allowedAt(otherSe, d, 1)) - d;
+              if (!(top > 0)) return 0;
+              if (probe(top) >= 0) return top;
+              let lo = 0,
+                hi = top;
+              for (let i = 0; i < 60 && hi - lo > 0.01; i++) {
+                const mid = (lo + hi) / 2;
+                if (probe(mid) >= 0) lo = mid;
+                else hi = mid;
+              }
+              return probe(lo) <= 1 ? lo : -1;
+            };
+            if (!twoReturns) {
+              const t = rootOf(d1A + d1B, -1, 0);
+              if (t >= 0) {
+                seFixA = Math.min(t, capA);
+                seFixB = t - seFixA;
+                okA = okB = true;
+              } else seNeedAlt = true;
+            } else {
+              const ra = rootOf(d1A, 0, d1B),
+                rb = rootOf(d1B, 1, d1A);
+              okA = ra >= 0;
+              okB = rb >= 0;
+              if (okA) seFixA = ra;
+              if (okB) seFixB = rb;
+              seNeedAlt = !okA || !okB;
+            }
+            if (seNeedAlt) {
+              costAt(trad, gain, d1A, d1B);
+              seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+              if (!okA) seFixA = SE_HEALTH[0];
+              if (!okB) seFixB = SE_HEALTH[1];
+            }
+            return true;
+          };
+        }
+        if (unconverged && !forcedPass && !replaying && !seHeld && (profile.seAllowA || profile.seAllowB)) {
+          // E1c decisions 9, 10 and 12 (Rev. Proc. 2014-41 section 5): the damped iteration did not come within $1. Hold the consistent
+          // deduction if there is one, else the alternative calculation's (seSearch); the year re-runs with it held, so the premium
+          // charged is the one the recorded MAGI allows. Nothing is held at a $0 step-1 deduction: the pass falls through to the
+          // forced pass below as it did before the switch (the step-1 costAt left lastCost changed; every reader of lastCost
+          // below calls costAt first).
+          if (seSearch(traditionalGross, taxableGainGross)) {
+            estSeA = seFixA;
+            estSeB = seFixB;
+            seKind = seNeedAlt ? 2 : 1;
+            estTrad = realizedTrad;
+            estGain = taxableGainGross;
+            seHeld = true;
+            passLog.length = 0;
+            phasePass = -1;
+            continue;
+          }
         }
         if (unconverged && !forcedPass && !replaying && usesMagiEstimate) {
           // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
@@ -10529,6 +11067,8 @@
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;
+            estSeA = pick.estSeA;
+            estSeB = pick.estSeB;
             forcedPass = true;
             continue;
           }
@@ -10537,14 +11077,29 @@
           const last = passLog[passLog.length - 1];
           if (last && Math.abs(last.charged - last.realized) > 5) phaseUnresolved = true;
         }
+        // A held deduction is not re-checked at the final draws (decision 12). It was priced on the draws of the pass that failed to
+        // converge, and the year then re-ran with draws that respond to it; a second search there (decision 11) could flip across the
+        // 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst $12,829), which the law forbids. The hold
+        // stays: where the draws move afterwards it can be understated (legal, conservative), never above the premium paid in the
+        // grid (tests/se_health.js, invariant grid). The exact settlement at the final draws is Batch 5's.
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
-          // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds.
-          const realizedCost = costAt(traditionalGross, taxableGainGross),
+          // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
+          // deduction, below, is not re-priced at all).
+          const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
           expenses -= refund;
-          profile.medicalExpense = healthcare + ltc;
+          // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above), unless the
+          // year holds its deduction (seHeld): its deduction is held, and only a trad/gain step is forced here.
+          if (!seHeld && (profile.seAllowA || profile.seAllowB)) {
+            seHealthDeduction(healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+            seRealA = SE_HEALTH[0];
+            seRealB = SE_HEALTH[1];
+            profile.seHealthA = seRealA;
+            profile.seHealthB = seRealB;
+          }
+          profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
           const taxAfter = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           bal.cash += refund + (totalTax - taxAfter);
           totalTax = taxAfter;
@@ -10557,7 +11112,8 @@
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
-        const realizedMagi = magiBase + traditionalGross + taxableGainGross;
+        // E1c: net of the realized 162(l) deduction (also after a forced pass).
+        const realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
         // Phased year, at the end of a phase (see the phase notes above the loop).
         if (phased && !replaying) {
           let next = -1;
@@ -10573,7 +11129,7 @@
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA, workingB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
+                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
@@ -10596,7 +11152,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -10606,7 +11162,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -10627,6 +11183,10 @@
               yearPlan = NO_PLAN;
               estTrad = naturalRec.estTrad;
               estGain = naturalRec.estGain;
+              estSeA = naturalRec.estSeA;
+              estSeB = naturalRec.estSeB;
+              seHeld = naturalRec.seHeld;
+              seKind = naturalRec.seKind;
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
               replaying = true;
@@ -10639,7 +11199,7 @@
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -10655,6 +11215,10 @@
                 yearPlan = best.plan;
                 estTrad = best.estTrad;
                 estGain = best.estGain;
+                estSeA = best.estSeA;
+                estSeB = best.estSeB;
+                seHeld = best.seHeld;
+                seKind = best.seKind;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
                 replaying = true;
@@ -10668,6 +11232,10 @@
             yearPlan = trials[next];
             estTrad = naturalRec.realizedTrad;
             estGain = naturalRec.gain;
+            estSeA = naturalRec.seA;
+            estSeB = naturalRec.seB;
+            seHeld = false;
+            seKind = 0;
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;
@@ -10678,9 +11246,13 @@
         // The kept phase's statistics only.
         if (forcedPass && flow < 0) magiStats.forced++;
         if (phaseUnresolved) magiStats.unresolved++;
+        if (seKind === 1) magiStats.seFixed++;
+        else if (seKind === 2) magiStats.seAlternative++;
         // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be.
         prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
         prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;
+        prevSeHealthA = naturalRec ? naturalRec.seA : seRealA;
+        prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;
         if (phased && planTr) {
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
           planTr.intent = (intents && intents[age]) || null;
@@ -10768,6 +11340,8 @@
             conversionAmount,
             profile: { ...profile },
             ficaTax,
+            medA,
+            medB,
             rothBasis: rothAccts.map((L) => L.basis),
             rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
           });
@@ -14078,14 +14652,15 @@
       fresh: () => ({
         amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth,
         owner: 'A', kind: 'other', contribute: false, deferralType: 'traditional',
-        deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0,
+        deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0,
       }),
       fields: [
         { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: () => !state.singlePerson },
         {
-          key: 'kind', kind: 'select', label: 'Kind', options: [['other', 'Not earned'], ['wages', 'W-2 wages']],
-          tip: "W-2 wages: pay from an employer. It pays Social Security and Medicare tax (sharing the owner's wage base with their salary), counts as earned income for the child tax credit, is taxed on the owner's return, and can fund the owner's 401(k) and IRA (tick Contribute to retirement accounts). It does not change Medicare or ACA eligibility or the main job's contributions. It stops in the owner's death year. Not earned (rent, an annuity, alimony): no payroll tax; it continues to the survivor.",
+          key: 'kind', kind: 'select', label: 'Kind', options: [['other', 'Not earned'], ['wages', 'W-2 wages'], ['self', 'Self-employment']],
+          tip: "W-2 wages: pay from an employer. It pays Social Security and Medicare tax (sharing the owner's wage base with their salary), counts as earned income for the child tax credit, is taxed on the owner's return, and can fund the owner's 401(k) and IRA (tick Contribute to retirement accounts). It does not change the main job's contributions; with a health premium entered, this job is the owner's health coverage (no marketplace, and Medicare waits until it ends). It stops in the owner's death year. Self-employment: business profit; it pays self-employment tax, can fund the owner's Solo 401(k) (shared with a self-employed main income) and IRA, and stops in the owner's death year. Not earned (rent, an annuity, alimony): no payroll tax; it continues to the survivor.",
         },
+        { key: 'healthPremium', kind: 'money', label: 'Health premium', short: "Yearly; this job's plan", step: 100, showIf: (it) => it.kind === 'wages', tip: "What you pay for this job's health plan each year, before tax. Above zero means this job covers its owner (and the other partner, if the owner's employer-plan box is checked): no marketplace while it runs." },
         {
           key: 'amount',
           kind: 'money',
@@ -14097,10 +14672,10 @@
         { key: 'startAge', kind: 'num', label: 'Starts at age', short: "Owner's age", min: 18, max: 100, step: 1 },
         { key: 'endAge', kind: 'num', label: 'Ends at age', short: "Owner's age; last year received", min: 18, max: 100, step: 1 },
         ...DYN_GROWTH_FIELDS('income'),
-        { key: 'contribute', kind: 'check', label: 'Contribute to retirement accounts', short: "From this job's pay", showIf: (it) => it.kind === 'wages' },
-        { key: 'deferralType', kind: 'select', label: '401(k) type', options: [['traditional', 'Traditional'], ['roth', 'Roth']], showIf: (it) => it.kind === 'wages' && it.contribute },
+        { key: 'contribute', kind: 'check', label: 'Contribute to retirement accounts', short: "From this job's pay", showIf: (it) => it.kind === 'wages' || it.kind === 'self' },
+        { key: 'deferralType', kind: 'select', label: '401(k) type', options: [['traditional', 'Traditional'], ['roth', 'Roth']], showIf: (it) => (it.kind === 'wages' || it.kind === 'self') && it.contribute },
         {
-          key: 'deferralPct', kind: 'num', label: '401(k) contribution', short: 'Share of the deferral room left, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          key: 'deferralPct', kind: 'num', label: '401(k) contribution', short: 'Share of the deferral room left, %', min: 0, max: 100, step: 1, showIf: (it) => (it.kind === 'wages' || it.kind === 'self') && it.contribute,
           tip: "100% fills the yearly 401(k) deferral limit (and the age-50 catch-up) that this person has left after their main job's contribution, up to this job's pay. The limit is per person across all jobs; the main salary is filled first.",
         },
         {
@@ -14108,11 +14683,15 @@
           tip: "Added to the owner's traditional 401(k). It uses this employer's own annual limit ($72,000 in 2026, never more than this job's pay, less the deferral); only pay up to the compensation limit ($360,000 in 2026) counts.",
         },
         {
-          key: 'afterTaxPct', kind: 'num', label: 'After-tax (mega backdoor) Roth', short: "Share of this employer's room left, %", min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          key: 'profitSharingPct', kind: 'num', label: 'Profit sharing', short: 'Plan rate, %', min: 0, max: 25, step: 0.5, showIf: (it) => it.kind === 'self' && it.contribute,
+          tip: "Your Solo 401(k) plan's rate (0-25%). The contribution is this business's profit less half the self-employment tax, times rate / (1 + rate): 25% gives 20%. Shares one yearly limit with every other self-employment of this person.",
+        },
+        {
+          key: 'afterTaxPct', kind: 'num', label: 'After-tax (mega backdoor) Roth', short: "Share of this employer's room left, %", min: 0, max: 100, step: 1, showIf: (it) => (it.kind === 'wages' || it.kind === 'self') && it.contribute,
           tip: "Share of the room left under this employer's annual limit after the deferral and the match, and never more than this job's pay less the deferral and catch-up. Goes to the owner's Roth 401(k).",
         },
         {
-          key: 'personalPct', kind: 'num', label: 'IRA contribution', short: 'Share of the IRA room left, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'wages' && it.contribute,
+          key: 'personalPct', kind: 'num', label: 'IRA contribution', short: 'Share of the IRA room left, %', min: 0, max: 100, step: 1, showIf: (it) => (it.kind === 'wages' || it.kind === 'self') && it.contribute,
           tip: "100% fills the IRA limit this person has left after their main job's IRA contribution, up to their total pay. Traditional or Roth follows the IRA type chosen above.",
         },
       ],
@@ -14430,6 +15009,8 @@
     document
       .querySelectorAll('[data-partner-b]')
       .forEach((el) => (el.hidden = !!state.singlePerson || revealHidden(el.id)));
+    // E1c: the main job's match and premium fields hide for a self-employed partner.
+    for (const id of ['matchAField', 'healthPremiumAField']) document.getElementById(id).hidden = revealHidden(id);
     // Rule of 55 needs retirement at 55 or later and does nothing from 60 (no penalty left to avoid).
     for (const p of ['A', 'B']) {
       const r = state['retireAge' + p],
@@ -14489,6 +15070,10 @@
     });
     document.getElementById('buyMortgageFields').hidden = !!state.buyCash;
     [
+      ['incomeKindAWagesBtn', 'wages', 'incomeKindA'],
+      ['incomeKindASelfBtn', 'self', 'incomeKindA'],
+      ['incomeKindBWagesBtn', 'wages', 'incomeKindB'],
+      ['incomeKindBSelfBtn', 'self', 'incomeKindB'],
       ['k401TraditionalBtn', 'traditional', 'k401Type'],
       ['k401RothBtn', 'roth', 'k401Type'],
       ['iraTraditionalBtn', 'traditional', 'iraType'],
@@ -14931,6 +15516,8 @@
     render();
     saveInputs();
   }
+  for (const [id, key, value] of [['incomeKindAWagesBtn', 'incomeKindA', 'wages'], ['incomeKindASelfBtn', 'incomeKindA', 'self'], ['incomeKindBWagesBtn', 'incomeKindB', 'wages'], ['incomeKindBSelfBtn', 'incomeKindB', 'self']])
+    document.getElementById(id).addEventListener('click', () => setContributionType(key, value));
   document
     .getElementById('k401TraditionalBtn')
     .addEventListener('click', () => setContributionType('k401Type', 'traditional'));
@@ -16423,10 +17010,24 @@
     const o = streamAmountsForYear(streams, ctx, STREAM_OUT);
     return {
       total: o.total, wagesA: o.wagesA, wagesB: o.wagesB, otherA: o.otherA, otherB: o.otherB,
+      selfA: o.selfA, selfB: o.selfB, premiumA: o.premiumA, premiumB: o.premiumB, coverA: o.coverA, coverB: o.coverB,
       contrib: o.contrib.items.slice(0, o.contrib.n).map((it) => ({ owner: it.owner, pay: it.pay })),
     };
   };
   window.__test_payrollTax = payrollTax;
+  window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
+  window.__test_streamCoverBits = streamCoverBits;
+  window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];
+  window.__test_soloPlanContributions = (q) => {
+    const P = SOLO_IN;
+    for (const k of ['se', 'half', 'main', 'w2Comp', 'iraLeft']) { P[k][0] = q[k][0]; P[k][1] = q[k][1]; }
+    for (let o = 0; o < 2; o++) Object.assign(P.mainPct[o], { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, q.mainPct[o]);
+    P.list = { n: q.list.length, items: q.list };
+    P.rooms = JSON.parse(JSON.stringify(q.rooms));
+    Object.assign(P, { annualAdditions: q.annualAdditions, compensation: q.compensation, mainRoth: !!q.mainRoth, iraPretax: !!q.iraPretax, megaOn: !!q.megaOn });
+    soloPlanContributions(P, SOLO_PLAN);
+    return { out: JSON.parse(JSON.stringify(SOLO_PLAN)), rooms: P.rooms };
+  };
   window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
     const r = JSON.parse(JSON.stringify(rooms));
     streamPlanContributions({ n: items.length, items }, r, limits, personalPretax, STREAM_PLAN);
@@ -16490,6 +17091,7 @@
         rmd: 0,
       }),
   };
+  window.__test_qbiDeduction = qbiDeduction;
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     ensureTestPlan();

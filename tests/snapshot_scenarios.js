@@ -100,6 +100,18 @@ function usStd() {
     ['R incomeSources B other two returns', { ...R, filingStatus: 'single', incomeSources: [{ amount: 40000, startAge: 50, endAge: 70, followGrowth: true, growth: 3, owner: 'B', kind: 'other' }] }],
     ['R survivor streams', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 58, incomeSources: [{ amount: 25000, startAge: 52, endAge: 65, followGrowth: true, growth: 3, owner: 'A', kind: 'wages' }, { amount: 15000, startAge: 52, endAge: 90, followGrowth: true, growth: 3, owner: 'A', kind: 'other' }] }],
     ['R stream contributions', { ...R, incomeSources: [{ amount: 60000, startAge: 52, endAge: 62, followGrowth: true, growth: 3, owner: 'A', kind: 'wages', contribute: true, deferralType: 'roth', deferralPct: 100, matchPct: 5, afterTaxPct: 50, personalPct: 100 }] }],
+    ['R self-employed A, B W-2 covers', { ...R, retireAgeA: 60, retireAgeB: 58, incomeA: 120000, incomeB: 90000, incomeKindA: 'self', acaEnabled: true }],
+    ['R self-employed A, marketplace', { ...R, retireAgeA: 60, retireAgeB: 58, incomeA: 120000, incomeB: 90000, incomeKindA: 'self', acaEnabled: true, employerCoversSpouseB: false }],
+    ['R single self-employed ACA line', { ...R, singlePerson: true, retireAgeA: 60, incomeA: 55000, incomeKindA: 'self', acaEnabled: true }],
+    ['R side business stream', { ...R, acaEnabled: true, incomeSources: [{ amount: 40000, startAge: 52, endAge: 60, followGrowth: true, growth: 3, owner: 'A', kind: 'self', contribute: true, deferralType: 'traditional', deferralPct: 100, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 25, healthPremium: 0 }] }],
+    ['R solo 401k 25% mega', { ...R, retireAgeA: 60, incomeA: 200000, incomeKindA: 'self', k401PctA: 100, profitSharingPctA: 25, megaBackdoor: true, megaPctA: 100 }],
+    ['R self-employed past 65', { ...R, ageA: 63, ageB: 61, retireAgeA: 70, retireAgeB: 61, incomeA: 80000, incomeKindA: 'self' }],
+    ['R W-2 stream premium', { ...R, acaEnabled: true, incomeSources: [{ amount: 30000, startAge: 52, endAge: 58, followGrowth: true, growth: 3, owner: 'A', kind: 'wages', healthPremium: 6000 }] }],
+    ['R single self-employed cliff band', { ...R, singlePerson: true, retireAgeA: 60, incomeA: 82000, incomeKindA: 'self', acaEnabled: true }],
+    // E1c 9b: inside the 162(l) band with no income-paying balances (cash and taxable 0, no contributions), year 0 at a MAGI near the
+    // 400% line: 82,000 has no consistent deduction (the alternative calculation), 73,000 has one (held).
+    ['single self-employed band, alternative', { singlePerson: true, ageA: 50, retireAgeA: 60, incomeKindA: 'self', acaEnabled: true, healthcare: 18000, stateTax: 'tx', taxable: 0, cash: 0, hysaRate: 0, traditional: 300000, roth: 100000, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, megaBackdoor: false, incomeA: 82000 }],
+    ['single self-employed band, consistent', { singlePerson: true, ageA: 50, retireAgeA: 60, incomeKindA: 'self', acaEnabled: true, healthcare: 18000, stateTax: 'tx', taxable: 0, cash: 0, hysaRate: 0, traditional: 300000, roth: 100000, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, megaBackdoor: false, incomeA: 73000 }],
     ['R oneTimeIncome', { ...R, oneTimeIncome: LISTS.oneTimeIncome }],
     ['R extraExpenses', { ...R, extraExpenses: LISTS.extraExpenses }],
     ['R spendingTiers', { ...R, spendingTiers: LISTS.spendingTiers }],

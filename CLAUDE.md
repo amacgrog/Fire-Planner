@@ -67,6 +67,12 @@ feature list.
   two-return and survivor cases, hand-computed. `tests/stream_contributions.js` — `streamPlanContributions` and its rooms through
   `retirementContributions` and the engine. `tests/survivor_salary.js` — a partner who dies before retiring stops working at death
   (both planners). `test_income_streams.js` (Playwright, not in CI) covers the stream rows' owner/kind/panel controls.
+- `tests/self_employment.js` — E1c (US): `selfEmploymentTax` (the 92.35% base, the $400 floor, the wage-base interaction, half deducted),
+  `soloPlanContributions` (deferral room after W-2 plans, profit sharing C x r / (1 + r), one annual-additions room, IRA, all from household
+  cash) and the engine plumbing, hand-computed. `tests/se_health.js` — W-2 stream premium as coverage (`streamCoverBits`), the 162(l)
+  deduction inside the MAGI iteration (`seHealthDeduction`: caps, spouse-plan bar, two returns, the band case, the Roth fill, the cliff-plan
+  replay). `tests/qbi.js` — `qbiDeduction` (threshold, phase-in, cap, the $400 minimum) and the engine. `test_self_employment.js`
+  (Playwright, not in CI) covers the income-type buttons and the stream `self` kind in the UI.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
@@ -233,6 +239,50 @@ Each planner is one big IIFE. Core shape:
   split evenly), else the household rule. `conversionMagiCeiling` keeps each return under its own ACA
   400% line and IRMAA tier, dividing each return's room by its share of the conversion. The forced pass
   prices other draws through `costAt(trad, gain)` (which re-splits the MAGI). Test: `tests/two_return_magi.js`.
+  **Third estimate (US, E1c).** The self-employed health insurance deduction (162(l)) depends on the year's premium, which depends
+  on the MAGI the deduction lowers, so the iteration carries a THIRD estimate beside `estTrad`/`estGain`: `estSeA`/`estSeB` (seeded from
+  `prevSeHealthA/B`, the realized deductions of the previous year, written only after convergence, so there is no `scalarSnapshot` entry).
+  `magiBase0` is the MAGI before the deduction and `magiBase = magiBase0 - estSeA - estSeB` is rebuilt every pass; each pass puts
+  `profile.seHealthA/B` on the profile, prices the premium with `costAt(trad, gain, sa, sb)` (the deduction pair rides as arguments, and
+  `lastCost` remembers the pass's cost), and `returnMagis` subtracts `seHealthA/B` from each return's other income. After `healthcareCost`
+  the pass runs `seHealthDeduction` (`seRealA/B`), sets `estUsed` when the deduction moved, and removes the realized deduction from the
+  medical expense (no double count). The convergence test, the pass log (realized cost on the realized pair), the damped update, the pick
+  restore, the forced pass (realized-pair `costAt`, the deduction re-run on `lastCost`), the recorded MAGI (`realizedMagi = magiBase0 -
+  (seRealA + seRealB) + draws`) and the cliff plan's phases (natural, fallback replay, trial records, winner replay, trial seed) all carry
+  it. A year whose damped iteration does not converge, with a 162(l) deduction allowed (`seAllowA || seAllowB`; 8b, owner
+  decision A, refined by decisions 10 and 12), holds a deduction chosen once, as Rev. Proc. 2014-41 section 5 allows: the consistent
+  deduction when one exists (a bisection, below), else the alternative calculation (the deduction at the full premiums, `costAt` at a
+  MAGI of 1e12, then at the premium after the credit the step-1 MAGI allows). It sets `estSeA/B` to it and `seHeld = true`, and re-runs
+  the phase: while `seHeld`, site 7 takes the held pair as the realized pair (the deduction term of the convergence test is 0) and the
+  forced pass does not re-price it, so the premium, the draws and the MAGI follow the held deduction. The two methods are one closure,
+  `seSearch(trad, gain)` (built on first use in a pass: a pass that never searches allocates nothing), which prices the draws it is
+  handed. **Decision 12 (Task 11, withdrawing decision 11's re-check):** a hold is priced on the draws of the pass that failed to
+  converge and is not re-checked. The re-run's draws move afterwards, so the deduction can be understated (legal, conservative); the
+  one re-hold of decision 11 could flip across the 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst
+  $12,829), which the law forbids, so it is gone. The invariant grid in `tests/se_health.js` asserts the deduction never exceeds the
+  premium paid or the plan net and counts the understated years (a recorded limitation); the exact settlement at the final draws is
+  Batch 5's. Nothing is held when the
+  step-1 deduction is 0 (the Solo plan took the whole net): the pass falls through to the forced pass as it did before the switch.
+  `magiStats.seFixed` / `seAlternative` count the kept phase only, through `seKind` (1 consistent, 2 alternative), like `forced` /
+  `unresolved`. `seHeld` and `seKind` are reset at a trial start and carried in `naturalRec` / the trial records with
+  `estSeA/B`, so the plan's replays restore them. A new reader of the year's MAGI inside the loop must use `magiBase`, not
+  `magiBase0`. **`seOn` (8a):** `buildTaxProfile` sets `profile.seOn = seA > 0 || seB > 0`, and `taxFor` reads the self-employment
+  fields (`seNet*`, `sePlanNet*`, `seHealth*`, ...) only when it is true (exact zeros otherwise, no number changes), so EVERY profile
+  that reaches `taxFor` must carry `seOn` (the lambda, Roth solver and optimizer literals carry `seOn: false`; a test profile with
+  self-employment keys needs `seOn: true`, or the keys are ignored). **Decision 10 (9a):** before the alternative calculation the
+  block searches for the consistent deduction (D equal to the deduction the premium at D's MAGI allows, within $1) by bisection, holding the
+  pass's draws: the deduction the premium allows falls as D rises, so `g(D) = allowed(D) - D` is decreasing on `[0, step-1 deduction]` and
+  has at most one crossing (one search on the total on one return, one per return on two; a return's slot of `seHealthDeduction` reads only
+  its own MAGI). Found: held (`seHeld`), counted in `magiStats.seFixed`; not found (a jump in `g`, or a non-monotone `g` below 100% of the
+  poverty line in a non-expansion state or with `medicaidWhenEligible` off): section 5.02's alternative calculation for that part, counted in
+  `magiStats.seAlternative`. The damped 8-pass iteration alone zigzags across the 400% line just below the band, so without the search the
+  year charged a premium up to $11,800 too high (single, $18,000 premium, profits 72,750 to 74,000). **9c (speed):** every E1c term is
+  skipped, not added as a zero, for a household without self-employment: `taxFor` tests `seOn` once and builds each self-employment term
+  inside `if (seOn)` / `seOn ? ... : ...`; the year loop's `seLive` (`profile.seOn` or a deduction carried in from last year) gates the
+  162(l) terms of the pass (`magiBase`, the `estUsed` line, the medical expense, the convergence test, `realizedMagi`); the Solo terms of
+  `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
+  `state.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
+  `tests/tax_caches.js`.
   Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
@@ -255,6 +305,14 @@ Each planner is one big IIFE. Core shape:
   federal pass read it (`|| 0`), the two-filer branch splits it 50/50, and the itemizing branch is entered only when `medical` exceeds
   the floor, so ordinary Medicare years add nothing to the hot path. `solveRothConversion` and the optimizer's profile literals carry no
   medical term (conservative).
+  **QBI and 162(l) (US, E1c).** Both are deductions the engine supplies through the profile, not new filing-status families. The
+  self-employed health insurance deduction reaches each return as `profile.seHealthA/B` (it lowers `sources.wages` and the other
+  income that `returnMagis` and the Roth fill read, but is not part of the itemized/standard choice). `qbiDeduction(qbi, taxable,
+  netGain, joint, yearIndex)` (just above `taxFor`; `QBI_LIMITS`, 2026 Rev. Proc. 2025-32) is subtracted below AGI beside the
+  standard/itemized deduction in `ordinaryTax`/`longTermGainTax` calls and in `federalLiabilityForState`, on `sePlanNet - seHealth`
+  per return (a joint return adds both; the two-filer branch gives each partner their own). Every business is a specified service
+  business with no employees and no property, capped at 20% of taxable income less net gain, with the $400 minimum applied after the cap.
+  The Roth-conversion bracket fill subtracts 162(l) but not QBI. See "Self-employment (US, E1c)".
   The tax year is `currentYear + yearIndex` in both engines (historical runs replay
   returns, not tax law). `taxFor()` computes each return's deduction itself from its
   own income (AGI stands in for MAGI), the state tax it just computed, and the
@@ -398,6 +456,30 @@ Each planner is one big IIFE. Core shape:
   `min(pay, annual limit) - deferrals` (catch-ups outside it); the mega backdoor is further capped at pay less deferral and catch-up (the employee's own money never exceeds pay); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
   `normalizeState` and while typing) is the employer's share of pay into the traditional 401(k). Partner income
   (`incomeA/B`) is a money field, not a slider. Optional `min` / `max` on a `FIELDS` number entry bound MCP input only (`mcpAccepts`, US-only; profit sharing 0-25). Test: `tests/contribution_limits.js`.
+- **Self-employment (US, E1c; spec `docs/superpowers/specs/2026-10-08-e1c-self-employment-design.md`).** `incomeKindA/B` (`'wages'` default,
+  `'self'`; a `choice` field with `manual: true` and `mcp: true`) says what the partner's main income is. In the year loop
+  `seMainA/B` is the main income when the kind is `self` and the partner works (the same `incomeFactor` growth), `wageA/B` the W-2 amount
+  (zero for a self-employed partner), so every payroll reader keeps reading wages only; `streamAmountsForYear` returns `self` stream
+  profit separately (`seA/B` = main + streams, all of one person's self-employment is one business: one Schedule SE, one Solo 401(k)
+  room). `employerA/B` replaces `workingA/B` in the health rules (`acaEligibility`, Medicare gating, the 400% guard): a W-2 job, or a
+  W-2 stream with a `healthPremium` (`streamCoverBits(streams, ctx)`, bit 1 = A, bit 2 = B, the IRMAA lookback asks two years ahead),
+  counts as employer coverage; a self-employed person does not. `seAllowA/B` (162(l) allowed) = self-employed profit, no employer
+  coverage of their own, and no spouse-plan coverage in a joint year (`employerCoversSpouseA/B` ticked). Pure functions:
+  `selfEmploymentTax(se, ssWages, yearIndex, out)` (scratch `SE_OUT`: `tax`, `half`, `ne`; 92.35%, nothing under $400 of net earnings,
+  Social Security to `SS_WAGE_BASE` less the W-2 wages, Medicare uncapped; the Additional Medicare Tax is in `payrollTax` on wages plus
+  `ne`), `soloPlanContributions(p, out)` (scratch `SOLO_PLAN`, `ACCOUNT_SLOTS` order; C = profit less half the SE tax; deferrals in the
+  room the W-2 plans left, profit sharing P = C x r / (1 + r) with the compensation limit, one annual-additions room, after-tax money,
+  then the IRA on W-2 pay plus C; every dollar is household cash; no Roth catch-up rule) and `seHealthDeduction(healthcare, premA,
+  premB, twoReturns, profile, out)` (scratch `SE_HEALTH`; capped by `sePlanNetA/B`, the profit less half the SE tax and the Solo plan
+  money, never reduced by a traditional IRA). `retirementContributions` takes `seA/B`, `seMainA/B`, `halfA/B` and returns the Solo money;
+  `buildTaxProfile` takes the SE totals and the plan/IRA cuts and carries `seNetA/B` (taxable profit after half the SE tax and the
+  cuts), `seEarnedA/B` (profit less half the SE tax: earned income for the ACTC), `sePlanNetA/B`, `seAllowA/B` and `seHealthA/B`
+  (the survivor remap moves B's into slot A). `payrollTax` takes `seTaxA/B` (the SE tax joins the cash payroll cost) and `seNeA/B` (net earnings join the Additional Medicare Tax base with the wages). The main income's Solo 401(k) uses the existing partner fields (`profitSharingPctA/B` is the plan rate, `k401*` / `afterTax*` the employee side). A person who dies
+  before retiring stops self-employing at death like a salary. A `self` stream carries `profitSharingPct` and joins the same rooms
+  (no `healthPremium` on it: a self-employed stream is covered by the marketplace rule). Defaults reproduce today's numbers: an exact 0
+  for every term, so no existing snapshot entry moved. Not modeled: S corporations, business losses, Social Security credit from
+  self-employment earnings, a business with employees or property (QBI wage/property limits). Tests: `tests/self_employment.js`,
+  `tests/se_health.js`, `tests/qbi.js`, `test_self_employment.js`.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
@@ -711,6 +793,10 @@ the traditional contributions in `streamWageCutA/B`) and `streamOtherA/B` (not e
 per-person deferral / catch-up / IRA rooms (what the salary left) and per-stream annual-additions room; see the spec
 (`docs/superpowers/specs/2026-10-08-e1b-income-streams-design.md`) section 5.4. Every added term is an exact 0 for a legacy save, so
 existing snapshots did not move. Tests: `tests/income_streams.js`, `tests/stream_contributions.js`, `test_income_streams.js`.
+**Streams in E1c (US).** The stream `kind` gains `'self'` (self-employed profit, normalized by `normalizeUsStreams` with a plan-rate
+`profitSharingPct`, 0-25, the same panel and rooms as the salary's Solo 401(k) in `soloPlanContributions`) and a W-2 stream gets an
+optional yearly `healthPremium` (pre-tax, reduces the stream's wages; above zero the job covers its owner, see `streamCoverBits`).
+See "Self-employment (US, E1c)".
 **Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
 ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.
