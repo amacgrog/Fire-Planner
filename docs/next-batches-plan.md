@@ -1571,6 +1571,23 @@ understates in many band years (hundreds of dollars, some about $12,000: the 5.0
 add an invariant grid test (deduction never above the premium paid), and record the understatement as a known limitation; the
 exact fix, a settlement at the final draws, is designed now for Batch 5 (rigorously, from the start) and built there.
 
+##### E1c: review and acceptance (2026-10-09)
+
+Task 11 (`a63ce6c`, `eb74cc0`) checked by the spec owner in a scratch worktree of `eb74cc0`: `npm test` exits 0; a snapshot dump
+of `9b47b3a` against the tip (the tip's scenario list) shows 0 differences, so the tip reproduces Task 9 exactly with the
+re-check gone; the spec owner's 8,610-year grid gives identical results at `9b47b3a` and the tip (no deduction above the premium
+paid, worst premium gap $0.10; the understatement against the search at the final draws, 1,614 years off by more than $1 by the
+spec owner's measure, worst $12,700, is the recorded limitation that Batch 5 settles). The implementer's invariant grid (2,310
+years): 0 violations, 422 understated, red at `1f43dac` (55 years above the premium paid). Timing: the implementer's triple against
+`ee7a789`, every median within +5% (largest ct simulate 3.7); with the spec owner's quiet triple of Task 9 (PA historical median
+5.3%, accepted) this closes the timing gate. Accepted deviations: the grid at a 2,000 stride; 11a committed before its timing
+runs; the grid's exactness check on summary tuples (the full rows are covered by the 0-difference dump).
+
+**Decision (owner, 2026-10-09):** E1c accepted. Merged into `claude/batch-3b-penalty-rules` (US V125, Canada V59 unchanged);
+`docs/next-batches-plan.md` resolved with the branch's implementation block first, then review parts 1-5; this record added after the merge. Open:
+the 162(l) settlement at the final draws (Batch 5, the note at the top of that section). Next: E1d (one-time income tax
+treatments, E1a spec section 1), designed with the owner from the start.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
