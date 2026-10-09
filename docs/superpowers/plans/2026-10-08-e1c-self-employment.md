@@ -1453,3 +1453,57 @@ listed with its reason). 10b changes no number. Badge stays V125. No other chang
 
 Report: the two commits, the red runs, the households used, the grid counts before and after, the moved E1c entries table, the
 timing runs, and anything that did not go as planned.
+
+### Task 11: Withdraw the re-check (owner decision, 2026-10-09; spec decision 12)
+
+The spec owner's review of `1f43dac` (`docs/next-batches-plan.md`, "E1c: review, part 5") found that decision 11's re-hold can
+deduct more than the premium paid, which the law forbids. Grid (single, 60, retiring at 60, one `kind: 'self'` stream owned by A
+of 20,000-60,000 by 1,000, spending 20,000-40,000 by 1,000, taxable 500,000 at 30% and 60% basis, `tx`, premium 18,000, inflation,
+income growth and medical inflation 0, no housing cost, years 0-4; 8,610 years): years with `seHealthA > healthcare + 1`: 0 at
+`9b47b3a`, 224 at `1f43dac`, worst $12,829 (basis 30, stream 26,000, spending 26,000, year 4: D 18,000, premium 5,171, MAGI 51,922;
+section 5.02 at that year's own income gives D 5,171 and premium 18,000). The re-hold flips across the 400% line. Decision 12: the
+re-check and re-hold are withdrawn; the $0 guard, the kept-phase counters, the search closure and the joint split test stay; the
+understatement left by a hold priced on moving draws is a recorded, conservative limitation, and the exact fix (a settlement at
+the final draws) is designed for Batch 5. Two commits. Line numbers are at `1f43dac`.
+
+**Global rules:** every entry that existed at `ee7a789` stays byte-identical (dump of `../fp-e1c-base` against the tree, the tree's
+scenario list: only E1c's ten scenario files may differ). Stronger, for this task: the tree after 11a must reproduce `9b47b3a`
+exactly: a dump of a `9b47b3a` worktree against the tree (the tree's scenario list) shows **0** files differ, and the invariant
+grid below gives row-for-row identical JSON at `9b47b3a` and at the tree. Badge stays V125. No other change.
+
+#### Commit 11a: remove the re-check; the invariant grid test
+
+- [ ] **Step 1: The test first** (`tests/se_health.js`, in the Task 10a section; run red at `1f43dac` and record the output).
+  Replace the `recheck` and `grid` cases by one case `invariant grid` (keep `zero` and `joint`):
+  single, 60, retiring at 60, main income 0 (`incomeKindA: 'wages'`), one self stream owned by A (`selfStream(amount, 60, 70)`),
+  `NOHOUSE`, taxable 500,000 at `basisRatio` 30 and 60, `tx`, `acaEnabled: true`, premium 18,000, `inflation`, `incomeGrowth`,
+  `medicalInflation` 0, `ssMonthlyA: 0`; stream 20,000-60,000 by 2,000; spending 20,000-40,000 by 2,000; years 0-4. Run the grid
+  inside ONE `page.evaluate` (as the spec owner's probe did) so it stays fast. For every year with `sePlanNetA > 0`, assert:
+  - `seHealthA <= healthcare + 1` (the deduction never exceeds the premium paid; red at `1f43dac`);
+  - `seHealthA <= sePlanNetA + 1e-6`;
+  - `|healthcare - acaNetCost(magiProxy, 1, 18000, y)| <= 2`.
+
+  Also count (report, do not assert) the years where `seHealthA` is more than $1 below `S`, the search at the final draws (the
+  `searchAt` helper), and the largest such gap: the recorded limitation.
+- [ ] **Step 2: The code.** Remove the decision 11 re-check block (`if (seHeld && !seRechecked && !unconverged && !forcedPass &&
+  !replaying) {`, just before `if (forcedPass && flow < 0) {`) and `seRechecked` everywhere (declaration, the `naturalRec` literals,
+  `trialRecs.push`, the replays, the trial-start reset). Keep `seSearch`, the $0 guard, `seKind` and its kept-phase counting.
+  Update the comments that describe the re-check (the iteration comment, the 9a block, the forced pass) to say a hold is not
+  re-checked and why (decision 12).
+- [ ] **Step 3: Run.** `node tests/se_health.js`, `node tests/cliff_plan.js`, `node tests/aca_magi_iteration.js`,
+  `node tests/tax_caches.js` pass; `node tests/snapshot.js` passes against the committed baseline. The two exactness checks of the
+  global rules (a `9b47b3a` temporary worktree: snapshot dump 0 differ; the invariant grid's rows identical, compared as JSON).
+  Timing: `node tests/bench_runs_interleaved.js --base ../fp-e1c-base --rounds 21` three times and once against the `9b47b3a`
+  worktree; report the medians (recorded; the owner decides on any path over +5%).
+- [ ] **Step 4: Commit** `E1c 11a: withdraw the decision 11 re-check (a re-hold could deduct more than the premium paid); invariant grid test` with `Planner_US.html` and `tests/se_health.js`.
+
+#### Commit 11b: docs
+
+- [ ] `CLAUDE.md`: replace the re-check sentence with decision 12 (a hold is priced on the draws of the pass that failed to
+  converge and is not re-checked; the deduction can be understated when the draws move afterwards, never overstated in the grid;
+  the exact settlement is Batch 5's). `docs/next-batches-plan.md`: an `E1c: review fixes, round 4 (Task 11)` paragraph after the
+  Task 10 one (the red run, the grid counts, the exactness checks, timing). `npm test` green. **Commit**
+  `E1c 11b: docs for Task 11` with the touched paths.
+
+Report: the two commits, the red run, the invariant grid counts (years checked, understated years and the largest gap), the two
+exactness checks, the timing runs, and anything that did not go as planned.

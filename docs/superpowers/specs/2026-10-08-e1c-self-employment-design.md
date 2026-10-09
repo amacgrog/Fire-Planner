@@ -78,6 +78,13 @@ section (section 10).
    is re-run once with that deduction held (at most one re-hold; a held year that ends in the forced pass keeps its hold). The
    switch holds nothing when the step-1 deduction is 0 (the pass falls to the forced pass as before 8b), and the counters
    `magiStats.seFixed` / `seAlternative` count the kept phase only, like `forced` and `unresolved`.
+12. **After the fourth implementation review (owner, 2026-10-09), withdrawing 11's re-check:** the one re-hold at the final draws
+   can flip across the 400% line and leave a deduction above the premium paid (224 of 8,610 grid years at `1f43dac`, worst
+   $12,829), which the law forbids. Withdrawn; the rest of 11 stays (no hold at a $0 step-1 deduction, kept-phase counters). A
+   hold is priced on the draws of the pass that failed to converge and is kept: where the draws move afterwards the deduction can
+   be understated (legal, conservative; no year in the grid deducts more than the premium paid). The root cause, the draws and the
+   deduction depending on each other, is fixed in Batch 5 by a settlement at the final draws (design in `docs/next-batches-plan.md`,
+   Batch 5).
 
 ## 4. Facts (primary sources; retrieved 2026-10-08)
 
@@ -257,8 +264,9 @@ half (the person's total) and `compLimit` = `PLAN_LIMITS.compensation x limitFac
   draws, and holds it; where none exists (a single person with net self-employment of roughly $69,000-$81,000 at an $18,000
   premium: below the 400% line the deduction pushes MAGI over it, above it pulls MAGI under; similar bands for a couple and at
   the Medicaid line) it holds Rev. Proc. 2014-41 section 5.02's deduction instead. The year then re-runs with the deduction
-  held, so the premium charged is the one the recorded MAGI allows; once it converges the search runs once more at the final
-  draws and re-holds once if the deduction moves by more than $1. Examples (single, $18,000 premium): net self-employment
+  held, so the premium charged is the one the recorded MAGI allows. The hold is priced on the draws of the pass that failed
+  to converge and is not re-checked (decision 12): where the draws move afterwards the deduction can be understated (never
+  above the premium paid); Batch 5 settles it at the final draws. Examples (single, $18,000 premium): net self-employment
   76,207: no consistent deduction, 5.02 gives 5,797, MAGI 70,410, premium 18,000; profit 73,000: consistent deduction and
   premium 6,145. Nothing is held at a $0 step-1 deduction. Only a trad/gain step-down left after that falls to the existing
   forced pass (with the deduction still held).

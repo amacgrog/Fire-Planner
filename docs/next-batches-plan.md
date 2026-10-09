@@ -1317,6 +1317,25 @@ implementer's triple passed); fix findings 1-4 as plan Task 10 (spec decision 11
 one re-hold, no hold at a $0 deduction, kept-phase counters; the joint split test; docs). Spec 6.5 updated by the spec owner in
 the same commit as this record. After Task 10 the spec owner reviews alone, then merges.
 
+##### E1c: review, part 5 (spec owner, Task 10 at `1f43dac`, 2026-10-09)
+
+Checked in a scratch worktree of `1f43dac`: `npm test` exits 0; no snapshot entry moved (as reported). The $0 guard, the
+kept-phase counters, the search closure (per pass: `costAt` lives in the pass) and the joint split test are fine. Not accepted:
+the decision 11 re-hold can deduct more than the premium paid. Grid (single, 60, one self stream of 20,000-60,000 by 1,000,
+spending 20,000-40,000 by 1,000, taxable 500,000 at 30% and 60% basis, `tx`, premium 18,000, no inflation, no housing, years 0-4;
+8,610 years): years with the deduction above the premium paid: 0 at `9b47b3a`, **224 at `1f43dac`**, worst $12,829 (basis 30,
+stream 26,000, spending 26,000, year 4: D 18,000, premium 5,171, MAGI 51,922; section 5.02 at that income gives D 5,171, premium
+18,000). The re-hold flips across the 400% line (the implementer saw the flip, stream 39,000 / spending 23,000, but not that it
+over-deducts). Premium consistency still holds (worst $0.10). Cause: the draws and the deduction depend on each other, so a held
+value and a re-run cannot guarantee a legal answer at the final draws; a re-hold can make it worse. At `9b47b3a` the stale hold
+understates in many band years (hundreds of dollars, some about $12,000: the 5.02 value from stale draws where the final draws'
+5.02 gives the full premium), legal and conservative. Timing (the implementer's triple): tx historical median +5.5% against
+`ee7a789`, -2.8 to +3.1% against `9b47b3a` (Task 10 costs nothing).
+
+**Decisions (owner, 2026-10-09):** option 2: withdraw the re-check (plan Task 11, spec decision 12), keep the rest of Task 10,
+add an invariant grid test (deduction never above the premium paid), and record the understatement as a known limitation; the
+exact fix, a settlement at the final draws, is designed now for Batch 5 (rigorously, from the start) and built there.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
@@ -1397,6 +1416,11 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 ---
 
 ## Batch 5: optimizer
+
+**Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** E1c holds a deduction priced
+on the draws of the pass that failed to converge (spec decision 12), which can understate it when the draws move afterwards.
+Batch 5 replaces the hold with an exact settlement at the year's final draws. Design: being worked out with the owner
+(2026-10-09); recorded here when agreed.
 
 Run after the engine and tax model have settled, since objective values and
 timing both depend on them.
