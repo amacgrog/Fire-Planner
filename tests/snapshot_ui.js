@@ -19,7 +19,7 @@
 //     window.fireProjectionRows for a few states. (Canvas pixels are not
 //     compared; the text/DOM around them is.)
 //
-// Usage: node tests/snapshot_ui.js [--update] [--only US|Canada] [--root DIR]
+// Usage: node tests/snapshot_ui.js [--update] [--only US|Canada] [--root DIR] [--cpu-throttle N]
 //        [--filter text]   (filter applies to wiring field ids)
 // Baselines live in tests/snapshots/ui_us.json and ui_canada.json.
 
@@ -37,6 +37,7 @@ const opt = (n) => {
   return i >= 0 ? args[i + 1] : null;
 };
 const ROOT = path.resolve(opt('--root') || path.resolve(__dirname, '..'));
+const CPU_THROTTLE = Number(opt('--cpu-throttle')) || 0;
 const SNAP_DIR = path.join(__dirname, 'snapshots');
 const PLANNERS = [
   { key: 'US', file: 'Planner_US.html', isUS: true, snap: 'ui_us.json' },
@@ -113,6 +114,10 @@ async function newPage(browser, planner, opts = {}) {
   page.on('console', (m) => {
     if (m.type() === 'error') page._errors.push('console.error: ' + m.text());
   });
+  if (CPU_THROTTLE) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE });
+  }
   await page.addInitScript(INIT);
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   await page.goto('file://' + path.join(ROOT, planner.file));
@@ -233,7 +238,11 @@ async function surfaceChecks(browser, planner) {
   const out = {};
   for (const sc of list) {
     const page = await newPage(browser, planner);
-    const r = await page.evaluate(async ({ patch, convert }) => {
+    // The planner debounces its historical backtest 500 ms after each render and computes one 500 ms after load;
+    // the test advances the page clock itself so the capture always holds the patched state's own backtest,
+    // whatever the machine's speed (docs/next-batches-plan.md, Open items).
+    await page.clock.pauseAt(new Date('2026-06-15T12:01:00Z')); // fires whatever is due, then time stands still
+    await page.evaluate(({ patch, convert }) => {
       const state = window.__test_getState();
       const base = JSON.parse(JSON.stringify(state));
       for (const k of Object.keys(state)) delete state[k];
@@ -241,11 +250,15 @@ async function surfaceChecks(browser, planner) {
       const toAccounts = eval('(' + convert + ')');
       Object.assign(state, base, base.trad401kA !== undefined ? toAccounts(patch, base) : patch);
       // Re-render through the real input path, then open every collapsible card.
-      const sp = document.getElementById('spending');
-      sp.dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('spending').dispatchEvent(new Event('input', { bubbles: true }));
       document.querySelectorAll('details').forEach((d) => (d.open = true));
-      await new Promise((res) => setTimeout(res, 400));
-      sp.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { patch: sc.patch, convert: legacyToAccounts.toString() });
+    await page.clock.runFor(400);
+    await page.evaluate(() => {
+      document.getElementById('spending').dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.clock.runFor(600);
+    const r = await page.evaluate(() => {
       const text = (document.querySelector('main') || document.body).innerText.replace(/\s+/g, ' ');
       return {
         text,
@@ -253,7 +266,7 @@ async function surfaceChecks(browser, planner) {
         rows: JSON.stringify(window.fireProjectionRows ?? null),
         histSuccess: document.getElementById('dashHistSuccess')?.innerText ?? null,
       };
-    }, { patch: sc.patch, convert: legacyToAccounts.toString() });
+    });
     out[sc.name] = {
       textHash: sha(r.text),
       textLength: r.text.length,

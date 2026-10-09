@@ -137,27 +137,27 @@
  },
  "surfaces": {
   "std default": {
-   "textHash": "67c24f0386da4418",
-   "textLength": 21478,
+   "textHash": "2fed35e4b5d25379",
+   "textLength": 21522,
    "projectionHash": "b273904ad4c84408",
    "rowsHash": "35c27508d779ac27",
-   "histSuccess": "—",
+   "histSuccess": "83%",
    "errors": []
   },
   "std R": {
-   "textHash": "2e1172ba1420f76c",
-   "textLength": 21419,
+   "textHash": "3370336500e5c3b5",
+   "textLength": 21446,
    "projectionHash": "c90dc8f3171122a5",
    "rowsHash": "8b096c1c647e09e2",
-   "histSuccess": "—",
+   "histSuccess": "94%",
    "errors": []
   },
   "std R everything": {
-   "textHash": "6909c4f18523936b",
-   "textLength": 22430,
+   "textHash": "dded1e35eff822d4",
+   "textLength": 22457,
    "projectionHash": "ffbd426316bd1724",
    "rowsHash": "cb2b68f208a5dbc9",
-   "histSuccess": "—",
+   "histSuccess": "60%",
    "errors": []
   }
  },
