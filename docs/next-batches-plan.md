@@ -1938,7 +1938,10 @@ shared-region change. Every citation of the scope note above was checked against
 - **Decision 18 (owner, 2026-10-10, raised by the Task 6 implementer at `0a37cea`):** the Roth bracket fill saw the
   scheduled draw and the 162(l) estimate but not the last-resort estimate, so a last-resort year over-converted (23,700
   against 0 in the two-return identity household). Fixed as E1c does for 162(l): `profile.inhEstA/B` set at the pass top,
-  added to the fill's other income only when non-zero (spec decision 18; plan Task 6b, before Task 7).
+  added to the fill's other income only when non-zero (spec decision 18; plan Task 6b, before Task 7). After Task 6b
+  (`c0c0fd8`), the reviewers found the conversion now converges slowly in a year with a large last-resort draw (the
+  8-pass cap, about 0.04% of the draw short; under $15 a year of tax); the owner recorded it as a limitation (spec
+  decision 18 and section 9) rather than adding a secant step. Plan Task 7 Step 0 pins the bound in a test.
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 

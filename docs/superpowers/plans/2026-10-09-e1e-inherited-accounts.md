@@ -1248,6 +1248,19 @@ git commit -m "E1e Task 6b: the Roth bracket fill sees the last-resort estimate 
   (the version badge V126 -> V127; the Methodology callout sentence on one-time income gains inherited accounts),
   `tests/snapshots/ui_us.json` (text hashes only, if the Methodology sentence changes).
 
+- [ ] **Step 0: Tests only, one commit before the scenarios** (owner, 2026-10-10, after Task 6b; no `Planner_US.html`
+  change):
+  - `fill convergence bound` (decision 18's limitation): the joint fill household of Task 6b with a large last-resort
+    draw (x at least $25,000, for example by raising spending; state x in the comment). Assert that the last-resort run
+    reaches the pass cap (`trace[y].passes` = 8) and that its conversion is below the forced-scheduled-draw twin's by
+    more than $0 and less than 0.1% of x. In the existing joint `fill sees the last resort` case, say in the comment
+    that its draw is kept small on purpose (it converges within `MAGI_ITER_TOL`).
+  - The receipt-year slot fix (`b816cc9`) in its untested branches, both in the survivor period: A's row received after
+    A has died (the heir at receipt is B; the last-resort draw lands on post-remap slot A, `profile.inhExtraA`, the
+    survivor's one-person return) and B's row received after B has died (heir A; slot A). Each with a hand relation
+    (the draw in `profile.inhExtraA`, nothing in `inhExtraB`) and a tax identity against a forced scheduled draw.
+  - Commit: `tests/inherited_accounts.js` only, message "E1e: tests for the fill convergence bound (decision 18
+    limitation) and the receipt-year slot fix in the survivor period".
 - [ ] **Step 1: Add the scenarios** (read `tests/snapshot_scenarios.js` for the US scenario format; base each on an
   existing standard scenario):
   - `R inherited trad future` (B's $400,000 row received at A's age + 2), `R inherited trad past` (received 3 years ago),
@@ -1261,7 +1274,7 @@ git commit -m "E1e Task 6b: the Roth bracket fill sees the last-resort estimate 
   floor, pre-2020 stretch, last resort, state treatment per state). CLAUDE.md: one paragraph after the E1d paragraph of
   "Add-as-you-go lists" (the ledger and its null gate, `inheritedDraw`, the stretch and successor rule, the Roth transfer,
   the draw in `otherA/B` never `extraA/B`, the five state kinds and the always-written sources fields, the fourth
-  estimate (and `inhEstA/B`, which the Roth fill reads: decision 18), the last resort inside `BUCKET_STEP.home` / `.penalized`, decisions 15-16's need, tests). The E1e notes in
+  estimate (and `inhEstA/B`, which the Roth fill reads: decision 18, with its convergence limitation), the last resort inside `BUCKET_STEP.home` / `.penalized`, decisions 15-16's need, tests). The E1e notes in
   `docs/next-batches-plan.md`: commits, red-then-green records, the timing tables of Tasks 2, 4, 5, 6 and this task, the
   UI hash changes, anything the owner must decide.
 - [ ] **Step 4: Badge and Methodology**: V127; the one-time income sentence of the Methodology callout adds "or an

@@ -117,7 +117,12 @@ port section (section 10).
     (`profile.inhEstA/B = estInhA/B` when a ledger exists; 0 in both `buildTaxProfile` literals and the survivor remap)
     and the fill's `other` adds `inhEstA + inhEstB`, appended only when non-zero, so a legacy fill is the same double.
     Nothing else reads the pair (`taxFor` reads `inhExtraA/B`, the realized draw). (Rejected: B, recorded as a
-    limitation.)
+    limitation.) **Convergence (owner, 2026-10-10, after Task 6b):** the conversion now depends on the damped estimate,
+    whose error shrinks about threefold a pass, so a year with a small last-resort draw converges within `MAGI_ITER_TOL`,
+    but one with a large draw reaches the 8-pass cap with the conversion about 0.04% of the draw short of a
+    scheduled-draw twin (a few dollars; under $15 a year of tax; the rows record the realized draw and MAGI, so nothing is
+    inconsistent). Recorded as a limitation (section 9). A faster step (secant) was considered and not adopted: a new
+    numerical rule in the MAGI iteration, with overshoot risk at the premium cliffs, for a few dollars.
 
 ## 4. Facts (primary sources; retrieved 2026-10-09)
 
@@ -615,6 +620,9 @@ year; the schedule, `L` and the deadline are unchanged (decision 10).
 
 ## 9. Not modeled
 
+- The Roth bracket fill in a year with a large last-resort draw: the damped fourth estimate reaches the 8-pass cap and
+  the conversion ends about 0.04% of the draw short of a year with the same draw scheduled (decision 18; under $15 a
+  year of tax).
 - Eligible designated beneficiaries' stretch; the surviving-spouse options (a deceased partner is the survivor model).
 - A schedule other than even with the RMD floor (back-loading, a faster drain); shaping the draws is a Batch 5 lever. The
   floor uses the heir's own factor even when the decedent's longer one would allow less, and applies even when the
