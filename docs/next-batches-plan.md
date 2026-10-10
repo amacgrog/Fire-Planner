@@ -1875,6 +1875,12 @@ shared-region change. Every citation of the scope note above was checked against
   inherited-Roth last-resort draw tax-free). Blocking: the floor's divisor reaching 1 or less from heir age 84 (B1), stale state
   sources in the reused scratch objects (B2), and the shared bucket orders (B3); B1, B3, S3, S5 and S6 were the spec owner's
   errors. The owner asked for a second independent review of the revised spec.
+- **Second spec review (independent Opus review of `c9845d6`, 2026-10-09):** 1 blocking, 6 should-fix, 9 minor, all adopted
+  (spec section 11). Blocking: a last-resort draw in the survivor period went to slot B, which the one-person tax branch
+  never reads (now the post-remap slot). Owner decision 15 (option A): the guardrails, `firstWithdrawal` and lambda add the
+  scheduled draw back net of its own tax (one extra `taxFor` per pass in a year with a scheduled draw). Also: the draw in the
+  state `ordinaryNonSS` (Washington), the fourth estimate's full site list, one heir-age convention, inherited snapshot
+  scenarios only in the last commit. The owner asked for a third independent review.
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 

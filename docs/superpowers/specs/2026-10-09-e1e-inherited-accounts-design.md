@@ -2,7 +2,8 @@
 
 Date: 2026-10-09. Owner decisions from the brainstorm of this date (questions 1-8 and the design sections, all answered
 "A" or "yes"; the state schema and the New York assumption decided after the state research), revised the same day after
-an independent Opus review of `6679c3e` (decisions 12-14 and the fixes recorded in section 11). Base: `6c26726` on
+an independent Opus review of `6679c3e` (decisions 12-14) and again after a second independent review of `c9845d6`
+(decision 15); both reviews are recorded in section 11. Base: `6c26726` on
 `claude/batch-3b-penalty-rules` (code of `02fd1cb` / `c171fcc`: US V126, Canada V59). US only; no shared-region change;
 Canada untouched.
 
@@ -42,8 +43,8 @@ port section (section 10).
    years left in the window, but never less than the yearly RMD on the heir's own Single Life factor and never more than
    the account (spec self-review and review B1, 2026-10-09; section 6.2). Roth: left to grow, paid out whole in year 10.
    No input for "the decedent had started RMDs": the floor applies to every inherited traditional row, which is always
-   legal (drawing more than required is allowed); it binds only when `(1 + r)(L - k + 1) < 11 - k` (never at r >= 0 for
-   an heir 81 or younger; section 6.2); back-loading, which would need the input, is a Batch 5 lever. (Rejected: B, a per-row "Even / Minimum, rest in year 10"
+   legal (drawing more than required is allowed); with `d = L - k + 1 > 1` it binds only when `(1 + r) d < 11 - k` (never
+   at r >= 0 for an heir 81 or younger), and with `d <= 1` the whole account is drawn (section 6.2); back-loading, which would need the input, is a Batch 5 lever. (Rejected: B, a per-row "Even / Minimum, rest in year 10"
    choice plus the RMD checkbox; C, an "empty within N years" field.)
 3. **Inputs: two new kinds on the one-time income row (question 3, option A).** "Inherited traditional IRA / 401(k)" and
    "Inherited Roth IRA / 401(k)". IRA and 401(k) are one kind each: the federal rules are the same (IRC 401(a)(9) governs
@@ -67,8 +68,8 @@ port section (section 10).
    C, inherited money ahead of the household's own Roth, an optimizer lever.)
 7. **Need readers (question 7, option A).** The guardrails, `firstWithdrawal` and lambda's need add the year's scheduled
    inherited draw back, as E1d decision 12 does for a lump: the inherited balance is in the portfolio, so its draw is a
-   portfolio withdrawal, not income. A year the draw turns into a surplus records too. (Rejected: B, the draw as income
-   everywhere, like today's RMDs; C, A for the guardrails only.)
+   portfolio withdrawal, not income. A year the draw turns into a surplus records too. The draw is added back net of its
+   own tax (decision 15). (Rejected: B, the draw as income everywhere, like today's RMDs; C, A for the guardrails only.)
 8. **Display (question 8, option A).** Folded into the existing columns: `row.traditional` / `row.roth` include the
    inherited balances, `row.traditionalWithdrawn` / `row.rothWithdrawn` the inherited draws; new row fields only in
    years with an inherited account; a US-only tooltip annotation after the shared table. (Rejected: B, a new column and
@@ -90,6 +91,11 @@ port section (section 10).
     for the decedent's age.)
 14. **An early last-resort draw from an inherited Roth is tax-free (owner, 2026-10-09, review M3).** The decedent's
     five-year clock is assumed met, stated in section 9. (Rejected: taxing the earnings part, which needs a basis input.)
+15. **The need readers add the scheduled draw back net of its own tax (owner, 2026-10-09, option A on the second
+    review's item 5).** One extra `taxFor` per pass, only in a year with a scheduled inherited draw, gives the tax without
+    the draw; the guardrails, `firstWithdrawal` and lambda record the need as if the inheritance were not there, the way
+    the household's own withdrawals are recorded (section 6.7). Without it a $300,000 year-10 draw (MFJ) recorded about
+    $49,500 of its own tax as spending and cut spending 10%. (Rejected: B, no extra tax call, the overstatement accepted.)
 
 ## 4. Facts (primary sources; retrieved 2026-10-09)
 
@@ -193,8 +199,10 @@ comparison per row in a lump list scan, which runs once a year only when the lis
   'roth'), owner ('A' | 'B'), receiptYear, lastYear (receiptYear + 10), L (the heir's Single Life factor in the year
   after receipt, traditional only), balance }` in fixed-size arrays (at most `LIST_MAX`), allocated once per run. The
   receipt year is `Math.round(o.age) - state.ageA` (the rounding `lumpAmountsForYear` uses). Rows are ordered oldest
-  receipt first (the nearest deadline first, for the last-resort draw). The heir for `L` is the owner slot at receipt (the
-  survivor when the named owner is already dead, 6.9); for a past row, the heir's age in the year after receipt.
+  receipt first (the nearest deadline first, for the last-resort draw). **Heir age convention (review 2, item 6):** "heir
+  age" means the heir's age in the calendar year after the receipt year, everywhere in this spec (`L` =
+  `singleLifeFactor` of that age; the heir is the owner slot at receipt, the survivor when the named owner is already
+  dead, 6.9); for a past row, the same definition (the age in the year after receipt, which may be before today).
 - **Totals in `bal`.** `bal` always carries `inheritedTrad: 0` and `inheritedRoth: 0` (a fixed object shape for every
   household; the snapshot `{ ...bal }` rewinds them). They equal the ledger's sums.
 - **Rewind.** The ledger's per-row balances are cloned with the MAGI-iteration snapshot and restored with it
@@ -220,9 +228,12 @@ comparison per row in a lump list scan, which runs once a year only when the lis
     account holds; the RMD is figured on the start-of-year balance, as the household's RMDs are);
   - traditional, k = 10: `draw = grown`;
   - Roth, k = 10: `payout = grown`; earlier years nothing.
-- When the RMD term binds: in draw year k, exactly when `(1 + r)(L - k + 1) < 11 - k`. With `r >= 0` never for an heir 81
-  or younger in the year after the death (L >= 10.5); at 6% an heir of 82 never binds (1.06 x 9.9 >= 10) and one of 83
-  binds in year 1; in a down year a younger heir binds too (81 when r < -4.8%, 75 when r < -32%; 1931 was -43%).
+- When the RMD term binds: in draw year k with `d > 1`, exactly when `(1 + r)(L - k + 1) < 11 - k`; with `d <= 1` the
+  whole account is drawn (the floor always binds). With `r >= 0` never for an heir 81 or younger (L >= 10.5); at 6% an
+  heir of 82 never binds (1.06 x 9.9 >= 10) and one of 83 binds in year 1; in a down year a younger heir binds too (81
+  when r < -4.8%, 75 when r < -32.4%; 1931 was -43%). The `min(grown, ...)` cap binds only when `d < 1 / (1 + r)` (at
+  -30%, `d < 1.43`): an heir of 85 in draw year 8 (`d = 1.1`) draws the whole grown balance. `d <= 1` first occurs at heir
+  84 and 85 in year 9, 90 in year 6, 100 in year 3.
 - `inhDrawA/B` = the year's scheduled traditional draws by owner slot; `inhDraw = inhDrawA + inhDrawB`; `inhRothPayout`
   = the Roth payouts.
 - After `growBalances` (beside `withdrawRequiredDistributions`), the draws and payouts leave the ledger; the Roth payout
@@ -250,17 +261,23 @@ comparison per row in a lump list scan, which runs once a year only when the lis
 
 ### 6.4 The state return
 
-- **Sources, on every call (review B2).** For a taxing state `taxFor` writes `sources.inherited`, `sources.inheritedA/B`
-  and `sources.inheritedExclA/B` on **every** call (the four scratch objects `SOURCES_JOINT/SINGLE/A/B` are reused, so a
-  conditional write would leave a stale value for the next call), from `profile.inheritedA/B + profile.inhExtraA/B` and
-  `profile.inhExclA/B`, each read with `|| 0` (the lambda, Roth-solver and optimizer profile literals carry none). Each
-  return gets its own slot (two filers: A's return slot A, B's return slot A of its own sources, as `retirementA/B`).
-  `retirementA/B` never include them. Only the read in `stateIncomeTax` is gated (`sources.inherited > 0`).
-- **Where it enters (review S8).** `sources.inherited` is ordinary income in `start` (the federal-AGI stand-in that feeds
-  the Social Security tests, the share tables, the credits' federal AGI and `exemptionLinear`) for every kind, the way
-  any federally taxed amount is; then the kind subtracts its part where the row's retirement exclusion is subtracted:
+- **Sources, on every call (review B2).** `newStateSources` declares the five fields (`inherited`, `inheritedA/B`,
+  `inheritedExclA/B`) so the scratch objects' shape is fixed. For a taxing state `taxFor` writes them on **every** call (the
+  four scratch objects `SOURCES_JOINT/SINGLE/A/B` are reused, so a conditional write would leave a stale value for the
+  next call): when `profile.inhOn === true`, from `profile.inheritedA/B + profile.inhExtraA/B` and `profile.inhExclA/B`;
+  otherwise zeros (the lambda, Roth-solver and optimizer profile literals carry no `inhOn`, so they write zeros; one test
+  of a flag per call instead of six `|| 0` reads). Each return gets its own slot (two filers: A's return slot A, B's
+  return slot A of its own sources, as `retirementA/B`). `retirementA/B` never include them. Only the read in
+  `stateIncomeTax` is gated (`sources.inherited > 0`).
+- **Where it enters (review S8; review 2, item 4).** `sources.inherited` is added to `ordinaryNonSS` (~6388), so the row's
+  `rule.ordinary` gates it (Washington, the one taxing row with `ordinary: false`, never taxes it) and, where ordinary
+  income is taxed, it is in `start` (the federal-AGI stand-in that feeds the Social Security tests, the share tables, the
+  credits' federal AGI and `exemptionLinear`) for every kind, the way any federally taxed amount is; then the kind
+  subtracts its part where the row's retirement exclusion is subtracted:
 - `STATE_RULES` gains `inherited` on every row: `{ kind: 'ordinary' | 'exempt' | 'heir' | 'heirAnyAge' | 'decedent',
-  cap }` (`cap` only for `decedent`: a number, not indexed). `compileStateRule` copies it into the compiled rule.
+  cap }` (`cap` only for `decedent`: a number, not indexed). It is compiled in `compileRow`, not `compileStateRule`, so a
+  schedule variant (GA, HI, IN, MS, MT, NE have them) carries it; `tests/state_rules.js` checks that no `schedule` entry
+  overrides `inherited`.
   - `ordinary`: nothing subtracted.
   - `exempt`: all of it subtracted (an unlimited exclusion).
   - `heir`: joins the filer's retirement amount in `stateRetirementExclusion`, subject to the heir's own age tests, caps,
@@ -269,14 +286,16 @@ comparison per row in a lump list scan, which runs once a year only when the lis
     `agiPhasedShare` row (Connecticut, review S6) it adds `sources.inherited` to the household `pension + retirement`.
   - `heirAnyAge` (`perPerson` rows only: CO, AR, OK): **only the inherited amount** bypasses the traditional age test; the
     filer's own pension and traditional draws keep theirs (review S7; Colorado's text: under 55 only income "due to the
-    death of the person originally entitled" qualifies). Below the row's first tier age the inherited amount is excluded
-    up to the first tier's cap (CO $20,000, AR $6,000, OK $10,000); from that age it shares the filer's cap with their
-    own retirement income.
+    death of the person originally entitled" qualifies). For AR and OK the first tier starts at age 0, so the inherited
+    amount only bypasses `traditionalMinAge` (59 1/2) and shares the filer's cap ($6,000, $10,000) with their own pension
+    at every age. For CO (first tier at 55) a filer under 55 has no cap today (`cap < 0 -> continue`, ~6147); that path is
+    special-cased for the inherited amount: excluded up to the first tier's cap ($20,000), the filer's own income still
+    excluded nothing; from 55 the inherited amount shares the filer's cap with their own retirement income (review 2,
+    minor).
   - `decedent` (New York): `sources.inheritedExclA/B` subtracted, independent of the filer's own exclusion and age. The
     year loop computes `profile.inhExclA/B` = the sum over that slot's rows of `min(row's draw this year, cap)` (each row is
-    one decedent; review M6: carried on the profile like the other fields) when the run's state row is `decedent` (read
-    from `compileStateRule(state.stateTax)` once per run; New York's row has no schedule). The last-resort step adds to
-    it per row (6.6).
+    one decedent; review M6: carried on the profile like the other fields) when the year's compiled rule is `decedent`
+    (read per year from the compiled rule, so a variant is honoured). The last-resort step adds to it per row (6.6).
   - Every `heir` / `heirAnyAge` row except Connecticut is already `perPerson`, so `needsPerPerson` is already set on
     them; no flag and no `tests/tax_caches.js` pin changes (review S6).
 - `scripts/gen-state-rules.js` lists the field; `docs/state-tax-rules.md` regenerated; `tests/state_rules.js` requires it
@@ -289,38 +308,65 @@ comparison per row in a lump list scan, which runs once a year only when the lis
 
 - **The scheduled draw** is a fixed part of `magiBase0` and `returnMagis` (through `otherA/B`), a per-year constant: it
   does not move the iteration.
-- **The last-resort traditional draw is the iteration's fourth estimate** (decision 12, review S2), built exactly on E1c's
-  `estSeA/B` pattern:
-  - `estInhA/B` (per owner slot), seeded from `prevInhA/B`, the previous year's realized natural last-resort draws, written
-    only after convergence (no `scalarSnapshot` entry, as `prevSeHealthA/B`);
-  - the pass's MAGI adds `estInhA + estInhB`; `returnMagis` gains per-owner inherited arguments, so each draw lands on its
-    owner's return in a two-return year (never split by `ownerShareA`);
-  - `costAt` gains the inherited pair (beside the 162(l) pair); `passLog` entries, `naturalRec`, the trial records, the
-    pick restore and the forced pass carry `estInhA/B` and the realized pair `inhRealA/B` (`wd.inheritedGrossA/B`);
-  - the drift adds `|inhRealA - estInhA| + |inhRealB - estInhB|`; the damped update moves them with the same weight; the
-    forced pass prices at the realized pair; the fill check (~11059), `totalIncome` (~11063), `realizedMagi` (~11246), the
-    trial `irmaaAt` / `cliffCost` and the post-convergence `returnMagis` (~11389) include the realized pair;
-  - `prevDiscTraditional` and `realizedTrad` keep excluding it (it is not discretionary traditional money);
-  - every term is skipped when `inh === null` (the E1c 9c rule).
+- **The last-resort traditional draw is the iteration's fourth estimate** (decision 12, review S2; review 2, item 3), built
+  exactly on E1c's `estSeA/B` pattern. Slots are **post-remap** profile slots (6.6: in single-person mode and the survivor
+  period always A).
+  - `estInhA/B`, seeded from `prevInhA/B` (the previous year's realized natural last-resort draws, written only after
+    convergence: no `scalarSnapshot` entry, as `prevSeHealthA/B`).
+  - **The pass's MAGI.** At the pass top (~10762), `magiBase = magiBase0 [- estSeA - estSeB] + estInhA + estInhB` (the
+    added term only when `inh !== null`). Every reader of `magiBase` (the conversion ceiling and `magiThresholds` through
+    `preConvMagi`, `magiProxy`, the single-return `irmaaAt`, the cap limit `yearPlan.magi - magiBase`, the reach `lo`)
+    therefore sees the estimate with no further change.
+  - **`returnMagis(profile, trad, gain, ia = 0, ib = 0)`** adds `ia` to A's return and `ib` to B's (never split by
+    `ownerShareA`). Every call passes the pair: the pass estimate for the ceiling (~10781, `estInhA/B`), `costAt` (~10848),
+    `irmaaAt` (~10882), the pass's own premium (~10922, `estInhA/B`), and the post-convergence history (~11394, the realized
+    pair).
+  - **`costAt(trad, gain, sa, sb, ia = estInhA, ib = estInhB)`**: `hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain + ia
+    + ib`, and the pair goes to `returnMagis`.
+  - **The realized pair** `inhRealA/B` (= `wd.inheritedGrossA/B`) replaces the estimate in: the drift (`+ |inhRealA - estInhA|
+    + |inhRealB - estInhB|`); the damped update (same weight); `passLog` entries (`costAt(..., inhRealA, inhRealB)`); the
+    forced pass's `costAt` and `taxAfter`; the fill check (~11059: `m = magiBase - estInhA - estInhB + inhRealA + inhRealB +
+    traditionalGross + taxableGainGross`); `totalIncome` (~11063); `realizedMagi` (~11246); the trial `irmaaAt` /
+    `cliffCost`; the post-convergence `returnMagis` (~11394).
+  - **Records and phases.** `passLog` entries, `naturalRec`, the trial records, the pick restore (~11198), the forced pass,
+    the 162(l) hold (~11181: `estInhA/B = inhRealA/B` beside `estTrad = realizedTrad`), the apply fallback replay
+    (~11314), the winner replay (~11346) and the trial seed (~11363) carry and restore `estInhA/B` exactly where they carry
+    `estSeA/B`. The 162(l) search (`seSearch`) prices with the realized inherited pair it is handed, as it prices the
+    draws it is handed.
+  - No `estUsed` line is needed: the draw is a consumer of the year's need, priced through `magiBase` and the convergence
+    test; the existing `estUsed` conditions (an ACA premium or a finite ceiling consumed the estimates) cover it.
+  - `prevDiscTraditional` and `realizedTrad` keep excluding it (it is not discretionary traditional money).
+  - Every term is skipped when `inh === null` (the E1c 9c rule).
 - The cliff plan sees the scheduled draw inside `magiBase` in every line, candidate and stay-under; neither draw is a
   lever (Batch 5). `lambdaEstimate`'s sample years do not price future inherited draws (section 9).
-- `afterTaxValue` (~9585, the in-year phase score) adds `inheritedTrad x (1 - lambda) + inheritedRoth`, only when
-  `inh !== null`.
+- `afterTaxValue` (~9585, the in-year phase score) adds `bal.inheritedTrad x (1 - lambda) + bal.inheritedRoth`. It reads
+  `bal`, whose two fields are always present and 0 without an inherited row, so it needs no flag; the terms are added only
+  when the sum is non-zero (`if (bal.inheritedTrad + bal.inheritedRoth > 0)`), so a legacy score is the same double.
 
 ### 6.6 Last resort (decision 6)
 
 - **The step** `takeInherited(wd)`: inherited Roth rows (net = gross, cash only), then inherited traditional rows, oldest
   receipt first, until the need is met or the accounts are empty. Afterwards each row's later scheduled draws follow from
   its smaller balance.
-- **Pricing.** A last-resort traditional draw x from a row owned by slot S is taxed exactly like a scheduled draw x larger:
+- **Slots (review 2, item 1).** The step, the fourth estimate and the New York room write the **post-remap profile slot**:
+  in single-person mode and the survivor period always A (the one-person branch of `taxFor` reads only slot A, ~6847,
+  ~6856), otherwise the row's owner. A row's slot in a year is the slot its scheduled draw lands on after the survivor
+  remap of `buildTaxProfile`.
+- **Pricing.** A last-resort traditional draw x from a row on slot S is taxed exactly like a scheduled draw x larger:
   the owner's return, the state's `inherited` treatment, no penalty, MAGI. It never uses `takeTraditional` /
   `wd.traditionalGross` (household ownership share, state `retirementA/B`, the penalty code). Mechanism: the step's
-  bisection sets `profile.inhExtraA/B` (and, under `decedent`, `profile.inhExclA/B` = base + `min(x, room)`, with `room` =
-  `max(0, cap - that row's scheduled draw)`) around each `taxFor` probe; `taxFor`, under `profile.inhOn`, adds
-  `inhExtraA/B` to the federal ordinary income of each return (the scheduled draw is already in `otherA/B`) and to the
-  state sources (6.4). The step records `wd.inheritedGrossA/B`. **Each pass resets `profile.inhExtraA/B` and
-  `profile.inhExclA/B` to their base values at its top**, beside `profile.ownerShareA = ownerShareA0` (~10759), so no
-  pass inherits a probe's value.
+  bisection sets `profile.inhExtraS` (and, under `decedent`, `profile.inhExclS` = base + `min(x, room)`, with `room` =
+  `max(0, cap - that row's scheduled draw)`) for each `taxFor` probe. **After the step, `profile.inhExtraA/B` equals
+  `wd.inheritedGrossA/B` and `profile.inhExclA/B` equals base plus the room used, and they stay so for the rest of the
+  pass** (review 2, item 2): every later `taxFor` in the pass sees the draw (`totalTax` ~11070, the `takePenalized` probes
+  that follow the step in the penalty-aware orders, the up-year `refillBondReserve` -> `drawTaxable`, `fillTraditional`,
+  the forced pass's `taxAfter` ~11233, and the last year's profile copied for `estate`). **Each pass resets them to their
+  base values at its top**, beside `profile.ownerShareA = ownerShareA0` (~10759).
+- **Where `taxFor` adds it.** Under `profile.inhOn`, `inhExtraA/B` is added to the return's other-income sums beside the
+  E1c `seH` terms (`otherAB` in the joint branch, `otherA1` in the one-person branch, `otherA2` / `otherB2` in the two-filer
+  branch), before the taxable-Social-Security computation, so provisional income, the NIIT MAGI, the AGI-based deductions
+  and credits and `federalLiabilityForState` all see it as they see the scheduled draw in `otherA/B`; and to the state
+  sources (6.4). The step records `wd.inheritedGrossA/B`.
 - **MAGI:** the realized pair counts in MAGI and the convergence test (6.5); it is not in `cappableTraditional` and
   `magiCap` does not limit it (like the bond reserve's traditional draw).
 - **Placement (review B3, S1; no shared-region change).** The step runs only after the household's capped penalty-free
@@ -340,19 +386,27 @@ comparison per row in a lump list scan, which runs once a year only when the lis
 
 ### 6.7 Need readers (decision 7)
 
+- **The need without the draw (decision 7 as refined by decision 15; review 2, item 5).** In a year with a scheduled
+  inherited draw (`inhDraw > 0`), each pass computes once, after `tax` (~10971), `taxNoDraw` = the same pass's tax with the
+  scheduled draw removed (`taxFor` on the profile with `inheritedA/B` taken out of `otherA/B`, the state sources and
+  `inhOn` false, then restored; plus the same `ficaTax`), and `inhNeedAdj = inhDraw - (tax - taxNoDraw)`: the draw net of
+  its own tax. One extra `taxFor` per pass, only in such a year; never per probe; none in a legacy year.
 - **Guardrails and `firstWithdrawal`:** where the deficit branch (~11046) and the forced pass (~11241) record
-  `max(0, need - lumpExpense)`, they record `max(0, need - lumpExpense + inhDraw)`. A **surplus** year whose surplus the
-  draw created (`flow >= 0` and `-flow + inhDraw > 0`) also records `max(0, -flow - lumpExpense + inhDraw)` through the
-  same `recordGuardrailWithdrawal` call and sets `firstWithdrawal` in the retirement year under the same rule. A lump year
-  records nothing (E1d decision 7 wins); the hold after a lump year is unchanged. As in today's deficit branch, a first
-  record of 0 sets `initialWR = 0`, which leaves the guardrails inactive (review M5; unchanged behaviour, stated).
+  `max(0, need - lumpExpense)`, they record `max(0, need - lumpExpense + inhNeedAdj)`. A **surplus** year whose surplus the
+  draw created (`flow >= 0` and `-flow + inhNeedAdj > 0`) also records `max(0, -flow - lumpExpense + inhNeedAdj)` through
+  the same `recordGuardrailWithdrawal` call and sets `firstWithdrawal` in the retirement year under the same rule. This is
+  the household's need as if the inheritance were not there, the way its own withdrawals are recorded (net of their tax,
+  which the draw solver grosses up separately). A lump year records nothing (E1d decision 7 wins); the hold after a lump
+  year is unchanged. As in today's deficit branch, a first record of 0 sets `initialWR = 0`, which leaves the guardrails
+  inactive (review M5; unchanged behaviour, stated).
 - **The portfolio the rate is measured on (review S9).** `guardrailPortfolioNow` (~11019) is taken after the required
   distributions have left; it adds the inherited balances and the year's scheduled draw `inhDraw` back (the portfolio
-  before the draw, as `recordGuardrailWithdrawal` intends). Without it, year 10 measures the rate on a portfolio that
-  has just lost the whole inherited account (example: $1.5M plus $300,000 drawn whole, need $60,000: 4.0% instead of
-  3.33%, exactly the 1.2x trigger).
-- **Lambda:** `lambdaNeed` (~10903) adds `inhDraw` beside `lumpFlow`.
-- The need overstates by the draw's own tax (no extra tax call), as E1d decision 12 does.
+  before the draw, as `recordGuardrailWithdrawal` intends). Example (review 2, corrected): household $1.5M plus a $300,000
+  inherited traditional account drawn whole in year 10, MFJ, need $60,000 before the draw's tax: the rate is measured
+  on $1.8M at a recorded need of $60,000 (3.33%); without this rule it was 4.0% on $1.5M, and without decision 15 about
+  $109,500 on $1.8M (6.1%, the draw's own ~$49,500 of federal tax counted as spending), which would cut spending 10%. (The
+  trigger in `nextGuardrailMultiplier` is a strict `>` against 1.2x.)
+- **Lambda:** `lambdaNeed` (~10903) adds `inhNeedAdj` beside `lumpFlow` (no extra cost: the same figure).
 - With no inherited row every expression is the old one unchanged (the term is skipped, not added).
 
 ### 6.8 Totals, rows, estate, display (decisions 5 and 8)
@@ -361,8 +415,10 @@ Only when `inh !== null`:
 - `investable`, `total`, `row.traditional` (+ `inheritedTrad`) and `row.roth` (+ `inheritedRoth`) include the inherited
   balances (and `guardrailPortfolioNow`, 6.7).
 - Rows carry `inheritedTrad`, `inheritedRoth` and `inheritedDraw` in a year where any inherited row is open or paid out.
-- `estate` gains nothing new: `traditional` and `roth` include the inherited balances, so `afterTaxEndValueUS` prices an
-  open inherited traditional balance with the household's (section 9).
+- `estate` (~11511): `traditional` and `roth` add `bal.inheritedTrad` / `bal.inheritedRoth` (code: two additions, skipped
+  when both are 0), so `afterTaxEndValueUS` prices an open inherited traditional balance with the household's (section 9).
+- The sidebar's income-group summary (~2462-2467) says "inherited account planned" for an inherited row, not "lump sum
+  planned" (review 2, minor).
 - `trace` entries carry the per-row balances (a test hook).
 - A US-only `annotateInheritedRows` (after the shared `renderTable`, like `annotateSolverRows`) adds "includes inherited
   traditional $X / Roth $Y" to the status cell's tooltip in those years. The Sankey needs nothing: the draw is in
@@ -380,8 +436,10 @@ year; the schedule, `L` and the deadline are unchanged (decision 10).
 - No existing snapshot entry may move in any commit. Every new term is skipped, not added as zero, when `inh === null`
   (the E1c 9c rule): the per-year cost for a legacy state is a handful of null tests and the `lumpAmountsForYear` skip.
 - `bal` and `profile` gain fields that are always present, so their shapes are fixed for every household.
-- The state sources fields are written on every taxing-state call (6.4, B2) and read only when `sources.inherited > 0`;
-  `tests/tax_caches.js` proves the doubles are identical (`Object.is`).
+- The state sources fields are declared in `newStateSources`, written on every taxing-state call (6.4, B2) behind one
+  `inhOn` test, and read only when `sources.inherited > 0`. The exact-match snapshot suite (`tests/snapshot.js` against the
+  base) is what proves legacy doubles unchanged across each commit; `tests/tax_caches.js` keeps guarding the memos and
+  the `needsPerPerson` flag (review 2, minor).
 - Timing: `tests/bench_runs_interleaved.js`, 21 rounds, +5% per path, the median of three runs on a quiet machine.
 
 ## 7. Tests and gates
@@ -393,29 +451,38 @@ year; the schedule, `L` and the deadline are unchanged (decision 10).
     0); a closed window ignored.
   - The schedule: 1/10, 1/9, ... 1/1 of the grown balance at r >= 0; empty after year 10; a Roth row untouched to year
     10, then a transfer (`investable` unchanged across it, tax and MAGI unchanged, cash then taxable at full basis).
-  - The RMD floor (review B1, S5): `singleLifeFactor` pinned at every age 0-120+ against the table; an heir of 81 at
-    r >= 0 draws exactly the even schedule; heirs of 85, 90 and 100 (d <= 1 inside the window: the whole account; never
-    a negative or above-balance draw); a -30% year (the cap at the grown balance; an heir of 75 bound by the RMD);
-    every draw is at least the RMD on the heir's factor and at most the account.
+  - The RMD floor (review B1, S5; review 2, item 6; heir ages as defined in 6.1): `singleLifeFactor` pinned at every age
+    0-120+ against the table; an heir of 81 at r >= 0 draws exactly the even schedule; heirs of 85, 90 and 100 (d <= 1
+    inside the window: the whole account; never a negative or above-balance draw); at -30% an heir of 81 bound by the RMD
+    in every year and an heir of 75 never bound (0.7 x (15.8 - k) > 11 - k); the cap: at -30% an heir of 85 in draw year 8
+    (d = 1.1) draws exactly the grown balance (deleting the cap fails this case); every draw is at least the RMD on the
+    heir's factor (or the whole account) and at most the account.
   - Federal: the draw on the owner's return; owner B on two returns; net investment income unchanged while the NIIT
     threshold sees the draw (review S4, the $380 example); Social Security taxation; ACA premium at the realized MAGI;
     IRMAA two years on; the Roth bracket fill converts less by the draw.
   - Survivor: owner dead at receipt (the survivor's slot); owner dying in year 4 of the window (the survivor continues,
-    same deadline).
+    same deadline); **Partner A dies, then a last-resort draw from A's row in the survivor period: its tax equals that of a
+    scheduled draw x larger** (review 2, item 1: a draw written to slot B would go untaxed), and the same with B dying.
   - Last resort: a household that runs out with inherited money left draws Roth then traditional, after the release of
     its capped traditional money and before home equity, and depletes later; the schedule after it is smaller; the
-    identity test (a last-resort draw x taxes like a scheduled draw x larger) in a one-pass year **and** in an
-    ACA-iterating year with several passes **and** in a two-return year (the draw on its owner's return); the
-    penalty-aware order (inherited before penalized money, no penalty charged); a case with the cliff plan on, the bucket
-    strategy and the last resort together (the inherited step only after `releaseMagiCap`); NY `decedent` with a
-    last-resort draw (the per-row room).
-  - Guardrails: a draw-made surplus year records the need with the draw added back; a deficit year likewise; year 10 of a
-    traditional row (the portfolio before the draw, review S9 example); a lump year still records nothing;
-    `firstWithdrawal` in a retirement year with an inherited draw; lambda's need.
+    identity test (a last-resort draw x against a scheduled draw x larger: the same tax, premium, `magiA/B` and end
+    balances; review 2, minor) in a one-pass year **and** in an ACA-iterating year with several passes **and** in a
+    two-return year (the draw on its owner's return; a missing `returnMagis` site fails it); the four placements, each
+    reached by its own case: `withdrawStandard` plain and penalty-aware, `BUCKET_STEP.home` and the US-only
+    `BUCKET_STEP.penalized` (inherited before penalized money, no penalty charged); a case with the cliff plan on, the
+    bucket strategy and the last resort together (the inherited step only after `releaseMagiCap`); a penalty-aware case
+    where `takePenalized` runs after the step (its probes see the draw: the year's tax equals a run with the draw
+    scheduled); NY `decedent` with a last-resort draw (the per-row room).
+  - Guardrails (decision 15): in a deficit year and in a draw-made surplus year the recorded need equals the twin run's
+    need with the inheritance removed (hand-computed: the draw net of its own tax added back); year 10 of a $300,000
+    traditional row, MFJ (6.7's example: 3.33% on $1.8M, no cut, where the uncorrected need gives about 6.1%); a lump year
+    still records nothing; `firstWithdrawal` in a retirement year with an inherited draw; lambda's need equals the same
+    figure; the extra `taxFor` runs only in a year with a scheduled draw (a call counter).
   - Totals: row fields, `estate`, `afterTaxValue`, `guardrailPortfolioNow`.
   - Historical and bucket runs: growth at the path's return; the bucket last resort in a down year.
-  - Cash conservation: in a working surplus year, total investable at year end equals the twin run with the draw moved to
-    a tax-free lump of the same size, less the tax difference, within a cent.
+  - Cash conservation: in a working surplus year, total investable **excluding the inherited balances** at year end equals
+    the twin run (no inherited row) with a tax-free lump equal to the draw, less the tax difference, within a cent; the
+    inherited balance at year end equals the start balance x (1 + r) less the draw, exactly.
 - **Stale-source guard (review B2):** in one page, an NY inherited scenario, then a legacy NY scenario; the legacy result
   equals a fresh page's bit for bit (and the same for PA and CO).
 - **State:** `tests/state_rules.js` (field present on every row, valid kind, `cap` only on `decedent`);
@@ -423,8 +490,11 @@ year; the schedule, `L` and the deadline are unchanged (decision 10).
   `agiPhasedShare` row, `heirAnyAge` below and above the first tier age with the filer's own draws keeping their age test,
   `decedent` per row and per return); engine households for PA (`exempt`: the state tax unchanged by the draw, which
   catches review S3's double count), NY (`decedent`, beside the heir's own $20,000 pension exclusion), CO (`heirAnyAge`
-  under 55), CT (`heir`, AGI-phased), GA (`heir` at 62 and 65), MI (`ordinary`); `tests/tax_caches.js` (identical doubles;
-  the `needsPerPerson` pin list unchanged); `docs/state-tax-rules.md` regenerated (`npm test` fails when stale).
+  under 55, the special-cased path, and at 60), AR (at 50: the inherited amount excluded up to $6,000 while the filer's
+  own traditional draw is not), CT (`heir`, AGI-phased), GA (`heir` at 62 and 65), MI (`ordinary`), WA (the draw never in
+  the capital-gains base); `tests/state_rules.js` also checks that no `schedule` entry overrides `inherited`;
+  `tests/tax_caches.js` (the `needsPerPerson` pin list unchanged); `docs/state-tax-rules.md` regenerated (`npm test`
+  fails when stale).
 - **`tests/legacy_state.js`:** cases with the two new kinds, a junk kind, owner `'b'`, and a past row; pinned.
 - **Snapshots:** new scenarios only (traditional received in the future, traditional received in the past, Roth, owner B
   on two returns, last resort near depletion, a historical path, NY); no existing entry moves (dump / compare against the
@@ -443,10 +513,11 @@ year; the schedule, `L` and the deadline are unchanged (decision 10).
    an inherited amount yet); a new `singleLifeFactor(age)` with the full 0-120+ table (`singleLifeDivisor`, the 72(t)
    function, is unchanged). No number change.
 2. Inputs: the two kinds, `normalizeUsLumps`, the `lumpAmountsForYear` skip, legacy corpus. No number change.
-3. The account: ledger, opener, growth, schedule, cash flow, federal and state tax, need readers, guardrail portfolio,
-   totals, display, estate. New scenarios.
-4. Last resort and the fourth estimate.
-5. Scenarios, timing record, docs, badge.
+3. The account: ledger, opener, growth, schedule, cash flow, federal and state tax, need readers (with `taxNoDraw`),
+   guardrail portfolio, totals, display, estate. Unit and engine tests only; **no snapshot scenario yet**.
+4. Last resort and the fourth estimate. Unit and engine tests only.
+5. All new inherited snapshot scenarios (added only here, so commit 4 cannot move a scenario commit 3 added; review 2,
+   item 7), timing record, docs, badge. Every commit keeps every existing snapshot entry unchanged.
 
 ## 9. Not modeled
 
@@ -465,7 +536,8 @@ year; the schedule, `L` and the deadline are unchanged (decision 10).
 - `lambdaEstimate`'s sample years do not price future inherited draws (Batch 5 owns lambda).
 - `afterTaxEndValueUS` prices an open inherited traditional balance as the household's own traditional money (its state
   treatment and successor heirs' rates are not modeled).
-- The need readers overstate the withdrawal by the draw's own tax (decision 7).
+- The need readers remove the scheduled draw's own tax (decision 15) but not a last-resort draw's (the last resort is
+  already part of the year's need, as the household's own withdrawals are).
 - The Funded % tile and "current investable" leave out a past inherited row's balance (review M4).
 - New York: the decedent exclusion assumes a sole beneficiary (decision 4), one row per decedent (two rows from one
   decedent would get two $20,000 exclusions: the tooltip says to enter one row per decedent), that the decedent used none of
@@ -522,6 +594,31 @@ S6 and S9 against the code before adopting them.
   regulation's example); the Single Life Table at the ages quoted; appendix A rows PA, NY, CO, MI, SC, VA; legacy
   exactness of the skips and fixed shapes (once B2 is fixed); the Roth payout as a transfer; the survivor remap; the
   scheduled draw as a per-year constant.
+
+**Second independent Opus review of `c9845d6` (2026-10-09).** One blocking, six should-fix, nine minor; no owner decision
+reopened. All adopted (owner, 2026-10-09; decision 15 for item 5). The spec owner checked items 1, 4 and 5 and the
+guardrail trigger against the code before adopting them.
+- Item 1 (blocking): a last-resort draw written to slot B after Partner A's death was never taxed (the one-person branch
+  of `taxFor` reads only slot A): the step, the fourth estimate and the New York room write the post-remap slot (6.6,
+  6.5; a survivor last-resort test). The spec owner's error.
+- Item 2: the step's profile fields stay at the realized draw for the rest of the pass, and `taxFor` adds them beside the
+  E1c `seH` terms in the other-income sums (6.6). Item 3: the fourth estimate's full site list (both pass-estimate
+  `returnMagis` calls, the 162(l) search and hold, the replays, the trial seed) and `magiBase` defined at the pass top,
+  with the fill check's substitution (6.5). Item 4: the draw enters `ordinaryNonSS`, not `start`, so Washington never
+  taxes it (6.4; the spec owner's wording). Item 5: the need readers net of the draw's own tax (decision 15, 6.7; the
+  spec owner's example ignored that tax). Item 6: one heir-age convention (6.1) and the −30% and cap tests pinned to it
+  (6.2, section 7). Item 7: inherited snapshot scenarios only in commit 5 (section 8).
+- Minor, all adopted: AR / OK / CO `heirAnyAge` wording and Colorado's under-55 path (6.4); `inherited` compiled per
+  variant in `compileRow`, with a no-override check (6.4); the five fields declared in `newStateSources` and written behind
+  one `inhOn` test (6.4); the snapshot suite, not `tests/tax_caches.js`, proves legacy doubles (6.10); `estate` and
+  `afterTaxValue` wording (6.5, 6.8); the identity test compares premium, `magiA/B` and balances, the four placements each
+  tested, the cash-conservation twin made explicit (section 7); the income-group summary text (6.8); the `d <= 1`
+  qualifier (decision 2, 6.2).
+- Confirmed by the reviewer: B1's formula and figures against the Single Life Table; B2's always-written fields with a
+  gated read; B3 / S1's placement in all six paths with no shared-region edit; S3, S4, S6, S7 (given Colorado's
+  special case) and S9's portfolio placement; the NIIT text of IRC 1411(a)(1) and the $380 example; New York's line 29
+  (both quoted sentences, the per-decedent $20,000, the reduction for the decedent's own use). Colorado's pages returned
+  403 to curl and were not re-verified.
 
 ## Appendix A. State treatment of inherited traditional draws (retrieved 2026-10-09)
 
