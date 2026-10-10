@@ -10485,6 +10485,9 @@
   }
   const INH_OUT = { drawA: 0, drawB: 0, rothPayout: 0, any: false };
   const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false };
+  // Test-only: switch off the need-without-the-draw step (the exact-restore test) and count its evaluations.
+  let testInhNoNeedAdj = false;
+  let inhNoDrawCalls = 0;
   // This year's scheduled draws and payouts, from the balances at the start of the year (known before the MAGI iteration, so
   // per-year constants like the RMD). Never opens a row (inheritedApply does). drawA/drawB are on PRE-remap slots: the slot of the
   // row's current heir, the other partner once the heir is dead. ctx = { year, stockReturn, deadA, deadB }.
@@ -11249,6 +11252,9 @@
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
         // walk is net of the traditional share (of investable money at the start of the year) of this year's need,
         // leaving out this year's lump expenses (spec 13.1, 13.2). Only called from the withdrawal plan, after `flow` is known.
+        // E1e decisions 15, 16: this pass's scheduled inherited draw net of its own tax and premium credit (0 without a draw); assigned
+        // after `tax` below, read by the guardrail records and lambda.
+        let inhNeedAdj = 0;
         const lambdaOf = () => {
           if (yearLambda) return yearLambda;
           const b = balSnapshot,
@@ -11256,7 +11262,9 @@
             inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
           // E1d decision 12: one-time income, like a one-time expense, is not part of the yearly draw the walk assumes (it
           // overstates the need by the lump's own tax and any premium its MAGI raises, both already in `flow`)
-          const lambdaNeed = Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
+          const lambdaNeed = inhNeedAdj !== 0
+            ? Math.max(0, (lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense) + inhNeedAdj)
+            : Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
           yearLambdaNeed = lambdaNeed;
           return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0 }));
         };
@@ -11325,6 +11333,26 @@
         profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
         const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+        // E1e decisions 15, 16 (spec 6.7): the need as if the inheritance were not there: the scheduled draw net of its own tax and of
+        // the premium credit it costs this year. One taxFor and one healthcareCost per pass, only in a draw year.
+        if (inhDraw > 0 && !testInhNoNeedAdj) {
+          inhNoDrawCalls++;
+          const oA = profile.otherA, oB = profile.otherB, iA = profile.inheritedA, iB = profile.inheritedB,
+            on = profile.inhOn, eA = profile.inhExclA, eB = profile.inhExclB, med = profile.medicalExpense;
+          // the premium at the pass's MAGI less the draw (each return less its own share in a two-return year)
+          hcArgs.magiProxy = magiProxy - inhDraw;
+          if (twoReturns) { hcArgs.magiA = magiA - iA; hcArgs.magiB = magiB - iB; }
+          const hcNoDraw = healthcareCost(hcArgs).healthcare;
+          hcArgs.magiProxy = magiProxy; hcArgs.magiA = magiA; hcArgs.magiB = magiB;
+          profile.otherA = oA - iA; profile.otherB = oB - iB;
+          profile.inheritedA = 0; profile.inheritedB = 0; profile.inhOn = false; profile.inhExclA = 0; profile.inhExclB = 0;
+          profile.medicalExpense = seLive ? hcNoDraw + ltc - (seRealA + seRealB) : hcNoDraw + ltc;
+          const taxNoDraw = taxFor(profile, 0, conversionAmount) + ficaTax;
+          // restore from the saved doubles, never by adding the draw back ((x - d) + d !== x)
+          profile.otherA = oA; profile.otherB = oB; profile.inheritedA = iA; profile.inheritedB = iB; profile.inhOn = on;
+          profile.inhExclA = eA; profile.inhExclB = eB; profile.medicalExpense = med;
+          inhNeedAdj = inhDraw - (tax - taxNoDraw) - (healthcare - hcNoDraw);
+        }
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
         // Once traditional withdrawals and further taxable-brokerage gains
@@ -11376,7 +11404,9 @@
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
-        const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
+        const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
+        // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
+        const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
         const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
@@ -11398,12 +11428,19 @@
             totalTax = ficaTax + taxFor(profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
           }
+          // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
+          if (!lumpYear && inhNeedAdj > 0 && -flow + inhNeedAdj > 0) {
+            const n = Math.max(0, -flow - lumpExpense + inhNeedAdj);
+            if (!working && year === retirementYear) firstWithdrawal = n;
+            recordGuardrailWithdrawal(guardrails, n, guardrailPortfolioNow, working);
+          }
         } else {
           wd.need = -flow;
           // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
           if (!lumpYear) {
-            if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
-            recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
+            const recorded = inhNeedAdj !== 0 ? Math.max(0, wd.need - lumpExpense + inhNeedAdj) : Math.max(0, wd.need - lumpExpense);
+            if (!working && year === retirementYear) firstWithdrawal = recorded;
+            recordGuardrailWithdrawal(guardrails, recorded, guardrailPortfolioNow, working);
           }
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
@@ -11596,9 +11633,10 @@
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
           const needNet = -flow - refund;
-          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = Math.max(0, needNet - lumpExpense);
+          const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
+          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
           guardrails.initialWR = guardrailSnapshot.initialWR;
-          if (!lumpYear) recordGuardrailWithdrawal(guardrails, Math.max(0, needNet - lumpExpense), guardrailPortfolioNow, working); // E1d decision 7
+          if (!lumpYear) recordGuardrailWithdrawal(guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
@@ -11848,6 +11886,8 @@
             rothBasis: rothAccts.map((L) => L.basis),
             rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
             inherited: inh === null ? null : Array.from(inh.bal),
+            inhNeedAdj,
+            gpBase,
             taxable: bal.taxable,
             taxableBasis: bal.taxableBasis,
           });
@@ -17554,6 +17594,8 @@
   };
   window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
   window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
+  window.__test_inhNoNeedAdj = (on) => { testInhNoNeedAdj = !!on; };
+  window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0; return n; };
   window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
   // Test-only: run fn with state patched, restoring it afterwards.
   window.__test_withState = (patch, fn) => {

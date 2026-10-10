@@ -187,8 +187,9 @@ const path = require('path');
         const tr = rowFn ? window.__test_accountTrace(s.retireAgeA, s.retireAgeB, rowFn) : window.__test_accountTrace();
         const sim = rowFn ? window.__test_simulateHistorical(rowFn) : window.__test_simulate();
         return {
-          trace: tr.map((t) => ({ profile: t.profile, conversionAmount: t.conversionAmount, inherited: t.inherited, taxable: t.taxable, taxableBasis: t.taxableBasis, ficaTax: t.ficaTax })),
+          trace: tr.map((t) => ({ profile: t.profile, conversionAmount: t.conversionAmount, inherited: t.inherited, taxable: t.taxable, taxableBasis: t.taxableBasis, ficaTax: t.ficaTax, guardrails: t.guardrails, firstWithdrawal: t.firstWithdrawal, inhNeedAdj: t.inhNeedAdj, gpBase: t.gpBase })),
           rows: sim.rows,
+          sim: { firstWithdrawal: sim.firstWithdrawal },
           estate: JSON.parse(JSON.stringify(sim.estate)),
         };
       } finally {
@@ -548,6 +549,143 @@ const path = require('path');
     });
     near(res.without, 8200, 0.01, 'state AGI line, CT shape: share 1 below the first step');
     near(res.withDraw, 9550, 0.01, 'state AGI line, CT shape: the draw moves the AGI to a share of 0.55 for both amounts');
+  }
+
+  // ---- Task 5: the need readers (decisions 15, 16; spec 6.7) ----
+  // The recorded need equals the twin run's (no inherited row) in the same year. The twin has the same spending, other income and
+  // taxes apart from the draw; its portfolio differs, so compare the need, not the rate.
+  const needOf = (e, y) => e.trace[y].guardrails.prevNeed;
+  // The two ACA cases: returnRate 0, dividendYield 0 and basisRatio 100 (no growth before a sale, no dividends and no starting gain, so
+  // neither run realizes a gain; any one alone is not enough), a not-earned stream for A of $60,000 and spending $90,000, so the twin is
+  // in deficit at a MAGI of 60,000, under the 400% line for two (fplForHousehold(2) x 4 = 84,600), and the inherited run is at
+  // 60,000 + 42,800 = 102,800, over it. Printed by the run: ACA at 61: MAGI 102,800 vs 60,000, healthcare 18,000 vs 5,678.47.
+  const ACA = { acaEnabled: true, returnRate: 0, dividendYield: 0, basisRatio: 100, spending: 90000, medicalInflation: 0,
+    incomeSources: [{ amount: 60000, startAge: 50, endAge: 90, followGrowth: false, growth: 0, owner: 'A', kind: 'other' }] };
+  for (const [label, patch] of [['TX no ACA', {}], ['ACA at 61', { ...ACA, ageA: 61, ageB: 61 }], ['ACA at 64', { ...ACA, ageA: 64, ageB: 64 }]]) {
+    const H2 = { ...H, ...patch, guardrailsEnabled: true, taxable: 600000 };
+    // received at A's age - 1: k = 1 this year. TX (7%): max(428,000 x 1.07 / 10 = 45,796, 428,000 / SLT[60] 27.1 = 15,793.36) = 45,796.
+    // ACA (0%): max(428,000 / 10 = 42,800, 428,000 / SLT[61] 26.2 = 16,335.88 or / SLT[64] 23.7 = 18,059.07) = 42,800.
+    const a = await engine(H2, [R({ amount: 428000, age: H2.ageA - 1, owner: 'A' })]);
+    const b = await engine(H2, []);
+    if (patch.acaEnabled) assert(a.rows[0].healthcare - b.rows[0].healthcare > 10000, `${label}: the draw costs more than $10,000 of premium credit`);
+    near(needOf(a, 0), needOf(b, 0), 0.05, `${label}: recorded need without the inheritance`);
+    near(a.sim.firstWithdrawal, b.sim.firstWithdrawal, 0.05, `${label}: firstWithdrawal equals the twin's`);
+    if (label === 'TX no ACA') {
+      // by hand (MFJ, the code's 2026 figures; worked by the plan reviewers): tax with the draw 10% x (45,796 + 900 ordinary dividends -
+      // 32,200) = 1,449.60, taxNoDraw 0, so inhNeedAdj = 45,796 - 1,449.60 = 44,346.40; H keeps its $18,000 flat premium, so
+      // flow = 45,796 - 40,000 - 18,000 - 1,449.60 = -13,653.60 (a deficit year); recorded 13,653.60 + 44,346.40 = 58,000.00.
+      near(a.trace[0].inhNeedAdj, 44346.4, 0.01, 'TX no ACA: inhNeedAdj by hand');
+      near(needOf(a, 0), 58000, 0.05, 'TX no ACA: recorded need 58,000.00');
+      near(needOf(b, 0), 58000, 0.05, 'TX no ACA: the twin records 58,000.00');
+    }
+    if (label === 'ACA at 61') {
+      // measured by the plan reviewer with a stream standing in for the draw: twin premium 5,678.47, inherited 18,000; recorded
+      // 13,176 + (42,800 - (7,976 - 2,840) - (18,000 - 5,678.47)) = 38,518.47 = the twin's 38,518.47.
+      near(a.rows[0].magiProxy, 102800, 0.01, 'ACA at 61: inherited MAGI');
+      near(b.rows[0].magiProxy, 60000, 0.01, 'ACA at 61: twin MAGI');
+      near(a.rows[0].healthcare, 18000, 0.01, 'ACA at 61: inherited premium');
+      near(b.rows[0].healthcare, 5678.47, 0.01, 'ACA at 61: twin premium');
+      near(needOf(a, 0), 38518.47, 0.05, 'ACA at 61: recorded need 38,518.47');
+      near(needOf(b, 0), 38518.47, 0.05, 'ACA at 61: the twin records 38,518.47');
+    }
+  }
+  // year 10 portfolio (spec 6.7): taxable 1,500,000, spending 60,000, guardrails on, no dividends, basisRatio 100, A's traditional row of
+  // 1,530,000 received in year 0 (row age 60): the year-10 draw is the whole account, 1,530,000 x 1.07^10 / 10 = 300,974.16.
+  // No twin: the two runs' multipliers diverge before year 10, and the inherited run's year-10 healthcare carries the IRMAA of year 8
+  // (decision 16 leaves it in the need on purpose). With ACA off hcNoDraw = healthcare and the tax without the draw is 0 (the only
+  // other income is about $1,200 of cash-reserve interest, under the standard deduction), so the recorded need is -flow + inhNeedAdj =
+  // the year's expenses.
+  {
+    const Y = { ...H, taxable: 1500000, spending: 60000, guardrailsEnabled: true, dividendYield: 0, basisRatio: 100 };
+    const a = await engine(Y, [R({ amount: 1530000, age: 60 })]);
+    const t10 = a.trace[10], r10 = a.rows[10];
+    near(r10.inheritedDraw, 300974.16, 0.01, 'year 10 portfolio: the whole account');
+    near(t10.guardrails.prevNeed, r10.expenses, 0.05, 'year 10 portfolio: the recorded need is the year\'s own expenses (' + t10.guardrails.prevNeed + ' vs ' + r10.expenses + ')');
+    near(t10.guardrails.prevPortfolio, t10.gpBase + r10.inheritedTrad + r10.inheritedRoth + r10.inheritedDraw, 0.01, 'year 10 portfolio: measured before the draw');
+    assert(a.trace[11].guardrails.multiplier >= t10.guardrails.multiplier, 'year 10 portfolio: no capital-preservation cut in year 11 (' + a.trace[11].guardrails.multiplier + ' vs ' + t10.guardrails.multiplier + ')');
+  }
+  // draw-made surplus: a $1,000,000 row received at 59 draws 107,000 in year 0, more than the need; the year is a surplus year and still
+  // records, and the record equals the twin's deficit year: 58,000 (spending 40,000 + the 18,000 flat premium; the tax on the 900 of
+  // dividends is 0).
+  {
+    const Sx = { ...H, taxable: 600000, guardrailsEnabled: true };
+    const a = await engine(Sx, [R({ amount: 1000000, age: 59 })]);
+    const b = await engine(Sx, []);
+    near(a.rows[0].inheritedDraw, 107000, 0.01, 'draw-made surplus: the draw');
+    assert(a.rows[0].traditionalWithdrawn - a.rows[0].inheritedDraw === 0 && a.rows[0].taxableWithdrawn === 0, 'draw-made surplus: a surplus year (nothing else drawn)');
+    assert(b.rows[0].taxableWithdrawn > 0, 'draw-made surplus: the twin is a deficit year');
+    near(needOf(a, 0), 58000, 0.05, 'draw-made surplus: records 58,000');
+    near(needOf(b, 0), 58000, 0.05, 'draw-made surplus: the twin records 58,000');
+    near(a.sim.firstWithdrawal, b.sim.firstWithdrawal, 0.05, 'draw-made surplus: firstWithdrawal equals the twin\'s');
+  }
+  // lump year: a taxable lump in the same year as a scheduled draw records nothing (E1d decision 7).
+  {
+    const Lp = { ...H, taxable: 600000, guardrailsEnabled: true };
+    const a = await engine(Lp, [R({ amount: 428000, age: 59 }), { amount: 20000, age: 60, flat: true, kind: 'ordinary', owner: 'A' }]);
+    assert.strictEqual(a.trace[0].guardrails.prevNeed, null, 'lump year: nothing recorded');
+    assert.strictEqual(a.sim.firstWithdrawal, 0, 'lump year: firstWithdrawal stays 0');
+  }
+  // lambda: the need passed to lambdaEstimate in a draw year equals the twin's. A household with a candidate in reach in year 1
+  // (ACA, both 61, traditional 600,000, taxable 100,000, spending 90,000, the cliff plan on); a $50,000 row received at 60 draws every
+  // year from year 0 (k = year + 1). Year 1 is before the guardrail multipliers of the two runs can diverge. With the step switched
+  // off the inherited run's lambda need is lower by the draw's tax-net amount, so the test does see the adjustment.
+  {
+    const Lm = { ...H, ageA: 61, ageB: 61, retireAgeA: 61, retireAgeB: 61, acaEnabled: true, medicalInflation: 0, guardrailsEnabled: true,
+      spending: 90000, taxable: 100000, tradIraA: 600000, cliffGuardEnabled: true };
+    const lam = (rows, off) => page.evaluate(([p, l, o]) => {
+      const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+      try {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, JSON.parse(JSON.stringify(saved)), p, { oneTimeIncome: l });
+        window.__test_inhNoNeedAdj(o);
+        return window.__test_planTrace().map((t) => t.lambdaNeed);
+      } finally { window.__test_inhNoNeedAdj(false); for (const k of Object.keys(s)) delete s[k]; Object.assign(s, saved); }
+    }, [Lm, rows, !!off]);
+    const row = [R({ amount: 50000, age: 60 })];
+    const la = await lam(row), lb = await lam([]), lc = await lam(row, true);
+    assert(la[1] !== null && lb[1] !== null, 'lambda: a candidate is in reach in year 1 (' + la[1] + ', ' + lb[1] + ')');
+    near(lb[1], 108000, 0.05, "lambda: the twin's need is 108,000 (a pure deficit year)");
+    near(la[1], lb[1], 0.05, "lambda: the need equals the twin's (108,000 by hand: spending 90,000 + premium 18,000)");
+    assert(Math.abs(lc[1] - lb[1]) > 1000, 'lambda: without the step the need would be lower by the draw (' + lc[1] + ' vs ' + lb[1] + ')');
+  }
+  // exact restore: in a draw year every key of the trace's profile is Object.is the same as in a run with the step switched off.
+  // A draw with cents (123,456.78 x 1.07 / 10 = 13,209.88...) and New York, whose profile carries inhExclA.
+  {
+    const run = (off) => page.evaluate(([p, l, o]) => {
+      const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+      try {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, JSON.parse(JSON.stringify(saved)), p, { oneTimeIncome: l });
+        window.__test_inhNoNeedAdj(o);
+        const tr = window.__test_accountTrace();
+        return tr.slice(0, 3).map((t) => t.profile);
+      } finally { window.__test_inhNoNeedAdj(false); for (const k of Object.keys(s)) delete s[k]; Object.assign(s, saved); }
+    }, [{ ...H, stateTax: 'ny', taxable: 600000, ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62 }, [R({ amount: 123456.78, age: 61 })], off]);
+    const on = await run(false), off = await run(true);
+    for (let y = 0; y < 3; y++) {
+      const keys = new Set([...Object.keys(on[y]), ...Object.keys(off[y])]);
+      for (const k of keys) {
+        const same = typeof on[y][k] === 'object' ? JSON.stringify(on[y][k]) === JSON.stringify(off[y][k]) : Object.is(on[y][k], off[y][k]);
+        assert(same, `exact restore, year ${y}, profile.${k}: ${JSON.stringify(on[y][k])} vs ${JSON.stringify(off[y][k])}`);
+      }
+    }
+    assert(on[0].inheritedA > 0 && on[0].inheritedA % 1 !== 0, 'exact restore: the draw has cents (' + on[0].inheritedA + ')');
+    assert(on[0].inhExclA > 0, 'exact restore: inhExclA is set (' + on[0].inhExclA + ')');
+  }
+  // call counter: the extra taxFor and healthcareCost run only in a year with a scheduled draw.
+  {
+    const count = (rows) => page.evaluate(([p, l]) => {
+      const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+      try {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, JSON.parse(JSON.stringify(saved)), p, { oneTimeIncome: l });
+        window.__test_inhNoDrawCalls(true);
+        window.__test_simulate();
+        return window.__test_inhNoDrawCalls(false);
+      } finally { for (const k of Object.keys(s)) delete s[k]; Object.assign(s, saved); }
+    }, [{ ...H, taxable: 600000 }, rows]);
+    assert.strictEqual(await count([]), 0, 'call counter: 0 for a legacy household');
+    assert((await count([R({ amount: 428000, age: 59 })])) > 0, 'call counter: above 0 for a run with a scheduled draw');
   }
 
   assert.deepStrictEqual(errors, []);
