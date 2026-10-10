@@ -730,11 +730,12 @@ const path = require('path');
     const x = lr(a, y);
     const b = await engine6(patch, rows, opts.hist, [y, opts.slot || 0, x]);
     assert(lr(b, y) < 0.05, `${label}: the forced run needs no last resort (${lr(b, y)})`);
+    const tol = opts.tol || TOL;
     for (const k of ['tax', 'healthcare', 'magiProxy', 'investable', 'inheritedTrad', 'inheritedRoth', 'traditionalWithdrawn', 'rothWithdrawn', 'earlyPenalty'])
-      near(a.rows[y][k] || 0, b.rows[y][k] || 0, TOL, `${label}: year ${y} ${k}`);
+      near(a.rows[y][k] || 0, b.rows[y][k] || 0, tol, `${label}: year ${y} ${k}`);
     if (a.rows[y].magiA !== undefined) {
-      near(a.rows[y].magiA, b.rows[y].magiA, TOL, `${label}: magiA`);
-      near(a.rows[y].magiB, b.rows[y].magiB, TOL, `${label}: magiB`);
+      near(a.rows[y].magiA, b.rows[y].magiA, tol, `${label}: magiA`);
+      near(a.rows[y].magiB, b.rows[y].magiB, tol, `${label}: magiB`);
     }
     return { a, b, y, x };
   };
@@ -774,13 +775,13 @@ const path = require('path');
     assert(a.trace[y].passes > 1, 'identity, ACA multi-pass: the year takes more than one pass (' + a.trace[y].passes + ')');
   }
   // two returns: an unmarried couple (two returns every year), both 50, A's traditional $300,000 is penalized money, conversions on under the
-  // ACA ceilings (finite); B's row $400,000 received at 49 (year-0 scheduled draw 428,000 / 10 = 42,800), the rest of the need a last-resort draw
+  // ACA ceilings (finite), spending 40,000; B's row $400,000 received at 49 (year-0 scheduled draw 428,000 / 10 = 42,800), the rest of the need a last-resort draw
   // x on B's return. By hand: B's return holds the scheduled draw plus x (magiB = 42,800 + x), A's return holds only the conversion (magiA =
   // the conversion, the draw never lands on A), and the profile carries x in slot B. (The Roth fill reads the profile's other income, which
-  // holds the scheduled draw but not the pass's last-resort estimate, so a forced scheduled draw of the same size would convert less: the
-  // identity run is not used here.)
+  // holds the scheduled draw but not the pass's last-resort estimate before Task 6b, so a forced scheduled draw of the same size converted less; with the fill seeing the estimate
+  // the identity run is used below, within MAGI_ITER_TOL.)
   {
-    const T2 = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'single', acaEnabled: true, medicalInflation: 0, spending: 100000,
+    const T2 = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'single', acaEnabled: true, medicalInflation: 0, spending: 40000,
       tradIraA: 300000, rothConvEnabled: true, rothConvBracket: 12, rothConvStartAge: 50, rothConvEndAge: 55 };
     const a = await engine6(T2, [R({ amount: 400000, age: 49, owner: 'B' })]);
     const y = firstLr(a), x = lr(a, y);
@@ -789,6 +790,32 @@ const path = require('path');
     near(a.rows[0].magiA, a.trace[0].conversionAmount, TOL, 'two returns: magiA is the conversion only');
     near(a.trace[0].profile.inhExtraB, x, 0.005, "two returns: the draw is on B's return (profile.inhExtraB)");
     assert.strictEqual(a.trace[0].profile.inhExtraA, 0, "two returns: nothing on A's return");
+  }
+  // fill sees the last resort (spec decision 18, Task 6b): the Roth bracket fill converts the same amount in a year with a last-resort draw x as
+  // in the same year with a scheduled draw x larger (the hook forces the larger scheduled draw), in both branches of the fill's ordinary-income
+  // function: the unmarried couple (the two-return household above) and the same household filing jointly (ACA off for the joint run: the
+  // household ceiling of the 400% line would otherwise hold the conversion at zero in both runs and hide the fill).
+  // The joint run spends 14,500 so its last-resort draw is small (about 1,300): the MAGI iteration is damped and capped at 8 passes, and with a
+  // draw of 27,000 the estimate is still about 10 dollars off the realized draw when it stops, which would show as a conversion gap of 10. The conversions match within
+  // MAGI_ITER_TOL = 1 (the pass's estimate converges to the realized draw within it), not exactly.
+  {
+    const T2 = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'single', acaEnabled: true, medicalInflation: 0, spending: 40000,
+      tradIraA: 300000, rothConvEnabled: true, rothConvBracket: 12, rothConvStartAge: 50, rothConvEndAge: 55 };
+    const gaps = [];
+    for (const [label, patch] of [['unmarried', T2], ['joint', { ...T2, filingStatus: 'mfj', acaEnabled: false, spending: 14500 }]]) {
+      const a = await engine6(patch, [R({ amount: 400000, age: 49, owner: 'B' })]);
+      const y = firstLr(a), x = lr(a, y);
+      assert(y === 0 && x > 1000, 'fill sees the last resort, ' + label + ': year 0 takes a last-resort draw (' + x + ')');
+      const b = await engine6(patch, [R({ amount: 400000, age: 49, owner: 'B' })], null, [y, 0, x]);
+      const lrB = lr(b, y);
+      const ca = a.trace[y].conversionAmount, cb = b.trace[y].conversionAmount;
+      assert(ca > 0 || cb > 0, 'fill sees the last resort, ' + label + ': the household converts');
+      if (Math.abs(ca - cb) > 1) gaps.push(label + ': last resort ' + ca + ' converted vs scheduled-draw twin ' + cb + ' (x = ' + x + ', twin last resort ' + lrB + ')');
+    }
+    assert.deepStrictEqual(gaps, [], 'fill sees the last resort: conversion gap');
+    // The two-return identity with conversions on, reinstated: tax, premium, both returns' MAGI and the end balances equal within $1 (the
+    // conversions match only within MAGI_ITER_TOL, so the $0.05 identity tolerance does not apply to this case).
+    await identity('identity, two returns, conversions on', T2, [R({ amount: 400000, age: 49, owner: 'B' })], { tol: 1 });
   }
   // receipt-year row owned by B, unmarried couple (two returns): the row opens this year, after inheritedYear skipped it, so its post-remap
   // slot must be set when it opens. Nobody has other money (taxable 0, cash 0, no dividends), so by hand the last-resort draw x is the only

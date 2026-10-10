@@ -7586,12 +7586,15 @@
     const ordinaryAt = (conv) => {
       if (joint) {
         // E1c (decision 8c): AGI is lower by the 162(l) deduction; QBI is not seen by the fill.
-        const other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
-          taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
+        let other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv;
+        // E1e (decision 18): the pass's last-resort estimate, appended only when non-zero.
+        if (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);
+        const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
         return other + taxableSS;
       }
-      const other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
-        taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
+      let other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv;
+      if (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);
+      const taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
       return other + taxableSS;
     };
     if (ordinaryAt(0) >= targetGrossOrdinary) return 0;
@@ -9104,6 +9107,8 @@
             inheritedB: 0,
             inhExtraA: 0,
             inhExtraB: 0,
+            inhEstA: 0,
+            inhEstB: 0,
             inhExclA: 0,
             inhExclB: 0,
             // Children stay with the surviving parent.
@@ -9164,6 +9169,8 @@
             inheritedB,
             inhExtraA: 0,
             inhExtraB: 0,
+            inhEstA: 0,
+            inhEstB: 0,
             inhExclA: 0,
             inhExclB: 0,
           };
@@ -11211,6 +11218,9 @@
             inh.lastResort.fill(0);
             profile.inhExtraA = 0;
             profile.inhExtraB = 0;
+            // Decision 18: the Roth bracket fill sees the pass's last-resort estimate (post-remap slots, as estInhA/B).
+            profile.inhEstA = estInhA;
+            profile.inhEstB = estInhB;
             profile.inhExclA = inhExclBaseA;
             profile.inhExclB = inhExclBaseB;
             magiBase += estInhA + estInhB;
