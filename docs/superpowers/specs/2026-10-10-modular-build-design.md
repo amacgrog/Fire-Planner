@@ -1,0 +1,191 @@
+# Modular source tree and single-file build: design
+
+Date: 2026-10-10
+Status: draft, awaiting review
+
+## 1. Goal
+
+Replace the marker-based shared-code sync (`// @@shared:x begin` regions, `shared/`,
+`scripts/sync-shared.js`) with real ES module imports in a conventional `src/`
+directory tree, and shrink the planner HTML files to small shells. The delivered
+artifact is still one self-contained HTML file per planner, produced by a build step
+and published to GitHub Pages.
+
+Secondary goal: the calculation engine and tax logic run under plain Node, so they can
+be covered by fast Vitest unit tests with no browser.
+
+### Success criteria
+
+- `src/` holds the code; there is no `@@shared` marker and no `sync-shared.js`.
+- `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a
+  single file that works when opened from `file://` with no server and no network.
+- Every existing test passes against the built files. The snapshot baselines
+  (`tests/snapshots/*.json`) are unchanged by the refactor itself.
+- `src/**/core/` can be imported in Node (no `document`, `window` or `localStorage`),
+  and a check enforces that.
+- GitHub Pages publishes `dist/` from CI. Built files are not committed.
+- `CLAUDE.md`, `README.md` and the other living docs describe the new structure.
+
+### Non-goals
+
+- Merging the US and Canada engines. They stay separate (see
+  `docs/phase2-refactor-plan.md` section 7, step 4.5). Merging is a later project.
+- Any behavior change. Numeric output must not move.
+- Adding a framework, TypeScript, or hot reload now (see section 7).
+
+## 2. Decisions
+
+| Decision | Choice | Reason |
+|---|---|---|
+| Bundler | esbuild, driven by `scripts/build.js` | One dependency, no config sprawl, emits a classic IIFE. Webpack and Vite add machinery the single-file output does not use. |
+| Output format | Classic IIFE `<script>`, not `type="module"` | Module scripts are blocked on `file://` in some browsers. |
+| Built files | `dist/`, gitignored | Avoids committing generated duplicates of the source. |
+| Hosting | GitHub Pages, source "GitHub Actions" | Publishes a build artifact, so no committed HTML is needed. |
+| Layout | `src/shared/`, `src/us/`, `src/canada/` | Matches the existing conceptual split. Shared holds what is identical today. |
+| Shared mutable state | A few small exported singletons (`store`, `ui-prefs`, `dom`) | ES modules cannot share a mutable `let`; explicit singletons replace the closure. |
+| Unit tests | Vitest in Node against `core/` | Fast, no browser. Playwright stays for UI and for the built artifact. |
+| Hot reload | Deferred; Vite can be layered on later as a dev tool | See section 7. |
+
+## 3. Target layout
+
+```
+src/
+  shared/
+    core/        pure logic identical in both planners
+    ui/          DOM code identical in both planners
+    styles/      the shared stylesheet
+    partials/    shared HTML fragments (replaces shared/html-*.html)
+  us/
+    core/        engine, tax, rules, data, normalizeState
+    ui/          render, sync, charts, wizard
+    index.html   shell template
+    main.js      entry: wiring, window.__test_* hooks, MCP registration
+  canada/        same shape as us/
+scripts/
+  build.js       esbuild plus HTML assembly
+  gen-*.js       emit data modules instead of patching HTML
+tests/unit/      Vitest, Node only
+tests/           existing Playwright and golden tests, pointed at dist/
+dist/            build output (gitignored)
+```
+
+### Boundary rules
+
+1. Nothing under `core/` references `document`, `window`, `localStorage` or
+   `navigator`. A check (lint rule or a Vitest test that scans imports and globals)
+   fails the build if it does.
+2. Only `ui/` and `main.js` touch the DOM.
+3. `window.__test_*` hooks and the MCP tool registration are assigned only in
+   `main.js`, never in `core/`.
+4. US and Canada never import from each other. Both import from `shared/`.
+5. `src/` stays plain ESM: no esbuild-only features (`define`, loaders that import
+   `.html` or `.css` as text). This keeps a Vite dev server possible later.
+
+## 4. Build
+
+`scripts/build.js` does, per planner:
+
+1. Bundle `src/<country>/main.js` with esbuild: `bundle: true`, `format: 'iife'`,
+   `target` matching what the planners support today. No minification by default; an
+   opt-in flag minifies release builds. Dev builds add inline source maps.
+2. Read `src/shared/styles/*.css` and inline it into one `<style>`.
+3. Assemble the HTML in a standalone function `assembleHtml({ shell, partials, css, js })`
+   that replaces include markers in `src/<country>/index.html` with the shared partials,
+   then inlines the CSS and JS. Kept standalone so a Vite plugin could call it later.
+4. Escape any `</script` inside the inlined JS.
+5. Write `dist/Planner_<Country>.html`, and copy the landing `index.html` into `dist/`.
+
+`npm run dev` is the same build in esbuild watch mode. The build script must work on
+Windows and Linux (CI).
+
+### Data generators
+
+`gen-state-rules`, `gen-province-rules` and `gen-benefit-rules` currently read and
+patch the planner HTML. They change to emit ordinary modules (for example
+`src/us/core/data/stateRules.js`) that the engine imports. Their `--check` modes stay
+and compare the committed generated modules against their sources.
+
+## 5. Tests and CI
+
+- Playwright and golden tests resolve the planner path through one helper that points
+  at `dist/`. `npm test` runs the build first.
+- Vitest unit tests live in `tests/unit/` and import from `src/**/core` directly. New
+  pure-logic tests go here. Existing Playwright tests are not bulk-converted; porting
+  them is optional follow-up.
+- Snapshot baselines stay untouched by the refactor. `npm run snapshot:update` remains
+  reserved for intended behavior changes.
+- `.github/workflows/test.yml` builds, runs all tests, and a deploy job (main only)
+  uploads `dist/` with `actions/upload-pages-artifact` and `actions/deploy-pages`.
+- One-time manual step for the repo owner: Settings, Pages, Source: GitHub Actions.
+
+## 6. Staging
+
+Each stage ends green (`npm test`, snapshot baseline unchanged) and is independently
+shippable. Docs for each stage are updated in that stage.
+
+0. **Pipeline.** Move each planner's current inline script verbatim to
+   `src/<country>/main.js` and its markup/CSS to the shell. Build produces `dist/`. The
+   marker sync still works at this point. All tests pass against `dist/`.
+1. **Retire the markers.** `shared/*.js` becomes real modules imported by both
+   planners; delete `sync-shared.js` and the marker comments; generators emit modules.
+2. **State singletons.** Extract `store`, `ui-prefs` and `dom`. Add the `core/` purity
+   check.
+3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults` and the
+   historical dataset move out. Add Vitest and first unit tests (taxes, bond refill,
+   mortgage schedule, normalizeState corpus).
+4. **Peel `ui/`.** Render, sync, charts, wizard and the MCP wiring move out last.
+
+Stages 3 and 4 are expected to split into several smaller steps in the implementation
+plan, each leaving the suite green.
+
+## 7. Dev tooling: hot reload later
+
+Vite's dev server can serve `src/` directly, so it can be added without changing the
+release build, provided the two constraints hold: `src/` stays plain ESM (rule 5), and
+HTML assembly stays a standalone function so a small Vite plugin can reuse it.
+
+## 8. Documentation workstream
+
+Docs change in the same stage as the code they describe.
+
+**Rewritten (living docs):**
+- `CLAUDE.md`: What this is, Files, Commands, Architecture, "Shared code between the
+  planners", the testing checklist, and the versioning rule (the version badge lives in
+  the shell template). Remove: stable filenames at the repo root, edit-the-fragment and
+  `npm run sync`, one `<script>` per file. Add: the `core/` and `ui/` boundary, where a
+  new field or per-year rule goes, "edit `src/`, never `dist/`", Vitest versus
+  Playwright, and a line that older plans describe the pre-refactor layout.
+- `README.md`: development setup, build, and the Pages URL.
+- `package.json` scripts, `.github/workflows/test.yml`, `index.html` links.
+- The three `gen-*` scripts and `docs/state-tax-rules.md`, `province-tax-rules.md`,
+  `benefits-rules.md`.
+- Architecture sections of `docs/reference.md`, `docs/roadmap.md` and
+  `docs/phase2-refactor-plan.md` that describe the marker system or inline script.
+
+**Left as historical record:** dated files under `docs/superpowers/specs/` and
+`docs/superpowers/plans/`, and the verification-figure docs.
+
+**Memory:** at the end, save project memories for the layout and `core`/`ui` rule and
+for the docs-per-stage rule.
+
+## 9. Risks
+
+- **Hoisting and closure assumptions.** Functions used before their definition, or
+  names shared implicitly through the IIFE, can break when split across modules. Stage 0
+  keeps the closure intact; later stages move one cluster at a time under the full test
+  suite.
+- **Numeric drift.** The exact-match snapshots flag any change loudly.
+- **`file://` behavior.** Tests must run the built single file, not `src/`.
+- **Cross-platform build.** The script must run on Windows and Linux.
+- **State interface churn.** About 67 `state.*` reads in the engine need a settled path
+  (store import, plus an optional `inputs` parameter for tests). Decide the exact shape
+  at the start of stage 2.
+- **Generator output review noise.** Moving generated data to modules produces a large
+  one-time diff; keep that commit separate and mechanical.
+
+## 10. Open items for the implementation plan
+
+- Exact shape of the `store` API and the optional `inputs` parameter.
+- Lint rule versus Vitest scan for the `core/` purity check.
+- Whether release builds minify by default.
+- Final directory names inside `shared/core` as the fragments are grouped by topic.
