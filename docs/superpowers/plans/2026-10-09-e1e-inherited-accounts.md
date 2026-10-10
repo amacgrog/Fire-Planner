@@ -181,7 +181,7 @@ Run: `node tests/state_rules.js` -> FAIL (`al: fields missing inherited`, `al: i
    above (every other row, including the no-tax rows and WA: `{ kind: 'ordinary' }`; NY: `{ kind: 'decedent', cap: 20000
    }`). No `schedule` entry gets the field.
 2. Add one sentence to each taxing row's `notes` (the no-tax rows unchanged), from spec appendix A, in the row's own
-   voice: placed before the row's `Not modeled: ...` sentence (six rows: CA, MA, NM, NY, PA, WI; in PA that sentence is
+   voice: placed before the row's `Not modeled: ...` sentence (six rows: CA, MA, NM, NY, PA, DC; in PA that sentence is
    followed by the Tax Forgiveness sentence, so insert before it, not at the end), else at the end.
    The exact sentences:
    - `exempt` (PA): `Inherited IRA and 401(k) distributions are not taxed (paid by reason of death).` IL: `Inherited IRA
@@ -307,7 +307,7 @@ Add `window.__test_withState(patch, fn)` beside `__test_inherited` (it saves `st
 `fn`, restores in `finally`; it exists for these tests only). Repeat the tax comparison for `'co'` with `extraA: 30000` in `base` (at age 70 with no other
 state income a stale 30,000 gives a CO state AGI of 40,000 - 24,000 = 16,000, under CO's conforming deduction of
 16,100 + 2,050 + 6,000 = 24,150, so the CO tax would be 0 either way). (A tax comparison cannot fail for PA or CT on this
-profile: a stale 30,000 is fully subtracted in PA, and CT's share is 1 at a federal AGI of 40,000. It also covers only
+profile: a stale 30,000 is fully subtracted in PA, and CT's share is 1 at a state base of 40,000 (stateRetirementExclusion reads start). It also covers only
 `SOURCES_SINGLE`.) So also add `window.__test_inherited.sourcesInh = () => [SOURCES_JOINT,
 SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA,
 s.inheritedExclB])` and, for each `taxFor` branch (joint: `filing: 'mfj', singlePerson: false`; one-person: `filing:
@@ -948,7 +948,7 @@ Also:
   draw-made surplus years against a larger portfolio, so the multipliers of the two runs may differ before year 10 and
   are not compared, and neither are the needs: the two runs' spending multipliers diverge before year 10 (the plan
   reviewer measured 1.1 for the twin, about 1.4641 for a household at the inherited run's portfolio), and the inherited
-  run's year-10 healthcare carries IRMAA from year 8's MAGI (the draws are 153,000 x 1.07^k; year 8's is 262,882, so the MAGI is about 264,100: tier 1,
+  run's year-10 healthcare carries IRMAA from year 8's MAGI (the draws are 153,000 x 1.07^k; year 8's is 262,882, so the MAGI is 264,082.49, measured by the fourth plan review with a 7%-growing stream standing in for the draws: tier 1,
   95.70 x 12 x 2 = 2,296.80), which
   decision 16 leaves in the need on purpose. Assert in year 10: `guardrails.prevNeed` equals the inherited run's own
   `row.expenses` within $0.05 (with ACA off `hcNoDraw = healthcare`, and the tax without the draw is 0: the only other

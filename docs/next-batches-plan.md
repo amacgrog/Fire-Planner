@@ -1929,6 +1929,12 @@ shared-region change. Every citation of the scope note above was checked against
   were the plan owner's errors in the second revision. The reviewer measured and confirmed every other figure the diff
   added (TX 58,000, IRMAA 2,296.80, NIIT, owner B, Social Security 1,299.00, the Roth fill, the NY child credit 165.00,
   the extraA comparisons, the heir-81 walk, afterTaxValue).
+- **Fourth plan review (independent Opus review of the `ef82886`..`5457b7e` diff, 2026-10-10):** no blocking, 1
+  should-fix, 2 minor, all adopted: the sixth row with a "Not modeled:" sentence is DC, not WI (S1); CT's exclusion share
+  reads the state base `start`, not the federal AGI (M1); year 8's MAGI in the year-10 aside is the measured 264,082.49
+  (M2). The reviewer measured the third revision's figures (the ACA twin at 60,000.00 / 5,678.47 / 38,518.47, each of
+  the three settings needed; the CO stale check 257.40 fresh, 961.40 stale) and found them right. With a review round free
+  of blocking findings, the owner moved to implementation.
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
