@@ -1845,6 +1845,31 @@ classes (a minor child of the decedent, disabled, chronically ill, not more than
 the single life table beyond age 65 (`singleLifeDivisor` covers 18-65); an inherited 401(k)'s plan rules versus an IRA's;
 whether the 5-year Roth rule needs an input.
 
+##### E1e: design (owner decisions, 2026-10-09)
+
+Spec `docs/superpowers/specs/2026-10-09-e1e-inherited-accounts-design.md` (base `6c26726`; US V126, Canada V59). US only, no
+shared-region change. Every citation of the scope note above was checked against primary sources (spec section 4).
+- Scope: the 10-year rule for a non-eligible designated beneficiary only (eligible-beneficiary stretches named, not modeled).
+- Two new kinds on the one-time income row, "Inherited traditional IRA / 401(k)" and "Inherited Roth IRA / 401(k)" (IRA and
+  401(k) share the federal rules; the 402(c)(11) transfer to an inherited IRA is assumed); "Received at" is the year of death;
+  a past year is allowed (amount = today's balance, the draws cover the years left).
+- A real account per row (`bal.inheritedTrad` / `bal.inheritedRoth` plus a per-row ledger), growing at the year's stock return in
+  every run mode; traditional drawn evenly over the 10 years after the death (balance over years left) with the RMD on the heir's own
+  Single Life factor as a floor (binds only from heir age 82; no input); Roth paid out whole in year 10 (a transfer to cash, no
+  tax, no MAGI); no Roth five-year input (always met by year 10).
+- Last resort before home equity (inherited Roth, then traditional; before penalized money in the penalty-aware orders), taxed
+  exactly like a scheduled draw, uncapped by the cliff plan.
+- The guardrails, `firstWithdrawal` and lambda's need add the scheduled draw back (as E1d decision 12); a draw-made surplus year
+  records too.
+- Display folded into the existing columns (row fields only in inherited years; a US-only tooltip annotation).
+- State: a new explicit `STATE_RULES.inherited` field on all 51 rows, five values (`ordinary`, `exempt`, `heir`, `heirAnyAge`,
+  `decedent` with a cap), every jurisdiction searched (spec appendix A): exempt PA, IL, MS, IA; heir GA, CT, DE, KY, LA, MO, NJ,
+  WI; heirAnyAge CO, AR, OK (OK a reading); decedent NY ($20,000, sole beneficiary assumed); ordinary everywhere else.
+- Spec self-review correction: the brainstorm said the even draw meets the RMD "for an heir under about 90"; the bound is a
+  factor of at least 10, so 81 or younger. Fixed by the RMD floor (decision 2) with no input.
+- Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
+  income (Open items).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
@@ -6225,6 +6250,13 @@ reading (itself secondary).
 
 ## Open items
 
+- **Rhode Island row: IRA draws excluded in error (found in the E1e state research, 2026-10-09; not scheduled).** The RI row's
+  `retirementExclusion` applies to every traditional draw (`applies.traditional: true`), but Rhode Island's Pension and Annuity
+  Income Modification never covers IRA income: PUB 2026-01 Retirement Income Guide (tax.ri.gov, 2026-02), "No income from a
+  traditional IRA, Roth IRA, SEP-IRA, or any other type of IRA qualifies"; only pensions, annuities and 401(k) / 403(b) / 457(b)
+  plans do. So a Rhode Island household's IRA draws at full retirement age are under-taxed by up to the $50,000 cap. A fix needs
+  the 401(k) / IRA split of each filer's draw, which the PA mechanism already supplies (`retirement401kA/B`); an intended number
+  change with a before/after table. Decide when to schedule it.
 - **Owner backlog (2026-10-09, raised during the E1e brainstorm; none scheduled yet, each to be designed when picked up):**
   1. Check self-employment against W-2 at the same income: a probe of a self-employed partner against a W-2 twin
      (SE tax and its half deduction against FICA plus the employer's half, QBI, the Solo 401(k) room against the W-2
