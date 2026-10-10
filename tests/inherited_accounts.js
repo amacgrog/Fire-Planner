@@ -29,6 +29,64 @@ const path = require('path');
   assert.strictEqual(await page.evaluate(() => window.__test_inherited.singleLifeFactor(-3)), 84.6, 'SLT below 0');
   assert.strictEqual(await page.evaluate(() => window.__test_inherited.singleLifeFactor(60.4)), 27.1, 'SLT rounds');
 
+  // ---- Task 2: the state sources fields are written on every taxing-state call (spec 6.4, review B2) ----
+  // A profile with an inherited draw, then a legacy profile (no inh fields at all), in one page: the legacy tax equals a
+  // fresh evaluation bit for bit (the sources scratch objects are reused between calls).
+  for (const [code, extra] of [['ny', {}], ['co', { extraA: 30000 }], ['pa', {}], ['ct', {}]]) {
+    const staleCheck = await page.evaluate(([c, ex]) => {
+      const T = window.__test_tax;
+      const base = { filing: 'single', singlePerson: true, otherA: 40000, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0,
+        pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 70, ageB: null, invOrd: 0, invQual: 0, year: 0, ...ex };
+      return window.__test_withState({ stateTax: c }, () => {
+        const fresh = T.taxFor({ ...base }, 0, 10000);
+        T.taxFor({ ...base, otherA: 70000, inhOn: true, inheritedA: 30000, inheritedB: 0, inhExtraA: 0, inhExtraB: 0, inhExclA: 20000, inhExclB: 0 }, 0, 10000);
+        const after = T.taxFor({ ...base }, 0, 10000);
+        return { same: Object.is(fresh, after), fresh, after };
+      });
+    }, [code, extra]);
+    assert(staleCheck.same, `stale source ${code}: ${staleCheck.fresh} vs ${staleCheck.after}`);
+  }
+  // The comparison above cannot fail for PA or CT on that profile (a stale 30,000 is fully subtracted in PA, and CT's share is 1
+  // at a state base of 40,000), and it covers only SOURCES_SINGLE: so every scratch object each taxFor branch uses must read all
+  // zeros after a legacy call that follows an inherited one (joint: index 0; one-person: 1; two filers: 2 and 3).
+  for (const code of ['ny', 'pa', 'ct']) {
+    for (const [branch, o, idxs] of [
+      ['joint', { filing: 'mfj', singlePerson: false }, [0]],
+      ['one-person', { filing: 'single', singlePerson: true }, [1]],
+      ['two filers', { filing: 'single', singlePerson: false }, [2, 3]],
+    ]) {
+      const zeros = await page.evaluate(([c, ov, ix]) => {
+        const T = window.__test_tax;
+        const base = { year: 0, otherA: 40000, otherB: 30000, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0,
+          ssA: 0, ssB: 0, ageA: 70, ageB: 66, invOrd: 0, invQual: 0, ...ov };
+        return window.__test_withState({ stateTax: c }, () => {
+          T.taxFor({ ...base, inhOn: true, inheritedA: 30000, inheritedB: 25000, inhExtraA: 4000, inhExtraB: 3000, inhExclA: 20000, inhExclB: 15000 }, 0, 10000);
+          const during = ix.map((i) => window.__test_inherited.sourcesInh()[i]);
+          T.taxFor({ ...base }, 0, 10000);
+          return { during, after: ix.map((i) => window.__test_inherited.sourcesInh()[i]) };
+        });
+      }, [code, o, idxs]);
+      assert(zeros.during.every((r) => r[0] > 0), `${code} ${branch}: the inherited call wrote the sources (${JSON.stringify(zeros.during)})`);
+      assert(zeros.after.every((r) => r.every((x) => x === 0)), `${code} ${branch}: stale sources after a legacy call: ${JSON.stringify(zeros.after)}`);
+    }
+  }
+  // A legacy profile pays exactly what it paid before Task 2. The constants were produced by running this same evaluation on the
+  // base tree (commit 3a5b7cb, Planner_US.html before Task 1) and are compared bit for bit: [single, joint, two filers] per state.
+  const LEGACY = { ny: [6151, 6105.05, 5649.5], pa: [5595.9, 6180.8, 5655.799999999999], ca: [6020.53, 5942.38, 5507.780000000001],
+    wa: [5074, 5444, 4919], co: [5947.4, 5488, 5462.4] };
+  const legacyNow = await page.evaluate(() => {
+    const T = window.__test_tax;
+    const base = { filing: 'single', singlePerson: true, otherA: 40000, otherB: 0, extraA: 12000, extraB: 0, wageA: 0, wageB: 0, pensionA: 9000, pensionB: 0, rmdA: 15000, rmdB: 0, ssA: 20000, ssB: 0, ageA: 70, ageB: null, invOrd: 1500, invQual: 500, year: 0 };
+    const joint = { ...base, filing: 'mfj', singlePerson: false, ageB: 66, otherB: 20000, pensionB: 5000, ssB: 10000, rmdB: 8000, extraB: 7000 };
+    const sep = { ...joint, filing: 'single' };
+    const out = {};
+    for (const code of Object.keys({ ny: 1, pa: 1, ca: 1, wa: 1, co: 1 }))
+      out[code] = window.__test_withState({ stateTax: code }, () => [T.taxFor({ ...base }, 3000, 10000), T.taxFor({ ...joint }, 3000, 10000), T.taxFor({ ...sep }, 3000, 10000)]);
+    return out;
+  });
+  for (const code of Object.keys(LEGACY))
+    LEGACY[code].forEach((v, i) => assert(Object.is(legacyNow[code][i], v), `legacy ${code}[${i}]: ${legacyNow[code][i]} vs base ${v}`));
+
   assert.deepStrictEqual(errors, []);
   await browser.close();
   console.log('[US] inherited accounts (E1e) tests passed');

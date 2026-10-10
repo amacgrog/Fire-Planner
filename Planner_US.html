@@ -6046,7 +6046,11 @@
       share: ex.share,
     };
   }
+  // E1e: how a row treats an inherited traditional draw (STATE_RULES.inherited, spec 6.4).
+  const INH_ORDINARY = 0, INH_EXEMPT = 1, INH_HEIR = 2, INH_HEIR_ANY = 3, INH_DECEDENT = 4;
+  const INH_CODE = { ordinary: INH_ORDINARY, exempt: INH_EXEMPT, heir: INH_HEIR, heirAnyAge: INH_HEIR_ANY, decedent: INH_DECEDENT };
   function compileRow(row) {
+    const ik = row.inherited ? row.inherited.kind : 'ordinary';
     const cols = {};
     for (const key of ['single', 'mfj', 'hoh']) {
       if (row.standardDeduction[key] === undefined) continue;
@@ -6092,6 +6096,8 @@
       localRate: row.localTax === 'notModeled' ? 0 : row.localTax.rate,
       ssRule: typeof ss === 'object' ? ss : null,
       retirement: compileRetirement(row.retirementExclusion),
+      inhKind: INH_CODE[ik],
+      inhCap: ik === 'decedent' ? row.inherited.cap : 0,
       needsSsSplit: row.retirementExclusion.kind === 'perPerson' && row.retirementExclusion.reducedBy === 'socialSecuritySubtracted',
       // Whether the row reads the per-person inputs of the sources (pension, traditional draw, Social Security by partner).
       needsPerPerson: row.retirementExclusion.kind === 'perPerson' || (typeof ss === 'object' && ss.kind === 'ageAgiTiered'),
@@ -6184,7 +6190,7 @@
   //                                      value of the AGI (NJ-style, or ME's phase-out)
   // ssSplit is [A, B]: each filer's Social Security subtraction (the household's, in proportion to the
   // taxable benefits), or null.
-  function stateRetirementExclusion(ex, sources, factor, colKey, agi, ssSplit) {
+  function stateRetirementExclusion(ex, sources, factor, colKey, agi, ssSplit, inhKind = INH_ORDINARY) {
     if (ex.kind === 'none') return 0;
     const ages = sources.ages || [];
     if (ex.kind === 'perPerson') {
@@ -6195,18 +6201,26 @@
         let cap = -1;
         for (let t = 0; t < ex.tierAges.length; t++)
           if (age >= ex.tierAges[t]) cap = (typeof ex.tierCaps[t] === 'number' ? ex.tierCaps[t] : ex.tierCaps[t][colKey]) * factor;
-        if (cap < 0) continue;
+        // E1e: the inherited draw of this filer (heir kinds only); every read is behind sources.inherited > 0.
+        const inhI = (inhKind === INH_HEIR || inhKind === INH_HEIR_ANY) && sources.inherited > 0 ? Math.max(0, (i === 0 ? sources.inheritedA : sources.inheritedB) || 0) : 0;
+        if (cap < 0) {
+          // Colorado under 55: only the inherited amount (a death benefit) is excluded, up to the first tier's cap.
+          if (inhKind === INH_HEIR_ANY && inhI > 0) total += Math.min(inhI, (typeof ex.tierCaps[0] === 'number' ? ex.tierCaps[0] : ex.tierCaps[0][colKey]) * factor);
+          continue;
+        }
         const pension = age >= ex.pensionFrom ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
           retirement = Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0),
           traditional = age >= ex.tradFrom ? retirement : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
+        const traditionalAll = inhI > 0 && (inhKind === INH_HEIR_ANY || age >= ex.tradFrom) ? traditional + inhI : traditional;
         let room = cap;
         if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));
         else if (ex.reducedBy === 2) room = Math.max(0, cap - (ssSplit ? ssSplit[i] : 0));
-        total += Math.min(pension + traditional, room);
+        total += Math.min(pension + traditionalAll, room);
       }
       return ex.share ? total * stateStepValue(ex.share.tables[colKey], agi, ex.share.inclusive, factor) : total;
     }
-    const retirement = Math.max(0, sources.pension + sources.retirement);
+    let retirement = Math.max(0, sources.pension + sources.retirement);
+    if (inhKind === INH_HEIR && sources.inherited > 0) retirement += sources.inherited; // E1e: Connecticut's inherited IRA draw
     if (ex.kind === 'agiPhasedShare')
       return retirement * stateStepValue(ex.tables[colKey], agi, ex.inclusive, factor);
     return 0;
@@ -6441,7 +6455,10 @@
       taxableSS = Math.max(0, sources.taxableSS);
     let includedGains = gains * rule.gainsIncluded;
     if (rule.gainsDeduction > 0) includedGains = Math.max(0, includedGains - rule.gainsDeduction * fSd);
-    let start = rule.ordinary ? ordinaryNonSS + includedGains : includedGains,
+    // E1e: an inherited traditional draw (spec 6.4). Every read sits inside this gate: test sources objects may lack the
+    // fields, and a legacy call computes exactly today's doubles.
+    const inh = sources.inherited > 0 ? sources.inherited : 0;
+    let start = rule.ordinary ? (inh > 0 ? ordinaryNonSS + inh : ordinaryNonSS) + includedGains : includedGains,
       ssSubtraction = 0,
       ssSplit = null;
     if (rule.ss !== SS_EXEMPT) {
@@ -6486,7 +6503,12 @@
     if (ssSplit === null && rule.needsSsSplit && ssSubtraction > 0 && taxableSS > 0)
       ssSplit = [(ssSubtraction * (sources.taxableSSA || 0)) / taxableSS, (ssSubtraction * (sources.taxableSSB || 0)) / taxableSS];
     // `start` stands for the federal AGI; `agi` is the state's AGI after its own subtractions.
-    let agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit);
+    let agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit, rule.inhKind);
+    // E1e: the exempt and decedent kinds subtract here; the heir kinds went through the retirement exclusion above.
+    if (inh > 0 && rule.ordinary) {
+      if (rule.inhKind === INH_EXEMPT) agi -= inh;
+      else if (rule.inhKind === INH_DECEDENT) agi -= Math.min(inh, sources.inheritedExclA + sources.inheritedExclB);
+    }
     // The federal income tax paid (one lagged pass, see taxFor), as a subtraction from the state AGI.
     let federalAllowance = 0;
     if (rule.lagged !== null) {
@@ -6770,6 +6792,8 @@
       pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, retirement401kA: 0, retirement401kB: 0, federalTax: 0,
       ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0, taxableSSA: 0, taxableSSB: 0,
       dependents: NO_DEPENDENTS, propertyTax: 0, rent: 0,
+      // E1e: an inherited traditional draw by partner (slot A of its own sources for a second return) and the New York decedent room.
+      inherited: 0, inheritedA: 0, inheritedB: 0, inheritedExclA: 0, inheritedExclB: 0,
     };
   }
   const SOURCES_JOINT = newStateSources(2),
@@ -6810,6 +6834,8 @@
       // E1d: a year with a taxable one-time gain (buildTaxProfile; a profile built elsewhere has no flag: no lump). The
       // lump gain is added inside each branch, never here beside invQual (the two-filer branch splits `gains` 50/50).
       lumpOn = profile.lumpOn === true,
+      // E1e: the profile carries an inherited account (always set in an inherited run; spec 6.3).
+      inhOn = profile.inhOn === true,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6841,7 +6867,9 @@
       // E1d: the year's lump gains join the branch's gains once, so every reader below sees them.
       if (lumpOn) gains += profile.lumpGainA + profile.lumpGainB;
       // The household's other income net of the 162(l) deduction, read once (both sums below start with it).
-      const otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
+      let otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
+      // E1e: the last-resort inherited draws of the pass (the scheduled draw is already in otherA/B).
+      if (inhOn) otherAB += profile.inhExtraA + profile.inhExtraB;
       const other = otherAB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
       const ordinary = otherAB + traditionalExtra + invOrd + taxableSS;
@@ -6877,6 +6905,20 @@
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
         sources.rent = rent;
+        // E1e: written on every call (the scratch object is reused); read only when sources.inherited > 0.
+        if (inhOn) {
+          sources.inheritedA = profile.inheritedA + profile.inhExtraA;
+          sources.inheritedB = profile.inheritedB + profile.inhExtraB;
+          sources.inherited = sources.inheritedA + sources.inheritedB;
+          sources.inheritedExclA = profile.inhExclA;
+          sources.inheritedExclB = profile.inhExclB;
+        } else {
+          sources.inherited = 0;
+          sources.inheritedA = 0;
+          sources.inheritedB = 0;
+          sources.inheritedExclA = 0;
+          sources.inheritedExclB = 0;
+        }
       }
       const stateTaxPaid = stateIncomeTax(sources, 'mfj', profile.year),
         deduction = federalDeduction(
@@ -6911,7 +6953,8 @@
     if (profile.singlePerson) {
       // E1d: the year's lump gains join the branch's gains once, so every reader below sees them.
       if (lumpOn) gains += profile.lumpGainA + profile.lumpGainB;
-      const otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
+      let otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
+      if (inhOn) otherA1 += profile.inhExtraA;
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
         otherA1 + gains + traditionalExtra + invOrd,
@@ -6945,6 +6988,19 @@
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
         sources.rent = rent;
+        if (inhOn) {
+          sources.inheritedA = profile.inheritedA + profile.inhExtraA;
+          sources.inheritedB = 0;
+          sources.inherited = sources.inheritedA;
+          sources.inheritedExclA = profile.inhExclA;
+          sources.inheritedExclB = 0;
+        } else {
+          sources.inherited = 0;
+          sources.inheritedA = 0;
+          sources.inheritedB = 0;
+          sources.inheritedExclA = 0;
+          sources.inheritedExclB = 0;
+        }
       }
       const stateTaxPaid = stateIncomeTax(sources, status, profile.year),
         deduction = federalDeduction(
@@ -6991,8 +7047,12 @@
       gainA += profile.lumpGainA;
       gainB += profile.lumpGainB;
     }
-    const otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
+    let otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
       otherB2 = seOn ? profile.otherB - seHB : profile.otherB;
+    if (inhOn) {
+      otherA2 += profile.inhExtraA;
+      otherB2 += profile.inhExtraB;
+    }
     const taxableSSA = taxableSocialSecurity(
       profile.ssA,
       otherA2 + gainA + tradA + invA,
@@ -7033,6 +7093,18 @@
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
+      // E1e: each return's own draw in its slot A (as retirementA is filled for B's return).
+      if (inhOn) {
+        sourcesA.inheritedA = profile.inheritedA + profile.inhExtraA;
+        sourcesA.inherited = sourcesA.inheritedA;
+        sourcesA.inheritedExclA = profile.inhExclA;
+      } else {
+        sourcesA.inherited = 0;
+        sourcesA.inheritedA = 0;
+        sourcesA.inheritedExclA = 0;
+      }
+      sourcesA.inheritedB = 0;
+      sourcesA.inheritedExclB = 0;
       sourcesB = SOURCES_B;
       sourcesB.wages = profile.wageB + invB + extraB;
       if (seOn) sourcesB.wages += seNetB - seHB;
@@ -7059,6 +7131,17 @@
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
       sourcesB.rent = halfRent;
+      if (inhOn) {
+        sourcesB.inheritedA = profile.inheritedB + profile.inhExtraB;
+        sourcesB.inherited = sourcesB.inheritedA;
+        sourcesB.inheritedExclA = profile.inhExclB;
+      } else {
+        sourcesB.inherited = 0;
+        sourcesB.inheritedA = 0;
+        sourcesB.inheritedExclA = 0;
+      }
+      sourcesB.inheritedB = 0;
+      sourcesB.inheritedExclB = 0;
     }
     // Two separate returns: the household's property tax and deductible mortgage
     // interest are split 50/50 between them, and each return picks its own
@@ -17231,6 +17314,14 @@
   };
   window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
   window.__test_inherited = { singleLifeFactor };
+  window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
+  // Test-only: run fn with state patched, restoring it afterwards.
+  window.__test_withState = (patch, fn) => {
+    const saved = {};
+    for (const k of Object.keys(patch)) saved[k] = state[k];
+    Object.assign(state, patch);
+    try { return fn(); } finally { Object.assign(state, saved); }
+  };
   window.__test_payrollTax = payrollTax;
   window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
   window.__test_streamCoverBits = streamCoverBits;
