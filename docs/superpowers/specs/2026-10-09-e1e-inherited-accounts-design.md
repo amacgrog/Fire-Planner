@@ -118,8 +118,9 @@ port section (section 10).
     and the fill's `other` adds `inhEstA + inhEstB`, appended only when non-zero, so a legacy fill is the same double.
     Nothing else reads the pair (`taxFor` reads `inhExtraA/B`, the realized draw). (Rejected: B, recorded as a
     limitation.) **Convergence (owner, 2026-10-10, after Task 6b):** the conversion now depends on the damped estimate,
-    whose error shrinks about threefold a pass, so a year with a small last-resort draw converges within `MAGI_ITER_TOL`,
-    but one with a large draw reaches the 8-pass cap with the conversion about 0.04% of the draw short of a
+    whose error shrinks about threefold a pass, so a year with a last-resort draw can run all 8 passes. With a small draw
+    the conversion still ends within `MAGI_ITER_TOL` of a scheduled-draw twin (Task 6b's joint test: x about $1,700, a gap
+    of $0.57); with a large one it ends about 0.04% of the draw short (Task 7 Step 0: x = $26,798.62, $9.73 short) of a
     scheduled-draw twin (a few dollars; under $15 a year of tax; the rows record the realized draw and MAGI, so nothing is
     inconsistent). Recorded as a limitation (section 9). A faster step (secant) was considered and not adopted: a new
     numerical rule in the MAGI iteration, with overshoot risk at the premium cliffs, for a few dollars.
