@@ -1174,7 +1174,7 @@
       const g = r.gainPct !== '' && r.gainPct !== null && Number.isFinite(Number(r.gainPct)) ? Math.min(100, Math.max(0, Number(r.gainPct))) : 100;
       return {
         ...x,
-        kind: r.kind === 'wages' || r.kind === 'ordinary' || r.kind === 'gain' ? r.kind : 'free',
+        kind: r.kind === 'wages' || r.kind === 'ordinary' || r.kind === 'gain' || r.kind === 'inheritedTrad' || r.kind === 'inheritedRoth' ? r.kind : 'free',
         owner: r.owner === 'B' ? 'B' : 'A',
         gainPct: g,
         activeBusiness: r.activeBusiness === true,
@@ -10351,6 +10351,7 @@
   // tax-free (stepped-up basis); the owner is dead from the death year on. Only the gain share of a gain row is taxable;
   // its basis joins taxFree. flowTotal (the taxable part) is the one gate: a lump year is flowTotal > 0. taxFree runs from
   // 0 in list order: for all-free rows it is the old oneTimeAmount, bit for bit.
+  // Rows of kind inheritedTrad / inheritedRoth (E1e) are skipped here: inheritedLedger reads them.
   const LUMP_OUT = { taxFree: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, gainA: 0, gainB: 0, gainNoNiitA: 0, gainNoNiitB: 0, flowTotal: 0 };
   function lumpAmountsForYear(lumps, ctx, out) {
     out.taxFree = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0;
@@ -10360,6 +10361,8 @@
       if (Math.round(o.age) !== ctx.ageA) continue;
       const amt = o.amount * (o.flat ? 1 : ctx.factor),
         k = o.kind;
+      // E1e: an inherited account is not a lump; the inherited ledger reads these rows (spec 5.2).
+      if (k === 'inheritedTrad' || k === 'inheritedRoth') continue;
       if (k !== 'wages' && k !== 'ordinary' && k !== 'gain') {
         out.taxFree += amt;
         continue;
