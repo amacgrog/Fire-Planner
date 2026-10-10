@@ -26,7 +26,7 @@ function checks() {
   need(JSON.stringify(noTax) === JSON.stringify(['ak', 'fl', 'nh', 'nv', 'sd', 'tn', 'tx', 'wy']), 'unexpected no-tax set: ' + noTax);
 
   // --- Schema: every field present, nothing extra, values in range -----------------------------------
-  const FIELDS = ['name', 'status', 'sourceKind', 'source', 'asOf', 'indexing', 'statusAs', 'tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'schedule', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'localTax', 'notes'];
+  const FIELDS = ['name', 'status', 'sourceKind', 'source', 'asOf', 'indexing', 'statusAs', 'tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'schedule', 'retirementExclusion', 'inherited', 'credits', 'federalTaxSubtraction', 'localTax', 'notes'];
   const SCHEDULE_KEYS = ['tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'statusAs', 'indexing'];
   const EXCLUSION_PARAMS = {
     none: [],
@@ -133,6 +133,31 @@ function checks() {
       checkRow(built, at + 'schedule ' + fromYear + ': ');
     }
   }
+
+  // E1e: every row declares how it taxes an inherited traditional draw (spec 6.4, appendix A).
+  const INH_KINDS = ['ordinary', 'exempt', 'heir', 'heirAnyAge', 'decedent'];
+  for (const [code, row] of Object.entries(rules)) {
+    const inh = row.inherited;
+    need(!!inh && INH_KINDS.includes(inh.kind), code + ': inherited.kind missing or invalid');
+    if (!inh) continue;
+    need(inh.kind === 'decedent' ? typeof inh.cap === 'number' && inh.cap > 0 && Object.keys(inh).length === 2
+      : Object.keys(inh).length === 1, code + ': inherited carries kind only (decedent: kind and a positive cap)');
+    if (inh.kind === 'heir' || inh.kind === 'heirAnyAge') {
+      need(row.retirementExclusion.kind !== 'none', code + ': ' + inh.kind + ' needs a retirement exclusion');
+      // The heir exclusion is not gated by rule.ordinary (spec 6.4): a heir row must tax ordinary income. No row breaks
+      // this today; the check keeps it so.
+      need(row.base.ordinary === true, code + ': ' + inh.kind + ' needs base.ordinary');
+    }
+    if (inh.kind === 'heirAnyAge') need(row.retirementExclusion.kind === 'perPerson', code + ': heirAnyAge needs perPerson');
+  }
+  // The assignments of spec appendix A, pinned.
+  const EXPECT = { pa: 'exempt', il: 'exempt', ms: 'exempt', ia: 'exempt', ny: 'decedent', co: 'heirAnyAge', ar: 'heirAnyAge',
+    ok: 'heirAnyAge', ga: 'heir', ct: 'heir', de: 'heir', ky: 'heir', la: 'heir', mo: 'heir', nj: 'heir', wi: 'heir' };
+  for (const [code, row] of Object.entries(rules)) {
+    const want = EXPECT[code] || 'ordinary';
+    need(!row.inherited || row.inherited.kind === want, code + ': inherited ' + (row.inherited && row.inherited.kind) + ', expected ' + want);
+  }
+  need(!rules.ny.inherited || rules.ny.inherited.cap === 20000, 'ny: decedent cap 20000');
 
   // --- The evaluator follows the selector (the resolved row is cached per state code) -----------
   const src = { wages: 100000, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] };
