@@ -502,11 +502,14 @@ const path = require('path');
   }
   // AR at 50 (heirAnyAge): the inherited amount is excluded up to 6,000 while the filer's own traditional draw is not.
   {
-    const P = { ...H, stateTax: 'ar', ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, taxable: 0, cash: 0, tradIraA: 500000, spending: 60000, dividendYield: 0 };
+    // (Task 6: the inherited row is drawn before the household's penalized IRA, so the engine never draws the own IRA of a 50-year-old while
+    // the row has money; the filer's own traditional draw of 20,000 is therefore supplied by hand as the discretionary draw of the profile.)
+    const P = { ...H, stateTax: 'ar', ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, taxable: 0, cash: 0, tradIraA: 500000, spending: 20000, dividendYield: 0 };
     const a = await withSetup(P, [R({ amount: 400000, age: 49 })]);
     near(a.r.inheritedDraw, 42800, 0.01, 'AR: the draw');
-    assert(a.t > 0, 'AR: the year also draws the own IRA (' + a.t + ')');
-    near(await stateOf(a.p, 'ar', a.t), await stateOf(asWages(a.p, 36800), 'ar', a.t), 0.01, 'AR at 50: 6,000 of the draw excluded, the own draw fully taxed');
+    near(a.t, 0, 0.005, 'AR: no own draw in the engine year (the row covers the need)');
+    const own = 20000;
+    near(await stateOf(a.p, 'ar', own), await stateOf(asWages(a.p, 36800), 'ar', own), 0.01, 'AR at 50: 6,000 of the draw excluded, the own draw fully taxed');
   }
   // NY after A dies (post-remap slot A): survivor B, A's $400,000 row received at 60 (year 2 draw 45,796 on the survivor's return);
   // inhExclA is the 20,000 cap, B has no pension or IRA draw of their own.
@@ -686,6 +689,243 @@ const path = require('path');
     }, [{ ...H, taxable: 600000 }, rows]);
     assert.strictEqual(await count([]), 0, 'call counter: 0 for a legacy household');
     assert((await count([R({ amount: 428000, age: 59 })])) > 0, 'call counter: above 0 for a run with a scheduled draw');
+  }
+
+  // ---- Task 6: the last resort and the fourth MAGI estimate (spec 6.5, 6.6) ----
+  // Households with no money of their own (taxable 0, cash 0): the inherited account is the only asset, so in a year its scheduled draw
+  // falls short, the rest of the need is a last-resort draw. The identity tests compare a year with a last-resort draw x against the same
+  // year where the scheduled draw is x larger (the test-only hook __test_inhForceExtra adds x to the row's scheduled draw): the tax, the
+  // premium, MAGI and the end balances are the same, within $0.05 (the step's bisection lands about $0.02 from the exact draw).
+  const TOL = 0.05;
+  const I0 = { ...H, taxable: 0, cash: 0, spending: 60000, dividendYield: 0 };
+  const engine6 = (patch, rows, hist, force) =>
+    page.evaluate(([p, l, h, f]) => {
+      const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+      try {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, JSON.parse(JSON.stringify(saved)), p, { oneTimeIncome: l });
+        if (f) window.__test_inhForceExtra(f[0], f[1], f[2]);
+        const rowFn = h ? (y) => [2000 + y, h.stock[y] === undefined ? h.dflt : h.stock[y], 0, 3] : null;
+        const before = window.__test_magiStats.forced;
+        const tr = rowFn ? window.__test_accountTrace(s.retireAgeA, s.retireAgeB, rowFn) : window.__test_accountTrace();
+        const sim = rowFn ? window.__test_simulateHistorical(rowFn) : window.__test_simulate();
+        return {
+          trace: tr.map((t) => ({ profile: t.profile, conversionAmount: t.conversionAmount, inherited: t.inherited, tradPool: t.tradPool, passes: t.passes, forcedPass: t.forcedPass,
+            lrA: t.inhLastResortA, lrB: t.inhLastResortB })),
+          rows: sim.rows, depletedAge: sim.depletedAge, estate: JSON.parse(JSON.stringify(sim.estate)), forced: window.__test_magiStats.forced - before,
+        };
+      } finally {
+        if (f) window.__test_inhForceExtra(null);
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, saved);
+      }
+    }, [patch, rows, hist || null, force || null]);
+  const lr = (e, y) => (e.trace[y].lrA || 0) + (e.trace[y].lrB || 0);
+  const firstLr = (e, from = 0) => { for (let y = from; y < e.trace.length; y++) if (lr(e, y) > 100) return y; return -1; };
+  // The identity: run 1 as is, run 2 with the last-resort amount of year y added to the row's scheduled draw.
+  const identity = async (label, patch, rows, opts = {}) => {
+    const a = await engine6(patch, rows, opts.hist);
+    const y = opts.year !== undefined ? opts.year : firstLr(a, opts.from || 0);
+    assert(y >= 0, `${label}: a year with a last-resort draw above $100`);
+    const x = lr(a, y);
+    const b = await engine6(patch, rows, opts.hist, [y, opts.slot || 0, x]);
+    assert(lr(b, y) < 0.05, `${label}: the forced run needs no last resort (${lr(b, y)})`);
+    for (const k of ['tax', 'healthcare', 'magiProxy', 'investable', 'inheritedTrad', 'inheritedRoth', 'traditionalWithdrawn', 'rothWithdrawn', 'earlyPenalty'])
+      near(a.rows[y][k] || 0, b.rows[y][k] || 0, TOL, `${label}: year ${y} ${k}`);
+    if (a.rows[y].magiA !== undefined) {
+      near(a.rows[y].magiA, b.rows[y].magiA, TOL, `${label}: magiA`);
+      near(a.rows[y].magiB, b.rows[y].magiB, TOL, `${label}: magiB`);
+    }
+    return { a, b, y, x };
+  };
+
+  // last resort basic: taxable 150,000 runs out; an inherited Roth row ($50,000) and a traditional row ($300,000) both received at 58 (two
+  // years ago); the household owns a $400,000 home with no mortgage. In the years the traditional last resort runs the Roth row is
+  // empty (Roth first), the home equity is never sold while inherited money remains, the run depletes later than the twin without
+  // the rows, and the year after a last-resort draw the scheduled draw is smaller than the schedule it would have had: the schedule of
+  // the row alone, 300,000 at 7%, k = 2 in year 0 (received two years ago), drawn grown / (11 - k) (hand recursion below).
+  {
+    const Bs = { ...H, taxable: 150000, spending: 60000, dividendYield: 0, tenure: 'own', homeValue: 400000, mortgage: 0, mortgagePrincipal: 0 };
+    const rowsB = [R({ amount: 50000, age: 58, kind: 'inheritedRoth' }), R({ amount: 300000, age: 58 })];
+    const a = await engine6(Bs, rowsB), b = await engine6(Bs, []);
+    const y = firstLr(a);
+    assert(y >= 0, 'last resort basic: a traditional last resort happens');
+    for (let t = 0; t < a.trace.length; t++) {
+      if (lr(a, t) > 0.005) assert((a.rows[t].inheritedRoth || 0) === 0, `last resort basic: year ${t}, the inherited Roth is empty before the traditional last resort`);
+      if (t > 0 && (a.rows[t].inheritedTrad || 0) + (a.rows[t].inheritedRoth || 0) > 0)
+        assert(a.rows[t].homeEquity >= a.rows[t - 1].homeEquity - 0.01, `last resort basic: year ${t}, the home is not sold while inherited money remains`);
+    }
+    assert(a.depletedAge === null || (b.depletedAge !== null && a.depletedAge > b.depletedAge), `last resort basic: depletes later than the twin (${a.depletedAge} vs ${b.depletedAge})`);
+    let bal = 300000, sched = [];
+    for (let k = 2; k <= 12; k++) { const g = bal * 1.07, d = k >= 10 ? g : g / (11 - k); sched.push(d); bal = g - d; }
+    const next = a.rows[y + 1].inheritedDraw || 0;
+    assert(next < sched[y + 1] - 0.01, `last resort basic: the scheduled draw after the last resort (${next}) is below the schedule without it (${sched[y + 1]})`);
+  }
+  // identity, one pass: past row $600,000 received at 59 (k = 1 in year 0: draw 600,000 x 1.07 / 10 = 64,200 short of the need)
+  {
+    const { a, y, x } = await identity('identity, one pass', I0, [R({ amount: 600000, age: 59 })]);
+    assert(a.trace[y].passes >= 1 && x > 100, 'identity, one pass: x = ' + x);
+    near(a.trace[y].profile.inhExtraA, x, 0.005, 'identity, one pass: profile.inhExtraA holds the realized last-resort draw');
+  }
+  // identity, ACA multi-pass: both 61, the premium depends on the MAGI the draw sets
+  {
+    const ACA6 = { ...I0, ageA: 61, ageB: 61, retireAgeA: 61, retireAgeB: 61, acaEnabled: true, medicalInflation: 0, spending: 90000 };
+    const { a, y } = await identity('identity, ACA multi-pass', ACA6, [R({ amount: 700000, age: 60 })]);
+    assert(a.trace[y].passes > 1, 'identity, ACA multi-pass: the year takes more than one pass (' + a.trace[y].passes + ')');
+  }
+  // two returns: an unmarried couple (two returns every year), both 50, A's traditional $300,000 is penalized money, conversions on under the
+  // ACA ceilings (finite); B's row $400,000 received at 49 (year-0 scheduled draw 428,000 / 10 = 42,800), the rest of the need a last-resort draw
+  // x on B's return. By hand: B's return holds the scheduled draw plus x (magiB = 42,800 + x), A's return holds only the conversion (magiA =
+  // the conversion, the draw never lands on A), and the profile carries x in slot B. (The Roth fill reads the profile's other income, which
+  // holds the scheduled draw but not the pass's last-resort estimate, so a forced scheduled draw of the same size would convert less: the
+  // identity run is not used here.)
+  {
+    const T2 = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'single', acaEnabled: true, medicalInflation: 0, spending: 100000,
+      tradIraA: 300000, rothConvEnabled: true, rothConvBracket: 12, rothConvStartAge: 50, rothConvEndAge: 55 };
+    const a = await engine6(T2, [R({ amount: 400000, age: 49, owner: 'B' })]);
+    const y = firstLr(a), x = lr(a, y);
+    assert(y === 0 && a.trace[0].conversionAmount > 0 && a.trace[0].passes > 1, 'two returns: year 0 converts and takes a last resort in several passes');
+    near(a.rows[0].magiB, 42800 + x, TOL, 'two returns: magiB = the scheduled draw + the last-resort draw');
+    near(a.rows[0].magiA, a.trace[0].conversionAmount, TOL, 'two returns: magiA is the conversion only');
+    near(a.trace[0].profile.inhExtraB, x, 0.005, "two returns: the draw is on B's return (profile.inhExtraB)");
+    assert.strictEqual(a.trace[0].profile.inhExtraA, 0, "two returns: nothing on A's return");
+  }
+  // survivor last resort: A dies at 63 (B dies at 63): the row's draws land on the survivor's slot A after the remap
+  for (const who of ['A', 'B']) {
+    const S = { ...I0, spending: 150000, survivorEnabled: true, survivorPartner: who, survivorDeathAge: 63 };
+    const { a, y, x } = await identity(`survivor last resort ${who} dies`, S, [R({ amount: 1000000, age: 59, owner: who })], { from: 4 });
+    assert(y >= 4, `survivor last resort ${who} dies: in the survivor period (year ${y})`);
+    assert.strictEqual(a.trace[y].profile.singlePerson, true, `survivor last resort ${who} dies: a one-person return`);
+    near(a.trace[y].profile.inhExtraA, x, 0.005, `survivor last resort ${who} dies: taxed on slot A`);
+    assert.strictEqual(a.trace[y].profile.inhExtraB, 0, `survivor last resort ${who} dies: nothing on slot B`);
+  }
+  // single-person mode
+  await identity('single-person', { ...I0, singlePerson: true }, [R({ amount: 600000, age: 59 })]);
+  // receipt-year last resort: a row received this year has no scheduled draw; the need is met from it as a last resort, taxed like income:
+  // the year's tax, premium and MAGI equal those of the household with a not-earned stream of the same amount and no row.
+  {
+    const a = await engine6(I0, [R({ amount: 500000, age: 60 })]);
+    const x = lr(a, 0);
+    assert(x > 1000 && (a.rows[0].inheritedDraw || 0) === 0, 'receipt-year last resort: a draw with no scheduled draw (' + x + ')');
+    const b = await engine6({ ...I0, incomeSources: [stream(x)] }, []);
+    for (const k of ['tax', 'healthcare', 'magiProxy']) near(a.rows[0][k], b.rows[0][k], TOL, `receipt-year last resort: ${k}`);
+  }
+  // early Roth: both 50, an inherited Roth row of $400,000 received at 49 (opens at 400,000 in year 0, no scheduled payout for years); the need
+  // is spending 60,000 + the 18,000 flat premium = 78,000, all from the Roth: no tax, no penalty, MAGI 0.
+  {
+    const E = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50 };
+    const a = await engine6(E, [R({ amount: 400000, age: 49, kind: 'inheritedRoth' })]);
+    near(a.rows[0].rothWithdrawn, 78000, 0.01, 'early Roth: the whole need from the inherited Roth');
+    assert.strictEqual(a.rows[0].earlyPenalty, 0, 'early Roth: no penalty');
+    near(a.rows[0].tax, 0, 0.005, 'early Roth: no tax');
+    near(a.rows[0].magiProxy, 0, 0.005, 'early Roth: no MAGI');
+  }
+  // penalty-aware: both 50, A's traditional $300,000 is penalized money, an inherited traditional row $400,000 received at 49: the inherited
+  // row is drawn before the penalized money (no penalty, the household's account untouched) and the probes see the draw (identity).
+  {
+    const Pn = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, spending: 120000, tradIraA: 300000 };
+    const { a, y } = await identity('penalty-aware', Pn, [R({ amount: 400000, age: 49 })]);
+    assert.strictEqual(a.rows[y].earlyPenalty, 0, 'penalty-aware: no penalty while inherited money remains');
+    assert(a.trace[y].tradPool > 300000 * 0.99, 'penalty-aware: the penalized account is untouched (' + a.trace[y].tradPool + ')');
+  }
+  // placements. Plain standard order: both 62, A's traditional (penalty-free) $150,000, a home; the inherited row comes after the
+  // household's traditional money (it is empty in every year the last resort runs) and before home equity.
+  {
+    const Pl = { ...I0, ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, spending: 150000, tradIraA: 150000, tenure: 'own', homeValue: 400000, mortgage: 0, mortgagePrincipal: 0 };
+    const a = await engine6(Pl, [R({ amount: 1000000, age: 61 })]);
+    const y = firstLr(a);
+    assert(y >= 0, 'placements, plain: a last resort happens');
+    for (let t = 0; t < a.trace.length; t++) if (lr(a, t) > 0.005) {
+      assert(a.trace[t].tradPool < 1, `placements, plain: year ${t}, the household's traditional money is used first (${a.trace[t].tradPool})`);
+      assert(t === 0 || (a.rows[t].inheritedTrad || 0) <= 0 || a.rows[t].homeEquity >= a.rows[t - 1].homeEquity - 0.01, `placements, plain: year ${t}, home equity untouched while inherited money remains`);
+    }
+  }
+  // the same with the cliff plan on (ACA, a stay-under in reach): the capped traditional money is released first
+  {
+    const Pc = { ...I0, ageA: 61, ageB: 61, retireAgeA: 61, retireAgeB: 61, spending: 150000, tradIraA: 150000, acaEnabled: true, medicalInflation: 0, cliffGuardEnabled: true };
+    const a = await engine6(Pc, [R({ amount: 1000000, age: 60 })]);
+    for (let t = 0; t < a.trace.length; t++) if (lr(a, t) > 0.005) assert(a.trace[t].tradPool < 1, `placements, cliff plan on: year ${t}, the household's traditional money is released first (${a.trace[t].tradPool})`);
+  }
+  // bucket strategy (the historical engine), home step in an up year (+10%): no money of their own, a home, an inherited row
+  {
+    const Bk = { ...I0, spending: 100000, tenure: 'own', homeValue: 400000, mortgage: 0, mortgagePrincipal: 0, bondYears: 0 };
+    const a = await engine6(Bk, [R({ amount: 1000000, age: 59 })], { stock: {}, dflt: 10 });
+    const y = firstLr(a);
+    assert(y >= 0, 'placements, bucket home (up years): a last resort happens');
+    for (let t = 0; t < a.trace.length; t++) if (lr(a, t) > 0.005) assert(t === 0 || (a.rows[t].inheritedTrad || 0) <= 0 || a.rows[t].homeEquity >= a.rows[t - 1].homeEquity - 0.01, `placements, bucket home: year ${t}, home equity untouched while inherited money remains`);
+  }
+  // bucket strategy, penalized step in a down year (-20% every year): both 50, A's traditional is penalized money
+  {
+    const Bp = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, spending: 120000, tradIraA: 300000 };
+    const a = await engine6(Bp, [R({ amount: 400000, age: 49 })], { stock: {}, dflt: -20 });
+    const y = firstLr(a);
+    assert(y >= 0, 'placements, bucket penalized (down years): a last resort happens');
+    for (let t = 0; t < a.trace.length; t++) if (lr(a, t) > 0.005 && (a.rows[t].inheritedTrad || 0) > 0) {
+      assert.strictEqual(a.rows[t].earlyPenalty, 0, `placements, bucket penalized: year ${t}, no penalty while inherited money remains`);
+      assert(a.trace[t].tradPool > 300000 * 0.7 * 0.99 ** t * 0.5, `placements, bucket penalized: year ${t}, the penalized account is not drawn first`);
+    }
+  }
+  // NY room: two traditional rows (the older received at 57 is in draw year k = 3 now, the younger at 58 in k = 2: grown / (11 - k) at 0%: amount / 8 and amount / 9), returnRate 0, no money of their own, healthcare 0 so the last resort is small. Hand: A: the older row has a
+  // $30,000 scheduled draw (room 0), the younger $5,000: base exclusion min(30,000, 20,000) + min(5,000, 20,000) = 25,000; a last-resort draw
+  // x comes from the OLDER row: no extra exclusion. B: the older row has the $5,000 draw (room 20,000 - 5,000 = 15,000): the exclusion is
+  // 25,000 + min(x, 15,000).
+  {
+    const Ny = { ...I0, stateTax: 'ny', returnRate: 0, healthcare: 0, spending: 40000 };
+    const oldBig = await engine6(Ny, [R({ amount: 240000, age: 57 }), R({ amount: 45000, age: 58 })]);
+    const yA = firstLr(oldBig);
+    assert(yA === 0, 'NY room, older row large: a last resort in year 0 (' + yA + ')');
+    near(oldBig.trace[0].profile.inhExclA, 25000, 0.005, 'NY room, older row has the 30,000 draw: no extra exclusion');
+    const oldSmall = await engine6(Ny, [R({ amount: 40000, age: 57 }), R({ amount: 270000, age: 58 })]);
+    const x = lr(oldSmall, 0);
+    assert(x > 100 && x < 15000, 'NY room, older row small: a last resort in year 0 below the 15,000 room (' + x + ')');
+    near(oldSmall.trace[0].profile.inhExclA, 25000 + Math.min(x, 15000), 0.005, 'NY room, older row has the 5,000 draw: the extra exclusion is min(x, 15,000)');
+  }
+  // estate last resort: the final projection year with a last-resort draw; the estate holds the reduced inherited balance.
+  {
+    const Es = { ...I0, lifeExpectancyA: 63, lifeExpectancyB: 63, spending: 150000 };
+    const a = await engine6(Es, [R({ amount: 1000000, age: 59 })]);
+    const last = a.rows.length - 1;
+    assert(lr(a, last) > 0.005, 'estate last resort: the final year has a last-resort draw (' + lr(a, last) + ')');
+    near(a.estate.traditional, a.rows[last].inheritedTrad || 0, 0.005, 'estate last resort: estate.traditional is the reduced inherited balance');
+  }
+  // legacy: takeInherited counts only calls that get past the wd.inh === null gate: 0 for a legacy run with deficit years.
+  {
+    const cnt = (patch, rows) => page.evaluate(([p, l]) => {
+      const s = window.__test_getState(), saved = JSON.parse(JSON.stringify(s));
+      try {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, JSON.parse(JSON.stringify(saved)), p, { oneTimeIncome: l });
+        window.__test_inhTakeCount(true);
+        window.__test_simulate();
+        return window.__test_inhTakeCount(false);
+      } finally { for (const k of Object.keys(s)) delete s[k]; Object.assign(s, saved); }
+    }, [patch, rows]);
+    assert.strictEqual(await cnt({ ...H, taxable: 300000, spending: 90000 }, []), 0, 'legacy: takeInherited never gets past the gate');
+    assert((await cnt(I0, [R({ amount: 600000, age: 59 })])) > 0, 'legacy: an inherited run reaches the step');
+  }
+
+  // forced pass: the household of tests/aca_medicaid.js's forced-pass sweep (single, 58, ACA, premium 12,000, TX) with no money of its own and an
+  // inherited row, spending swept 4,000..16,000 (a $60,000 row, so the draws are small): in a year that runs the forced pass AND takes a last-resort draw, the year's tax includes the
+  // draw's tax (the profile carries the realized draw, and the tax is taxFor of that profile).
+  {
+    let found = 0;
+    for (let spending = 4000; spending <= 16000 && found < 3; spending += 500) {
+      const F = { ...H, singlePerson: true, ageA: 58, retireAgeA: 58, lifeExpectancyA: 90, returnRate: 5, bondReturn: 0, inflation: 2.5, hysaRate: 0, dividendYield: 0,
+        medicalInflation: 0, medicareYearly: 0, ssMonthlyA: 0, taxable: 0, cash: 0, cashReserve: 0, acaEnabled: true, acaEnhanced: false, healthcare: 12000,
+        medicaidWhenEligible: true, stateTax: 'tx', spending, guardrailsEnabled: false };
+      const a = await engine6(F, [R({ amount: 60000, age: 57 })]);
+      if (a.forced === 0) continue;
+      for (let y = 0; y < a.trace.length; y++) {
+        if (!(lr(a, y) > 100) || !a.trace[y].forcedPass || !(a.rows[y].tax > 100)) continue;
+        const withDraw = await page.evaluate(([p]) => window.__test_withState({ stateTax: 'tx' }, () => window.__test_tax.taxFor({ ...p }, 0, 0)), [a.trace[y].profile]);
+        near(a.rows[y].tax, withDraw, 0.01, `forced pass (spending ${spending}), year ${y}: the tax includes the last-resort draw`);
+        const without = await page.evaluate(([p]) => window.__test_withState({ stateTax: 'tx' }, () => window.__test_tax.taxFor({ ...p, inhExtraA: 0 }, 0, 0)), [a.trace[y].profile]);
+        assert(a.rows[y].tax - without > 100, `forced pass (spending ${spending}), year ${y}: the draw is taxed (${a.rows[y].tax} vs ${without})`);
+        found++;
+        break;
+      }
+    }
+    assert(found > 0, 'forced pass: the sweep reaches a forced year with a last-resort draw');
   }
 
   assert.deepStrictEqual(errors, []);

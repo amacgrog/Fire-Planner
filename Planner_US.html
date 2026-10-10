@@ -7498,7 +7498,7 @@
   // Two returns (an unmarried couple, or before a marry-later wedding): each partner's own MAGI. `trad` is
   // the year's discretionary traditional draw plus the conversion (split by the traditional-pool share, as
   // taxFor splits it), `gain` the realized gains (half each, as taxFor). The two sum to the household MAGI.
-  function returnMagis(profile, trad, gain) {
+  function returnMagis(profile, trad, gain, ia = 0, ib = 0) {
     const s = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA,
       inv = ((profile.invOrd || 0) + (profile.invQual || 0)) / 2;
     // E1c: each return's MAGI is net of its own 162(l) deduction (0 for everyone else).
@@ -7508,6 +7508,9 @@
       m[0] += profile.lumpGainA;
       m[1] += profile.lumpGainB;
     }
+    // E1e: each return's own last-resort inherited draw (never split by the ownership share).
+    if (ia !== 0) m[0] += ia;
+    if (ib !== 0) m[1] += ib;
     return m;
   }
   // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
@@ -9901,8 +9904,15 @@
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
   // just parked in the reserve) so the Sankey does not undercount them.
-  function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd }) {
+  function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null }) {
     return {
+      // E1e: the inherited ledger (null in a legacy run), the last-resort draws of the pass by post-remap slot, and the slot map and compiled
+      // state rule the step reads (null without a ledger: nothing is allocated per pass in a legacy run).
+      inh,
+      inheritedGrossA: 0,
+      inheritedGrossB: 0,
+      inhPost: inh === null ? null : inh.post,
+      inhRule,
       bal,
       seppActive,
       rothAccts,
@@ -10028,6 +10038,60 @@
   // only, pro rata), a Roth IRA (conversions inside their 5 years, 10% only; then earnings, tax plus
   // 10%). A tie goes to traditional, which keeps Roth growing tax-free. `solverStocks` is the
   // bisection bracket for traditional stock draws (bond draws always use solveTraditionalForNetFromNeed).
+  // E1e (spec 6.6): the last resort. When the household's own money cannot meet the need, the inherited accounts are drawn: Roth rows first
+  // (cash only), then traditional rows, oldest receipt first. A traditional draw is taxed exactly like a scheduled draw x larger: on the
+  // owner's post-remap return, the state's inherited treatment, MAGI, never penalized. The profile fields (inhExtraS, and under a decedent
+  // state inhExclS) stay at the realized values for the rest of the pass, so every later taxFor sees the draw. Counter (tests): calls that
+  // get past the null gate.
+  let inhTakeCount = 0;
+  function takeInherited(wd) {
+    const inh = wd.inh;
+    if (inh === null) return;
+    inhTakeCount++;
+    if (!(wd.need > 0)) return;
+    const { bal, profile } = wd;
+    for (let i = 0; i < inh.n && wd.need > 0; i++) {
+      if (!inh.roth[i] || inh.open[i] !== 1 || !(inh.bal[i] > 0)) continue;
+      const x = Math.min(wd.need, inh.bal[i]);
+      inh.bal[i] -= x;
+      inh.lastResort[i] += x;
+      bal.inheritedRoth -= x;
+      wd.rothWithdrawn += x;
+      wd.need -= x;
+    }
+    const decedent = !!wd.inhRule && wd.inhRule.inhKind === INH_DECEDENT;
+    for (let i = 0; i < inh.n && wd.need > 0; i++) {
+      if (inh.roth[i] || inh.open[i] !== 1 || !(inh.bal[i] > 0)) continue;
+      const slotA = wd.inhPost[i] === 0,
+        exKey = slotA ? 'inhExtraA' : 'inhExtraB',
+        exclKey = slotA ? 'inhExclA' : 'inhExclB',
+        ex0 = profile[exKey],
+        excl0 = profile[exclKey],
+        room = decedent ? Math.max(0, wd.inhRule.inhCap - inh.draw[i] - inh.lastResort[i]) : 0;
+      const baseTax = taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
+      const netAt = (x) => {
+        profile[exKey] = ex0 + x;
+        if (decedent) profile[exclKey] = excl0 + Math.min(x, room);
+        return x - (taxFor(profile, wd.taxableGainGross, wd.traditionalGross) - baseTax);
+      };
+      let lo = 0,
+        hi = Math.min(inh.bal[i], 6 * wd.need + 1);
+      for (let it = 0; it < 24; it++) {
+        const mid = (lo + hi) / 2;
+        if (netAt(mid) < wd.need) lo = mid;
+        else hi = mid;
+      }
+      const x = hi,
+        net = netAt(x);
+      if (slotA) wd.inheritedGrossA += x;
+      else wd.inheritedGrossB += x;
+      wd.traditionalWithdrawn += x;
+      inh.lastResort[i] += x;
+      inh.bal[i] -= x;
+      bal.inheritedTrad -= x;
+      wd.need = Math.max(0, wd.need - net);
+    }
+  }
   function takePenalized(wd, solverStocks) {
     const { bal } = wd,
       pen = tradGroup(wd, true);
@@ -10214,6 +10278,7 @@
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
       releaseMagiCap(wd, solveTraditionalForNet);
+      takeInherited(wd);
       takePenalized(wd, solveTraditionalForNet);
     } else {
       wd.need -= takeRoth(wd, 'roth', wd.need);
@@ -10222,6 +10287,7 @@
       bondTrad();
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
       releaseMagiCap(wd, solveTraditionalForNet);
+      takeInherited(wd);
     }
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
@@ -10251,6 +10317,7 @@
     },
     home: (wd) => {
       releaseMagiCap(wd, solveTraditionalForNetFromNeed);
+      takeInherited(wd);
       if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
     },
     // The stock accounts as one grouped step: a mix mode when one is active (the
@@ -10266,6 +10333,7 @@
     },
     penalized: (wd) => {
       releaseMagiCap(wd, solveTraditionalForNetFromNeed);
+      takeInherited(wd);
       if (wd.need > 0) takePenalized(wd, solveTraditionalForNetFromNeed);
     },
   };
@@ -10461,7 +10529,7 @@
     const n = kept.length;
     const inh = {
       n, roth: [], owner: [], heir: [], receiptYear: [], stretch: [], L: [], deadline: [], openAmount: [], flat: [],
-      bal: new Float64Array(n), open: new Uint8Array(n), draw: new Float64Array(n), lastResort: new Float64Array(n), slot: new Int8Array(n),
+      bal: new Float64Array(n), open: new Uint8Array(n), draw: new Float64Array(n), lastResort: new Float64Array(n), slot: new Int8Array(n), post: new Int8Array(n),
       snapBal: new Float64Array(n), snapOpen: new Uint8Array(n), snapDraw: new Float64Array(n), snapLastResort: new Float64Array(n), snapDeadline: new Array(n), snapL: new Array(n),
     };
     for (let j = 0; j < n; j++) {
@@ -10484,7 +10552,9 @@
     return inh;
   }
   const INH_OUT = { drawA: 0, drawB: 0, rothPayout: 0, any: false };
-  const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false };
+  const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false, collapse: false };
+  // Test-only: add x to ledger slot `slot`'s scheduled draw in projection year `year` (the identity tests), and read the step counter.
+  let testInhForce = null;
   // Test-only: switch off the need-without-the-draw step (the exact-restore test) and count its evaluations.
   let testInhNoNeedAdj = false;
   let inhNoDrawCalls = 0;
@@ -10500,6 +10570,7 @@
         heirDead = heir === 0 ? ctx.deadA : ctx.deadB,
         slot = heirDead ? 1 - heir : heir;
       inh.slot[i] = slot;
+      inh.post[i] = ctx.collapse ? 0 : slot; // the post-remap profile slot: a one-person return reads only slot A
       let draw;
       if (inh.stretch[i] && inh.deadline[i] === Infinity) {
         draw = inheritedDraw(inh.bal[i], ctx.stockReturn, ctx.year - inh.receiptYear[i], inh.L[i], inh.roth[i], true);
@@ -10796,6 +10867,9 @@
     let prevDiscTraditional = 0,
       prevSeHealthA = 0,
       prevSeHealthB = 0,
+      // E1e: the previous year's realized last-resort inherited draws by slot (seeds the fourth estimate).
+      prevInhA = 0,
+      prevInhB = 0,
       prevTaxableGainGross = 0;
     // Guyton-Klinger guardrails (simplified, opt-in): once the first
     // portfolio withdrawal occurs, that year's draw as a fraction of the
@@ -10876,8 +10950,14 @@
       // E1e: this year's scheduled inherited draws (pre-remap slots) and Roth payout; known now, so per-year constants like the RMD.
       let inhDraw = 0, inhDrawA = 0, inhDrawB = 0, inhRothPayout = 0;
       if (inh !== null) {
+        INH_CTX.collapse = singlePerson || isSurvivorPeriod;
         INH_CTX.year = year; INH_CTX.stockReturn = stockReturn; INH_CTX.deadA = deceasedIsA && year >= deathYear; INH_CTX.deadB = deceasedIsB && year >= deathYear;
         inheritedYear(inh, INH_CTX, INH_OUT);
+        if (testInhForce !== null && testInhForce.year === year) {
+          inh.draw[testInhForce.slot] += testInhForce.x;
+          if (inh.slot[testInhForce.slot] === 0) INH_OUT.drawA += testInhForce.x;
+          else INH_OUT.drawB += testInhForce.x;
+        }
         inhDrawA = INH_OUT.drawA; inhDrawB = INH_OUT.drawB; inhDraw = inhDrawA + inhDrawB; inhRothPayout = INH_OUT.rothPayout;
       }
       // E1d: Social Security wages for the wage base, payroll tax and the profile (a wages lump has no premium, no
@@ -11059,6 +11139,9 @@
         estGain = prevTaxableGainGross,
         estSeA = prevSeHealthA,
         estSeB = prevSeHealthB,
+        // E1e: the fourth estimate: the pass's last-resort inherited draws per post-remap slot (0 without a ledger).
+        estInhA = prevInhA,
+        estInhB = prevInhB,
         estUsed = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
@@ -11119,6 +11202,15 @@
           profile.seHealthA = estSeA;
           profile.seHealthB = estSeB;
           magiBase = seLive ? magiBase0 - estSeA - estSeB : magiBase0;
+          if (inh !== null) {
+            // E1e: the last-resort draws are rebuilt each pass (not in the snapshot); the profile starts the pass at the scheduled-draw state.
+            inh.lastResort.fill(0);
+            profile.inhExtraA = 0;
+            profile.inhExtraB = 0;
+            profile.inhExclA = inhExclBaseA;
+            profile.inhExclB = inhExclBaseB;
+            magiBase += estInhA + estInhB;
+          }
           phasePass++;
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
@@ -11137,7 +11229,7 @@
         const preConvMagi = magiBase + estTrad + estGain;
         let preMagiA = 0,
           preMagiB = 0;
-        if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain);
+        if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain, estInhA, estInhB);
         const magiCeiling = conversionMagiCeiling({
           acaEligibleA,
           acaEligibleB,
@@ -11198,13 +11290,14 @@
           seFixA = 0,
           seFixB = 0,
           seNeedAlt = false;
-        const costAt = (trad, gain, sa = estSeA, sb = estSeB) => {
+        const costAt = (trad, gain, sa = estSeA, sb = estSeB, ia = estInhA, ib = estInhB) => {
           hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
+          if (inh !== null) hcArgs.magiProxy += ia + ib;
           if (twoReturns) {
             const ra = profile.seHealthA, rb = profile.seHealthB;
             profile.seHealthA = sa;
             profile.seHealthB = sb;
-            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
+            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
           }
@@ -11231,14 +11324,14 @@
           filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
         const irmaaSsH = irmaaSsOf(profile),
           irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
-        const irmaaAt = (trad, gain) => {
+        const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
             // E1c: priced on the pass's 162(l) estimate, as costAt.
             const ra = profile.seHealthA, rb = profile.seHealthB;
             profile.seHealthA = estSeA;
             profile.seHealthB = estSeB;
-            const [ma, mb] = returnMagis(profile, trad, gain);
+            const [ma, mb] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
             return (
@@ -11246,7 +11339,7 @@
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(magiBase + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
+          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
@@ -11283,7 +11376,7 @@
         magiA = 0;
         magiB = 0;
         if (twoReturns) {
-          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);
+          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain, estInhA, estInhB);
           magiHistoryA[year] = magiA;
           magiHistoryB[year] = magiB;
           irmaaMagiHistoryA[year] = irmaaMagiOf(magiA, profile.ssA || 0, irmaaStA);
@@ -11407,7 +11500,7 @@
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
-        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd });
+        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(year) });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -11461,7 +11554,8 @@
           if (yearPlan.kind === 'under') wd.magiCap = { limit: yearPlan.magi - magiBase, off: false };
           runWithdraw(wd);
           if (yearPlan.kind === 'fill') {
-            const m = magiBase + wd.traditionalGross + wd.taxableGainGross;
+            // (E1e: read through wd.: the realized pair is destructured below)
+            const m = inh === null ? magiBase + wd.traditionalGross + wd.taxableGainGross : magiBase - estInhA - estInhB + wd.inheritedGrossA + wd.inheritedGrossB + wd.traditionalGross + wd.taxableGainGross;
             if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
           }
           if (wd.need > 1 && !depletedAge) depletedAge = age;
@@ -11469,6 +11563,7 @@
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
+          if (inh !== null) totalIncome += wd.inheritedGrossA + wd.inheritedGrossB; // E1e: the last-resort draws (appended)
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
@@ -11478,12 +11573,17 @@
         // Realized totals for the MAGI convergence check, the next year's seed, and the row.
         const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
         const resolvedMixCandidate = wd.mixCandidate;
+        // E1e: the realized last-resort draws of the pass (0 when nothing was drawn).
+        const inhRealA = wd.inheritedGrossA, inhRealB = wd.inheritedGrossB;
+        if (inh !== null && (estInhA !== 0 || estInhB !== 0 || inhRealA !== 0 || inhRealB !== 0)) estUsed = true;
         const realizedTrad = traditionalGross - conversionAmount;
-        const drift = Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain);
+        const drift = inh === null
+          ? Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain)
+          : Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) + Math.abs(inhRealA - estInhA) + Math.abs(inhRealB - estInhB);
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -11492,6 +11592,10 @@
           estGain += w * (taxableGainGross - estGain);
           estSeA += w * (seRealA - estSeA);
           estSeB += w * (seRealB - estSeB);
+          if (inh !== null) {
+            estInhA += w * (inhRealA - estInhA);
+            estInhB += w * (inhRealB - estInhB);
+          }
           continue;
         }
         // E1c decisions 9, 10 and 12: the 162(l) search is needed by an unconverged year that has not switched (a held year is not
@@ -11501,7 +11605,7 @@
             // Step 1 of either method (Rev. Proc. 2014-41 section 5): the deduction at the full premiums (priced at a MAGI above
             // every line). Nothing to hold at a $0 deduction (the Solo plan took the whole net, no premium, no cap): the year
             // goes on as it did before the switch existed.
-            costAt(trad, gain, -1e12, -1e12);
+            costAt(trad, gain, -1e12, -1e12, inhRealA, inhRealB);
             seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
             const d1A = SE_HEALTH[0],
               d1B = SE_HEALTH[1];
@@ -11523,7 +11627,7 @@
               okB = false;
             // The deduction the premium at the MAGI of the pair (sa, sb) allows: the total on one return (slot -1), else a return's slot.
             const allowedAt = (sa, sb, slot) => {
-              costAt(trad, gain, sa, sb);
+              costAt(trad, gain, sa, sb, inhRealA, inhRealB);
               seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
               return slot < 0 ? SE_HEALTH[0] + SE_HEALTH[1] : SE_HEALTH[slot];
             };
@@ -11558,7 +11662,7 @@
               seNeedAlt = !okA || !okB;
             }
             if (seNeedAlt) {
-              costAt(trad, gain, d1A, d1B);
+              costAt(trad, gain, d1A, d1B, inhRealA, inhRealB);
               seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
               if (!okA) seFixA = SE_HEALTH[0];
               if (!okB) seFixB = SE_HEALTH[1];
@@ -11576,6 +11680,8 @@
             estSeA = seFixA;
             estSeB = seFixB;
             seKind = seNeedAlt ? 2 : 1;
+            estInhA = inhRealA;
+            estInhB = inhRealB;
             estTrad = realizedTrad;
             estGain = taxableGainGross;
             seHeld = true;
@@ -11596,6 +11702,8 @@
             estGain = pick.estGain;
             estSeA = pick.estSeA;
             estSeB = pick.estSeB;
+            estInhA = pick.estInhA;
+            estInhB = pick.estInhB;
             forcedPass = true;
             continue;
           }
@@ -11613,7 +11721,7 @@
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
           // deduction, below, is not re-priced at all).
-          const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB),
+          const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
           expenses -= refund;
@@ -11641,7 +11749,8 @@
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
         // E1c: net of the realized 162(l) deduction (also after a forced pass).
-        const realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+        let realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+        if (inh !== null) realizedMagi += inhRealA + inhRealB; // E1e: the last-resort draws (appended)
         // Phased year, at the end of a phase (see the phase notes above the loop).
         if (phased && !replaying) {
           let next = -1;
@@ -11680,7 +11789,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -11690,7 +11799,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -11713,6 +11822,8 @@
               estGain = naturalRec.estGain;
               estSeA = naturalRec.estSeA;
               estSeB = naturalRec.estSeB;
+              estInhA = naturalRec.estInhA;
+              estInhB = naturalRec.estInhB;
               seHeld = naturalRec.seHeld;
               seKind = naturalRec.seKind;
               forcedPass = naturalRec.forced;
@@ -11726,8 +11837,8 @@
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
-              cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+              cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB);
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -11745,6 +11856,8 @@
                 estGain = best.estGain;
                 estSeA = best.estSeA;
                 estSeB = best.estSeB;
+                estInhA = best.estInhA;
+                estInhB = best.estInhB;
                 seHeld = best.seHeld;
                 seKind = best.seKind;
                 forcedPass = best.forced;
@@ -11762,6 +11875,8 @@
             estGain = naturalRec.gain;
             estSeA = naturalRec.seA;
             estSeB = naturalRec.seB;
+            estInhA = naturalRec.inhA;
+            estInhB = naturalRec.inhB;
             seHeld = false;
             seKind = 0;
             forcedPass = false;
@@ -11781,6 +11896,8 @@
         prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;
         prevSeHealthA = naturalRec ? naturalRec.seA : seRealA;
         prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;
+        prevInhA = naturalRec ? naturalRec.inhA : inhRealA;
+        prevInhB = naturalRec ? naturalRec.inhB : inhRealB;
         if (phased && planTr) {
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
           planTr.lambdaNeed = yearLambda ? yearLambdaNeed : null;
@@ -11789,7 +11906,7 @@
         }
         irmaaMagiHistory[year] = irmaaMagiOf(realizedMagi, irmaaSsH, filing);
         if (twoReturns) {
-          [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);
+          [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
           irmaaMagiHistoryA[year] = irmaaMagiOf(magiHistoryA[year], profile.ssA || 0, irmaaStA);
           irmaaMagiHistoryB[year] = irmaaMagiOf(magiHistoryB[year], profile.ssB || 0, 'single');
         }
@@ -11888,6 +12005,9 @@
             inherited: inh === null ? null : Array.from(inh.bal),
             inhNeedAdj,
             gpBase,
+            inhLastResortA: inhRealA,
+            inhLastResortB: inhRealB,
+            passes: iter + 1,
             taxable: bal.taxable,
             taxableBasis: bal.taxableBasis,
           });
@@ -17595,6 +17715,8 @@
   window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
   window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
   window.__test_inhNoNeedAdj = (on) => { testInhNoNeedAdj = !!on; };
+  window.__test_inhForceExtra = (year, slot, x) => { testInhForce = year === null ? null : { year, slot, x }; };
+  window.__test_inhTakeCount = (reset) => { const n = inhTakeCount; if (reset) inhTakeCount = 0; return n; };
   window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0; return n; };
   window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
   // Test-only: run fn with state patched, restoring it afterwards.
