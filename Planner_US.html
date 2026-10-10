@@ -10605,6 +10605,10 @@
       } else if (year === inh.receiptYear[i]) {
         inh.open[i] = 1;
         inh.bal[i] = inh.openAmount[i] * (inh.flat[i] ? 1 : factor);
+        // The row opens after inheritedYear skipped it: give it this year's slot and post-remap slot the way inheritedYear does.
+        const heir = inh.heir[i], slot = (heir === 0 ? INH_CTX.deadA : INH_CTX.deadB) ? 1 - heir : heir;
+        inh.slot[i] = slot;
+        inh.post[i] = INH_CTX.collapse ? 0 : slot;
       }
       if (inh.open[i] === 1) {
         any = true;

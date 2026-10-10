@@ -790,6 +790,25 @@ const path = require('path');
     near(a.trace[0].profile.inhExtraB, x, 0.005, "two returns: the draw is on B's return (profile.inhExtraB)");
     assert.strictEqual(a.trace[0].profile.inhExtraA, 0, "two returns: nothing on A's return");
   }
+  // receipt-year row owned by B, unmarried couple (two returns): the row opens this year, after inheritedYear skipped it, so its post-remap
+  // slot must be set when it opens. Nobody has other money (taxable 0, cash 0, no dividends), so by hand the last-resort draw x is the only
+  // income: it lands on B's return (profile.inhExtraB = x, magiB = x) and nothing lands on A's.
+  {
+    const T3 = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'single', spending: 60000, rothConvEnabled: false };
+    const a = await engine6(T3, [R({ amount: 400000, age: 50, owner: 'B' })]);
+    const x = lr(a, 0);
+    assert(x > 1000 && (a.rows[0].inheritedDraw || 0) === 0, 'receipt-year row owned by B: a last-resort draw with no scheduled draw (' + x + ')');
+    near(a.trace[0].profile.inhExtraB, x, 0.005, "receipt-year row owned by B: the draw is on B's return (profile.inhExtraB)");
+    assert.strictEqual(a.trace[0].profile.inhExtraA, 0, "receipt-year row owned by B: nothing on A's return");
+    near(a.rows[0].magiB, x, 0.05, 'receipt-year row owned by B: magiB = the draw');
+    near(a.rows[0].magiA, 0, 0.05, 'receipt-year row owned by B: magiA = 0');
+    // New York: the new row's room is 20,000 (no scheduled draw), so the extra exclusion is min(x, 20,000) on B's slot.
+    const ny = await engine6({ ...T3, stateTax: 'ny' }, [R({ amount: 400000, age: 50, owner: 'B' })]);
+    const xn = lr(ny, 0);
+    assert(xn > 20000, 'receipt-year row owned by B, NY: x above the room (' + xn + ')');
+    near(ny.trace[0].profile.inhExclB, 20000, 0.005, "receipt-year row owned by B, NY: the exclusion is on B's slot");
+    assert.strictEqual(ny.trace[0].profile.inhExclA, 0, "receipt-year row owned by B, NY: none on A's slot");
+  }
   // survivor last resort: A dies at 63 (B dies at 63): the row's draws land on the survivor's slot A after the remap
   for (const who of ['A', 'B']) {
     const S = { ...I0, spending: 150000, survivorEnabled: true, survivorPartner: who, survivorDeathAge: 63 };
@@ -862,7 +881,7 @@ const path = require('path');
     assert(y >= 0, 'placements, bucket penalized (down years): a last resort happens');
     for (let t = 0; t < a.trace.length; t++) if (lr(a, t) > 0.005 && (a.rows[t].inheritedTrad || 0) > 0) {
       assert.strictEqual(a.rows[t].earlyPenalty, 0, `placements, bucket penalized: year ${t}, no penalty while inherited money remains`);
-      assert(a.trace[t].tradPool > 300000 * 0.7 * 0.99 ** t * 0.5, `placements, bucket penalized: year ${t}, the penalized account is not drawn first`);
+      near(a.trace[t].tradPool, 300000 * 0.8 ** (t + 1), 1, `placements, bucket penalized: year ${t}, the penalized account is untouched (300000 at -20% a year)`);
     }
   }
   // NY room: two traditional rows (the older received at 57 is in draw year k = 3 now, the younger at 58 in k = 2: grown / (11 - k) at 0%: amount / 8 and amount / 9), returnRate 0, no money of their own, healthcare 0 so the last resort is small. Hand: A: the older row has a
@@ -879,6 +898,15 @@ const path = require('path');
     const x = lr(oldSmall, 0);
     assert(x > 100 && x < 15000, 'NY room, older row small: a last resort in year 0 below the 15,000 room (' + x + ')');
     near(oldSmall.trace[0].profile.inhExclA, 25000 + Math.min(x, 15000), 0.005, 'NY room, older row has the 5,000 draw: the extra exclusion is min(x, 15,000)');
+  }
+  // NY room, x above the room: the same household with spending 60,000: the last resort (all from the older row, which has 35,000 left) is
+  // above its 15,000 room, so the extra exclusion is exactly 15,000 on top of the 25,000 base.
+  {
+    const Ny2 = { ...I0, stateTax: 'ny', returnRate: 0, healthcare: 0, spending: 60000 };
+    const e = await engine6(Ny2, [R({ amount: 40000, age: 57 }), R({ amount: 270000, age: 58 })]);
+    const x = lr(e, 0);
+    assert(x > 15000 && x < 35000, 'NY room, x above the room: a last resort between 15,000 and 35,000 (' + x + ')');
+    near(e.trace[0].profile.inhExclA, 25000 + 15000, 0.005, 'NY room, x above the room: the extra exclusion is exactly 15,000');
   }
   // estate last resort: the final projection year with a last-resort draw; the estate holds the reduced inherited balance.
   {
