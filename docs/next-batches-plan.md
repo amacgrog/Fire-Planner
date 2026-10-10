@@ -6225,6 +6225,25 @@ reading (itself secondary).
 
 ## Open items
 
+- **Owner backlog (2026-10-09, raised during the E1e brainstorm; none scheduled yet, each to be designed when picked up):**
+  1. Check self-employment against W-2 at the same income: a probe of a self-employed partner against a W-2 twin
+     (SE tax and its half deduction against FICA plus the employer's half, QBI, the Solo 401(k) room against the W-2
+     room, 162(l) against a pre-tax premium), with each difference explained by the law, not just by the code.
+  2. Profit sharing shows when the income type is W-2 (`profitSharingPctA/B`, `Planner_US.html` ~366). Checked: this is
+     on purpose. E1a added employer profit sharing on W-2 pay, and the same field is the Solo 401(k) plan rate when the
+     income is self-employment (E1c). Open: was the report about the field being visible, or about its label or tip
+     being unclear for W-2? To clarify with the owner before any change.
+  3. Job change: a dated replacement of a partner's main job (the old job ends and a new one starts at a given age,
+     with its own pay, kind, plan contributions and health premium), as opposed to an extra income stream added on
+     top. Overlaps with the E1b stream panel and the E1c coverage rules.
+  4. Separate income growth for Partner A and Partner B in the main income group (today `incomeGrowth` is one
+     household rate; the 401(k) and IRA contributions follow pay), like the per-stream growth on income streams.
+  5. Pre-retirement health care: move the group to the Income tab, and make "which job covers each partner" one
+     explicit, dated rule. Checked at `3ae542a`: the main job's premium (`healthPremiumA/B`, while working on W-2) and a
+     W-2 stream's `healthPremium` are both charged in a year when both apply (additive), and coverage is "main W-2 job
+     or any W-2 stream with a premium" (`employerA/B`, E1c `streamCoverBits`); with no employer coverage the partner is
+     on the marketplace (ACA). The owner's rule: one covering job per partner per year, and a job change (item 3)
+     switches the premium to the new job's in that year, never adding the two. Decide with item 3.
 - ~~**Fixing (owner, 2026-10-09): the UI snapshot's `histSuccess` race.**~~ **Resolved 2026-10-09** (`e4cd0d9`, merged into
   `claude/batch-3b-penalty-rules`): the clock-driven capture below; the spec owner checked it plain and at 4x CPU throttling (both
   planners pass; the implementer ran 3 plain, 3 at 4x and 1 at 8x), and the baselines now pin the success rates (US 85/89/49%,
