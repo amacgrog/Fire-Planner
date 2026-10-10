@@ -6229,10 +6229,9 @@ reading (itself secondary).
   1. Check self-employment against W-2 at the same income: a probe of a self-employed partner against a W-2 twin
      (SE tax and its half deduction against FICA plus the employer's half, QBI, the Solo 401(k) room against the W-2
      room, 162(l) against a pre-tax premium), with each difference explained by the law, not just by the code.
-  2. Profit sharing shows when the income type is W-2 (`profitSharingPctA/B`, `Planner_US.html` ~366). Checked: this is
-     on purpose. E1a added employer profit sharing on W-2 pay, and the same field is the Solo 401(k) plan rate when the
-     income is self-employment (E1c). Open: was the report about the field being visible, or about its label or tip
-     being unclear for W-2? To clarify with the owner before any change.
+  2. ~~Profit sharing shows when the income type is W-2 (`profitSharingPctA/B`, `Planner_US.html` ~366).~~ **Resolved, no
+     change (owner, 2026-10-09):** an employer's profit-sharing (nonelective) contribution to a W-2 employee's 401(k) is real
+     (E1a), and the same field is the Solo 401(k) plan rate for self-employment (E1c), so it stays visible for W-2.
   3. Job change: a dated replacement of a partner's main job (the old job ends and a new one starts at a given age,
      with its own pay, kind, plan contributions and health premium), as opposed to an extra income stream added on
      top. Overlaps with the E1b stream panel and the E1c coverage rules.
