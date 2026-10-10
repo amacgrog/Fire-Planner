@@ -1906,7 +1906,7 @@ shared-region change. Every citation of the scope note above was checked against
   income stream standing in for the draw):** 4 blocking, 3 should-fix, 8 minor, all adopted in the plan (spec unchanged).
   Blocking, all test values that a correct implementation would fail: the IRMAA case needs `irmaaPriorKnown` (else years
   0 and 1 read year 0's own MAGI; B1); `basisRatio: 100` does not make a sale gain-free, because the year's growth comes
-  before the sale and the basis rises only by dividends, so the ACA cases now use `returnRate: 0, dividendYield: 0`
+  before the sale and the basis rises only by dividends, so the ACA cases now use `returnRate: 0, dividendYield: 0, basisRatio: 100` (`basisRatio` added after the third plan review)
   (draw 42,800, premiums 18,000 and 5,678.47, recorded need 38,518.47 in both runs) and the owner-B case a surplus
   stream (B2); the AR and NY comparison profiles moved the taxed part through `otherA`, which never reaches the state
   return (now `extraA`; B3); the year-10 guardrail test compared the need with a twin whose multiplier and IRMAA differ
@@ -1917,6 +1917,18 @@ shared-region change. Every citation of the scope note above was checked against
   the heir-81 walk, the floor/cap sweep, CO at 60, the `afterTaxValue` term, the decedent per return, the NY child credit
   case, a past row in the legacy corpus. All seven blocking and should-fix findings were the plan owner's errors (B2's
   claim came in with the first review's S5 text and was repeated in four more cases).
+- **Third plan review (independent Opus review of the `d2f6680`..`ef82886` diff only, 2026-10-10; measured on today's
+  code with a stream standing in for the draw):** 1 blocking, 2 should-fix, 5 minor, all adopted (spec unchanged).
+  Blocking: the ACA cases had dropped `basisRatio: 100`, so the twin's sales at the default 50% basis still realized gains
+  (twin MAGI 80,425.14, premium gap 9,989.73); they now use `returnRate: 0, dividendYield: 0, basisRatio: 100`, which
+  measures exactly the plan's 60,000 / 5,678.47 / 38,518.47 (B1). Should-fix: Task 6's fill check read the bare
+  `traditionalGross` / `taxableGainGross` before their `const` destructure (now `wd.`; S1); every hand-built `inhOn` profile
+  carries all six inherited fields, and the `afterTaxValue` literals the bond and home fields (S2). Minor: the CO stale
+  check given state income it can see, the six rows with a "Not modeled" sentence (PA's not last), year 8's IRMAA aside
+  (tier 1, 2,296.80), a resettable call counter, and `window.__test_inherited` extended, never reassigned. B1 and S1
+  were the plan owner's errors in the second revision. The reviewer measured and confirmed every other figure the diff
+  added (TX 58,000, IRMAA 2,296.80, NIIT, owner B, Social Security 1,299.00, the Roth fill, the NY child credit 165.00,
+  the extraA comparisons, the heir-81 walk, afterTaxValue).
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 

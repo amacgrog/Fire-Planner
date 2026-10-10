@@ -181,7 +181,8 @@ Run: `node tests/state_rules.js` -> FAIL (`al: fields missing inherited`, `al: i
    above (every other row, including the no-tax rows and WA: `{ kind: 'ordinary' }`; NY: `{ kind: 'decedent', cap: 20000
    }`). No `schedule` entry gets the field.
 2. Add one sentence to each taxing row's `notes` (the no-tax rows unchanged), from spec appendix A, in the row's own
-   voice: placed before the row's closing `Not modeled: ...` sentence when it has one (most rows do), else at the end.
+   voice: placed before the row's `Not modeled: ...` sentence (six rows: CA, MA, NM, NY, PA, WI; in PA that sentence is
+   followed by the Tax Forgiveness sentence, so insert before it, not at the end), else at the end.
    The exact sentences:
    - `exempt` (PA): `Inherited IRA and 401(k) distributions are not taxed (paid by reason of death).` IL: `Inherited IRA
      and 401(k) distributions are subtracted, like all IRA and plan distributions.` MS: `Inherited IRA and 401(k)
@@ -215,7 +216,9 @@ Run: `node tests/state_rules.js` -> FAIL (`al: fields missing inherited`, `al: i
 
    (Type the 121 numbers into `SINGLE_LIFE_TABLE`; the comment above is the only placeholder allowed and must be
    replaced.)
-5. Next to `window.__test_lumpAmountsForYear` (~17165): `window.__test_inherited = { singleLifeFactor };`.
+5. Next to `window.__test_lumpAmountsForYear` (~17165): `window.__test_inherited = { singleLifeFactor };`. This is the only assignment of the object: later tasks add
+   properties to it (`window.__test_inherited.sourcesInh = ...`, `.inheritedDraw = ...`), never reassign it, so no
+   earlier hook is lost.
 
 - [ ] **Step 4: Run the tests**
 
@@ -276,8 +279,9 @@ retirementA: 10000, retirementB: 0` and `ages: [50]` or `ages: [60]` as the comm
 `pension`, `pensionA/B`, `gains`, `taxableSS`, `ssBenefits*`); the inherited fields are `inherited: 30000, inheritedA:
 30000, inheritedB: 0`, with `inheritedExclA` as stated for the decedent cases (0 elsewhere). Write each as an assertion to
 the cent. Add the decedent per return through `taxFor`'s two-filer branch (the slot-A convention of `sourcesB`): NY,
-`filing: 'single', singlePerson: false`, B with `otherB` 50,000 + a 30,000 draw (`inhOn: true, inheritedB: 30000,
-inhExclB: 20000`, A's fields 0): B's state tax equals that of the same profile with `inhOn: false, inheritedB: 0,
+`filing: 'single', singlePerson: false`, B with `otherB` 50,000 + a 30,000 draw (`inhOn: true, inheritedA: 0, inheritedB: 30000,
+inhExtraA: 0, inhExtraB: 0, inhExclA: 0, inhExclB: 20000`; every profile with `inhOn: true` carries all six inherited
+fields, 0 where not stated, or `taxFor` reads `undefined` and the tax is NaN): B's state tax equals that of the same profile with `inhOn: false, inheritedB: 0,
 inhExclB: 0` and `extraB` raised by 10,000 (the taxed part reaches the state through `extraB`, never `otherB`), within
 $0.01, read as `taxFor` under NY minus `taxFor` under TX for each profile. Then, in `tests/inherited_accounts.js`, the **stale-source guard** (spec 7, review
 B2) through the real `taxFor`, with the profile literals the engine builds:
@@ -300,9 +304,11 @@ B2) through the real `taxFor`, with the profile literals the engine builds:
 ```
 
 Add `window.__test_withState(patch, fn)` beside `__test_inherited` (it saves `state`, `Object.assign`s the patch, runs
-`fn`, restores in `finally`; it exists for these tests only). Repeat the tax comparison for `'co'`. (A tax comparison
-cannot fail for PA or CT on this profile: a stale 30,000 is fully subtracted in PA, and CT's share is 1 at a state AGI of
-30,000. It also covers only `SOURCES_SINGLE`.) So also add `window.__test_inherited.sourcesInh = () => [SOURCES_JOINT,
+`fn`, restores in `finally`; it exists for these tests only). Repeat the tax comparison for `'co'` with `extraA: 30000` in `base` (at age 70 with no other
+state income a stale 30,000 gives a CO state AGI of 40,000 - 24,000 = 16,000, under CO's conforming deduction of
+16,100 + 2,050 + 6,000 = 24,150, so the CO tax would be 0 either way). (A tax comparison cannot fail for PA or CT on this
+profile: a stale 30,000 is fully subtracted in PA, and CT's share is 1 at a federal AGI of 40,000. It also covers only
+`SOURCES_SINGLE`.) So also add `window.__test_inherited.sourcesInh = () => [SOURCES_JOINT,
 SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA,
 s.inheritedExclB])` and, for each `taxFor` branch (joint: `filing: 'mfj', singlePerson: false`; one-person: `filing:
 'single', singlePerson: true`; two filers: `filing: 'single', singlePerson: false`, with B's fields as well), in NY, PA
@@ -692,7 +698,8 @@ Also (each a separate engine case; write the hand values in comments as above):
   (hand-compute both shares). NY (`decedent`): the Empire State child credit reads `fedAgi` (`start`): $500 a child aged 4-16, less $16.50 per $1,000
   (or part) of federal AGI over $110,000 joint. A `taxFor`-level case (`stateOf`): MFJ, both 62, one child aged 10
   (`dependents: [{ age: 10, student: false, qualifyingChild: true }]`), `extraA` 100,000 (state wages), and a $20,000
-  draw (`otherA` + 20,000, `inhOn: true, inheritedA: 20000, inhExclA: 20000`): `start` 120,000, cut ceil(10,000 /
+  draw (`otherA` + 20,000, `inhOn: true, inheritedA: 20000, inheritedB: 0, inhExtraA: 0, inhExtraB: 0, inhExclA: 20000,
+  inhExclB: 0`): `start` 120,000, cut ceil(10,000 /
   1,000) x 16.50 = 165, credit 335, while the whole $20,000 is excluded; the twin (no draw, `start` 100,000) keeps $500.
   Assert the inherited profile's NY tax - the twin's = 165.00 within $0.01. (Illinois's AGI-limited credit reads the state's AGI after its subtractions, so it cannot show this.)
 - `afterTaxValue and estate`: the last row's `estate.traditional` includes the open inherited traditional balance (read the
@@ -700,7 +707,8 @@ Also (each a separate engine case; write the hand values in comments as above):
   (spec 6.8): add `afterTaxValue` to `window.__test_inherited`; on a `bal` literal with every field 0 except
   `inheritedTrad: 100000, inheritedRoth: 50000`, `afterTaxValue(bal, 0.2, 0.15)` = 100,000 x (1 - 0.2) + 50,000 =
   130,000 exactly, and with both inherited fields 0 it is 0 (and `Object.is` today's value for a legacy `bal` with
-  `taxable: 1000, taxableBasis: 400, traditional: 2000, roth: 300, cash: 50`: 1,000 - 600 x 0.15 + 2,000 x 0.8 + 300 + 50
+  `taxable: 1000, taxableBasis: 400, traditional: 2000, roth: 300, cash: 50`, plus `bondTaxable, bondTaxableBasis,
+  bondTraditional, bondRoth, home` at 0 (today's function reads them; the first two literals carry them at 0 too): 1,000 - 600 x 0.15 + 2,000 x 0.8 + 300 + 50
   = 2,860).
 - `cash conservation`: in a working surplus year (H with `incomeA: 150000`, `retireAgeA: 65`), total investable excluding
   the inherited balance at year end equals the twin run with a tax-free lump equal to the draw, less the tax difference,
@@ -727,8 +735,9 @@ Federal cases (spec 7 "Federal"; TX; `stateOf` is not needed):
     all in the 10% bracket: 1,299.00.
   Assert `row.tax` (federal only in TX) inherited - twin = 1,299.00 within $0.01 (both runs are surplus years with no dividends: no sale, no gain; `basisRatio` does not matter).
 - `ACA premium at the realized MAGI`: the household of Task 5's `ACA at 61` case (both 61, `acaEnabled: true`,
-  `returnRate: 0, dividendYield: 0` (no growth before a sale and no dividends, so neither run realizes a gain; with
-  `basisRatio` alone a sale still realizes the year's growth, since the basis rises only by dividends), the $60,000
+  `returnRate: 0, dividendYield: 0, basisRatio: 100` (no growth before a sale, no dividends and no starting gain, so
+  neither run realizes a gain; any one alone is not enough: the third plan review measured the twin at MAGI 80,425.14
+  without `basisRatio: 100`, and at exactly 60,000.00, healthcare 5,678.47, need 38,518.47 with it), the $60,000
   stream, `spending: 90000`, `taxable: 600000`, `medicalInflation: 0`, A's $428,000 row received at 60: draw 428,000 /
   10 = 42,800). Year 0: `row.magiProxy` inherited - twin = 42,800 within $0.01 (twin 60,000, inherited 102,800; the 400%
   line for two is `fplForHousehold(2) x 4` = 84,600); `row.healthcare` 18,000.00 inherited (the full premium: no credit
@@ -905,11 +914,11 @@ git commit -m "E1e Task 4: the inherited account (ledger, 10-year and stretch sc
   // The recorded need equals the twin run's (no inherited row) in the same year (decisions 15, 16). The twin has the same
   // spending, other income and taxes apart from the draw; its portfolio differs, so compare the need, not the rate.
   const needOf = (e, y) => e.trace[y].guardrails.prevNeed;
-  // The two ACA cases: returnRate 0 and dividendYield 0 (no growth before a sale and no dividends, so neither run realizes a
-  // gain: basisRatio alone is not enough, the basis rises only by dividends), a not-earned stream for A of $60,000 and
+  // The two ACA cases: returnRate 0, dividendYield 0 and basisRatio 100 (no growth before a sale, no dividends and no
+  // starting gain, so neither run realizes a gain; any one alone is not enough), a not-earned stream for A of $60,000 and
   // spending $90,000, so the twin is in deficit at a MAGI of 60,000, under the 400% line for two (fplForHousehold(2) x 4 =
   // 84,600), and the inherited run is at 60,000 + 42,800 = 102,800, over it.
-  const ACA = { acaEnabled: true, returnRate: 0, dividendYield: 0, spending: 90000, medicalInflation: 0,
+  const ACA = { acaEnabled: true, returnRate: 0, dividendYield: 0, basisRatio: 100, spending: 90000, medicalInflation: 0,
     incomeSources: [{ amount: 60000, startAge: 50, endAge: 90, followGrowth: false, growth: 0, owner: 'A', kind: 'other' }] };
   for (const [label, patch] of [['TX no ACA', {}], ['ACA at 61', { ...ACA, ageA: 61, ageB: 61 }], ['ACA at 64', { ...ACA, ageA: 64, ageB: 64 }]]) {
     const H2 = { ...H, ...patch, guardrailsEnabled: true, taxable: 600000 };
@@ -939,7 +948,8 @@ Also:
   draw-made surplus years against a larger portfolio, so the multipliers of the two runs may differ before year 10 and
   are not compared, and neither are the needs: the two runs' spending multipliers diverge before year 10 (the plan
   reviewer measured 1.1 for the twin, about 1.4641 for a household at the inherited run's portfolio), and the inherited
-  run's year-10 healthcare carries IRMAA from year 8's MAGI (about 281,284: tier 2, 240.40 x 12 x 2 = 5,769.60), which
+  run's year-10 healthcare carries IRMAA from year 8's MAGI (the draws are 153,000 x 1.07^k; year 8's is 262,882, so the MAGI is about 264,100: tier 1,
+  95.70 x 12 x 2 = 2,296.80), which
   decision 16 leaves in the need on purpose. Assert in year 10: `guardrails.prevNeed` equals the inherited run's own
   `row.expenses` within $0.05 (with ACA off `hcNoDraw = healthcare`, and the tax without the draw is 0: the only other
   income is about $1,200 of cash-reserve interest, under the standard deduction; so the recorded need is `-flow +
@@ -961,8 +971,9 @@ Also:
   draws are whole dollars, so `(oA - iA) + iA` is exact) and misses a field that is never restored. Use a draw with
   cents (a row whose year-1 draw is not a whole number, e.g. $123,456.78 received at A's age - 1) and a profile with
   `inhExclA` set (NY).
-- `call counter`: `window.__test_inhNoDrawCalls()` returns a module-level counter incremented once inside the `inhDraw > 0`
-  block (Step 3); reset it before each run. It is 0 for a legacy household over a whole run, and above 0 for a run with a
+- `call counter`: a module-level `let inhNoDrawCalls = 0`, incremented once inside the `inhDraw > 0` block (Step 3), read
+  and reset through `window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0;
+  return n; }`; call it with `true` before each run. It is 0 for a legacy household over a whole run, and above 0 for a run with a
   scheduled draw (spec 7: the extra `taxFor` and `healthcareCost` run only in a year with a scheduled draw).
 
 - [ ] **Step 2: Run them to verify they fail**
@@ -1154,9 +1165,11 @@ The step does not exist: inherited money is never drawn before home equity; depl
      adds `Math.abs(inhRealA - estInhA) + Math.abs(inhRealB - estInhB)` when `inh !== null`; the damped update moves
      `estInhA/B` with the same weight `w`; `passLog` entries carry `estInhA, estInhB` and their `realized` cost uses
      `costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB)`; the forced pass's `costAt` and
-     `taxAfter` (the profile fields already hold the realized draw); the fill check `m = magiBase + traditionalGross +
-     taxableGainGross` becomes `m = magiBase - estInhA - estInhB + wd.inheritedGrossA + wd.inheritedGrossB +
-     traditionalGross + taxableGainGross` when `inh !== null`; `totalIncome` adds `wd.inheritedGrossA +
+     `taxAfter` (the profile fields already hold the realized draw); the fill check (~11067), today `const m = magiBase +
+     wd.traditionalGross + wd.taxableGainGross;`, becomes `magiBase - estInhA - estInhB + wd.inheritedGrossA +
+     wd.inheritedGrossB + wd.traditionalGross + wd.taxableGainGross` when `inh !== null` (every term read through `wd.`:
+     the bare `traditionalGross` / `taxableGainGross` are the `const`s destructured at ~11082, still in their temporal
+     dead zone here); `totalIncome` adds `wd.inheritedGrossA +
      wd.inheritedGrossB` (appended, when non-zero);
      `realizedMagi` adds them (appended, when `inh !== null`).
    - records: every `passLog` entry, `naturalRec` (both literals) and `trialRecs.push({...})` carry `estInhA, estInhB` and the
