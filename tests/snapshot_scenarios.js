@@ -115,6 +115,16 @@ function usStd() {
     ['R lump dead owner', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 58, oneTimeIncome: [{ amount: 80000, age: 58, flat: false, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }, { amount: 300000, age: 60, flat: false, kind: 'gain', owner: 'A', gainPct: 70, activeBusiness: false }] }],
     ['R lump guardrails later', { ...R, guardrailsEnabled: true, oneTimeIncome: [{ amount: 60000, age: 60, flat: false, kind: 'wages', owner: 'A', gainPct: 100, activeBusiness: false }] }],
     ['R lump ACA line', { ...R, acaEnabled: true, oneTimeIncome: [{ amount: 40000, age: 53, flat: false, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+    // E1e: inherited traditional and Roth IRA / 401(k) rows (age = Partner A's age at receipt; the clock is pinned to 2026).
+    ['R inherited trad future', { ...R, oneTimeIncome: [{ amount: 400000, age: 54, flat: false, kind: 'inheritedTrad', owner: 'B', gainPct: 100, activeBusiness: false }] }],
+    ['R inherited trad past', { ...R, oneTimeIncome: [{ amount: 400000, age: 49, flat: true, kind: 'inheritedTrad', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+    ['R inherited roth', { ...R, oneTimeIncome: [{ amount: 300000, age: 55, flat: false, kind: 'inheritedRoth', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+    ['R inherited two returns', { ...R, filingStatus: 'single', oneTimeIncome: [{ amount: 400000, age: 53, flat: false, kind: 'inheritedTrad', owner: 'B', gainPct: 100, activeBusiness: false }] }],
+    // Runs out of its own money with inherited money left: the last resort draws the inherited Roth, then the traditional row.
+    ['R inherited last resort', { ...R, spending: 190000, oneTimeIncome: [{ amount: 300000, age: 58, flat: false, kind: 'inheritedTrad', owner: 'A', gainPct: 100, activeBusiness: false }, { amount: 150000, age: 58, flat: false, kind: 'inheritedRoth', owner: 'B', gainPct: 100, activeBusiness: false }] }],
+    // A 2018 death (receipt 8 years before the pinned 2026 clock): the pre-2020 stretch, the RMD alone.
+    ['R inherited stretch 2018', { ...R, oneTimeIncome: [{ amount: 250000, age: 44, flat: true, kind: 'inheritedTrad', owner: 'A', gainPct: 100, activeBusiness: false }] }],
+    ['R inherited NY', { ...R, stateTax: 'ny', oneTimeIncome: [{ amount: 400000, age: 54, flat: false, kind: 'inheritedTrad', owner: 'B', gainPct: 100, activeBusiness: false }] }],
     ['R single self-employed cliff band', { ...R, singlePerson: true, retireAgeA: 60, incomeA: 82000, incomeKindA: 'self', acaEnabled: true }],
     // E1c 9b: inside the 162(l) band with no income-paying balances (cash and taxable 0, no contributions), year 0 at a MAGI near the
     // 400% line: 82,000 has no consistent deduction (the alternative calculation), 73,000 has one (held).
@@ -311,6 +321,7 @@ function usGuard() {
     ['hist G single 58 aca default | real1966', gHousehold('single', 58, 1500000, 300000, 60000, false), 'real1966'],
     ['hist G hoh 62 aca default | real1966', gHousehold('hoh', 62, 1500000, 300000, 60000, false), 'real1966'],
     ['hist R lump gain | real1966', { ...US_R, oneTimeIncome: [{ amount: 400000, age: 56, flat: false, kind: 'gain', owner: 'A', gainPct: 60, activeBusiness: false }, { amount: 150000, age: 53, flat: false, kind: 'wages', owner: 'B', gainPct: 100, activeBusiness: false }] }, 'real1966'],
+    ['hist R inherited trad future | real1966', { ...US_R, oneTimeIncome: [{ amount: 400000, age: 54, flat: false, kind: 'inheritedTrad', owner: 'B', gainPct: 100, activeBusiness: false }] }, 'real1966'],
   ].map(([name, patch, id]) => ({ name, kind: 'hist', patch, series: SERIES.find((x) => x.id === id) }));
   return [...std, ...hist];
 }
