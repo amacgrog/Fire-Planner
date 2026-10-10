@@ -1902,6 +1902,21 @@ shared-region change. Every citation of the scope note above was checked against
   65, the Roth sweep at full basis, a 2018 stretch row over three years) and a `taxFor`-level NIIT check that a leak into
   net investment income would fail (S8); lambda's gate `!== 0` like the guardrails' (S9). B2 and S3 were the previous spec
   owner's errors.
+- **Second plan review (independent Opus review of `d2f6680`, 2026-10-10; figures checked by running today's code with an
+  income stream standing in for the draw):** 4 blocking, 3 should-fix, 8 minor, all adopted in the plan (spec unchanged).
+  Blocking, all test values that a correct implementation would fail: the IRMAA case needs `irmaaPriorKnown` (else years
+  0 and 1 read year 0's own MAGI; B1); `basisRatio: 100` does not make a sale gain-free, because the year's growth comes
+  before the sale and the basis rises only by dividends, so the ACA cases now use `returnRate: 0, dividendYield: 0`
+  (draw 42,800, premiums 18,000 and 5,678.47, recorded need 38,518.47 in both runs) and the owner-B case a surplus
+  stream (B2); the AR and NY comparison profiles moved the taxed part through `otherA`, which never reaches the state
+  return (now `extraA`; B3); the year-10 guardrail test compared the need with a twin whose multiplier and IRMAA differ
+  (now the run's own expenses; B4). Should-fix: the stale-source guard reads every scratch object through a new hook
+  (S1); the NIIT check is an engine case, since a leak would come from `buildTaxProfile` (S2); `inhRealA/B` are declared
+  after the `wd` destructure and the earlier fill check reads `wd` (S3). Minor: the TX comment (a deficit year), the Roth
+  fill tolerance $0.10, `INH_OUT.any` set after the row opens, the call-counter hook, notes placed before "Not modeled",
+  the heir-81 walk, the floor/cap sweep, CO at 60, the `afterTaxValue` term, the decedent per return, the NY child credit
+  case, a past row in the legacy corpus. All seven blocking and should-fix findings were the plan owner's errors (B2's
+  claim came in with the first review's S5 text and was repeated in four more cases).
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
