@@ -1855,10 +1855,13 @@ shared-region change. Every citation of the scope note above was checked against
   a past year is allowed (amount = today's balance, the draws cover the years left).
 - A real account per row (`bal.inheritedTrad` / `bal.inheritedRoth` plus a per-row ledger), growing at the year's stock return in
   every run mode; traditional drawn evenly over the 10 years after the death (balance over years left) with the RMD on the heir's own
-  Single Life factor as a floor (binds only from heir age 82; no input); Roth paid out whole in year 10 (a transfer to cash, no
-  tax, no MAGI); no Roth five-year input (always met by year 10).
-- Last resort before home equity (inherited Roth, then traditional; before penalized money in the penalty-aware orders), taxed
-  exactly like a scheduled draw, uncapped by the cliff plan.
+  Single Life factor as a floor and the account as a cap (the floor binds when `(1 + r)(L - k + 1) < 11 - k`: never at r >= 0 for
+  an heir 81 or younger; no input); Roth paid out whole in year 10 (a transfer to cash, no tax, no MAGI); no Roth five-year input
+  (always met by year 10).
+- Last resort before home equity, after the household's capped traditional money is released (inherited Roth, then
+  traditional; before penalized money in the penalty-aware orders; inside the US-only `BUCKET_STEP.home` / `.penalized`, the
+  shared bucket orders unchanged), taxed exactly like a scheduled draw, carried per owner through the MAGI iteration as a fourth
+  estimate (`estInhA/B`, E1c's pattern), uncapped by the cliff plan.
 - The guardrails, `firstWithdrawal` and lambda's need add the scheduled draw back (as E1d decision 12); a draw-made surplus year
   records too.
 - Display folded into the existing columns (row fields only in inherited years; a US-only tooltip annotation).
@@ -1867,6 +1870,11 @@ shared-region change. Every citation of the scope note above was checked against
   WI; heirAnyAge CO, AR, OK (OK a reading); decedent NY ($20,000, sole beneficiary assumed); ordinary everywhere else.
 - Spec self-review correction: the brainstorm said the even draw meets the RMD "for an heir under about 90"; the bound is a
   factor of at least 10, so 81 or younger. Fixed by the RMD floor (decision 2) with no input.
+- **Spec review (independent Opus review of `6679c3e`, 2026-10-09):** 3 blocking, 9 should-fix, 9 minor, all adopted (spec
+  section 11; owner decisions 12-14: the per-owner fourth estimate, New York's decedent assumed 59 1/2 or older, an early
+  inherited-Roth last-resort draw tax-free). Blocking: the floor's divisor reaching 1 or less from heir age 84 (B1), stale state
+  sources in the reused scratch objects (B2), and the shared bucket orders (B3); B1, B3, S3, S5 and S6 were the spec owner's
+  errors. The owner asked for a second independent review of the revised spec.
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
