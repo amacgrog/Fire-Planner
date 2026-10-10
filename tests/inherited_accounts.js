@@ -795,9 +795,10 @@ const path = require('path');
   // in the same year with a scheduled draw x larger (the hook forces the larger scheduled draw), in both branches of the fill's ordinary-income
   // function: the unmarried couple (the two-return household above) and the same household filing jointly (ACA off for the joint run: the
   // household ceiling of the 400% line would otherwise hold the conversion at zero in both runs and hide the fill).
-  // The joint run spends 14,500 so its last-resort draw is small (about 1,300): the MAGI iteration is damped and capped at 8 passes, and with a
-  // draw of 27,000 the estimate is still about 10 dollars off the realized draw when it stops, which would show as a conversion gap of 10. The conversions match within
-  // MAGI_ITER_TOL = 1 (the pass's estimate converges to the realized draw within it), not exactly.
+  // The joint run spends 14,500 so its last-resort draw is small (about 1,300): the MAGI iteration is damped and capped at 8 passes. The
+  // conversions match within MAGI_ITER_TOL = 1 (the conversion gap stays within MAGI_ITER_TOL), not exactly. The joint draw is kept small on
+  // purpose so the conversion gap stays within MAGI_ITER_TOL (measured: x = 1,299.93, gap 0.57; the year still runs all 8 passes); the
+  // large-draw bound is the "fill convergence bound" case below.
   {
     const T2 = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'single', acaEnabled: true, medicalInflation: 0, spending: 40000,
       tradIraA: 300000, rothConvEnabled: true, rothConvBracket: 12, rothConvStartAge: 50, rothConvEndAge: 55 };
@@ -817,6 +818,25 @@ const path = require('path');
     // conversions match only within MAGI_ITER_TOL, so the $0.05 identity tolerance does not apply to this case).
     await identity('identity, two returns, conversions on', T2, [R({ amount: 400000, age: 49, owner: 'B' })], { tol: 1 });
   }
+  // fill convergence bound (decision 18's limitation, spec section 9): the joint household above with spending 40,000, so the last-resort
+  // draw is large (x = 26,798.62, measured; at least 25,000). The iteration's estimate update is undamped for passes 0-2 and damped by 0.5
+  // from pass 3; the gap shrinks each pass, but the year reaches the pass cap (MAGI_ITER_MAX = 8) with the conversion still about $10 short
+  // of the forced-scheduled-draw twin's (the twin knows its draw before the iteration: 2 passes). Asserted: the pass count and the conversion
+  // gap. Measured: the last-resort run converts 63,389.88, the twin 63,399.61, short by 9.73 (about 0.036% of x). Bound: 0 < twin's
+  // conversion - last-resort run's < 0.1% of x. The gap > 0 half makes this test fail the day the limitation is fixed, on purpose: update
+  // spec decision 18 (and this case) then.
+  {
+    const J = { ...I0, ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, filingStatus: 'mfj', acaEnabled: false, medicalInflation: 0, spending: 40000,
+      tradIraA: 300000, rothConvEnabled: true, rothConvBracket: 12, rothConvStartAge: 50, rothConvEndAge: 55 };
+    const rows = [R({ amount: 400000, age: 49, owner: 'B' })];
+    const a = await engine6(J, rows);
+    const y = firstLr(a), x = lr(a, y);
+    assert(y === 0 && x >= 25000, 'fill convergence bound: year 0 takes a last-resort draw of at least 25,000 (' + x + ')');
+    assert.strictEqual(a.trace[y].passes, 8, 'fill convergence bound: the year reaches the pass cap');
+    const b = await engine6(J, rows, null, [y, 0, x]);
+    const gap = b.trace[y].conversionAmount - a.trace[y].conversionAmount;
+    assert(gap > 0 && gap < 0.001 * x, `fill convergence bound: the conversion is short of the twin's by more than 0 and less than 0.1% of x (gap ${gap}, x ${x})`);
+  }
   // receipt-year row owned by B, unmarried couple (two returns): the row opens this year, after inheritedYear skipped it, so its post-remap
   // slot must be set when it opens. Nobody has other money (taxable 0, cash 0, no dividends), so by hand the last-resort draw x is the only
   // income: it lands on B's return (profile.inhExtraB = x, magiB = x) and nothing lands on A's.
@@ -835,6 +855,36 @@ const path = require('path');
     assert(xn > 20000, 'receipt-year row owned by B, NY: x above the room (' + xn + ')');
     near(ny.trace[0].profile.inhExclB, 20000, 0.005, "receipt-year row owned by B, NY: the exclusion is on B's slot");
     assert.strictEqual(ny.trace[0].profile.inhExclA, 0, "receipt-year row owned by B, NY: none on A's slot");
+  }
+  // receipt-year row in the survivor period (regression pin: survivor receipt year; these numbers held before b816cc9, the fix changes nothing here): both 60, TX, returnRate 0, basisRatio 100, no dividends,
+  // cash 0, taxable 220,000 (no gain on any sale, so the taxable draws carry no tax); the named owner dies at 62 (year 2) and the owner's
+  // $400,000 row is received at A's age 63 (year 3), after the death: (a) A's row, A dies: the heir at receipt is B; (b) B's row, B dies: the
+  // heir is A. In year 3 the taxable account has 9,639.07 left, the row has no scheduled draw (receipt year), and the rest of the need is a
+  // last-resort draw x (measured 48,242.74 in both). By hand: the survivor files one single return (post-remap slot A), so the draw is in
+  // profile.inhExtraA = x and nothing is in inhExtraB; x is the only income, so the tax is the 2026 single schedule on x less the standard
+  // deduction 16,100: 10% x 12,400 + 12% x (x - 28,500) = 1,240 + 2,369.13 = 3,609.13 (age 63: no 65+ amount). Tax identity: the same year
+  // with x forced as a scheduled draw of the row (the hook) has the same tax, premium and MAGI, and its draw lands on post-remap slot A
+  // (profile.inheritedA = x). Balances are not compared: in the receipt year the row opens after inheritedYear, so the forced draw is income
+  // only and never debits the row (the forced run's investable is x higher).
+  for (const [label, who] of [["(a) A's row, A dies (heir B)", 'A'], ["(b) B's row, B dies (heir A)", 'B']]) {
+    const S = { ...I0, returnRate: 0, basisRatio: 100, taxable: 220000, survivorEnabled: true, survivorPartner: who, survivorDeathAge: 62 };
+    const rows = [R({ amount: 400000, age: 63, owner: who })];
+    const a = await engine6(S, rows);
+    const y = 3, x = lr(a, y), p = a.trace[y].profile;
+    assert(lr(a, 0) + lr(a, 1) + lr(a, 2) === 0, `receipt-year survivor ${label}: no last resort before the receipt year`);
+    assert(x > 1000 && (a.rows[y].inheritedDraw || 0) === 0, `receipt-year survivor ${label}: a last-resort draw with no scheduled draw (${x})`);
+    assert.strictEqual(p.singlePerson, true, `receipt-year survivor ${label}: a one-person return`);
+    near(p.inhExtraA, x, 0.005, `receipt-year survivor ${label}: the draw is on post-remap slot A (profile.inhExtraA)`);
+    assert.strictEqual(p.inhExtraB, 0, `receipt-year survivor ${label}: nothing in profile.inhExtraB`);
+    near(a.rows[y].magiProxy, x, 0.05, `receipt-year survivor ${label}: MAGI = the draw`);
+    near(a.rows[y].tax, 1240 + 0.12 * (x - 28500), 0.01, `receipt-year survivor ${label}: the tax by hand (x = ${x})`);
+    near(a.rows[y].tax, 3609.13, 0.01, `receipt-year survivor ${label}: the tax by hand at the measured x`);
+    const b = await engine6(S, rows, null, [y, 0, x]);
+    assert(lr(b, y) < 0.05, `receipt-year survivor ${label}: the forced run needs no last resort (${lr(b, y)})`);
+    near(b.trace[y].profile.inheritedA, x, 0.005, `receipt-year survivor ${label}: the forced draw is on post-remap slot A`);
+    assert.strictEqual(b.trace[y].profile.inheritedB, 0, `receipt-year survivor ${label}: the forced draw has nothing on slot B`);
+    for (const k of ['tax', 'healthcare', 'magiProxy', 'traditionalWithdrawn', 'taxableWithdrawn'])
+      near(a.rows[y][k] || 0, b.rows[y][k] || 0, TOL, `receipt-year survivor ${label}: year ${y} ${k} equals the forced scheduled draw's`);
   }
   // survivor last resort: A dies at 63 (B dies at 63): the row's draws land on the survivor's slot A after the remap
   for (const who of ['A', 'B']) {
