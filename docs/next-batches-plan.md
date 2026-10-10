@@ -1887,6 +1887,21 @@ shared-region change. Every citation of the scope note above was checked against
   deadline, any past year; the surviving partner empties it within 10 years of the heir's death, SECURE Act section 401(b)(5));
   the select offers the new kinds only from commit 3. Also `inhOn` set in every year of an inherited run (a receipt-year last
   resort was untaxed). The owner chose to go to the implementation plan.
+- **Plan review (independent Opus review of `e5b760b`, 2026-10-10):** 2 blocking, 9 should-fix, 13 minor, all adopted in the
+  plan (`docs/superpowers/plans/2026-10-09-e1e-inherited-accounts.md`; the spec is unchanged). Blocking: `compileRow` read
+  `row.inherited.kind` and threw on the test-only synthetic state rows of five test files that carry no `inherited` field (B1;
+  now defaults to `ordinary`), and the ledger test's expected `L` was 31.6 (age 55) instead of SLT[53] = 33.4 (B2). Main
+  should-fix fixes: `tests/state_rules.js`'s exact field set gains `inherited` (schedule overrides already rejected, S1);
+  Task 4 may move `ui_us.json` text hashes (the list note and tip, S2); the stretch successor rule (year Y still a stretch
+  year, the 10-year schedule from Y + 1, the floor on the heir's factor continued, tested with an 80-year-old heir, S3); only
+  `inheritedApply` opens a row (S4); the ACA need tests rebuilt so the inherited run crosses the 400% line and the twin's
+  sales realize no gain (S5); the year-10 guardrail test asserts the need and the portfolio, not the next multiplier (S6);
+  `takeInherited`'s bisection (24 iterations on [0, min(balance, 6 x need + 1)]), the per-pass last-resort reset and a
+  `null` default for `newWithdrawal`'s ledger (S7); engine cases for every spec section 7 requirement that had no step
+  (Social Security, ACA, IRMAA, the Roth fill, owner B on two returns, NY after a death, a historical run, AR at 50, GA at
+  65, the Roth sweep at full basis, a 2018 stretch row over three years) and a `taxFor`-level NIIT check that a leak into
+  net investment income would fail (S8); lambda's gate `!== 0` like the guardrails' (S9). B2 and S3 were the previous spec
+  owner's errors.
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
