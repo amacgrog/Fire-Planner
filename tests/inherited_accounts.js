@@ -511,6 +511,24 @@ const path = require('path');
     const own = 20000;
     near(await stateOf(a.p, 'ar', own), await stateOf(asWages(a.p, 36800), 'ar', own), 0.01, 'AR at 50: 6,000 of the draw excluded, the own draw fully taxed');
   }
+  // OK at 50 (heirAnyAge, 10,000 at any age): the inherited draw 42,800 has min(42,800, 10,000) = 10,000 excluded; the filer's own
+  // traditional draw (20,000, supplied by hand as for AR) is not, because the own exclusion needs 59.5. MFJ, so the state taxable is
+  // 20,000 + 42,800 - 10,000 = 52,800 on the base before the deduction (12,700 + 2 x 1,000 and the household's other income only add
+  // to it), far over the last MFJ step 14,400, so every dollar moved is taxed at STATE_RULES.ok's top rate 4.5%: the draw, less its
+  // 10,000 exclusion, equals 32,800 of wages (and 10,000 x 4.5% = 450.00 below the draw taxed in full, 450.00 above the case where the
+  // own draw were excluded too).
+  {
+    const P = { ...H, stateTax: 'ok', ageA: 50, ageB: 50, retireAgeA: 50, retireAgeB: 50, taxable: 0, cash: 0, tradIraA: 500000, spending: 20000, dividendYield: 0 };
+    const a = await withSetup(P, [R({ amount: 400000, age: 49 })]);
+    near(a.r.inheritedDraw, 42800, 0.01, 'OK: the draw');
+    const ok = await page.evaluate(() => window.__test_tax.STATE_RULES.ok);
+    assert.strictEqual(ok.tax.columns.mfj[3][1], 0.045, 'OK: the top MFJ rate');
+    assert.strictEqual(ok.retirementExclusion.tiers[0][1], 10000, 'OK: the 10,000 exclusion');
+    const own = 20000, tax = await stateOf(a.p, 'ok', own);
+    near(tax, await stateOf(asWages(a.p, 32800), 'ok', own), 0.01, 'OK at 50: 10,000 of the draw excluded, the own draw fully taxed');
+    near((await stateOf(asWages(a.p, 42800), 'ok', own)) - tax, 450, 0.01, 'OK at 50: the exclusion is worth 10,000 x 4.5%');
+    near(tax - (await stateOf(asWages(a.p, 22800), 'ok', own)), 450, 0.01, 'OK at 50: the own draw is not excluded');
+  }
   // NY after A dies (post-remap slot A): survivor B, A's $400,000 row received at 60 (year 2 draw 45,796 on the survivor's return);
   // inhExclA is the 20,000 cap, B has no pension or IRA draw of their own.
   {

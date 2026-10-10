@@ -68,6 +68,32 @@ const path = require('path');
   const tips = await page.evaluate(() => [...document.querySelectorAll('#projectionRows tr')].map((tr) => (tr.querySelector('.table-status') || {}).title || '').filter((t) => /inherited/i.test(t)));
   assert(tips.length > 0 && /inherited traditional \$/.test(tips[0]), 'a status tooltip mentions the inherited balance: ' + JSON.stringify(tips.slice(0, 1)));
 
+  // S-1: the tooltip speaks the table's units (today's dollars by default), so its figure equals the column's own inherited part
+  await setInput('inflation', 3);
+  await setInput('ageA', 60);
+  await setInput('oneTime0Age', 60);
+  await setInput('oneTime0Amount', 400000);
+  await page.waitForTimeout(300);
+  const tipAt = (age) =>
+    page.evaluate((a) => {
+      for (const tr of document.querySelectorAll('#projectionRows tr'))
+        if (Number(tr.cells[0].textContent) === a) return (tr.querySelector('.table-status') || {}).title || '';
+      return null;
+    }, age);
+  const amt = (t, label) => { const m = new RegExp(label + ' \\$([\\d,]+)').exec(t || ''); return m ? Number(m[1].replace(/,/g, '')) : NaN; };
+  const inh67 = await page.evaluate(() => window.fireProjectionRows.find((r) => r.age === 67));
+  assert(inh67.inheritedDraw > 0, 'a draw in year 7');
+  const tip67 = await tipAt(67);
+  assert(/inherited drawn this year \$/.test(tip67), 'the draw appears: ' + tip67);
+  assert(Math.abs(amt(tip67, 'inherited traditional') - inh67.inheritedTrad / Math.pow(1.03, 7)) <= 1, "tooltip in today's dollars: " + tip67);
+  assert(Math.abs(amt(tip67, 'drawn this year') - inh67.inheritedDraw / Math.pow(1.03, 7)) <= 1, "draw in today's dollars: " + tip67);
+  await page.evaluate(() => document.getElementById('nominalBtn').click());
+  await page.waitForTimeout(250);
+  const tipNom = await tipAt(67);
+  assert(Math.abs(amt(tipNom, 'inherited traditional') - inh67.inheritedTrad) <= 1, 'nominal view shows nominal amounts: ' + tipNom);
+  await page.evaluate(() => document.getElementById('realBtn').click());
+  await page.waitForTimeout(150);
+
   // an income stream beside it
   await page.evaluate(() => document.querySelector('[data-dyn-add="incomeSources"]').click());
   await page.waitForTimeout(100);
