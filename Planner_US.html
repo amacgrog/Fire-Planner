@@ -2462,8 +2462,11 @@
     if (state.incomeSources.length || state.oneTimeIncome.length) {
       const sourcesTotal = state.incomeSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
       let text;
-      if (sourcesTotal > 0 && state.oneTimeIncome.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
+      const hasInh = state.oneTimeIncome.some((o) => o.kind === 'inheritedTrad' || o.kind === 'inheritedRoth');
+      if (sourcesTotal > 0 && hasInh) text = `✓ ${compact(sourcesTotal)}/yr + inherited account`;
+      else if (sourcesTotal > 0 && state.oneTimeIncome.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
       else if (sourcesTotal > 0) text = `✓ ${compact(sourcesTotal)}/yr`;
+      else if (hasInh) text = '✓ inherited account planned';
       else if (state.oneTimeIncome.length > 0) text = '✓ lump sum planned';
       else text = '✓ stream added';
       setGroupState('otherIncomeGroupState', text, true);
@@ -6426,6 +6429,14 @@
     if (rule === undefined) rule = stateRuleCache[code] = compileStateRule(code);
     return rule;
   }
+  // E1e: the compiled rule in force in a projection year (stateIncomeTax's variant selection, for the once-a-year inherited setup).
+  function stateRuleForYear(yearIndex) {
+    const rule = stateRuleFor(state.stateTax);
+    if (!rule || !rule.variants) return rule;
+    const taxYear = taxYearOf(yearIndex);
+    for (let v = rule.variants.length - 1; v >= 0; v--) if (taxYear >= rule.variants[v].fromYear) return rule.variants[v];
+    return rule;
+  }
   function stateIncomeTax(sources, filing, yearIndex) {
     let rule = stateRuleFor(state.stateTax);
     if (!rule || rule.noTax) return 0;
@@ -8999,6 +9010,9 @@
     lumpGainB = 0,
     lumpNoNiitA = 0,
     lumpNoNiitB = 0,
+    inhOn = false,
+    inheritedA = 0,
+    inheritedB = 0,
   }) {
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
@@ -9010,8 +9024,11 @@
       sePlanNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB) : 0,
       seNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA - soloIraCutA) : 0,
       seNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB - soloIraCutB) : 0;
-    const otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
+    let otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
       otherB = profileWageB + pensionB + rmdB + streamOtherB + seNetB;
+    // E1e: the scheduled inherited traditional draw is ordinary income on the heir's return (never through the streams: the state would count it as wages).
+    if (inheritedA > 0) otherA += inheritedA;
+    if (inheritedB > 0) otherB += inheritedB;
     // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
     // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
     // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
@@ -9078,6 +9095,14 @@
             lumpGainB: 0,
             lumpGainNoNiitA: lumpNoNiitB,
             lumpGainNoNiitB: 0,
+            // E1e: the survivor's slot A carries what was B's.
+            inhOn,
+            inheritedA: inheritedB,
+            inheritedB: 0,
+            inhExtraA: 0,
+            inhExtraB: 0,
+            inhExclA: 0,
+            inhExclB: 0,
             // Children stay with the surviving parent.
             dependents: dependentsInYear(taxYearOf(year)),
           }
@@ -9129,6 +9154,15 @@
             lumpGainB,
             lumpGainNoNiitA: lumpNoNiitA,
             lumpGainNoNiitB: lumpNoNiitB,
+            // E1e: the scheduled inherited draw by slot (already inside otherA/B), the last-resort draw of the pass (0 until Task 6) and
+            // New York's decedent room (set once a year by the engine).
+            inhOn,
+            inheritedA,
+            inheritedB,
+            inhExtraA: 0,
+            inhExtraB: 0,
+            inhExclA: 0,
+            inhExclB: 0,
           };
     return { otherA, otherB, profile };
   }
@@ -9734,7 +9768,10 @@
   // taxable gains at tauGain, Roth, cash, bond principal and home equity at face value.
   function afterTaxValue(bal, lambda, tauGain) {
     const gain = Math.max(0, bal.taxable - bal.taxableBasis) + Math.max(0, bal.bondTaxable - bal.bondTaxableBasis);
-    return bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
+    let v = bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
+    // E1e: the open inherited accounts (appended, and only when there are any: a legacy score is the same double).
+    if (bal.inheritedTrad + bal.inheritedRoth > 0) v += bal.inheritedTrad * (1 - lambda) + bal.inheritedRoth;
+    return v;
   }
   // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
   // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
@@ -10389,6 +10426,136 @@
     }
     return out;
   }
+  // ---- E1e: inherited traditional and Roth IRA / 401(k) accounts (spec sections 6.1, 6.2) ----
+  // One inherited row's draw (traditional) or payout (Roth) in draw year k. b = start-of-year balance, r = the year's stock
+  // return, L = the heir's Single Life factor in the year after receipt. A 10-year row: traditional even over the years left
+  // with the RMD on L as a floor and the account as a cap; Roth whole in year 10. A stretch row (death before 2020, decision
+  // 17): the RMD alone, both kinds. k < 1: nothing.
+  function inheritedDraw(b, r, k, L, roth, stretch) {
+    if (k < 1 || !(b > 0)) return 0;
+    const grown = b * (1 + r);
+    const d = L - k + 1;
+    if (stretch) return d <= 1 ? grown : Math.min(grown, b / d);
+    if (roth) return k >= 10 ? grown : 0;
+    if (k >= 10 || d <= 1) return grown;
+    return Math.min(grown, Math.max(grown / (11 - k), b / d));
+  }
+  // The ledger of a run: one slot per inherited row (null for every legacy state). Arrays of length n, oldest receipt first.
+  // owner[] is the named owner (0 = A, 1 = B), heir[] the heir slot at receipt (the other partner when the owner is dead then).
+  function inheritedLedger(rows, ctx) {
+    const kept = [];
+    for (let i = 0; i < rows.length; i++) {
+      const o = rows[i];
+      if (o.kind !== 'inheritedTrad' && o.kind !== 'inheritedRoth') continue;
+      const receiptYear = Math.round(o.age) - ctx.ageA,
+        stretch = ctx.currentYear + receiptYear < 2020;
+      if (!stretch && receiptYear + 10 < 0) continue; // a 10-year window that has already closed
+      const owner = !ctx.single && o.owner === 'B' ? 1 : 0,
+        ownerDead = receiptYear >= ctx.deathYear && (owner === 0 ? ctx.deceasedIsA : ctx.deceasedIsB),
+        heir = ownerDead ? 1 - owner : owner,
+        heirAge = (heir === 0 ? ctx.ageA : ctx.ageB) + receiptYear + 1;
+      kept.push({ i, o, receiptYear, stretch, owner, heir, L: singleLifeFactor(heirAge) });
+    }
+    if (kept.length === 0) return null;
+    kept.sort((a, b) => a.receiptYear - b.receiptYear || a.i - b.i);
+    const n = kept.length;
+    const inh = {
+      n, roth: [], owner: [], heir: [], receiptYear: [], stretch: [], L: [], deadline: [], openAmount: [], flat: [],
+      bal: new Float64Array(n), open: new Uint8Array(n), draw: new Float64Array(n), lastResort: new Float64Array(n), slot: new Int8Array(n),
+      snapBal: new Float64Array(n), snapOpen: new Uint8Array(n), snapDraw: new Float64Array(n), snapLastResort: new Float64Array(n), snapDeadline: new Array(n), snapL: new Array(n),
+    };
+    for (let j = 0; j < n; j++) {
+      const k = kept[j];
+      inh.roth.push(k.o.kind === 'inheritedRoth');
+      inh.owner.push(k.owner);
+      inh.heir.push(k.heir);
+      inh.receiptYear.push(k.receiptYear);
+      inh.stretch.push(k.stretch);
+      inh.L.push(k.L);
+      inh.deadline.push(k.stretch ? Infinity : k.receiptYear + 10);
+      inh.openAmount.push(k.o.amount);
+      inh.flat.push(k.o.flat === true);
+      inh.slot[j] = k.heir;
+      if (k.receiptYear < 0) {
+        inh.open[j] = 1;
+        inh.bal[j] = k.o.amount;
+      }
+    }
+    return inh;
+  }
+  const INH_OUT = { drawA: 0, drawB: 0, rothPayout: 0, any: false };
+  const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false };
+  // This year's scheduled draws and payouts, from the balances at the start of the year (known before the MAGI iteration, so
+  // per-year constants like the RMD). Never opens a row (inheritedApply does). drawA/drawB are on PRE-remap slots: the slot of the
+  // row's current heir, the other partner once the heir is dead. ctx = { year, stockReturn, deadA, deadB }.
+  function inheritedYear(inh, ctx, out) {
+    out.drawA = 0; out.drawB = 0; out.rothPayout = 0; out.any = false;
+    inh.draw.fill(0);
+    for (let i = 0; i < inh.n; i++) {
+      if (inh.open[i] === 0) continue;
+      const heir = inh.heir[i],
+        heirDead = heir === 0 ? ctx.deadA : ctx.deadB,
+        slot = heirDead ? 1 - heir : heir;
+      inh.slot[i] = slot;
+      let draw;
+      if (inh.stretch[i] && inh.deadline[i] === Infinity) {
+        draw = inheritedDraw(inh.bal[i], ctx.stockReturn, ctx.year - inh.receiptYear[i], inh.L[i], inh.roth[i], true);
+        // The heir's first dead year is still a stretch year; from the next the 10 years run from it, with the heir's factor continued.
+        if (heirDead) {
+          inh.deadline[i] = ctx.year + 10;
+          inh.L[i] -= ctx.year - inh.receiptYear[i];
+        }
+      } else {
+        const k = ctx.year - (inh.deadline[i] - 10);
+        draw = inheritedDraw(inh.bal[i], ctx.stockReturn, k, inh.L[i], inh.roth[i], false);
+      }
+      inh.draw[i] = draw;
+      if (inh.roth[i]) out.rothPayout += draw;
+      else if (slot === 0) out.drawA += draw;
+      else out.drawB += draw;
+    }
+    return out;
+  }
+  // Grows each open slot at the year's stock return, takes its draw, closes an emptied slot and opens this year's future rows (after
+  // growth, so a row opened this year neither grows nor draws); re-sums bal.inheritedTrad / bal.inheritedRoth and sets out.any.
+  function inheritedApply(inh, bal, stockReturn, factor, year) {
+    let any = false, trad = 0, roth = 0;
+    for (let i = 0; i < inh.n; i++) {
+      if (inh.open[i] === 1) {
+        if (inh.draw[i] > 0) any = true;
+        inh.bal[i] = inh.bal[i] * (1 + stockReturn) - inh.draw[i];
+        if (inh.bal[i] <= 0 || year >= inh.deadline[i]) {
+          inh.bal[i] = 0;
+          inh.open[i] = 0;
+        }
+      } else if (year === inh.receiptYear[i]) {
+        inh.open[i] = 1;
+        inh.bal[i] = inh.openAmount[i] * (inh.flat[i] ? 1 : factor);
+      }
+      if (inh.open[i] === 1) {
+        any = true;
+        if (inh.roth[i]) roth += inh.bal[i];
+        else trad += inh.bal[i];
+      }
+    }
+    bal.inheritedTrad = trad;
+    bal.inheritedRoth = roth;
+    INH_OUT.any = any;
+  }
+  // The MAGI iteration's snapshot of the ledger (preallocated: nothing is allocated per year).
+  function inheritedClone(inh) {
+    for (let i = 0; i < inh.n; i++) {
+      inh.snapBal[i] = inh.bal[i]; inh.snapOpen[i] = inh.open[i]; inh.snapDraw[i] = inh.draw[i];
+      inh.snapLastResort[i] = inh.lastResort[i]; inh.snapDeadline[i] = inh.deadline[i]; inh.snapL[i] = inh.L[i];
+    }
+    return inh;
+  }
+  function inheritedRestore(inh) {
+    for (let i = 0; i < inh.n; i++) {
+      inh.bal[i] = inh.snapBal[i]; inh.open[i] = inh.snapOpen[i]; inh.draw[i] = inh.snapDraw[i];
+      inh.lastResort[i] = inh.snapLastResort[i]; inh.deadline[i] = inh.snapDeadline[i]; inh.L[i] = inh.snapL[i];
+    }
+  }
   const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1, premiumFactor: 1 };
   function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
@@ -10591,6 +10758,9 @@
       cash: state.cash,
       home: state.tenure === 'own' ? state.homeValue : 0,
       mortgage: state.tenure === 'own' ? state.mortgage : 0,
+      // E1e: the open inherited accounts (sums of the ledger; always present so the shape is fixed).
+      inheritedTrad: 0,
+      inheritedRoth: 0,
     };
     const schedule = mortgageSchedule(),
       loans = loanSchedules(),
@@ -10657,6 +10827,11 @@
     // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
     if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
     if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
+    // E1e: the inherited accounts of this run (null for every state without an inherited row).
+    const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear, deathYear, deceasedIsA, deceasedIsB });
+    if (inh !== null) {
+      for (let i = 0; i < inh.n; i++) if (inh.open[i] === 1) { if (inh.roth[i]) bal.inheritedRoth += inh.bal[i]; else bal.inheritedTrad += inh.bal[i]; }
+    }
     const retirementYear = singlePerson
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
@@ -10695,6 +10870,13 @@
         lumpOtherA = lumps.otherA, lumpOtherB = lumps.otherB,
         lumpGainA = lumps.gainA, lumpGainB = lumps.gainB,
         lumpNoNiitA = lumps.gainNoNiitA, lumpNoNiitB = lumps.gainNoNiitB;
+      // E1e: this year's scheduled inherited draws (pre-remap slots) and Roth payout; known now, so per-year constants like the RMD.
+      let inhDraw = 0, inhDrawA = 0, inhDrawB = 0, inhRothPayout = 0;
+      if (inh !== null) {
+        INH_CTX.year = year; INH_CTX.stockReturn = stockReturn; INH_CTX.deadA = deceasedIsA && year >= deathYear; INH_CTX.deadB = deceasedIsB && year >= deathYear;
+        inheritedYear(inh, INH_CTX, INH_OUT);
+        inhDrawA = INH_OUT.drawA; inhDrawB = INH_OUT.drawB; inhDraw = inhDrawA + inhDrawB; inhRothPayout = INH_OUT.rothPayout;
+      }
       // E1d: Social Security wages for the wage base, payroll tax and the profile (a wages lump has no premium, no
       // contribution and no coverage, so it never touches `streams`).
       const ssWagesA = lumpYear ? streams.wagesA + lumpWagesA : streams.wagesA,
@@ -10816,7 +10998,26 @@
         lumpGainB,
         lumpNoNiitA,
         lumpNoNiitB,
+        inhOn: inh !== null,
+        inheritedA: inhDrawA,
+        inheritedB: inhDrawB,
       });
+      // E1e: New York's decedent room (spec 6.4): per post-remap slot, the sum over the traditional rows of min(the row's draw, the cap), set once a
+      // year; the pass-top base the last resort (Task 6) adds to.
+      let inhExclBaseA = 0, inhExclBaseB = 0;
+      if (inh !== null && inhDraw > 0) {
+        const yr = stateRuleForYear(year);
+        if (yr && yr.inhKind === INH_DECEDENT) {
+          for (let i = 0; i < inh.n; i++) {
+            if (inh.roth[i] || !(inh.draw[i] > 0)) continue;
+            const room = Math.min(inh.draw[i], yr.inhCap);
+            if (singlePerson || isSurvivorPeriod || inh.slot[i] === 0) inhExclBaseA += room;
+            else inhExclBaseB += room;
+          }
+          profile.inhExclA = inhExclBaseA;
+          profile.inhExclB = inhExclBaseB;
+        }
+      }
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
@@ -10862,6 +11063,7 @@
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
+        if (inh !== null) inheritedClone(inh);
         // Passes of this year that priced the premium off an estimate: what each estimated, what it was charged and what the
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
@@ -10908,6 +11110,7 @@
             Object.assign(guardrails, guardrailSnapshot);
             rothAccountsRestore(rothAccts, ledgerSnapshot);
             accountsRestore(accts, acctSnapshot);
+            if (inh !== null) inheritedRestore(inh);
           }
           profile.ownerShareA = ownerShareA0;
           profile.seHealthA = estSeA;
@@ -11136,7 +11339,7 @@
         // different order. The results differ only by rounding, but the withdrawal bisection can
         // amplify that into visibly different numbers, so each keeps its own order until the
         // numerics are unified deliberately.
-        const flow = mode.bucketStrategy
+        let flow = mode.bucketStrategy
           ? wages + ss + pension + rmd - expenses - tax - traditionalContrib - rothContrib
           : wages +
             ss +
@@ -11152,7 +11355,10 @@
             tax -
             traditionalContrib -
             rothContrib;
+        // E1e: the scheduled inherited traditional draw is cash (appended after both strategies' sums: a legacy year is unchanged).
+        if (inhDraw > 0) flow += inhDraw;
         growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
+        if (inh !== null) inheritedApply(inh, bal, stockReturn, factor, year);
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
         // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
         // share moves).
@@ -11163,6 +11369,7 @@
         withdrawRequiredDistributions(bal, rmd);
         applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive);
         bal.cash += oneTimeAmount;
+        if (inhRothPayout > 0) bal.cash += inhRothPayout; // E1e: the inherited Roth payout is a transfer (no tax, no MAGI)
         const reserveTarget = state.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
         // Ramp linearly over whatever time is actually available before
@@ -11551,7 +11758,9 @@
         bal.mortgage = Math.max(0, bal.mortgage);
         const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
           bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
-          investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
+          investableHousehold = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
+          // E1e: the open inherited accounts are investable (appended: a legacy year is the same double).
+          investable = inh === null ? investableHousehold : investableHousehold + bal.inheritedTrad + bal.inheritedRoth,
           homeEquity =
             state.tenure === 'own' || state.tenure === 'rentThenBuy'
               ? Math.max(0, bal.home - bal.mortgage)
@@ -11563,8 +11772,8 @@
           year,
           taxable: bal.taxable,
           bonds,
-          traditional: bal.traditional,
-          roth: bal.roth,
+          traditional: inh === null ? bal.traditional : bal.traditional + bal.inheritedTrad,
+          roth: inh === null ? bal.roth : bal.roth + bal.inheritedRoth,
           cash: bal.cash,
           homeEquity,
           loanBalance,
@@ -11596,6 +11805,13 @@
           lumpExpense,
           baseSpend,
         };
+        // E1e: a year with an open or paid-out inherited account carries its fields; the draw is also a traditional withdrawal.
+        if (inh !== null && INH_OUT.any) {
+          row.inheritedTrad = bal.inheritedTrad;
+          row.inheritedRoth = bal.inheritedRoth;
+          row.inheritedDraw = inhDraw;
+          if (inhDraw > 0) row.traditionalWithdrawn += inhDraw;
+        }
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
         if (twoReturns) {
@@ -11631,6 +11847,9 @@
             medB,
             rothBasis: rothAccts.map((L) => L.basis),
             rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
+            inherited: inh === null ? null : Array.from(inh.bal),
+            taxable: bal.taxable,
+            taxableBasis: bal.taxableBasis,
           });
         }
         break;
@@ -11659,10 +11878,15 @@
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
     // enumerable, so the result's own fields and every snapshot stay as they were.
+    // E1e: the open inherited balances are part of the estate (two additions, skipped when both are 0).
+    let estateTrad = bal.traditional + bal.bondTraditional,
+      estateRoth = bal.roth + bal.bondRoth;
+    if (bal.inheritedTrad > 0) estateTrad += bal.inheritedTrad;
+    if (bal.inheritedRoth > 0) estateRoth += bal.inheritedRoth;
     Object.defineProperty(result, 'estate', {
       value: {
-        traditional: bal.traditional + bal.bondTraditional,
-        roth: bal.roth + bal.bondRoth,
+        traditional: estateTrad,
+        roth: estateRoth,
         taxable: bal.taxable + bal.bondTaxable,
         cash: bal.cash,
         homeEquity: Math.max(0, bal.home - bal.mortgage),
@@ -11942,6 +12166,7 @@
     renderChartView(selected);
     renderTable(selected);
     annotateSolverRows(selected);
+    annotateInheritedRows(selected);
     // The "More results" card is inside a shared markup region, so the summary line is added here, not in the markup.
     let planLine = document.getElementById('cliffPlanSummary');
     if (!planLine) {
@@ -13914,6 +14139,18 @@
     }
   }
 
+  // E1e: the status cell also says what inherited money the year holds (appended to the title; US only, renderTable is shared).
+  function annotateInheritedRows(sim) {
+    for (const tr of document.querySelectorAll('#projectionRows tr')) {
+      const age = Number(tr.cells[0] && tr.cells[0].textContent),
+        r = sim.rows.find((x) => x.age === age),
+        cell = tr.querySelector('.table-status');
+      if (!r || !cell || r.inheritedTrad === undefined) continue;
+      const note = `includes inherited traditional ${money(r.inheritedTrad)} / Roth ${money(r.inheritedRoth)}`;
+      cell.title = cell.title ? `${cell.title} · ${note}` : note;
+    }
+  }
+
   // @@shared:20-renderTable begin
   function renderTable(sim) {
     const years = [
@@ -14990,17 +15227,17 @@
       noun: 'lump sum',
       rowTitle: (i) => `One-time income ${i + 1}`,
       addLabel: '+ Add a one-time income',
-      note: 'Lump sums received at a specific age, each with its own tax treatment.',
-      tip: "Tax-free lumps (an inheritance of cash, investments or a house, whose basis steps up to the value at death; life insurance; a gift received; a home-sale gain within the $250,000 / $500,000 exclusion ($500,000 also for a surviving spouse selling within two years); a sale at cost) are added to cash. Taxable lumps are income of the year received and pay their own tax first. Amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
+      note: 'Lump sums and inherited accounts received at a specific age, each with its own tax treatment.',
+      tip: "Tax-free lumps (an inheritance of cash, investments or a house, whose basis steps up to the value at death; life insurance; a gift received; a home-sale gain within the $250,000 / $500,000 exclusion ($500,000 also for a surviving spouse selling within two years); a sale at cost) are added to cash. Taxable lumps are income of the year received and pay their own tax first. Amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'. An inherited IRA or 401(k) is not a lump: pick it under Tax treatment and it becomes an account that grows and is drawn on the legal schedule.",
       fresh: () => ({ amount: 0, age: 65, flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false }),
       fields: [
         { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
         {
           key: 'kind', kind: 'select', label: 'Tax treatment',
-          options: [['free', 'Tax-free'], ['wages', 'Wages (severance, bonus)'], ['ordinary', 'Ordinary income, no payroll tax'], ['gain', 'Long-term capital gain']],
-          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation; a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA.",
+          options: [['free', 'Tax-free'], ['wages', 'Wages (severance, bonus)'], ['ordinary', 'Ordinary income, no payroll tax'], ['gain', 'Long-term capital gain'], ['inheritedTrad', 'Inherited traditional IRA / 401(k)'], ['inheritedRoth', 'Inherited Roth IRA / 401(k)']],
+          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation; a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA. Inherited traditional IRA / 401(k): an account inherited from someone other than your partner (a parent, usually). It grows at the plan's stock return and is drawn evenly over the 10 years after the year of death (1/10 of the balance, then 1/9, ... the rest in year 10), never less than the yearly required distribution on the owner's life expectancy (which only matters for an owner in their 80s, or in a steep market fall), taxed as ordinary income on the owner's return, with no 10% penalty at any age. A past account's balance is not in the Funded % tile. If the household runs short, it is drawn earlier (after your own accounts, before home equity). Inherited Roth IRA / 401(k): tax-free, left to grow and paid out in the 10th year. Both: enter the balance in the year received; a past year is allowed (enter today's balance; the draws cover the years left). An account inherited from a death before 2020 is drawn at the yearly required minimum over your life expectancy, with no 10-year deadline (the rules of that time). A 401(k) is assumed moved to an inherited IRA. Not modeled: the longer payout open to a spouse, a minor child of the decedent, a disabled or chronically ill heir or one not more than 10 years younger than the decedent; a plan that pays out faster. State tax: see the note under the state selector.",
         },
-        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: (it) => !state.singlePerson && (it.kind === 'wages' || it.kind === 'ordinary' || it.kind === 'gain') },
+        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: (it) => !state.singlePerson && (it.kind === 'wages' || it.kind === 'ordinary' || it.kind === 'gain' || it.kind === 'inheritedTrad' || it.kind === 'inheritedRoth') },
         {
           key: 'gainPct', kind: 'num', label: 'Gain share of the amount, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'gain',
           tip: 'The sale price less the basis (what was paid plus improvements, less depreciation), as a share of the amount; the rest comes back tax-free.',
@@ -17316,7 +17553,7 @@
     };
   };
   window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
-  window.__test_inherited = { singleLifeFactor };
+  window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
   window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
   // Test-only: run fn with state patched, restoring it afterwards.
   window.__test_withState = (patch, fn) => {
