@@ -1200,6 +1200,46 @@ git commit -m "E1e Task 6: the last resort (inherited Roth then traditional, aft
 
 ---
 
+### Task 6b: The Roth bracket fill sees the last-resort estimate (spec decision 18; US; no existing number change)
+
+Added 2026-10-10 after Task 6 (`0a37cea`): the implementer found that the fill sees the scheduled draw and the 162(l)
+estimate but not the fourth estimate. One commit before Task 7.
+
+**Files:**
+- Modify: `Planner_US.html`: `buildTaxProfile`'s two profile literals (and the survivor remap literal), the pass-top block
+  added in Task 6 Step 3.5 (`if (inh !== null) { inh.lastResort.fill(0); ... }`), `solveRothConversionTo`'s `ordinaryAt`
+  (~7584, both branches).
+- Modify: `tests/inherited_accounts.js`.
+
+- [ ] **Step 1: Write the failing test.** `fill sees the last resort`: the household of Task 6's `identity, two returns`
+  case (conversions on), and the same household joint (MFJ) so both `ordinaryAt` branches are reached. For each: a run
+  where year y has a last-resort draw x (read x from the trace's `inhLastResortA/B`) against the run with
+  `__test_inhForceExtra(y, slot, x)` and no last resort. Assert `trace[y].conversionAmount` equal within $1
+  (`MAGI_ITER_TOL` = 1: the estimate converges to the realized draw within it) and that, before the fix, the last-resort
+  run converted more (the red run shows the gap; Task 6's report measured 23,700 against 0). Then reinstate Task 6's
+  identity comparison for the two-return case with conversions on: tax, `healthcare`, `magiA/B` and the end balances
+  within $1 (the conversion now matches within `MAGI_ITER_TOL`, so the $0.05 identity tolerance does not apply to this
+  case; say so in the test).
+- [ ] **Step 2: Run it red** against `0a37cea`.
+- [ ] **Step 3: Implement.**
+  1. Both `buildTaxProfile` literals and the survivor remap literal carry `inhEstA: 0, inhEstB: 0`.
+  2. In Task 6's pass-top block (only when `inh !== null`), beside `profile.inhExtraA = 0`: `profile.inhEstA = estInhA;
+     profile.inhEstB = estInhB;` (post-remap slots, as `estInhA/B`).
+  3. `ordinaryAt`, both branches: `const other = <today's expression>` becomes `let other = <today's expression>; if
+     (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);` before
+     `taxableSS` is computed (profiles built elsewhere, the lambda samples and the optimizer, carry no such field and
+     read as 0).
+  4. Nothing else reads `inhEstA/B`.
+- [ ] **Step 4: Run.** `node tests/inherited_accounts.js`, `node tests/snapshot.js` (exact), `node tests/plan_off_anchor.js
+  --base ../fp-e1e-base`, `node tests/tax_caches.js`, `npm test`, `npm run check:shared`; timing gate (three runs).
+- [ ] **Step 5: Commit**
+
+```bash
+git commit -m "E1e Task 6b: the Roth bracket fill sees the last-resort estimate (spec decision 18): profile.inhEstA/B set at the pass top, added to the fill's other income only when non-zero; the two-return identity case with conversions on reinstated; no existing number change" -- Planner_US.html tests/inherited_accounts.js
+```
+
+---
+
 ### Task 7: Snapshot scenarios, docs, version badge, timing record
 
 **Files:**
@@ -1221,7 +1261,7 @@ git commit -m "E1e Task 6: the last resort (inherited Roth then traditional, aft
   floor, pre-2020 stretch, last resort, state treatment per state). CLAUDE.md: one paragraph after the E1d paragraph of
   "Add-as-you-go lists" (the ledger and its null gate, `inheritedDraw`, the stretch and successor rule, the Roth transfer,
   the draw in `otherA/B` never `extraA/B`, the five state kinds and the always-written sources fields, the fourth
-  estimate, the last resort inside `BUCKET_STEP.home` / `.penalized`, decisions 15-16's need, tests). The E1e notes in
+  estimate (and `inhEstA/B`, which the Roth fill reads: decision 18), the last resort inside `BUCKET_STEP.home` / `.penalized`, decisions 15-16's need, tests). The E1e notes in
   `docs/next-batches-plan.md`: commits, red-then-green records, the timing tables of Tasks 2, 4, 5, 6 and this task, the
   UI hash changes, anything the owner must decide.
 - [ ] **Step 4: Badge and Methodology**: V127; the one-time income sentence of the Methodology callout adds "or an

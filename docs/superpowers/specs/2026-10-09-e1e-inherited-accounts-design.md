@@ -110,6 +110,14 @@ port section (section 10).
     tax-free, with no deadline; if the heir dies during the projection, the surviving partner empties it within 10 years of
     the heir's death (SECURE Act section 401(b)(5); section 6.2). No input: the year decides. (Rejected: B, the 10-year
     schedule for every row with a tooltip warning; C, pre-2020 rows ignored.)
+18. **The Roth bracket fill sees the last-resort estimate (owner, 2026-10-10, raised by the Task 6 implementer).** The
+    fill (`solveRothConversionTo`) sees the scheduled draw through `otherA/B` (6.3) and the 162(l) estimate through
+    `profile.seHealthA/B`, but not the pass's last-resort estimate, so a year with a last-resort draw x converted more than
+    a year with a scheduled draw x larger. As E1c does for 162(l), the pass top puts the fourth estimate on the profile
+    (`profile.inhEstA/B = estInhA/B` when a ledger exists; 0 in both `buildTaxProfile` literals and the survivor remap)
+    and the fill's `other` adds `inhEstA + inhEstB`, appended only when non-zero, so a legacy fill is the same double.
+    Nothing else reads the pair (`taxFor` reads `inhExtraA/B`, the realized draw). (Rejected: B, recorded as a
+    limitation.)
 
 ## 4. Facts (primary sources; retrieved 2026-10-09)
 

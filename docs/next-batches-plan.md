@@ -1935,6 +1935,10 @@ shared-region change. Every citation of the scope note above was checked against
   (M2). The reviewer measured the third revision's figures (the ACA twin at 60,000.00 / 5,678.47 / 38,518.47, each of
   the three settings needed; the CO stale check 257.40 fresh, 961.40 stale) and found them right. With a review round free
   of blocking findings, the owner moved to implementation.
+- **Decision 18 (owner, 2026-10-10, raised by the Task 6 implementer at `0a37cea`):** the Roth bracket fill saw the
+  scheduled draw and the 162(l) estimate but not the last-resort estimate, so a last-resort year over-converted (23,700
+  against 0 in the two-return identity household). Fixed as E1c does for 162(l): `profile.inhEstA/B` set at the pass top,
+  added to the fill's other income only when non-zero (spec decision 18; plan Task 6b, before Task 7).
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
