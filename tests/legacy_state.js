@@ -9,6 +9,7 @@
 //   LEGACY_ROOT=<dir> node tests/legacy_state.js ...   load the planners from another checkout
 
 const { chromium } = require('playwright');
+const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -86,6 +87,14 @@ const US = {
     { amount: 1000, age: 62, kind: 'gain', gainPct: 'x' },
     { amount: 1000, age: 63 },
   ] },
+  // E1e: the two inherited kinds survive normalization (the select offers them from Task 4); a past row keeps its age.
+  'inherited kinds': { oneTimeIncome: [
+    { amount: 400000, age: 60, flat: false, kind: 'inheritedTrad', owner: 'B' },
+    { amount: 100000, age: 52, flat: true, kind: 'inheritedRoth' },
+    { amount: 1000, age: 61, kind: 'inherited' },
+    { amount: 1000, age: 62, kind: 'inheritedTrad', owner: 'b' },
+    { amount: 50000, age: 40, kind: 'inheritedTrad', owner: 'A' }, // a past row (spec 7); normalization ignores the age
+  ] },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },
@@ -120,6 +129,11 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         await page.waitForTimeout(150);
         const state = await page.evaluate(() => JSON.stringify(window.__test_getState()));
         if (errors.length) throw new Error(`${p.key} "${name}": page errors ${errors}`);
+        if (p.key === 'US' && name === 'inherited kinds') {
+          const rows = JSON.parse(state).oneTimeIncome;
+          assert.deepStrictEqual(rows.map((r) => r.kind), ['inheritedTrad', 'inheritedRoth', 'free', 'inheritedTrad', 'inheritedTrad'], 'inherited kinds: kinds');
+          assert.deepStrictEqual(rows.map((r) => r.owner), ['B', 'A', 'A', 'A', 'A'], 'inherited kinds: owners');
+        }
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();
       }

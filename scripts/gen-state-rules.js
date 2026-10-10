@@ -140,6 +140,7 @@ function generate(rules) {
         if (value === 'exempt' || value === 0) continue;
         L.push(`- ${label}: \`${JSON.stringify(value)}\``);
       }
+      L.push(`- Inherited IRA / 401(k) draws (E1e): \`${JSON.stringify(r.inherited)}\``);
       for (const a of r.additions) L.push(`- Addition: \`${JSON.stringify(a)}\``);
       for (const cr of r.credits) L.push(`- Credit: \`${JSON.stringify(cr)}\``);
     }

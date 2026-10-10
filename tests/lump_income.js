@@ -39,6 +39,10 @@ const path = require('path');
   is(await fn([L({ kind: 'gain', activeBusiness: 'yes' })]), { gainA: 10000, flowTotal: 10000 }, "activeBusiness 'yes' is not true");
   is(await fn([L({ kind: 'wages', owner: 'B' })], { single: true }), { wagesA: 10000, flowTotal: 10000 }, 'single stored B: A');
   // death year / dead owner (decision 10: deadX is true from the death year on)
+  // E1e: the two inherited kinds are read by the inherited ledger, never by this splitter.
+  is(await fn([L({ kind: 'inheritedTrad' })]), {}, 'inherited traditional is not a lump');
+  is(await fn([L({ kind: 'inheritedRoth', owner: 'B' })]), {}, 'inherited Roth is not a lump');
+  is(await fn([L({ kind: 'inheritedTrad' }), L({ amount: 5000 })]), { taxFree: 5000 }, 'inherited beside a free lump');
   is(await fn([L({ kind: 'wages' })], { deadA: true }), { otherB: 10000, flowTotal: 10000 }, "death year: A's wages to B, no payroll");
   is(await fn([L({ kind: 'ordinary' })], { deadA: true }), { otherB: 10000, flowTotal: 10000 }, "A's ordinary to B");
   is(await fn([L({ kind: 'wages', owner: 'B' })], { deadB: true }), { otherA: 10000, flowTotal: 10000 }, "B's wages to A");

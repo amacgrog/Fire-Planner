@@ -1945,6 +1945,298 @@ shared-region change. Every citation of the scope note above was checked against
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
+##### E1e: implementation (US V126 -> V127)
+
+Branch `claude/e1e-inherited-accounts`, from the plan at `3a5b7cb`; US only, no shared-region change (`npm run check:shared` OK
+at every commit), Canada V59 unchanged. Timing baseline: the worktree `../fp-e1e-base` at `3a5b7cb` (planner code identical to
+`6c26726`), `node tests/bench_runs_interleaved.js --base ../fp-e1e-base --rounds 21`, three runs per task.
+
+Commits:
+- `d6ebfae` Task 1: `STATE_RULES.inherited` on all 51 rows (spec appendix A) with a notes sentence each, the generator
+  (`docs/state-tax-rules.md` regenerated) and the coverage test (`tests/state_rules.js`); `singleLifeFactor` (the full Single Life
+  Table); `tests/inherited_accounts.js` added to `npm test`; no number change.
+- `37729d5` Task 2: the five kinds in `stateIncomeTax` / `stateRetirementExclusion`, the five sources fields written on every
+  taxing-state call (spec 6.4), `inhExtraA/B` in `taxFor`'s other-income sums under `inhOn`; inert (no profile carried an inherited
+  amount yet); no number change.
+- `89ed809` Task 3: `normalizeUsLumps` keeps the two kinds, `lumpAmountsForYear` skips them (spec 5.2); `legacy_state.json` gains
+  one case (US corpus 44 -> 45 saves), no existing hash moved; the select did not offer the kinds yet.
+- `602107b` Task 4: the account (ledger, 10-year and stretch schedules, Roth transfer, the draw in `flow` and on the owner's federal
+  and state returns, NY's base exclusion, totals, rows, estate, the two select options and their copy, the status tooltip),
+  `test_inherited_accounts.js`; no existing number change, no scenario added.
+- `eebc82a` Task 5: the guardrails, `firstWithdrawal` and lambda record the need with the scheduled draw added back net of its own
+  tax and premium (decisions 15, 16); a draw-made surplus year records; the guardrail portfolio before the draw (spec 6.7).
+- `0a37cea` Task 6: the last resort (`takeInherited`: Roth then traditional, after the cap release, before penalized money and
+  home equity, inside the US-only `BUCKET_STEP.home` / `.penalized`; taxed like a scheduled draw on the post-remap slot) and the
+  fourth estimate `estInhA/B` on E1c's pattern (spec 6.5, 6.6).
+- `a8d20f1` (merged as `49434c6`): decision 18 (spec, plan Task 6b, design record), raised by the Task 6 implementer.
+- `b816cc9` Task 6 fix: a row received this year gets its slot and post-remap slot when it opens (below).
+- `c0c0fd8` Task 6b: the Roth bracket fill sees the last-resort estimate (`profile.inhEstA/B` at the pass top, added to the fill's
+  other income only when non-zero); the two-return identity case with conversions on reinstated.
+- `022abb3` (merged as `736c5b8`): decision 18's convergence limitation recorded (spec decision 18 and section 9), plan Task 7
+  Step 0, design record.
+- `659c8a3` Task 7 Step 0: tests only (below).
+- Task 7 (this record's commit): eight snapshot scenarios (added only), README, CLAUDE.md, these notes, the Methodology sentence,
+  US V127.
+
+Every engine commit (Tasks 2 to 6b) is "no existing number change": `node tests/snapshot.js` exact (US 569, Canada 376) and
+`npm test` green at each.
+
+Red then green, per task (the first failing output, then green after the change):
+- Task 1: red `state rules: ak: fields missing inherited` (every row and schedule entry), `inherited.kind missing or invalid`, and
+  `Cannot read properties of undefined (reading 'singleLifeFactor')`; green `[US] inherited accounts (E1e) tests passed` and
+  `[US] state rules test passed (51 jurisdictions, every field explicit, selector matches the table)`.
+- Task 2: red `state mechanisms: inherited ordinary: taxed with the own draw: expected 4000, got 1000` (and the heir, heirAnyAge,
+  Colorado-shape and decedent cases, `taxFor two returns, NY: the decedent room on the owning return: expected 2643, got 2103`),
+  plus `window.__test_withState is not a function` in `tests/inherited_accounts.js`; green.
+- Task 3: red `inherited kinds: kinds` (the two kinds normalized to `'free'`) and `inherited traditional is not a lump`; green.
+- Task 4: red `window.__test_inherited.inheritedDraw is not a function` and `the select offers both inherited kinds after the four
+  existing ones`; green.
+- Task 5: red `TX no ACA: recorded need without the inheritance: 13653.599999999999 vs 58000`; green.
+- Task 6: red `last resort basic: a traditional last resort happens`; green.
+- Task 6 fix: red `receipt-year row owned by B: the draw is on B's return (profile.inhExtraB): 0 vs 88679.50439453125`; green.
+- Task 6b: red `fill sees the last resort: conversion gap`: `unmarried: last resort 23699.998152256012 converted vs scheduled-draw
+  twin 15770.482087135311 (x = 7929.51673325865, twin last resort 0)` and `joint: last resort 90199.98908042908 converted vs
+  scheduled-draw twin 88533.33592414856 (x = 1666.6637439738859, twin last resort 0)`; green.
+- Task 7: red `node tests/snapshot.js`: `[US] snapshot MISMATCH (8 of 577 scenarios)`, each `not in baseline`; green after
+  `npm run snapshot:update`.
+
+**The Task 6 reviewers' slot bug (`b816cc9`).** Two reviewers of `0a37cea` found that a row received this year opens in
+`inheritedApply`, after `inheritedYear` has skipped it, so its `slot` / `post` kept the ledger's initial values (`post` 0): a
+last-resort draw in the receipt year from a row owned by B on two returns landed on A's return (and, in New York, its exclusion on
+A's slot). Fix: when a row opens it gets this year's slot and post-remap slot the way `inheritedYear` computes them. Test: an
+unmarried couple at 50, B's $400,000 row received at 50, no other money: the draw x is on `profile.inhExtraB`, `magiB` = x, nothing
+on A, and in New York the exclusion min(x, 20,000) on B's slot. The same commit tightened two Task 6 tests (the bucket penalized
+placement asserts the penalized pool untouched, 300,000 at -20% a year; a New York room case with x above the room: exactly 15,000
+extra on the 25,000 base).
+
+**Decision 18 and the Task 6b reviewers' finding.** The Task 6 implementer found that the Roth bracket fill saw the scheduled draw
+(through `otherA/B`) and the 162(l) estimate but not the pass's last-resort estimate, so a last-resort year converted more than a
+year with the draw scheduled (23,700 against 15,770 in the two-return identity household). The owner decided to fix it as E1c does
+(decision 18; Task 6b, `c0c0fd8`). The Task 6b reviewers then found that the conversion now depends on the damped fourth estimate,
+whose error shrinks about threefold a pass: a year with a large last-resort draw reaches the 8-pass cap with the conversion about
+0.04% of the draw short of a scheduled-draw twin (under $15 a year of tax; the rows record the realized draw and MAGI). The owner
+recorded it as a limitation (spec decision 18 and section 9, `022abb3`) instead of adding a secant step (a new numerical rule in the
+MAGI iteration, with overshoot risk at the premium cliffs, for a few dollars).
+
+**Step 0 (`659c8a3`, tests only).** All new assertions passed at once (they pin existing behaviour; no hand value disagreed).
+- `fill convergence bound`: the joint household of Task 6b's `fill sees the last resort` case with spending raised from 14,500 to
+  40,000: x = 26,798.62, the last-resort run takes 8 passes (its twin 2), conversion 63,389.88 against the twin's 63,399.61, gap
+  9.73 (0.036% of x; asserted 0 < gap < 0.1% of x). Measured sweep: spending 14,500, x 1,299.93, gap 0.57 (8 passes); 30,000,
+  x 16,799.14, gap 6.10; 50,000, x 36,798.11, gap 13.34.
+- **For the spec owner (not edited):** decision 18's wording "a year with a small last-resort draw converges within
+  `MAGI_ITER_TOL`" is loose. The small-draw case (x = 1,299.93) also runs all 8 passes; only its conversion gap, 0.57, is within
+  `MAGI_ITER_TOL` (1). The test comment says so.
+- The receipt-year slot fix in the survivor period: A's row received after A died (heir B) and B's row received after B died (heir
+  A), both received at A's 63 with the owner dead at 62: the last-resort draw x = 48,242.74 is on `profile.inhExtraA` (the
+  survivor's one-person return), nothing on `inhExtraB`; tax 3,609.13 by hand (2026 single, 63, standard deduction 16,100: 1,240 +
+  12% x 19,742.74) and equal to a forced scheduled draw's (`__test_inhForceExtra`), with the same premium, MAGI and withdrawals.
+  These cases held before `b816cc9` too (in the survivor period `post` collapses to 0 and the initial slot is already the living
+  heir), so they pin the branch rather than catch the old bug. In the receipt year the forced-draw hook adds income without
+  debiting the row, so this identity compares tax, premium, MAGI and withdrawals, not balances (a test-hook limitation, stated in
+  the test comment).
+
+**Snapshot diff (Task 7).** `tests/snapshots/us.json` gains eight entries and nothing else: `std R inherited trad future` (B's
+$400,000 row at A's 54), `std R inherited trad past` (A's $400,000 row received at 49, three years ago), `std R inherited roth`
+(A's $300,000 Roth at 55), `std R inherited two returns` (unmarried, B's row at 53), `std R inherited last resort` (spending
+190,000, A's $300,000 traditional and B's $150,000 Roth rows at 58: the household's penalty-free money runs out at 58, the last
+resort empties both rows, depletion at 63 instead of `std R depletes`' 61), `std R inherited stretch 2018` (A's $250,000 row at
+44, a 2018 death: the RMD alone for 34 years), `std R inherited NY` (the trad-future row in New York) and `hist R inherited trad
+future | real1966`. Checked two ways: `git diff tests/snapshots/us.json | grep '^-' | grep -v '^---'` prints nothing, and a script
+comparing the parsed baseline with `HEAD`'s: 569 entries before, 577 after, 0 changed, 0 removed. `canada.json` and
+`ui_canada.json` unchanged (`npm run snapshot:update` rewrote both with LF line endings only; restored with `git checkout`).
+
+UI snapshot (`tests/snapshots/ui_us.json`), `textHash` and `textLength` only; every `projectionHash`, `rowsHash`, `histSuccess`
+and control entry unchanged:
+- Task 1: `std default` 28,563 -> 28,669 (the state notes sentence under the selector).
+- Task 4: `std default` 28,669 -> 28,692, `std R` 28,161 -> 28,184, `std R everything` 29,978 -> 30,001 (+23 each: the one-time
+  income list note, "Lump sums and inherited accounts received at a specific age, each with its own tax treatment.").
+- Task 7: `std default` 28,692 -> 28,824, `std R` 28,184 -> 28,316, `std R everything` 30,001 -> 30,133 (+132 each, exactly the
+  Methodology sentence's addition ", or an inherited traditional or Roth IRA / 401(k), drawn on the 10-year rule (a death before
+  2020: over the heir's life expectancy)"). The version badge is not in that text.
+
+Timing (each table copied from the bench output files):
+
+Task 2:
+
+```
+=== run 1
+US tx  400 simulate 211 -> 203 ms (-3.8%), 120 historical 59 -> 59 ms (0.0%)
+US ca  400 simulate 296 -> 315 ms (6.4%), 120 historical 82 -> 91 ms (11.0%)
+US ny  400 simulate 316 -> 309 ms (-2.2%), 120 historical 89 -> 89 ms (0.0%)
+US pa  400 simulate 289 -> 279 ms (-3.5%), 120 historical 80 -> 79 ms (-1.2%)
+US ct  400 simulate 369 -> 372 ms (0.8%), 120 historical 104 -> 109 ms (4.8%)
+US wa  400 simulate 237 -> 228 ms (-3.8%), 120 historical 68 -> 67 ms (-1.5%)
+=== run 2
+US tx  400 simulate 206 -> 187 ms (-9.2%), 120 historical 58 -> 55 ms (-5.2%)
+US ca  400 simulate 296 -> 283 ms (-4.4%), 120 historical 81 -> 80 ms (-1.2%)
+US ny  400 simulate 322 -> 306 ms (-5.0%), 120 historical 88 -> 88 ms (0.0%)
+US pa  400 simulate 291 -> 277 ms (-4.8%), 120 historical 78 -> 78 ms (0.0%)
+US ct  400 simulate 388 -> 381 ms (-1.8%), 120 historical 109 -> 111 ms (1.8%)
+US wa  400 simulate 245 -> 233 ms (-4.9%), 120 historical 67 -> 68 ms (1.5%)
+=== run 3
+US tx  400 simulate 201 -> 192 ms (-4.5%), 120 historical 60 -> 58 ms (-3.3%)
+US ca  400 simulate 295 -> 286 ms (-3.1%), 120 historical 82 -> 82 ms (0.0%)
+US ny  400 simulate 318 -> 309 ms (-2.8%), 120 historical 90 -> 89 ms (-1.1%)
+US pa  400 simulate 289 -> 280 ms (-3.1%), 120 historical 80 -> 79 ms (-1.2%)
+US ct  400 simulate 377 -> 368 ms (-2.4%), 120 historical 109 -> 108 ms (-0.9%)
+US wa  400 simulate 229 -> 222 ms (-3.1%), 120 historical 66 -> 65 ms (-1.5%)
+```
+
+Task 4:
+
+```
+=== run 1
+US tx  400 simulate 189 -> 188 ms (-0.5%), 120 historical 56 -> 55 ms (-1.8%)
+US ca  400 simulate 276 -> 281 ms (1.8%), 120 historical 79 -> 80 ms (1.3%)
+US ny  400 simulate 300 -> 304 ms (1.3%), 120 historical 86 -> 87 ms (1.2%)
+US pa  400 simulate 275 -> 277 ms (0.7%), 120 historical 77 -> 77 ms (0.0%)
+US ct  400 simulate 363 -> 365 ms (0.6%), 120 historical 107 -> 106 ms (-0.9%)
+US wa  400 simulate 221 -> 225 ms (1.8%), 120 historical 65 -> 65 ms (0.0%)
+=== run 2
+US tx  400 simulate 189 -> 190 ms (0.5%), 120 historical 56 -> 56 ms (0.0%)
+US ca  400 simulate 277 -> 282 ms (1.8%), 120 historical 80 -> 80 ms (0.0%)
+US ny  400 simulate 315 -> 312 ms (-1.0%), 120 historical 87 -> 87 ms (0.0%)
+US pa  400 simulate 275 -> 274 ms (-0.4%), 120 historical 76 -> 76 ms (0.0%)
+US ct  400 simulate 365 -> 367 ms (0.5%), 120 historical 106 -> 107 ms (0.9%)
+US wa  400 simulate 222 -> 221 ms (-0.5%), 120 historical 65 -> 64 ms (-1.5%)
+=== run 3
+US tx  400 simulate 191 -> 195 ms (2.1%), 120 historical 59 -> 55 ms (-6.8%)
+US ca  400 simulate 303 -> 287 ms (-5.3%), 120 historical 86 -> 80 ms (-7.0%)
+US ny  400 simulate 305 -> 320 ms (4.9%), 120 historical 88 -> 88 ms (0.0%)
+US pa  400 simulate 281 -> 289 ms (2.8%), 120 historical 79 -> 78 ms (-1.3%)
+US ct  400 simulate 366 -> 378 ms (3.3%), 120 historical 107 -> 107 ms (0.0%)
+US wa  400 simulate 223 -> 236 ms (5.8%), 120 historical 65 -> 66 ms (1.5%)
+```
+
+Task 5:
+
+```
+=== run 1
+US tx  400 simulate 195 -> 195 ms (0.0%), 120 historical 57 -> 58 ms (1.8%)
+US ca  400 simulate 293 -> 306 ms (4.4%), 120 historical 83 -> 87 ms (4.8%)
+US ny  400 simulate 315 -> 312 ms (-1.0%), 120 historical 89 -> 90 ms (1.1%)
+US pa  400 simulate 287 -> 287 ms (0.0%), 120 historical 80 -> 80 ms (0.0%)
+US ct  400 simulate 377 -> 378 ms (0.3%), 120 historical 109 -> 110 ms (0.9%)
+US wa  400 simulate 231 -> 228 ms (-1.3%), 120 historical 67 -> 66 ms (-1.5%)
+=== run 2
+US tx  400 simulate 196 -> 190 ms (-3.1%), 120 historical 58 -> 57 ms (-1.7%)
+US ca  400 simulate 321 -> 316 ms (-1.6%), 120 historical 88 -> 87 ms (-1.1%)
+US ny  400 simulate 353 -> 342 ms (-3.1%), 120 historical 99 -> 99 ms (0.0%)
+US pa  400 simulate 286 -> 284 ms (-0.7%), 120 historical 80 -> 79 ms (-1.2%)
+US ct  400 simulate 375 -> 362 ms (-3.5%), 120 historical 109 -> 105 ms (-3.7%)
+US wa  400 simulate 229 -> 230 ms (0.4%), 120 historical 67 -> 66 ms (-1.5%)
+=== run 3
+US tx  400 simulate 194 -> 193 ms (-0.5%), 120 historical 58 -> 57 ms (-1.7%)
+US ca  400 simulate 286 -> 287 ms (0.3%), 120 historical 82 -> 81 ms (-1.2%)
+US ny  400 simulate 311 -> 322 ms (3.5%), 120 historical 89 -> 92 ms (3.4%)
+US pa  400 simulate 282 -> 295 ms (4.6%), 120 historical 78 -> 82 ms (5.1%)
+US ct  400 simulate 372 -> 389 ms (4.6%), 120 historical 109 -> 113 ms (3.7%)
+US wa  400 simulate 228 -> 235 ms (3.1%), 120 historical 66 -> 69 ms (4.5%)
+```
+
+Task 6:
+
+```
+=== run 1
+US tx  400 simulate 194 -> 197 ms (1.5%), 120 historical 57 -> 59 ms (3.5%)
+US ca  400 simulate 281 -> 287 ms (2.1%), 120 historical 80 -> 82 ms (2.5%)
+US ny  400 simulate 311 -> 312 ms (0.3%), 120 historical 88 -> 89 ms (1.1%)
+US pa  400 simulate 280 -> 286 ms (2.1%), 120 historical 77 -> 79 ms (2.6%)
+US ct  400 simulate 376 -> 375 ms (-0.3%), 120 historical 109 -> 109 ms (0.0%)
+US wa  400 simulate 227 -> 229 ms (0.9%), 120 historical 65 -> 67 ms (3.1%)
+=== run 2
+US tx  400 simulate 194 -> 198 ms (2.1%), 120 historical 56 -> 58 ms (3.6%)
+US ca  400 simulate 283 -> 287 ms (1.4%), 120 historical 80 -> 82 ms (2.5%)
+US ny  400 simulate 320 -> 312 ms (-2.5%), 120 historical 91 -> 91 ms (0.0%)
+US pa  400 simulate 286 -> 295 ms (3.1%), 120 historical 79 -> 83 ms (5.1%)
+US ct  400 simulate 380 -> 365 ms (-3.9%), 120 historical 110 -> 107 ms (-2.7%)
+US wa  400 simulate 228 -> 226 ms (-0.9%), 120 historical 67 -> 68 ms (1.5%)
+=== run 3
+US tx  400 simulate 197 -> 197 ms (0.0%), 120 historical 61 -> 58 ms (-4.9%)
+US ca  400 simulate 286 -> 295 ms (3.1%), 120 historical 84 -> 83 ms (-1.2%)
+US ny  400 simulate 312 -> 322 ms (3.2%), 120 historical 90 -> 92 ms (2.2%)
+US pa  400 simulate 283 -> 294 ms (3.9%), 120 historical 80 -> 82 ms (2.5%)
+US ct  400 simulate 404 -> 387 ms (-4.2%), 120 historical 117 -> 113 ms (-3.4%)
+US wa  400 simulate 230 -> 239 ms (3.9%), 120 historical 68 -> 70 ms (2.9%)
+```
+
+Task 6b:
+
+```
+=== run 1
+US tx  400 simulate 193 -> 206 ms (6.7%), 120 historical 57 -> 61 ms (7.0%)
+US ca  400 simulate 284 -> 309 ms (8.8%), 120 historical 81 -> 85 ms (4.9%)
+US ny  400 simulate 337 -> 345 ms (2.4%), 120 historical 95 -> 98 ms (3.2%)
+US pa  400 simulate 300 -> 307 ms (2.3%), 120 historical 82 -> 84 ms (2.4%)
+US ct  400 simulate 372 -> 364 ms (-2.2%), 120 historical 109 -> 106 ms (-2.8%)
+US wa  400 simulate 224 -> 229 ms (2.2%), 120 historical 66 -> 68 ms (3.0%)
+=== run 2
+US tx  400 simulate 207 -> 195 ms (-5.8%), 120 historical 61 -> 58 ms (-4.9%)
+US ca  400 simulate 299 -> 310 ms (3.7%), 120 historical 86 -> 89 ms (3.5%)
+US ny  400 simulate 310 -> 313 ms (1.0%), 120 historical 89 -> 90 ms (1.1%)
+US pa  400 simulate 281 -> 285 ms (1.4%), 120 historical 80 -> 80 ms (0.0%)
+US ct  400 simulate 358 -> 361 ms (0.8%), 120 historical 105 -> 106 ms (1.0%)
+US wa  400 simulate 226 -> 229 ms (1.3%), 120 historical 67 -> 68 ms (1.5%)
+=== run 3
+US tx  400 simulate 198 -> 198 ms (0.0%), 120 historical 58 -> 57 ms (-1.7%)
+US ca  400 simulate 306 -> 295 ms (-3.6%), 120 historical 88 -> 82 ms (-6.8%)
+US ny  400 simulate 317 -> 313 ms (-1.3%), 120 historical 92 -> 89 ms (-3.3%)
+US pa  400 simulate 293 -> 289 ms (-1.4%), 120 historical 81 -> 80 ms (-1.2%)
+US ct  400 simulate 363 -> 390 ms (7.4%), 120 historical 105 -> 110 ms (4.8%)
+US wa  400 simulate 232 -> 233 ms (0.4%), 120 historical 67 -> 67 ms (0.0%)
+```
+
+Median of three (simulate / historical):
+- Task 2: tx -4.5% / -3.3%; ca -3.1% / 0.0%; ny -2.8% / 0.0%; pa -3.5% / -1.2%; ct -1.8% / +1.8%; wa -3.8% / -1.5% (run 1 alone
+  had ca at +6.4% / +11.0%; runs 2 and 3 had -4.4% / -1.2% and -3.1% / 0.0%).
+- Task 4: tx +0.5% / -1.8%; ca +1.8% / 0.0%; ny +1.3% / 0.0%; pa +0.7% / 0.0%; ct +0.6% / 0.0%; wa +1.8% / 0.0%.
+- Task 5: tx -0.5% / -1.7%; ca +0.3% / -1.1%; ny -1.0% / +1.1%; pa 0.0% / 0.0%; ct +0.3% / +0.9%; wa +0.4% / -1.5%.
+- Task 6: tx +1.5% / +3.5%; ca +2.1% / +2.5%; ny +0.3% / +1.1%; pa +3.1% / +2.6%; ct -3.9% / -2.7%; wa +0.9% / +2.9%.
+- Task 6b: tx 0.0% / -1.7%; ca +3.7% / +3.5%; ny +1.0% / +1.1%; pa +1.4% / 0.0%; ct +0.8% / +1.0%; wa +1.3% / +1.5%.
+
+Task 7 timing (`node tests/bench_runs_interleaved.js --base ../fp-e1e-base --rounds 21`, the controller alone on the machine; base = the pre-E1e tree):
+
+```
+=== run 1
+US tx  400 simulate 189 -> 191 ms (1.1%), 120 historical 56 -> 57 ms (1.8%)
+US ca  400 simulate 276 -> 281 ms (1.8%), 120 historical 78 -> 80 ms (2.6%)
+US ny  400 simulate 298 -> 338 ms (13.4%), 120 historical 85 -> 96 ms (12.9%)
+US pa  400 simulate 272 -> 311 ms (14.3%), 120 historical 76 -> 87 ms (14.5%)
+US ct  400 simulate 358 -> 406 ms (13.4%), 120 historical 105 -> 117 ms (11.4%)
+US wa  400 simulate 218 -> 252 ms (15.6%), 120 historical 63 -> 74 ms (17.5%)
+=== run 2
+US tx  400 simulate 188 -> 193 ms (2.7%), 120 historical 56 -> 57 ms (1.8%)
+US ca  400 simulate 277 -> 285 ms (2.9%), 120 historical 80 -> 82 ms (2.5%)
+US ny  400 simulate 302 -> 306 ms (1.3%), 120 historical 88 -> 88 ms (0.0%)
+US pa  400 simulate 274 -> 282 ms (2.9%), 120 historical 77 -> 80 ms (3.9%)
+US ct  400 simulate 360 -> 355 ms (-1.4%), 120 historical 106 -> 104 ms (-1.9%)
+US wa  400 simulate 240 -> 239 ms (-0.4%), 120 historical 69 -> 69 ms (0.0%)
+=== run 3
+US tx  400 simulate 188 -> 187 ms (-0.5%), 120 historical 55 -> 55 ms (0.0%)
+US ca  400 simulate 274 -> 279 ms (1.8%), 120 historical 79 -> 79 ms (0.0%)
+US ny  400 simulate 307 -> 312 ms (1.6%), 120 historical 88 -> 90 ms (2.3%)
+US pa  400 simulate 278 -> 280 ms (0.7%), 120 historical 78 -> 78 ms (0.0%)
+US ct  400 simulate 370 -> 379 ms (2.4%), 120 historical 108 -> 110 ms (1.9%)
+US wa  400 simulate 226 -> 225 ms (-0.4%), 120 historical 66 -> 66 ms (0.0%)
+```
+
+Median of three (simulate / historical): tx +1.1% / +1.8%; ca +1.8% / +2.5%; ny +1.6% / +2.3%; pa +2.9% / +3.9%; ct +2.4% / +1.9%;
+wa -0.4% / 0.0%. Every median is inside +5%. Run 1 alone had ny, pa, ct and wa at +11% to +17% on both paths (tx and ca at
++1% to +3% in the same run); runs 2 and 3, with the same build, had those four at -2% to +4%, so run 1's four are machine noise
+(the 10% wall-clock noise CLAUDE.md records), not a code change.
+
+Final code review (independent Opus, 2026-10-10): 0 blocking, 1 should-fix, 3 minor, all adopted. S-1 (should-fix): the status cell's inherited tooltip showed nominal dollars beside a table in today's dollars; `annotateInheritedRows` now converts every amount with `displayValue(x, r.year)`, adds " · inherited drawn this year" when a draw happened, and writes no note when the balances and the draw are all 0 (test: `test_inherited_accounts.js`, 3% inflation, age 67: $156,678 today's dollars beside the column, not $192,694). M-1: the kind tip now says the inherited row is drawn "after your own penalty-free money, before money that would owe the 10% early-withdrawal penalty and before home equity" (decision 6's order). M-3: `stateRuleForYear` carries a comment tying it to the variant loop of `stateIncomeTax` (change both together; the hot path keeps its own copy). M-2 and the coverage gap: an Oklahoma case in `tests/inherited_accounts.js` (heirAnyAge, 10,000 at any age: a filer of 50 has min(draw, 10,000) excluded, the own traditional draw is not; the top MFJ rate 4.5% makes the exclusion worth 450.00). `node tests/plan_off_anchor.js --base ../fp-e1e-base` exits 1 with 569 identical and 8 different: exactly the 8 new inherited scenarios, which the base tree reads as tax-free lumps (expected; every legacy scenario is identical).
+
+Left alone, and why:
+- The fill's slow convergence with a large last-resort draw (decision 18, spec section 9): owner decision, no secant step.
+- Decision 18's "converges within `MAGI_ITER_TOL`" wording (above): flagged for the spec owner; an implementer does not edit the
+  spec.
+- `lambdaEstimate`'s sample years do not price future inherited draws, and the schedule has no back-loading: Batch 5 owns lambda and
+  the schedule levers (spec section 9).
+- The Funded % tile and "current investable" leave out a past inherited row's balance (spec section 9, review M4).
+- The receipt-year forced-draw hook does not debit the row (test-only; the Step 0 identity compares everything but balances).
+- The RI row's IRA exclusion found during the state research stays an Open item (outside E1e).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

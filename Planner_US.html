@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V126</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V127</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -707,7 +707,7 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, healthcare/ACA/IRMAA rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>
           <div class="assumptions">
             <div class="callout full" id="limitationsCallout"><b>Limitations &amp; disclaimer.</b> Planning estimate only — not tax, investment, or legal advice. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. See the callouts below for exactly what is and isn't modeled.</div>
-            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to ten additional recurring income streams (each with its own start/end age, an owner, and a kind: not earned, W-2 wages with payroll tax, or self-employment) are taxed on the owner's return and added to cash flow, in today's dollars; up to ten one-time lump sums (e.g. an inheritance or a severance payment) are either tax-free and added to cash, or taxable (wages with payroll tax, ordinary income, or a long-term gain on its gain share) on the owner's return in the year received, paying their own tax inside the year's cash flow. Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity. While anyone would owe the 10% early-withdrawal penalty on some of their money, the order protects the penalty-free money instead: taxable and penalty-free traditional accounts (59½ or older, or a 401(k) under Rule of 55) first, then cash, then the taxable bond reserve, then Roth contributions (basis), and only then penalized money, cheapest per dollar first, with home equity last. Once everyone is 59½ or older (or exempt) the order above applies.</div>
+            <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to ten additional recurring income streams (each with its own start/end age, an owner, and a kind: not earned, W-2 wages with payroll tax, or self-employment) are taxed on the owner's return and added to cash flow, in today's dollars; up to ten one-time lump sums (e.g. an inheritance or a severance payment) are either tax-free and added to cash, or taxable (wages with payroll tax, ordinary income, or a long-term gain on its gain share) on the owner's return in the year received, paying their own tax inside the year's cash flow, or an inherited traditional or Roth IRA / 401(k), drawn on the 10-year rule (a death before 2020: over the heir's life expectancy). Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity. While anyone would owe the 10% early-withdrawal penalty on some of their money, the order protects the penalty-free money instead: taxable and penalty-free traditional accounts (59½ or older, or a 401(k) under Rule of 55) first, then cash, then the taxable bond reserve, then Roth contributions (basis), and only then penalized money, cheapest per dollar first, with home equity last. Once everyone is 59½ or older (or exempt) the order above applies.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled. Federal deductions: each year uses the larger of the standard deduction (plus $1,650 per married filer, $2,050 if single, aged 65+) and a simplified itemized total (state income tax plus property tax under the SALT cap, plus mortgage interest on up to $750,000 of loan; charitable gifts, QCDs and medical expenses are not modeled), and the temporary $6,000-per-person senior deduction (phased out above $75,000 single / $150,000 joint of income) is added on top for tax years 2025 through 2028 only. The Roth-conversion bracket target uses a conservative deduction (standard, or property tax plus mortgage interest if larger), so it converts slightly less than an exact calculation would.</div>
             <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while without employer coverage (retired, or self-employed) and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (the adults plus qualifying children from the Children list). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65 stops (a self-employed partner enrolls at 65): a partner still working for an employer at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
@@ -1174,7 +1174,7 @@
       const g = r.gainPct !== '' && r.gainPct !== null && Number.isFinite(Number(r.gainPct)) ? Math.min(100, Math.max(0, Number(r.gainPct))) : 100;
       return {
         ...x,
-        kind: r.kind === 'wages' || r.kind === 'ordinary' || r.kind === 'gain' ? r.kind : 'free',
+        kind: r.kind === 'wages' || r.kind === 'ordinary' || r.kind === 'gain' || r.kind === 'inheritedTrad' || r.kind === 'inheritedRoth' ? r.kind : 'free',
         owner: r.owner === 'B' ? 'B' : 'A',
         gainPct: g,
         activeBusiness: r.activeBusiness === true,
@@ -2462,8 +2462,11 @@
     if (state.incomeSources.length || state.oneTimeIncome.length) {
       const sourcesTotal = state.incomeSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
       let text;
-      if (sourcesTotal > 0 && state.oneTimeIncome.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
+      const hasInh = state.oneTimeIncome.some((o) => o.kind === 'inheritedTrad' || o.kind === 'inheritedRoth');
+      if (sourcesTotal > 0 && hasInh) text = `✓ ${compact(sourcesTotal)}/yr + inherited account`;
+      else if (sourcesTotal > 0 && state.oneTimeIncome.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
       else if (sourcesTotal > 0) text = `✓ ${compact(sourcesTotal)}/yr`;
+      else if (hasInh) text = '✓ inherited account planned';
       else if (state.oneTimeIncome.length > 0) text = '✓ lump sum planned';
       else text = '✓ stream added';
       setGroupState('otherIncomeGroupState', text, true);
@@ -2997,10 +3000,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: { kind: 'lagged', placement: 'itemized', cap: null, phase: null },
       localTax: 'notModeled',
-      notes: "Rates 2% / 4% / 5% (breaks at $500 and $3,000, or $1,000 and $6,000 joint). Standard deduction by income from the Department of Revenue's 2025 chart (read): $3,000 single, $8,500 joint, $5,200 head of family, falling $25, $175 and $135 per $500 of income over $25,999 to $2,500, $5,000 and $2,500 at $35,500. Exemptions $1,500 single and $3,000 joint or head of family; $1,000 per dependent at income to $50,000, $500 to $100,000, $300 above (the Form 40A chart). Federal income tax paid is deducted in full; it replaces the standard deduction when larger (the planner computes it in one extra pass; the Net Investment Income Tax that Alabama also lets you deduct is left out). Social Security and defined-benefit pensions are exempt, IRA and 401(k) withdrawals are taxed (the planner treats its pension stream as defined-benefit); the $6,000 exclusion for retirement income at 65 and the state's senior deduction were not confirmed and are not modeled.",
+      notes: "Rates 2% / 4% / 5% (breaks at $500 and $3,000, or $1,000 and $6,000 joint). Standard deduction by income from the Department of Revenue's 2025 chart (read): $3,000 single, $8,500 joint, $5,200 head of family, falling $25, $175 and $135 per $500 of income over $25,999 to $2,500, $5,000 and $2,500 at $35,500. Exemptions $1,500 single and $3,000 joint or head of family; $1,000 per dependent at income to $50,000, $500 to $100,000, $300 above (the Form 40A chart). Federal income tax paid is deducted in full; it replaces the standard deduction when larger (the planner computes it in one extra pass; the Net Investment Income Tax that Alabama also lets you deduct is left out). Social Security and defined-benefit pensions are exempt, IRA and 401(k) withdrawals are taxed (the planner treats its pension stream as defined-benefit); the $6,000 exclusion for retirement income at 65 and the state's senior deduction were not confirmed and are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     ak: {
       name: 'Alaska',
@@ -3029,6 +3033,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -3061,6 +3066,7 @@
       federalConformity: { standardDeduction: true, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'childCredit',
@@ -3072,7 +3078,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 2.5%. The standard deduction is the federal base amount (2026: $16,100 single, $32,200 joint, $24,150 head of household). Exemptions of $2,100 per filer 65 or older and $2,300 per dependent (from memory of the statute, secondary). Social Security is exempt. Net long-term gains are 75% included (the 25% subtraction). Dependent tax credit $100 per child under 17 and $25 for other dependents (the Department of Revenue page; its high-income phase-out and the $125 increase, which the governor vetoed in May 2026, are not modeled). The U.S. and Arizona government pension subtraction ($2,500) is not modeled because the planner cannot tell public pensions from private ones. Arizona has not adopted the federal $6,000 senior deduction as far as could be confirmed.',
+      notes: 'Flat 2.5%. The standard deduction is the federal base amount (2026: $16,100 single, $32,200 joint, $24,150 head of household). Exemptions of $2,100 per filer 65 or older and $2,300 per dependent (from memory of the statute, secondary). Social Security is exempt. Net long-term gains are 75% included (the 25% subtraction). Dependent tax credit $100 per child under 17 and $25 for other dependents (the Department of Revenue page; its high-income phase-out and the $125 increase, which the governor vetoed in May 2026, are not modeled). The U.S. and Arizona government pension subtraction ($2,500) is not modeled because the planner cannot tell public pensions from private ones. Arizona has not adopted the federal $6,000 senior deduction as far as could be confirmed. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     ar: {
       name: 'Arkansas',
@@ -3115,6 +3121,7 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heirAnyAge' },
       credits: [
         {
           kind: 'exemptionCredits',
@@ -3129,7 +3136,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Top rate 3.9% on a 2026 table of 0% to $5,599, 2% to $11,199, 3% to $15,999, 3.4% to $26,399 and 3.9% above, after a $2,470 standard deduction ($4,940 joint) (Department of Finance and Administration 2026 withholding formula, read). Only half of net long-term gains is taxed. Social Security is exempt. Each filer excludes up to $6,000 of retirement income (a pension at any age, an IRA from 59 and a half). Personal tax credits of $29 per filer, per dependent and for each filer 65 or older. Military retirement pay is exempt in Arkansas but not modeled, and the planner uses one table for single and joint returns as the state does.',
+      notes: 'Top rate 3.9% on a 2026 table of 0% to $5,599, 2% to $11,199, 3% to $15,999, 3.4% to $26,399 and 3.9% above, after a $2,470 standard deduction ($4,940 joint) (Department of Finance and Administration 2026 withholding formula, read). Only half of net long-term gains is taxed. Social Security is exempt. Each filer excludes up to $6,000 of retirement income (a pension at any age, an IRA from 59 and a half). Personal tax credits of $29 per filer, per dependent and for each filer 65 or older. Military retirement pay is exempt in Arkansas but not modeled, and the planner uses one table for single and joint returns as the state does. Inherited IRA and 401(k) distributions count toward your $6,000 exemption at any age.',
     },
     ca: {
       name: 'California',
@@ -3176,6 +3183,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'exemptionCredits',
@@ -3197,7 +3205,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
+      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
     },
     co: {
       name: 'Colorado',
@@ -3246,10 +3254,11 @@
         reducedBy: 'socialSecuritySubtracted',
         share: null
       },
+      inherited: { kind: 'heirAnyAge' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado subtractions for military retirement under 55, railroad benefits and PERA are not modeled. The Family Affordability Tax Credit is switched off for tax year 2026 (Department of Revenue: the December 2025 forecast fell under the revenue trigger) and is not modeled; recheck each year.",
+      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado subtractions for military retirement under 55, railroad benefits and PERA are not modeled. The Family Affordability Tax Credit is switched off for tax year 2026 (Department of Revenue: the December 2025 forecast fell under the revenue trigger) and is not modeled; recheck each year. Inherited IRA and 401(k) distributions are a death benefit: up to $20,000 excluded under 55, and within your own cap from 55.",
     },
     ct: {
       name: 'Connecticut',
@@ -3356,6 +3365,7 @@
           hoh: [[0, 1], [75000, 0.85], [77500, 0.7], [80000, 0.55], [82500, 0.4], [85000, 0.25], [87500, 0.1], [90000, 0.05], [95000, 0.025], [100000, 0]],
         },
       },
+      inherited: { kind: 'heir' },
       credits: [
         {
           kind: 'agiStepFraction',
@@ -3394,7 +3404,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Tax tables from Form CT-1040 TCS (Rev. 12/25, tax year 2025, primary): brackets, personal exemption (reduced $1,000 per $1,000 of AGI over $30,000 / $48,000 / $38,000), the 2% add-back, the recapture and the personal tax credit decimals; none is indexed. Retirement rules from OLR report 2025-R-0152 (Sept. 2025): Social Security is exempt under $75,000 AGI ($100,000 joint or head of household), above that no more than 25% of benefits is taxed; pension, annuity and IRA income is fully exempt under $75,000 ($100,000 joint) and phases down to nothing at $100,000 ($150,000 joint), with the IRA deduction at 100% from 2026. Property tax credit up to $300 for the home, 15% less per $10,000 of AGI over $49,500 / $70,500 / $54,500 (secondary; the vehicle tax part is not modeled). The 2026 table revisions, if any, and the CT EITC are not modeled.',
+      notes: 'Tax tables from Form CT-1040 TCS (Rev. 12/25, tax year 2025, primary): brackets, personal exemption (reduced $1,000 per $1,000 of AGI over $30,000 / $48,000 / $38,000), the 2% add-back, the recapture and the personal tax credit decimals; none is indexed. Retirement rules from OLR report 2025-R-0152 (Sept. 2025): Social Security is exempt under $75,000 AGI ($100,000 joint or head of household), above that no more than 25% of benefits is taxed; pension, annuity and IRA income is fully exempt under $75,000 ($100,000 joint) and phases down to nothing at $100,000 ($150,000 joint), with the IRA deduction at 100% from 2026. Property tax credit up to $300 for the home, 15% less per $10,000 of AGI over $49,500 / $70,500 / $54,500 (secondary; the vehicle tax part is not modeled). The 2026 table revisions, if any, and the CT EITC are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     de: {
       name: 'Delaware',
@@ -3471,6 +3481,7 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heir' },
       credits: [
         {
           kind: 'exemptionCredits',
@@ -3485,7 +3496,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Nine brackets from 2.175% to 6.95% for 2026 (House Substitute for House Bill 13, 2025: 2.175% / 3.875% / 4.775% / 5.175% / 5.525% from $2,000, 6.6% from $60,000, 6.75% from $125,000, 6.85% from $250,000, 6.95% from $500,000). Standard deduction $3,250 single or head of household, $6,500 joint; personal credit $110 per exemption and $110 more for each filer 60 or older (Division of Revenue instructions, search excerpts). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative).',
+      notes: 'Nine brackets from 2.175% to 6.95% for 2026 (House Substitute for House Bill 13, 2025: 2.175% / 3.875% / 4.775% / 5.175% / 5.525% from $2,000, 6.6% from $60,000, 6.75% from $125,000, 6.85% from $250,000, 6.95% from $500,000). Standard deduction $3,250 single or head of household, $6,500 joint; personal credit $110 per exemption and $110 more for each filer 60 or older (Division of Revenue instructions, search excerpts). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     fl: {
       name: 'Florida',
@@ -3514,6 +3525,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -3567,10 +3579,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heir' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 4.99% from 2026 (House Bill 463, 2026; the further 0.1-point cuts depend on revenue and are left out) with a $15,000 single and $30,000 joint standard deduction (Department of Revenue, read). $4,000 per dependent (secondary). Each filer 62 to 64 excludes up to $35,000 of retirement income and each filer 65 or older $65,000, rising to $70,000 from 2027 (press release on House Bill 463, read; the age 62 amount is from memory of the statute). Social Security is exempt. The $5,000 earned-income limit on the exclusion for those under 65 and the military retirement exclusion are not modeled.',
+      notes: 'Flat 4.99% from 2026 (House Bill 463, 2026; the further 0.1-point cuts depend on revenue and are left out) with a $15,000 single and $30,000 joint standard deduction (Department of Revenue, read). $4,000 per dependent (secondary). Each filer 62 to 64 excludes up to $35,000 of retirement income and each filer 65 or older $65,000, rising to $70,000 from 2027 (press release on House Bill 463, read; the age 62 amount is from memory of the statute). Social Security is exempt. The $5,000 earned-income limit on the exclusion for those under 65 and the military retirement exclusion are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     hi: {
       name: 'Hawaii',
@@ -3763,10 +3776,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Twelve brackets from 1.4% to 11%; the 2026 brackets equal 2025 and the standard deduction is $8,000 single, $16,000 joint, $12,000 head of household (Department of Taxation Announcement 2024-03 on Act 46, read). Scheduled by statute: the wider brackets in 2027 and 2029 and the larger deductions in 2028, 2030 and 2031 (Act 46), and from 2027 a second bracket of 2.5%, a third of 5% and a 13% top bracket above $500,000 single, $750,000 head of household and $1,000,000 joint (Act 24 of 2026, Announcement 2026-06, read). $1,144 exemption per person and dependent. Social Security and employer-funded pensions are exempt; IRA and 401(k) withdrawals are treated as taxable (the pension stream is excluded in full). The 7.25% cap on long-term gains is not modeled, so gains in the higher brackets are slightly overtaxed. The food and excise tax credits for low incomes are not modeled.',
+      notes: 'Twelve brackets from 1.4% to 11%; the 2026 brackets equal 2025 and the standard deduction is $8,000 single, $16,000 joint, $12,000 head of household (Department of Taxation Announcement 2024-03 on Act 46, read). Scheduled by statute: the wider brackets in 2027 and 2029 and the larger deductions in 2028, 2030 and 2031 (Act 46), and from 2027 a second bracket of 2.5%, a third of 5% and a 13% top bracket above $500,000 single, $750,000 head of household and $1,000,000 joint (Act 24 of 2026, Announcement 2026-06, read). $1,144 exemption per person and dependent. Social Security and employer-funded pensions are exempt; IRA and 401(k) withdrawals are treated as taxable (the pension stream is excluded in full). The 7.25% cap on long-term gains is not modeled, so gains in the higher brackets are slightly overtaxed. The food and excise tax credits for low incomes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     id: {
       name: 'Idaho',
@@ -3795,6 +3809,7 @@
       federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'incomeTestedCredit',
@@ -3809,7 +3824,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 5.3% since 2025 (Tax Commission). Idaho starts from federal taxable income: the federal standard deduction with the 65+ add-on and, after House Bill 559 (2026, retroactive to 2025), the federal senior deduction. Social Security is exempt. The food tax credit is $155 per person (2025 amount; the 2026 amount was not found) and refundable. Idaho's retirement benefits deduction for public pensions is not modeled because the planner cannot tell public pensions from private ones, and private pensions and IRA withdrawals are fully taxed.",
+      notes: "Flat 5.3% since 2025 (Tax Commission). Idaho starts from federal taxable income: the federal standard deduction with the 65+ add-on and, after House Bill 559 (2026, retroactive to 2025), the federal senior deduction. Social Security is exempt. The food tax credit is $155 per person (2025 amount; the 2026 amount was not found) and refundable. Idaho's retirement benefits deduction for public pensions is not modeled because the planner cannot tell public pensions from private ones, and private pensions and IRA withdrawals are fully taxed. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     il: {
       name: 'Illinois',
@@ -3846,6 +3861,7 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'exempt' },
       credits: [
         {
           kind: 'propertyTaxShareCredit',
@@ -3857,7 +3873,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 4.95%, no standard deduction, an exemption of $2,925 per filer and dependent for 2026 (Department of Revenue Bulletin FY 2026-15, read) and $1,000 more for each filer 65 or older (current law; a bill to make it $2,000 was not confirmed as enacted). Social Security and retirement income (pensions, IRA and 401(k) distributions) are fully exempt. A credit of 5% of the property tax paid. The exemption and the credit end above $250,000 of income ($500,000 joint), which is not modeled. The K-12 education expense credit and the earned income credit are not modeled.',
+      notes: 'Flat 4.95%, no standard deduction, an exemption of $2,925 per filer and dependent for 2026 (Department of Revenue Bulletin FY 2026-15, read) and $1,000 more for each filer 65 or older (current law; a bill to make it $2,000 was not confirmed as enacted). Social Security and retirement income (pensions, IRA and 401(k) distributions) are fully exempt. A credit of 5% of the property tax paid. The exemption and the credit end above $250,000 of income ($500,000 joint), which is not modeled. The K-12 education expense credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions are subtracted, like all IRA and plan distributions.',
     },
     in: {
       name: 'Indiana',
@@ -3886,10 +3902,11 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [ { fromYear: 2027, tax: { kind: 'flat', rate: 0.029 } } ],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: { kind: 'flat', rate: 0.0177 },
-      notes: "State rate 2.95% in 2026 and 2.90% from 2027 (Departmental Notice #1; further cuts depend on revenue and are left out). No standard deduction: $1,000 exemption per filer, $1,000 more per filer 65 or older (the extra $500 when income is under $40,000 is not modeled), and $2,500 per dependent child ($1,000 plus the $1,500 additional). Social Security is exempt. Every county also levies an income tax of 0.5% to 3.0% (2026 rates in the Notice); the planner uses one statewide rate of 1.77%, the average of the county rates weighted by approximate 2020 census population, applied to the state taxable income. The renter's deduction and military and other retirement deductions are not modeled.",
+      notes: "State rate 2.95% in 2026 and 2.90% from 2027 (Departmental Notice #1; further cuts depend on revenue and are left out). No standard deduction: $1,000 exemption per filer, $1,000 more per filer 65 or older (the extra $500 when income is under $40,000 is not modeled), and $2,500 per dependent child ($1,000 plus the $1,500 additional). Social Security is exempt. Every county also levies an income tax of 0.5% to 3.0% (2026 rates in the Notice); the planner uses one statewide rate of 1.77%, the average of the county rates weighted by approximate 2020 census population, applied to the state taxable income. The renter's deduction and military and other retirement deductions are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     ia: {
       name: 'Iowa',
@@ -3926,6 +3943,7 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'exempt' },
       credits: [
         {
           kind: 'exemptionCredits',
@@ -3940,7 +3958,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.8% on all taxable income from 2026 (Department of Revenue; Senate File 2442). Iowa uses the federal standard deduction and, by rolling conformity, the federal senior deduction. Social Security is exempt. Retirement income of every kind (pensions, IRA, 401(k), Roth conversions) is excluded for a filer 55 or older (Department of Revenue guidance). Credits of $40 per filer (two for joint or head of household) and dependent, and $20 more for each filer 65 or older (2025 IA 1040 instructions, read). The low-income exemption and the school district surtax are not modeled.',
+      notes: 'Flat 3.8% on all taxable income from 2026 (Department of Revenue; Senate File 2442). Iowa uses the federal standard deduction and, by rolling conformity, the federal senior deduction. Social Security is exempt. Retirement income of every kind (pensions, IRA, 401(k), Roth conversions) is excluded for a filer 55 or older (Department of Revenue guidance). Credits of $40 per filer (two for joint or head of household) and dependent, and $20 more for each filer 65 or older (2025 IA 1040 instructions, read). The low-income exemption and the school district surtax are not modeled. Inherited IRA and 401(k) distributions are excluded (a survivor with an insurable interest in a qualifying decedent; a parent assumed).',
     },
     ks: {
       name: 'Kansas',
@@ -3976,10 +3994,11 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Two brackets, 5.2% to $23,000 ($46,000 joint) and 5.58% above. 2026 standard deduction $3,605 single, $8,240 joint, $6,180 head of household and an exemption allowance of $9,160 per filer (Department of Revenue withholding guide KW-100, read); $2,320 per dependent (secondary). Social Security is fully exempt from 2024 on (Department of Revenue). The food sales tax refund and the state's government-pension exemption are not modeled.",
+      notes: "Two brackets, 5.2% to $23,000 ($46,000 joint) and 5.58% above. 2026 standard deduction $3,605 single, $8,240 joint, $6,180 head of household and an exemption allowance of $9,160 per filer (Department of Revenue withholding guide KW-100, read); $2,320 per dependent (secondary). Social Security is fully exempt from 2024 on (Department of Revenue). The food sales tax refund and the state's government-pension exemption are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     ky: {
       name: 'Kentucky',
@@ -4016,6 +4035,7 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heir' },
       credits: [
         {
           kind: 'incomeTestedCredit',
@@ -4030,7 +4050,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.5% from 2026 (HB 1, 2025) with a $3,360 standard deduction per return (Department of Revenue 2026 withholding formula; later cuts depend on revenue and are left out). Social Security is exempt. Each filer excludes up to $31,110 of pension, annuity, IRA and 401(k) income (secondary source; a bill to restore $41,110 died in committee in 2025). $40 credit for each filer 65 or older. The family size tax credit for low incomes, the blind credit and local occupational taxes are not modeled.',
+      notes: 'Flat 3.5% from 2026 (HB 1, 2025) with a $3,360 standard deduction per return (Department of Revenue 2026 withholding formula; later cuts depend on revenue and are left out). Social Security is exempt. Each filer excludes up to $31,110 of pension, annuity, IRA and 401(k) income (secondary source; a bill to restore $41,110 died in committee in 2025). $40 credit for each filer 65 or older. The family size tax credit for low incomes, the blind credit and local occupational taxes are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     la: {
       name: 'Louisiana',
@@ -4067,10 +4087,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heir' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3% from 2025 (Act 11 of the 2024 special session). Standard deduction $12,500 single and $25,000 joint, adjusted for inflation from 2026 (secondary sources; the Department of Revenue notice was not opened). Social Security and Louisiana public pensions are exempt. Each filer 65 or older excludes up to $12,000 of retirement income (doubled from $6,000 for 2025, adjusted for inflation; the exclusion applied to pensions, annuities and IRA withdrawals). The Department of Revenue FAQ confirms that the additional $1,000 deductions for the blind, persons 65 and older, and dependents were repealed (read), so no personal, dependent or age exemption is modeled. Local taxes are not modeled.',
+      notes: 'Flat 3% from 2025 (Act 11 of the 2024 special session). Standard deduction $12,500 single and $25,000 joint, adjusted for inflation from 2026 (secondary sources; the Department of Revenue notice was not opened). Social Security and Louisiana public pensions are exempt. Each filer 65 or older excludes up to $12,000 of retirement income (doubled from $6,000 for 2025, adjusted for inflation; the exclusion applied to pensions, annuities and IRA withdrawals). The Department of Revenue FAQ confirms that the additional $1,000 deductions for the blind, persons 65 and older, and dependents were repealed (read), so no personal, dependent or age exemption is modeled. Local taxes are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     me: {
       name: 'Maine',
@@ -4121,6 +4142,7 @@
         reducedBy: 'benefitsReceived',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'childCredit',
@@ -4132,7 +4154,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and none for dependents (36 M.R.S. 5126-A: dependents get the dependent exemption tax credit instead), and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit and the personal exemption phase-out (a share of the exemption equal to the Maine AGI over $266,700 single, $293,350 head of household or $320,000 joint, statutory base amounts that are indexed, divided by $125,000; 36 M.R.S. 5126-A(2); it only matters above about $267,000) are not modeled. Dependent exemption tax credit (36 M.R.S. 5219-SS, primary): $300 for each dependent from 2026, doubled for each child under six for tax years from 2025 on with no end date (subsection 5), refundable, reduced by $20 for each $500 or fraction of Maine AGI over $100,000 single, $125,000 head of household and $150,000 joint; the amounts and the thresholds are indexed (36 M.R.S. 5403, subsections 9 and 10). The row uses the 2025 Maine Revenue Services worksheet figures ($305 and $610) for 2026 until the 2026 worksheet is published; the round-downs to $5 and $50 are not modeled. The planner counts the children in its list, not other dependents.",
+      notes: "5.8% / 6.75% / 7.15% with 2026 limits of $27,400 and $64,850 single, $54,850 and $129,750 joint, $41,100 and $97,300 head of household; a new 2% surcharge on income over $1,000,000 single or $1,500,000 joint (Maine Revenue Services 2026 rate schedule, read). Standard deduction $15,700 / $31,400 / $23,550, personal exemption $5,300 per filer and none for dependents (36 M.R.S. 5126-A: dependents get the dependent exemption tax credit instead), and an extra $1,650 for a married filer 65 or older ($2,050 unmarried; the planner uses $1,650). Social Security is exempt. The pension deduction is $49,824 per filer in 2026 minus all Social Security and railroad benefits received (Maine Revenue Services, search excerpts); its phase-out above $125,000 single / $250,000 joint of AGI and the standard deduction's phase-out over $102,250 / $204,550 are not modeled. The property tax fairness credit and the personal exemption phase-out (a share of the exemption equal to the Maine AGI over $266,700 single, $293,350 head of household or $320,000 joint, statutory base amounts that are indexed, divided by $125,000; 36 M.R.S. 5126-A(2); it only matters above about $267,000) are not modeled. Dependent exemption tax credit (36 M.R.S. 5219-SS, primary): $300 for each dependent from 2026, doubled for each child under six for tax years from 2025 on with no end date (subsection 5), refundable, reduced by $20 for each $500 or fraction of Maine AGI over $100,000 single, $125,000 head of household and $150,000 joint; the amounts and the thresholds are indexed (36 M.R.S. 5403, subsections 9 and 10). The row uses the 2025 Maine Revenue Services worksheet figures ($305 and $610) for 2026 until the 2026 worksheet is published; the round-downs to $5 and $50 are not modeled. The planner counts the children in its list, not other dependents. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     md: {
       name: 'Maryland',
@@ -4214,10 +4236,11 @@
         reducedBy: 'benefitsReceived',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: { kind: 'flat', rate: 0.032 },
-      notes: "Ten brackets from 2% to 6.5% (the Comptroller's tax alert on the 2025 session, read: 5.75% from $250,000 single or $300,000 joint, 6.25% from $500,000 / $600,000 and 6.5% from $1,000,000 / $1,200,000), a $3,350 single and $6,700 joint or head of household standard deduction with no income test, indexed (the 2025 amounts; 2026 not found), and a $3,200 exemption per person and dependent that shrinks over $100,000 ($150,000 joint) of income (about 1,600 per $25,000; the real schedule has a 800 step the planner rounds), $1,000 more at 65. Social Security is exempt. A filer 65 or older excludes up to $40,600 of pension (defined-benefit) income, less all benefits received (Comptroller pension exclusion page, search excerpt); a 2026 bill phasing in a larger exclusion that includes IRAs (30% in 2026) was not confirmed as law and is not modeled. Every county also taxes income at 2.25% to 3.3%; the planner adds 3.2%, the most common county rate (Comptroller 2026 withholding information), to the Maryland taxable income. The 2% surtax on gains for incomes over $350,000 is not modeled.",
+      notes: "Ten brackets from 2% to 6.5% (the Comptroller's tax alert on the 2025 session, read: 5.75% from $250,000 single or $300,000 joint, 6.25% from $500,000 / $600,000 and 6.5% from $1,000,000 / $1,200,000), a $3,350 single and $6,700 joint or head of household standard deduction with no income test, indexed (the 2025 amounts; 2026 not found), and a $3,200 exemption per person and dependent that shrinks over $100,000 ($150,000 joint) of income (about 1,600 per $25,000; the real schedule has a 800 step the planner rounds), $1,000 more at 65. Social Security is exempt. A filer 65 or older excludes up to $40,600 of pension (defined-benefit) income, less all benefits received (Comptroller pension exclusion page, search excerpt); a 2026 bill phasing in a larger exclusion that includes IRAs (30% in 2026) was not confirmed as law and is not modeled. Every county also taxes income at 2.25% to 3.3%; the planner adds 3.2%, the most common county rate (Comptroller 2026 withholding information), to the Maryland taxable income. The 2% surtax on gains for incomes over $350,000 is not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     ma: {
       name: 'Massachusetts',
@@ -4246,6 +4269,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'childCredit',
@@ -4257,7 +4281,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 5% on wages, pensions, IRA withdrawals and long-term gains, plus a 4% surtax on income over $1,107,750 in 2026 (indexed). Personal exemption $4,400 single, $8,800 joint, $6,800 head of household, $1,000 per dependent and $700 per filer 65 or older (secondary sources; the mass.gov page returned an error). Social Security is exempt. Child and Family Tax Credit $440 per dependent under 13, refundable, no income test (the dependent 65-plus and disabled variants are not modeled). Not modeled: short-term gains (8.5%), the 50% rent deduction (up to $4,000), the senior circuit-breaker credit, and the exemption for public pensions.',
+      notes: 'Flat 5% on wages, pensions, IRA withdrawals and long-term gains, plus a 4% surtax on income over $1,107,750 in 2026 (indexed). Personal exemption $4,400 single, $8,800 joint, $6,800 head of household, $1,000 per dependent and $700 per filer 65 or older (secondary sources; the mass.gov page returned an error). Social Security is exempt. Child and Family Tax Credit $440 per dependent under 13, refundable, no income test (the dependent 65-plus and disabled variants are not modeled). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: short-term gains (8.5%), the 50% rent deduction (up to $4,000), the senior circuit-breaker credit, and the exemption for public pensions.',
     },
     mi: {
       name: 'Michigan',
@@ -4294,10 +4318,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 4.25% with a $5,900 exemption per person and dependent for 2026. Social Security is exempt. From 2026 every retiree, whatever the birth year, deducts retirement and pension benefits up to $67,610 single or $135,220 joint (Revenue Administrative Bulletin 2026-1 and Public Acts 4 of 2023 and 24 of 2025, search excerpts; the planner applies the joint figure to each spouse). The alternative standard deduction at 67 ($20,000 / $40,000) is never larger and is not modeled. The homestead property tax credit and city income taxes (Detroit and others) are not modeled.',
+      notes: 'Flat 4.25% with a $5,900 exemption per person and dependent for 2026. Social Security is exempt. From 2026 every retiree, whatever the birth year, deducts retirement and pension benefits up to $67,610 single or $135,220 joint (Revenue Administrative Bulletin 2026-1 and Public Acts 4 of 2023 and 24 of 2025, search excerpts; the planner applies the joint figure to each spouse). The alternative standard deduction at 67 ($20,000 / $40,000) is never larger and is not modeled. The homestead property tax credit and city income taxes (Detroit and others) are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     mn: {
       name: 'Minnesota',
@@ -4383,6 +4408,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'childCredit',
@@ -4394,7 +4420,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. Child Tax Credit (2025 Schedule M1CWFC, primary): $1,750 per qualifying child under 18, refundable, reduced by 12% of the federal AGI over $37,910 joint and $31,950 for every other status (the thresholds are indexed, the amount is not); the working family credit part (earned income) and the 9% rate for the older-children credit are not modeled. The public pension subtraction, the property tax refund and the dependent exemption high-income phase-out are not modeled.",
+      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. Child Tax Credit (2025 Schedule M1CWFC, primary): $1,750 per qualifying child under 18, refundable, reduced by 12% of the federal AGI over $37,910 joint and $31,950 for every other status (the thresholds are indexed, the amount is not); the working family credit part (earned income) and the 9% rate for the older-children credit are not modeled. The public pension subtraction, the property tax refund and the dependent exemption high-income phase-out are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     ms: {
       name: 'Mississippi',
@@ -4483,10 +4509,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'exempt' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "0% on the first $10,000 and 4% above for 2026, then 3.75% in 2027, 3.5% in 2028, 3.25% in 2029 and 3% from 2030 (House Bill 1, 2025, read; cuts after 2030 depend on revenue and are left out). Standard deduction $2,300 single, $4,600 joint, $3,400 head of family; exemptions $6,000 single, $12,000 joint, $8,000 head of family, $1,500 per dependent and $1,500 more for a filer 65 or older (Department of Revenue forms and the worklist; the age and dependent amounts are secondary). Social Security and retirement income are fully exempt once the plan's retirement requirements are met (the planner reads a pension at any age and IRA withdrawals from 59 and a half). Local taxes are none.",
+      notes: "0% on the first $10,000 and 4% above for 2026, then 3.75% in 2027, 3.5% in 2028, 3.25% in 2029 and 3% from 2030 (House Bill 1, 2025, read; cuts after 2030 depend on revenue and are left out). Standard deduction $2,300 single, $4,600 joint, $3,400 head of family; exemptions $6,000 single, $12,000 joint, $8,000 head of family, $1,500 per dependent and $1,500 more for a filer 65 or older (Department of Revenue forms and the worklist; the age and dependent amounts are secondary). Social Security and retirement income are fully exempt once the plan's retirement requirements are met (the planner reads a pension at any age and IRA withdrawals from 59 and a half). Local taxes are none. Inherited IRA and 401(k) distributions are exempt (a distribution after death is not an early distribution).",
     },
     mo: {
       name: 'Missouri',
@@ -4577,6 +4604,7 @@
           }
         }
       },
+      inherited: { kind: 'heir' },
       credits: [],
       federalTaxSubtraction: {
         kind: 'lagged',
@@ -4592,7 +4620,7 @@
         }
       },
       localTax: 'notModeled',
-      notes: 'Eight brackets, 0% to $1,348 and then 2% to 4.7% above $9,436 (Department of Revenue 2026 withholding formula, read), with the federal standard deduction and 65+ add-on. All capital gains are subtracted from 2025 (House Bill 594, signed July 2025; Department of Revenue, read). Social Security is exempt for a filer 62 or older. Federal income tax paid is deducted at 35%, 25%, 15% or 5% of the tax by income (none above $125,000), at most $5,000 single and $10,000 joint (RSMo 143.171, read). The private pension exemption of $6,000 per filer shrinks dollar for dollar over $25,000 single or $32,000 joint of income (six steps approximate it); a public pension is deductible up to the Social Security maximum, which the planner cannot tell from a private one, so it is treated as private. The property tax credit is not modeled.',
+      notes: 'Eight brackets, 0% to $1,348 and then 2% to 4.7% above $9,436 (Department of Revenue 2026 withholding formula, read), with the federal standard deduction and 65+ add-on. All capital gains are subtracted from 2025 (House Bill 594, signed July 2025; Department of Revenue, read). Social Security is exempt for a filer 62 or older. Federal income tax paid is deducted at 35%, 25%, 15% or 5% of the tax by income (none above $125,000), at most $5,000 single and $10,000 joint (RSMo 143.171, read). The private pension exemption of $6,000 per filer shrinks dollar for dollar over $25,000 single or $32,000 joint of income (six steps approximate it); a public pension is deductible up to the Social Security maximum, which the planner cannot tell from a private one, so it is treated as private. The property tax credit is not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     mt: {
       name: 'Montana',
@@ -4640,10 +4668,11 @@
         }
       ],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 Montana starts from federal taxable income, so the federal standard deduction, 65+ add-on and senior deduction come through, and taxable Social Security is taxed as federally. Two brackets: 4.7% to $47,500 single, $71,250 head of household, $95,000 joint and 5.65% above; in 2027 4.7% to $65,000 / $97,500 / $130,000 and 5.4% above (House Bill 337, Department of Revenue, read). Long-term gains are taxed at 3.0% in the lower bracket and 4.1% in the upper, stacked on top of the other income. Montana does not deduct federal income tax (the earlier guess was wrong). The earned income credit (20% of the federal one), the elderly homeowner credit and the pension exclusion for 65+ are not modeled.',
+      notes: 'From 2026 Montana starts from federal taxable income, so the federal standard deduction, 65+ add-on and senior deduction come through, and taxable Social Security is taxed as federally. Two brackets: 4.7% to $47,500 single, $71,250 head of household, $95,000 joint and 5.65% above; in 2027 4.7% to $65,000 / $97,500 / $130,000 and 5.4% above (House Bill 337, Department of Revenue, read). Long-term gains are taxed at 3.0% in the lower bracket and 4.1% in the upper, stacked on top of the other income. Montana does not deduct federal income tax (the earlier guess was wrong). The earned income credit (20% of the federal one), the elderly homeowner credit and the pension exclusion for 65+ are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     ne: {
       name: 'Nebraska',
@@ -4691,6 +4720,7 @@
         }
       ],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'exemptionCredits',
@@ -4705,7 +4735,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2026 rates 2.46%, 3.51% and 4.55% (the last two brackets share the top rate) on the Department of Revenue 2026 estimated tax schedule (read), and 3.99% from 2027 on the 2027 draft schedule (statute: same rate for the third and fourth brackets). Standard deduction $8,850 single and $17,700 joint (rate chronology, read; the head of household figure of $13,000 is derived), plus $2,050 / $1,700 for age 65 or older (the planner uses $1,700). A $176 credit for each exemption (filer, spouse, dependent). Social Security is fully exempt. Military retirement and the credit for the elderly are not modeled.',
+      notes: '2026 rates 2.46%, 3.51% and 4.55% (the last two brackets share the top rate) on the Department of Revenue 2026 estimated tax schedule (read), and 3.99% from 2027 on the 2027 draft schedule (statute: same rate for the third and fourth brackets). Standard deduction $8,850 single and $17,700 joint (rate chronology, read; the head of household figure of $13,000 is derived), plus $2,050 / $1,700 for age 65 or older (the planner uses $1,700). A $176 credit for each exemption (filer, spouse, dependent). Social Security is fully exempt. Military retirement and the credit for the elderly are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     nv: {
       name: 'Nevada',
@@ -4734,6 +4764,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -4766,6 +4797,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -4846,6 +4878,7 @@
           }
         }
       },
+      inherited: { kind: 'heir' },
       credits: [
         {
           kind: 'childStepCredit',
@@ -4862,7 +4895,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets (eight joint) from 1.4% to 10.75% (NJ-1040 2025 schedules, search excerpts; unchanged for 2026; head of household uses the joint table). No standard deduction: exemption $1,000 per filer, $1,000 more at 65, $1,500 per dependent (secondary). Social Security is exempt. The pension, annuity and IRA exclusion (Division of Taxation, read): a filer 62 or older excludes up to $75,000 single or head of household and $100,000 joint when total income is $100,000 or less, 37.5% / 18.75% of that single (50% / 25% joint) between $100,000 and $125,000 and $125,000 and $150,000, nothing above; the planner applies the joint cap per eligible filer, so two large pensions can be over-excluded. Child Tax Credit (Division of Taxation, 2025, primary): $1,000 for each child five or younger at the end of the year while NJ taxable income is $30,000 or less, then $800, $600, $400 and $200 for each further $10,000 to $80,000, nothing above; refundable (the planner reads the model taxable income after exemptions and deductions). The property tax deduction (up to $15,000) and credit, and the blind and veteran exemptions, are not modeled.',
+      notes: 'Seven brackets (eight joint) from 1.4% to 10.75% (NJ-1040 2025 schedules, search excerpts; unchanged for 2026; head of household uses the joint table). No standard deduction: exemption $1,000 per filer, $1,000 more at 65, $1,500 per dependent (secondary). Social Security is exempt. The pension, annuity and IRA exclusion (Division of Taxation, read): a filer 62 or older excludes up to $75,000 single or head of household and $100,000 joint when total income is $100,000 or less, 37.5% / 18.75% of that single (50% / 25% joint) between $100,000 and $125,000 and $125,000 and $150,000, nothing above; the planner applies the joint cap per eligible filer, so two large pensions can be over-excluded. Child Tax Credit (Division of Taxation, 2025, primary): $1,000 for each child five or younger at the end of the year while NJ taxable income is $30,000 or less, then $800, $600, $400 and $200 for each further $10,000 to $80,000, nothing above; refundable (the planner reads the model taxable income after exemptions and deductions). The property tax deduction (up to $15,000) and credit, and the blind and veteran exemptions, are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     nm: {
       name: 'New Mexico',
@@ -4940,6 +4973,7 @@
       federalConformity: { standardDeduction: true, seniorDeduction: false, ageAdditional: true },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'childStepCredit',
@@ -4978,7 +5012,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Six brackets, 1.5% to 5.9% (5,500 / 16,500 / 33,500 / 66,500 / 210,000 single; 8,000 / 25,000 / 50,000 / 100,000 / 315,000 joint and head of household; secondary sources, not indexed). The deduction is the federal standard deduction with the 65+ add-on (the 2025 Form PIT-1 instructions, line 12, read). Exemptions: a low- and middle-income exemption of $2,500 per person and dependent, reduced by 15 cents (single) or 10 cents (joint, head of household) per dollar of federal AGI over $20,000 or $30,000 and gone by $36,667 / $55,000 (PIT-1 worksheet, read); $4,000 for each dependent beyond the first (PIT-1 line 13); and for each filer 65 or older up to $8,000, falling by $1,000 per $1,500 of federal AGI over $18,000 single or per $3,000 over $30,000 joint, none over $28,500 / $51,000 (PIT-ADJ Table 1, read; the planner cuts it in a straight line, a few hundred dollars off the table in places). Social Security is exempt while federal AGI is under $100,000 single or $150,000 joint or head of household, and fully taxable at the federal amount from there (cliff; PIT-ADJ, read). Capital gains: a deduction of the first $2,500 (the 40% deduction is only for a New Mexico business sale; PIT-ADJ line 16, read). No retirement-income exclusion for private pensions or IRAs. Child Income Tax Credit per qualifying child by federal AGI, refundable: $637 to $25,000, then $424, $212, $106, $79 over $100,000, $53 over $200,000 and $26 over $350,000 (the 2025 amounts from PIT-RC Table 4, read; indexed by the planner). Not modeled: the low-income comprehensive tax rebate, the working families credit (state EITC), the medical care credit and exemption for 65+ with large medical costs, blind status, and the active-duty military exemption.',
+      notes: 'Six brackets, 1.5% to 5.9% (5,500 / 16,500 / 33,500 / 66,500 / 210,000 single; 8,000 / 25,000 / 50,000 / 100,000 / 315,000 joint and head of household; secondary sources, not indexed). The deduction is the federal standard deduction with the 65+ add-on (the 2025 Form PIT-1 instructions, line 12, read). Exemptions: a low- and middle-income exemption of $2,500 per person and dependent, reduced by 15 cents (single) or 10 cents (joint, head of household) per dollar of federal AGI over $20,000 or $30,000 and gone by $36,667 / $55,000 (PIT-1 worksheet, read); $4,000 for each dependent beyond the first (PIT-1 line 13); and for each filer 65 or older up to $8,000, falling by $1,000 per $1,500 of federal AGI over $18,000 single or per $3,000 over $30,000 joint, none over $28,500 / $51,000 (PIT-ADJ Table 1, read; the planner cuts it in a straight line, a few hundred dollars off the table in places). Social Security is exempt while federal AGI is under $100,000 single or $150,000 joint or head of household, and fully taxable at the federal amount from there (cliff; PIT-ADJ, read). Capital gains: a deduction of the first $2,500 (the 40% deduction is only for a New Mexico business sale; PIT-ADJ line 16, read). No retirement-income exclusion for private pensions or IRAs. Child Income Tax Credit per qualifying child by federal AGI, refundable: $637 to $25,000, then $424, $212, $106, $79 over $100,000, $53 over $200,000 and $26 over $350,000 (the 2025 amounts from PIT-RC Table 4, read; indexed by the planner). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the low-income comprehensive tax rebate, the working families credit (state EITC), the medical care credit and exemption for 65+ with large medical costs, blind status, and the active-duty military exemption.',
     },
     ny: {
       name: 'New York',
@@ -5038,6 +5072,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'perPerson', pensionMinAge: 59.5, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, 20000]], reducedBy: 'none', share: null },
+      inherited: { kind: 'decedent', cap: 20000 },
       credits: [
         {
           kind: 'childCredit',
@@ -5049,7 +5084,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
+      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Inherited IRA and 401(k) distributions get the decedent\'s own $20,000 pension exclusion, separate from yours and at any age (one beneficiary and a decedent of 59 1/2 or older assumed; enter one row per decedent). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
     },
     nc: {
       name: 'North Carolina',
@@ -5109,10 +5144,11 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.99% for 2026 (the final scheduled step; the further cuts from 2027 depend on revenue and are left out). Standard deduction $12,750 single, $25,500 joint, $19,125 head of household (2025 amounts held for 2026; secondary source). Child deduction of $3,000 down to $0 per child by income and filing status (Department of Revenue 2025 tables, read; it is for children under 17, the planner applies it to every qualifying child). Social Security is exempt. The Bailey government-pension exemption is not modeled.',
+      notes: 'Flat 3.99% for 2026 (the final scheduled step; the further cuts from 2027 depend on revenue and are left out). Standard deduction $12,750 single, $25,500 joint, $19,125 head of household (2025 amounts held for 2026; secondary source). Child deduction of $3,000 down to $0 per child by income and filing status (Department of Revenue 2025 tables, read; it is for children under 17, the planner applies it to every qualifying child). Social Security is exempt. The Bailey government-pension exemption is not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     nd: {
       name: 'North Dakota',
@@ -5147,10 +5183,11 @@
       federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'North Dakota starts from federal taxable income, so the federal standard deduction, the 65+ add-on and the $6,000 senior deduction come through. 2026 table: 0% to $49,575 ($82,800 joint), 1.95% to $250,400 ($304,850 joint), 2.5% above (Tax Commissioner, read; head of household is read as single, which may differ). Social Security is exempt. A 40% exclusion of net long-term gains is applied (the 2025 return has a net long-term capital gain exclusion line; the 40% figure is from memory, secondary). Military retirement pay is not modeled.',
+      notes: 'North Dakota starts from federal taxable income, so the federal standard deduction, the 65+ add-on and the $6,000 senior deduction come through. 2026 table: 0% to $49,575 ($82,800 joint), 1.95% to $250,400 ($304,850 joint), 2.5% above (Tax Commissioner, read; head of household is read as single, which may differ). Social Security is exempt. A 40% exclusion of net long-term gains is applied (the 2025 return has a net long-term capital gain exclusion line; the 40% figure is from memory, secondary). Military retirement pay is not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     oh: {
       name: 'Ohio',
@@ -5188,6 +5225,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'incomeTestedCredit',
@@ -5209,7 +5247,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 a flat 2.75% above $26,050 (House Bill 96; Legislative Service Commission analysis and Department of Taxation pages, secondary). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); the exemptions and the joint filing credit end above $500,000 of income (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled.',
+      notes: 'From 2026 a flat 2.75% above $26,050 (House Bill 96; Legislative Service Commission analysis and Department of Taxation pages, secondary). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); the exemptions and the joint filing credit end above $500,000 of income (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     ok: {
       name: 'Oklahoma',
@@ -5253,10 +5291,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heirAnyAge' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "From 2026 three brackets (House Bill 2764, read): 0% to $3,750, 2.5% to $4,900, 3.5% to $7,200 and 4.5% above for a single filer; double the first three limits for joint returns (head of household is read as joint, from memory of the statute). Not indexed. Standard deduction $6,350 / $12,700 / $9,350 and a $1,000 exemption per person (Tax Commission 2026 withholding tables). Social Security is exempt; each filer excludes up to $10,000 of retirement benefits (the 59 and a half age for IRAs is the planner's reading). The sales tax and child credits for low incomes are not modeled.",
+      notes: "From 2026 three brackets (House Bill 2764, read): 0% to $3,750, 2.5% to $4,900, 3.5% to $7,200 and 4.5% above for a single filer; double the first three limits for joint returns (head of household is read as joint, from memory of the statute). Not indexed. Standard deduction $6,350 / $12,700 / $9,350 and a $1,000 exemption per person (Tax Commission 2026 withholding tables). Social Security is exempt; each filer excludes up to $10,000 of retirement benefits (the 59 and a half age for IRAs is the planner's reading). The sales tax and child credits for low incomes are not modeled. Inherited IRA and 401(k) distributions count toward your $10,000 exclusion at any age.",
     },
     or: {
       name: 'Oregon',
@@ -5292,6 +5331,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'exemptionCredits',
@@ -5326,7 +5366,7 @@
         }
       },
       localTax: 'notModeled',
-      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the 2025 Form OR-40 worksheet, primary): $1,050 for each dependent under six (at most five, counted first), refundable, full at Oregon AGI up to $26,550 and then reduced by the share of the whole credit equal to the income over $26,550 divided by $5,000 (rounded to two decimals as on the worksheet), so nothing is left at $31,550 for any number of children. The statute sets $1,000 and $25,000, indexes the amount and the start (the divisor is fixed) and applies to tax years before 2029 (2023 c.538 section 11); the 2025 values stand for 2026 and the credit is modeled in every year (owner decision; recheck yearly).',
+      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the 2025 Form OR-40 worksheet, primary): $1,050 for each dependent under six (at most five, counted first), refundable, full at Oregon AGI up to $26,550 and then reduced by the share of the whole credit equal to the income over $26,550 divided by $5,000 (rounded to two decimals as on the worksheet), so nothing is left at $31,550 for any number of children. The statute sets $1,000 and $25,000, indexes the amount and the start (the divisor is fixed) and applies to tax years before 2029 (2023 c.538 section 11); the 2025 values stand for 2026 and the credit is modeled in every year (owner decision; recheck yearly). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     pa: {
       name: 'Pennsylvania',
@@ -5355,6 +5395,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true, employerPlanAfterRetirement: true }, tiers: [[0, null]], reducedBy: 'none', share: null },
+      inherited: { kind: 'exempt' },
       credits: [
         {
           kind: 'taxForgiveness',
@@ -5368,7 +5409,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded. Traditional withdrawals are excluded from age 59 and a half per filer, and taxed before it, except the employer-plan (401(k)) part drawn after that filer has stopped working, which is excluded at any age (PA Personal Income Tax Guide, Gross Compensation: payments to persons retired from service; 61 Pa. Code 101.6): the 401(k) part is the share of the traditional accounts of that filer held in a 401(k), drawn pro rata. An IRA draw before 59 and a half is taxable (the guide: only the part over previously taxed contributions; cost recovery is not modeled, so the whole draw is taxed). Not modeled: the retirement-age or years-of-service condition of the plan itself, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
+      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded. Traditional withdrawals are excluded from age 59 and a half per filer, and taxed before it, except the employer-plan (401(k)) part drawn after that filer has stopped working, which is excluded at any age (PA Personal Income Tax Guide, Gross Compensation: payments to persons retired from service; 61 Pa. Code 101.6): the 401(k) part is the share of the traditional accounts of that filer held in a 401(k), drawn pro rata. An IRA draw before 59 and a half is taxable (the guide: only the part over previously taxed contributions; cost recovery is not modeled, so the whole draw is taxed). Inherited IRA and 401(k) distributions are not taxed (paid by reason of death). Not modeled: the retirement-age or years-of-service condition of the plan itself, Roth cost recovery, the property tax / rent rebate (a paid program). Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
     },
     ri: {
       name: 'Rhode Island',
@@ -5428,10 +5469,11 @@
           }
         }
       },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'One schedule for every filer: 3.75% to $82,050, 4.75% to $186,450, 5.99% above; standard deduction $11,200 / $22,400 / $16,800 and $5,250 per person and dependent for 2026 (Division of Taxation Advisory 2025-22, read). Social Security is subtracted, and up to $50,000 of pension, 401(k) and annuity income per filer, for a filer at full retirement age (the planner uses 67) when federal AGI is under $107,000 single or $133,750 joint (the 2025 limits; the pension cap of $50,000 is from the same Advisory). The phase-out of the deduction and exemptions between $261,000 and $290,800, the property tax relief credit and the earned income credit are not modeled.',
+      notes: 'One schedule for every filer: 3.75% to $82,050, 4.75% to $186,450, 5.99% above; standard deduction $11,200 / $22,400 / $16,800 and $5,250 per person and dependent for 2026 (Division of Taxation Advisory 2025-22, read). Social Security is subtracted, and up to $50,000 of pension, 401(k) and annuity income per filer, for a filer at full retirement age (the planner uses 67) when federal AGI is under $107,000 single or $133,750 joint (the 2025 limits; the pension cap of $50,000 is from the same Advisory). The phase-out of the deduction and exemptions between $261,000 and $290,800, the property tax relief credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     sc: {
       name: 'South Carolina',
@@ -5482,10 +5524,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 (H. 4216, Act 110, signed March 30, 2026; Department of Revenue and the bill text, read): 1.99% below $30,000 of taxable income and 5.21% above (the Department states it as 5.21% minus $966); the South Carolina income adjusted deduction replaces the federal standard deduction: $15,000 single, $22,500 head of household, $30,000 joint, reduced in proportion to income over $40,000 (range $55,000), $60,000 (range $82,500) and $80,000 (range $110,000). Later automatic rate cuts depend on revenue and are left out. Social Security is exempt. 44% of net long-term gains is deducted (statute 12-6-1150). A filer under 65 deducts up to $3,000 of retirement income; from 65 the $15,000 age deduction against any income (which absorbs the retirement deduction) applies. Dependent exemption $4,930 (2025 amount, indexed; the extra amount for a child under six and the military retirement deduction are not modeled). The earned income credit ($200 cap) is not modeled.',
+      notes: 'From 2026 (H. 4216, Act 110, signed March 30, 2026; Department of Revenue and the bill text, read): 1.99% below $30,000 of taxable income and 5.21% above (the Department states it as 5.21% minus $966); the South Carolina income adjusted deduction replaces the federal standard deduction: $15,000 single, $22,500 head of household, $30,000 joint, reduced in proportion to income over $40,000 (range $55,000), $60,000 (range $82,500) and $80,000 (range $110,000). Later automatic rate cuts depend on revenue and are left out. Social Security is exempt. 44% of net long-term gains is deducted (statute 12-6-1150). A filer under 65 deducts up to $3,000 of retirement income; from 65 the $15,000 age deduction against any income (which absorbs the retirement deduction) applies. Dependent exemption $4,930 (2025 amount, indexed; the extra amount for a child under six and the military retirement deduction are not modeled). The earned income credit ($200 cap) is not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     sd: {
       name: 'South Dakota',
@@ -5514,6 +5557,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -5546,6 +5590,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -5578,6 +5623,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -5610,6 +5656,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'incomeTestedCredit',
@@ -5639,7 +5686,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.45% from 2026 (SB 60, retroactive to January 1; secondary source). No standard deduction: Utah gives a taxpayer tax credit of 6% of the federal standard deduction (2026: $16,100 single, $32,200 joint, $24,150 head of household) plus $2,111 per dependent, reduced by 1.3 cents per dollar of income over $18,213 single, $36,426 joint, $27,320 head of household (Tax Commission, 2025 thresholds; the 65-plus add-on is approximated at 6% of $2,050, and an itemizer's credit is not modeled). Taxable Social Security is included, then a credit of 4.45% of it, reduced by 2.5 cents per dollar of income over $54,000 single and $90,000 joint (Tax Commission). The separate retirement credit is only for people born in 1952 or earlier and is not modeled. Child Tax Credit (Utah Code 59-10-1047, effective 1/1/2026, primary): $1,000 nonrefundable for each child under six who is a federal Child Tax Credit child, reduced by 10 cents per dollar of modified AGI over $49,000 single or head of household and $61,000 joint (the statute does not index it).",
+      notes: "Flat 4.45% from 2026 (SB 60, retroactive to January 1; secondary source). No standard deduction: Utah gives a taxpayer tax credit of 6% of the federal standard deduction (2026: $16,100 single, $32,200 joint, $24,150 head of household) plus $2,111 per dependent, reduced by 1.3 cents per dollar of income over $18,213 single, $36,426 joint, $27,320 head of household (Tax Commission, 2025 thresholds; the 65-plus add-on is approximated at 6% of $2,050, and an itemizer's credit is not modeled). Taxable Social Security is included, then a credit of 4.45% of it, reduced by 2.5 cents per dollar of income over $54,000 single and $90,000 joint (Tax Commission). The separate retirement credit is only for people born in 1952 or earlier and is not modeled. Child Tax Credit (Utah Code 59-10-1047, effective 1/1/2026, primary): $1,000 nonrefundable for each child under six who is a federal Child Tax Credit child, reduced by 10 cents per dollar of modified AGI over $49,000 single or head of household and $61,000 joint (the statute does not index it). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     vt: {
       name: 'Vermont',
@@ -5693,6 +5740,7 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'childCredit',
@@ -5704,7 +5752,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the renter credit is not modeled. Child Tax Credit (32 V.S.A. 5830f, primary): $1,000 per child six or younger at the end of the year, refundable, reduced by $20 for each $1,000 or fraction of AGI over $125,000, taken off each child (the statute reduces the amount per child; gone at $175,000 for any number of children; not indexed).',
+      notes: '2025 schedules (Department of Taxes, read; the 2026 ones were not found, and the figures index): 3.35% / 6.6% / 7.6% / 8.75% with limits $49,400, $119,700 and $249,700 single, $82,500, $199,450 and $304,000 joint, $66,200, $171,000 and $276,850 head of household; standard deduction $7,650 / $15,300 / $11,450, plus $1,250 at 65; exemption $5,300 per person and dependent. Social Security is fully exempt up to $55,000 of AGI single or $70,000 joint and phases to nothing at $65,000 / $80,000 (Department of Taxes, search excerpt). Up to $10,000 of pension income per filer is exempt (the planner reads its pension stream as the eligible retirement system income; the military exemption and the income conditions on the $10,000 were not confirmed). The 3%-of-income minimum above $150,000, the renter credit is not modeled. Child Tax Credit (32 V.S.A. 5830f, primary): $1,000 per child six or younger at the end of the year, refundable, reduced by $20 for each $1,000 or fraction of AGI over $125,000, taken off each child (the statute reduces the amount per child; gone at $175,000 for any number of children; not indexed). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     va: {
       name: 'Virginia',
@@ -5739,10 +5787,11 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Rates 2% to $3,000, 3% to $5,000, 5% to $17,000, 5.75% above; standard deduction $8,750 single and $17,500 joint through 2026; $930 per person and dependent (Department of Taxation, deductions page and 2026 estimated payment form). Social Security is exempt. Each filer 65 or older deducts up to $12,000, reduced dollar for dollar by income over $50,000 single or $75,000 joint (measured before taxable Social Security); the extra $800 age exemption, the military retirement subtraction and Virginia's low-income credit are not modeled.",
+      notes: "Rates 2% to $3,000, 3% to $5,000, 5% to $17,000, 5.75% above; standard deduction $8,750 single and $17,500 joint through 2026; $930 per person and dependent (Department of Taxation, deductions page and 2026 estimated payment form). Social Security is exempt. Each filer 65 or older deducts up to $12,000, reduced dollar for dollar by income over $50,000 single or $75,000 joint (measured before taxable Social Security); the extra $800 age exemption, the military retirement subtraction and Virginia's low-income credit are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     wa: {
       name: 'Washington',
@@ -5771,10 +5820,11 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'A tax on long-term capital gains only (real estate and retirement accounts excluded; the engine\'s gains are brokerage gains). 7% on the first $1 million above the $278,000 standard deduction (the same for a couple), 9.9% above (ESSB 5813, 2025; DOR). The standard deduction is indexed for inflation; the $1 million tier is not. No wage or retirement income tax.',
+      notes: 'A tax on long-term capital gains only (real estate and retirement accounts excluded; the engine\'s gains are brokerage gains). 7% on the first $1 million above the $278,000 standard deduction (the same for a couple), 9.9% above (ESSB 5813, 2025; DOR). The standard deduction is indexed for inflation; the $1 million tier is not. No wage or retirement income tax. Inherited IRA and 401(k) distributions are not taxed (no tax on ordinary income).',
     },
     wv: {
       name: 'West Virginia',
@@ -5809,10 +5859,11 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2026 rates 2.11%, 2.81%, 3.16%, 4.22% and 4.58% at $10,000, $25,000, $40,000 and $60,000 (Senate Bill 392, signed March 31, 2026, retroactive to January 1; Tax Division page, read). Later reductions depend on revenue and are left out. $2,000 exemption per person and dependent (secondary). Social Security is fully exempt from 2026 (Tax Division). Each filer 65 or older excludes $8,000 (the planner treats the modification as an extra exemption). The low-income family tax credit and the homestead exemption are not modeled.',
+      notes: '2026 rates 2.11%, 2.81%, 3.16%, 4.22% and 4.58% at $10,000, $25,000, $40,000 and $60,000 (Senate Bill 392, signed March 31, 2026, retroactive to January 1; Tax Division page, read). Later reductions depend on revenue and are left out. $2,000 exemption per person and dependent (secondary). Social Security is fully exempt from 2026 (Tax Division). Each filer 65 or older excludes $8,000 (the planner treats the modification as an extra exemption). The low-income family tax credit and the homestead exemption are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     wi: {
       name: 'Wisconsin',
@@ -5858,10 +5909,11 @@
         reducedBy: 'none',
         share: null
       },
+      inherited: { kind: 'heir' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 schedule (Form 1 instructions, read): 3.5% to $14,680 and 4.4% to $50,480 single, 3.5% to $19,580 and 4.4% to $67,300 joint, 5.3% to $323,290 / $431,060, 7.65% above (the 2026 limits were not found). The standard deduction slides down with income from $13,560 single and $25,110 joint; the planner approximates the sliding scale with a straight line (within about 5% of the printed table). Exemption $700 per person and dependent, $250 more at 65. 30% of net long-term gains is excluded. Social Security is exempt. A filer 67 or older subtracts up to $24,000 of retirement income (new for 2025; Form 1 instructions, read); the older $5,000 subtraction is covered by it. The homestead credit and the earned income credit are not modeled.',
+      notes: '2025 schedule (Form 1 instructions, read): 3.5% to $14,680 and 4.4% to $50,480 single, 3.5% to $19,580 and 4.4% to $67,300 joint, 5.3% to $323,290 / $431,060, 7.65% above (the 2026 limits were not found). The standard deduction slides down with income from $13,560 single and $25,110 joint; the planner approximates the sliding scale with a straight line (within about 5% of the printed table). Exemption $700 per person and dependent, $250 more at 65. 30% of net long-term gains is excluded. Social Security is exempt. A filer 67 or older subtracts up to $24,000 of retirement income (new for 2025; Form 1 instructions, read); the older $5,000 subtraction is covered by it. The homestead credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     wy: {
       name: 'Wyoming',
@@ -5890,6 +5942,7 @@
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
@@ -5944,6 +5997,7 @@
       federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
       schedule: [],
       retirementExclusion: { kind: 'none' },
+      inherited: { kind: 'ordinary' },
       credits: [
         {
           kind: 'incomeTestedCredit',
@@ -5958,7 +6012,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). District income tax follows the federal code on a rolling basis: the 2025 booklet shows $15,000 / $30,000 / $22,500 because the District decoupled from the 2025 federal increase, but the 2026 budget decoupled only from the business provisions and the non-itemizer charitable deduction, so the planner uses the federal standard deduction with the 65+ add-on and the senior deduction (a news summary of the budget act; the text was not read). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). A new fully refundable child tax credit from 2026: $1,000 per child under 18 for AGI up to $55,000 (single, head of household) or $70,000 (joint); the planner counts children through 18 (secondary summary of the act). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the 2025 repeal of the older child credit.',
+      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). District income tax follows the federal code on a rolling basis: the 2025 booklet shows $15,000 / $30,000 / $22,500 because the District decoupled from the 2025 federal increase, but the 2026 budget decoupled only from the business provisions and the non-itemizer charitable deduction, so the planner uses the federal standard deduction with the 65+ add-on and the senior deduction (a news summary of the budget act; the text was not read). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). A new fully refundable child tax credit from 2026: $1,000 per child under 18 for AGI up to $55,000 (single, head of household) or $70,000 (joint); the planner counts children through 18 (secondary summary of the act). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the 2025 repeal of the older child credit.',
     },
   };
   // STATE_RULES:end
@@ -5995,7 +6049,11 @@
       share: ex.share,
     };
   }
+  // E1e: how a row treats an inherited traditional draw (STATE_RULES.inherited, spec 6.4).
+  const INH_ORDINARY = 0, INH_EXEMPT = 1, INH_HEIR = 2, INH_HEIR_ANY = 3, INH_DECEDENT = 4;
+  const INH_CODE = { ordinary: INH_ORDINARY, exempt: INH_EXEMPT, heir: INH_HEIR, heirAnyAge: INH_HEIR_ANY, decedent: INH_DECEDENT };
   function compileRow(row) {
+    const ik = row.inherited ? row.inherited.kind : 'ordinary';
     const cols = {};
     for (const key of ['single', 'mfj', 'hoh']) {
       if (row.standardDeduction[key] === undefined) continue;
@@ -6041,6 +6099,8 @@
       localRate: row.localTax === 'notModeled' ? 0 : row.localTax.rate,
       ssRule: typeof ss === 'object' ? ss : null,
       retirement: compileRetirement(row.retirementExclusion),
+      inhKind: INH_CODE[ik],
+      inhCap: ik === 'decedent' ? row.inherited.cap : 0,
       needsSsSplit: row.retirementExclusion.kind === 'perPerson' && row.retirementExclusion.reducedBy === 'socialSecuritySubtracted',
       // Whether the row reads the per-person inputs of the sources (pension, traditional draw, Social Security by partner).
       needsPerPerson: row.retirementExclusion.kind === 'perPerson' || (typeof ss === 'object' && ss.kind === 'ageAgiTiered'),
@@ -6133,7 +6193,7 @@
   //                                      value of the AGI (NJ-style, or ME's phase-out)
   // ssSplit is [A, B]: each filer's Social Security subtraction (the household's, in proportion to the
   // taxable benefits), or null.
-  function stateRetirementExclusion(ex, sources, factor, colKey, agi, ssSplit) {
+  function stateRetirementExclusion(ex, sources, factor, colKey, agi, ssSplit, inhKind = INH_ORDINARY) {
     if (ex.kind === 'none') return 0;
     const ages = sources.ages || [];
     if (ex.kind === 'perPerson') {
@@ -6144,18 +6204,26 @@
         let cap = -1;
         for (let t = 0; t < ex.tierAges.length; t++)
           if (age >= ex.tierAges[t]) cap = (typeof ex.tierCaps[t] === 'number' ? ex.tierCaps[t] : ex.tierCaps[t][colKey]) * factor;
-        if (cap < 0) continue;
+        // E1e: the inherited draw of this filer (heir kinds only); every read is behind sources.inherited > 0.
+        const inhI = (inhKind === INH_HEIR || inhKind === INH_HEIR_ANY) && sources.inherited > 0 ? Math.max(0, (i === 0 ? sources.inheritedA : sources.inheritedB) || 0) : 0;
+        if (cap < 0) {
+          // Colorado under 55: only the inherited amount (a death benefit) is excluded, up to the first tier's cap.
+          if (inhKind === INH_HEIR_ANY && inhI > 0) total += Math.min(inhI, (typeof ex.tierCaps[0] === 'number' ? ex.tierCaps[0] : ex.tierCaps[0][colKey]) * factor);
+          continue;
+        }
         const pension = age >= ex.pensionFrom ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
           retirement = Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0),
           traditional = age >= ex.tradFrom ? retirement : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
+        const traditionalAll = inhI > 0 && (inhKind === INH_HEIR_ANY || age >= ex.tradFrom) ? traditional + inhI : traditional;
         let room = cap;
         if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));
         else if (ex.reducedBy === 2) room = Math.max(0, cap - (ssSplit ? ssSplit[i] : 0));
-        total += Math.min(pension + traditional, room);
+        total += Math.min(pension + traditionalAll, room);
       }
       return ex.share ? total * stateStepValue(ex.share.tables[colKey], agi, ex.share.inclusive, factor) : total;
     }
-    const retirement = Math.max(0, sources.pension + sources.retirement);
+    let retirement = Math.max(0, sources.pension + sources.retirement);
+    if (inhKind === INH_HEIR && sources.inherited > 0) retirement += sources.inherited; // E1e: Connecticut's inherited IRA draw
     if (ex.kind === 'agiPhasedShare')
       return retirement * stateStepValue(ex.tables[colKey], agi, ex.inclusive, factor);
     return 0;
@@ -6361,6 +6429,16 @@
     if (rule === undefined) rule = stateRuleCache[code] = compileStateRule(code);
     return rule;
   }
+  // E1e: the compiled rule in force in a projection year (stateIncomeTax's variant selection, for the once-a-year inherited setup).
+  // This and the variant loop at the top of stateIncomeTax must select the same variant: change both together. (stateIncomeTax
+  // keeps its own copy because it is the hot path; do not route it through this helper.)
+  function stateRuleForYear(yearIndex) {
+    const rule = stateRuleFor(state.stateTax);
+    if (!rule || !rule.variants) return rule;
+    const taxYear = taxYearOf(yearIndex);
+    for (let v = rule.variants.length - 1; v >= 0; v--) if (taxYear >= rule.variants[v].fromYear) return rule.variants[v];
+    return rule;
+  }
   function stateIncomeTax(sources, filing, yearIndex) {
     let rule = stateRuleFor(state.stateTax);
     if (!rule || rule.noTax) return 0;
@@ -6390,7 +6468,10 @@
       taxableSS = Math.max(0, sources.taxableSS);
     let includedGains = gains * rule.gainsIncluded;
     if (rule.gainsDeduction > 0) includedGains = Math.max(0, includedGains - rule.gainsDeduction * fSd);
-    let start = rule.ordinary ? ordinaryNonSS + includedGains : includedGains,
+    // E1e: an inherited traditional draw (spec 6.4). Every read sits inside this gate: test sources objects may lack the
+    // fields, and a legacy call computes exactly today's doubles.
+    const inh = sources.inherited > 0 ? sources.inherited : 0;
+    let start = rule.ordinary ? (inh > 0 ? ordinaryNonSS + inh : ordinaryNonSS) + includedGains : includedGains,
       ssSubtraction = 0,
       ssSplit = null;
     if (rule.ss !== SS_EXEMPT) {
@@ -6435,7 +6516,12 @@
     if (ssSplit === null && rule.needsSsSplit && ssSubtraction > 0 && taxableSS > 0)
       ssSplit = [(ssSubtraction * (sources.taxableSSA || 0)) / taxableSS, (ssSubtraction * (sources.taxableSSB || 0)) / taxableSS];
     // `start` stands for the federal AGI; `agi` is the state's AGI after its own subtractions.
-    let agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit);
+    let agi = start - ssSubtraction - stateRetirementExclusion(rule.retirement, sources, fRe, colKey, start, ssSplit, rule.inhKind);
+    // E1e: the exempt and decedent kinds subtract here; the heir kinds went through the retirement exclusion above.
+    if (inh > 0 && rule.ordinary) {
+      if (rule.inhKind === INH_EXEMPT) agi -= inh;
+      else if (rule.inhKind === INH_DECEDENT) agi -= Math.min(inh, sources.inheritedExclA + sources.inheritedExclB);
+    }
     // The federal income tax paid (one lagged pass, see taxFor), as a subtraction from the state AGI.
     let federalAllowance = 0;
     if (rule.lagged !== null) {
@@ -6587,6 +6673,22 @@
     const clamped = Math.max(18, Math.min(65, Math.round(age)));
     return table[clamped];
   }
+
+  // E1e: the full Single Life Table (Treas. Reg. 1.401(a)(9)-9(b), distribution calendar years from 2022), ages 0-120: an
+  // inherited account's yearly RMD divisor (spec 6.2). singleLifeDivisor above (72(t), 18-65) is unchanged.
+  const SINGLE_LIFE_TABLE = [
+    84.6, 83.7, 82.8, 81.8, 80.8, 79.8, 78.8, 77.9, 76.9, 75.9, 74.9, 73.9, 72.9, 71.9, 70.9, 69.9, 69.0, 68.0,
+    67.0, 66.0, 65.0, 64.1, 63.1, 62.1, 61.1, 60.2, 59.2, 58.2, 57.3, 56.3, 55.3, 54.4, 53.4, 52.5, 51.5, 50.5,
+    49.6, 48.6, 47.7, 46.7, 45.7, 44.8, 43.8, 42.9, 41.9, 41.0, 40.0, 39.0, 38.1, 37.1, 36.2, 35.3, 34.3, 33.4,
+    32.5, 31.6, 30.6, 29.8, 28.9, 28.0, 27.1, 26.2, 25.4, 24.5, 23.7, 22.9, 22.0, 21.2, 20.4, 19.6, 18.8, 18.0,
+    17.2, 16.4, 15.6, 14.8, 14.1, 13.3, 12.6, 11.9, 11.2, 10.5, 9.9, 9.3, 8.7, 8.1, 7.6, 7.1, 6.6, 6.1,
+    5.7, 5.3, 4.9, 4.6, 4.3, 4.0, 3.7, 3.4, 3.2, 3.0, 2.8, 2.6, 2.5, 2.3, 2.2, 2.1, 2.1, 2.1,
+    2.0, 2.0, 2.0, 2.0, 2.0, 1.9, 1.9, 1.8, 1.8, 1.6, 1.4, 1.1, 1.0,
+  ];
+  function singleLifeFactor(age) {
+    const a = Math.round(age);
+    return a >= 120 ? 1.0 : a <= 0 ? SINGLE_LIFE_TABLE[0] : SINGLE_LIFE_TABLE[a];
+  }
   // Annual taxable investment income on the taxable brokerage account and
   // the taxable bond reserve/cash. Dividends and interest are part of the
   // modeled total return (never added on top of it), but unlike unrealized
@@ -6703,6 +6805,8 @@
       pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, retirement401kA: 0, retirement401kB: 0, federalTax: 0,
       ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0, taxableSSA: 0, taxableSSB: 0,
       dependents: NO_DEPENDENTS, propertyTax: 0, rent: 0,
+      // E1e: an inherited traditional draw by partner (slot A of its own sources for a second return) and the New York decedent room.
+      inherited: 0, inheritedA: 0, inheritedB: 0, inheritedExclA: 0, inheritedExclB: 0,
     };
   }
   const SOURCES_JOINT = newStateSources(2),
@@ -6743,6 +6847,8 @@
       // E1d: a year with a taxable one-time gain (buildTaxProfile; a profile built elsewhere has no flag: no lump). The
       // lump gain is added inside each branch, never here beside invQual (the two-filer branch splits `gains` 50/50).
       lumpOn = profile.lumpOn === true,
+      // E1e: the profile carries an inherited account (always set in an inherited run; spec 6.3).
+      inhOn = profile.inhOn === true,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(state.stateTax),
@@ -6774,7 +6880,9 @@
       // E1d: the year's lump gains join the branch's gains once, so every reader below sees them.
       if (lumpOn) gains += profile.lumpGainA + profile.lumpGainB;
       // The household's other income net of the 162(l) deduction, read once (both sums below start with it).
-      const otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
+      let otherAB = seOn ? profile.otherA + profile.otherB - (seHA + seHB) : profile.otherA + profile.otherB;
+      // E1e: the last-resort inherited draws of the pass (the scheduled draw is already in otherA/B).
+      if (inhOn) otherAB += profile.inhExtraA + profile.inhExtraB;
       const other = otherAB + gains + traditionalExtra + invOrd;
       const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, 'mfj');
       const ordinary = otherAB + traditionalExtra + invOrd + taxableSS;
@@ -6810,6 +6918,20 @@
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
         sources.rent = rent;
+        // E1e: written on every call (the scratch object is reused); read only when sources.inherited > 0.
+        if (inhOn) {
+          sources.inheritedA = profile.inheritedA + profile.inhExtraA;
+          sources.inheritedB = profile.inheritedB + profile.inhExtraB;
+          sources.inherited = sources.inheritedA + sources.inheritedB;
+          sources.inheritedExclA = profile.inhExclA;
+          sources.inheritedExclB = profile.inhExclB;
+        } else {
+          sources.inherited = 0;
+          sources.inheritedA = 0;
+          sources.inheritedB = 0;
+          sources.inheritedExclA = 0;
+          sources.inheritedExclB = 0;
+        }
       }
       const stateTaxPaid = stateIncomeTax(sources, 'mfj', profile.year),
         deduction = federalDeduction(
@@ -6844,7 +6966,8 @@
     if (profile.singlePerson) {
       // E1d: the year's lump gains join the branch's gains once, so every reader below sees them.
       if (lumpOn) gains += profile.lumpGainA + profile.lumpGainB;
-      const otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
+      let otherA1 = seOn ? profile.otherA - seHA : profile.otherA;
+      if (inhOn) otherA1 += profile.inhExtraA;
       const taxableSS = taxableSocialSecurity(
         profile.ssA,
         otherA1 + gains + traditionalExtra + invOrd,
@@ -6878,6 +7001,19 @@
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
         sources.rent = rent;
+        if (inhOn) {
+          sources.inheritedA = profile.inheritedA + profile.inhExtraA;
+          sources.inheritedB = 0;
+          sources.inherited = sources.inheritedA;
+          sources.inheritedExclA = profile.inhExclA;
+          sources.inheritedExclB = 0;
+        } else {
+          sources.inherited = 0;
+          sources.inheritedA = 0;
+          sources.inheritedB = 0;
+          sources.inheritedExclA = 0;
+          sources.inheritedExclB = 0;
+        }
       }
       const stateTaxPaid = stateIncomeTax(sources, status, profile.year),
         deduction = federalDeduction(
@@ -6924,8 +7060,12 @@
       gainA += profile.lumpGainA;
       gainB += profile.lumpGainB;
     }
-    const otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
+    let otherA2 = seOn ? profile.otherA - seHA : profile.otherA,
       otherB2 = seOn ? profile.otherB - seHB : profile.otherB;
+    if (inhOn) {
+      otherA2 += profile.inhExtraA;
+      otherB2 += profile.inhExtraB;
+    }
     const taxableSSA = taxableSocialSecurity(
       profile.ssA,
       otherA2 + gainA + tradA + invA,
@@ -6966,6 +7106,18 @@
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
       sourcesA.rent = halfRent;
+      // E1e: each return's own draw in its slot A (as retirementA is filled for B's return).
+      if (inhOn) {
+        sourcesA.inheritedA = profile.inheritedA + profile.inhExtraA;
+        sourcesA.inherited = sourcesA.inheritedA;
+        sourcesA.inheritedExclA = profile.inhExclA;
+      } else {
+        sourcesA.inherited = 0;
+        sourcesA.inheritedA = 0;
+        sourcesA.inheritedExclA = 0;
+      }
+      sourcesA.inheritedB = 0;
+      sourcesA.inheritedExclB = 0;
       sourcesB = SOURCES_B;
       sourcesB.wages = profile.wageB + invB + extraB;
       if (seOn) sourcesB.wages += seNetB - seHB;
@@ -6992,6 +7144,17 @@
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
       sourcesB.rent = halfRent;
+      if (inhOn) {
+        sourcesB.inheritedA = profile.inheritedB + profile.inhExtraB;
+        sourcesB.inherited = sourcesB.inheritedA;
+        sourcesB.inheritedExclA = profile.inhExclB;
+      } else {
+        sourcesB.inherited = 0;
+        sourcesB.inheritedA = 0;
+        sourcesB.inheritedExclA = 0;
+      }
+      sourcesB.inheritedB = 0;
+      sourcesB.inheritedExclB = 0;
     }
     // Two separate returns: the household's property tax and deductible mortgage
     // interest are split 50/50 between them, and each return picks its own
@@ -7337,7 +7500,7 @@
   // Two returns (an unmarried couple, or before a marry-later wedding): each partner's own MAGI. `trad` is
   // the year's discretionary traditional draw plus the conversion (split by the traditional-pool share, as
   // taxFor splits it), `gain` the realized gains (half each, as taxFor). The two sum to the household MAGI.
-  function returnMagis(profile, trad, gain) {
+  function returnMagis(profile, trad, gain, ia = 0, ib = 0) {
     const s = profile.ownerShareA === undefined ? 0.5 : profile.ownerShareA,
       inv = ((profile.invOrd || 0) + (profile.invQual || 0)) / 2;
     // E1c: each return's MAGI is net of its own 162(l) deduction (0 for everyone else).
@@ -7347,6 +7510,9 @@
       m[0] += profile.lumpGainA;
       m[1] += profile.lumpGainB;
     }
+    // E1e: each return's own last-resort inherited draw (never split by the ownership share).
+    if (ia !== 0) m[0] += ia;
+    if (ib !== 0) m[1] += ib;
     return m;
   }
   // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
@@ -7422,12 +7588,15 @@
     const ordinaryAt = (conv) => {
       if (joint) {
         // E1c (decision 8c): AGI is lower by the 162(l) deduction; QBI is not seen by the fill.
-        const other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
-          taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
+        let other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv;
+        // E1e (decision 18): the pass's last-resort estimate, appended only when non-zero.
+        if (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);
+        const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
         return other + taxableSS;
       }
-      const other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv,
-        taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
+      let other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv;
+      if (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);
+      const taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
       return other + taxableSS;
     };
     if (ordinaryAt(0) >= targetGrossOrdinary) return 0;
@@ -8849,6 +9018,9 @@
     lumpGainB = 0,
     lumpNoNiitA = 0,
     lumpNoNiitB = 0,
+    inhOn = false,
+    inheritedA = 0,
+    inheritedB = 0,
   }) {
     const profileWageA = Math.max(0, wageA - traditionalContribA - healthPremiumA) + Math.max(0, streamWagesA - streamWageCutA - streamPremiumA),
       profileWageB = Math.max(0, wageB - traditionalContribB - healthPremiumB) + Math.max(0, streamWagesB - streamWageCutB - streamPremiumB);
@@ -8860,8 +9032,11 @@
       sePlanNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB) : 0,
       seNetA = seA > 0 ? Math.max(0, seA - halfA - soloPlanCutA - soloIraCutA) : 0,
       seNetB = seB > 0 ? Math.max(0, seB - halfB - soloPlanCutB - soloIraCutB) : 0;
-    const otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
+    let otherA = profileWageA + pensionA + rmdA + streamOtherA + seNetA,
       otherB = profileWageB + pensionB + rmdB + streamOtherB + seNetB;
+    // E1e: the scheduled inherited traditional draw is ordinary income on the heir's return (never through the streams: the state would count it as wages).
+    if (inheritedA > 0) otherA += inheritedA;
+    if (inheritedB > 0) otherB += inheritedB;
     // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
     // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
     // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
@@ -8928,6 +9103,16 @@
             lumpGainB: 0,
             lumpGainNoNiitA: lumpNoNiitB,
             lumpGainNoNiitB: 0,
+            // E1e: the survivor's slot A carries what was B's.
+            inhOn,
+            inheritedA: inheritedB,
+            inheritedB: 0,
+            inhExtraA: 0,
+            inhExtraB: 0,
+            inhEstA: 0,
+            inhEstB: 0,
+            inhExclA: 0,
+            inhExclB: 0,
             // Children stay with the surviving parent.
             dependents: dependentsInYear(taxYearOf(year)),
           }
@@ -8979,6 +9164,17 @@
             lumpGainB,
             lumpGainNoNiitA: lumpNoNiitA,
             lumpGainNoNiitB: lumpNoNiitB,
+            // E1e: the scheduled inherited draw by slot (already inside otherA/B), the last-resort draw of the pass (0 until Task 6) and
+            // New York's decedent room (set once a year by the engine).
+            inhOn,
+            inheritedA,
+            inheritedB,
+            inhExtraA: 0,
+            inhExtraB: 0,
+            inhEstA: 0,
+            inhEstB: 0,
+            inhExclA: 0,
+            inhExclB: 0,
           };
     return { otherA, otherB, profile };
   }
@@ -9584,7 +9780,10 @@
   // taxable gains at tauGain, Roth, cash, bond principal and home equity at face value.
   function afterTaxValue(bal, lambda, tauGain) {
     const gain = Math.max(0, bal.taxable - bal.taxableBasis) + Math.max(0, bal.bondTaxable - bal.bondTaxableBasis);
-    return bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
+    let v = bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
+    // E1e: the open inherited accounts (appended, and only when there are any: a legacy score is the same double).
+    if (bal.inheritedTrad + bal.inheritedRoth > 0) v += bal.inheritedTrad * (1 - lambda) + bal.inheritedRoth;
+    return v;
   }
   // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
   // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
@@ -9714,8 +9913,15 @@
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
   // just parked in the reserve) so the Sankey does not undercount them.
-  function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd }) {
+  function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null }) {
     return {
+      // E1e: the inherited ledger (null in a legacy run), the last-resort draws of the pass by post-remap slot, and the slot map and compiled
+      // state rule the step reads (null without a ledger: nothing is allocated per pass in a legacy run).
+      inh,
+      inheritedGrossA: 0,
+      inheritedGrossB: 0,
+      inhPost: inh === null ? null : inh.post,
+      inhRule,
       bal,
       seppActive,
       rothAccts,
@@ -9841,6 +10047,60 @@
   // only, pro rata), a Roth IRA (conversions inside their 5 years, 10% only; then earnings, tax plus
   // 10%). A tie goes to traditional, which keeps Roth growing tax-free. `solverStocks` is the
   // bisection bracket for traditional stock draws (bond draws always use solveTraditionalForNetFromNeed).
+  // E1e (spec 6.6): the last resort. When the household's own money cannot meet the need, the inherited accounts are drawn: Roth rows first
+  // (cash only), then traditional rows, oldest receipt first. A traditional draw is taxed exactly like a scheduled draw x larger: on the
+  // owner's post-remap return, the state's inherited treatment, MAGI, never penalized. The profile fields (inhExtraS, and under a decedent
+  // state inhExclS) stay at the realized values for the rest of the pass, so every later taxFor sees the draw. Counter (tests): calls that
+  // get past the null gate.
+  let inhTakeCount = 0;
+  function takeInherited(wd) {
+    const inh = wd.inh;
+    if (inh === null) return;
+    inhTakeCount++;
+    if (!(wd.need > 0)) return;
+    const { bal, profile } = wd;
+    for (let i = 0; i < inh.n && wd.need > 0; i++) {
+      if (!inh.roth[i] || inh.open[i] !== 1 || !(inh.bal[i] > 0)) continue;
+      const x = Math.min(wd.need, inh.bal[i]);
+      inh.bal[i] -= x;
+      inh.lastResort[i] += x;
+      bal.inheritedRoth -= x;
+      wd.rothWithdrawn += x;
+      wd.need -= x;
+    }
+    const decedent = !!wd.inhRule && wd.inhRule.inhKind === INH_DECEDENT;
+    for (let i = 0; i < inh.n && wd.need > 0; i++) {
+      if (inh.roth[i] || inh.open[i] !== 1 || !(inh.bal[i] > 0)) continue;
+      const slotA = wd.inhPost[i] === 0,
+        exKey = slotA ? 'inhExtraA' : 'inhExtraB',
+        exclKey = slotA ? 'inhExclA' : 'inhExclB',
+        ex0 = profile[exKey],
+        excl0 = profile[exclKey],
+        room = decedent ? Math.max(0, wd.inhRule.inhCap - inh.draw[i] - inh.lastResort[i]) : 0;
+      const baseTax = taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
+      const netAt = (x) => {
+        profile[exKey] = ex0 + x;
+        if (decedent) profile[exclKey] = excl0 + Math.min(x, room);
+        return x - (taxFor(profile, wd.taxableGainGross, wd.traditionalGross) - baseTax);
+      };
+      let lo = 0,
+        hi = Math.min(inh.bal[i], 6 * wd.need + 1);
+      for (let it = 0; it < 24; it++) {
+        const mid = (lo + hi) / 2;
+        if (netAt(mid) < wd.need) lo = mid;
+        else hi = mid;
+      }
+      const x = hi,
+        net = netAt(x);
+      if (slotA) wd.inheritedGrossA += x;
+      else wd.inheritedGrossB += x;
+      wd.traditionalWithdrawn += x;
+      inh.lastResort[i] += x;
+      inh.bal[i] -= x;
+      bal.inheritedTrad -= x;
+      wd.need = Math.max(0, wd.need - net);
+    }
+  }
   function takePenalized(wd, solverStocks) {
     const { bal } = wd,
       pen = tradGroup(wd, true);
@@ -10027,6 +10287,7 @@
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
       releaseMagiCap(wd, solveTraditionalForNet);
+      takeInherited(wd);
       takePenalized(wd, solveTraditionalForNet);
     } else {
       wd.need -= takeRoth(wd, 'roth', wd.need);
@@ -10035,6 +10296,7 @@
       bondTrad();
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
       releaseMagiCap(wd, solveTraditionalForNet);
+      takeInherited(wd);
     }
     if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
   }
@@ -10064,6 +10326,7 @@
     },
     home: (wd) => {
       releaseMagiCap(wd, solveTraditionalForNetFromNeed);
+      takeInherited(wd);
       if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
     },
     // The stock accounts as one grouped step: a mix mode when one is active (the
@@ -10079,6 +10342,7 @@
     },
     penalized: (wd) => {
       releaseMagiCap(wd, solveTraditionalForNetFromNeed);
+      takeInherited(wd);
       if (wd.need > 0) takePenalized(wd, solveTraditionalForNetFromNeed);
     },
   };
@@ -10201,6 +10465,7 @@
   // tax-free (stepped-up basis); the owner is dead from the death year on. Only the gain share of a gain row is taxable;
   // its basis joins taxFree. flowTotal (the taxable part) is the one gate: a lump year is flowTotal > 0. taxFree runs from
   // 0 in list order: for all-free rows it is the old oneTimeAmount, bit for bit.
+  // Rows of kind inheritedTrad / inheritedRoth (E1e) are skipped here: inheritedLedger reads them.
   const LUMP_OUT = { taxFree: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, gainA: 0, gainB: 0, gainNoNiitA: 0, gainNoNiitB: 0, flowTotal: 0 };
   function lumpAmountsForYear(lumps, ctx, out) {
     out.taxFree = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0;
@@ -10210,6 +10475,8 @@
       if (Math.round(o.age) !== ctx.ageA) continue;
       const amt = o.amount * (o.flat ? 1 : ctx.factor),
         k = o.kind;
+      // E1e: an inherited account is not a lump; the inherited ledger reads these rows (spec 5.2).
+      if (k === 'inheritedTrad' || k === 'inheritedRoth') continue;
       if (k !== 'wages' && k !== 'ordinary' && k !== 'gain') {
         out.taxFree += amt;
         continue;
@@ -10235,6 +10502,146 @@
       }
     }
     return out;
+  }
+  // ---- E1e: inherited traditional and Roth IRA / 401(k) accounts (spec sections 6.1, 6.2) ----
+  // One inherited row's draw (traditional) or payout (Roth) in draw year k. b = start-of-year balance, r = the year's stock
+  // return, L = the heir's Single Life factor in the year after receipt. A 10-year row: traditional even over the years left
+  // with the RMD on L as a floor and the account as a cap; Roth whole in year 10. A stretch row (death before 2020, decision
+  // 17): the RMD alone, both kinds. k < 1: nothing.
+  function inheritedDraw(b, r, k, L, roth, stretch) {
+    if (k < 1 || !(b > 0)) return 0;
+    const grown = b * (1 + r);
+    const d = L - k + 1;
+    if (stretch) return d <= 1 ? grown : Math.min(grown, b / d);
+    if (roth) return k >= 10 ? grown : 0;
+    if (k >= 10 || d <= 1) return grown;
+    return Math.min(grown, Math.max(grown / (11 - k), b / d));
+  }
+  // The ledger of a run: one slot per inherited row (null for every legacy state). Arrays of length n, oldest receipt first.
+  // owner[] is the named owner (0 = A, 1 = B), heir[] the heir slot at receipt (the other partner when the owner is dead then).
+  function inheritedLedger(rows, ctx) {
+    const kept = [];
+    for (let i = 0; i < rows.length; i++) {
+      const o = rows[i];
+      if (o.kind !== 'inheritedTrad' && o.kind !== 'inheritedRoth') continue;
+      const receiptYear = Math.round(o.age) - ctx.ageA,
+        stretch = ctx.currentYear + receiptYear < 2020;
+      if (!stretch && receiptYear + 10 < 0) continue; // a 10-year window that has already closed
+      const owner = !ctx.single && o.owner === 'B' ? 1 : 0,
+        ownerDead = receiptYear >= ctx.deathYear && (owner === 0 ? ctx.deceasedIsA : ctx.deceasedIsB),
+        heir = ownerDead ? 1 - owner : owner,
+        heirAge = (heir === 0 ? ctx.ageA : ctx.ageB) + receiptYear + 1;
+      kept.push({ i, o, receiptYear, stretch, owner, heir, L: singleLifeFactor(heirAge) });
+    }
+    if (kept.length === 0) return null;
+    kept.sort((a, b) => a.receiptYear - b.receiptYear || a.i - b.i);
+    const n = kept.length;
+    const inh = {
+      n, roth: [], owner: [], heir: [], receiptYear: [], stretch: [], L: [], deadline: [], openAmount: [], flat: [],
+      bal: new Float64Array(n), open: new Uint8Array(n), draw: new Float64Array(n), lastResort: new Float64Array(n), slot: new Int8Array(n), post: new Int8Array(n),
+      snapBal: new Float64Array(n), snapOpen: new Uint8Array(n), snapDraw: new Float64Array(n), snapLastResort: new Float64Array(n), snapDeadline: new Array(n), snapL: new Array(n),
+    };
+    for (let j = 0; j < n; j++) {
+      const k = kept[j];
+      inh.roth.push(k.o.kind === 'inheritedRoth');
+      inh.owner.push(k.owner);
+      inh.heir.push(k.heir);
+      inh.receiptYear.push(k.receiptYear);
+      inh.stretch.push(k.stretch);
+      inh.L.push(k.L);
+      inh.deadline.push(k.stretch ? Infinity : k.receiptYear + 10);
+      inh.openAmount.push(k.o.amount);
+      inh.flat.push(k.o.flat === true);
+      inh.slot[j] = k.heir;
+      if (k.receiptYear < 0) {
+        inh.open[j] = 1;
+        inh.bal[j] = k.o.amount;
+      }
+    }
+    return inh;
+  }
+  const INH_OUT = { drawA: 0, drawB: 0, rothPayout: 0, any: false };
+  const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false, collapse: false };
+  // Test-only: add x to ledger slot `slot`'s scheduled draw in projection year `year` (the identity tests), and read the step counter.
+  let testInhForce = null;
+  // Test-only: switch off the need-without-the-draw step (the exact-restore test) and count its evaluations.
+  let testInhNoNeedAdj = false;
+  let inhNoDrawCalls = 0;
+  // This year's scheduled draws and payouts, from the balances at the start of the year (known before the MAGI iteration, so
+  // per-year constants like the RMD). Never opens a row (inheritedApply does). drawA/drawB are on PRE-remap slots: the slot of the
+  // row's current heir, the other partner once the heir is dead. ctx = { year, stockReturn, deadA, deadB }.
+  function inheritedYear(inh, ctx, out) {
+    out.drawA = 0; out.drawB = 0; out.rothPayout = 0; out.any = false;
+    inh.draw.fill(0);
+    for (let i = 0; i < inh.n; i++) {
+      if (inh.open[i] === 0) continue;
+      const heir = inh.heir[i],
+        heirDead = heir === 0 ? ctx.deadA : ctx.deadB,
+        slot = heirDead ? 1 - heir : heir;
+      inh.slot[i] = slot;
+      inh.post[i] = ctx.collapse ? 0 : slot; // the post-remap profile slot: a one-person return reads only slot A
+      let draw;
+      if (inh.stretch[i] && inh.deadline[i] === Infinity) {
+        draw = inheritedDraw(inh.bal[i], ctx.stockReturn, ctx.year - inh.receiptYear[i], inh.L[i], inh.roth[i], true);
+        // The heir's first dead year is still a stretch year; from the next the 10 years run from it, with the heir's factor continued.
+        if (heirDead) {
+          inh.deadline[i] = ctx.year + 10;
+          inh.L[i] -= ctx.year - inh.receiptYear[i];
+        }
+      } else {
+        const k = ctx.year - (inh.deadline[i] - 10);
+        draw = inheritedDraw(inh.bal[i], ctx.stockReturn, k, inh.L[i], inh.roth[i], false);
+      }
+      inh.draw[i] = draw;
+      if (inh.roth[i]) out.rothPayout += draw;
+      else if (slot === 0) out.drawA += draw;
+      else out.drawB += draw;
+    }
+    return out;
+  }
+  // Grows each open slot at the year's stock return, takes its draw, closes an emptied slot and opens this year's future rows (after
+  // growth, so a row opened this year neither grows nor draws); re-sums bal.inheritedTrad / bal.inheritedRoth and sets out.any.
+  function inheritedApply(inh, bal, stockReturn, factor, year) {
+    let any = false, trad = 0, roth = 0;
+    for (let i = 0; i < inh.n; i++) {
+      if (inh.open[i] === 1) {
+        if (inh.draw[i] > 0) any = true;
+        inh.bal[i] = inh.bal[i] * (1 + stockReturn) - inh.draw[i];
+        if (inh.bal[i] <= 0 || year >= inh.deadline[i]) {
+          inh.bal[i] = 0;
+          inh.open[i] = 0;
+        }
+      } else if (year === inh.receiptYear[i]) {
+        inh.open[i] = 1;
+        inh.bal[i] = inh.openAmount[i] * (inh.flat[i] ? 1 : factor);
+        // The row opens after inheritedYear skipped it: give it this year's slot and post-remap slot the way inheritedYear does.
+        const heir = inh.heir[i], slot = (heir === 0 ? INH_CTX.deadA : INH_CTX.deadB) ? 1 - heir : heir;
+        inh.slot[i] = slot;
+        inh.post[i] = INH_CTX.collapse ? 0 : slot;
+      }
+      if (inh.open[i] === 1) {
+        any = true;
+        if (inh.roth[i]) roth += inh.bal[i];
+        else trad += inh.bal[i];
+      }
+    }
+    bal.inheritedTrad = trad;
+    bal.inheritedRoth = roth;
+    INH_OUT.any = any;
+  }
+  // The MAGI iteration's snapshot of the ledger (preallocated: nothing is allocated per year).
+  function inheritedClone(inh) {
+    for (let i = 0; i < inh.n; i++) {
+      inh.snapBal[i] = inh.bal[i]; inh.snapOpen[i] = inh.open[i]; inh.snapDraw[i] = inh.draw[i];
+      inh.snapLastResort[i] = inh.lastResort[i]; inh.snapDeadline[i] = inh.deadline[i]; inh.snapL[i] = inh.L[i];
+    }
+    return inh;
+  }
+  function inheritedRestore(inh) {
+    for (let i = 0; i < inh.n; i++) {
+      inh.bal[i] = inh.snapBal[i]; inh.open[i] = inh.snapOpen[i]; inh.draw[i] = inh.snapDraw[i];
+      inh.lastResort[i] = inh.snapLastResort[i]; inh.deadline[i] = inh.snapDeadline[i]; inh.L[i] = inh.snapL[i];
+    }
   }
   const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1, premiumFactor: 1 };
   function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
@@ -10438,6 +10845,9 @@
       cash: state.cash,
       home: state.tenure === 'own' ? state.homeValue : 0,
       mortgage: state.tenure === 'own' ? state.mortgage : 0,
+      // E1e: the open inherited accounts (sums of the ledger; always present so the shape is fixed).
+      inheritedTrad: 0,
+      inheritedRoth: 0,
     };
     const schedule = mortgageSchedule(),
       loans = loanSchedules(),
@@ -10470,6 +10880,9 @@
     let prevDiscTraditional = 0,
       prevSeHealthA = 0,
       prevSeHealthB = 0,
+      // E1e: the previous year's realized last-resort inherited draws by slot (seeds the fourth estimate).
+      prevInhA = 0,
+      prevInhB = 0,
       prevTaxableGainGross = 0;
     // Guyton-Klinger guardrails (simplified, opt-in): once the first
     // portfolio withdrawal occurs, that year's draw as a fraction of the
@@ -10504,6 +10917,11 @@
     // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
     if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
     if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
+    // E1e: the inherited accounts of this run (null for every state without an inherited row).
+    const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear, deathYear, deceasedIsA, deceasedIsB });
+    if (inh !== null) {
+      for (let i = 0; i < inh.n; i++) if (inh.open[i] === 1) { if (inh.roth[i]) bal.inheritedRoth += inh.bal[i]; else bal.inheritedTrad += inh.bal[i]; }
+    }
     const retirementYear = singlePerson
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
@@ -10542,6 +10960,19 @@
         lumpOtherA = lumps.otherA, lumpOtherB = lumps.otherB,
         lumpGainA = lumps.gainA, lumpGainB = lumps.gainB,
         lumpNoNiitA = lumps.gainNoNiitA, lumpNoNiitB = lumps.gainNoNiitB;
+      // E1e: this year's scheduled inherited draws (pre-remap slots) and Roth payout; known now, so per-year constants like the RMD.
+      let inhDraw = 0, inhDrawA = 0, inhDrawB = 0, inhRothPayout = 0;
+      if (inh !== null) {
+        INH_CTX.collapse = singlePerson || isSurvivorPeriod;
+        INH_CTX.year = year; INH_CTX.stockReturn = stockReturn; INH_CTX.deadA = deceasedIsA && year >= deathYear; INH_CTX.deadB = deceasedIsB && year >= deathYear;
+        inheritedYear(inh, INH_CTX, INH_OUT);
+        if (testInhForce !== null && testInhForce.year === year) {
+          inh.draw[testInhForce.slot] += testInhForce.x;
+          if (inh.slot[testInhForce.slot] === 0) INH_OUT.drawA += testInhForce.x;
+          else INH_OUT.drawB += testInhForce.x;
+        }
+        inhDrawA = INH_OUT.drawA; inhDrawB = INH_OUT.drawB; inhDraw = inhDrawA + inhDrawB; inhRothPayout = INH_OUT.rothPayout;
+      }
       // E1d: Social Security wages for the wage base, payroll tax and the profile (a wages lump has no premium, no
       // contribution and no coverage, so it never touches `streams`).
       const ssWagesA = lumpYear ? streams.wagesA + lumpWagesA : streams.wagesA,
@@ -10663,7 +11094,26 @@
         lumpGainB,
         lumpNoNiitA,
         lumpNoNiitB,
+        inhOn: inh !== null,
+        inheritedA: inhDrawA,
+        inheritedB: inhDrawB,
       });
+      // E1e: New York's decedent room (spec 6.4): per post-remap slot, the sum over the traditional rows of min(the row's draw, the cap), set once a
+      // year; the pass-top base the last resort (Task 6) adds to.
+      let inhExclBaseA = 0, inhExclBaseB = 0;
+      if (inh !== null && inhDraw > 0) {
+        const yr = stateRuleForYear(year);
+        if (yr && yr.inhKind === INH_DECEDENT) {
+          for (let i = 0; i < inh.n; i++) {
+            if (inh.roth[i] || !(inh.draw[i] > 0)) continue;
+            const room = Math.min(inh.draw[i], yr.inhCap);
+            if (singlePerson || isSurvivorPeriod || inh.slot[i] === 0) inhExclBaseA += room;
+            else inhExclBaseB += room;
+          }
+          profile.inhExclA = inhExclBaseA;
+          profile.inhExclB = inhExclBaseB;
+        }
+      }
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
@@ -10702,6 +11152,9 @@
         estGain = prevTaxableGainGross,
         estSeA = prevSeHealthA,
         estSeB = prevSeHealthB,
+        // E1e: the fourth estimate: the pass's last-resort inherited draws per post-remap slot (0 without a ledger).
+        estInhA = prevInhA,
+        estInhB = prevInhB,
         estUsed = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
@@ -10709,6 +11162,7 @@
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
+        if (inh !== null) inheritedClone(inh);
         // Passes of this year that priced the premium off an estimate: what each estimated, what it was charged and what the
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
@@ -10755,11 +11209,24 @@
             Object.assign(guardrails, guardrailSnapshot);
             rothAccountsRestore(rothAccts, ledgerSnapshot);
             accountsRestore(accts, acctSnapshot);
+            if (inh !== null) inheritedRestore(inh);
           }
           profile.ownerShareA = ownerShareA0;
           profile.seHealthA = estSeA;
           profile.seHealthB = estSeB;
           magiBase = seLive ? magiBase0 - estSeA - estSeB : magiBase0;
+          if (inh !== null) {
+            // E1e: the last-resort draws are rebuilt each pass (not in the snapshot); the profile starts the pass at the scheduled-draw state.
+            inh.lastResort.fill(0);
+            profile.inhExtraA = 0;
+            profile.inhExtraB = 0;
+            // Decision 18: the Roth bracket fill sees the pass's last-resort estimate (post-remap slots, as estInhA/B).
+            profile.inhEstA = estInhA;
+            profile.inhEstB = estInhB;
+            profile.inhExclA = inhExclBaseA;
+            profile.inhExclB = inhExclBaseB;
+            magiBase += estInhA + estInhB;
+          }
           phasePass++;
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
@@ -10778,7 +11245,7 @@
         const preConvMagi = magiBase + estTrad + estGain;
         let preMagiA = 0,
           preMagiB = 0;
-        if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain);
+        if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain, estInhA, estInhB);
         const magiCeiling = conversionMagiCeiling({
           acaEligibleA,
           acaEligibleB,
@@ -10839,13 +11306,14 @@
           seFixA = 0,
           seFixB = 0,
           seNeedAlt = false;
-        const costAt = (trad, gain, sa = estSeA, sb = estSeB) => {
+        const costAt = (trad, gain, sa = estSeA, sb = estSeB, ia = estInhA, ib = estInhB) => {
           hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
+          if (inh !== null) hcArgs.magiProxy += ia + ib;
           if (twoReturns) {
             const ra = profile.seHealthA, rb = profile.seHealthB;
             profile.seHealthA = sa;
             profile.seHealthB = sb;
-            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain);
+            [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
           }
@@ -10872,14 +11340,14 @@
           filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
         const irmaaSsH = irmaaSsOf(profile),
           irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
-        const irmaaAt = (trad, gain) => {
+        const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
             // E1c: priced on the pass's 162(l) estimate, as costAt.
             const ra = profile.seHealthA, rb = profile.seHealthB;
             profile.seHealthA = estSeA;
             profile.seHealthB = estSeB;
-            const [ma, mb] = returnMagis(profile, trad, gain);
+            const [ma, mb] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
             return (
@@ -10887,12 +11355,15 @@
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(magiBase + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
+          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
         // walk is net of the traditional share (of investable money at the start of the year) of this year's need,
         // leaving out this year's lump expenses (spec 13.1, 13.2). Only called from the withdrawal plan, after `flow` is known.
+        // E1e decisions 15, 16: this pass's scheduled inherited draw net of its own tax and premium credit (0 without a draw); assigned
+        // after `tax` below, read by the guardrail records and lambda.
+        let inhNeedAdj = 0;
         const lambdaOf = () => {
           if (yearLambda) return yearLambda;
           const b = balSnapshot,
@@ -10900,7 +11371,9 @@
             inv = b.taxable + b.bondTaxable + tradNow + b.roth + b.bondRoth + b.cash;
           // E1d decision 12: one-time income, like a one-time expense, is not part of the yearly draw the walk assumes (it
           // overstates the need by the lump's own tax and any premium its MAGI raises, both already in `flow`)
-          const lambdaNeed = Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
+          const lambdaNeed = inhNeedAdj !== 0
+            ? Math.max(0, (lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense) + inhNeedAdj)
+            : Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
           yearLambdaNeed = lambdaNeed;
           return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0 }));
         };
@@ -10919,7 +11392,7 @@
         magiA = 0;
         magiB = 0;
         if (twoReturns) {
-          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain);
+          [magiA, magiB] = returnMagis(profile, conversionAmount + estTrad, estGain, estInhA, estInhB);
           magiHistoryA[year] = magiA;
           magiHistoryB[year] = magiB;
           irmaaMagiHistoryA[year] = irmaaMagiOf(magiA, profile.ssA || 0, irmaaStA);
@@ -10969,6 +11442,26 @@
         profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
         const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+        // E1e decisions 15, 16 (spec 6.7): the need as if the inheritance were not there: the scheduled draw net of its own tax and of
+        // the premium credit it costs this year. One taxFor and one healthcareCost per pass, only in a draw year.
+        if (inhDraw > 0 && !testInhNoNeedAdj) {
+          inhNoDrawCalls++;
+          const oA = profile.otherA, oB = profile.otherB, iA = profile.inheritedA, iB = profile.inheritedB,
+            on = profile.inhOn, eA = profile.inhExclA, eB = profile.inhExclB, med = profile.medicalExpense;
+          // the premium at the pass's MAGI less the draw (each return less its own share in a two-return year)
+          hcArgs.magiProxy = magiProxy - inhDraw;
+          if (twoReturns) { hcArgs.magiA = magiA - iA; hcArgs.magiB = magiB - iB; }
+          const hcNoDraw = healthcareCost(hcArgs).healthcare;
+          hcArgs.magiProxy = magiProxy; hcArgs.magiA = magiA; hcArgs.magiB = magiB;
+          profile.otherA = oA - iA; profile.otherB = oB - iB;
+          profile.inheritedA = 0; profile.inheritedB = 0; profile.inhOn = false; profile.inhExclA = 0; profile.inhExclB = 0;
+          profile.medicalExpense = seLive ? hcNoDraw + ltc - (seRealA + seRealB) : hcNoDraw + ltc;
+          const taxNoDraw = taxFor(profile, 0, conversionAmount) + ficaTax;
+          // restore from the saved doubles, never by adding the draw back ((x - d) + d !== x)
+          profile.otherA = oA; profile.otherB = oB; profile.inheritedA = iA; profile.inheritedB = iB; profile.inhOn = on;
+          profile.inhExclA = eA; profile.inhExclB = eB; profile.medicalExpense = med;
+          inhNeedAdj = inhDraw - (tax - taxNoDraw) - (healthcare - hcNoDraw);
+        }
         // `tax` above only covers wages/SS/pension/RMD/conversion income and
         // is what the cash-flow waterfall below uses to size withdrawals.
         // Once traditional withdrawals and further taxable-brokerage gains
@@ -10983,7 +11476,7 @@
         // different order. The results differ only by rounding, but the withdrawal bisection can
         // amplify that into visibly different numbers, so each keeps its own order until the
         // numerics are unified deliberately.
-        const flow = mode.bucketStrategy
+        let flow = mode.bucketStrategy
           ? wages + ss + pension + rmd - expenses - tax - traditionalContrib - rothContrib
           : wages +
             ss +
@@ -10999,7 +11492,10 @@
             tax -
             traditionalContrib -
             rothContrib;
+        // E1e: the scheduled inherited traditional draw is cash (appended after both strategies' sums: a legacy year is unchanged).
+        if (inhDraw > 0) flow += inhDraw;
         growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
+        if (inh !== null) inheritedApply(inh, bal, stockReturn, factor, year);
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
         // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
         // share moves).
@@ -11010,14 +11506,17 @@
         withdrawRequiredDistributions(bal, rmd);
         applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive);
         bal.cash += oneTimeAmount;
+        if (inhRothPayout > 0) bal.cash += inhRothPayout; // E1e: the inherited Roth payout is a transfer (no tax, no MAGI)
         const reserveTarget = state.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
         // Ramp linearly over whatever time is actually available before
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
-        const guardrailPortfolioNow = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
-        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd });
+        const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
+        // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
+        const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
+        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(year) });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -11038,12 +11537,19 @@
             totalTax = ficaTax + taxFor(profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
           }
+          // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
+          if (!lumpYear && inhNeedAdj > 0 && -flow + inhNeedAdj > 0) {
+            const n = Math.max(0, -flow - lumpExpense + inhNeedAdj);
+            if (!working && year === retirementYear) firstWithdrawal = n;
+            recordGuardrailWithdrawal(guardrails, n, guardrailPortfolioNow, working);
+          }
         } else {
           wd.need = -flow;
           // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
           if (!lumpYear) {
-            if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
-            recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
+            const recorded = inhNeedAdj !== 0 ? Math.max(0, wd.need - lumpExpense + inhNeedAdj) : Math.max(0, wd.need - lumpExpense);
+            if (!working && year === retirementYear) firstWithdrawal = recorded;
+            recordGuardrailWithdrawal(guardrails, recorded, guardrailPortfolioNow, working);
           }
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
@@ -11064,7 +11570,8 @@
           if (yearPlan.kind === 'under') wd.magiCap = { limit: yearPlan.magi - magiBase, off: false };
           runWithdraw(wd);
           if (yearPlan.kind === 'fill') {
-            const m = magiBase + wd.traditionalGross + wd.taxableGainGross;
+            // (E1e: read through wd.: the realized pair is destructured below)
+            const m = inh === null ? magiBase + wd.traditionalGross + wd.taxableGainGross : magiBase - estInhA - estInhB + wd.inheritedGrossA + wd.inheritedGrossB + wd.traditionalGross + wd.taxableGainGross;
             if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
           }
           if (wd.need > 1 && !depletedAge) depletedAge = age;
@@ -11072,6 +11579,7 @@
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
+          if (inh !== null) totalIncome += wd.inheritedGrossA + wd.inheritedGrossB; // E1e: the last-resort draws (appended)
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
@@ -11081,12 +11589,17 @@
         // Realized totals for the MAGI convergence check, the next year's seed, and the row.
         const { traditionalGross, taxableGainGross, traditionalWithdrawn, taxableWithdrawn, rothWithdrawn, earlyPenalty } = wd;
         const resolvedMixCandidate = wd.mixCandidate;
+        // E1e: the realized last-resort draws of the pass (0 when nothing was drawn).
+        const inhRealA = wd.inheritedGrossA, inhRealB = wd.inheritedGrossB;
+        if (inh !== null && (estInhA !== 0 || estInhB !== 0 || inhRealA !== 0 || inhRealB !== 0)) estUsed = true;
         const realizedTrad = traditionalGross - conversionAmount;
-        const drift = Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain);
+        const drift = inh === null
+          ? Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain)
+          : Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) + Math.abs(inhRealA - estInhA) + Math.abs(inhRealB - estInhB);
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -11095,6 +11608,10 @@
           estGain += w * (taxableGainGross - estGain);
           estSeA += w * (seRealA - estSeA);
           estSeB += w * (seRealB - estSeB);
+          if (inh !== null) {
+            estInhA += w * (inhRealA - estInhA);
+            estInhB += w * (inhRealB - estInhB);
+          }
           continue;
         }
         // E1c decisions 9, 10 and 12: the 162(l) search is needed by an unconverged year that has not switched (a held year is not
@@ -11104,7 +11621,7 @@
             // Step 1 of either method (Rev. Proc. 2014-41 section 5): the deduction at the full premiums (priced at a MAGI above
             // every line). Nothing to hold at a $0 deduction (the Solo plan took the whole net, no premium, no cap): the year
             // goes on as it did before the switch existed.
-            costAt(trad, gain, -1e12, -1e12);
+            costAt(trad, gain, -1e12, -1e12, inhRealA, inhRealB);
             seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
             const d1A = SE_HEALTH[0],
               d1B = SE_HEALTH[1];
@@ -11126,7 +11643,7 @@
               okB = false;
             // The deduction the premium at the MAGI of the pair (sa, sb) allows: the total on one return (slot -1), else a return's slot.
             const allowedAt = (sa, sb, slot) => {
-              costAt(trad, gain, sa, sb);
+              costAt(trad, gain, sa, sb, inhRealA, inhRealB);
               seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
               return slot < 0 ? SE_HEALTH[0] + SE_HEALTH[1] : SE_HEALTH[slot];
             };
@@ -11161,7 +11678,7 @@
               seNeedAlt = !okA || !okB;
             }
             if (seNeedAlt) {
-              costAt(trad, gain, d1A, d1B);
+              costAt(trad, gain, d1A, d1B, inhRealA, inhRealB);
               seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
               if (!okA) seFixA = SE_HEALTH[0];
               if (!okB) seFixB = SE_HEALTH[1];
@@ -11179,6 +11696,8 @@
             estSeA = seFixA;
             estSeB = seFixB;
             seKind = seNeedAlt ? 2 : 1;
+            estInhA = inhRealA;
+            estInhB = inhRealB;
             estTrad = realizedTrad;
             estGain = taxableGainGross;
             seHeld = true;
@@ -11199,6 +11718,8 @@
             estGain = pick.estGain;
             estSeA = pick.estSeA;
             estSeB = pick.estSeB;
+            estInhA = pick.estInhA;
+            estInhB = pick.estInhB;
             forcedPass = true;
             continue;
           }
@@ -11216,7 +11737,7 @@
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
           // deduction, below, is not re-priced at all).
-          const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB),
+          const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
           expenses -= refund;
@@ -11236,14 +11757,16 @@
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
           const needNet = -flow - refund;
-          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = Math.max(0, needNet - lumpExpense);
+          const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
+          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
           guardrails.initialWR = guardrailSnapshot.initialWR;
-          if (!lumpYear) recordGuardrailWithdrawal(guardrails, Math.max(0, needNet - lumpExpense), guardrailPortfolioNow, working); // E1d decision 7
+          if (!lumpYear) recordGuardrailWithdrawal(guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
         // E1c: net of the realized 162(l) deduction (also after a forced pass).
-        const realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+        let realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+        if (inh !== null) realizedMagi += inhRealA + inhRealB; // E1e: the last-resort draws (appended)
         // Phased year, at the end of a phase (see the phase notes above the loop).
         if (phased && !replaying) {
           let next = -1;
@@ -11282,7 +11805,7 @@
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -11292,7 +11815,7 @@
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -11315,6 +11838,8 @@
               estGain = naturalRec.estGain;
               estSeA = naturalRec.estSeA;
               estSeB = naturalRec.estSeB;
+              estInhA = naturalRec.estInhA;
+              estInhB = naturalRec.estInhB;
               seHeld = naturalRec.seHeld;
               seKind = naturalRec.seKind;
               forcedPass = naturalRec.forced;
@@ -11328,8 +11853,8 @@
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
-              cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross) });
+              cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB);
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -11347,6 +11872,8 @@
                 estGain = best.estGain;
                 estSeA = best.estSeA;
                 estSeB = best.estSeB;
+                estInhA = best.estInhA;
+                estInhB = best.estInhB;
                 seHeld = best.seHeld;
                 seKind = best.seKind;
                 forcedPass = best.forced;
@@ -11364,6 +11891,8 @@
             estGain = naturalRec.gain;
             estSeA = naturalRec.seA;
             estSeB = naturalRec.seB;
+            estInhA = naturalRec.inhA;
+            estInhB = naturalRec.inhB;
             seHeld = false;
             seKind = 0;
             forcedPass = false;
@@ -11383,6 +11912,8 @@
         prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;
         prevSeHealthA = naturalRec ? naturalRec.seA : seRealA;
         prevSeHealthB = naturalRec ? naturalRec.seB : seRealB;
+        prevInhA = naturalRec ? naturalRec.inhA : inhRealA;
+        prevInhB = naturalRec ? naturalRec.inhB : inhRealB;
         if (phased && planTr) {
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
           planTr.lambdaNeed = yearLambda ? yearLambdaNeed : null;
@@ -11391,14 +11922,16 @@
         }
         irmaaMagiHistory[year] = irmaaMagiOf(realizedMagi, irmaaSsH, filing);
         if (twoReturns) {
-          [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross);
+          [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
           irmaaMagiHistoryA[year] = irmaaMagiOf(magiHistoryA[year], profile.ssA || 0, irmaaStA);
           irmaaMagiHistoryB[year] = irmaaMagiOf(magiHistoryB[year], profile.ssB || 0, 'single');
         }
         bal.mortgage = Math.max(0, bal.mortgage);
         const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
           bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
-          investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
+          investableHousehold = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
+          // E1e: the open inherited accounts are investable (appended: a legacy year is the same double).
+          investable = inh === null ? investableHousehold : investableHousehold + bal.inheritedTrad + bal.inheritedRoth,
           homeEquity =
             state.tenure === 'own' || state.tenure === 'rentThenBuy'
               ? Math.max(0, bal.home - bal.mortgage)
@@ -11410,8 +11943,8 @@
           year,
           taxable: bal.taxable,
           bonds,
-          traditional: bal.traditional,
-          roth: bal.roth,
+          traditional: inh === null ? bal.traditional : bal.traditional + bal.inheritedTrad,
+          roth: inh === null ? bal.roth : bal.roth + bal.inheritedRoth,
           cash: bal.cash,
           homeEquity,
           loanBalance,
@@ -11443,6 +11976,13 @@
           lumpExpense,
           baseSpend,
         };
+        // E1e: a year with an open or paid-out inherited account carries its fields; the draw is also a traditional withdrawal.
+        if (inh !== null && INH_OUT.any) {
+          row.inheritedTrad = bal.inheritedTrad;
+          row.inheritedRoth = bal.inheritedRoth;
+          row.inheritedDraw = inhDraw;
+          if (inhDraw > 0) row.traditionalWithdrawn += inhDraw;
+        }
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
         if (twoReturns) {
@@ -11478,6 +12018,14 @@
             medB,
             rothBasis: rothAccts.map((L) => L.basis),
             rothConv: rothAccts.map((L) => L.conv.reduce((sum, c) => sum + c.amount, 0)),
+            inherited: inh === null ? null : Array.from(inh.bal),
+            inhNeedAdj,
+            gpBase,
+            inhLastResortA: inhRealA,
+            inhLastResortB: inhRealB,
+            passes: iter + 1,
+            taxable: bal.taxable,
+            taxableBasis: bal.taxableBasis,
           });
         }
         break;
@@ -11506,10 +12054,15 @@
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
     // enumerable, so the result's own fields and every snapshot stay as they were.
+    // E1e: the open inherited balances are part of the estate (two additions, skipped when both are 0).
+    let estateTrad = bal.traditional + bal.bondTraditional,
+      estateRoth = bal.roth + bal.bondRoth;
+    if (bal.inheritedTrad > 0) estateTrad += bal.inheritedTrad;
+    if (bal.inheritedRoth > 0) estateRoth += bal.inheritedRoth;
     Object.defineProperty(result, 'estate', {
       value: {
-        traditional: bal.traditional + bal.bondTraditional,
-        roth: bal.roth + bal.bondRoth,
+        traditional: estateTrad,
+        roth: estateRoth,
         taxable: bal.taxable + bal.bondTaxable,
         cash: bal.cash,
         homeEquity: Math.max(0, bal.home - bal.mortgage),
@@ -11789,6 +12342,7 @@
     renderChartView(selected);
     renderTable(selected);
     annotateSolverRows(selected);
+    annotateInheritedRows(selected);
     // The "More results" card is inside a shared markup region, so the summary line is added here, not in the markup.
     let planLine = document.getElementById('cliffPlanSummary');
     if (!planLine) {
@@ -13761,6 +14315,22 @@
     }
   }
 
+  // E1e: the status cell also says what inherited money the year holds (appended to the title; US only, renderTable is shared).
+  function annotateInheritedRows(sim) {
+    for (const tr of document.querySelectorAll('#projectionRows tr')) {
+      const age = Number(tr.cells[0] && tr.cells[0].textContent),
+        r = sim.rows.find((x) => x.age === age),
+        cell = tr.querySelector('.table-status');
+      if (!r || !cell || r.inheritedTrad === undefined) continue;
+      // The shared table shows money(displayValue(x, year)); the tooltip uses the same units.
+      const d = (x) => money(displayValue(x, r.year)),
+        drew = r.inheritedDraw > 0;
+      if (!(r.inheritedTrad > 0 || r.inheritedRoth > 0 || drew)) continue;
+      const note = `includes inherited traditional ${d(r.inheritedTrad)} / Roth ${d(r.inheritedRoth)}${drew ? ` · inherited drawn this year ${d(r.inheritedDraw)}` : ''}`;
+      cell.title = cell.title ? `${cell.title} · ${note}` : note;
+    }
+  }
+
   // @@shared:20-renderTable begin
   function renderTable(sim) {
     const years = [
@@ -14837,17 +15407,17 @@
       noun: 'lump sum',
       rowTitle: (i) => `One-time income ${i + 1}`,
       addLabel: '+ Add a one-time income',
-      note: 'Lump sums received at a specific age, each with its own tax treatment.',
-      tip: "Tax-free lumps (an inheritance of cash, investments or a house, whose basis steps up to the value at death; life insurance; a gift received; a home-sale gain within the $250,000 / $500,000 exclusion ($500,000 also for a surviving spouse selling within two years); a sale at cost) are added to cash. Taxable lumps are income of the year received and pay their own tax first. Amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
+      note: 'Lump sums and inherited accounts received at a specific age, each with its own tax treatment.',
+      tip: "Tax-free lumps (an inheritance of cash, investments or a house, whose basis steps up to the value at death; life insurance; a gift received; a home-sale gain within the $250,000 / $500,000 exclusion ($500,000 also for a surviving spouse selling within two years); a sale at cost) are added to cash. Taxable lumps are income of the year received and pay their own tax first. Amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'. An inherited IRA or 401(k) is not a lump: pick it under Tax treatment and it becomes an account that grows and is drawn on the legal schedule.",
       fresh: () => ({ amount: 0, age: 65, flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false }),
       fields: [
         { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
         {
           key: 'kind', kind: 'select', label: 'Tax treatment',
-          options: [['free', 'Tax-free'], ['wages', 'Wages (severance, bonus)'], ['ordinary', 'Ordinary income, no payroll tax'], ['gain', 'Long-term capital gain']],
-          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation; a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA.",
+          options: [['free', 'Tax-free'], ['wages', 'Wages (severance, bonus)'], ['ordinary', 'Ordinary income, no payroll tax'], ['gain', 'Long-term capital gain'], ['inheritedTrad', 'Inherited traditional IRA / 401(k)'], ['inheritedRoth', 'Inherited Roth IRA / 401(k)']],
+          tip: "Wages: severance or a bonus; taxed on the owner's return with Social Security and Medicare tax (sharing the owner's wage base with their salary); counts as earned income for the child tax credit; no 401(k) or IRA contribution is made from it. Ordinary income, no payroll tax: nonqualified deferred compensation (its payroll tax was normally paid when it vested) or similar compensation; a taxable prize or award (not from an employer: an employer's award is wages); not a pension or annuity payout (not modeled). Long-term capital gain: the sale of a business, a rental or other property held over a year; only the gain share is taxed, at long-term rates; the state taxes it as it taxes investment gains, with no rule for real estate or a business (Washington's capital gains tax excludes real estate, but the planner charges it); a part taxed as ordinary income (depreciation recapture, inventory) can be entered as a separate ordinary lump, an approximation (a rental's depreciation is taxed at up to 25%, plus the NIIT). If the owner has died (in that year or earlier), wages and ordinary income are taxed to the survivor without payroll tax, and a gain is tax-free (the basis of an asset the owner held alone steps up at death). Every taxable kind raises the year's income for the ACA premium credit and, two years on, IRMAA. Inherited traditional IRA / 401(k): an account inherited from someone other than your partner (a parent, usually). It grows at the plan's stock return and is drawn evenly over the 10 years after the year of death (1/10 of the balance, then 1/9, ... the rest in year 10), never less than the yearly required distribution on the owner's life expectancy (which only matters for an owner in their 80s, or in a steep market fall), taxed as ordinary income on the owner's return, with no 10% penalty at any age. A past account's balance is not in the Funded % tile. If the household runs short, it is drawn earlier (after your own penalty-free money, before money that would owe the 10% early-withdrawal penalty and before home equity). Inherited Roth IRA / 401(k): tax-free, left to grow and paid out in the 10th year. Both: enter the balance in the year received; a past year is allowed (enter today's balance; the draws cover the years left). An account inherited from a death before 2020 is drawn at the yearly required minimum over your life expectancy, with no 10-year deadline (the rules of that time). A 401(k) is assumed moved to an inherited IRA. Not modeled: the longer payout open to a spouse, a minor child of the decedent, a disabled or chronically ill heir or one not more than 10 years younger than the decedent; a plan that pays out faster. State tax: see the note under the state selector.",
         },
-        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: (it) => !state.singlePerson && (it.kind === 'wages' || it.kind === 'ordinary' || it.kind === 'gain') },
+        { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: (it) => !state.singlePerson && (it.kind === 'wages' || it.kind === 'ordinary' || it.kind === 'gain' || it.kind === 'inheritedTrad' || it.kind === 'inheritedRoth') },
         {
           key: 'gainPct', kind: 'num', label: 'Gain share of the amount, %', min: 0, max: 100, step: 1, showIf: (it) => it.kind === 'gain',
           tip: 'The sale price less the basis (what was paid plus improvements, less depreciation), as a share of the amount; the rest comes back tax-free.',
@@ -17163,6 +17733,19 @@
     };
   };
   window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
+  window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
+  window.__test_inhNoNeedAdj = (on) => { testInhNoNeedAdj = !!on; };
+  window.__test_inhForceExtra = (year, slot, x) => { testInhForce = year === null ? null : { year, slot, x }; };
+  window.__test_inhTakeCount = (reset) => { const n = inhTakeCount; if (reset) inhTakeCount = 0; return n; };
+  window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0; return n; };
+  window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
+  // Test-only: run fn with state patched, restoring it afterwards.
+  window.__test_withState = (patch, fn) => {
+    const saved = {};
+    for (const k of Object.keys(patch)) saved[k] = state[k];
+    Object.assign(state, patch);
+    try { return fn(); } finally { Object.assign(state, saved); }
+  };
   window.__test_payrollTax = payrollTax;
   window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
   window.__test_streamCoverBits = streamCoverBits;

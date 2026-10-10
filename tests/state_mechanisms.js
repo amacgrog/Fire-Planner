@@ -537,6 +537,52 @@ function checks() {
   near(t.taxFor(sep({ ownerShareA: 0.8 }), 0, 100000) - t.taxFor(sep({}), 0, 100000), fed(80000, 20000) - fed(50000, 50000), 'taxFor, two returns: the federal tax follows the split');
   delete R.zzp;
 
+  // --- E1e: the five inherited kinds (spec 6.4) -------------------------------------------------------------------------
+  // zz: flat 10%, no deduction or exemption, base.ordinary true, Social Security exempt, single column. The filer has a
+  // $10,000 IRA draw of their own and a $30,000 inherited draw; ages as stated. Every sources object carries all five
+  // inherited fields.
+  const inhS = (o) => Object.assign({ retirement: 10000, retirementA: 10000, retirementB: 0, inherited: 30000, inheritedA: 30000, inheritedB: 0, inheritedExclA: 0, inheritedExclB: 0, ages: [50] }, o);
+  const withKind = (kind, row) => Object.assign({ inherited: kind === 'decedent' ? { kind, cap: 20000 } : { kind } }, row);
+  const perI = (o) => ({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, 6000]], reducedBy: 'none', share: null, ...o } });
+  // ordinary: 10% x (10,000 + 30,000) = 4,000
+  near(run(withKind('ordinary', {}), inhS({})), 4000, 'inherited ordinary: taxed with the own draw');
+  // exempt: 10% x 10,000 = 1,000
+  near(run(withKind('exempt', {}), inhS({})), 1000, 'inherited exempt: only the own draw is taxed');
+  // heir at 50: nothing excluded (under 59.5): 4,000; at 60: min(10,000 + 30,000, 6,000) = 6,000 excluded: 10% x 34,000 = 3,400
+  near(run(withKind('heir', perI({})), inhS({})), 4000, 'inherited heir, age 50: no exclusion');
+  near(run(withKind('heir', perI({})), inhS({ ages: [60] })), 3400, 'inherited heir, age 60: shares the 6,000 cap with the own draw');
+  // heirAnyAge at 50: the inherited amount bypasses the age test, the own draw does not: min(30,000, 6,000) = 6,000: 3,400; at 60: 3,400
+  near(run(withKind('heirAnyAge', perI({})), inhS({})), 3400, 'inherited heirAnyAge, age 50: the inherited amount bypasses the age test');
+  near(run(withKind('heirAnyAge', perI({})), inhS({ ages: [60] })), 3400, 'inherited heirAnyAge, age 60: still the 6,000 cap');
+  // heirAnyAge, Colorado's shape (tiers 55: 20,000, 65: 24,000), age 50: no cap of their own; the inherited amount up to the first
+  // tier's cap, min(30,000, 20,000) = 20,000, the own draw nothing: 10% x 20,000 = 2,000; age 60: min(10,000 + 30,000, 20,000): 2,000
+  const coShape = perI({ pensionMinAge: 55, traditionalMinAge: 55, tiers: [[55, 20000], [65, 24000]] });
+  near(run(withKind('heirAnyAge', coShape), inhS({})), 2000, 'inherited heirAnyAge, Colorado shape, age 50: the first tier cap, own draw nothing');
+  near(run(withKind('heirAnyAge', coShape), inhS({ ages: [60] })), 2000, 'inherited heirAnyAge, Colorado shape, age 60: shares the cap');
+  // heir, Connecticut's shape (agiPhasedShare, a share of 1): (10,000 + 30,000) all excluded: 0
+  near(run(withKind('heir', { retirementExclusion: { kind: 'agiPhasedShare', inclusive: true, tables: cols([[0, 1]]) } }), inhS({})), 0, 'inherited heir, agiPhasedShare: the whole draw joins the retirement amount');
+  // decedent, cap 20,000: inheritedExclA 20,000 -> 10% x (40,000 - 20,000) = 2,000; 5,000 -> 10% x 35,000 = 3,500
+  near(run(withKind('decedent', {}), inhS({ inheritedExclA: 20000 })), 2000, 'inherited decedent: the 20,000 room');
+  near(run(withKind('decedent', {}), inhS({ inheritedExclA: 5000 })), 3500, 'inherited decedent: a smaller room');
+  // a draw of 12,000 against a 20,000 room: min(12,000, 20,000) is excluded, not the room: 10% x (10,000 + 12,000 - 12,000)
+  near(run(withKind('decedent', {}), inhS({ inherited: 12000, inheritedA: 12000, inheritedExclA: 20000 })), 1000, 'inherited decedent: never more than the draw');
+  // WA-like (base.ordinary false): the draw is never taxed, whatever the kind (no gains): 0
+  for (const k of ['ordinary', 'exempt', 'heir']) {
+    const wa = withKind(k, Object.assign(perI({}), { base: { ordinary: false, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' } }));
+    near(run(wa, inhS({ ages: [60] })), 0, 'inherited ' + k + ' on a no-ordinary-tax row: not taxed');
+  }
+  // sources without the fields at all (a legacy test object) read as no inherited draw: 10% x 10,000
+  near(run(withKind('exempt', {}), { retirement: 10000, ages: [50] }), 1000, 'sources without inherited fields: the old tax');
+
+  // Through taxFor's two-filer branch (New York's decedent exclusion, per return). B (50) has a $30,000 inherited draw inside
+  // otherB (80,000 = 50,000 + 30,000, the federal side) and 50,000 of state wages; the state sees the draw through
+  // inheritedB with a 20,000 room: B's state base is 50,000 + 30,000 - 20,000 = 60,000, the same as a twin with no inherited
+  // fields and 60,000 of wages (extraB raised by 10,000, the taxed part). Every inhOn profile carries all six fields.
+  const nyOf = (p) => { st.stateTax = 'ny'; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; return a - t.taxFor(p, 0, 0); };
+  const sepNy = (o) => profile(Object.assign({ filing: 'single', ageA: 62, ageB: 50, otherB: 80000, extraB: 50000 }, o));
+  const inhP = sepNy({ inhOn: true, inheritedA: 0, inheritedB: 30000, inhExtraA: 0, inhExtraB: 0, inhExclA: 0, inhExclB: 20000 });
+  const twinP = sepNy({ inhOn: false, inheritedB: 0, inhExclB: 0, extraB: 60000 });
+  near(nyOf(inhP), nyOf(twinP), 'taxFor two returns, NY: the decedent room on the owning return');
   st.stateTax = 'tx';
   return fails;
 }
