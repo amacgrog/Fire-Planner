@@ -1881,6 +1881,12 @@ shared-region change. Every citation of the scope note above was checked against
   scheduled draw back net of its own tax (one extra `taxFor` per pass in a year with a scheduled draw). Also: the draw in the
   state `ordinaryNonSS` (Washington), the fourth estimate's full site list, one heir-age convention, inherited snapshot
   scenarios only in the last commit. The owner asked for a third independent review.
+- **Third spec review (independent Opus review of `cdd1758`, 2026-10-09):** no blocking, 3 should-fix, 10 minor, all adopted (spec
+  section 11). Owner decisions: 16, the need readers also remove the premium credit the draw costs (one extra premium evaluation
+  per pass in a year with a scheduled draw); 17, a death before 2020 is stretched over the heir's life expectancy (RMD alone, no
+  deadline, any past year; the surviving partner empties it within 10 years of the heir's death, SECURE Act section 401(b)(5));
+  the select offers the new kinds only from commit 3. Also `inhOn` set in every year of an inherited run (a receipt-year last
+  resort was untaxed). The owner chose to go to the implementation plan.
 - Found on the way, outside E1e: the RI row excludes all traditional draws, but Rhode Island's modification never covers IRA
   income (Open items).
 
