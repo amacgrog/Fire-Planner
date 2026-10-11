@@ -2261,6 +2261,11 @@ modeled); Pub. 501 now quoted and labelled IRS guidance (no statute or final reg
 assessed by month (CMCS bulletin 12/8/2025; the whole join year counts); `int: true` on the field; test details. No blocking
 findings, which meets the review loop's stop condition.
 
+Plan `docs/superpowers/plans/2026-10-10-e2-adoption.md` (three tasks: 1 the engine and normalization in the shared
+`01-LIST_MAX` plus the US `hasChildAtMost`, with the hand-computed tests and the legacy cases; 2 the field, the shared
+renderer option, copy, README and badges US V129 / Canada V60, with `test_children.js`; 3 CLAUDE.md, the implementation
+record and the gates). Plan review: pending.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
