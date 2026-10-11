@@ -1,4 +1,3 @@
-  let histTaxFactors = null;
   // The plan's own factor for a whole year index, remembered while state.inflation is the value it was computed
   // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
   // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.

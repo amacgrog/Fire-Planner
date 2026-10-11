@@ -1,6 +1,7 @@
 import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
 import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
+import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
 (() => {
   const defaults = {
     singlePerson: false,
@@ -1832,7 +1833,6 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
   // cumulative CPI, so a 1970s-style inflation sequence raises the brackets
   // along with spending instead of leaving them on a 2.5% schedule.
   // @@shared:06-histTaxFactors begin
-  let histTaxFactors = null;
   // The plan's own factor for a whole year index, remembered while state.inflation is the value it was computed
   // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
   // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.
@@ -11412,7 +11412,7 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
   function computeCliffPlan() {
     if (!state.cliffGuardEnabled) return { plan: null, report: null };
     const prevFactors = histTaxFactors;
-    histTaxFactors = null;
+    assignHistTaxFactors(null);
     try {
       const run = (planMode, plan) =>
         runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan });
@@ -11442,7 +11442,7 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
         report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
       };
     } finally {
-      histTaxFactors = prevFactors;
+      assignHistTaxFactors(prevFactors);
     }
   }
   // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
@@ -11489,11 +11489,11 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
   // sidebar, since no historical series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const prevTaxFactors = histTaxFactors;
-    histTaxFactors = [];
+    assignHistTaxFactors([]);
     try {
       return runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA, retireAgeB });
     } finally {
-      histTaxFactors = prevTaxFactors;
+      assignHistTaxFactors(prevTaxFactors);
     }
   }
 
@@ -16965,12 +16965,12 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
       measure();
     } else {
       const prev = histTaxFactors;
-      histTaxFactors = [];
+      assignHistTaxFactors([]);
       try {
         sim = runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
         measure();
       } finally {
-        histTaxFactors = prev;
+        assignHistTaxFactors(prev);
       }
     }
     return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim, ...(endValue ? { value, estate } : null) };
@@ -17056,11 +17056,11 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
     const trace = [];
     if (hist) {
       const prevTaxFactors = histTaxFactors;
-      histTaxFactors = [];
+      assignHistTaxFactors([]);
       try {
         runProjection({ mode: BUCKET_MODE, source: historicalYearSource(hist), retireAgeA, retireAgeB, trace });
       } finally {
-        histTaxFactors = prevTaxFactors;
+        assignHistTaxFactors(prevTaxFactors);
       }
     } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
     return trace;
@@ -17138,11 +17138,11 @@ import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, c
     else {
       ensureTestPlan();
       const prev = histTaxFactors;
-      histTaxFactors = [];
+      assignHistTaxFactors([]);
       try {
         runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'apply', plan: cliffPlan, planTrace });
       } finally {
-        histTaxFactors = prev;
+        assignHistTaxFactors(prev);
       }
     }
     return planTrace;

@@ -11,11 +11,11 @@
   // sidebar, since no historical series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const prevTaxFactors = histTaxFactors;
-    histTaxFactors = [];
+    assignHistTaxFactors([]);
     try {
       return runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA, retireAgeB });
     } finally {
-      histTaxFactors = prevTaxFactors;
+      assignHistTaxFactors(prevTaxFactors);
     }
   }
 
