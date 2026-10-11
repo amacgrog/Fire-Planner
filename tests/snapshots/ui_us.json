@@ -1,0 +1,3392 @@
+{
+ "planner": "US",
+ "load": {
+  "desktop": {
+   "errors": [],
+   "horizontalOverflow": false
+  },
+  "mobile": {
+   "errors": [],
+   "horizontalOverflow": false
+  }
+ },
+ "mcp": {
+  "schemaHash": "6bc1822e56eaea07",
+  "toolNames": [
+   "update_fire_assumptions",
+   "read_fire_projection"
+  ],
+  "propertyNames": [
+   "ageA",
+   "ageB",
+   "lifeExpectancyA",
+   "lifeExpectancyB",
+   "retireAgeA",
+   "retireAgeB",
+   "incomeA",
+   "incomeB",
+   "matchA",
+   "matchB",
+   "profitSharingPctA",
+   "profitSharingPctB",
+   "k401PctA",
+   "k401PctB",
+   "catchupPctA",
+   "catchupPctB",
+   "iraPctA",
+   "iraPctB",
+   "megaPctA",
+   "megaPctB",
+   "spending",
+   "incomeGrowth",
+   "inflation",
+   "medicalInflation",
+   "taxable",
+   "basisRatio",
+   "tradIraA",
+   "trad401kA",
+   "rothIraA",
+   "roth401kA",
+   "tradIraB",
+   "trad401kB",
+   "rothIraB",
+   "roth401kB",
+   "rothIraBasisA",
+   "rothIraBasisB",
+   "roth401kBasisPctA",
+   "roth401kBasisPctB",
+   "cash",
+   "cashReserve",
+   "bondYears",
+   "returnRate",
+   "bondReturn",
+   "hysaRate",
+   "dividendYield",
+   "qualifiedDivPct",
+   "homeValue",
+   "homeGrowth",
+   "mortgagePrincipal",
+   "mortgage",
+   "mortgageRate",
+   "mortgageYears",
+   "extraPrincipal",
+   "maintenance",
+   "propertyTax",
+   "propertyTaxGrowth",
+   "homeInsurance",
+   "homeInsuranceGrowth",
+   "rent",
+   "rentGrowth",
+   "ssMonthlyA",
+   "ssStartAgeA",
+   "ssMonthlyB",
+   "ssStartAgeB",
+   "pensionYearlyA",
+   "pensionStartAgeA",
+   "pensionYearlyB",
+   "pensionStartAgeB",
+   "healthPremiumA",
+   "healthPremiumB",
+   "healthcare",
+   "medicareYearly",
+   "irmaaMagiPrior2",
+   "irmaaMagiPrior1",
+   "ltcYearlyA",
+   "ltcAgeA",
+   "ltcYearlyB",
+   "ltcAgeB",
+   "marriageAgeA",
+   "survivorDeathAge",
+   "survivorSpendingPct",
+   "rothConvStartAge",
+   "rothConvEndAge",
+   "sepp72tIraAgeA",
+   "sepp72tK401AgeA",
+   "sepp72tIraAgeB",
+   "sepp72tK401AgeB",
+   "buyAge",
+   "buyDownPct",
+   "buyClosingPct",
+   "buyTerm",
+   "buyExtraPrincipal",
+   "singlePerson",
+   "megaBackdoor",
+   "ltcEnabled",
+   "acaEnabled",
+   "medicaidWhenEligible",
+   "irmaaPriorKnown",
+   "employerCoversSpouseA",
+   "employerCoversSpouseB",
+   "rothConvEnabled",
+   "withdrawalMixEnabled",
+   "cliffGuardEnabled",
+   "ruleOf55A",
+   "ruleOf55B",
+   "sepp72tIraA",
+   "sepp72tK401A",
+   "sepp72tIraB",
+   "sepp72tK401B",
+   "tenure",
+   "buyCash",
+   "k401Type",
+   "incomeKindA",
+   "incomeKindB",
+   "iraType",
+   "pensionCoverage",
+   "filingStatus",
+   "marryLater",
+   "survivorEnabled",
+   "survivorPartner"
+  ],
+  "enums": {
+   "tenure": [
+    "own",
+    "rent",
+    "rentThenBuy"
+   ],
+   "k401Type": [
+    "traditional",
+    "roth"
+   ],
+   "incomeKindA": [
+    "wages",
+    "self"
+   ],
+   "incomeKindB": [
+    "wages",
+    "self"
+   ],
+   "iraType": [
+    "traditional",
+    "roth"
+   ],
+   "pensionCoverage": [
+    "none",
+    "a",
+    "b",
+    "both"
+   ],
+   "filingStatus": [
+    "mfj",
+    "single"
+   ],
+   "survivorPartner": [
+    "A",
+    "B"
+   ]
+  },
+  "executeProjectionHash": "3ce1dcdb881ae259",
+  "executeStateHash": "27e7318c932ceace",
+  "readMatchesExecute": true
+ },
+ "surfaces": {
+  "std default": {
+   "textHash": "61d656270cced9d9",
+   "textLength": 29184,
+   "projectionHash": "2fe7a27107168a77",
+   "rowsHash": "702245fcdd7af2a4",
+   "histSuccess": "85%",
+   "errors": []
+  },
+  "std R": {
+   "textHash": "aa10abf76454c324",
+   "textLength": 28676,
+   "projectionHash": "73dad8c139e6fb21",
+   "rowsHash": "4f381e8f76fa135b",
+   "histSuccess": "89%",
+   "errors": []
+  },
+  "std R everything": {
+   "textHash": "41e61e81fc1af320",
+   "textLength": 30493,
+   "projectionHash": "1937d5e7083b0eae",
+   "rowsHash": "c75656c14b428e96",
+   "histSuccess": "49%",
+   "errors": []
+  }
+ },
+ "wiring": {
+  "acaEnabled": {
+   "value": true,
+   "stateDiff": {
+    "acaEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "acaEnabled",
+    "wizardAcaEnabled"
+   ],
+   "hiddenNowVisible": [
+    "acaEnhancedField",
+    "medicaidWhenEligibleField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c748e02e6a34",
+   "reloadDomHash": "c748e02e6a34",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "acaEnhanced": {
+   "value": true,
+   "stateDiff": {
+    "acaEnhanced": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "acaEnhanced"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "e341160d072c",
+   "reloadDomHash": "e341160d072c",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ageA": {
+   "value": "37",
+   "stateDiff": {
+    "ageA": [
+     48,
+     37
+    ]
+   },
+   "domChanged": [
+    "ageA",
+    "wizardAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d9746a0f4bd7",
+   "reloadDomHash": "d9746a0f4bd7",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ageB": {
+   "value": "37",
+   "stateDiff": {
+    "ageB": [
+     43,
+     37
+    ]
+   },
+   "domChanged": [
+    "ageB",
+    "wizardAgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "853d876b8a4b",
+   "reloadDomHash": "853d876b8a4b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "basisRatio": {
+   "value": "37",
+   "stateDiff": {
+    "basisRatio": [
+     50,
+     37
+    ]
+   },
+   "domChanged": [
+    "basisRatio"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "12f8bfc42e29",
+   "reloadDomHash": "12f8bfc42e29",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "bondReturn": {
+   "value": "2.4000000000000004",
+   "stateDiff": {
+    "bondReturn": [
+     4,
+     2.4000000000000004
+    ]
+   },
+   "domChanged": [
+    "bondReturn"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "fad1dee5adee",
+   "reloadDomHash": "fad1dee5adee",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "bondYears": {
+   "value": "5.5",
+   "stateDiff": {
+    "bondYears": [
+     5,
+     5.5
+    ]
+   },
+   "domChanged": [
+    "bondYears"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "9b749133b935",
+   "reloadDomHash": "9b749133b935",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "buyAge": {
+   "value": "48",
+   "stateDiff": {
+    "buyAge": [
+     50,
+     48
+    ]
+   },
+   "domChanged": [
+    "buyAge"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "2e115c0e67c8",
+   "reloadDomHash": "2e115c0e67c8",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "buyClosingPct": {
+   "value": "3.5",
+   "stateDiff": {
+    "buyClosingPct": [
+     4,
+     3.5
+    ]
+   },
+   "domChanged": [
+    "buyClosingPct"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f24b598a970e",
+   "reloadDomHash": "f24b598a970e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "buyDownPct": {
+   "value": "37",
+   "stateDiff": {
+    "buyDownPct": [
+     20,
+     37
+    ]
+   },
+   "domChanged": [
+    "buyDownPct"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "a0b9c4122c39",
+   "reloadDomHash": "a0b9c4122c39",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "buyExtraPrincipal": {
+   "value": "1900",
+   "stateDiff": {
+    "buyExtraPrincipal": [
+     0,
+     1900
+    ]
+   },
+   "domChanged": [
+    "buyExtraPrincipal"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "a5e6bbf85855",
+   "reloadDomHash": "a5e6bbf85855",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "buyTerm": {
+   "value": "15",
+   "stateDiff": {
+    "buyTerm": [
+     30,
+     15
+    ]
+   },
+   "domChanged": [
+    "buyTerm"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "51307d2899dc",
+   "reloadDomHash": "51307d2899dc",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "cash": {
+   "value": "70000",
+   "stateDiff": {
+    "cash": [
+     50000,
+     70000
+    ]
+   },
+   "domChanged": [
+    "cash"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "a72fd51f5b09",
+   "reloadDomHash": "7a6e5168a690",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "cashReserve": {
+   "value": "110000",
+   "stateDiff": {
+    "cashReserve": [
+     30000,
+     110000
+    ]
+   },
+   "domChanged": [
+    "cashReserve"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "fd556403dfd7",
+   "reloadDomHash": "fd556403dfd7",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "catchupPctA": {
+   "value": "37",
+   "stateDiff": {
+    "catchupPctA": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "catchupPctA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "2b2bdf9d9ff0",
+   "reloadDomHash": "2b2bdf9d9ff0",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "catchupPctB": {
+   "value": "37",
+   "stateDiff": {
+    "catchupPctB": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "catchupPctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "20b8e7ea8369",
+   "reloadDomHash": "20b8e7ea8369",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "cliffGuardEnabled": {
+   "value": false,
+   "stateDiff": {
+    "cliffGuardEnabled": [
+     true,
+     false
+    ]
+   },
+   "domChanged": [
+    "cliffGuardEnabled"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f1a90d51dd82",
+   "reloadDomHash": "f1a90d51dd82",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "dividendYield": {
+   "value": "3",
+   "stateDiff": {
+    "dividendYield": [
+     1.5,
+     3
+    ]
+   },
+   "domChanged": [
+    "dividendYield"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "393689e92c24",
+   "reloadDomHash": "393689e92c24",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "employerCoversSpouseA": {
+   "value": false,
+   "stateDiff": {
+    "employerCoversSpouseA": [
+     true,
+     false
+    ]
+   },
+   "domChanged": [
+    "employerCoversSpouseA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "5bdc666d4a5f",
+   "reloadDomHash": "5bdc666d4a5f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "employerCoversSpouseB": {
+   "value": false,
+   "stateDiff": {
+    "employerCoversSpouseB": [
+     true,
+     false
+    ]
+   },
+   "domChanged": [
+    "employerCoversSpouseB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "62450f4b065f",
+   "reloadDomHash": "62450f4b065f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "extraPrincipal": {
+   "value": "1900",
+   "stateDiff": {
+    "extraPrincipal": [
+     0,
+     1900
+    ]
+   },
+   "domChanged": [
+    "extraPrincipal"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "7d624e6ba906",
+   "reloadDomHash": "7d624e6ba906",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "guardrailsEnabled": {
+   "value": true,
+   "stateDiff": {
+    "guardrailsEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "guardrailsEnabled",
+    "wizardGuardrailsEnabled"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "b3714fbc2d6e",
+   "reloadDomHash": "b3714fbc2d6e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "healthPremiumA": {
+   "value": "12350",
+   "stateDiff": {
+    "healthPremiumA": [
+     0,
+     12350
+    ]
+   },
+   "domChanged": [
+    "healthPremiumA"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "6d5f145287bf",
+   "reloadDomHash": "6d5f145287bf",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "healthPremiumB": {
+   "value": "12350",
+   "stateDiff": {
+    "healthPremiumB": [
+     0,
+     12350
+    ]
+   },
+   "domChanged": [
+    "healthPremiumB"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "a5e52995ce90",
+   "reloadDomHash": "a5e52995ce90",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "healthcare": {
+   "value": "25000",
+   "stateDiff": {
+    "healthcare": [
+     18000,
+     25000
+    ]
+   },
+   "domChanged": [
+    "healthcare"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "5c37723aee87",
+   "reloadDomHash": "5c37723aee87",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "homeGrowth": {
+   "value": "2.4000000000000004",
+   "stateDiff": {
+    "homeGrowth": [
+     3,
+     2.4000000000000004
+    ]
+   },
+   "domChanged": [
+    "homeGrowth"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "671f24d7e86b",
+   "reloadDomHash": "671f24d7e86b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "homeInsurance": {
+   "value": "12250",
+   "stateDiff": {
+    "homeInsurance": [
+     0,
+     12250
+    ]
+   },
+   "domChanged": [
+    "homeInsurance"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "f9b352f61b4f",
+   "reloadDomHash": "f9b352f61b4f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "homeInsuranceGrowth": {
+   "value": "7.4",
+   "stateDiff": {
+    "homeInsuranceGrowth": [
+     2.5,
+     7.4
+    ]
+   },
+   "domChanged": [
+    "homeInsuranceGrowth"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "e44cf08c2bab",
+   "reloadDomHash": "e44cf08c2bab",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "homeValue": {
+   "value": "620000",
+   "stateDiff": {
+    "homeValue": [
+     450000,
+     620000
+    ]
+   },
+   "domChanged": [
+    "homeValue"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "287504f85daa",
+   "reloadDomHash": "287504f85daa",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "hysaRate": {
+   "value": "4.4",
+   "stateDiff": {
+    "hysaRate": [
+     4,
+     4.4
+    ]
+   },
+   "domChanged": [
+    "hysaRate"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f1d3c81b86a5",
+   "reloadDomHash": "f1d3c81b86a5",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "incomeA": {
+   "value": "138000",
+   "stateDiff": {
+    "incomeA": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "incomeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "09376cd1d4ca",
+   "reloadDomHash": "51bc9b205413",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "incomeB": {
+   "value": "138000",
+   "stateDiff": {
+    "incomeB": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "incomeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c4d19d46a260",
+   "reloadDomHash": "2e7527de3f52",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "incomeGrowth": {
+   "value": "5.5",
+   "stateDiff": {
+    "incomeGrowth": [
+     3,
+     5.5
+    ]
+   },
+   "domChanged": [
+    "incomeGrowth"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "4fe700f5b8bf",
+   "reloadDomHash": "4fe700f5b8bf",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "inflation": {
+   "value": "3.7",
+   "stateDiff": {
+    "inflation": [
+     2.5,
+     3.7
+    ]
+   },
+   "domChanged": [
+    "inflation"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "fa8da85bd903",
+   "reloadDomHash": "fa8da85bd903",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "iraPctA": {
+   "value": "37",
+   "stateDiff": {
+    "iraPctA": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "iraPctA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "48d0f577303b",
+   "reloadDomHash": "48d0f577303b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "iraPctB": {
+   "value": "37",
+   "stateDiff": {
+    "iraPctB": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "iraPctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f21ae1048218",
+   "reloadDomHash": "f21ae1048218",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "irmaaMagiPrior1": {
+   "value": "12000",
+   "stateDiff": {
+    "irmaaMagiPrior1": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "irmaaMagiPrior1"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "0b67c0904da2",
+   "reloadDomHash": "0b67c0904da2",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "irmaaMagiPrior2": {
+   "value": "12000",
+   "stateDiff": {
+    "irmaaMagiPrior2": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "irmaaMagiPrior2"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "7866d99cab7f",
+   "reloadDomHash": "7866d99cab7f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "irmaaPriorKnown": {
+   "value": true,
+   "stateDiff": {
+    "irmaaPriorKnown": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "irmaaPriorKnown"
+   ],
+   "hiddenNowVisible": [
+    "irmaaPriorFields"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d0e22d3603a4",
+   "reloadDomHash": "d0e22d3603a4",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "k401PctA": {
+   "value": "37",
+   "stateDiff": {
+    "k401PctA": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "k401PctA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "7c9de4ccba73",
+   "reloadDomHash": "7c9de4ccba73",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "k401PctB": {
+   "value": "37",
+   "stateDiff": {
+    "k401PctB": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "k401PctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "29229ec8e546",
+   "reloadDomHash": "29229ec8e546",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "lifeExpectancyA": {
+   "value": "72",
+   "stateDiff": {
+    "lifeExpectancyA": [
+     100,
+     72
+    ]
+   },
+   "domChanged": [
+    "lifeExpectancyA"
+   ],
+   "hiddenNowVisible": [
+    "unusualAssumptionsBanner",
+    "unusualToast"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3dd700805d73",
+   "reloadDomHash": "a3f0cd3a194b",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "lifeExpectancyB": {
+   "value": "72",
+   "stateDiff": {
+    "lifeExpectancyB": [
+     100,
+     72
+    ]
+   },
+   "domChanged": [
+    "lifeExpectancyB"
+   ],
+   "hiddenNowVisible": [
+    "unusualAssumptionsBanner",
+    "unusualToast"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "cc319cf2083e",
+   "reloadDomHash": "22f71c903a46",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "logScaleToggle": {
+   "value": true,
+   "stateDiff": {},
+   "domChanged": [
+    "logScaleToggle"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [],
+   "domHash": "22c191e78b30",
+   "reloadDomHash": "f2eb85722803",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ltcAgeA": {
+   "value": "75",
+   "stateDiff": {
+    "ltcAgeA": [
+     82,
+     75
+    ]
+   },
+   "domChanged": [
+    "ltcAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d56032d1fb81",
+   "reloadDomHash": "d56032d1fb81",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ltcAgeB": {
+   "value": "75",
+   "stateDiff": {
+    "ltcAgeB": [
+     82,
+     75
+    ]
+   },
+   "domChanged": [
+    "ltcAgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "e4b18d3501fc",
+   "reloadDomHash": "e4b18d3501fc",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ltcEnabled": {
+   "value": true,
+   "stateDiff": {
+    "ltcEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "ltcEnabled",
+    "wizardLtcEnabled"
+   ],
+   "hiddenNowVisible": [
+    "ltcFields",
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "e91587d1301e",
+   "reloadDomHash": "e91587d1301e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ltcYearlyA": {
+   "value": "70000",
+   "stateDiff": {
+    "ltcYearlyA": [
+     50000,
+     70000
+    ]
+   },
+   "domChanged": [
+    "ltcYearlyA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "aebba1b5942f",
+   "reloadDomHash": "aebba1b5942f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ltcYearlyB": {
+   "value": "70000",
+   "stateDiff": {
+    "ltcYearlyB": [
+     50000,
+     70000
+    ]
+   },
+   "domChanged": [
+    "ltcYearlyB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "218c0fe34f5b",
+   "reloadDomHash": "218c0fe34f5b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "maintenance": {
+   "value": "8500",
+   "stateDiff": {
+    "maintenance": [
+     6000,
+     8500
+    ]
+   },
+   "domChanged": [
+    "maintenance"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d05adf476fe0",
+   "reloadDomHash": "d05adf476fe0",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "marriageAgeA": {
+   "value": "48",
+   "stateDiff": {
+    "marriageAgeA": [
+     55,
+     48
+    ]
+   },
+   "domChanged": [
+    "marriageAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "b00d0652b81f",
+   "reloadDomHash": "b00d0652b81f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "marryLater": {
+   "value": true,
+   "stateDiff": {
+    "marryLater": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "marryLater"
+   ],
+   "hiddenNowVisible": [
+    "marriageAgeField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "066e351146f5",
+   "reloadDomHash": "066e351146f5",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "matchA": {
+   "value": "37",
+   "stateDiff": {
+    "matchA": [
+     0,
+     37
+    ]
+   },
+   "domChanged": [
+    "matchA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "706b7d69c0e8",
+   "reloadDomHash": "706b7d69c0e8",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "matchB": {
+   "value": "37",
+   "stateDiff": {
+    "matchB": [
+     0,
+     37
+    ]
+   },
+   "domChanged": [
+    "matchB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c5290a7b1e4d",
+   "reloadDomHash": "c5290a7b1e4d",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "medicaidWhenEligible": {
+   "value": false,
+   "stateDiff": {
+    "medicaidWhenEligible": [
+     true,
+     false
+    ]
+   },
+   "domChanged": [
+    "medicaidWhenEligible"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "22f27800d84e",
+   "reloadDomHash": "22f27800d84e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "medicalInflation": {
+   "value": "1.9000000000000001",
+   "stateDiff": {
+    "medicalInflation": [
+     1,
+     1.9000000000000001
+    ]
+   },
+   "domChanged": [
+    "medicalInflation"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "0b7318f86621",
+   "reloadDomHash": "0b7318f86621",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "medicareYearly": {
+   "value": "14000",
+   "stateDiff": {
+    "medicareYearly": [
+     10000,
+     14000
+    ]
+   },
+   "domChanged": [
+    "medicareYearly"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "88c06b4db714",
+   "reloadDomHash": "88c06b4db714",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "megaBackdoor": {
+   "value": true,
+   "stateDiff": {
+    "megaBackdoor": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "megaBackdoor",
+    "wizardMegaBackdoor"
+   ],
+   "hiddenNowVisible": [
+    "megaAField",
+    "megaBField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "29b0fb7ce3f5",
+   "reloadDomHash": "29b0fb7ce3f5",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "megaPctA": {
+   "value": "37",
+   "stateDiff": {
+    "megaPctA": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "megaPctA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "671964f93eab",
+   "reloadDomHash": "671964f93eab",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "megaPctB": {
+   "value": "37",
+   "stateDiff": {
+    "megaPctB": [
+     100,
+     37
+    ]
+   },
+   "domChanged": [
+    "megaPctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "1fe0713f325a",
+   "reloadDomHash": "1fe0713f325a",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mlMixLever": {
+   "value": true,
+   "stateDiff": {},
+   "domChanged": [
+    "mlMixLever"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [],
+   "domHash": "4df16e0d5237",
+   "reloadDomHash": "f2eb85722803",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mlRothLever": {
+   "value": true,
+   "stateDiff": {},
+   "domChanged": [
+    "mlRothLever"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [],
+   "domHash": "1426bb01ba62",
+   "reloadDomHash": "f2eb85722803",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mlSmoothLever": {
+   "value": true,
+   "stateDiff": {},
+   "domChanged": [
+    "mlSmoothLever"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [],
+   "domHash": "b1e1e1372c41",
+   "reloadDomHash": "f2eb85722803",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mortgage": {
+   "value": "412000",
+   "stateDiff": {
+    "mortgage": [
+     300000,
+     412000
+    ]
+   },
+   "domChanged": [
+    "mortgage"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "e549da79a1df",
+   "reloadDomHash": "e549da79a1df",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mortgagePrincipal": {
+   "value": "412000",
+   "stateDiff": {
+    "mortgagePrincipal": [
+     300000,
+     412000
+    ]
+   },
+   "domChanged": [
+    "mortgagePrincipal"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f1fab0f1c000",
+   "reloadDomHash": "f1fab0f1c000",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mortgageRate": {
+   "value": "7.4",
+   "stateDiff": {
+    "mortgageRate": [
+     5.5,
+     7.4
+    ]
+   },
+   "domChanged": [
+    "mortgageRate"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "2ab4ea45c3dc",
+   "reloadDomHash": "2ab4ea45c3dc",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "mortgageYears": {
+   "value": "15",
+   "stateDiff": {
+    "mortgageYears": [
+     30,
+     15
+    ]
+   },
+   "domChanged": [
+    "mortgageYears"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "e2045bb8bd14",
+   "reloadDomHash": "e2045bb8bd14",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "payFrequency": {
+   "value": "weekly",
+   "stateDiff": {
+    "payFrequency": [
+     "biweekly",
+     "weekly"
+    ]
+   },
+   "domChanged": [
+    "payFrequency"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "054bb344edb0",
+   "reloadDomHash": "054bb344edb0",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "pensionStartAgeA": {
+   "value": "69",
+   "stateDiff": {
+    "pensionStartAgeA": [
+     67,
+     69
+    ]
+   },
+   "domChanged": [
+    "pensionStartAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "45fcc0fe5802",
+   "reloadDomHash": "45fcc0fe5802",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "pensionStartAgeB": {
+   "value": "69",
+   "stateDiff": {
+    "pensionStartAgeB": [
+     67,
+     69
+    ]
+   },
+   "domChanged": [
+    "pensionStartAgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "e164560bd110",
+   "reloadDomHash": "e164560bd110",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "pensionYearlyA": {
+   "value": "12500",
+   "stateDiff": {
+    "pensionYearlyA": [
+     0,
+     12500
+    ]
+   },
+   "domChanged": [
+    "pensionYearlyA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "2dcac5c953eb",
+   "reloadDomHash": "2dcac5c953eb",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "pensionYearlyB": {
+   "value": "12500",
+   "stateDiff": {
+    "pensionYearlyB": [
+     0,
+     12500
+    ]
+   },
+   "domChanged": [
+    "pensionYearlyB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c8c481c2ebc3",
+   "reloadDomHash": "c8c481c2ebc3",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "profitSharingPctA": {
+   "value": "9.5",
+   "stateDiff": {
+    "profitSharingPctA": [
+     0,
+     9.5
+    ]
+   },
+   "domChanged": [
+    "profitSharingPctA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "444529a15076",
+   "reloadDomHash": "444529a15076",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "profitSharingPctB": {
+   "value": "9.5",
+   "stateDiff": {
+    "profitSharingPctB": [
+     0,
+     9.5
+    ]
+   },
+   "domChanged": [
+    "profitSharingPctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "10dd16e9db7b",
+   "reloadDomHash": "10dd16e9db7b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "propertyTax": {
+   "value": "12500",
+   "stateDiff": {
+    "propertyTax": [
+     0,
+     12500
+    ]
+   },
+   "domChanged": [
+    "propertyTax"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "f869efe2b41b",
+   "reloadDomHash": "f869efe2b41b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "propertyTaxGrowth": {
+   "value": "7.4",
+   "stateDiff": {
+    "propertyTaxGrowth": [
+     2.5,
+     7.4
+    ]
+   },
+   "domChanged": [
+    "propertyTaxGrowth"
+   ],
+   "hiddenNowVisible": [
+    "unusualAssumptionsBanner",
+    "unusualToast"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "fffc17dcf36b",
+   "reloadDomHash": "5a295c1543ba",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "qualifiedDivPct": {
+   "value": "35",
+   "stateDiff": {
+    "qualifiedDivPct": [
+     90,
+     35
+    ]
+   },
+   "domChanged": [
+    "qualifiedDivPct"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "07866e4da4b2",
+   "reloadDomHash": "07866e4da4b2",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rent": {
+   "value": "3500",
+   "stateDiff": {
+    "rent": [
+     2500,
+     3500
+    ]
+   },
+   "domChanged": [
+    "rent"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "993f2f909724",
+   "reloadDomHash": "993f2f909724",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rentGrowth": {
+   "value": "2.4000000000000004",
+   "stateDiff": {
+    "rentGrowth": [
+     3,
+     2.4000000000000004
+    ]
+   },
+   "domChanged": [
+    "rentGrowth"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "1704f1cb5459",
+   "reloadDomHash": "1704f1cb5459",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "retireAgeA": {
+   "value": "37",
+   "stateDiff": {
+    "retireAgeA": [
+     55,
+     37
+    ]
+   },
+   "domChanged": [
+    "retireAgeA",
+    "wizardRetireAgeA"
+   ],
+   "hiddenNowVisible": [
+    "chartShiftModeRow",
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "5d485a8d1bb2",
+   "reloadDomHash": "63c48205a961",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": false,
+   "errors": []
+  },
+  "retireAgeB": {
+   "value": "37",
+   "stateDiff": {
+    "retireAgeB": [
+     55,
+     37
+    ]
+   },
+   "domChanged": [
+    "retireAgeB",
+    "wizardRetireAgeB"
+   ],
+   "hiddenNowVisible": [
+    "chartShiftModeRow",
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "4c4816819f79",
+   "reloadDomHash": "d886d2560a3c",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": false,
+   "errors": []
+  },
+  "returnRate": {
+   "value": "1.1",
+   "stateDiff": {
+    "returnRate": [
+     7,
+     1.1
+    ]
+   },
+   "domChanged": [
+    "returnRate"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner",
+    "unusualAssumptionsBanner",
+    "unusualToast"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "08074ef1da47",
+   "reloadDomHash": "3f494b559d62",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "roth401kA": {
+   "value": "12000",
+   "stateDiff": {
+    "roth401kA": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "roth401kA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "8b8239378e2c",
+   "reloadDomHash": "c973e2716aa8",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "roth401kB": {
+   "value": "12000",
+   "stateDiff": {
+    "roth401kB": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "roth401kB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f9c2cdf7ce46",
+   "reloadDomHash": "d3001b0cd0f9",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "roth401kBasisPctA": {
+   "value": "37",
+   "stateDiff": {
+    "roth401kBasisPctA": [
+     50,
+     37
+    ]
+   },
+   "domChanged": [
+    "roth401kBasisPctA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3d906c97ec98",
+   "reloadDomHash": "3d906c97ec98",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "roth401kBasisPctB": {
+   "value": "37",
+   "stateDiff": {
+    "roth401kBasisPctB": [
+     50,
+     37
+    ]
+   },
+   "domChanged": [
+    "roth401kBasisPctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f8b93aaad069",
+   "reloadDomHash": "f8b93aaad069",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothConvBracket": {
+   "value": "10",
+   "stateDiff": {
+    "rothConvBracket": [
+     22,
+     10
+    ]
+   },
+   "domChanged": [
+    "rothConvBracket"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3278e35c2602",
+   "reloadDomHash": "3278e35c2602",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothConvEnabled": {
+   "value": true,
+   "stateDiff": {
+    "rothConvEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "rothConvEnabled",
+    "wizardRothConvEnabled"
+   ],
+   "hiddenNowVisible": [
+    "rothOptimizerCard"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3d0fb7e6c290",
+   "reloadDomHash": "3d0fb7e6c290",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothConvEndAge": {
+   "value": "48",
+   "stateDiff": {
+    "rothConvEndAge": [
+     63,
+     48
+    ]
+   },
+   "domChanged": [
+    "rothConvEndAge"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3ae61a8a5fb0",
+   "reloadDomHash": "3ae61a8a5fb0",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothConvStartAge": {
+   "value": "48",
+   "stateDiff": {
+    "rothConvStartAge": [
+     60,
+     48
+    ]
+   },
+   "domChanged": [
+    "rothConvStartAge"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "206a0a5ed6f2",
+   "reloadDomHash": "206a0a5ed6f2",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothIraA": {
+   "value": "35000",
+   "stateDiff": {
+    "rothIraA": [
+     25000,
+     35000
+    ]
+   },
+   "domChanged": [
+    "rothIraA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "ecb521abc357",
+   "reloadDomHash": "b889fc053eb2",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothIraB": {
+   "value": "35000",
+   "stateDiff": {
+    "rothIraB": [
+     25000,
+     35000
+    ]
+   },
+   "domChanged": [
+    "rothIraB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "6489a5e5cf03",
+   "reloadDomHash": "09b3a3b3ab34",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothIraBasisA": {
+   "value": "12000",
+   "stateDiff": {
+    "rothIraBasisA": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "rothIraBasisA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "42ae3ce2766e",
+   "reloadDomHash": "42ae3ce2766e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "rothIraBasisB": {
+   "value": "12000",
+   "stateDiff": {
+    "rothIraBasisB": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "rothIraBasisB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "dea282e16b9a",
+   "reloadDomHash": "dea282e16b9a",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ruleOf55A": {
+   "value": true,
+   "stateDiff": {
+    "ruleOf55A": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "ruleOf55A"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "bd584b97d8c6",
+   "reloadDomHash": "bd584b97d8c6",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ruleOf55B": {
+   "value": true,
+   "stateDiff": {
+    "ruleOf55B": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "ruleOf55B"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "79fac9e2f7f8",
+   "reloadDomHash": "79fac9e2f7f8",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sankeyAge": {
+   "value": "1",
+   "stateDiff": {},
+   "domChanged": [],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [],
+   "domHash": "f2eb85722803",
+   "reloadDomHash": "f2eb85722803",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "scenarioName": {
+   "value": "7",
+   "stateDiff": {},
+   "domChanged": [
+    "scenarioName"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "0f799fc9addc",
+   "reloadDomHash": "859ce4c0f4cb",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tIraA": {
+   "value": true,
+   "stateDiff": {
+    "sepp72tIraA": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "sepp72tIraA"
+   ],
+   "hiddenNowVisible": [
+    "sepp72tIraAAgeField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "19bd4091dd02",
+   "reloadDomHash": "19bd4091dd02",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tIraAgeA": {
+   "value": "37",
+   "stateDiff": {
+    "sepp72tIraAgeA": [
+     0,
+     37
+    ]
+   },
+   "domChanged": [
+    "sepp72tIraAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "34431314a572",
+   "reloadDomHash": "34431314a572",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tIraAgeB": {
+   "value": "37",
+   "stateDiff": {
+    "sepp72tIraAgeB": [
+     0,
+     37
+    ]
+   },
+   "domChanged": [
+    "sepp72tIraAgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "44d8f22c0b46",
+   "reloadDomHash": "44d8f22c0b46",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tIraB": {
+   "value": true,
+   "stateDiff": {
+    "sepp72tIraB": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "sepp72tIraB"
+   ],
+   "hiddenNowVisible": [
+    "sepp72tIraBAgeField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "56c1bdec2ae8",
+   "reloadDomHash": "56c1bdec2ae8",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tK401A": {
+   "value": true,
+   "stateDiff": {
+    "sepp72tK401A": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "sepp72tK401A"
+   ],
+   "hiddenNowVisible": [
+    "sepp72tK401AAgeField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "df525cf1c094",
+   "reloadDomHash": "df525cf1c094",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tK401AgeA": {
+   "value": "37",
+   "stateDiff": {
+    "sepp72tK401AgeA": [
+     0,
+     37
+    ]
+   },
+   "domChanged": [
+    "sepp72tK401AgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "fa028af2291f",
+   "reloadDomHash": "fa028af2291f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tK401AgeB": {
+   "value": "37",
+   "stateDiff": {
+    "sepp72tK401AgeB": [
+     0,
+     37
+    ]
+   },
+   "domChanged": [
+    "sepp72tK401AgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "2f0a3693827a",
+   "reloadDomHash": "2f0a3693827a",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "sepp72tK401B": {
+   "value": true,
+   "stateDiff": {
+    "sepp72tK401B": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "sepp72tK401B"
+   ],
+   "hiddenNowVisible": [
+    "sepp72tK401BAgeField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c07598ebc48e",
+   "reloadDomHash": "c07598ebc48e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "singlePerson": {
+   "value": true,
+   "stateDiff": {
+    "singlePerson": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "singlePerson",
+    "wizardSinglePerson"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "ageBHead",
+    "chartXAxisAgeBBtn",
+    "filingStatusFields",
+    "firstRunBanner",
+    "healthPremiumBField",
+    "matchBField",
+    "planHeadlineBanner",
+    "survivorGroup"
+   ],
+   "domHash": "eef516db5229",
+   "reloadDomHash": "eef516db5229",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "smoothWithdrawals": {
+   "value": true,
+   "stateDiff": {
+    "smoothWithdrawals": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "smoothWithdrawals"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "4e2c34947b4b",
+   "reloadDomHash": "4e2c34947b4b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "spending": {
+   "value": "83000",
+   "stateDiff": {
+    "spending": [
+     60000,
+     83000
+    ]
+   },
+   "domChanged": [
+    "spending"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "0211b05f023b",
+   "reloadDomHash": "2ca03127f9fa",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ssMonthlyA": {
+   "value": "3500",
+   "stateDiff": {
+    "ssMonthlyA": [
+     2500,
+     3500
+    ]
+   },
+   "domChanged": [
+    "ssMonthlyA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "0339b030c871",
+   "reloadDomHash": "0339b030c871",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ssMonthlyB": {
+   "value": "3500",
+   "stateDiff": {
+    "ssMonthlyB": [
+     2500,
+     3500
+    ]
+   },
+   "domChanged": [
+    "ssMonthlyB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "6c74842e82a4",
+   "reloadDomHash": "6c74842e82a4",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ssStartAgeA": {
+   "value": "65",
+   "stateDiff": {
+    "ssStartAgeA": [
+     62,
+     65
+    ]
+   },
+   "domChanged": [
+    "ssStartAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "bff470c3ce67",
+   "reloadDomHash": "bff470c3ce67",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "ssStartAgeB": {
+   "value": "65",
+   "stateDiff": {
+    "ssStartAgeB": [
+     62,
+     65
+    ]
+   },
+   "domChanged": [
+    "ssStartAgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "fd31d24601ce",
+   "reloadDomHash": "fd31d24601ce",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "stateTax": {
+   "value": "al",
+   "stateDiff": {
+    "stateTax": [
+     "ma",
+     "al"
+    ]
+   },
+   "domChanged": [
+    "stateTax"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "b4787854d367",
+   "reloadDomHash": "b4787854d367",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "survivorDeathAge": {
+   "value": "48",
+   "stateDiff": {
+    "survivorDeathAge": [
+     85,
+     48
+    ]
+   },
+   "domChanged": [
+    "survivorDeathAge"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "08ee0405a721",
+   "reloadDomHash": "08ee0405a721",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "survivorEnabled": {
+   "value": true,
+   "stateDiff": {
+    "survivorEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "survivorEnabled"
+   ],
+   "hiddenNowVisible": [
+    "survivorFields"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "24934f9b3d1d",
+   "reloadDomHash": "24934f9b3d1d",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "survivorPartner": {
+   "value": "B",
+   "stateDiff": {
+    "survivorPartner": [
+     "A",
+     "B"
+    ]
+   },
+   "domChanged": [
+    "survivorPartner"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "1a1abc3e1beb",
+   "reloadDomHash": "1a1abc3e1beb",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "survivorSpendingPct": {
+   "value": "45",
+   "stateDiff": {
+    "survivorSpendingPct": [
+     75,
+     45
+    ]
+   },
+   "domChanged": [
+    "survivorSpendingPct"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "790b4b6fb934",
+   "reloadDomHash": "790b4b6fb934",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "taxable": {
+   "value": "70000",
+   "stateDiff": {
+    "taxable": [
+     50000,
+     70000
+    ]
+   },
+   "domChanged": [
+    "taxable"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "caaee0176273",
+   "reloadDomHash": "ed234210ea3d",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "trad401kA": {
+   "value": "138000",
+   "stateDiff": {
+    "trad401kA": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "trad401kA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d77c41325286",
+   "reloadDomHash": "3d238816726d",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "trad401kB": {
+   "value": "138000",
+   "stateDiff": {
+    "trad401kB": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "trad401kB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "6819eb6151a7",
+   "reloadDomHash": "f0da7e87e10f",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "tradIraA": {
+   "value": "12000",
+   "stateDiff": {
+    "tradIraA": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "tradIraA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "61bfa62a3490",
+   "reloadDomHash": "4767f4130377",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "tradIraB": {
+   "value": "12000",
+   "stateDiff": {
+    "tradIraB": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "tradIraB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "48f6d61b80da",
+   "reloadDomHash": "b3e65f60afe7",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "withdrawalMixEnabled": {
+   "value": true,
+   "stateDiff": {
+    "withdrawalMixEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "withdrawalMixEnabled"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "cabcfbce216a",
+   "reloadDomHash": "cabcfbce216a",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardAcaEnabled": {
+   "value": true,
+   "stateDiff": {
+    "acaEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "acaEnabled",
+    "wizardAcaEnabled"
+   ],
+   "hiddenNowVisible": [
+    "acaEnhancedField",
+    "medicaidWhenEligibleField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c748e02e6a34",
+   "reloadDomHash": "c748e02e6a34",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardAgeA": {
+   "value": "37",
+   "stateDiff": {
+    "ageA": [
+     48,
+     37
+    ]
+   },
+   "domChanged": [
+    "ageA",
+    "wizardAgeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d9746a0f4bd7",
+   "reloadDomHash": "d9746a0f4bd7",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardAgeB": {
+   "value": "37",
+   "stateDiff": {
+    "ageB": [
+     43,
+     37
+    ]
+   },
+   "domChanged": [
+    "ageB",
+    "wizardAgeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "853d876b8a4b",
+   "reloadDomHash": "853d876b8a4b",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardCash": {
+   "value": "70000",
+   "stateDiff": {
+    "cash": [
+     50000,
+     70000
+    ]
+   },
+   "domChanged": [
+    "cash",
+    "wizardCash"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "7a6e5168a690",
+   "reloadDomHash": "7a6e5168a690",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardGuardrailsEnabled": {
+   "value": true,
+   "stateDiff": {
+    "guardrailsEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "guardrailsEnabled",
+    "wizardGuardrailsEnabled"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "b3714fbc2d6e",
+   "reloadDomHash": "b3714fbc2d6e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardIncomeA": {
+   "value": "138000",
+   "stateDiff": {
+    "incomeA": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "incomeA",
+    "wizardIncomeA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "51bc9b205413",
+   "reloadDomHash": "51bc9b205413",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardIncomeB": {
+   "value": "138000",
+   "stateDiff": {
+    "incomeB": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "incomeB",
+    "wizardIncomeB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "2e7527de3f52",
+   "reloadDomHash": "2e7527de3f52",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardLtcEnabled": {
+   "value": true,
+   "stateDiff": {
+    "ltcEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "ltcEnabled",
+    "wizardLtcEnabled"
+   ],
+   "hiddenNowVisible": [
+    "ltcFields",
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "e91587d1301e",
+   "reloadDomHash": "e91587d1301e",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardMegaBackdoor": {
+   "value": true,
+   "stateDiff": {
+    "megaBackdoor": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "megaBackdoor",
+    "wizardMegaBackdoor"
+   ],
+   "hiddenNowVisible": [
+    "megaAField",
+    "megaBField"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "29b0fb7ce3f5",
+   "reloadDomHash": "29b0fb7ce3f5",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRetireAgeA": {
+   "value": "37",
+   "stateDiff": {
+    "retireAgeA": [
+     55,
+     37
+    ]
+   },
+   "domChanged": [
+    "retireAgeA",
+    "wizardRetireAgeA"
+   ],
+   "hiddenNowVisible": [
+    "chartShiftModeRow",
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "5d485a8d1bb2",
+   "reloadDomHash": "63c48205a961",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": false,
+   "errors": []
+  },
+  "wizardRetireAgeB": {
+   "value": "37",
+   "stateDiff": {
+    "retireAgeB": [
+     55,
+     37
+    ]
+   },
+   "domChanged": [
+    "retireAgeB",
+    "wizardRetireAgeB"
+   ],
+   "hiddenNowVisible": [
+    "chartShiftModeRow",
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "4c4816819f79",
+   "reloadDomHash": "d886d2560a3c",
+   "reloadMatchesLive": false,
+   "reloadStateMatchesLive": false,
+   "errors": []
+  },
+  "wizardRoth401kA": {
+   "value": "12000",
+   "stateDiff": {
+    "roth401kA": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "roth401kA",
+    "wizardRoth401kA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "c973e2716aa8",
+   "reloadDomHash": "c973e2716aa8",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRoth401kB": {
+   "value": "12000",
+   "stateDiff": {
+    "roth401kB": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "roth401kB",
+    "wizardRoth401kB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "d3001b0cd0f9",
+   "reloadDomHash": "d3001b0cd0f9",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRothConvEnabled": {
+   "value": true,
+   "stateDiff": {
+    "rothConvEnabled": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "rothConvEnabled",
+    "wizardRothConvEnabled"
+   ],
+   "hiddenNowVisible": [
+    "rothOptimizerCard"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3d0fb7e6c290",
+   "reloadDomHash": "3d0fb7e6c290",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRothIraA": {
+   "value": "35000",
+   "stateDiff": {
+    "rothIraA": [
+     25000,
+     35000
+    ]
+   },
+   "domChanged": [
+    "rothIraA",
+    "wizardRothIraA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "b889fc053eb2",
+   "reloadDomHash": "b889fc053eb2",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRothIraB": {
+   "value": "35000",
+   "stateDiff": {
+    "rothIraB": [
+     25000,
+     35000
+    ]
+   },
+   "domChanged": [
+    "rothIraB",
+    "wizardRothIraB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "09b3a3b3ab34",
+   "reloadDomHash": "09b3a3b3ab34",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardSinglePerson": {
+   "value": true,
+   "stateDiff": {
+    "singlePerson": [
+     false,
+     true
+    ]
+   },
+   "domChanged": [
+    "singlePerson",
+    "wizardSinglePerson"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "ageBHead",
+    "chartXAxisAgeBBtn",
+    "filingStatusFields",
+    "firstRunBanner",
+    "healthPremiumBField",
+    "matchBField",
+    "planHeadlineBanner",
+    "survivorGroup"
+   ],
+   "domHash": "eef516db5229",
+   "reloadDomHash": "eef516db5229",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardSpending": {
+   "value": "83000",
+   "stateDiff": {
+    "spending": [
+     60000,
+     83000
+    ]
+   },
+   "domChanged": [
+    "spending",
+    "wizardSpending"
+   ],
+   "hiddenNowVisible": [
+    "shortfallBanner"
+   ],
+   "hiddenNowHidden": [
+    "firstRunBanner",
+    "planHeadlineBanner"
+   ],
+   "domHash": "2ca03127f9fa",
+   "reloadDomHash": "2ca03127f9fa",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardTaxable": {
+   "value": "70000",
+   "stateDiff": {
+    "taxable": [
+     50000,
+     70000
+    ]
+   },
+   "domChanged": [
+    "taxable",
+    "wizardTaxable"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "ed234210ea3d",
+   "reloadDomHash": "ed234210ea3d",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardTrad401kA": {
+   "value": "138000",
+   "stateDiff": {
+    "trad401kA": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "trad401kA",
+    "wizardTrad401kA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "3d238816726d",
+   "reloadDomHash": "3d238816726d",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardTrad401kB": {
+   "value": "138000",
+   "stateDiff": {
+    "trad401kB": [
+     100000,
+     138000
+    ]
+   },
+   "domChanged": [
+    "trad401kB",
+    "wizardTrad401kB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f0da7e87e10f",
+   "reloadDomHash": "f0da7e87e10f",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardTradIraA": {
+   "value": "12000",
+   "stateDiff": {
+    "tradIraA": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "tradIraA",
+    "wizardTradIraA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "4767f4130377",
+   "reloadDomHash": "4767f4130377",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardTradIraB": {
+   "value": "12000",
+   "stateDiff": {
+    "tradIraB": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "tradIraB",
+    "wizardTradIraB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "b3e65f60afe7",
+   "reloadDomHash": "b3e65f60afe7",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  }
+ }
+}

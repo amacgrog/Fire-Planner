@@ -9,6 +9,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 const file = path.resolve(__dirname, '..', 'Planner_US.html');
 
@@ -51,7 +52,7 @@ async function open(fields) {
   ];
   for (const [id, v] of base) await set(id, v);
   await page.evaluate(() => document.getElementById('rentBtn').click());
-  for (const [id, v] of [
+  for (const [id, v] of translateFieldList([
     ['rent', 0],
     ['taxable', 0],
     ['traditional', 0],
@@ -59,9 +60,9 @@ async function open(fields) {
     ['bondYears', 0],
     ['roth', 500000],
     ['rothBasisPct', 100],
-  ])
+    ...fields,
+  ], true, { single: true }))
     await set(id, v);
-  for (const [id, v] of fields) await set(id, v);
   await page.waitForTimeout(250);
   return { browser, page, errors };
 }
@@ -123,11 +124,12 @@ const grossForNet = (net) => {
 
   // 4. Conversion seasoning: convert in year 0, then draw from Roth only.
   // Principal converted in year 0 owes the penalty through year 4 (ages
-  // 41-44) and is free from year 5 (age 45).
+  // 41-44) and is free from year 5 (age 45). All the traditional money (100,000)
+  // is converted, so the unseasoned conversion is the only money left to draw.
   ({ browser, page, errors } = await open([
     ['rothBasisPct', 0],
     ['roth', 0],
-    ['traditional', 500000],
+    ['traditional', 100000],
     ['spending', 10000],
     ['rothConvEnabled', true],
     ['rothConvStartAge', 40],

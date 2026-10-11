@@ -9,6 +9,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 const root = path.resolve(__dirname, '..');
 
@@ -31,12 +32,15 @@ async function scenario(file, isUS, fields, years = 2) {
       { id, v },
     );
   // Retired single person, nothing but a taxable account, zero inflation, so
-  // every tax parameter is exactly its 2026 value.
+  // every tax parameter is exactly its 2026 value. The US person is 64, one year
+  // under the 65+ additional standard deduction and senior deduction (Batch 2),
+  // so the plain $16,100 standard deduction in the hand calculations applies.
+  const startAge = isUS ? 64 : 65;
   const base = [
     ['singlePerson', true],
-    ['ageA', 65],
-    ['retireAgeA', 65],
-    ['lifeExpectancyA', 65 + years],
+    ['ageA', startAge],
+    ['retireAgeA', startAge],
+    ['lifeExpectancyA', startAge + years],
     ['spending', 40000],
     ['healthcare', 0],
     ['ltcEnabled', false],
@@ -49,7 +53,7 @@ async function scenario(file, isUS, fields, years = 2) {
   else base.push(['cppMonthlyA', 0], ['oasMonthlyA', 0]);
   for (const [id, v] of base) await set(id, v);
   await page.evaluate(() => document.getElementById('rentBtn').click());
-  for (const [id, v] of [
+  for (const [id, v] of translateFieldList([
     ['rent', 0],
     ['traditional', 0],
     ['roth', 0],
@@ -57,7 +61,7 @@ async function scenario(file, isUS, fields, years = 2) {
     ['bondYears', 0],
     ['taxable', 1000000],
     ['basisRatio', 100],
-  ])
+  ], isUS, { single: true }))
     await set(id, v);
   for (const [id, v] of fields) await set(id, v);
   await page.waitForTimeout(250);
@@ -138,37 +142,42 @@ async function testUS() {
     ['acaEnabled', true],
     ['healthcare', 12000],
   ];
-  const noDiv = await scenario(file, true, [...aca, ['dividendYield', 0]]);
-  const withDiv = await scenario(file, true, [...aca, ['dividendYield', 2], ['qualifiedDivPct', 0]]);
+  // Texas is a non-expansion state: below 100% of poverty there is no credit (the full premium), so the
+  // comparison starts from a yield that already clears the floor.
+  const noDiv = await scenario(file, true, [...aca, ['dividendYield', 2], ['qualifiedDivPct', 0]]);
+  const withDiv = await scenario(file, true, [...aca, ['dividendYield', 3], ['qualifiedDivPct', 0]]);
   assert(
     withDiv[0].healthcare > noDiv[0].healthcare + 100,
-    `US ACA: dividends should raise net premium (no dividends ${noDiv[0].healthcare}, with ${withDiv[0].healthcare})`,
+    `US ACA: dividends should raise net premium (2% yield ${noDiv[0].healthcare}, 3% yield ${withDiv[0].healthcare})`,
   );
   console.log('[US] dividend/interest taxation tests passed');
 }
 
 async function testCanada() {
   const file = path.join(root, 'Planner_Canada.html');
+  // Ontario excluded: its Health Premium is based on the grossed-up dividend and is not reduced by the credit.
   const ordinary = await scenario(file, false, [
-    ['dividendYield', 2],
+    ['dividendYield', 4],
     ['qualifiedDivPct', 0],
   ]);
   const eligible = await scenario(file, false, [
-    ['dividendYield', 2],
+    ['province', 'bc'],
+    ['dividendYield', 4],
     ['qualifiedDivPct', 100],
   ]);
-  const none = await scenario(file, false, [['dividendYield', 0]]);
-  assert(ordinary[0].tax > none[0].tax + 200, `Canada: dividends should add tax (${ordinary[0].tax} vs ${none[0].tax})`);
+  const none = await scenario(file, false, [['province', 'bc'], ['dividendYield', 0]]);
+  assert(ordinary[0].tax > none[0].tax + 100, `Canada: dividends should add tax (${ordinary[0].tax} vs ${none[0].tax})`);
   assert(
     eligible[0].tax < ordinary[0].tax,
     `Canada: eligible dividends (gross-up + credit) should owe less than ordinary-rate dividends (${eligible[0].tax} vs ${ordinary[0].tax})`,
   );
-  // The grossed-up dividend (1.38x) is what counts as income: $20,000 of
-  // eligible dividends adds $27,600, versus $20,000 of ordinary dividends.
+  // The grossed-up dividend (1.38x) is what counts as income: $40,000 of
+  // eligible dividends adds $55,200, versus $40,000 of ordinary dividends.
+  // (4% on $1M: at $20,000 the 7N provincial low-income tax reductions clear most of the tax.)
   near(
     eligible[0].grossIncome - ordinary[0].grossIncome,
-    7600,
-    80,
+    15200,
+    160,
     'Canada: eligible dividends count grossed-up in income',
   );
   console.log('[Canada] dividend/interest taxation tests passed');

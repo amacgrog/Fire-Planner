@@ -24,6 +24,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { setBalance } = require('./legacy_balances');
 
 const setInput = (page, id, value) =>
   page.evaluate(
@@ -51,6 +52,12 @@ async function run(file, label, extra) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  // Plan year 0 is tax year 2030. The US temporary senior deduction ($6,000,
+  // tax years 2025-2028) is a fixed nominal amount that is deliberately not
+  // indexed, so it would break this fully-indexed invariant for a 65-year-old;
+  // after it ends the retiree faces only indexed parameters again (including
+  // the indexed 65+ additional standard deduction).
+  await page.clock.install({ time: new Date('2030-06-15T12:00:00Z') });
   await page.goto('file://' + path.resolve(file));
   await page.waitForTimeout(200);
 
@@ -79,10 +86,10 @@ async function run(file, label, extra) {
   await click(page, 'rentBtn');
   await setInput(page, 'rent', 0);
   await setInput(page, 'taxable', 0);
-  await setInput(page, 'roth', 0);
+  await setBalance(setInput, page, 'roth', 0, true);
   await setInput(page, 'cash', 0);
   await setInput(page, 'bondYears', 0);
-  await setInput(page, 'traditional', 2000000);
+  await setBalance(setInput, page, 'traditional', 2000000, true);
   await page.waitForTimeout(200);
 
   const start = 2000000;
@@ -114,8 +121,11 @@ async function run(file, label, extra) {
   for (let t = 0; t < lo.length; t++) {
     assert(lo[t] > 70000, `${label}: year ${t} draw should exceed spending (${lo[t]})`);
     const rel = Math.abs(hi[t] - lo[t]) / lo[t];
+    // Canada's $2,000 pension income amount is not indexed (statute), so a 65+ filer's tax
+    // drifts with inflation by a few thousandths; every indexed parameter must still cancel.
+    const tol = label === 'Canada' ? 3e-3 : 1e-6;
     assert(
-      rel < 1e-6,
+      rel < tol,
       `${label}: year ${t} real draw should not depend on inflation when taxes are indexed ` +
         `(2.5%: ${lo[t].toFixed(2)}, 10%: ${hi[t].toFixed(2)})`,
     );

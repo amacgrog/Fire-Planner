@@ -1,0 +1,10 @@
+          <div class="field"><label for="ltcEnabled"><input id="ltcEnabled" type="checkbox"> Model long-term care costs<small>Turn off to exclude LTC entirely from the projection.</small></label></div>
+          <div id="ltcFields">
+            <div class="field"><label for="ltcYearlyA">Partner A annual LTC <span class="info-nw">cost<span id="ltcLabelSuffix" hidden></span><button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Charged every year from the start age below, adjusted for inflation.">i</button></span></label><input id="ltcYearlyA" type="number" class="money" min="0" step="1000"></div>
+            <div class="field"><label for="ltcAgeA">Partner A LTC start age</label><input id="ltcAgeA" type="number" min="60" max="100" step="1"></div>
+            <div data-partner-b class="field"><label for="ltcYearlyB">Partner B annual LTC <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Charged every year from the start age below, adjusted for inflation.">i</button></span></label><input id="ltcYearlyB" type="number" class="money" min="0" step="1000"></div>
+            <div data-partner-b class="field"><label for="ltcAgeB">Partner B LTC start age</label><input id="ltcAgeB" type="number" min="60" max="100" step="1"></div>
+          </div>
+        </details>
+        <details class="group" id="survivorGroup" data-cat="extra">
+          <summary><span class="group-summary-text"><span class="group-title">Survivor planning</span><span class="group-state" id="survivorGroupState"></span></span></summary>

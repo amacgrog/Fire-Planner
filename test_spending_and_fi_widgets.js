@@ -33,6 +33,16 @@ async function open(browser, file, viewport = { width: 1280, height: 900 }) {
 }
 const rows = (page) => page.evaluate(() => window.fireProjectionRows.map((r) => ({ ...r })));
 const num = (page, id) => page.$eval(id, (e) => Number(String(e.value).replace(/[^0-9.\-]/g, '')));
+// Retirement balances: Canada has RRSP/TFSA fields; the US planner has four accounts per partner
+// (a partner B account is ignored in single-person mode, which this test does not use).
+async function retirementTotal(page) {
+  if (await page.$('#trad401kA')) {
+    let t = 0;
+    for (const id of ['tradIraA', 'trad401kA', 'rothIraA', 'roth401kA', 'tradIraB', 'trad401kB', 'rothIraB', 'roth401kB']) t += await num(page, '#' + id);
+    return t;
+  }
+  return (await num(page, '#traditional')) + (await num(page, '#roth'));
+}
 async function fill(page, sel, v) {
   await page.fill(sel, String(v));
   await page.waitForTimeout(60);
@@ -176,7 +186,7 @@ async function run(browser, file) {
   check((await swr[1].inputValue()) === '5', 'the two rate boxes stay in sync');
   const funded = parseInt(await page.$eval('#fiNumberSub', (e) => e.textContent), 10);
   const liquid =
-    (await num(page, '#taxable')) + (await num(page, '#traditional')) + (await num(page, '#roth')) + (await num(page, '#cash')) + ((await page.$('#fhsa')) ? await num(page, '#fhsa') : 0);
+    (await num(page, '#taxable')) + (await retirementTotal(page)) + (await num(page, '#cash')) + ((await page.$('#fhsa')) ? await num(page, '#fhsa') : 0);
   check(/liquid/i.test(await page.$eval('#fiNumberSub', (e) => e.textContent)), 'funded % is labeled as liquid assets');
   check(Number.isFinite(funded), 'funded % is a number: ' + funded);
   // funded% = liquid / fiNumber(unrounded); verify within the rounding of the compact display

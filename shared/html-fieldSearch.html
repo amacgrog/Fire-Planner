@@ -1,0 +1,34 @@
+            <input type="search" id="fieldSearch" placeholder="Search fields — e.g. &quot;income&quot;, &quot;mortgage&quot;…" title="Find and jump to any assumption field by name" aria-label="Search assumptions by field name" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="fieldSearchResults" aria-autocomplete="list">
+            <div class="field-search-results" id="fieldSearchResults" role="listbox" aria-label="Matching fields" hidden></div>
+          </div>
+          <span id="fieldSearchCount" class="field-search-count" hidden></span>
+        </div>
+        <div class="panel-body" id="panelBody">
+        <nav class="category-rail" id="categoryRail" aria-label="Jump to a category of assumptions">
+          <button type="button" class="active" data-cat="all">All</button>
+          <button type="button" data-cat="scenarios">Scenarios</button>
+          <button type="button" data-cat="profile">Profile &amp; taxes</button>
+          <button type="button" data-cat="timeline">Timeline</button>
+          <button type="button" data-cat="income">Income</button>
+          <button type="button" data-cat="spending">Spending</button>
+          <button type="button" data-cat="assets">Assets</button>
+          <button type="button" data-cat="housing">Housing</button>
+          <button type="button" data-cat="healthcare">Retirement &amp; healthcare</button>
+          <button type="button" data-cat="extra">Other items</button>
+          <button type="button" data-cat="advanced">Advanced</button>
+        </nav>
+        <div class="category-fields" id="categoryFields">
+        <details class="group" data-cat="scenarios" open>
+          <summary>Scenarios</summary>
+          <p class="range-note">Save named scenarios to compare or reuse <span class="info-nw">later.<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Scenarios live in this browser tab only until you export them — export any scenario you want to keep past this session or carry into a future update, and re-import it any time. Missing fields are filled in from current defaults, so older exports keep working.">i</button></span></p>
+          <div class="field" style="display:flex;gap:6px;align-items:flex-end">
+            <div style="flex:1"><label for="scenarioName">Scenario name</label><input id="scenarioName" type="text" placeholder="e.g. Retire at 55" maxlength="60"></div>
+            <button type="button" id="saveScenarioBtn" class="btn-card" style="white-space:nowrap">Save current</button>
+          </div>
+          <div id="scenarioList"></div>
+          <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <button type="button" id="importScenarioBtn" class="btn-card">Import scenario file…</button>
+            <button type="button" id="exportAllScenariosBtn" class="btn-card" hidden>Export all as one file</button>
+            <input id="importScenarioInput" type="file" accept="application/json,.json" hidden>
+          </div>
+        </details>

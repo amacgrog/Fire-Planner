@@ -835,6 +835,12 @@ mobile widths.
 
 ### The `simulate()` / `simulateHistorical()` duplication trap
 
+> **Update (Phase 2 and Batch 1):** both are now thin wrappers over one engine,
+> `runProjection()`, and the historical run has the Roth conversion ladder, the
+> ACA/IRMAA gating, the mix modes and the bond ladder (see "Phase 2 step 2A" and
+> "Batch 1"). The only remaining difference is `bucketStrategy`. The caution below
+> about not assuming a change to one applies to the other is historical.
+
 These two functions share large near-identical blocks of logic (contribution
 limits, RMD/RRIF math, tax profile construction, healthcare/LTC costs,
 withdrawal waterfall, etc), but are **not** literally identical — each has
@@ -3672,6 +3678,8 @@ only ever ran withdrawals through `taxFor()`. Added:
   no per-row tax breakdown at all (bucket-strategy backtest/Monte Carlo only
   cares about balances/depletion), so the penalty there only reduces net
   withdrawal proceeds, nothing to add to a row.
+  *(Update, Batch 1: historical rows now carry the same tax/penalty columns as
+  standard rows, including `earlyPenalty`.)*
 - **`ruleOf55Enabled`** (checkbox): waives the penalty from age 55–59.5 for
   whichever partner retires at or after 55. Doesn't help a partner retiring
   younger than 55 — real Rule of 55 requires separating from service in the
@@ -5910,6 +5918,11 @@ Carlo views keep their own bucket-strategy withdrawal order (cash → bond
 reserve → taxable → traditional → Roth, sized for sequence-of-returns
 protection), which this live toggle does not touch.
 
+> **Update (Batch 1):** the live mix, smooth withdrawals and applied schedules now
+> also apply to the historical backtest and Monte Carlo, in the stock-account step
+> of the bucket order only (cash and bonds still go first in a down year). See
+> "Batch 1 step 5".
+
 **UI.** Checkbox `#withdrawalMixEnabled`, directly below
 `#smoothWithdrawals` in "Withdrawal & tax strategy," off by default,
 labeled "Optimized withdrawal order (live)" with `<small>` text explaining
@@ -6544,3 +6557,542 @@ Design (identical in `simulate()` and `simulateHistoricalCore()`):
 - Invariant test: `tests/survivor_symmetry.js` runs two identical partners and requires A-dies and B-dies to give identical tax, income and balances from the death year on (US and Canada); it failed on both planners before the fixes.
 - Still true and unchanged: a death modeled during a working year doesn't zero that year's payroll (the deceased partner's `wageA/wageB` still flows through `wages`), as the survivor tooltip already warns.
 
+
+
+## Phase 2 refactor safety net (2026-10)
+
+Baseline recorded before any refactor commit (branch `claude/tender-meitner-a3bo59`,
+based on the Phase 1 merge, US V74 / Canada V33):
+
+- `npm test` (the pre-existing tests) green, about 78 s. Root `test_*.js`
+  Playwright scripts: all 8 exit 0 (not in CI).
+- Exact-match engine snapshot (`tests/snapshot.js`): 435 US / 339 Canada
+  scenarios. Mutation-checked: nudging one constant by 1e-7 (relative) in
+  `simulate()` or `simulateHistoricalCore()` in either planner fails it.
+  The clock is pinned (Playwright `page.clock`) because the engines key tax
+  indexing off the current year; Monte Carlo paths use a seeded block
+  bootstrap built in the test, never `Math.random`.
+- Known today and therefore *encoded in the baseline*: the historical engine
+  ignores `smoothWithdrawals`, `withdrawalMixEnabled` and the applied mix
+  schedule (several scenario outputs are identical across those flags), has no
+  pre-retirement ladder, and does not pass `age` to `solveRothConversion`. The
+  follow-up behavior branch regenerates only the historical entries.
+- Real crash-era paths exhaust the plain "R" portfolio before the 70s, so each
+  non-default historical scenario also runs with a richer portfolio (`rich`)
+  to reach survivor / RMD / late-life logic.
+- UI snapshot (`tests/snapshot_ui.js`) records existing quirks as-is, e.g. a
+  retirement age set below current age is clamped on reload, and money fields
+  re-format after a reload.
+- Dead-code tripwire: no top-level function in either planner is referenced
+  only at its own definition (191 US / 157 Canada), so any later deletion is
+  deliberate.
+
+### Phase 2 rounding-only baseline changes
+
+The engine snapshot is exact. Where sharing code between `simulate()` and
+`simulateHistoricalCore()` forces one floating-point association order on both
+(they previously summed the same terms in different orders), the engine whose
+order changed moves by units in the 16th digit. Such a change is accepted only
+after `node tests/snapshot.js --compare <old dump> <new dump> --tol 1e-9`
+proves every differing number is within 1e-9 relative, and is recorded here.
+
+- Shared `payrollTax()`: historical engine, 4 scenarios in working years
+  (`hist default | real1929 / real2000 / crashFirst / mc1`, US): taxable,
+  investable, total, bonds differ by about 1e-16 relative. Standard engine
+  unchanged.
+- Shared Canada `payrollTax()` (CPP): historical engine, 6 Canada scenarios in
+  working years (`hist default | real1973 / real2000 / crashFirst / sawtooth /
+  flat / mc2`) differ by about 1e-16 relative. Standard engine unchanged.
+
+### Phase 2 step 1 result (per-year helpers, `bal`, withdrawal blocks)
+
+All extractions kept the engine and UI snapshots exact except the two
+payroll-tax association changes recorded above. Engine sizes (lines, from
+function start to end): US `simulate()` 1066 -> 464 and `simulateHistoricalCore`
+813 -> 349; Canada `simulate()` 686 -> 352 and historical 574 -> 268.
+Micro-benchmark (400 runs, default early-retiree state, in-page): US standard
+engine 0.69-0.76 -> 0.74-0.83 ms (about +5-8%); US historical 0.34-0.44 ->
+0.33-0.34 ms; Canada standard 1.6 -> 1.05 ms; Canada historical 0.68-0.79 ->
+0.58 ms. Helpers that are byte-identical in both planners (for the later
+shared-region step): listAmountsForYear, pensionIncome, loanPaymentForYear,
+nextGuardrailMultiplier, withdrawRequiredDistributions, sweepExcessCash,
+rotateIntoBondLadder, refillBondReserve, takeCash/takeHomeEquity-shaped blocks.
+
+### Phase 2 step 2A: one engine (`runProjection`)
+
+`simulate()` and `simulateHistorical()` are now wrappers over `runProjection()`
+(US and Canada). Findings worth keeping:
+
+- **Summation order is part of the numbers.** The two engines summed the same
+  cash-flow terms in different orders (`... - baseSpend - healthcare - ...`
+  vs `... - totalExpense - ...`). The results differ by rounding, but the
+  withdrawal bisection (24 fixed iterations, discrete comparisons) amplifies it:
+  moving the bucket engine to the standard order changed 308 of 435 US
+  historical scenarios and, at the worst, by more than 1e-3 relative. So the
+  bucket mode keeps its own order, written out in one place in the engine
+  (`const flow = mode.bucketStrategy ? ... : ...`). Unify it only as a
+  deliberate numerics change with a regenerated baseline. (The payroll-tax
+  association change recorded above stayed under 1e-9 and was accepted.)
+- **The historical engine only evaluated the safe-MAGI ceiling inside the
+  Roth-conversion window.** Computing it every year (as the standard engine does)
+  marks the year as depending on the MAGI estimate and triggers extra
+  rewind-and-rerun passes (years 63-69 in the benchmark path), with identical
+  results but +30% `taxFor` calls. `usesMagiRoom` keeps the old behavior until
+  the parity work lifts the ceiling in the bucket mode on purpose.
+  *(Done in Batch 1 step 3: the switch is gone; the extra passes converged to
+  identical results in all 794 scenarios.)*
+- Row and result key order is preserved per mode (the UI snapshot hashes
+  `window.fireProjectionRows` without sorting keys).
+- Performance (best of 7 trials of 400 runs, default early-retiree state, vs the
+  pre-refactor code): US standard +3% to +11% (avg about +5%); US historical
+  +4% to +12% (avg about +9%); Canada standard about -35%; Canada historical
+  about -12%. Most time is tax calculation (about 55% in `ordinaryTax` and
+  `taxIndexFactor`), not the engine. Per-year allocations that mattered: a
+  closure table rebuilt in every bucket withdrawal (now module-level) and string
+  concatenation for balance keys (now a constant map).
+
+### Phase 2 step 3: field registry (`FIELDS`)
+
+Replaces the `ids` array, ~35 hand-written listener blocks, the field lines of
+both sync functions, the MCP schema/allow-list and four enum guards in
+`normalizeState`, in both planners (US: 78 numeric + 27 other entries; Canada:
+75 + 14). The generic machinery (header comment, `syncFieldDom`, `syncFns`,
+`MCP_FIELDS` helpers, the two listener loops) is byte-identical in both files.
+Decisions worth keeping:
+
+- **The two sync functions stay separate.** A registry entry names its owner
+  (`sync`) and its listener's `resync` list, preserving the exact call pattern
+  (e.g. singlePerson runs both; the contribution sliders run the contribution
+  sync *after* `saveInputs`). Merging them would let a slider drag reformat a
+  money field the user is typing in (see the focus guard in `syncControls`).
+- **`defaults` is not owned by the registry.** Moving defaults would change the
+  key order of `state` (and of exported/autosaved JSON). `tests/field_registry.js`
+  asserts every registry key exists in state instead.
+- **Registry order is behavior.** Numeric entries keep the old `ids` order and the
+  non-numeric ones the old MCP order, so the MCP schema hash is unchanged
+  (checked by the UI snapshot).
+- **Enum guards only where they existed.** `fallback`/`values` were added only for
+  `tenure`, `filingStatus`, `survivorPartner`, `payFrequency` (+ `province` in
+  Canada); `k401Type`, `iraType`, `pensionCoverage`, `stateTax` still have no
+  `normalizeState` guard. Adding one is a behavior change, not a refactor.
+- Not in the registry on purpose: the wizard's numeric mirrors and `wizard*`
+  numeric listeners, `fiWithdrawalRate` (two `.swr-input` boxes), the add-as-you-go
+  DYN lists, chart/optimizer display toggles, the search box, the scenario name.
+- Mutation-checked: an unregistered control, a removed entry and a bad `sync`
+  value each fail `tests/field_registry.js`.
+
+### Phase 2 step 4: shared regions between the planners
+- `scripts/sync-shared.js` keeps byte-identical code in a single canonical copy
+  (`shared/<name>.js|.css|.html`); each planner holds a copy between
+  `@@shared:<name> begin/end` markers (comment style picks the type: `//`, `/* */`,
+  `<!-- -->`). `--check` (first in `npm test`) fails on drift; `--pull <file>`
+  adopts an in-place edit. 54 regions: 43 JS, the whole stylesheet, 10 markup.
+- Cosmetic drift was removed first: comment-only differences were unified
+  (country-specific wording kept per planner), which let adjacent runs merge.
+  Gotcha: a shared comment must not name a country-specific thing (it would be
+  wrong in the other file) or say "above"/"below" (the order differs per file).
+- Canada's stylesheet had drifted from the US one (missing the mobile
+  `.review-nav` safe-area/keyboard offset, two rules reordered); it now uses the
+  shared sheet. Canada V34.
+- Engine decision: only the stage helpers are shared (`newGuardrails`,
+  `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`,
+  `mortgageResultAges`, plus the earlier per-year helpers). The `runProjection`
+  loops stay per-country: most lines differ, a hook object would rename ~100
+  country-specific variables, add per-year allocation to a hot path and risk
+  reordering pinned float operations. Revisit only with a timing benchmark.
+
+## Batch 1: historical parity and gradual bond refill (PR #2, merged 2026-10-03)
+
+Source: `docs/next-batches-plan.md` (Batch 1), `docs/phase2-refactor-plan.md`
+Appendix A. Seven commits on `claude/batch-1-historical-parity`, merged into
+`claude/tender-meitner-a3bo59` as `caa93f6`. US V75 -> V80, Canada V34 -> V38.
+
+**What it did.** The historical-backtest and Monte Carlo run (`BUCKET_MODE`) now
+executes the strategy the user configured instead of a reduced one. The mode
+switches that existed only because the historical engine lacked a feature were
+turned on one at a time and then deleted; `bucketStrategy` is the only switch
+left in `STANDARD_MODE`/`BUCKET_MODE`. Rows and result fields are identical in
+both modes (historical adds `cumFactor` and `startYear`). The bond reserve is
+refilled gradually, and the pre-retirement ladder follows the same source order
+in both engines.
+
+**End state (rules as they stand after step 7).**
+- Bucket cascade: down year = cash, bond taxable/traditional/Roth, `stocks`, home;
+  up year = `stocks`, cash, bonds, home, then the refill. `stocks` is one grouped
+  step that runs the user's mix mode (US: applied/override schedule, live mix,
+  smooth; Canada: smooth only) or, with none on, taxable -> traditional -> Roth.
+- Surplus years: surplus income refills the bond bucket up to the surplus and the
+  `bondYears` target (`routeSurplus`), no extra cap.
+- Up-year refill from stocks (`refillBondReserve(wd, bondTarget, { maxMove })`):
+  at most one year of that year's non-lump expenses into bonds per year, traditional/
+  RRSP first, then Roth/TFSA (reallocations: no income, no tax, no penalty, any
+  age), then taxable only as a last resort (a real sale: gain into
+  `wd.taxableGainGross`, tax from the proceeds). Never cash or home equity.
+- Pre-retirement ladder (`rotateIntoBondLadder`, both engines): same source order,
+  same taxable rule, returns the realized gain.
+- Only the taxable bond bucket's interest is taxed each year (retirement-account
+  bonds grow untaxed; checked, no change needed).
+
+**Outcome: seeded success rates, start of Batch 1 -> end** (2000 paths, seed 7):
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 81.5% -> 84.5% |
+| US | early retiree | 90.6% -> 86.8% | 87.2% -> 86.8% |
+| Canada | default | 75.6% -> 78.0% | 74.3% -> 77.0% |
+| Canada | early retiree | 88.7% -> 90.6% | 88.2% -> 88.3% |
+
+Standard-engine numbers moved only in step 7 (112 of 114 standard scenarios); every
+earlier step left all 114 standard scenarios byte-identical. The per-step sections
+below record each change as it landed, so some tables describe behavior a later
+step replaced (the ladder's half-and-half split from step 4 is superseded by step
+7; the refill rules in step 6 were refined during the step).
+
+**Process notes worth keeping.**
+- Always compare against a worktree of the previous commit (`git worktree add`,
+  `node tests/snapshot.js --root <worktree> --dump A --update-nothing`, then
+  `--dump B`, then `--compare A B`), and regenerate snapshots only after the diff
+  matches the intended change. In `npm run snapshot:update` the UI baseline also
+  moves when rendered methodology text changes.
+- Every new test was mutation-checked: temporarily break the rule in the planner
+  and confirm the test fails. A mutation that breaks both engines the same way
+  does not fail a parity test; that case needs a snapshot scenario.
+- Background-job trap: a `pgrep -f '<pattern>'` wait loop also matches the shell
+  that contains the pattern, so it never ends; likewise `pkill -f` can kill the
+  invoking shell. Wait on a file or an exit status instead.
+
+Tools added in this batch: `tests/historical_parity.js` and `tests/bond_refill.js`
+(both in `npm test`), `tests/historical_rates.js [--root DIR]` (before/after
+success-rate table, not in `npm test`), and four test hooks,
+`window.__test_runHistoricalCycles`, `window.__test_runMonteCarlo`,
+`window.__test_refillBondReserve` and `window.__test_rotateIntoBondLadder`. To see what a historical-engine change moved,
+dump a worktree of the previous commit and the current tree
+(`node tests/snapshot.js --root <worktree> --dump A --update-nothing`, then
+`--dump B`) and compare; when the change only adds row columns, compare
+field-wise (every key of A must equal B's) rather than with `--compare`.
+
+**Success-rate baseline (before Batch 1; seeded Monte Carlo, 2000 paths, seed 7;
+`node tests/historical_rates.js`).** "Early retiree" is ages 52/50 retired now,
+life expectancy 95, $1.1M taxable, $1.4M traditional, $0.3M Roth, $80k cash,
+$90k spending (US) with the planner's own defaults otherwise.
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% (41 cycles) | 81.5% |
+| US | early retiree | 90.6% (53 cycles) | 87.2% |
+| US | early retiree, smooth / live mix | 90.6% | 87.2% (the modes are ignored by the historical engine) |
+| US | default, bondYears 4 | 82.9% | 85.2% |
+| Canada | default | 75.6% (41 cycles) | 74.3% |
+| Canada | early retiree (plain and smooth) | 88.7% (53 cycles) | 88.2% |
+| Canada | default, bondYears 4 | 75.6% | 77.1% |
+
+### Batch 1 step 1, F7: detailed rows for historical (`26fa63e`)
+- The `detailedRows` mode switch is removed rather than flipped on: both modes
+  now build the same row and return the same fields (the old non-detailed
+  branches were dead code once the bucket mode had it on). Historical rows add
+  `cumFactor` (the real-dollar charts divide by it) and the result adds
+  `startYear`; both are keyed off `source.startYear !== undefined`
+  (`isHistorical`), so standard rows are byte-identical to before.
+- The ladder plan (`makeProjectedExpense` + `planBondLadder`) is now sized on
+  every run, because the result's `currentExpense`/`retirementExpense`/
+ `ladderTarget` come from it. (A `usesBondLadder` switch decided only whether
+  `rotateIntoBondLadder` moved money until step 4 turned it on and removed it.)
+- The end-of-year `totalTax`/`totalIncome` correction runs on every withdrawal
+  year in historical runs now (one extra `taxFor` per withdrawal year).
+- Evidence: 774 scenarios dumped before and after: all 114 standard scenarios are
+  identical, and in all 660 historical scenarios (both planners) every
+  pre-existing row field and result field is unchanged; only the new columns
+  appear. The snapshot baselines were regenerated for that reason alone (the
+  hashes cover whole rows, so every historical hash moves when columns are added).
+  Success rates are identical to the baseline table above.
+- Cost: 150 historical runs of an early-retiree scenario, best of 9, before ->
+  after: US 40-42 ms -> 41-44 ms (+3%); Canada 89-98 ms -> 110-112 ms (about
+  +0.13 ms per run, so about +130 ms for a 1,000-path Monte Carlo). Canada pays
+  more because its `taxFor` is heavier.
+- `tests/historical_parity.js`: a constant-return path equal to the plan's own
+  assumptions, `bondYears: 0`, compared with `simulate()` field by field.
+  Tolerance is 2e-5 relative plus $2 absolute: the two engines sum cash flow in a
+  different order and bisect from different brackets (CLAUDE.md, "Withdrawals"),
+  and a 40-year chain turned a ~1e-7 difference into $0.59 on a $10k Roth balance
+  at age 90. Scenario groups are enabled per step (`ENABLED`).
+
+### Batch 1 step 2, F1: Roth-conversion age key (US, `ab71c2d`)
+- Both engines now pass Partner A's age to `solveRothConversion`, so an applied
+  Roth schedule (`state.appliedRothSchedule`, keyed by age) is honored by the
+  historical and Monte Carlo runs. The `passConversionAge` switch is removed
+  (always on), like `detailedRows`. The optimizer's transient
+  `rothBracketOverrideByAge` is only set around `simulate()` calls, so it
+  cannot leak into a historical run.
+- Before, a historical run always filled the flat `rothConvBracket`, whatever
+  the user had applied. Nothing in the snapshot grid used an applied Roth
+  schedule in the historical engine, so the grid gained `R rothSchedule` (US
+  hist, 10 series x plain/rich = 20 new scenarios). Every pre-existing scenario
+  is byte-identical (774 files compared before and after); only those 20 are new.
+  Example (sawtooth path): year-0 conversion 243,600 (flat 22% bracket) ->
+  132,999 (the applied 12% target); year-0 tax 59,050 -> 27,554.
+- Success rates for the baseline table scenarios are unchanged (none of them
+  applies a Roth schedule).
+- Parity test: group `conversion` is enabled. Mutation check: making only the
+  historical engine drop the age makes `roth conversion applied schedule` fail
+  (year-0 traditional 830,000 vs 719,400). Removing the age from both engines
+  does not fail the test, since the two still agree; that is what the snapshot
+  grid scenario is for.
+
+### Batch 1 step 3, F2: safe-MAGI ceiling every year (US, `4ea70a2`)
+- The safe-MAGI ceiling (`conversionMagiCeiling`, `magiSafeRoom`) is now computed
+  every year in the historical engine, not only in a Roth-conversion year. The
+  `usesMagiRoom` switch is removed (always on); the block is unconditional.
+  Nothing in the historical engine read `magiSafeRoom` outside a conversion year
+  until step 5 (the live mix reads it as `remainingMagiRoom`).
+- Risk checked: computing the ceiling can set `estUsed` in years where a finite
+  MAGI ceiling exists (ACA 400% FPL, IRMAA tier for a retiree 63+), which adds
+  MAGI-iteration passes. Result: 794 scenarios dumped before and after, 0 differ
+  (the grid includes ACA, ACA enhanced, conversions, IRMAA prior-known and
+  retirees past 63 in the historical engine), so the extra passes converged to
+  the same values to the bit. No snapshot update was needed and success rates are
+  unchanged.
+
+### Batch 1 step 4, F3: pre-retirement bond ladder in historical runs (`3cf25ef`)
+- Both engines now call `rotateIntoBondLadder` every year; `usesBondLadder` is
+  removed (always on), so the only mode switch left is `bucketStrategy`. The plan
+  (`planBondLadder`) is sized once from `source.inflation` (the plan's assumed
+  inflation, decision Q2); realized inflation only changes the executed dollars.
+- What moves: any historical/Monte Carlo scenario with `bondYears > 0`. For a
+  household already retired (`retirementYear` 0) the rotation window is the first
+  `ceil(bondYears)` years, so the reserve is now built by the ladder (as of this
+  step half taxable, half traditional/RRSP, ramped; step 7 changed the source
+  order) rather than all at once from stocks by
+  the first up-year refill. Of the 834 historical-and-standard scenario files in the
+  grid (794 existing plus 40 new `R bondYears3 working` historical scenarios, 20
+  per planner), 678 differ between the previous commit and this one. All 678 are
+  among the 720 historical scenarios (the unchanged 42 have no bond reserve or
+  no ladder window); all 114 standard scenarios are unchanged.
+  A few differ only in the last bit (a sum in a different order).
+- Before/after (seeded Monte Carlo, 2000 paths, seed 7):
+
+| Planner | Scenario | Historical before -> after | Monte Carlo before -> after |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 81.5% -> 81.4% |
+| US | early retiree (plain, smooth, live mix: still ignored) | 90.6% -> 90.6% | 87.2% -> 88.0% |
+| US | default, bondYears 4 | 82.9% -> 82.9% | 85.2% -> 84.8% |
+| Canada | default | 75.6% -> 70.7% | 74.3% -> 73.4% |
+| Canada | early retiree | 88.7% -> 90.6% | 88.2% -> 88.7% |
+| Canada | default, bondYears 4 | 75.6% -> 78.0% | 77.1% -> 76.4% |
+
+  The Canadian default drops two of 41 historical cycles: the ladder parks about
+  half of the reserve in RRSP bonds years before retirement, where it misses
+  stock returns, and the bond reserve is no longer a single lump taken from
+  taxable in the first up year.
+- Parity test group `ladder`: it compares only the years before retirement, with
+  `cashReserve: 1e8` and high wages so every surplus is absorbed by cash in both
+  engines. Reason: the bucket strategy routes surplus cash into the bond reserve
+  and refills it from stocks in a working-years deficit (intended differences B2
+  and B3), so an unrestricted comparison measures the strategy, not the ladder.
+  A guard fails the scenario if no ladder was built (vacuous), and a mutation
+  check (historical engine skips rotation) fails the test.
+
+### Batch 1 step 5, F4/F5/F6: mix modes inside the bucket strategy (`27ea356`)
+- The stock-account step of the bucket cascade is now one grouped step,
+  `BUCKET_STEP.stocks`; the shared order arrays (`BUCKET_DOWN_YEAR_ORDER`,
+  `BUCKET_UP_YEAR_ORDER`) list `stocks` where they used to list taxable,
+  traditional, Roth. Down year: cash, bond taxable/traditional/Roth, `stocks`,
+  home. Up year: `stocks`, cash, bonds, home. Cash and the bond buckets keep their
+  position (owner decision 1).
+- US: `drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver })` holds the
+  three mix modes (explicit/applied mix, live mix, smooth), extracted from
+  `withdrawStandard`, which now calls it; it returns false when no mode is on and
+  the caller runs its own default. Canada: `drawSmoothStockAccounts(wd, solver)`
+  (smooth only). Both are written against `takeTaxable`/`takeTraditional`/
+  `takeRoth`, so the Batch 3A account model can change underneath them.
+- With no mix mode on, `BUCKET_STEP.stocks` runs the original taxable ->
+  traditional -> Roth steps, bit for bit, so every default-mix historical
+  scenario is unchanged. Traditional draws in the bucket keep their own bisection
+  bracket (`solveTraditionalForNetFromNeed`), also for the mix modes; the standard
+  engine keeps `solveTraditionalForNet` (the two are ~1e-7 apart, kept on purpose).
+- Evidence (dump of the previous commit vs this one, 834 scenarios): all 114
+  standard scenarios and every historical scenario without a mix mode are
+  unchanged; 114 historical scenarios moved: `R smooth` (US and Canada),
+  `R mixLive`, `R mixApplied` (US) and `R everything` (which turns the mix modes
+  on). Rendered-text snapshots changed only by the edited methodology text.
+- Before/after (seeded Monte Carlo, 2000 paths, seed 7):
+
+| Planner | Scenario | Historical before -> after | Monte Carlo before -> after |
+|---|---|---|---|
+| US | default, early retiree, bondYears 4 | unchanged | unchanged |
+| US | early retiree, smooth withdrawals | 90.6% -> 86.8% | 88.0% -> 86.9% |
+| US | early retiree, live mix | 90.6% -> 90.6% | 88.0% -> 88.0% |
+| Canada | default, early retiree, bondYears 4 | unchanged | unchanged |
+| Canada | early retiree, smooth withdrawals | 90.6% -> 86.8% | 88.7% -> 88.2% |
+
+  Smooth now draws traditional/RRSP money earlier instead of draining taxable
+  first, in an early-retirement plan where the stock accounts carry the first
+  years. Live mix does not move this scenario because taxable-first is already
+  the cheaper order there.
+- User-facing text: the smooth-withdrawal and optimized-order info bubbles and the
+  README no longer say the historical views "keep their own bucket-strategy
+  withdrawal order"; the methodology callouts describe the grouped step.
+- **Known gap: the safe-MAGI room into the live mix.** `remainingMagiRoom` is
+  passed to the live mix by both engines, but no scenario was found where it
+  changes the live mix's choice: 828 standard-engine scenarios (ages 52-62, ACA on
+  and off, taxable 30k-600k, basis 0-70%, extra income 0-50k, single and married)
+  gave identical results with the room forced to infinity. Reason: the room is
+  `ceiling - preConvMagi` where `preConvMagi` already contains the MAGI iteration's
+  estimate of this year's own discretionary draw, so it is small or zero at
+  convergence, and the 1e6-per-dollar overage penalty then compares two orders
+  that realize nearly the same income. Because behavior cannot prove the wiring,
+  `tests/historical_parity.js` checks the source: the standard call, the
+  historical call and `BUCKET_STEP.stocks` must all carry the same remaining-room
+  expression (mutation check: dropping it in `BUCKET_STEP.stocks` fails the test).
+  The oddity that the room already contains the draw's own estimate is
+  pre-existing and untouched; Batch 3C (safe-MAGI room on every withdrawal path)
+  should look at it.
+- Parity test group `mix`: smooth (US, Canada), live mix, live mix + ACA +
+  conversion, applied mix schedule, all agreeing with `simulate()` year by year.
+  Mutation check (bypass the mix in the bucket step) fails four scenarios.
+
+### Batch 1 step 6: gradual bond refill (historical engine only, `51c00f0`)
+- Owner rules (decided while building; they replace the Appendix A.2 draft, which
+  also capped surplus years):
+  1. *Surplus years:* surplus income refills the bond bucket as far as needed,
+     limited only by the surplus (after the cash top-up) and by the `bondYears`
+     target (`bondYears` x that year's expenses net of lump). No one-year cap.
+     (`routeSurplus`, unchanged.)
+  2. *Up-year refill from stocks* (`refillBondReserve`, after the draw): at most
+     one year of that year's expenses net of lump expenses moves into bonds per
+     year, in total.
+  3. *Source order:* traditional (RRSP/RRIF), then Roth (TFSA), then taxable only
+     when neither has anything left. Moves inside a retirement account are a
+     reallocation: no income, no tax, no 10% early-withdrawal penalty, so age
+     does not restrict them (an earlier draft gated them on the penalty; the
+     owner corrected that). Cash and home equity are never a source.
+  4. *Taxable is a real sale.* `drawTaxable` sells enough stock that, after the
+     tax on the realized gain, the requested amount reaches the bonds; the gain is
+     added to `wd.taxableGainGross`, so it counts in the year's tax, in MAGI (ACA,
+     IRMAA) and in the MAGI iteration; the tax is paid from the proceeds; the new
+     bonds have full basis. The live withdrawal mix does not plan for this gain
+     (it decides before the refill), which is accepted.
+- The pre-retirement ladder had the opposite behavior when this step landed
+  (half taxable with basis carried, no gain realized); step 7 below brings it in
+  line with these rules.
+- Consequence of the order: households with traditional or Roth money refill
+  without tax; households with only brokerage pay realized-gain tax each refill.
+- Evidence: 643 of the 720 historical scenarios differ from the previous commit
+  (every one with a bond reserve); all 114 standard scenarios are unchanged.
+- Before/after (seeded Monte Carlo, 2000 paths, seed 7), previous commit -> this one:
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 81.4% -> 85.0% |
+| US | early retiree | 90.6% -> 90.6% | 88.0% -> 87.9% |
+| US | early retiree, smooth | 86.8% -> 90.6% | 86.9% -> 87.4% |
+| US | early retiree, live mix | 90.6% -> 90.6% | 88.0% -> 87.9% |
+| US | default, bondYears 4 | 82.9% -> 87.8% | 84.8% -> 86.4% |
+| Canada | default | 70.7% -> 75.6% | 73.4% -> 76.4% |
+| Canada | early retiree | 90.6% -> 90.6% | 88.7% -> 88.4% |
+| Canada | early retiree, smooth | 86.8% -> 90.6% | 88.2% -> 88.1% |
+| Canada | default, bondYears 4 | 78.0% -> 78.0% | 76.4% -> 78.7% |
+
+  Gradual refill keeps more money in stocks after a bad start (one year of
+  expenses per year rather than the whole target at once), which is why plans
+  with a bond reserve tend to improve.
+- Tests: `tests/bond_refill.js` (in `npm test`): hand-computed unit cases (cap
+  year by year, order, spill, taxable last resort with realized gain and tax
+  equal to `taxFor`'s, never home or cash, no cap on `routeSurplus`) and engine
+  checks (cap per year, a taxable-only household still refills, an under-59.5
+  household refills from traditional/Roth, a high earner's surplus fills the
+  whole 3-year target in year 0, a small surplus cannot, `bondYears` 0 builds
+  nothing). Mutation checks: removing the cap, the taxable fallback, the gain, or
+  the net-of-tax amount each fails the test.
+- Test hook: `window.__test_refillBondReserve(wd, target, opts)`.
+- `tests/historical_bond_yield.js` was rewritten for the gradual refill: it used to
+  assume the whole 300k reserve was carved out in year 0. It now lets the reserve
+  grow 30k a year (life expectancy 80) and measures the extra tax paid in year 10,
+  when the reserve first holds 300k (the drop in taxable that year with the
+  yield minus the drop without it). The US value is still exactly $1,420 on
+  $30,000 of interest; the independence-from-the-bond-return-input and the
+  yield-missing fallbacks are kept.
+
+### Batch 1 step 7: the pre-retirement ladder uses the same source order (both engines; changes standard-engine numbers, `182a927`)
+- Owner decision after step 6: the ladder funds from traditional/RRSP first, then
+  Roth/TFSA, and from taxable only as a last resort. It used to move half of each
+  year's ramp from taxable (basis carried, no gain realized) and half from
+  traditional. `rotateIntoBondLadder(bal, params, profile, conversionAmount)` now
+  moves what the ramp still needs (`ladderTarget x progress - current bonds`):
+  traditional, then Roth, then a real taxable sale through `drawTaxable` (gain
+  returned, tax paid from the proceeds, new bonds at full basis). The engine adds
+  the returned gain to `wd.taxableGainGross` (so MAGI, ACA/IRMAA and the MAGI
+  iteration see it) and, in a surplus year, to that row's `tax` and `income`.
+- This is the one place in Batch 1 where **standard-engine numbers move**, by owner
+  request. 112 of the 114 standard scenarios and 680 of the 720 historical
+  scenarios changed (all with a bond reserve); snapshots regenerated. Why the
+  numbers move: a reserve held in a retirement account no longer pays tax on its
+  interest every year (a taxable reserve does), and the ladder no longer parks
+  half of itself in taxable.
+- Standard projection, previous commit -> this one (investable at retirement /
+  at the end of the plan / depletion age):
+
+| Planner | Scenario | Retirement | End of plan | Depletes at |
+|---|---|---|---|---|
+| US | default | 1,742,805 -> 1,815,962 | 1,469,425 -> 2,508,379 | none -> none |
+| US | early retiree | 1,853,960 -> 1,853,960 | 0 -> 0 | 85 -> 87 |
+| US | bondYears 3, working | 4,545,931 -> 4,547,696 | 28.3M -> 29.1M | none -> none |
+| Canada | default | 1,682,113 -> 1,684,562 | 0 -> 0 | none -> none |
+| Canada | early retiree | 1,875,279 -> 1,875,279 | 0 -> 0 | 96 -> none |
+| Canada | bondYears 3, working | 4,487,429 -> 4,490,091 | 24.5M -> 25.8M | none -> none |
+
+- Historical and Monte Carlo (seeded, 2000 paths, seed 7), previous commit -> this one:
+
+| Planner | Scenario | Historical | Monte Carlo |
+|---|---|---|---|
+| US | default | 82.9% -> 82.9% | 85.0% -> 84.5% |
+| US | early retiree | 90.6% -> 86.8% | 87.9% -> 86.8% |
+| US | early retiree, smooth | 90.6% -> 83.0% | 87.4% -> 86.2% |
+| US | early retiree, live mix | 90.6% -> 86.8% | 87.9% -> 86.8% |
+| US | default, bondYears 4 | 87.8% -> 85.4% | 86.4% -> 86.2% |
+| Canada | default | 75.6% -> 78.0% | 76.4% -> 77.0% |
+| Canada | early retiree (plain, smooth) | 90.6% -> 90.6% | 88.4% -> 88.3% (88.1 -> 87.9 smooth) |
+| Canada | default, bondYears 4 | 78.0% -> 78.0% | 78.7% -> 79.1% |
+
+- **Caveat to remember:** a US early retiree (before 59.5) now holds the whole
+  reserve in `bondTraditional`. Drawing it in a down year owes the 10% penalty
+  (unless Rule of 55 or a 72(t) plan covers it), which is why the US early-retiree
+  historical rates fall by about four points. Standard projections never draw the
+  reserve until everything else is gone, so they gain from the tax deferral and
+  show no matching cost. Batch 3B (penalty-aware withdrawals) should revisit
+  whether the ladder and the refill should prefer Roth or taxable for a household
+  that expects to draw the reserve before 59.5.
+- Tests: `tests/bond_refill.js` gained hand-computed ladder cases (ramp 100k/200k/
+  300k from traditional, nothing outside the window, spill to Roth, taxable last
+  resort with the realized gain and the tax paid from the proceeds, Roth before
+  taxable); test hook `window.__test_rotateIntoBondLadder`.
+
+### Batch 1 open items (carried to later batches)
+
+**The safe-MAGI room has no behavioral test.**
+Both engines pass `remainingMagiRoom` into the live mix, but no scenario was found
+where the room changes the live mix's choice (828 standard-engine scenarios, see
+step 5), so `tests/historical_parity.js` can only check the wiring by reading the
+source. Resolve in Batch 3C: either build a scenario where the room binds (and
+add it to the parity test with a mutation check), or fix the way the room is
+computed (it is `ceiling - preConvMagi`, and `preConvMagi` already includes the
+MAGI iteration's estimate of the same year's discretionary draw), then add the
+behavioral test. Update this section with how it was resolved
+when Batch 3C is consolidated.
+
+### Batch 1 open items raised after the batch (tracked in the plan)
+
+- **Early-retiree pre-retirement bond-bucket strategy (look at it with Batch 3B).**
+  The ladder and the gradual refill now park the whole reserve in `bondTraditional`
+  first. For a household retiring before 59.5 that forces the 10% early-withdrawal
+  penalty whenever the reserve is drawn (a down year, or after taxable, cash and
+  Roth are exhausted) unless Rule of 55 or a 72(t) plan covers it. Measured in
+  Batch 1: the US early-retiree historical success rate fell from 90.6% to 86.8%
+  when the ladder moved to traditional first. Options to evaluate: choose the
+  source by the age the reserve will first be drawn (taxable or Roth first before
+  59.5, traditional first otherwise), size the reserve differently before 59.5, or
+  fund it from penalty-free money only. Update this section with the outcome.
+- **Safe-MAGI room has no behavioral test** (see above; Batch 3C).
+- **Retirement-account bond interest is not taxed yearly (checked, no action).**
+  `investmentIncome()` / `investmentIncomeCA()` are called with `bal.bondTaxable`
+  only; `bondTraditional`/`bondRoth` (and the Canadian RRSP/TFSA equivalents) grow at
+  the bond return with no yearly tax, and tax appears when money leaves the account.

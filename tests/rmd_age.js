@@ -7,6 +7,7 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
+const { translateFieldList } = require('./legacy_balances');
 
 async function rows(year, ageA, extra = []) {
   const browser = await chromium.launch();
@@ -35,7 +36,7 @@ async function rows(year, ageA, extra = []) {
   ];
   for (const [i, v] of base.concat(extra)) await set(i, v);
   await page.evaluate(() => document.getElementById('rentBtn').click());
-  for (const [i, v] of [['rent', 0], ['taxable', 0], ['cash', 0], ['roth', 0], ['bondYears', 0], ['traditional', 1000000]])
+  for (const [i, v] of translateFieldList([['rent', 0], ['taxable', 0], ['cash', 0], ['roth', 0], ['bondYears', 0], ['traditional', 1000000]], true, { single: true }))
     await set(i, v);
   await page.waitForTimeout(300);
   const out = await page.evaluate(() => window.fireProjectionRows.map((r) => ({ age: r.age, rmd: r.rmd, trad: r.traditional })));

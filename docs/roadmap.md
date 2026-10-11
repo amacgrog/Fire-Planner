@@ -9,6 +9,42 @@ payroll-tax handling.
 Phases 2 and 3 are **not** merged back from the same branch: each is started
 in its own session/branch.
 
+## Current plan (supersedes the Phase 3 and "After Phase 2" lists where they differ)
+
+The detailed, decision-annotated plan is `docs/next-batches-plan.md`. Each batch
+(or sub-batch) is one PR into `claude/tender-meitner-a3bo59`, reviewed by the
+owner before the next starts. Order:
+
+1. **Historical parity (2B)** and gradual bond refill.
+2. **US tax and Medicare:** Medicare always delayed while working; age-based
+   deductions; senior deduction through 2028; simplified itemizing (state income
+   tax + property tax under the SALT cap + mortgage interest); no new fields.
+3. **Retirement accounts and early-withdrawal rules:** 3A per-partner account
+   model (traditional IRA, traditional 401(k), Roth IRA, Roth 401(k); Roth IRA
+   and Roth 401(k) basis), 3B penalty-aware withdrawal order, 72(t) per account,
+   Rule of 55 on 401(k)s only, 3C safe-MAGI room on every withdrawal path.
+7. **Dependents and the tax update** (runs after Batch 3): children list; US
+   federal child tax credit and premium-tax-credit review; state rules table for
+   all 50 states and DC (one PR for the bulk); Canadian federal age amount and
+   pension credit; provincial rules table for all ten provinces (one PR); Canada
+   income-tested benefits (GIS and Allowance, CCB, GST/HST credit).
+4. **Canada:** 4A mixed withdrawals, 4B optimizer port.
+5. **Optimizer:** selectable objective, remove the 30-year cap if affordable,
+   wording.
+6. **Social Security and others:** guided PIA estimate, claim-age rules, spousal
+   and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age
+   basis; loose ends.
+8. **Social Security survivor-claim optimizer** (after everything above):
+   searches when a surviving spouse should start the survivor benefit and their
+   own benefit, and when to switch, in both orders.
+
+Documentation: `docs/reference.md` is updated once, after the last batch, from
+the per-batch "Batch notes" kept in `docs/next-batches-plan.md`.
+
+Not modeled by decision: charitable and medical itemized deductions, Medicare
+late-enrollment penalties, the Social Security earnings test, WEP/GPO
+(repealed), territories (Canada), local income taxes.
+
 ## Phase 0: baseline
 - `npm test` green (golden, historical_tax_indexing, dividend_income,
   medical_inflation, irmaa_gating, roth_early_access, tax_brackets,
@@ -38,7 +74,8 @@ Canada has no ACA, IRMAA, or Additional Medicare Tax equivalent. The Canada
 survivor-income loose end was checked in this phase and was a real bug (fixed,
 with the US extra-income variant; see `docs/reference.md`).
 
-## Phase 2: refactor (separate branch, not merged back)
+## Phase 2: refactor (separate branch, not merged back) — done
+All four items are complete (see `docs/phase2-refactor-plan.md`; item 4 is shared regions kept in sync by `scripts/sync-shared.js`, with the two `runProjection` year loops deliberately left per-country). Deferred follow-ups are listed under "After Phase 2".
 No behavior change; `npm test` must stay identical throughout.
 1. Merge `simulate()` and `simulateHistorical()` into one engine; only the
    per-year return/inflation source differs.
@@ -72,6 +109,39 @@ No behavior change; `npm test` must stay identical throughout.
   amounts); CPP/OAS claim-age adjustments (a design decision, since it changes
   saved scenarios).
 
+## After Phase 2 (decided, not yet scheduled)
+Done in a follow-up branch started once the exact refactor (2A) is green, in
+this order, each its own commit with a before/after on the default scenario's
+historical and Monte Carlo success rates:
+- **Historical parity (2B):** the backtest/Monte Carlo engine gains what the
+  standard engine already has: pre-retirement bond ladder (sized from plan
+  inflation), smooth withdrawals, applied/override and live withdrawal mix,
+  MAGI safe room, the `age` argument to `solveRothConversion`, and the extra
+  row columns (US all; Canada ladder, smooth, columns only).
+- **Gradual bond refill (historical only):** in up years move at most one year
+  of that year's expenses from stocks into the bond bucket until it reaches its
+  target (today it refills all at once). The standard projection never refills.
+  Down years: cash, then bond buckets, then stocks via the mix modes.
+- **Penalty-aware mixed withdrawals (US, both engines):** when the 10% early
+  penalty applies, draw taxable first, honor Rule of 55 / 72(t), and apply the
+  mix (smooth/applied/live) only where no penalty is owed. Changes standard
+  and historical numbers together; see `docs/phase2-refactor-plan.md` A.5.
+- **Use the safe-MAGI room wherever withdrawals are chosen (US):** today
+  `magiSafeRoom` (the headroom under the ACA 400%-FPL cliff and the next IRMAA
+  tier) caps only the Roth conversion and the live withdrawal mix. The default
+  draw, smooth withdrawals, and the applied/optimizer mix schedules ignore it, so
+  they can push MAGI over a cliff that the engine then merely charges for.
+  Make every withdrawal path respect the remaining room (prefer drawing taxable
+  gains or Roth when traditional would cross a cliff, within the same
+  penalty-aware rules), in both engines, with the ceiling computed every year
+  (`usesMagiRoom` on for the bucket mode). Lands with or right after the
+  penalty-aware mixing change; it changes standard and historical numbers, so a
+  before/after on the default scenario is required. See
+  `docs/phase2-refactor-plan.md` A.7.
+- **Canada mixed withdrawals:** taxable / RRSP / TFSA mix, with the OAS
+  clawback threshold as the income-room limit and no penalty gating; needs the
+  shared withdrawal module from Phase 2 first (A.6).
+
 ## Loose ends
 - ~~Canada survivor period: partner B's income zeroed when partner A dies
   first.~~ Confirmed and fixed in Phase 1 (V33 Canada, V74 US for the
@@ -79,7 +149,7 @@ No behavior change; `npm test` must stay identical throughout.
 - The standard projection (not the historical one) taxes bond interest at the
   `Bond return` input, a total return used as a proxy for the coupon.
 - The 2024 Treasury yield uses January 2024 (4.06%) because no December 2023
-  value was supplied.
+  value was supplied. Decided: keep the recorded 2023-2025 yields as they are.
 - The CPI column's source is not recorded (matches Dec-to-Dec CPI-U through
   2022; 2023-2025 unchecked).
 
