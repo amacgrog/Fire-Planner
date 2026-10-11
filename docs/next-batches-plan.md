@@ -2409,6 +2409,395 @@ pins B's per-return growth. S2: the appeal household measured +5% to +7% at 21 r
 line-ending-only snapshot files after `snapshot:update`, the stale cliff-plan clause in CLAUDE.md and its code comment, the
 README insertion point. No blocking findings: the review loop's stop condition is met; the plan goes to the implementer.
 
+##### E3: implementation (US V130)
+
+Commits on `claude/e3-irmaa-appeal` (plan commit `bbef775`; timing baseline `../fp-e3-base` at `bbef775`, never moved; movers
+baseline `../fp-e3-prev`, moved to the previous task's commit before Tasks 3 and 4, at `924b182` for the final gates):
+- `aef6cb2` Task 1: the IRMAA lookback reads the filing status of the lookback return (decision 1; `irmaaLookbackFiling`, the
+  filing history, `irmaaAt` / lines / `irmaaChecks` on this year's return, `irmaaFiling2` removed); `us.json`: the owner-approved
+  stage-1 movers (38); `plan_off_anchor` re-based; `tests/irmaa_appeal.js` (new, in `npm test`).
+- `aff63d5` Task 2: the IRMAA appeal event table (`irmaaAppealTable`; on the run's result, not enumerable); no number change.
+- `4834615` Task 3: the appealed IRMAA charge in `healthcareCost` (`irmaaAppealWindow` / `irmaaAppealKind`, the in-year and
+  last-year candidates, `usesMagiEstimate`, the row fields, the forced-pass reset), `bench_runs_interleaved.js --household appeal`;
+  `us.json`: the owner-approved stage-2a movers (21); `irmaa_gating.js` and `medicare_enrollment.js` case 4 updated by design;
+  `plan_off_anchor` re-based.
+- `924b182` Task 4: the cliff plan's IRMAA lines on this year's edges in a year with an in-year candidate (per-return growth in
+  `magiThresholds`); no snapshot mover; guard-off identical; case 16's replay on a copy with a Roth IRA.
+- `ca170b6` Task 5: the appeal in the status tooltip (`annotateAppealRows`), the healthcare callout (appeals assumed; the stale
+  "Medicaid coverage gap" phrase dropped) and the prior-MAGI tooltip, README, badge V130; `ui_us.json`: text hashes only;
+  `test_irmaa_appeal.js` (Playwright, not in CI).
+- Task 6 (this commit): CLAUDE.md (the "IRMAA appeal and the lookback's filing status" paragraph under "MAGI iteration", the
+  cliff plan's `magiThresholds` clause, the file list and the `--household appeal` option) and this record; no number change.
+
+Owner decisions and approvals (2026-10-11, from the task ledger): Task 1's 38 movers approved before `snapshot:update`; Task 3's
+21 movers, the two existing-test edits (shown before and after, below) and the appeal household's timing signed off; Task 4's
+zero movers and the appeal household's timing (tx +7.3% / +8.1%, ca +8.4% / +6.0%) signed off, with the replay fix below; Task 5
+reviewed (spec and code review PASS / PASS).
+
+Red then green, per task:
+- Task 1 red: `AssertionError: case 1 year 4 (D+1): year 2 joint 250,000 on the JOINT tiers (was single tier 4: 11,355.20):
+  11355.2 vs 6148.4` (years 0-3 of case 1 passed first). Green: `irmaa_appeal: ok`; `irmaa_magi`, `irmaa_startup`,
+  `irmaa_gating`, `two_return_magi`, `cliff_plan`, `cliff_guard`, `solver_hooks`, `survivor_symmetry` unchanged.
+- Task 2 red: "table: a retirement covers the spouse" (the table was absent). Green: `irmaa_appeal: ok`, no expectation adjusted;
+  snapshots exact (US 577, Canada 376).
+- Task 3 red: `case 3, year 3 (D): appealed on year 3's 125,000 on its joint return: 0: 6148.4 vs 5000` (case 1's `hc(c1, 3)`, as
+  predicted). Green: every case on the first try, no value tuned. Case 13 at spending 120,000: year 1 realized MAGI 117,551.418,
+  year 2 appealed on tax year 2027 (the last-year candidate; year 2's own MAGI 156,746.82 is tier 2), kind 2. Case 15's feedback
+  variant: `seAlternative` + 2 (years 2 and 3), deductions [0, 0, 10,000, 10,000, 11,148.40], healthcare [0, 0, 11,148.40,
+  11,148.40, 11,148.40] for years 0-4; the deduction never exceeds the premium. `se_health`'s invariant grid line unchanged
+  (2,310 years, 0 above the premium, 422 understated, largest gap 12,699.56).
+- Task 4 red: `case 16: irmaa1 at growth 1 (the line less $1): 122679.46028999999 vs 115637.1` (109,000 x 1.03^4 - 1). Green:
+  case 16 at spending 130,000, year-2 natural MAGI 133,764.53 (inside 115,638.10 to 145,343.30), year-2 stay-under line
+  115,637.10, year 3 (also in-year) 119,106.243 = 109,000 x 1.03^3 - 1, year 4 163,584.16 = 137,000 x 1.03^6 - 1, year 5
+  168,491.72 = 137,000 x 1.03^7 - 1 (`irmaaGrowth2`).
+- Task 5 red: `test_irmaa_appeal.js` failed "tooltip at 68:" (empty title). Green at 1280 and 390 px: "IRMAA appeal (form
+  SSA-44, retirement): the surcharge uses 2028 income instead of 2026"; no horizontal scroll at 390 px.
+
+Task 4's replay fix (owner decision): on case 16's household alone `choose` kept 0 intents (the plan has only the traditional
+IRA to draw, so the year-2 stay-under trial releases the cap and misses the line: realized 133,764.50 against the line
+115,637.10), so the `apply(choose's intents)` identity held vacuously. The replay now runs on a copy of the household with
+`rothIraA` / `rothIraBasisA` 500,000: `choose` records at least one intent, the age-68 intent is `{ kind: 'under', line: 'irmaa1' }`
+(an in-year-line intent), and `apply` replays `choose` row for row. The line assertions stay on the original household.
+
+Movers, stage 1 (Task 1; `fp-e3-prev` at `bbef775`; dumps `.superpowers/sdd/2026-10-10-e3/dumps-task1`, git-excluded), as approved:
+- 953 scenario files compared, 38 differ. US: 38 moved / 539 identical. Standard: 2 moved; historical: 36 moved of 460.
+  Canada: all 376 identical.
+- Row counts equal in all movers. Depletion: no change (std R survivor+loans 87 -> 87; all others null -> null).
+- Movers by first changed field and year (all D+1): expenses@D+1 28, bonds@D+1 9, cash@D+1 1. Death years: D=7 (work past 65
+  survivor family: 1 std + 18 hist), D=23 (std R survivor+loans), D=28 (survivor A family, 10 hist), D=30 (R everything family,
+  8 hist).
+- Rule check (survivor of a married couple, first change D-1 or later, first healthcare change D+1 or D+2): all 38 satisfy it;
+  first changed year = D+1 and first healthcare change = D+1 in all 38. Violations: none.
+- Largest healthcare move: 6,355.20 (one year). Largest end-total move: 304,377.95 (hist R work past 65 survivor rich boom);
+  next 252,954.47 (same, non-rich boom).
+- Movers (US): std_R_survivor+loans, std_R_work_past_65_survivor; hist R work past 65 survivor (+rich) x boom / crashFirst / flat /
+  mc1 / mc2 / real1929 / real1966 / real2000 / sawtooth (18); hist R survivor A: boom, mc2, rich x crashFirst / flat / mc1 /
+  real1929 / real1966 / real1973 / real2000 / sawtooth (10); hist R everything: mc2, rich x flat / mc1 / real1929 / real1966 /
+  real1973 / real2000 / sawtooth (8).
+
+Movers, stage 2a (Task 3; `fp-e3-prev` at `aff63d5`; dumps `dumps-task3`), as approved:
+- 953 scenario files compared, 21 differ. US: 21 moved / 556 identical (standard 1: `std R work past 65 single`; historical 20).
+  Canada: 376 / 376 identical.
+- Rule check: 21 / 21 movers have a non-null table and the first changed year is an E or E+1 of one of their events. 89 US
+  scenarios have a table; the other 68 did not move. No depletion change; healthcare only falls in every mover.
+
+| group | scenarios | event table | first changed year | rule |
+|---|---|---|---|---|
+| A retires at 69 (single) | std R work past 65 single | A[9]=2 | 9 (age 69) = E | ok |
+| couple, A retires 68 / B 66 (E = 8 both) | hist R work past 65: real1929, flat; rich: real1929, crashFirst, boom, flat, mc1, mc2 | A[8]=B[8]=2 | 8 = E | ok |
+| same | hist R work past 65 \| mc1 | A[8]=B[8]=2 | 9 = E+1 | ok |
+| A dies at 67 (D = 7), B retires at 66 (E = 8) | hist R work past 65 survivor: real1929, flat; survivor rich: real1929, crashFirst, boom, flat, mc1, mc2 | B[7]=3, B[8]=2 | 8 = D+1 (and the retirement's E) | ok; row 8 cites tax year 2033, kind 3 |
+| survivor late death (D = 28) | hist R survivor A rich \| real2000 | B[28]=3 | 29 = E+1 | ok |
+| survivor late death (D = 30) | hist R everything rich: real1973, real2000 | B[30]=3 | 30 = E | ok |
+
+| scenario | largest healthcare move (row) | total healthcare | end total |
+|---|---|---|---|
+| hist R work past 65 \| real1929 | -5,769.60 (row 8) | -11,539.20 | +178,640.05 |
+| hist R work past 65 rich \| real1929 | -5,769.60 (row 8) | -11,539.20 | +166,739.03 |
+| hist R everything rich \| real2000 | -4,620.00 (row 30) | -7,504.80 | +26,812.16 |
+| hist R work past 65 survivor \| real1929 | -2,884.80 (row 8) | -2,884.80 | +2,858.59 |
+| hist R work past 65 rich \| boom | -2,296.80 (row 8) | -4,593.60 | +169,703.65 (largest end-total move after real1929) |
+| std R work past 65 single | -1,148.40 (row 9) | -2,296.80 | +12,819.11 |
+| smallest: survivor flat / rich flat | -1,148.40 | -1,148.40 | +1,144.25 / +1,141.86 |
+
+Movers, stage 2b (Task 4; `fp-e3-prev` at `4834615`; dumps `dumps-task4`), as approved:
+
+| | movers |
+|---|---|
+| US (577) | 0 |
+| Canada (376) | 0 (identical) |
+
+Anchor re-bases (`tests/plan_off_anchor.js --base ../fp-e3-prev`, guard off): Task 1 "539 identical, 38 different" against
+`bbef775` (the same 38 names); Task 3 "556 identical, 21 different" against `aff63d5` (the 21 movers exactly); the header now
+names one baseline ("any tree at or after the E3 Task 3 commit") and keeps the E3 Task 1 and `5eb30fa` notes as history (owner
+note: rewrite, do not append). Task 4: "577 identical, 0 different" against `4834615` (no re-base). Final gate below.
+
+Existing tests whose expectation changed (Task 3, owner-approved after being shown before and after; both pin a retiree charged
+IRMAA on the last salary years, which the appeal for the work stoppage now removes):
+- `tests/irmaa_gating.js` (single, 66, salary 350,000, retires at 69): `rows[3].healthcare` 11,355.20 -> 5,000 (surcharge
+  6,355.20 -> 0; tier 4 on year 1's ~376,144 replaced by year 3's own MAGI, 49,283 in the engine's terms, under the first tier);
+  row 4 also 5,000 (was 11,355.20). The assertion now expects 0 and `irmaaAppealKindA` 2 (retirement); the comment and the
+  final log line say the appeal removes the surcharge.
+- `tests/medicare_enrollment.js` case 4 (retires at 70): age-70 healthcare 11,355.20 -> 5,000 (`irmaaAppealYearA` 2030 tax year,
+  kind 2), age 71 likewise; the assertion now expects the premium only plus kind 2.
+
+Two corrections to spec section 8 (found while planning, asserted by the tests): case 2's year 2 also moves at stage 1 (D+2: the
+lookback is year 0's 125,000 on a joint return, 6,148.40 -> 5,000; Task 1); case 15's feedback variant takes the alternative
+calculation in both window years, so `magiStats.seAlternative` rises by 2, not 1 (Task 3).
+
+Tooltip wording: "IRMAA appeal (form SSA-44, retirement): Partner A's surcharge uses 2034 income instead of 2032" for a couple,
+"the surcharge uses ..." for one person: a recorded departure from spec 5.6's "Partner A charged on" / "You" (plan review round
+1). The badge edit V129 -> V130 matched the styled span (`vertical-align:middle">V129</span>`), not the brief's literal
+`<span>V129</span>`.
+
+`ui_us.json` (Task 5): text hash and length only, on three rendered surfaces (the healthcare callout inside `<main>`):
+std default `fe0bad3718c031a5` / 28824 -> `61d656270cced9d9` / 29184; std R `11ac3b17fa48e898` / 28316 -> `aa10abf76454c324` /
+28676; std R everything `755042d283cfebb3` / 30133 -> `41e61e81fc1af320` / 30493. No wiring or MCP change; `us.json`,
+`canada.json`, `ui_canada.json` untouched.
+
+Timing, Task 1 (`node tests/bench_runs_interleaved.js --base ../fp-e3-base --rounds 21`, three runs):
+
+```text
+=== RUN 1
+US tx  400 simulate 197 -> 207 ms (5.1%), 120 historical 59 -> 61 ms (3.4%)
+US ca  400 simulate 294 -> 305 ms (3.7%), 120 historical 84 -> 87 ms (3.6%)
+US ny  400 simulate 312 -> 322 ms (3.2%), 120 historical 90 -> 92 ms (2.2%)
+US pa  400 simulate 282 -> 295 ms (4.6%), 120 historical 79 -> 82 ms (3.8%)
+US ct  400 simulate 376 -> 386 ms (2.7%), 120 historical 110 -> 112 ms (1.8%)
+US wa  400 simulate 227 -> 237 ms (4.4%), 120 historical 66 -> 70 ms (6.1%)
+=== RUN 2
+US tx  400 simulate 202 -> 203 ms (0.5%), 120 historical 60 -> 59 ms (-1.7%)
+US ca  400 simulate 293 -> 293 ms (0.0%), 120 historical 84 -> 84 ms (0.0%)
+US ny  400 simulate 317 -> 310 ms (-2.2%), 120 historical 91 -> 88 ms (-3.3%)
+US pa  400 simulate 288 -> 284 ms (-1.4%), 120 historical 81 -> 79 ms (-2.5%)
+US ct  400 simulate 382 -> 386 ms (1.0%), 120 historical 111 -> 113 ms (1.8%)
+US wa  400 simulate 232 -> 227 ms (-2.2%), 120 historical 68 -> 67 ms (-1.5%)
+=== RUN 3
+US tx  400 simulate 200 -> 200 ms (0.0%), 120 historical 59 -> 60 ms (1.7%)
+US ca  400 simulate 290 -> 298 ms (2.8%), 120 historical 82 -> 84 ms (2.4%)
+US ny  400 simulate 312 -> 322 ms (3.2%), 120 historical 89 -> 92 ms (3.4%)
+US pa  400 simulate 283 -> 294 ms (3.9%), 120 historical 80 -> 82 ms (2.5%)
+US ct  400 simulate 380 -> 377 ms (-0.8%), 120 historical 111 -> 109 ms (-1.8%)
+US wa  400 simulate 228 -> 236 ms (3.5%), 120 historical 67 -> 70 ms (4.5%)
+```
+
+Medians of three (simulate / historical, %): tx +0.5 / +1.7; ca +2.8 / +2.4; ny +3.2 / +2.2; pa +3.9 / +2.5; ct +1.0 / +1.8; wa
++3.5 / +4.5. All within +5%.
+
+Timing, Task 3 (default paths, three runs):
+
+```text
+--- run 1
+US tx  400 simulate 201 -> 199 ms (-1.0%), 120 historical 59 -> 59 ms (0.0%)
+US ca  400 simulate 291 -> 294 ms (1.0%), 120 historical 83 -> 83 ms (0.0%)
+US ny  400 simulate 315 -> 320 ms (1.6%), 120 historical 91 -> 93 ms (2.2%)
+US pa  400 simulate 287 -> 291 ms (1.4%), 120 historical 79 -> 82 ms (3.8%)
+US ct  400 simulate 364 -> 382 ms (4.9%), 120 historical 106 -> 112 ms (5.7%)
+US wa  400 simulate 232 -> 234 ms (0.9%), 120 historical 68 -> 69 ms (1.5%)
+--- run 2
+US tx  400 simulate 201 -> 200 ms (-0.5%), 120 historical 59 -> 59 ms (0.0%)
+US ca  400 simulate 292 -> 291 ms (-0.3%), 120 historical 84 -> 84 ms (0.0%)
+US ny  400 simulate 315 -> 310 ms (-1.6%), 120 historical 90 -> 89 ms (-1.1%)
+US pa  400 simulate 286 -> 281 ms (-1.7%), 120 historical 80 -> 79 ms (-1.2%)
+US ct  400 simulate 408 -> 395 ms (-3.2%), 120 historical 114 -> 114 ms (0.0%)
+US wa  400 simulate 246 -> 244 ms (-0.8%), 120 historical 73 -> 72 ms (-1.4%)
+--- run 3
+US tx  400 simulate 199 -> 196 ms (-1.5%), 120 historical 59 -> 59 ms (0.0%)
+US ca  400 simulate 292 -> 288 ms (-1.4%), 120 historical 84 -> 82 ms (-2.4%)
+US ny  400 simulate 317 -> 318 ms (0.3%), 120 historical 91 -> 91 ms (0.0%)
+US pa  400 simulate 288 -> 289 ms (0.3%), 120 historical 80 -> 81 ms (1.2%)
+US ct  400 simulate 379 -> 379 ms (0.0%), 120 historical 110 -> 110 ms (0.0%)
+US wa  400 simulate 230 -> 232 ms (0.9%), 120 historical 67 -> 68 ms (1.5%)
+```
+
+Medians of three (simulate / historical): tx -1.0% / 0.0%; ca -0.3% / 0.0%; ny +0.3% / 0.0%; pa +0.3% / +1.2%; ct 0.0% / 0.0%;
+wa +0.9% / +1.5%. All within +5%.
+
+Appeal household, Task 3 (`--rounds 21 --states tx,ca --household appeal`, three runs; a recorded measurement, not a gate):
+
+```text
+--- run 1
+US tx appeal 400 simulate 284 -> 299 ms (5.3%), 120 historical 73 -> 78 ms (6.8%)
+US ca appeal 400 simulate 369 -> 391 ms (6.0%), 120 historical 97 -> 105 ms (8.2%)
+--- run 2
+US tx appeal 400 simulate 286 -> 300 ms (4.9%), 120 historical 74 -> 78 ms (5.4%)
+US ca appeal 400 simulate 378 -> 417 ms (10.3%), 120 historical 103 -> 108 ms (4.9%)
+--- run 3
+US tx appeal 400 simulate 288 -> 300 ms (4.2%), 120 historical 74 -> 78 ms (5.4%)
+US ca appeal 400 simulate 370 -> 393 ms (6.2%), 120 historical 97 -> 106 ms (9.3%)
+```
+
+Medians of three: tx +4.9% simulate / +5.4% historical; ca +6.2% / +8.2% (signed off by the owner).
+
+Timing, Task 4 (default paths, three runs):
+
+```text
+run 1
+US tx  400 simulate 199 -> 196 ms (-1.5%), 120 historical 60 -> 59 ms (-1.7%)
+US ca  400 simulate 291 -> 289 ms (-0.7%), 120 historical 82 -> 83 ms (1.2%)
+US ny  400 simulate 325 -> 319 ms (-1.8%), 120 historical 92 -> 91 ms (-1.1%)
+US pa  400 simulate 285 -> 285 ms (0.0%), 120 historical 80 -> 81 ms (1.2%)
+US ct  400 simulate 384 -> 378 ms (-1.6%), 120 historical 112 -> 111 ms (-0.9%)
+US wa  400 simulate 230 -> 227 ms (-1.3%), 120 historical 66 -> 66 ms (0.0%)
+run 2
+US tx  400 simulate 196 -> 205 ms (4.6%), 120 historical 60 -> 59 ms (-1.7%)
+US ca  400 simulate 309 -> 313 ms (1.3%), 120 historical 88 -> 89 ms (1.1%)
+US ny  400 simulate 316 -> 316 ms (0.0%), 120 historical 92 -> 92 ms (0.0%)
+US pa  400 simulate 283 -> 289 ms (2.1%), 120 historical 79 -> 81 ms (2.5%)
+US ct  400 simulate 371 -> 362 ms (-2.4%), 120 historical 109 -> 106 ms (-2.8%)
+US wa  400 simulate 231 -> 233 ms (0.9%), 120 historical 67 -> 69 ms (3.0%)
+run 3
+US tx  400 simulate 193 -> 203 ms (5.2%), 120 historical 57 -> 60 ms (5.3%)
+US ca  400 simulate 283 -> 288 ms (1.8%), 120 historical 80 -> 82 ms (2.5%)
+US ny  400 simulate 312 -> 314 ms (0.6%), 120 historical 89 -> 93 ms (4.5%)
+US pa  400 simulate 295 -> 299 ms (1.4%), 120 historical 82 -> 83 ms (1.2%)
+US ct  400 simulate 396 -> 391 ms (-1.3%), 120 historical 115 -> 117 ms (1.7%)
+US wa  400 simulate 243 -> 248 ms (2.1%), 120 historical 73 -> 71 ms (-2.7%)
+```
+
+Medians of three: tx +4.6% / -1.7%, ca +1.3% / +1.2%, ny 0.0% / 0.0%, pa +1.4% / +1.2%, ct -1.6% / -0.9%, wa +0.9% / 0.0%.
+All within +5%.
+
+Appeal household, Task 4 (three runs; measurement, not a gate):
+
+```text
+US tx appeal 400 simulate 294 -> 317 ms (7.8%), 120 historical 77 -> 83 ms (7.8%)
+US ca appeal 400 simulate 368 -> 399 ms (8.4%), 120 historical 97 -> 106 ms (9.3%)
+US tx appeal 400 simulate 287 -> 308 ms (7.3%), 120 historical 73 -> 79 ms (8.2%)
+US ca appeal 400 simulate 370 -> 391 ms (5.7%), 120 historical 100 -> 105 ms (5.0%)
+US tx appeal 400 simulate 287 -> 302 ms (5.2%), 120 historical 74 -> 80 ms (8.1%)
+US ca appeal 400 simulate 368 -> 403 ms (9.5%), 120 historical 100 -> 106 ms (6.0%)
+```
+
+Medians: tx +7.3% / +8.1%, ca +8.4% / +6.0% (signed off by the owner).
+
+Task 4, `node tests/bench_plan.js`:
+
+```text
+default: refreshCliffPlan 1.80 ms, off simulate 1.60 ms, ratio 1.13 (gate 5) ok; kept none, 0 intents, 1 candidates
+ACA early retiree (CA): refreshCliffPlan 3.60 ms, off simulate 3.50 ms, ratio 1.03 (gate 5) ok; kept none, 0 intents, 1 candidates
+Texas, no cliff in reach: refreshCliffPlan 0.60 ms, off simulate 0.50 ms, ratio 1.20 (gate 5) ok; kept none, 0 intents, 1 candidates
+std G hoh 62 aca smooth (keeps intents): refreshCliffPlan 10.40 ms, off simulate 4.60 ms, ratio 2.26 (gate 5) ok; kept all, 3 intents, 2 candidates
+OK: every household plans within 5x one off projection.
+```
+
+Task 4, `node tests/bench_solver.js --base ../fp-e3-base` (default rounds, then `--rounds 21`):
+
+```text
+ACA early retiree (CA): simulate 3.56 -> 3.66 ms (2.8%), path 3.45 -> 3.40 ms (-1.4%)
+default: simulate 1.58 -> 1.72 ms (8.9%), path 1.20 -> 1.20 ms (0.0%)
+--rounds 21:
+ACA early retiree (CA): simulate 2.58 -> 2.52 ms (-2.3%), path 2.50 -> 2.45 ms (-2.0%)
+default: simulate 1.32 -> 1.30 ms (-1.5%), path 1.00 -> 1.00 ms (0.0%)
+```
+
+(The default household's +8.9% in the short run is noise at about 1.6 ms resolution and is not a gated path.)
+
+Final gates (Task 6, run in `fp-e3` at `ca170b6` plus the docs edit; nothing else running):
+- `npm test`: exit 0 (snapshots exact: US 577, Canada 376; UI snapshots US 147 controls, Canada 104; legacy corpus US 47, Canada
+  19; field registry US 126 fields / 120 MCP properties).
+- `npm run check:shared`: "shared regions OK (55 regions x 2 planners)".
+- `node tests/irmaa_appeal.js`: "irmaa_appeal: ok".
+- `node test_irmaa_appeal.js`: "width 1280 tooltip at 68: IRMAA appeal (form SSA-44, retirement): the surcharge uses 2028 income
+  instead of 2026", the same at width 390, "test_irmaa_appeal: ok".
+- `node tests/plan_off_anchor.js --base ../fp-e3-prev` (`924b182`): "plan_off_anchor: 577 identical, 0 different".
+
+Default paths (`node tests/bench_runs_interleaved.js --base ../fp-e3-base --rounds 21`, three runs):
+
+```text
+--- run 1
+US tx  400 simulate 200 -> 202 ms (1.0%), 120 historical 60 -> 59 ms (-1.7%)
+US ca  400 simulate 289 -> 294 ms (1.7%), 120 historical 83 -> 84 ms (1.2%)
+US ny  400 simulate 312 -> 313 ms (0.3%), 120 historical 89 -> 89 ms (0.0%)
+US pa  400 simulate 285 -> 285 ms (0.0%), 120 historical 79 -> 79 ms (0.0%)
+US ct  400 simulate 375 -> 375 ms (0.0%), 120 historical 108 -> 110 ms (1.9%)
+US wa  400 simulate 229 -> 229 ms (0.0%), 120 historical 67 -> 67 ms (0.0%)
+--- run 2
+US tx  400 simulate 198 -> 206 ms (4.0%), 120 historical 59 -> 61 ms (3.4%)
+US ca  400 simulate 288 -> 298 ms (3.5%), 120 historical 83 -> 84 ms (1.2%)
+US ny  400 simulate 317 -> 311 ms (-1.9%), 120 historical 91 -> 89 ms (-2.2%)
+US pa  400 simulate 290 -> 282 ms (-2.8%), 120 historical 81 -> 79 ms (-2.5%)
+US ct  400 simulate 380 -> 376 ms (-1.1%), 120 historical 111 -> 110 ms (-0.9%)
+US wa  400 simulate 233 -> 228 ms (-2.1%), 120 historical 68 -> 67 ms (-1.5%)
+--- run 3
+US tx  400 simulate 194 -> 204 ms (5.2%), 120 historical 58 -> 59 ms (1.7%)
+US ca  400 simulate 285 -> 293 ms (2.8%), 120 historical 82 -> 84 ms (2.4%)
+US ny  400 simulate 312 -> 313 ms (0.3%), 120 historical 90 -> 90 ms (0.0%)
+US pa  400 simulate 281 -> 283 ms (0.7%), 120 historical 79 -> 80 ms (1.3%)
+US ct  400 simulate 370 -> 370 ms (0.0%), 120 historical 108 -> 108 ms (0.0%)
+US wa  400 simulate 225 -> 227 ms (0.9%), 120 historical 66 -> 67 ms (1.5%)
+```
+
+Medians of three (simulate / historical): tx +4.0% / +1.7%; ca +2.8% / +1.2%; ny +0.3% / 0.0%; pa 0.0% / 0.0%; ct 0.0% / 0.0%;
+wa 0.0% / 0.0%. All within +5%: gate passed.
+
+Appeal household (`--rounds 21 --states tx,ca --household appeal`, three runs; a recorded measurement for the owner's sign-off):
+
+```text
+--- run 1
+US tx appeal 400 simulate 288 -> 304 ms (5.6%), 120 historical 74 -> 79 ms (6.8%)
+US ca appeal 400 simulate 378 -> 385 ms (1.9%), 120 historical 101 -> 105 ms (4.0%)
+--- run 2
+US tx appeal 400 simulate 289 -> 300 ms (3.8%), 120 historical 74 -> 79 ms (6.8%)
+US ca appeal 400 simulate 395 -> 412 ms (4.3%), 120 historical 103 -> 108 ms (4.9%)
+--- run 3
+US tx appeal 400 simulate 283 -> 301 ms (6.4%), 120 historical 73 -> 78 ms (6.8%)
+US ca appeal 400 simulate 368 -> 401 ms (9.0%), 120 historical 99 -> 107 ms (8.1%)
+```
+
+Medians of three: tx +5.6% simulate / +6.8% historical; ca +4.3% / +4.9% (inside the expected +4% to +35%; far below the +40%
+finding level).
+
+`node tests/bench_plan.js`:
+
+```text
+default: refreshCliffPlan 1.60 ms, off simulate 1.60 ms, ratio 1.00 (gate 5) ok; kept none, 0 intents, 1 candidates
+ACA early retiree (CA): refreshCliffPlan 3.60 ms, off simulate 3.30 ms, ratio 1.09 (gate 5) ok; kept none, 0 intents, 1 candidates
+Texas, no cliff in reach: refreshCliffPlan 0.80 ms, off simulate 0.60 ms, ratio 1.33 (gate 5) ok; kept none, 0 intents, 1 candidates
+std G hoh 62 aca smooth (keeps intents): refreshCliffPlan 9.40 ms, off simulate 5.30 ms, ratio 1.77 (gate 5) ok; kept all, 3 intents, 2 candidates
+OK: every household plans within 5x one off projection.
+```
+
+`node tests/bench_solver.js --base ../fp-e3-base --rounds 21` (the ACA early retiree's +30% gate: +3.1% / +6.1%):
+
+```text
+ACA early retiree (CA): simulate 2.56 -> 2.64 ms (3.1%), path 2.45 -> 2.60 ms (6.1%)
+default: simulate 1.30 -> 1.32 ms (1.5%), path 1.00 -> 0.95 ms (-5.0%)
+```
+
+Review notes kept for the record (none changes code):
+- Spec 5.1 oddity (Task 1 review): with marry-later, the entered prior returns would read joint for a lookback year before year
+  0 when the wedding falls after year 0 but before the death year. It is unreachable: a wedding after year 0 means year 0 has two
+  returns, so years 0 and 1 go through `irmaaLookbackSplit` and the filing status is never read.
+- Task 4: the `a: medA || inYrA` / `b: medB || inYrB` arm at the `magiThresholds` call site is exercised by no test (`medA` is
+  already true in year 2 of case 16; the two differ only when the partner charged this year is dead two years on). The assertion
+  "per-return growth: B at the household growth" (`mixedB` vs `twoB`) also passes on pre-change code (harmless: `siteB` vs `twoB`
+  and `mixedA` vs `oneA` catch the mutations).
+- Task 5: the couple tooltip wording ("Partner A's surcharge uses ... instead of ...") has no UI test; `test_irmaa_appeal.js`
+  checks only the single-person wording.
+- Other reviewer minors: `irmaaFilingHistory[s]` would throw if `healthcareCost` were passed an `appeal` table without
+  `irmaaFilingHistory` (latent; the year loop passes both); `__test_irmaaInYearCalls` counts pricings, not years; an unknown
+  `--household` value silently runs the default sweep; `annotateAppealRows` is O(rows^2) (display only).
+- The one path no test reaches: the forced pass's reset of `appealYrA/B` from `lastCost` (spec 5.6): no constructed household
+  takes the forced pass inside an appeal window.
+
+Left for the owner: nothing blocking. The spec's Batch 5 notes stand (`irmaaAt` does not score year E's effect on the E+1
+charge; the year-0 stand-in still has no convergence). CLAUDE.md's `plan_off_anchor` mention under "Run modes" still names the
+old baseline ("a tree at or after `5eb30fa`"), while the script's header names the E3 Task 3 commit; left as is (outside this
+task's brief). (Fixed afterwards in `8c395af`, below.)
+
+Final whole-branch review (2026-10-11): no Critical or Important findings; verdict: ready to merge. Minors:
+1. CLAUDE.md's `plan_off_anchor` baseline sentence was stale: fixed in `8c395af` (names the current baseline `4834615`, the
+   earlier ones as history).
+2. The forced pass's reset of `appealYrA/B` from `lastCost` is untested: ACCEPTED as an untested path (no constructed household
+   takes the forced pass inside an appeal window).
+3. Latent throw: `irmaaFilingHistory[s]` if `healthcareCost` were passed an `appeal` table without a filing history; the year
+   loop always passes both: accepted.
+4. `healthcareCost`'s header comment did not mention the appeal: fixed in `8c395af`.
+5. Untested branches: the `a: medA || inYrA` / `b: medB || inYrB` arm at the `magiThresholds` call site (ACCEPTED as an
+   untested path), the couple tooltip wording, and the `mixedB` vs `twoB` assertion passing on pre-change code: accepted.
+6. `annotateAppealRows` is O(rows^2) (display only), and an unknown `--household` value runs the default sweep: accepted.
+7. By design (note): no appeal for an event before the plan (a retirement at or before today's age, or a death before the
+   plan, even with entered prior MAGIs; the `irmaaPriorKnown` tooltip now says an event before this year is not appealed), and in
+   a year with an in-year candidate the plan's IRMAA lines sit on this year's edges (the conservative side).
+
+Pre-merge test coverage added (`tests/irmaa_appeal.js`, quiet base, 2026 tiers, Medicare 10,000; each case shown red against a
+mutated copy of the planner, green on the real code):
+- Probe 1, two returns: unmarried couple, A 70 on Social Security 4,000 a month, B 66 with a salary of 200,000 retiring at 67
+  and a 115,000 pension from 67 (event table: only `eventB[1] = 2`). Healthcare 11,148.40 in years 1 and 2 (B appealed on B's own
+  115,000, tier 1; appeal year 2027). Mutation: the in-year and last-year candidates priced on the household MAGI and filing
+  instead of the person's own return: 12,884.80 in both years (red; case 9 also goes red).
+- Probe 2, the 65-by-E+1 edge: single 63, salary 200,000, retiring at 64 with a 60,000 pension from 64: `eventA[1] = 2`,
+  healthcare 10,000 at 65 (year 2), appealed on 2027 income. Mutation: the age test by E instead of E+1 (dropped event; year 2
+  charges 14,620: red).
+- Probe 3, a stream outliving its owner: married, both 66, A dies at 70 (deathYear 4), A's W-2 stream to 75: `eventA` all zeros,
+  `eventB` only `[4] = 3`. Mutation: the stream skip for an owner dead in year E removed (`eventB[10] = 1`, the spouse covered by
+  a job end after the death: red).
+- Counter case: a year-0 death without entered prior MAGIs (case 1's couple, A dies at 68, pensions 300,000 each so the
+  survivor's year-0 normal charge is above 0, a one-year plan): `__test_irmaaInYearCalls` around one raw run is 0. Mutation: the
+  `year > 0 || state.irmaaPriorKnown` gate removed (2 pricings: red). With case 1's 125,000 pensions the normal charge is 0 and the
+  mutation does not show; with a longer plan year 1's window (E = 0 was last year) is priced legitimately, hence the one-year plan.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

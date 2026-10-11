@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V129</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V130</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -507,7 +507,7 @@
           <div class="field"><label for="medicareYearly">Annual Medicare Part B/D + supplement <span class="info-nw">cost<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Total household estimate for Medicare Part B, Part D, and a Medigap/supplement policy. Half is charged to each partner starting at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65 stops (a self-employed partner enrolls at 65), regardless of the other partner&#x27;s age or retirement status. A partner still working at 65 is assumed to stay on the employer plan (the health premium deducted from their paycheck keeps applying) and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled). An employer plan can cost less than Medicare plus IRMAA, so waiting is the sensible default; if you would enroll earlier, set a later retirement age. Not subsidized by the ACA schedule above, but still subject to IRMAA surcharges at higher income, which start with Medicare. Federal tax: your health premiums (the ACA premium after the credit, Medicare and IRMAA) and the long-term-care cost, which is assumed to be qualified care for a chronically ill person under a plan of care, count as medical expenses over 7.5% of AGI when itemizing beats the standard deduction, which in practice means the care years. State itemized deductions are not modeled.">i</button></span><small>Part B, Part D and a supplement, whole household</small></label><input id="medicareYearly" type="number" class="money" min="0" step="500"></div>
           <div class="field" id="acaEnhancedField"><label for="acaEnhanced"><input id="acaEnhanced" type="checkbox"> Assume enhanced ACA subsidies <span class="info-nw">return<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Current law for 2026 restored the 400%-of-poverty “subsidy cliff” after the 2021–2025 enhanced credits expired. Check this to instead model the enhanced structure (no cliff, capped at 8.5% of income) in case it&#x27;s extended by Congress.">i</button></span><small>Models no subsidy cliff, capped at 8.5% of income</small></label></div>
           <div class="field" id="medicaidWhenEligibleField"><label for="medicaidWhenEligible"><input id="medicaidWhenEligible" type="checkbox"> Enroll in Medicaid when <span class="info-nw">eligible<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="In the 41 states with Medicaid expansion (and Wisconsin, to 100% of poverty), an adult under 65 with income at or below 138% of the poverty line (100% in Wisconsin) is eligible for Medicaid: a $0 premium and no premium tax credit. Checked, the plan charges $0 in those years; unchecked, it charges the full unsubsidized premium (you cannot take the credit instead). Medicaid pays back from the estate of anyone 55 or older (estate recovery), and its provider networks are narrower, so some households decline it. In the ten states that did not expand (AL, FL, GA, KS, MS, SC, TN, TX, WI, WY), income below 100% of poverty gets no credit and pays the full premium. From 2027, expansion adults 19 to 64 must show 80 hours a month of work, service or school (a parent or caregiver of a child 13 or younger is exempt); a retired adult with no such child fails the test, loses Medicaid, and is also barred from the premium credit, so pays the full premium. Not modeled: other exemptions (medical frailty, disability, SNAP or TANF compliance), the income route to the requirement, state delays of up to the end of 2028, and Medicaid&#x27;s use of monthly rather than annual income.">i</button></span><small>$0 premium when income is low enough; full premium otherwise</small></label></div>
-          <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
+          <div class="field"><label for="irmaaPriorKnown"><input id="irmaaPriorKnown" type="checkbox"> I know my income from the last two <span class="info-nw">years<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Medicare charges the IRMAA surcharge based on your income (MAGI: adjusted gross income plus tax-exempt interest) from two years earlier. The planner has no income history from before today, so by default it uses this year&#x27;s projected income as a stand-in for the first two years. If you&#x27;re already on Medicare or enrolling within two years, enter the MAGI from your last two tax returns instead; from the third year on, the projection&#x27;s own income is used. A retirement, the end of a job or a spouse&#x27;s death inside the plan is appealed automatically (form SSA-44); an event before this year is not.">i</button></span><small>Sets the Medicare surcharge in your first two years</small></label></div>
           <div id="irmaaPriorFields">
             <div class="field"><label for="irmaaMagiPrior2">MAGI two tax years ago<small>Sets this year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior2" type="number" class="money" min="0" step="1000"></div>
             <div class="field"><label for="irmaaMagiPrior1">MAGI last tax year<small>Sets next year&#x27;s Medicare surcharge</small></label><input id="irmaaMagiPrior1" type="number" class="money" min="0" step="1000"></div>
@@ -710,7 +710,7 @@
             <div class="callout method full"><b>How the model works.</b> In couple mode, both partners contribute the annual 401(k) and IRA limits while employed, subject to earned income; in single-person mode, only Partner A’s limits and income are used. Select Traditional or Roth separately for each account: Traditional contributions reduce modeled taxable wages and fund the traditional account; Roth contributions use after-tax cash flow and fund the Roth account. A separate catch-up slider controls only the age-50+ (and enhanced age-60–63) catch-up portion of the 401(k) limit; catch-up contributions become mandatorily Roth once modeled wages exceed the SECURE 2.0 threshold (~$150k, 2026-indexed), regardless of the slider. Employer 401(k) matches are calculated as the selected percentage of each working person’s salary and added to traditional retirement without reducing take-home pay. Additional income streams (with their own age windows and growth) are taxed as ordinary income and are not eligible for 401(k)/IRA contributions. Household spending can include up to five sequential changes, each triggered once Partner A reaches a chosen age and fully replacing the prior spending figure from that point on. Up to ten additional recurring income streams (each with its own start/end age, an owner, and a kind: not earned, W-2 wages with payroll tax, or self-employment) are taxed on the owner's return and added to cash flow, in today's dollars; up to ten one-time lump sums (e.g. an inheritance or a severance payment) are either tax-free and added to cash, or taxable (wages with payroll tax, ordinary income, or a long-term gain on its gain share) on the owner's return in the year received, paying their own tax inside the year's cash flow, or an inherited traditional or Roth IRA / 401(k), drawn on the 10-year rule (a death before 2020: over the heir's life expectancy). Extra mortgage principal accelerates payoff and reduces cash available for brokerage. A "Rent, then buy" housing mode pays rent (with its own growth rate) until a chosen age, then switches to homeownership: the home's future purchase price grows from today's entered value at the home-appreciation rate, and the purchase is funded by cash (down payment plus closing costs, deducted from investable assets in the purchase year) either outright or via a new mortgage (with a manually-entered loan term) with its own optional extra-principal payment; from that point on it behaves like Own, including home appreciation, maintenance, mortgage payoff, and home equity in net worth. The emergency reserve stays in HYSA and remaining excess cash flow goes to taxable investments. The five-year bond reserve is built one projected expense-year at a time over the years before retirement, moved from traditional first, then Roth, then taxable only as a last resort (moves inside traditional and Roth create no income and no early-withdrawal penalty; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI). An optional Roth conversion ladder converts traditional balances to Roth each year within a chosen age window, solving for the amount that fills ordinary income up to the top of a selected federal bracket (after any required RMD), automatically reduced further to stay short of the ACA subsidy cliff (once ACA-eligible and not using the enhanced-subsidy assumption) and the next Medicare IRMAA tier (once within two years of 65, matching the real two-year lookback) — whichever constraint is tighter that year. Social Security and pension income offset expenses first; withdrawals then use taxable, traditional, Roth, cash, the protected bond reserve, and finally home equity. While anyone would owe the 10% early-withdrawal penalty on some of their money, the order protects the penalty-free money instead: taxable and penalty-free traditional accounts (59½ or older, or a 401(k) under Rule of 55) first, then cash, then the taxable bond reserve, then Roth contributions (basis), and only then penalized money, cheapest per dollar first, with home equity last. Once everyone is 59½ or older (or exempt) the order above applies.</div>
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <div class="callout"><b>Tax treatment.</b> Choose MFJ or two single filers; an optional marriage age can switch the model from single returns to MFJ. In single years, wages, Social Security, pensions, RMDs, federal/state tax, and NIIT are calculated per person; pooled taxable and traditional withdrawals are split 50/50 for tax purposes. Federal taxable Social Security is recalculated using provisional income after modeled brokerage gains, traditional withdrawals, and any Roth conversion. State calculations receive wages, pension income, traditional/RMD withdrawals, taxable Social Security, and brokerage gains as separate sources. The model applies the broad retirement-income exclusions that its inputs can identify—for example, full exemptions in Illinois and Pennsylvania; age-based exemptions in Iowa and Mississippi; and limited exclusions in Arkansas, New York, South Carolina, and Georgia—alongside state Social Security treatment. This is still a planning estimate: local income tax, state credits, itemizing, military/government-pension distinctions, after-tax IRA basis, special capital-gain treatment, and state-specific phaseouts are not fully modeled. Traditional funds are assumed split 50/50 for RMD purposes, and each partner's RMD begins at their own RMD age (75 if born 1960 or later, 73 if born 1951-1959; birth year is estimated from today's age) using approximate Uniform Lifetime divisors. Brokerage withdrawals use the selected cost-basis ratio to estimate the long-term-gain portion. Taxable interest and dividends are not separately modeled. Traditional IRA deductibility and Roth IRA eligibility limits are not modeled. Federal deductions: each year uses the larger of the standard deduction (plus $1,650 per married filer, $2,050 if single, aged 65+) and a simplified itemized total (state income tax plus property tax under the SALT cap, plus mortgage interest on up to $750,000 of loan; charitable gifts, QCDs and medical expenses are not modeled), and the temporary $6,000-per-person senior deduction (phased out above $75,000 single / $150,000 joint of income) is added on top for tax years 2025 through 2028 only. The Roth-conversion bracket target uses a conservative deduction (standard, or property tax plus mortgage interest if larger), so it converts slightly less than an exact calculation would.</div>
-            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while without employer coverage (retired, or self-employed) and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (the adults plus qualifying children from the Children list). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65 stops (a self-employed partner enrolls at 65): a partner still working for an employer at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback. Neither ACA nor IRMAA account for the Medicaid coverage gap, state ACA variations, or IRMAA appeals for life-changing events.</div>
+            <div class="callout full"><b>Healthcare, ACA, Medicare & IRMAA.</b> The "annual pre-65 healthcare" figure applies to a partner while without employer coverage (retired, or self-employed) and under 65. For a couple, by default a retired partner is assumed covered under a still-working spouse's employer plan instead (via that spouse's own pre-tax premium field), so the figure starts once BOTH have stopped working; the "employer plan covers spouse" checkboxes turn that off per spouse, which starts the retired partner's premium (and ACA subsidy, if modeled) the year they retire. Once it applies, if the ACA subsidy toggle is on, it's netted against a modeled premium tax credit using household MAGI for that same year: wages, pension, RMDs, Social Security, dividends and interest, any Roth conversion, and the year's own realized traditional withdrawals and taxable-brokerage gains. Because the withdrawal depends on the premium and the premium on the withdrawal, each year is solved to a consistent answer (re-run until the MAGI assumed for the subsidy matches what the withdrawals actually realized) and household size (the adults plus qualifying children from the Children list). Current 2026 law reverts to the pre-2021 structure: a sliding subsidy from 100%–400% of the federal poverty line (IRS Rev. Proc. 2025-25 applicable percentages), then a hard cliff above 400% with no credit at all; a checkbox instead models the 2021–2025 enhanced structure (no cliff, capped at 8.5% of income) in case Congress extends it. Separately, the "annual Medicare Part B/D + supplement" figure begins for each partner individually at 65 for a partner without employer coverage, or when a partner who keeps working for an employer past 65 stops (a self-employed partner enrolls at 65): a partner still working for an employer at 65 is assumed to stay on the employer plan and to enroll in Part B and D the year they stop working, with no late-enrollment penalty (penalties are not modeled), while a partner who is not working at 65 enrolls at 65. It does not depend on the spouse, and it is never netted against the ACA subsidy schedule, since Medicare isn't ACA-subsidized. It is, however, subject to Medicare IRMAA — the 2026 Part B + Part D surcharge tiers, applied per Medicare-enrolled partner (so not while still working past 65) against Medicare's MAGI from two years prior (adjusted gross income plus tax-exempt interest, which counts only the taxable part of Social Security, unlike the ACA's MAGI, which counts all of it; withdrawals and conversions included; your own entries for the plan's first two years if you provide them), matching Medicare's actual two-year lookback, on the tiers of the filing status of that earlier return. After a retirement, the end of a job or a spouse's death inside the plan, the household is assumed to file Medicare's appeal for a life-changing event (form SSA-44): in the first one or two Medicare years after the event the surcharge uses that year's (or the year before's) income instead, when that is lower. Other life-changing events (marriage, divorce, a lost pension or property) and state ACA variations are not modeled.</div>
             <div class="callout full"><b>Historical S&P 500 backtest.</b> The "Historical (S&P 500)" chart view replays your exact inputs starting from every calendar year 1928–2025 with a full run of actual data available for your projection length (calendar-year S&P 500 total returns with dividends reinvested and 10-year US Treasury bond total returns from the Damodaran/NYU Stern dataset, and December-to-December US CPI inflation), rather than a single assumed return. It uses a cash-and-bond "bucket" strategy instead of the standard waterfall: the bond reserve is sized to your chosen years of expenses; in a year the S&P 500 fell, that year's spending comes from cash then the bond reserve only, so equities are never sold at a loss; in a year the market rose, spending is paid from the stock accounts, and the bond reserve is then topped up gradually: surplus income refills it as far as the surplus and your bond-years target allow, and otherwise stocks are moved into bonds, at most one year of that year's expenses per year (traditional first, then Roth, then taxable only as a last resort; selling taxable stock realizes a capital gain that counts in that year's tax and MAGI, and the moves inside traditional and Roth create no income and no early-withdrawal penalty). The stock accounts follow the withdrawal settings you chose (the default taxable → traditional → Roth order, smooth withdrawals, the optimized live order, or an applied schedule); cash and the bond reserve keep their own place in the order. While anyone would owe the early-withdrawal penalty on some of their money, only penalty-free money is used in those steps, Roth basis waits until after cash and the bond reserve in an up year too, and penalized money is the last resort before home equity. If cash and bonds are both exhausted during a losing stretch, the model falls back to taxable → traditional → Roth → home equity to avoid a false failure. Bonds now grow at the same year's actual 10-year Treasury bond return, so the bond reserve's refill/protection value reflects real historical bond performance, not a flat assumption. HYSA and mortgage rates still use your entered assumptions, since no historical series is loaded for either. Every other feature (taxes, RMDs, ACA, IRMAA, the Roth ladder, additional income, spending tiers, the rent-then-buy housing switch) runs exactly as in the standard projection for each historical year replayed. "Success" means the portfolio never fully depletes by the end of your projection in that starting year; it says nothing about calendar years after 2025, which aren't in the data.</div>
           </div>
         </details>
@@ -7542,6 +7542,14 @@
     }
     return [magiHistoryA[y] || 0, magiHistoryB[y] || 0];
   }
+  // E3 (spec 5.1, decision 1): the filing status of the return IRMAA's lookback reads, whose tiers SSA uses (20 CFR
+  // 418.1120). The lookback year's own status; for the plan's first two years year 0's stands for the earlier returns, except
+  // that an entered return from a year in which a married partner (who dies in deathYear) was still alive was joint.
+  function irmaaLookbackFiling(filingHistory, year, filing, deathYear, marriedAtDeath) {
+    const L = year - 2;
+    if (L < 0 && state.irmaaPriorKnown && marriedAtDeath && L <= deathYear) return 'mfj';
+    return filingHistory ? filingHistory[Math.max(0, L)] : filing;
+  }
   // Roth conversion ladder — converts traditional balances to Roth each year
   // in the chosen window, solving for the gross conversion that fills
   // ordinary taxable income up to the top of the selected federal bracket
@@ -9199,6 +9207,58 @@
     return { otherA, otherB, profile };
   }
 
+  // E3 (spec 5.2): the IRMAA appeal events of a run, per person, by first post-event year E (the year after the last
+  // working year, or the death year): 0 none, 1 the end of a W-2 or self-employed stream, 2 a main-job retirement, 3 a
+  // married spouse's death; the highest kind on a tie. An event covers its owner, and the owner's spouse when the couple is
+  // married in year E (a death covers only the survivor); it is kept for a covered person alive in year E and 65 or over by
+  // year E+1. Null when no event is kept (the default household, retiring at 55, allocates nothing).
+  function irmaaAppealTable({ singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears }) {
+    const married = (y) => !singlePerson && (state.marryLater ? state.ageA + y >= state.marriageAgeA : state.filingStatus === 'mfj');
+    let eventA = null,
+      eventB = null;
+    const put = (b, E, kind) => {
+      if ((b ? deceasedIsB : deceasedIsA) && E >= deathYear) return; // dead in year E
+      if ((b ? state.ageB : state.ageA) + E + 1 < 65) return; // cannot be on Medicare by E+1
+      if (eventA === null) {
+        eventA = new Int8Array(projectionYears + 1);
+        eventB = new Int8Array(projectionYears + 1);
+      }
+      const ev = b ? eventB : eventA;
+      if (kind > ev[E]) ev[E] = kind;
+    };
+    const cover = (b, E, kind) => {
+      put(b, E, kind);
+      if (married(E)) put(!b, E, kind);
+    };
+    const eA = retireAgeA - state.ageA;
+    if (state.incomeA > 0 && eA >= 1 && eA <= projectionYears) cover(false, eA, 2);
+    if (!singlePerson) {
+      const eB = retireAgeB - state.ageB;
+      if (state.incomeB > 0 && eB >= 1 && eB <= projectionYears) cover(true, eB, 2);
+    }
+    for (const s of state.incomeSources) {
+      if ((s.kind !== 'wages' && s.kind !== 'self') || !(s.amount > 0) || !(s.startAge <= s.endAge)) continue;
+      const b = !singlePerson && s.owner === 'B',
+        E = s.endAge + 1 - (b ? state.ageB : state.ageA);
+      if (E < 1 || E > projectionYears) continue;
+      if ((b ? deceasedIsB : deceasedIsA) && E >= deathYear) continue; // ended by its owner's death: the death event
+      cover(b, E, 1);
+    }
+    if ((deceasedIsA || deceasedIsB) && deathYear >= 0 && deathYear <= projectionYears && married(deathYear)) put(deceasedIsA, deathYear, 3);
+    return eventA === null ? null : { eventA, eventB };
+  }
+  // E3 (spec 5.2): partner P's appeal window in premium year `year` from P's event row: 2 when an event's E is last year
+  // (last year's and this year's MAGI may replace the lookback), 1 when it is this year (this year's MAGI), else 0.
+  function irmaaAppealWindow(ev, year) {
+    return year >= 1 && ev[year - 1] !== 0 ? 2 : ev[year] !== 0 ? 1 : 0;
+  }
+  // E3 (spec 5.2, round 1 M4): the kind of the event the chosen tax year s can cite in premium year t.
+  function irmaaAppealKind(ev, t, s) {
+    return s === t - 1 ? ev[t - 1] : ev[t] !== 0 ? ev[t] : ev[t - 1];
+  }
+  // E3, test-only (plan review round 2, S1): how many times healthcareCost priced an in-year appeal candidate.
+  let irmaaInYearCalls = 0;
+
   // Healthcare and long-term-care cost for the year.
   //  - Pre-65 premium (state.healthcare): only for partners on the individual
   //    market (acaEligibleA/B, see acaEligibility). With ACA modeling on it is
@@ -9208,7 +9268,9 @@
   //  - Medicare Part B/D + supplement (state.medicareYearly): per partner,
   //    from max(65, that partner's retirement age); independent of the spouse.
   //  - IRMAA surcharge per Medicare-eligible partner, from the two-year MAGI
-  //    lookback.
+  //    lookback on the tiers of the lookback return's filing status; in an
+  //    event window (E3, form SSA-44) the lowest of it and this year's / last
+  //    year's MAGI (appeal table, see irmaaAppealTable).
   //  - Long-term care once each partner reaches their LTC age.
   // A deceased partner's share drops out in the survivor period.
   function healthcareCost({
@@ -9233,6 +9295,14 @@
     irmaaHistoryA = null,
     irmaaHistoryB = null,
     twoReturnHistory = null,
+    irmaaFilingHistory = null,
+    deathYear = Infinity,
+    marriedAtDeath = false,
+    appeal = null,
+    irmaaSsH = 0,
+    ssA = 0,
+    ssB = 0,
+    irmaaStA = 'single',
   }) {
     const inflate = (amount) => amount * factor * medicalGrowth(year);
     // An annual `total` shared equally between the two partners (or all Partner
@@ -9286,33 +9356,60 @@
       premA += inflate(medicareEligibleA ? state.medicareYearly / 2 : 0);
       premB += inflate(medicareEligibleB ? state.medicareYearly / 2 : 0);
     }
-    // IRMAA applies only to partners actually on Medicare (see above), using
-    // the two-year lookback of Medicare's MAGI (irmaaHistory: only the taxable part of Social Security).
-    // A lookback year with two returns charges each person on their own MAGI against the single tiers.
-    const split = twoReturnHistory ? irmaaLookbackSplit(irmaaHistoryA, irmaaHistoryB, twoReturnHistory, year) : null;
-    if (split) {
-      if (medicareEligibleA) {
-        const ia = irmaaSurcharge(split[0], 'single', year);
-        healthcare += ia;
-        if (twoReturns) premA += ia;
+    // IRMAA applies only to partners actually on Medicare (see above), using the two-year lookback of Medicare's MAGI
+    // (irmaaHistory: only the taxable part of Social Security) on the tiers of the lookback return's filing status (E3 decision
+    // 1). A lookback year with two returns charges each person on their own MAGI against the single tiers.
+    // E3 (spec 5.3): in an appeal window (appeal.eventA/B), a partner whose normal charge is above 0 is charged the lowest of
+    // it, this year's MAGI (this pass's estimate: usesMagiEstimate) and, when the event's E was last year, last year's realized
+    // MAGI; a candidate is used only when strictly lower. Year 0 without entered prior MAGIs is skipped: its stand-in already
+    // reads this year's MAGI.
+    const split = twoReturnHistory ? irmaaLookbackSplit(irmaaHistoryA, irmaaHistoryB, twoReturnHistory, year) : null,
+      lookbackMagi = split ? 0 : irmaaLookbackMagi(irmaaHistory, year),
+      lbFiling = split ? 'single' : irmaaLookbackFiling(irmaaFilingHistory, year, filing, deathYear, marriedAtDeath),
+      canAppeal = appeal !== null && (year > 0 || state.irmaaPriorKnown);
+    let appealA = -1,
+      appealB = -1,
+      inYearA = false,
+      inYearB = false;
+    if (medicareEligibleA) {
+      let ia = irmaaSurcharge(split ? split[0] : lookbackMagi, lbFiling, year);
+      const w = canAppeal && ia > 0 ? irmaaAppealWindow(appeal.eventA, year) : 0;
+      if (w !== 0) {
+        inYearA = true;
+        usesMagiEstimate = true;
+        irmaaInYearCalls++;
+        let best = ia;
+        if (w === 2) {
+          const s = year - 1,
+            last = twoReturnHistory && twoReturnHistory[s] ? irmaaSurcharge(irmaaHistoryA[s], 'single', year) : irmaaSurcharge(irmaaHistory[s], irmaaFilingHistory[s], year);
+          if (last < best) (best = last), (appealA = s);
+        }
+        const now = twoReturns ? irmaaSurcharge(irmaaMagiOf(magiA, ssA, irmaaStA), 'single', year) : irmaaSurcharge(irmaaMagiOf(magiProxy, irmaaSsH, filing), filing, year);
+        if (now < best) (best = now), (appealA = year);
+        ia = best;
       }
-      if (medicareEligibleB) {
-        const ib = irmaaSurcharge(split[1], 'single', year);
-        healthcare += ib;
-        if (twoReturns) premB += ib;
+      healthcare += ia;
+      if (twoReturns) premA += ia;
+    }
+    if (medicareEligibleB) {
+      let ib = irmaaSurcharge(split ? split[1] : lookbackMagi, lbFiling, year);
+      const w = canAppeal && ib > 0 ? irmaaAppealWindow(appeal.eventB, year) : 0;
+      if (w !== 0) {
+        inYearB = true;
+        usesMagiEstimate = true;
+        irmaaInYearCalls++;
+        let best = ib;
+        if (w === 2) {
+          const s = year - 1,
+            last = twoReturnHistory && twoReturnHistory[s] ? irmaaSurcharge(irmaaHistoryB[s], 'single', year) : irmaaSurcharge(irmaaHistory[s], irmaaFilingHistory[s], year);
+          if (last < best) (best = last), (appealB = s);
+        }
+        const now = twoReturns ? irmaaSurcharge(irmaaMagiOf(magiB, ssB, 'single'), 'single', year) : irmaaSurcharge(irmaaMagiOf(magiProxy, irmaaSsH, filing), filing, year);
+        if (now < best) (best = now), (appealB = year);
+        ib = best;
       }
-    } else {
-      const lookbackMagi = irmaaLookbackMagi(irmaaHistory, year);
-      if (medicareEligibleA) {
-        const ia = irmaaSurcharge(lookbackMagi, filing, year);
-        healthcare += ia;
-        if (twoReturns) premA += ia;
-      }
-      if (medicareEligibleB) {
-        const ib = irmaaSurcharge(lookbackMagi, filing, year);
-        healthcare += ib;
-        if (twoReturns) premB += ib;
-      }
+      healthcare += ib;
+      if (twoReturns) premB += ib;
     }
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
@@ -9322,7 +9419,7 @@
           : 0) *
           factor * medicalGrowth(year)
       : 0;
-    return { healthcare, ltc, usesMagiEstimate, premA, premB };
+    return { healthcare, ltc, usesMagiEstimate, premA, premB, appealA, appealB, inYearA, inYearB };
   }
 
   // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
@@ -9617,10 +9714,12 @@
         if (c.acaEligibleB) acaLines(fplForHousehold(1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca'));
       } else acaLines(fplForHousehold(acaHouseholdSize(c.singlePerson, c.isSurvivorPeriod, y), y), (line, label, id) => add(line, label, id, 'H', 'aca'));
     }
-    // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, under that
-    // year's filing status; a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
+    // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, on this year's
+    // return's filing status (the return SSA will read, E3); a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
     // the surcharge is charged, estimated as irmaaAt estimates them: this year's edge times c.irmaaGrowth (default 1;
     // the year loop passes irmaaGrowth2). That is where the charge jumps, so that is where a stay-under saves money.
+    // E3: a caller may pass c.irmaaGrowthA / c.irmaaGrowthB (two returns, per return); a year with an in-year IRMAA
+    // appeal candidate passes growth 1 (this year's edges).
     // (The conversion ceiling, irmaaTierCeiling, keeps this year's tiers: the safe side there; Batch 5 revisits it.)
     // The edges are Medicare's MAGI (only the taxable part of Social Security), translated into the engine's MAGI with
     // magiForIrmaaLine on this year's return (its benefit and filing status); the tier table is the charged year's.
@@ -9633,13 +9732,14 @@
         ssH = irmaaSsOf(p),
         stA = returnStatusA(p.dependents);
       if (c.twoReturns) {
-        const f = taxIndexFactor(y);
+        const f = taxIndexFactor(y),
+          gA = c.irmaaGrowthA === undefined ? g : c.irmaaGrowthA, // E3 (spec 5.5): per return
+          gB = c.irmaaGrowthB === undefined ? g : c.irmaaGrowthB;
         let k = 0;
         for (const [edge] of IRMAA_TIERS[filingKey('single', 'irmaa')]) {
-          const cap = edge * f * g;
-          if (cap < Infinity) k++;
-          if (irmaaA && cap < Infinity) add(toHousehold(magiForIrmaaLine(cap, p.ssA || 0, stA), c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa');
-          if (irmaaB && cap < Infinity) add(toHousehold(magiForIrmaaLine(cap, p.ssB || 0, 'single'), c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
+          if (edge < Infinity) k++;
+          if (irmaaA && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gA, p.ssA || 0, stA), c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa');
+          if (irmaaB && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gB, p.ssB || 0, 'single'), c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
         }
       } else {
         const f = taxIndexFactor(y);
@@ -10883,7 +10983,9 @@
       magiHistoryB = [],
       irmaaMagiHistoryA = [],
       irmaaMagiHistoryB = [],
-      twoReturnHistory = [];
+      twoReturnHistory = [],
+      // E3: each year's filing status, the IRMAA lookback's tier table (spec 5.1).
+      irmaaFilingHistory = [];
     // Per-account Roth contribution/conversion ledgers (see rothAccountsNew).
     const rothAccts = rothAccountsNew();
     // Per-account shares of the traditional and Roth pools (see accountsNew).
@@ -10937,6 +11039,9 @@
     // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
     if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
     if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
+    // E3 (spec 5.1): whether the couple was married when a partner died (the lookback reads joint tiers for entered returns from
+    // before the death). False without a death, in single-person mode, or for an unmarried couple.
+    const marriedAtDeath = deathYear < Infinity && !singlePerson && (state.marryLater ? state.ageA + deathYear >= state.marriageAgeA : state.filingStatus === 'mfj');
     // E1e: the inherited accounts of this run (null for every state without an inherited row).
     const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear, deathYear, deceasedIsA, deceasedIsB });
     if (inh !== null) {
@@ -10953,6 +11058,8 @@
     const projectionYears = singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
+    // E3 (spec 5.2): the IRMAA appeal events of this run (null for most runs). Built after the death clamp of retireAgeA/B.
+    const appeal = irmaaAppealTable({ singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears });
     // Cliff plan: growth of the IRMAA tiers over the two-year lookback, at the plan's assumed inflation.
     const irmaaGrowth2 = (1 + source.inflation) * (1 + source.inflation);
     for (let age = state.ageA, year = 0; year <= projectionYears; age++, year++) {
@@ -11137,6 +11244,7 @@
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
+      irmaaFilingHistory[year] = filing; // E3: once per year, before any healthcareCost call (spec 5.1, round 1 M2)
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
         ageB,
@@ -11294,6 +11402,8 @@
         let magiProxy = preConvMagi,
           magiA = preMagiA,
           magiB = preMagiB;
+        const irmaaSsH = irmaaSsOf(profile),
+          irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
         const hcArgs = {
           acaEligibleA,
           acaEligibleB,
@@ -11316,6 +11426,14 @@
           irmaaHistoryA: irmaaMagiHistoryA,
           irmaaHistoryB: irmaaMagiHistoryB,
           twoReturnHistory,
+          irmaaFilingHistory,
+          deathYear,
+          marriedAtDeath,
+          appeal,
+          irmaaSsH,
+          ssA: profile.ssA || 0,
+          ssB: profile.ssB || 0,
+          irmaaStA,
         };
         // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
         // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
@@ -11345,21 +11463,16 @@
           return c;
         };
         // The IRMAA this year's MAGI sets is charged two years on (healthcareCost): to the partners on Medicare and alive
-        // then, against that year's tiers and filing status; a two-return year is charged per person on the single tiers.
+        // then, against that year's tiers (the filing status of this year's return, which SSA will read: E3); a two-return year is charged per person on the single tiers.
         // The solver prices its candidates on that year's tiers, estimated as this year's grown two years at the plan's
         // assumed inflation (a historical path's own future inflation is not known yet; scaling the tiers up equals scaling
         // the MAGI down). The IRMAA lines use the same estimate (magiThresholds, c.irmaaGrowth); the conversion ceiling keeps this year's edges
-        // (the safe side, deliberate; Batch 5 revisits it). The charging
-        // year's filing status is looked up only when a solver asks for it.
+        // (the safe side, deliberate; Batch 5 revisits it).
+        // The tier table is this year's return's filing status (E3, spec 5.1).
         const year2 = year + 2,
           survivor2 = year2 >= deathYear,
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((state.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((state.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
-        let filing2 = null;
-        const irmaaFiling2 = () =>
-          filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
-        const irmaaSsH = irmaaSsOf(profile),
-          irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
@@ -11375,7 +11488,7 @@
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
+          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
@@ -11440,6 +11553,13 @@
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
         if (usesMagiEstimate) estUsed = true;
+        // E3 (spec 5.5, 5.6): the year's appeal result for the row (reset after a forced pass, below; never read from lastCost,
+        // which the plan's probes and the 162(l) search overwrite) and the in-year flags for the plan's lines (independent of
+        // the pass's MAGI).
+        let appealYrA = hcOut.appealA,
+          appealYrB = hcOut.appealB;
+        const inYrA = hcOut.inYearA,
+          inYrB = hcOut.inYearB;
         // E1c: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at the convergence test.
         // Once the year has switched to a held deduction (seHeld, below the convergence test: the consistent one, else Rev. Proc. 2014-41's alternative calculation) the
         // deduction is held at the estimate it computed, so the realized pair is the held pair and only the draws iterate.
@@ -11760,6 +11880,7 @@
           const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
+          appealYrA = lastCost.appealA; appealYrB = lastCost.appealB; // E3: the charge actually kept
           expenses -= refund;
           // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above), unless the
           // year holds its deduction (seHeld): its deduction is held, and only a trad/gain step is forced here.
@@ -11802,7 +11923,7 @@
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
+                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
@@ -11850,7 +11971,7 @@
               planStats.applied++;
               if (yearPlan.kind === 'under') planStats.rothShift += rothWithdrawn - naturalRec.roth;
               if (yearPlan.kind === 'under' && lineFamily(yearPlan.id) === 'irmaa' && yearPlan.ret === 'H')
-                irmaaChecks.push({ y: year + 2, filing: irmaaFiling2(), nat: irmaaMagiOf(naturalRec.realized, irmaaSsH, filing), trial: irmaaMagiOf(realizedMagi, irmaaSsH, filing) });
+                irmaaChecks.push({ y: year + 2, filing, nat: irmaaMagiOf(naturalRec.realized, irmaaSsH, filing), trial: irmaaMagiOf(realizedMagi, irmaaSsH, filing) });
             } else {
               planStats.fallback++;
               yearPlan = NO_PLAN;
@@ -12009,6 +12130,16 @@
           row.magiA = magiHistoryA[year];
           row.magiB = magiHistoryB[year];
         }
+        // E3 (spec 5.6): a year whose IRMAA charge an appeal lowered (flat scalars, only in those rows: historical_parity
+        // compares non-numbers with !==).
+        if (appealYrA >= 0) {
+          row.irmaaAppealYearA = taxYearOf(appealYrA);
+          row.irmaaAppealKindA = irmaaAppealKind(appeal.eventA, year, appealYrA);
+        }
+        if (appealYrB >= 0) {
+          row.irmaaAppealYearB = taxYearOf(appealYrB);
+          row.irmaaAppealKindB = irmaaAppealKind(appeal.eventB, year, appealYrB);
+        }
         if (yearPlan.kind !== 'none') {
           // Phased year: the label says only what happened: the kept pass's realized MAGI met the plan (a missed plan is counted).
           if (yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1)
@@ -12079,6 +12210,9 @@
       estateRoth = bal.roth + bal.bondRoth;
     if (bal.inheritedTrad > 0) estateTrad += bal.inheritedTrad;
     if (bal.inheritedRoth > 0) estateRoth += bal.inheritedRoth;
+    // E3: the run's IRMAA appeal events (tests read the very table the run used); not enumerable, so the result's own
+    // fields and every snapshot are unchanged.
+    Object.defineProperty(result, 'irmaaAppeal', { value: appeal });
     Object.defineProperty(result, 'estate', {
       value: {
         traditional: estateTrad,
@@ -12363,6 +12497,7 @@
     renderTable(selected);
     annotateSolverRows(selected);
     annotateInheritedRows(selected);
+    annotateAppealRows(selected);
     // The "More results" card is inside a shared markup region, so the summary line is added here, not in the markup.
     let planLine = document.getElementById('cliffPlanSummary');
     if (!planLine) {
@@ -14347,6 +14482,28 @@
         drew = r.inheritedDraw > 0;
       if (!(r.inheritedTrad > 0 || r.inheritedRoth > 0 || drew)) continue;
       const note = `includes inherited traditional ${d(r.inheritedTrad)} / Roth ${d(r.inheritedRoth)}${drew ? ` · inherited drawn this year ${d(r.inheritedDraw)}` : ''}`;
+      cell.title = cell.title ? `${cell.title} · ${note}` : note;
+    }
+  }
+
+  // E3: the status cell also names an IRMAA appeal (form SSA-44) where one lowered a partner's charge (appended to the title;
+  // US only, renderTable is shared).
+  const APPEAL_EVENT = ['', 'end of a job', 'retirement', "spouse's death"];
+  function annotateAppealRows(sim) {
+    for (const tr of document.querySelectorAll('#projectionRows tr')) {
+      const age = Number(tr.cells[0] && tr.cells[0].textContent),
+        r = sim.rows.find((x) => x.age === age),
+        cell = tr.querySelector('.table-status');
+      if (!r || !cell || (r.irmaaAppealYearA === undefined && r.irmaaAppealYearB === undefined)) continue;
+      const was = taxYearOf(r.year - 2),
+        parts = [];
+      for (const P of ['A', 'B']) {
+        const used = r['irmaaAppealYear' + P];
+        if (used === undefined) continue;
+        const who = state.singlePerson ? 'the surcharge' : `Partner ${P}'s surcharge`;
+        parts.push(`IRMAA appeal (form SSA-44, ${APPEAL_EVENT[r['irmaaAppealKind' + P]]}): ${who} uses ${used} income instead of ${was}`);
+      }
+      const note = parts.join(' · ');
       cell.title = cell.title ? `${cell.title} · ${note}` : note;
     }
   }
@@ -17776,6 +17933,7 @@
   window.__test_inhForceExtra = (year, slot, x) => { testInhForce = year === null ? null : { year, slot, x }; };
   window.__test_inhTakeCount = (reset) => { const n = inhTakeCount; if (reset) inhTakeCount = 0; return n; };
   window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0; return n; };
+  window.__test_irmaaInYearCalls = (reset) => { const n = irmaaInYearCalls; if (reset) irmaaInYearCalls = 0; return n; };
   window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
   // Test-only: run fn with state patched, restoring it afterwards.
   window.__test_withState = (patch, fn) => {
