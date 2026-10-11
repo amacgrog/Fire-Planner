@@ -58,16 +58,22 @@ const path = require('path');
   };
   const c1 = (await run(C1)).rows;
   for (const y of [0, 1, 2]) near(hc(c1, y), 12296.8, 1e-6, `case 1 year ${y}: both on Medicare, joint tier 1 each`);
-  near(hc(c1, 3), 6148.4, 1e-6, 'case 1 year 3 (D): B only, lookback year 1 joint 250,000');
-  near(hc(c1, 4), 6148.4, 1e-6, 'case 1 year 4 (D+1): year 2 joint 250,000 on the JOINT tiers (was single tier 4: 11,355.20)');
+  near(hc(c1, 3), 5000, 1e-6, "case 3, year 3 (D): appealed on year 3's 125,000 on its joint return: 0");
+  near(hc(c1, 4), 5000, 1e-6, "case 3, year 4 (D+1): min(1,148.40; year 3: 0; year 4 single: 1,148.40) = 0");
+  assert.strictEqual(c1[3].irmaaAppealYearB, 2029); assert.strictEqual(c1[3].irmaaAppealKindB, 3);
+  assert.strictEqual(c1[4].irmaaAppealYearB, 2029);
+  for (const r of c1) assert.strictEqual(r.irmaaAppealYearA, undefined);
+  assert.strictEqual(c1[5].irmaaAppealYearB, undefined);
   near(hc(c1, 5), 5000, 1e-6, 'case 1 year 5 (D+2): year 3 B 125,000 on a joint return, under 218,000 (was 6,148.40)');
   near(hc(c1, 6), 6148.4, 1e-6, 'case 1 year 6: year 4 B 125,000 single, tier 1');
 
   // Case 2: case 1's couple, A dies at 68 (deathYear 0), entered prior MAGIs 250,000 for both years (joint returns).
   const C2 = { ...C1, survivorDeathAge: 68, irmaaPriorKnown: true, irmaaMagiPrior2: 250000, irmaaMagiPrior1: 250000 };
   const c2 = (await run(C2)).rows;
-  near(hc(c2, 0), 6148.4, 1e-6, 'case 2 year 0: entered joint 250,000 on the joint tiers');
-  near(hc(c2, 1), 6148.4, 1e-6, 'case 2 year 1: entered joint 250,000 on the joint tiers (was single tier 4: 11,355.20)');
+  near(hc(c2, 0), 5000, 1e-6, "case 2 year 0: appealed on year 0's 125,000 on its joint return: 0");
+  near(hc(c2, 1), 5000, 1e-6, "case 2 year 1: appealed on year 0's 125,000 (joint return): 0");
+  assert.strictEqual(c2[0].irmaaAppealYearB, 2026); assert.strictEqual(c2[0].irmaaAppealKindB, 3);
+  assert.strictEqual(c2[1].irmaaAppealYearB, 2026);
   near(hc(c2, 2), 5000, 1e-6, 'case 2 year 2 (D+2): year 0 B 125,000 on its joint return (was single tier 1: 6,148.40)');
   near(hc(c2, 3), 6148.4, 1e-6, 'case 2 year 3: year 1 B 125,000 single, tier 1');
 
@@ -143,6 +149,154 @@ const path = require('path');
   assert.strictEqual(def, true, 'case 10(g): the default state has no table');
   assert.strictEqual(Object.keys(await page.evaluate(() => window.__test_simulate())).includes('irmaaAppeal'), false,
     'the table is not an enumerable result field');
+
+  // --- Stage 2a: the appealed charge (spec 5.3, 5.4) ---
+  // Case 4: single, 66, salary 200,000 (year 0-1 MAGI 200,000: tier 3), retires at 68 (E = 2), pension 60,000 from 68.
+  const S4 = { ...S200, retireAgeA: 68, pensionCoverage: 'a', pensionYearlyA: 60000, pensionStartAgeA: 68 };
+  r = await run(S4);
+  near(hc(r.rows, 2), 10000, 1e-6, 'case 4 year 2: min(4,620; year 2 60,000: 0)');
+  assert.strictEqual(r.rows[2].irmaaAppealYearA, 2028); assert.strictEqual(r.rows[2].irmaaAppealKindA, 2);
+  near(hc(r.rows, 3), 10000, 1e-6, 'case 4 year 3: min(4,620; year 2: 0; year 3: 0)');
+  assert.strictEqual(r.rows[3].irmaaAppealYearA, 2028, 'case 4 year 3: the earlier year on a tie');
+  near(hc(r.rows, 4), 10000, 1e-6, 'case 4 year 4: lookback year 2, no appeal');
+  assert.strictEqual(r.rows[4].irmaaAppealYearA, undefined);
+  const LUMP = (age) => ({ amount: 100000, age, flat: true, kind: 'ordinary', owner: 'A', gainPct: 100, activeBusiness: false });
+  // Case 5: case 4 plus 100,000 ordinary at 69 (year 3 MAGI 160,000: tier 2).
+  r = await run({ ...S4, oneTimeIncome: [LUMP(69)] });
+  near(hc(r.rows, 3), 10000, 1e-6, 'case 5 year 3: min(4,620; year 2: 0; year 3: 2,884.80)');
+  assert.strictEqual(r.rows[3].irmaaAppealYearA, 2028);
+  near(hc(r.rows, 5), 12884.8, 1e-6, 'case 5 year 5: lookback year 3 160,000, tier 2');
+  // Case 6: case 4 plus the 100,000 at 68 (year 2 MAGI 160,000).
+  r = await run({ ...S4, oneTimeIncome: [LUMP(68)] });
+  near(hc(r.rows, 2), 12884.8, 1e-6, 'case 6 year 2: min(4,620; 2,884.80)');
+  assert.strictEqual(r.rows[2].irmaaAppealYearA, 2028);
+  near(hc(r.rows, 3), 10000, 1e-6, 'case 6 year 3: min(4,620; year 2: 2,884.80; year 3: 0)');
+  assert.strictEqual(r.rows[3].irmaaAppealYearA, 2029);
+  // Case 7: a spouse's retirement covers both (C7: joint 360,000 in years 0-1, joint tier 3).
+  r = await run(C7);
+  near(hc(r.rows, 0), 9620, 1e-6, 'case 7 year 0: B only, 5,000 + 4,620');
+  near(hc(r.rows, 1), 9620, 1e-6, 'case 7 year 1');
+  near(hc(r.rows, 2), 10000, 1e-6, 'case 7 year 2: both appealed on year 2 60,000 (was 19,240)');
+  near(hc(r.rows, 3), 10000, 1e-6, 'case 7 year 3 (was 19,240)');
+  for (const y of [2, 3]) for (const P of ['A', 'B']) {
+    assert.strictEqual(r.rows[y]['irmaaAppealYear' + P], 2028, `case 7 year ${y} ${P}`);
+    assert.strictEqual(r.rows[y]['irmaaAppealKind' + P], 2);
+  }
+  // Case 8: a job stream ends (C8: MAGI 240,000 in years 0-3, single tier 4).
+  r = await run(C8);
+  for (const y of [0, 1, 2, 3]) near(hc(r.rows, y), 16355.2, 1e-6, `case 8 year ${y}`);
+  near(hc(r.rows, 4), 10000, 1e-6, 'case 8 year 4: appealed (was 16,355.20)');
+  near(hc(r.rows, 5), 10000, 1e-6, 'case 8 year 5: appealed (was 16,355.20)');
+  assert.strictEqual(r.rows[4].irmaaAppealKindA, 1); assert.strictEqual(r.rows[4].irmaaAppealYearA, 2030);
+  assert.strictEqual(r.rows[5].irmaaAppealYearA, 2030, 'case 8 year 5: last year and this year tie: the earlier');
+  near(hc(r.rows, 6), 10000, 1e-6, 'case 8 year 6: lookback year 4 40,000');
+  // Case 9: two returns, own events only (A: case 8's stream and pension; B: pension 150,000, single tier 2).
+  r = await run({
+    singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 66, ageB: 66, retireAgeA: 60, retireAgeB: 60,
+    lifeExpectancyA: 80, lifeExpectancyB: 80, pensionCoverage: 'both', pensionYearlyA: 40000, pensionYearlyB: 150000,
+    pensionStartAgeA: 60, pensionStartAgeB: 60, incomeSources: [STREAM],
+  });
+  for (const y of [0, 1, 2, 3]) near(hc(r.rows, y), 19240, 1e-6, `case 9 year ${y}: 10,000 + 6,355.20 + 2,884.80`);
+  near(hc(r.rows, 4), 12884.8, 1e-6, 'case 9 year 4: A appealed, B tier 2');
+  near(hc(r.rows, 5), 12884.8, 1e-6, 'case 9 year 5');
+  for (const row of r.rows) assert.strictEqual(row.irmaaAppealYearB, undefined, 'case 9: B never appealed');
+  // Case 12: the kind a row reports (C12: retirement at 68, a 50,000 W-2 stream at 68 only).
+  r = await run(C12);
+  near(hc(r.rows, 2), 11148.4, 1e-6, 'case 12 year 2: min(4,620; 110,000: 1,148.40)');
+  assert.deepStrictEqual([r.rows[2].irmaaAppealYearA, r.rows[2].irmaaAppealKindA], [2028, 2]);
+  near(hc(r.rows, 3), 10000, 1e-6, 'case 12 year 3: min(4,620; year 2: 1,148.40; year 3: 0)');
+  assert.deepStrictEqual([r.rows[3].irmaaAppealYearA, r.rows[3].irmaaAppealKindA], [2029, 1]);
+  near(hc(r.rows, 4), 10000, 1e-6, 'case 12 year 4: min(1,148.40; year 3: 0; year 4: 0)');
+  assert.deepStrictEqual([r.rows[4].irmaaAppealYearA, r.rows[4].irmaaAppealKindA], [2029, 1]);
+  r = await run({ ...C12, oneTimeIncome: [LUMP(69)] });
+  near(hc(r.rows, 3), 11148.4, 1e-6, 'case 12 variant year 3: min(4,620; year 2: 1,148.40; year 3 160,000: 2,884.80)');
+  assert.deepStrictEqual([r.rows[3].irmaaAppealYearA, r.rows[3].irmaaAppealKindA], [2028, 2]);
+  near(hc(r.rows, 4), 10000, 1e-6, 'case 12 variant year 4: min(1,148.40; year 3: 2,884.80; year 4: 0)');
+  assert.deepStrictEqual([r.rows[4].irmaaAppealYearA, r.rows[4].irmaaAppealKindA], [2030, 1]);
+  // Review Focus 2: a zero normal charge in a window is never priced (no usesMagiEstimate, no row field). Case 4 with
+  // a salary of 100,000 (year-0 MAGI under 109,000: the normal charge in years 2-3 is 0).
+  r = await run({ ...S4, incomeA: 100000 });
+  near(hc(r.rows, 2), 10000, 1e-6, 'zero normal charge: year 2');
+  assert.strictEqual(r.rows[2].irmaaAppealYearA, undefined, 'zero normal charge: no appeal recorded');
+  // The exact observable (plan review round 2, S1): how often the in-year candidate was priced, around one raw run (the
+  // re-plan of a new state runs first, outside the count).
+  const inYearCalls = (patch) =>
+    page.evaluate((patch) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      Object.assign(st, patch);
+      try {
+        window.__test_simulate();
+        window.__test_irmaaInYearCalls(true);
+        window.__test_simulateRaw();
+        return window.__test_irmaaInYearCalls(true);
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, { ...QUIET, ...patch });
+  assert.strictEqual(await inYearCalls({ ...S4, incomeA: 100000 }), 0, 'zero normal charge: the in-year candidate is never priced');
+  assert((await inYearCalls(S4)) > 0, 'case 4: the in-year candidate is priced');
+  // Case 14: an inherited traditional IRA (10-year rule) of 600,000 received at 67 (year 1), heir A (factor 20.4 at 68):
+  // draws 60,000 in years 2 and 3, MAGI 120,000 (tier 1).
+  r = await run({ ...S4, oneTimeIncome: [{ amount: 600000, age: 67, flat: true, kind: 'inheritedTrad', owner: 'A' }] });
+  near(hc(r.rows, 2), 11148.4, 1e-6, 'case 14 year 2: min(4,620; 120,000: 1,148.40)');
+  assert.strictEqual(r.rows[2].irmaaAppealYearA, 2028);
+  near(hc(r.rows, 3), 11148.4, 1e-6, 'case 14 year 3: min(4,620; year 2: 1,148.40; year 3: 1,148.40)');
+  assert.strictEqual(r.rows[3].irmaaAppealYearA, 2028);
+
+  // Case 13: an in-year candidate on a drawing year converges to the charge at the realized MAGI (round 1, S3). Single,
+  // 66, salary 200,000 retiring at 67 (E = 1), traditional IRA 1,500,000, no pension. The salary surplus of year 0 stays in
+  // cash and pays part of the first retired year, so the spending must be high for year 1 to draw into tier 1: at 120,000
+  // year 1's realized MAGI is about 117,551 (measured in the plan review), inside tier 1 and at least $100 from 109,000 and
+  // 137,000.
+  const SPEND = 120000;
+  r = await run({ singlePerson: true, ageA: 66, retireAgeA: 67, lifeExpectancyA: 85, incomeA: 200000, incomeKindA: 'wages', tradIraA: 1500000, spending: SPEND });
+  const m1 = r.rows[1].magiProxy;
+  assert(Math.min(Math.abs(m1 - 109000), Math.abs(m1 - 137000)) >= 100 && m1 > 109000 && m1 < 137000, `case 13 precondition: year 1 MAGI ${m1}`);
+  near(hc(r.rows, 1) - 10000, 1148.4, 1e-6, 'case 13 year 1: the charge at the realized MAGI (tier 1), not the normal 4,620');
+  assert.strictEqual(r.rows[1].irmaaAppealYearA, 2027);
+  near(hc(r.rows, 2), 11148.4, 1e-6, 'case 13 year 2: appealed (tier 1), below the normal 14,620');
+  assert(r.rows[2].irmaaAppealYearA !== undefined, 'case 13 year 2: appealed');
+
+  // Case 15: the 162(l) deduction in an appeal year (round 1 S4, round 2 S2). Case 4 without its pension plus a
+  // self-employed stream (owner A, ages 60-80, plan rate 0): after 68 no employer coverage, so the premiums are deductible.
+  const SELF = (amount) => ({ amount, startAge: 60, endAge: 80, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, profitSharingPct: 0 });
+  const trace = (patch) =>
+    page.evaluate((patch) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      Object.assign(st, patch);
+      try {
+        // __test_accountTrace / __test_simulate re-plan for a new state (the plan's own runs also count in magiStats), so the
+        // counter is read around one raw run only (plan review round 1, S2).
+        const tr = window.__test_accountTrace();
+        const rows = window.__test_simulate().rows;
+        const s0 = { ...window.__test_magiStats };
+        window.__test_simulateRaw();
+        const s1 = { ...window.__test_magiStats };
+        return JSON.parse(JSON.stringify({ d: tr.map((x) => x.profile.seHealthA), rows, alt: s1.seAlternative - s0.seAlternative }));
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, { ...QUIET, ...patch });
+  const S15 = { ...S200, retireAgeA: 68 };
+  let f = await trace({ ...S15, incomeSources: [SELF(80000)] });
+  for (const y of [2, 3]) {
+    near(hc(f.rows, y), 10000, 1e-6, `case 15 year ${y}: appealed to 0 (MAGI 80,000 - 5,651.80 - 10,000 = 64,348.20)`);
+    near(f.d[y], 10000, 1e-6, `case 15 year ${y}: deduction 10,000`);
+  }
+  // The feedback variant: MAGI before the deduction X = 0.92935 x profit in (119,000, 120,148.40]; profit 128,700: X =
+  // 119,607.35. No consistent deduction exists in years 2 and 3 (the in-year charge flips at 109,000), so each takes the
+  // alternative calculation: held deduction 10,000, charge tier 1 (X - 10,000 = 109,607.35 > 109,000).
+  f = await trace({ ...S15, incomeSources: [SELF(128700)] });
+  for (const y of [2, 3]) {
+    near(hc(f.rows, y), 11148.4, 1e-6, `case 15 variant year ${y}: healthcare`);
+    near(f.d[y], 10000, 1e-6, `case 15 variant year ${y}: held deduction`);
+  }
+  assert.strictEqual(f.alt, 2, 'case 15 variant: the alternative calculation in years 2 and 3');
+  for (let y = 0; y < f.rows.length; y++) assert(f.d[y] <= hc(f.rows, y) + 1e-6, `case 15 variant year ${y}: deduction ${f.d[y]} above the premium ${hc(f.rows, y)}`);
 
   assert.deepStrictEqual(errors, [], 'no page errors');
   await browser.close();

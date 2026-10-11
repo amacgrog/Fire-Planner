@@ -76,14 +76,17 @@ const BASE = [
   near(at(rows, 67).healthcare, 3000, 'A retired, B working at 67');
   near(at(rows, 68).healthcare, 6000, 'both retired at 68');
 
-  // 4. IRMAA only for partners on Medicare: no surcharge while working, and the
-  // two-year lookback then charges it after retirement on the earlier wages.
+  // 4. IRMAA only for partners on Medicare: no surcharge while working. After
+  // retirement the two-year lookback would charge it on the earlier wages, but the
+  // household appeals for the work stoppage (form SSA-44; E3), so the first retired
+  // year pays the premium only.
   rows = await rowsFor([
     ['singlePerson', true], ['ageA', 66], ['retireAgeA', 70], ['lifeExpectancyA', 74],
     ['incomeA', 350000], ['medicareYearly', 5000],
   ]);
   for (const age of [66, 67, 68, 69]) near(at(rows, age).healthcare, 0, `no Medicare or IRMAA while working, age ${age}`);
-  near(at(rows, 70).healthcare, 5000 + 529.6 * 12, 'first retired year: premium + IRMAA from wages two years back');
+  near(at(rows, 70).healthcare, 5000, 'first retired year: premium only (the appeal replaces the wages two years back)');
+  assert.strictEqual(at(rows, 70).irmaaAppealKindA, 2, 'case 4: the appeal cites the retirement');
 
   // 5. Survivor: A (retired, on Medicare) dies at 67; B keeps working to 70.
   // B pays nothing until 70, and A's half drops out after death (the survivor's

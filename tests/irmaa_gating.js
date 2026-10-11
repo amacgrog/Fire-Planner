@@ -45,21 +45,20 @@ const path = require('path');
   await page.waitForTimeout(250);
   const rows = await page.evaluate(() => window.fireProjectionRows);
   // Working at 66-68: no Medicare, so no premium and no surcharge, however high
-  // the wages. Retired at 69 (index 3): enrolls, and the lookback is year 1's
-  // MAGI (~$350k of wages, above the $205k single tier floor, below $500k), so
-  // the surcharge is the $529.60/month tier = $6,355.20/year.
+  // the wages. Retired at 69 (index 3): enrolls. The lookback is year 1's MAGI
+  // (~$350k of wages), but the household appeals for the work stoppage (form
+  // SSA-44; E3): year 3's own MAGI (no wages) is under the first tier, so no
+  // surcharge in its first two Medicare years (69, 70).
   for (const i of [0, 1, 2]) {
     assert(rows[i].working, `precondition: still working at ${66 + i}`);
     assert.strictEqual(rows[i].healthcare, 0, `no Medicare or IRMAA while working (age ${66 + i})`);
   }
   assert(!rows[3].working, 'precondition: retired at 69');
   const surcharge = rows[3].healthcare - 5000;
-  assert(
-    Math.abs(surcharge - 529.6 * 12) < 0.01,
-    `IRMAA should start with Medicare, on the wages two years back (surcharge ${surcharge})`,
-  );
+  assert(Math.abs(surcharge) < 0.01, `the appeal removes the surcharge in the first Medicare year (surcharge ${surcharge})`);
+  assert.strictEqual(rows[3].irmaaAppealKindA, 2, 'the appeal cites the retirement');
   assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
-  console.log('[US] IRMAA age-gating test passed (none while working, applies once on Medicare)');
+  console.log('[US] IRMAA age-gating test passed (none while working, applies once on Medicare, appealed after the work stoppage)');
   await browser.close();
 })().catch((e) => {
   console.error(e);

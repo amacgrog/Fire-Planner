@@ -9247,6 +9247,17 @@
     if ((deceasedIsA || deceasedIsB) && deathYear >= 0 && deathYear <= projectionYears && married(deathYear)) put(deceasedIsA, deathYear, 3);
     return eventA === null ? null : { eventA, eventB };
   }
+  // E3 (spec 5.2): partner P's appeal window in premium year `year` from P's event row: 2 when an event's E is last year
+  // (last year's and this year's MAGI may replace the lookback), 1 when it is this year (this year's MAGI), else 0.
+  function irmaaAppealWindow(ev, year) {
+    return year >= 1 && ev[year - 1] !== 0 ? 2 : ev[year] !== 0 ? 1 : 0;
+  }
+  // E3 (spec 5.2, round 1 M4): the kind of the event the chosen tax year s can cite in premium year t.
+  function irmaaAppealKind(ev, t, s) {
+    return s === t - 1 ? ev[t - 1] : ev[t] !== 0 ? ev[t] : ev[t - 1];
+  }
+  // E3, test-only (plan review round 2, S1): how many times healthcareCost priced an in-year appeal candidate.
+  let irmaaInYearCalls = 0;
 
   // Healthcare and long-term-care cost for the year.
   //  - Pre-65 premium (state.healthcare): only for partners on the individual
@@ -9285,6 +9296,11 @@
     irmaaFilingHistory = null,
     deathYear = Infinity,
     marriedAtDeath = false,
+    appeal = null,
+    irmaaSsH = 0,
+    ssA = 0,
+    ssB = 0,
+    irmaaStA = 'single',
   }) {
     const inflate = (amount) => amount * factor * medicalGrowth(year);
     // An annual `total` shared equally between the two partners (or all Partner
@@ -9338,34 +9354,60 @@
       premA += inflate(medicareEligibleA ? state.medicareYearly / 2 : 0);
       premB += inflate(medicareEligibleB ? state.medicareYearly / 2 : 0);
     }
-    // IRMAA applies only to partners actually on Medicare (see above), using
-    // the two-year lookback of Medicare's MAGI (irmaaHistory: only the taxable part of Social Security).
-    // A lookback year with two returns charges each person on their own MAGI against the single tiers.
-    const split = twoReturnHistory ? irmaaLookbackSplit(irmaaHistoryA, irmaaHistoryB, twoReturnHistory, year) : null;
-    if (split) {
-      if (medicareEligibleA) {
-        const ia = irmaaSurcharge(split[0], 'single', year);
-        healthcare += ia;
-        if (twoReturns) premA += ia;
+    // IRMAA applies only to partners actually on Medicare (see above), using the two-year lookback of Medicare's MAGI
+    // (irmaaHistory: only the taxable part of Social Security) on the tiers of the lookback return's filing status (E3 decision
+    // 1). A lookback year with two returns charges each person on their own MAGI against the single tiers.
+    // E3 (spec 5.3): in an appeal window (appeal.eventA/B), a partner whose normal charge is above 0 is charged the lowest of
+    // it, this year's MAGI (this pass's estimate: usesMagiEstimate) and, when the event's E was last year, last year's realized
+    // MAGI; a candidate is used only when strictly lower. Year 0 without entered prior MAGIs is skipped: its stand-in already
+    // reads this year's MAGI.
+    const split = twoReturnHistory ? irmaaLookbackSplit(irmaaHistoryA, irmaaHistoryB, twoReturnHistory, year) : null,
+      lookbackMagi = split ? 0 : irmaaLookbackMagi(irmaaHistory, year),
+      lbFiling = split ? 'single' : irmaaLookbackFiling(irmaaFilingHistory, year, filing, deathYear, marriedAtDeath),
+      canAppeal = appeal !== null && (year > 0 || state.irmaaPriorKnown);
+    let appealA = -1,
+      appealB = -1,
+      inYearA = false,
+      inYearB = false;
+    if (medicareEligibleA) {
+      let ia = irmaaSurcharge(split ? split[0] : lookbackMagi, lbFiling, year);
+      const w = canAppeal && ia > 0 ? irmaaAppealWindow(appeal.eventA, year) : 0;
+      if (w !== 0) {
+        inYearA = true;
+        usesMagiEstimate = true;
+        irmaaInYearCalls++;
+        let best = ia;
+        if (w === 2) {
+          const s = year - 1,
+            last = twoReturnHistory && twoReturnHistory[s] ? irmaaSurcharge(irmaaHistoryA[s], 'single', year) : irmaaSurcharge(irmaaHistory[s], irmaaFilingHistory[s], year);
+          if (last < best) (best = last), (appealA = s);
+        }
+        const now = twoReturns ? irmaaSurcharge(irmaaMagiOf(magiA, ssA, irmaaStA), 'single', year) : irmaaSurcharge(irmaaMagiOf(magiProxy, irmaaSsH, filing), filing, year);
+        if (now < best) (best = now), (appealA = year);
+        ia = best;
       }
-      if (medicareEligibleB) {
-        const ib = irmaaSurcharge(split[1], 'single', year);
-        healthcare += ib;
-        if (twoReturns) premB += ib;
+      healthcare += ia;
+      if (twoReturns) premA += ia;
+    }
+    if (medicareEligibleB) {
+      let ib = irmaaSurcharge(split ? split[1] : lookbackMagi, lbFiling, year);
+      const w = canAppeal && ib > 0 ? irmaaAppealWindow(appeal.eventB, year) : 0;
+      if (w !== 0) {
+        inYearB = true;
+        usesMagiEstimate = true;
+        irmaaInYearCalls++;
+        let best = ib;
+        if (w === 2) {
+          const s = year - 1,
+            last = twoReturnHistory && twoReturnHistory[s] ? irmaaSurcharge(irmaaHistoryB[s], 'single', year) : irmaaSurcharge(irmaaHistory[s], irmaaFilingHistory[s], year);
+          if (last < best) (best = last), (appealB = s);
+        }
+        const now = twoReturns ? irmaaSurcharge(irmaaMagiOf(magiB, ssB, 'single'), 'single', year) : irmaaSurcharge(irmaaMagiOf(magiProxy, irmaaSsH, filing), filing, year);
+        if (now < best) (best = now), (appealB = year);
+        ib = best;
       }
-    } else {
-      const lookbackMagi = irmaaLookbackMagi(irmaaHistory, year),
-        lbFiling = irmaaLookbackFiling(irmaaFilingHistory, year, filing, deathYear, marriedAtDeath);
-      if (medicareEligibleA) {
-        const ia = irmaaSurcharge(lookbackMagi, lbFiling, year);
-        healthcare += ia;
-        if (twoReturns) premA += ia;
-      }
-      if (medicareEligibleB) {
-        const ib = irmaaSurcharge(lookbackMagi, lbFiling, year);
-        healthcare += ib;
-        if (twoReturns) premB += ib;
-      }
+      healthcare += ib;
+      if (twoReturns) premB += ib;
     }
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
@@ -9375,7 +9417,7 @@
           : 0) *
           factor * medicalGrowth(year)
       : 0;
-    return { healthcare, ltc, usesMagiEstimate, premA, premB };
+    return { healthcare, ltc, usesMagiEstimate, premA, premB, appealA, appealB, inYearA, inYearB };
   }
 
   // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
@@ -11355,6 +11397,8 @@
         let magiProxy = preConvMagi,
           magiA = preMagiA,
           magiB = preMagiB;
+        const irmaaSsH = irmaaSsOf(profile),
+          irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
         const hcArgs = {
           acaEligibleA,
           acaEligibleB,
@@ -11380,6 +11424,11 @@
           irmaaFilingHistory,
           deathYear,
           marriedAtDeath,
+          appeal,
+          irmaaSsH,
+          ssA: profile.ssA || 0,
+          ssB: profile.ssB || 0,
+          irmaaStA,
         };
         // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
         // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
@@ -11419,8 +11468,6 @@
           survivor2 = year2 >= deathYear,
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((state.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((state.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
-        const irmaaSsH = irmaaSsOf(profile),
-          irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
@@ -11501,6 +11548,13 @@
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
         if (usesMagiEstimate) estUsed = true;
+        // E3 (spec 5.5, 5.6): the year's appeal result for the row (reset after a forced pass, below; never read from lastCost,
+        // which the plan's probes and the 162(l) search overwrite) and the in-year flags for the plan's lines (independent of
+        // the pass's MAGI).
+        let appealYrA = hcOut.appealA,
+          appealYrB = hcOut.appealB;
+        const inYrA = hcOut.inYearA,
+          inYrB = hcOut.inYearB;
         // E1c: the 162(l) deduction this pass's premiums allow (taxFor reads it); its MAGI is checked at the convergence test.
         // Once the year has switched to a held deduction (seHeld, below the convergence test: the consistent one, else Rev. Proc. 2014-41's alternative calculation) the
         // deduction is held at the estimate it computed, so the realized pair is the held pair and only the draws iterate.
@@ -11821,6 +11875,7 @@
           const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
+          appealYrA = lastCost.appealA; appealYrB = lastCost.appealB; // E3: the charge actually kept
           expenses -= refund;
           // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above), unless the
           // year holds its deduction (seHeld): its deduction is held, and only a trad/gain step is forced here.
@@ -12069,6 +12124,16 @@
         if (twoReturns) {
           row.magiA = magiHistoryA[year];
           row.magiB = magiHistoryB[year];
+        }
+        // E3 (spec 5.6): a year whose IRMAA charge an appeal lowered (flat scalars, only in those rows: historical_parity
+        // compares non-numbers with !==).
+        if (appealYrA >= 0) {
+          row.irmaaAppealYearA = taxYearOf(appealYrA);
+          row.irmaaAppealKindA = irmaaAppealKind(appeal.eventA, year, appealYrA);
+        }
+        if (appealYrB >= 0) {
+          row.irmaaAppealYearB = taxYearOf(appealYrB);
+          row.irmaaAppealKindB = irmaaAppealKind(appeal.eventB, year, appealYrB);
         }
         if (yearPlan.kind !== 'none') {
           // Phased year: the label says only what happened: the kept pass's realized MAGI met the plan (a missed plan is counted).
@@ -17840,6 +17905,7 @@
   window.__test_inhForceExtra = (year, slot, x) => { testInhForce = year === null ? null : { year, slot, x }; };
   window.__test_inhTakeCount = (reset) => { const n = inhTakeCount; if (reset) inhTakeCount = 0; return n; };
   window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0; return n; };
+  window.__test_irmaaInYearCalls = (reset) => { const n = irmaaInYearCalls; if (reset) irmaaInYearCalls = 0; return n; };
   window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
   // Test-only: run fn with state patched, restoring it afterwards.
   window.__test_withState = (patch, fn) => {

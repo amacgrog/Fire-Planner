@@ -1,9 +1,10 @@
 // Regression anchor for the cliff plan (spec section 8): with `cliffGuardEnabled: false`, every US snapshot scenario is
-// byte-identical to the same scenario with the guard off in another tree. The baseline is any tree at or after 5eb30fa (V120,
-// the IRMAA MAGI fix); 3ebee0e was the baseline up to ce5fb56 (the IRMAA fix moved 204 guard-off scenarios by design:
-// 339 identical, 204 different against 3ebee0e).
-// E3 Task 1 (the lookback's filing status) moved 38 guard-off scenarios by design: 539 identical, 38 different against
-// bbef775 (the baseline is now any tree at or after the E3 Task 1 commit).
+// byte-identical to the same scenario with the guard off in another tree. The baseline is any tree at or after the E3 Task 3
+// commit. History: the E3 Task 3 commit (the IRMAA appeal's charge) moved 21 guard-off scenarios by design: 556 identical,
+// 21 different against aff63d5. Before it the baseline was any tree at or after the E3 Task 1 commit, which moved 38 guard-off
+// scenarios by design (the lookback's filing status): 539 identical, 38 different against bbef775. Before that, any tree at or
+// after 5eb30fa (V120, the IRMAA MAGI fix); 3ebee0e was the baseline up to ce5fb56 (the IRMAA fix moved 204 guard-off
+// scenarios by design: 339 identical, 204 different against 3ebee0e).
 //
 // Usage: node tests/plan_off_anchor.js --base DIR   (DIR holds the reference Planner_US.html)
 // Prints the count identical / different and the first differing scenarios; exits 1 on any difference. Not in `npm test`.
