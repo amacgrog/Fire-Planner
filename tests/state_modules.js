@@ -50,6 +50,28 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   taxFactors.assignHistTaxFactors(factors);
   assert.strictEqual(taxFactors.histTaxFactors, factors);
 
+  // US-only modules
+  const taxYear = await load('src/us/core/tax-year.js');
+  assert.strictEqual(taxYear.currentYear, new Date().getFullYear());
+  taxYear.assignCurrentYear(2031);
+  assert.strictEqual(taxYear.currentYear, 2031);
+
+  const { cliffPlanStore } = await load('src/us/core/cliff-plan-store.js');
+  assert.deepStrictEqual(cliffPlanStore, {
+    plan: null, key: null, report: null, forState: null, year: null, overrides: null, computed: false, computes: 0,
+  });
+
+  const { optimizerState, ROTH_PER_YEAR_EVAL_BUDGET } = await load('src/us/core/optimizer-state.js');
+  assert.strictEqual(ROTH_PER_YEAR_EVAL_BUDGET, 8000);
+  assert.deepStrictEqual(optimizerState, {
+    rothBracketByAge: null, withdrawalMixByAge: null, lastMultiLeverRun: null, rothPerYearEvalBudget: 8000,
+  });
+
+  const { testHooks } = await load('src/us/core/test-hooks.js');
+  assert.deepStrictEqual(testHooks, {
+    irmaaInYearCalls: 0, inhTakeCount: 0, testInhForce: null, testInhNoNeedAdj: false, inhNoDrawCalls: 0,
+  });
+
   console.log('state_modules OK');
 })().catch((err) => {
   console.error(err);
