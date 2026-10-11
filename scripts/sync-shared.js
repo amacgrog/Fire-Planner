@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Keeps the code shared by Planner_US.html and Planner_Canada.html identical.
+// Keeps the code shared by the US and Canada planner sources (src/us/*, src/canada/*) identical.
 //
 // Each shared region sits between marker lines in both files:
 //     // @@shared:<name> begin          (inside the <script>)
@@ -25,7 +25,9 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const PLANNERS = ['Planner_US.html', 'Planner_Canada.html'];
+// Each planner is split into a markup shell, a stylesheet and a script; markers live in all three.
+const KINDS = ['index.html', 'styles.css', 'main.js'];
+const PLANNERS = ['us', 'canada'].flatMap((dir) => KINDS.map((kind) => `src/${dir}/${kind}`));
 const SHARED_DIR = path.join(root, 'shared');
 const MARK = /^\s*(?:\/\/|\/\*|<!--) @@shared:(\S+) (begin|end)(?: \*\/| -->)?\s*$/;
 const EXT = { '//': 'js', '/*': 'css', '<!--': 'html' };
@@ -53,27 +55,32 @@ function findRegions(lines, file) {
 }
 
 const fragmentPath = (r) => path.join(SHARED_DIR, `${r.name}.${r.ext}`);
-const readFragment = (r) => fs.readFileSync(fragmentPath(r), 'utf8').replace(/\n$/, '').split('\n');
+const readText = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+const readFragment = (r) => readText(fragmentPath(r)).replace(/\n$/, '').split('\n');
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
 const pullIdx = args.indexOf('--pull');
-const pullFile = pullIdx >= 0 ? args[pullIdx + 1] : null;
+const pullFile = pullIdx >= 0 ? (args[pullIdx + 1] || '').replace(/\\/g, '/') : null;
 if (pullIdx >= 0 && !PLANNERS.includes(pullFile)) {
   console.error(`--pull needs one of: ${PLANNERS.join(', ')}`);
   process.exit(2);
 }
 
 const loaded = PLANNERS.map((file) => {
-  const lines = fs.readFileSync(path.join(root, file), 'utf8').split('\n');
+  const lines = readText(path.join(root, file)).split('\n');
   return { file, lines, regions: findRegions(lines, file) };
 });
 
 const names = new Set(loaded.flatMap((p) => p.regions.map((r) => r.name)));
 const problems = [];
-for (const p of loaded) {
-  const have = new Set(p.regions.map((r) => r.name));
-  for (const n of names) if (!have.has(n)) problems.push(`${p.file}: missing region "${n}"`);
+for (const kind of KINDS) {
+  const group = loaded.filter((p) => p.file.endsWith(`/${kind}`));
+  const groupNames = new Set(group.flatMap((p) => p.regions.map((r) => r.name)));
+  for (const p of group) {
+    const have = new Set(p.regions.map((r) => r.name));
+    for (const n of groupNames) if (!have.has(n)) problems.push(`${p.file}: missing region "${n}"`);
+  }
 }
 
 if (pullFile) {
@@ -103,7 +110,7 @@ if (check) {
     console.error('Shared code has drifted. Edit shared/* (or edit one planner and run `npm run sync -- --pull <file>`), then run `npm run sync`.');
     process.exit(1);
   }
-  console.log(`shared regions OK (${names.size} regions x ${PLANNERS.length} planners)`);
+  console.log(`shared regions OK (${names.size} regions x 2 planners)`);
 } else {
   if (problems.length) process.exit(1);
   console.log(`synced ${names.size} regions${drifted ? `, updated ${drifted}` : ', no changes'}`);
