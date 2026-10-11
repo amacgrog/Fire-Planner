@@ -35,6 +35,18 @@ the three ends with an owner approval before `npm run snapshot:update`. Tasks 2,
   candidate, year 2's realized MAGI, is tier 1, and the in-year candidate still flips at the edge), so
   `magiStats.seAlternative` rises by 2, not 1 (round 2's S2 said 1). Task 3 asserts 2 and the values of both years.
 
+**Plan review, round 1** (independent Opus, of `d6f14c2`, owner-run; the reviewer applied Tasks 1-5 to a scratch tree): no
+blocking findings. Measured movers: stage 1, 38 US scenarios (all survivor; guard-off anchor 539 identical / 38 different, the
+same 38); stage 2a, 21 (retirement or survivor, first change at E or E+1; anchor 556 / 21); stage 2b, **0** (anchor 577
+identical); Canada identical at every stage. Adopted (owner, 2026-10-11): two existing tests change by design in Task 3
+(`tests/irmaa_gating.js`, `tests/medicare_enrollment.js` case 4: updated to the new values after approval); case 15's counter
+read around one raw run; the measured spending of cases 13 (120,000) and 16 (130,000); the Playwright callout check reads
+`#methodologyCard`; the minors (zero stage-2b movers expected, case 13's year 2, dump paths, the comma in Task 1 3.3). The
+tooltip keeps this plan's wording ("Partner A's surcharge uses 2034 income instead of 2032"; single-person "the surcharge uses
+..."), a recorded departure from spec 5.6's "Partner A charged on" / "You". The suggested pass count for the zero-charge case
+is not used: in that household the conversion ceiling already sets `estUsed` and nothing drifts, so a year runs one pass
+with or without the candidate; the observable checks (no row field, the premium only) and the snapshot and timing gates cover it.
+
 ## Global Constraints
 
 - Worktrees: `git -C C:\Users\Alex\code\Fire-Planner worktree add ../fp-e3 -b claude/e3-irmaa-appeal PLAN_COMMIT`
@@ -64,8 +76,9 @@ the three ends with an owner approval before `npm run snapshot:update`. Tasks 2,
   --rounds 21`, at most +5% per path, the median of three runs on a quiet machine (never while another chat runs probes on
   this machine). From Task 3 on also `node tests/bench_runs_interleaved.js --base ../fp-e3-base --rounds 21 --states tx,ca
   --household appeal` (the option Task 3 adds), same gate. Report the tables verbatim.
-- **Movers tables** (Tasks 1, 3, 4): `node tests/snapshot.js --root ../fp-e3-prev --dump A --update-nothing`, `node
-  tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B` (for Task 1 `fp-e3-prev` is at PLAN_COMMIT). The
+- **Movers tables** (Tasks 1, 3, 4): with `D=.superpowers/sdd/2026-10-10-e3/dumps-taskN` (N the task; git-excluded, never the
+  worktree root): `node tests/snapshot.js --root ../fp-e3-prev --dump $D/A --update-nothing`, `node tests/snapshot.js --dump
+  $D/B`, `node tests/snapshot.js --compare $D/A $D/B` (for Task 1 `fp-e3-prev` is at PLAN_COMMIT). The
   table lists: US count moved / identical (standard and historical), Canada identical (must be all), the movers grouped by
   the first changed field and year, every mover's first changed year checked against the task's expected rule, the largest
   healthcare and end-total moves, and any depletion change. Then `node tests/plan_off_anchor.js --base ../fp-e3-prev` (the
@@ -246,8 +259,9 @@ calls) so the tier filing is `lbFiling`:
 ```
 and `const ib = irmaaSurcharge(lookbackMagi, lbFiling, year);` for B. Nothing else in the block changes in this task.
 
-3.3. `runProjection`: next to `twoReturnHistory = [];` (~10886) add `irmaaFilingHistory = [];` to the same `const`
-declaration list (with a one-line comment: "E3: each year's filing status, the IRMAA lookback's tier table"). Just after
+3.3. `runProjection`: the `const` declaration list ends `twoReturnHistory = [];` (~10886); change that line to
+`twoReturnHistory = [],` and add after it, as the list's new last entry,
+`// E3: each year's filing status, the IRMAA lookback's tier table (spec 5.1).` and `irmaaFilingHistory = [];`. Just after
 the `deathYear` declaration and the death clamp (after `if (deceasedIsB) retireAgeB = Math.min(...)`), add:
 
 ```js
@@ -480,7 +494,8 @@ git commit -m "E3 Task 2: the IRMAA appeal event table (irmaaAppealTable; on the
   return value); the year loop (`irmaaSsH` / `irmaaStA` moved above `hcArgs`; `hcArgs`; `appealYrA/B` and `inYrA/B` after
   `hcOut`; the forced pass; the row).
 - Modify: `tests/irmaa_appeal.js`, `tests/bench_runs_interleaved.js` (the `--household appeal` option),
-  `tests/plan_off_anchor.js` (header), `tests/snapshots/us.json` (after approval).
+  `tests/plan_off_anchor.js` (header), `tests/snapshots/us.json`, `tests/irmaa_gating.js` and `tests/medicare_enrollment.js`
+  (the last three after approval).
 
 **Interfaces:**
 - Consumes: Task 1's `irmaaFilingHistory`, `irmaaLookbackFiling`, `healthcareCost`'s new parameters; Task 2's `appeal`.
@@ -586,14 +601,18 @@ stage-2 values replace the stage-1 ones in the file):
 
 ```js
   // Case 13: an in-year candidate on a drawing year converges to the charge at the realized MAGI (round 1, S3). Single,
-  // 66, salary 200,000 retiring at 67 (E = 1), traditional IRA 1,500,000, no pension; SPEND is chosen so that year 1's
-  // realized MAGI is inside tier 1, at least $100 from 109,000 and 137,000 (state the value you settled on here).
-  const SPEND = 95000; // adjust if the precondition below fails, and say so in the report
+  // 66, salary 200,000 retiring at 67 (E = 1), traditional IRA 1,500,000, no pension. The salary surplus of year 0 stays in
+  // cash and pays part of the first retired year, so the spending must be high for year 1 to draw into tier 1: at 120,000
+  // year 1's realized MAGI is about 117,551 (measured in the plan review), inside tier 1 and at least $100 from 109,000 and
+  // 137,000.
+  const SPEND = 120000;
   r = await run({ singlePerson: true, ageA: 66, retireAgeA: 67, lifeExpectancyA: 85, incomeA: 200000, incomeKindA: 'wages', tradIraA: 1500000, spending: SPEND });
   const m1 = r.rows[1].magiProxy;
   assert(Math.min(Math.abs(m1 - 109000), Math.abs(m1 - 137000)) >= 100 && m1 > 109000 && m1 < 137000, `case 13 precondition: year 1 MAGI ${m1}`);
   near(hc(r.rows, 1) - 10000, 1148.4, 1e-6, 'case 13 year 1: the charge at the realized MAGI (tier 1), not the normal 4,620');
   assert.strictEqual(r.rows[1].irmaaAppealYearA, 2027);
+  near(hc(r.rows, 2), 11148.4, 1e-6, 'case 13 year 2: appealed (tier 1), below the normal 14,620');
+  assert(r.rows[2].irmaaAppealYearA !== undefined, 'case 13 year 2: appealed');
 
   // Case 15: the 162(l) deduction in an appeal year (round 1 S4, round 2 S2). Case 4 without its pension plus a
   // self-employed stream (owner A, ages 60-80, plan rate 0): after 68 no employer coverage, so the premiums are deductible.
@@ -604,9 +623,12 @@ stage-2 values replace the stage-1 ones in the file):
       const saved = JSON.parse(JSON.stringify(st));
       Object.assign(st, patch);
       try {
-        const s0 = { ...window.__test_magiStats };
+        // __test_accountTrace / __test_simulate re-plan for a new state (the plan's own runs also count in magiStats), so the
+        // counter is read around one raw run only (plan review round 1, S2).
         const tr = window.__test_accountTrace();
         const rows = window.__test_simulate().rows;
+        const s0 = { ...window.__test_magiStats };
+        window.__test_simulateRaw();
         const s1 = { ...window.__test_magiStats };
         return JSON.parse(JSON.stringify({ d: tr.map((x) => x.profile.seHealthA), rows, alt: s1.seAlternative - s0.seAlternative }));
       } finally {
@@ -632,8 +654,8 @@ stage-2 values replace the stage-1 ones in the file):
   for (let y = 0; y < f.rows.length; y++) assert(f.d[y] <= hc(f.rows, y) + 1e-6, `case 15 variant year ${y}: deduction ${f.d[y]} above the premium ${hc(f.rows, y)}`);
 ```
 
-If case 13's precondition fails at SPEND 95,000, change SPEND (higher spending: a larger draw and a higher MAGI) until it
-holds, and record the value. If case 15's variant gives `alt` other than 2 or values other than those above, stop and
+If case 13's precondition fails at SPEND 120,000, stop and report the measured MAGI (the plan review measured 117,551). If case
+15's variant gives `alt` other than 2 or values other than those above, stop and
 report the trace (do not tune the profit to make it pass): it would mean the 162(l) block meets the in-year candidate
 differently than spec 5.4 reasons.
 
@@ -762,12 +784,12 @@ In the forced pass, right after `healthcare = realizedCost;` add `appealYrA = la
 
 ```js
 // --household appeal (E3): a single person, 66, salary 200,000 retiring at 67 (E = 1, Medicare from 67, a normal IRMAA
-// charge above 0 from the year-0 salary), traditional IRA 1,500,000, spending 95,000 (draws in years 1 and 2); simulate()
+// charge above 0 from the year-0 salary), traditional IRA 1,500,000, spending 120,000 (draws in years 1 and 2); simulate()
 // at the household's own ages (the default sweep's 55-62 would put the retirement before today and remove the event).
 const HOUSEHOLD = opt('--household', 'default');
 const APPEAL_PATCH = {
   singlePerson: true, ageA: 66, retireAgeA: 67, lifeExpectancyA: 90, incomeA: 200000, incomeKindA: 'wages', tradIraA: 1500000,
-  spending: 95000, survivorEnabled: false, incomeSources: [], oneTimeIncome: [],
+  spending: 120000, survivorEnabled: false, incomeSources: [], oneTimeIncome: [],
 };
 ```
 
@@ -779,13 +801,15 @@ usage error line with `[--household appeal]`. The printed line prefix becomes `U
 
 - [ ] **Step 4: Run the tests**
 
-`node tests/irmaa_appeal.js` -> ok (record the case 13 SPEND used). Run `node tests/irmaa_magi.js`,
+`node tests/irmaa_appeal.js` -> ok. Run `node tests/irmaa_magi.js`,
 `node tests/irmaa_startup.js`, `node tests/irmaa_gating.js`, `node tests/medicare_enrollment.js`,
 `node tests/two_return_magi.js`, `node tests/se_health.js`, `node tests/inherited_accounts.js`,
 `node tests/historical_parity.js`, `node tests/survivor_symmetry.js`, `node tests/cliff_plan.js`, `node tests/cliff_guard.js`,
-`node tests/solver_hooks.js`, `node tests/tax_caches.js`. A failure in an existing test whose household has a qualifying
-event and Medicare in E or E+1 (for example `medicare_enrollment.js`'s work-past-65 cases) may be an intended change: do
-not edit it; list it with the before/after numbers and the event in the report for the owner.
+`node tests/solver_hooks.js`, `node tests/tax_caches.js`. **Two existing tests fail by design** (plan review round 1, S1;
+both pin a retiree charged on their last salary years, which the appeal changes): `tests/irmaa_gating.js` (~57: expects a
+surcharge of 6,355.20 at 69, gets 0) and `tests/medicare_enrollment.js` case 4 (~86: expects 11,355.20 at 70, gets 5,000). Do
+not edit them in this step; list them in the report with the before/after numbers. Any other failing existing test: stop and
+report.
 
 - [ ] **Step 5: Movers table (stage 2a) and the anchor**
 
@@ -797,17 +821,32 @@ rule's. Run both timing gates (three runs each).
 
 - [ ] **Step 6: STOP for the owner's approval**
 
-Report the movers table (with a few worked movers: scenario, year, healthcare before/after, the event), any existing-test
-changes from Step 4, the anchor result, the case 13 SPEND and both timing tables. Do not update or commit until the owner
+Report the movers table (expected about 21 US movers: retirement or survivor scenarios, first change at E or E+1), the two
+existing-test changes from Step 4, the anchor result (expected 21 different, the same scenarios) and both timing tables. Do not update or commit until the owner
 approves in writing.
 
 - [ ] **Step 7: After approval: update, re-base the anchor, commit**
 
 `npm run snapshot:update` (changed keys = the approved movers; `ui_us.json` unchanged). Update `tests/plan_off_anchor.js`'s
-header with this task's counts against Task 2's commit. `npm test` green, `npm run check:shared` OK. Commit:
+header with this task's counts against Task 2's commit. Update the two existing tests to the appeal (they keep testing the
+same household, now with its appealed charge):
+- `tests/irmaa_gating.js`: replace the comment block above the working-years loop's end ("Retired at 69 (index 3): enrolls,
+  and the lookback is year 1's MAGI ...") with: "Retired at 69 (index 3): enrolls. The lookback is year 1's MAGI (~$350k of
+  wages), but the household appeals for the work stoppage (form SSA-44; E3): year 3's own MAGI (no wages) is under the first
+  tier, so no surcharge in its first two Medicare years (69, 70)." Replace the surcharge assertion with
+  `assert(Math.abs(surcharge) < 0.01, 'the appeal removes the surcharge in the first Medicare year (surcharge ' + surcharge + ')');`
+  and add `assert.strictEqual(rows[3].irmaaAppealKindA, 2, 'the appeal cites the retirement');`. Update the final
+  `console.log` text to "... applies once on Medicare, appealed after the work stoppage".
+- `tests/medicare_enrollment.js` case 4: the comment becomes "IRMAA only for partners on Medicare: no surcharge while
+  working; after retirement the two-year lookback would charge it on the earlier wages, but the household appeals for the
+  work stoppage (form SSA-44; E3), so the first retired year pays the premium only."; the assertion becomes
+  `near(at(rows, 70).healthcare, 5000, 'first retired year: premium only (the appeal replaces the wages two years back)');`
+  and add `assert.strictEqual(at(rows, 70).irmaaAppealKindA, 2, 'case 4: the appeal cites the retirement');`.
+
+Run both files, then `npm test` green, `npm run check:shared` OK. Commit:
 
 ```bash
-git commit -m "E3 Task 3: the appealed IRMAA charge (spec 5.3-5.6: in-year and last-year candidates in healthcareCost, usesMagiEstimate, row fields), bench --household appeal; us.json: the owner-approved stage-2a movers; plan_off_anchor re-based" -- Planner_US.html tests/irmaa_appeal.js tests/bench_runs_interleaved.js tests/plan_off_anchor.js tests/snapshots/us.json
+git commit -m "E3 Task 3: the appealed IRMAA charge (spec 5.3-5.6: in-year and last-year candidates in healthcareCost, usesMagiEstimate, row fields), bench --household appeal; us.json: the owner-approved stage-2a movers; irmaa_gating and medicare_enrollment case 4 updated to the appeal; plan_off_anchor re-based" -- Planner_US.html tests/irmaa_appeal.js tests/bench_runs_interleaved.js tests/plan_off_anchor.js tests/snapshots/us.json tests/irmaa_gating.js tests/medicare_enrollment.js
 ```
 
 ---
@@ -833,8 +872,10 @@ Append (case 16, spec 8; round 2 S1):
   // Inflation 3%; single, 66, salary 200,000 retiring at 68, no pension, traditional IRA 2,000,000. Year 2 has an in-year
   // candidate (normal: year 0's 200,000, tier 3 at year-2 tiers). Lines at growth 1: 109,000 / 137,000 x 1.03^2 =
   // 115,638.10 / 145,343.30. yearPlanCandidates offers the nearest line below the natural MAGI (and the largest step), so
-  // SPEND16 puts the natural MAGI between the two (state the value you settled on).
-  const SPEND16 = 87000; // adjust until the precondition holds; record it
+  // SPEND16 puts the natural MAGI between the two. The salary surplus of years 0 and 1 stays in cash and pays part of year 2,
+  // so the spending must be high: at 130,000 the natural MAGI is about 133,765 (measured in the plan review; year 3 also has an
+  // in-year candidate and its lines also sit at growth 1).
+  const SPEND16 = 130000;
   const P16 = { singlePerson: true, ageA: 66, retireAgeA: 68, lifeExpectancyA: 85, incomeA: 200000, incomeKindA: 'wages', tradIraA: 2000000, inflation: 3, spending: SPEND16 };
   const tr16 = await page.evaluate((patch) => {
     const st = window.__test_getState();
@@ -854,8 +895,8 @@ Append (case 16, spec 8; round 2 S1):
   const under = y2.candidates.find((c) => c.kind === 'under' && /IRMAA/.test(c.label));
   assert(under, 'case 16: a stay-under candidate on an IRMAA line in year 2');
   near(under.magi, 115638.1 - 1, 0.01, 'case 16: irmaa1 at growth 1 (the line less $1)');
-  // A later year without an in-year candidate keeps growth irmaaGrowth2 (1.03^2): any IRMAA stay-under there sits at its
-  // edge x 1.03^y x 1.03^2 less $1.
+  // A later year without an in-year candidate (years 4 on: the windows are years 2 and 3) keeps growth irmaaGrowth2 (1.03^2):
+  // any IRMAA stay-under there sits at its edge x 1.03^y x 1.03^2 less $1.
   for (const x of tr16.filter((x) => x.year >= 4 && x.candidates))
     for (const c of x.candidates.filter((c) => c.kind === 'under' && /IRMAA/.test(c.label))) {
       const g = Math.pow(1.03, x.year + 2);
@@ -887,8 +928,9 @@ entry is `{ year, candidates: [{ kind, magi, realized, label, ... }], ... }`, a 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `node tests/irmaa_appeal.js`. Expected: FAIL at `case 16: a stay-under candidate on an IRMAA line in year 2` or at
-`case 16: irmaa1 at growth 1` (today the year-2 line is `109,000 x 1.03^4 - 1` = 122,679.46, above the natural MAGI, so
-`irmaa1` is not the nearest line below it). If the precondition fails first, tune SPEND16 (Step 1) and re-run; record it.
+`case 16: irmaa1 at growth 1` (today the year-2 `irmaa1` stay-under is at `109,000 x 1.03^4 - 1` = 122,679.46; the plan
+review measured the red at this assertion with SPEND16 130,000). If the precondition fails, stop and report the measured
+natural MAGI (the plan review measured 133,765).
 
 - [ ] **Step 3: Implement**
 
@@ -935,13 +977,15 @@ irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inY
 
 - [ ] **Step 4: Run the tests**
 
-`node tests/irmaa_appeal.js` -> ok (record SPEND16). `node tests/cliff_plan.js`, `node tests/cliff_guard.js`,
+`node tests/irmaa_appeal.js` -> ok. `node tests/cliff_plan.js`, `node tests/cliff_guard.js`,
 `node tests/solver_hooks.js`, `node tests/solver_primitives.js`, `node tests/end_value_us.js`, `node tests/irmaa_magi.js`
 (its case (c) calls `magiThresholds` directly with `irmaaGrowth: 1`: unchanged) pass.
 
 - [ ] **Step 5: Movers table (stage 2b) and the anchor**
 
-`git -C ../fp-e3-prev checkout --detach <Task 3's commit>`. Movers commands. Expected rule: every mover is a guard-on
+`git -C ../fp-e3-prev checkout --detach <Task 3's commit>`. Movers commands. **Expected: zero movers** on the snapshot grid
+(the plan review measured 0: no grid scenario has a planned withdrawal year whose IRMAA lines moved), so `us.json` does not
+change and the STOP below is a formality (report the zero table; the owner confirms). Should any mover appear, the rule: a guard-on
 scenario with a withdrawal year in which `inYrA || inYrB` holds (an in-year candidate for a partner on Medicare); its first
 change is in such a year, in plan-priced fields (`cliffChoice`, the draw split, a conversion), then downstream. Canada
 identical. `node tests/plan_off_anchor.js --base ../fp-e3-prev` must report **every scenario identical** (the lines exist
@@ -955,11 +999,12 @@ commit until the owner approves in writing.
 
 - [ ] **Step 7: After approval: update and commit**
 
-`npm run snapshot:update` (changed keys = the approved movers). The anchor header is unchanged (guard-off identical);
-say so in the commit. `npm test` green. Commit:
+With zero movers (expected) skip `npm run snapshot:update` (`node tests/snapshot.js` passes as is); otherwise run it and
+check the changed keys are the approved movers. The anchor header is unchanged (guard-off identical); say so in the commit.
+`npm test` green. Commit (add `tests/snapshots/us.json` to the paths only if it changed):
 
 ```bash
-git commit -m "E3 Task 4: the cliff plan's IRMAA lines on this year's edges in a year with an in-year appeal candidate (per-return growth in magiThresholds); us.json: the owner-approved stage-2b movers; guard-off identical" -- Planner_US.html tests/irmaa_appeal.js tests/snapshots/us.json
+git commit -m "E3 Task 4: the cliff plan's IRMAA lines on this year's edges in a year with an in-year appeal candidate (per-return growth in magiThresholds); no snapshot mover on the grid; guard-off identical" -- Planner_US.html tests/irmaa_appeal.js
 ```
 
 ---
@@ -1011,7 +1056,8 @@ const path = require('path');
     assert(title !== null, 'the table has a row for age 68');
     assert(/IRMAA appeal \(form SSA-44, retirement\)/.test(title), `tooltip at 68: ${title}`);
     assert(/2028 income instead of 2026/.test(title), `tooltip years: ${title}`);
-    const callout = await page.evaluate(() => document.body.innerText);
+    // The callout sits inside the closed <details id="methodologyCard">: innerText would miss it (plan review round 1, S4).
+    const callout = await page.evaluate(() => document.getElementById('methodologyCard').textContent);
     assert(/form SSA-44/.test(callout), 'the healthcare callout mentions the appeal');
     assert(!/Medicaid coverage gap/.test(callout), 'the stale Medicaid phrase is gone');
     if (width === 390) assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, 'no horizontal overflow at 390px');
@@ -1136,8 +1182,10 @@ bullet, add: "`tests/irmaa_appeal.js` — E3: the lookback's filing status and t
 In `docs/next-batches-plan.md`, after the "E3: design" record (it ends with the round-2 paragraph), add
 "##### E3: implementation (US V130)": the commits (hash and one line each), the red-then-green record per task, the
 three movers tables as approved (verbatim), the anchor re-bases, every timing table verbatim (Tasks 1, 3, 4 and Step 3
-below), SPEND (case 13) and SPEND16 (case 16), the two corrections to spec section 8 listed at the top of this plan, any
-existing test whose expectation changed (with the owner's approval), the `ui_us.json` hashes that moved in Task 5, and
+below), the two corrections to spec section 8 listed at the top of this plan, any
+existing test whose expectation changed
+(`irmaa_gating.js`, `medicare_enrollment.js` case 4, with the owner's approval), the tooltip wording's departure from spec 5.6,
+the `ui_us.json` hashes that moved in Task 5, and
 anything left for the owner.
 
 - [ ] **Step 3: Final gates**

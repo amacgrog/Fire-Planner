@@ -2387,6 +2387,14 @@ CLAUDE.md, the implementation record and the final gates). Each movers task stop
 `snapshot:update`. Two corrections to spec section 8 found while planning: case 2's year 2 also moves at stage 1 (6,148.40 to
 5,000), and case 15's variant takes the alternative calculation in both window years (`seAlternative` + 2, not 1).
 
+Plan review, round 1 (independent Opus, of `d6f14c2`, owner-run; Tasks 1-5 applied to a scratch tree): 0 blocking, 4
+should-fix, 6 minor, all adopted (owner, 2026-10-11) except the suggested pass count for the zero-charge case (the conversion
+ceiling already sets `estUsed` there and nothing drifts, so the count cannot tell; recorded in the plan). Measured movers:
+stage 1, 38 US (all survivor; anchor 539 / 38); stage 2a, 21 (anchor 556 / 21); stage 2b, 0; Canada identical. Should-fix:
+`tests/irmaa_gating.js` and `tests/medicare_enrollment.js` case 4 change by design (updated after approval in Task 3); case 15's
+counter read around one raw run; the measured spending of cases 13 and 16; the callout check reads `#methodologyCard`. The
+tooltip keeps the plan's wording, a recorded departure from spec 5.6. The owner asked for a second plan review.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
