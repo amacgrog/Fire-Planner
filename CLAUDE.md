@@ -150,7 +150,7 @@ root was the source.) See `README.md` for the full user-facing feature list.
   JS), or load the built file in Playwright and watch `page.on('pageerror')`.
 - There is no lint step. The only build step is the esbuild bundle; the delivered file
   is still a single self-contained HTML file that needs no server.
-- CI: `.github/workflows/test.yml` runs `npm test` on every push/PR to `main`.
+- CI: `.github/workflows/test.yml` runs `npm test` (which builds first) on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). On pushes to `main` the `deploy` job publishes that same artifact to GitHub Pages instead of rebuilding.
 
 ## Architecture, per planner file
 

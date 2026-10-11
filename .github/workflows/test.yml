@@ -26,6 +26,14 @@ jobs:
       - name: Build and run all tests
         run: npm test
 
+      # The exact files the tests ran against: downloadable from any PR or main run, and what the deploy job publishes.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fire-planner-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 14
+
   deploy:
     needs: golden-tests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -41,18 +49,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      # Publish the build the tests ran against; do not rebuild.
+      - uses: actions/download-artifact@v4
         with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
+          name: fire-planner-dist
+          path: dist
 
       - uses: actions/configure-pages@v5
 
