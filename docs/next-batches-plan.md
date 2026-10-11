@@ -2272,6 +2272,57 @@ red is a 30-second locator timeout; the `snapshot_ui.js` reason; a stronger loan
 US-only; two stale comments in `test_children.js`; CLAUDE.md's Medicaid paragraph and file list. Left for the owner: the Canada
 student checkbox copy (outside E2). No blocking findings, which meets the review loop's stop condition.
 
+##### E2: implementation (US V129, Canada V60)
+
+Commits on `claude/e2-adoption` (plan commit `cb2c387`):
+- `2e94f30` Task 1: the optional join year in `dependentsInYear`, `hasChildAtMost` and `normalizeLists` (shared `01-LIST_MAX`, both
+  planners); no number change without a join year; `legacy_state.json` gains two cases per planner.
+- `d689158` Task 2: the "Joins the household in" field (shared list renderer gains opt-in `blank` / `placeholder` number
+  options), US Children tooltip reworded, README, badges US V129 / Canada V60, `test_children.js` covers the field and a US
+  projection and fixes its stale Canada tip check.
+- Task 3 (this commit): CLAUDE.md (three edits) and this record.
+
+Red and green: Task 1 red then green on the hand-computed join-year cases in `tests/child_dependents.js` and the new legacy
+cases. Task 2 red: before E2, `test_children.js` failed on the stale Canada tip assertion; after the test edits it failed as
+a 30-second locator timeout on `#child0JoinYear`; green: both planners "children UI ok" (300 ms waits sufficed).
+
+The US projection check in `test_children.js` asserts `tax`, not `healthcare` (spec 8.3 as corrected in the plan review and recorded
+in spec section 10).
+
+`tests/snapshots/legacy_state.json` insertions only (4 lines): "children join year" and "children join year junk" in each
+planner's section. No existing hash moved; no other snapshot file changed.
+
+Stale Canada tip check in `test_children.js` fixed (Task 2).
+
+Gates run in `fp-e2`: `npm test` exit 0 (every snapshot exact, legacy-state corpus US 47 / Canada 19 unchanged);
+`npm run check:shared` OK (55 regions x 2 planners); `node test_children.js` both planners ok.
+
+Bench (`node tests/bench_runs_interleaved.js --base ../fp-e2-base --rounds 11`; sanity, not a gate: no default household has
+children; US planner only, so Canada is not timed; replaces spec 6.3's `tests/bench_runs.js` on purpose, since CLAUDE.md says to
+compare two trees in one process, interleaved):
+
+```text
+US tx  400 simulate 198 -> 203 ms (2.5%), 120 historical 58 -> 62 ms (6.9%)
+US ca  400 simulate 292 -> 295 ms (1.0%), 120 historical 85 -> 85 ms (0.0%)
+US ny  400 simulate 319 -> 323 ms (1.3%), 120 historical 91 -> 92 ms (1.1%)
+US pa  400 simulate 296 -> 303 ms (2.4%), 120 historical 82 -> 84 ms (2.4%)
+US ct  400 simulate 386 -> 367 ms (-4.9%), 120 historical 112 -> 107 ms (-4.5%)
+US wa  400 simulate 234 -> 232 ms (-0.9%), 120 historical 70 -> 68 ms (-2.9%)
+```
+
+Reviews of Tasks 1-2: spec-compliance clean; code-quality approved; only minors, none changing code.
+
+Left alone (code-review minors that need no change):
+- The "N children" group summary counts every row, joined or not: spec decision 5, unchanged by design (Task 1 minor).
+- A negative join year typed in the field is stored as 0 (the `Math.max(0, ...)` int clamp) and counts from birth (spec decision 3).
+- A partial value at or below the birth year (such as "20" mid-typing) counts from birth and is dropped on reload (decision 3).
+- `test_children.js` stays out of CI by the repo's convention for `test_*.js` files; the engine side is guarded in `npm test`
+  by `tests/child_dependents.js` and the legacy corpus, the renderer by `snapshot_ui` and `field_registry`.
+- Task 1: the usable-year test appears twice in the `normalizeLists` map (kept verbatim from the brief); the
+  `joinYear == birthYear` legacy case is pinned by hash, with its values asserted in `tests/child_dependents.js`.
+- The Canada "Full-time student after 18" checkbox copy ("Recorded for the credits that arrive in a later update ...") is
+  stale (Canada's readers use age only); left for the owner, outside E2.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
