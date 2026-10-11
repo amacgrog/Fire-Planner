@@ -12,8 +12,11 @@
       return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><select id="${id}" data-dyn-i="${i}" data-dyn-k="${f.key}">${opts}</select></div>`;
     }
     const money = f.kind === 'money' ? ' class="money"' : '',
-      bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`;
-    return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds} value="${Number(item[f.key]) || 0}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
+      bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`,
+      // `blank: true` (opt-in): a missing value shows an empty box, with an optional placeholder.
+      value = f.blank && item[f.key] === undefined ? '' : Number(item[f.key]) || 0,
+      placeholder = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
+    return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds}${placeholder} value="${value}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
   }
   function renderDynList(name, force) {
     const spec = DYN[name],
@@ -66,6 +69,8 @@
       if (f.kind === 'check') item[f.key] = el.checked;
       else if (f.kind === 'select') item[f.key] = el.value;
       else if (f.kind === 'money') item[f.key] = Number(String(el.value).replace(/[^0-9]/g, '')) || 0;
+      // `blank: true`: an empty box (a number input also reports '' for partly typed invalid text) deletes the key.
+      else if (f.blank && String(el.value).trim() === '') delete item[f.key];
       else {
         const n = Number(el.value) || 0;
         item[f.key] = f.int ? Math.max(0, Math.round(n)) : n;
