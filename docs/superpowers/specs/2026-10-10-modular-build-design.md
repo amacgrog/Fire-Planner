@@ -141,7 +141,7 @@ results.
    dependencies, mutable bindings, DOM use, cycles and shared-region seams
    (`docs/superpowers/inventory/`; done in stage 0's plan). Then each cross-module mutable
    binding gets a home in a country-agnostic module, and shared code reaches
-   country-specific functions through build-time import aliases. Designed in section 12.
+   country-specific functions through build-time import aliases. Designed in section 12; plan: docs/superpowers/plans/2026-10-12-stage1-foundations.md. DONE on branch tyler/stage1-foundations (the owner adds the merge date when merging).
 2. **Shared fragments become modules**, in the inventory's leaf-first order, retiring the
    markers region by region; delete `sync-shared.js` with the last one.
 3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults`, rules
