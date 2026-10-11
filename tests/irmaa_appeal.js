@@ -11,7 +11,8 @@ const path = require('path');
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') }); // plan year 0 is 2026
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  // E3_PLANNER_PATH: run against another copy of the planner (the pre-merge mutation checks); the real file by default.
+  await page.goto('file://' + path.resolve(process.env.E3_PLANNER_PATH || path.resolve(__dirname, '..', 'Planner_US.html')));
   await page.waitForTimeout(200);
   const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
 
@@ -389,6 +390,43 @@ const path = require('path');
   assert.deepStrictEqual(perReturn.mixedB, perReturn.twoB, 'per-return growth: B at the household growth');
   assert.deepStrictEqual(perReturn.siteA, perReturn.oneA, 'per-return growth, call-site shape: A at growth 1');
   assert.deepStrictEqual(perReturn.siteB, perReturn.twoB, 'per-return growth, call-site shape: B reads c.irmaaGrowthB');
+
+  // --- Pre-merge probes (the final review's probe households) ---
+  // Probe 1, two returns: an unmarried couple; A 70 on Social Security 4,000 a month (no other income: Medicare MAGI 0 on
+  // A's own return), B 66 with a salary of 200,000 retiring at 67 (E = 1, covers B only) with a 115,000 pension from 67.
+  // B's normal charge in years 1-2 is year 0's 200,000 (single tier 3: 4,620); the appeal prices B's OWN return (115,000:
+  // tier 1, 1,148.40), not the household's 163,000.
+  const P1 = {
+    singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 70, ageB: 66, retireAgeA: 60, retireAgeB: 67,
+    lifeExpectancyA: 85, lifeExpectancyB: 85, ssMonthlyA: 4000, ssStartAgeA: 70, incomeB: 200000, incomeKindB: 'wages',
+    pensionCoverage: 'b', pensionYearlyB: 115000, pensionStartAgeB: 67,
+  };
+  r = await run(P1);
+  assert.deepStrictEqual(r.table, { eventA: zeros(20), eventB: withAt(20, [[1, 2]]) }, 'probe 1: B retires, covers B only (two returns)');
+  near(hc(r.rows, 1), 11148.4, 1e-6, "probe 1 year 1: 10,000 + B appealed on B's own 115,000 (tier 1)");
+  near(hc(r.rows, 2), 11148.4, 1e-6, "probe 1 year 2: B appealed on year 1's own 115,000 (tier 1)");
+  assert.strictEqual(r.rows[1].irmaaAppealYearB, 2027); assert.strictEqual(r.rows[2].irmaaAppealYearB, 2027);
+  for (const row of r.rows) assert.strictEqual(row.irmaaAppealYearA, undefined, 'probe 1: A never appealed');
+  // Probe 2, the 65-by-E+1 test at its edge: single 63, salary 200,000, retires at 64 (E = 1; 65 in year 2 = E+1) with a
+  // 60,000 pension from 64. Year 2 (age 65): min(year 0's 200,000: 4,620; year 1's 60,000: 0).
+  r = await run({ singlePerson: true, ageA: 63, retireAgeA: 64, lifeExpectancyA: 85, incomeA: 200000, incomeKindA: 'wages', pensionCoverage: 'a', pensionYearlyA: 60000, pensionStartAgeA: 64 });
+  assert.strictEqual(r.table && r.table.eventA[1], 2, 'probe 2: a retirement at 64 is kept (65 by E+1)');
+  near(hc(r.rows, 2), 10000, 1e-6, "probe 2 year 2 (age 65): appealed on year 1's 60,000");
+  assert.strictEqual(r.rows[2].irmaaAppealYearA, 2027, 'probe 2 year 2: appealed on 2027 income');
+  // Probe 3, a stream that outlives its owner: married, both 66, A dies at 70 (deathYear 4); A's W-2 stream runs to 75. The
+  // stream ending after its owner's death is not a job-end event (for A or, as the spouse, for B): only the death at [4].
+  r = await run({
+    singlePerson: false, filingStatus: 'mfj', marryLater: false, ageA: 66, ageB: 66, retireAgeA: 60, retireAgeB: 60, lifeExpectancyA: 85,
+    lifeExpectancyB: 85, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 70, survivorSpendingPct: 75,
+    incomeSources: [{ ...STREAM, amount: 50000, startAge: 66, endAge: 75 }],
+  });
+  assert.deepStrictEqual(r.table, { eventA: zeros(20), eventB: withAt(20, [[4, 3]]) }, 'probe 3: a stream ending after its owner died is no event');
+  // Counter case: a year-0 death with no prior MAGIs entered: year 0 is skipped (its stand-in already reads this year's MAGI)
+  // though the survivor's normal charge is above 0 (pensions 300,000: joint tier 2). A one-year plan (both life expectancies
+  // 68): with a longer one, year 1's window (E = 0 was last year) is priced legitimately.
+  assert.strictEqual(await inYearCalls({
+    ...C1, survivorDeathAge: 68, lifeExpectancyA: 68, lifeExpectancyB: 68, pensionYearlyA: 300000, pensionYearlyB: 300000,
+  }), 0, 'counter case: a year-0 death without entered prior MAGIs is not priced in year 0');
 
   assert.deepStrictEqual(errors, [], 'no page errors');
   await browser.close();

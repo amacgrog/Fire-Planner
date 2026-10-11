@@ -2764,7 +2764,39 @@ Review notes kept for the record (none changes code):
 Left for the owner: nothing blocking. The spec's Batch 5 notes stand (`irmaaAt` does not score year E's effect on the E+1
 charge; the year-0 stand-in still has no convergence). CLAUDE.md's `plan_off_anchor` mention under "Run modes" still names the
 old baseline ("a tree at or after `5eb30fa`"), while the script's header names the E3 Task 3 commit; left as is (outside this
-task's brief).
+task's brief). (Fixed afterwards in `8c395af`, below.)
+
+Final whole-branch review (2026-10-11): no Critical or Important findings; verdict: ready to merge. Minors:
+1. CLAUDE.md's `plan_off_anchor` baseline sentence was stale: fixed in `8c395af` (names the current baseline `4834615`, the
+   earlier ones as history).
+2. The forced pass's reset of `appealYrA/B` from `lastCost` is untested: ACCEPTED as an untested path (no constructed household
+   takes the forced pass inside an appeal window).
+3. Latent throw: `irmaaFilingHistory[s]` if `healthcareCost` were passed an `appeal` table without a filing history; the year
+   loop always passes both: accepted.
+4. `healthcareCost`'s header comment did not mention the appeal: fixed in `8c395af`.
+5. Untested branches: the `a: medA || inYrA` / `b: medB || inYrB` arm at the `magiThresholds` call site (ACCEPTED as an
+   untested path), the couple tooltip wording, and the `mixedB` vs `twoB` assertion passing on pre-change code: accepted.
+6. `annotateAppealRows` is O(rows^2) (display only), and an unknown `--household` value runs the default sweep: accepted.
+7. By design (note): no appeal for an event before the plan (a retirement at or before today's age, or a death before the
+   plan, even with entered prior MAGIs; the `irmaaPriorKnown` tooltip now says an event before this year is not appealed), and in
+   a year with an in-year candidate the plan's IRMAA lines sit on this year's edges (the conservative side).
+
+Pre-merge test coverage added (`tests/irmaa_appeal.js`, quiet base, 2026 tiers, Medicare 10,000; each case shown red against a
+mutated copy of the planner, green on the real code):
+- Probe 1, two returns: unmarried couple, A 70 on Social Security 4,000 a month, B 66 with a salary of 200,000 retiring at 67
+  and a 115,000 pension from 67 (event table: only `eventB[1] = 2`). Healthcare 11,148.40 in years 1 and 2 (B appealed on B's own
+  115,000, tier 1; appeal year 2027). Mutation: the in-year and last-year candidates priced on the household MAGI and filing
+  instead of the person's own return: 12,884.80 in both years (red; case 9 also goes red).
+- Probe 2, the 65-by-E+1 edge: single 63, salary 200,000, retiring at 64 with a 60,000 pension from 64: `eventA[1] = 2`,
+  healthcare 10,000 at 65 (year 2), appealed on 2027 income. Mutation: the age test by E instead of E+1 (dropped event; year 2
+  charges 14,620: red).
+- Probe 3, a stream outliving its owner: married, both 66, A dies at 70 (deathYear 4), A's W-2 stream to 75: `eventA` all zeros,
+  `eventB` only `[4] = 3`. Mutation: the stream skip for an owner dead in year E removed (`eventB[10] = 1`, the spouse covered by
+  a job end after the death: red).
+- Counter case: a year-0 death without entered prior MAGIs (case 1's couple, A dies at 68, pensions 300,000 each so the
+  survivor's year-0 normal charge is above 0, a one-year plan): `__test_irmaaInYearCalls` around one raw run is 0. Mutation: the
+  `year > 0 || state.irmaaPriorKnown` gate removed (2 pricings: red). With case 1's 125,000 pensions the normal charge is 0 and the
+  mutation does not show; with a longer plan year 1's window (E = 0 was last year) is priced legitimately, hence the one-year plan.
 
 ---
 

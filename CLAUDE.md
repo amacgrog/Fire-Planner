@@ -299,7 +299,8 @@ Each planner is one big IIFE. Core shape:
   on Medicare whose window is open (`irmaaAppealWindow`) and whose normal charge is above 0 is charged the lowest of the normal
   charge, this year's MAGI (the pass's estimate, so it sets `usesMagiEstimate` and converges within `MAGI_ITER_TOL`; `costAt`,
   the forced pass, the 162(l) search and the inherited need adjustment price it unchanged) and, in year E+1, last year's
-  realized MAGI; year 0 without entered prior MAGIs is skipped. The year loop keeps `appealYrA/B` (set from `hcOut`, and again
+  realized MAGI; year 0 without entered prior MAGIs is skipped. At Medicare ages the IRMAA Roth-conversion ceiling is finite
+  and already sets `estUsed`, so the appeal's own `usesMagiEstimate` matters only where that ceiling is infinite. The year loop keeps `appealYrA/B` (set from `hcOut`, and again
   after the forced pass's `costAt`; never read from `lastCost`) for the row's `irmaaAppealYearA/B` / `irmaaAppealKindA/B`, and
   `inYrA/B` for the cliff plan, whose IRMAA lines sit on this year's edges (growth 1, per return through
   `c.irmaaGrowthA/B`) in a year with an in-year candidate. The plan's `irmaaAt`, lines and `irmaaChecks` use this year's
