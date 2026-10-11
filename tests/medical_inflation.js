@@ -3,6 +3,7 @@
 // cost is exactly the entered amount compounded at the medical rate alone.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
@@ -64,7 +65,7 @@ const near = (a, e, label) => assert(Math.abs(a - e) < 0.01, `${label}: expected
 
 (async () => {
   // US: Medicare + LTC, 3 points above a 0% CPI.
-  let r = await rows(path.join(root, 'Planner_US.html'), true, [
+  let r = await rows(plannerPath('Planner_US.html', root), true, [
     ['medicalInflation', 3],
     ['medicareYearly', 10000],
     ['healthcare', 0],
@@ -77,7 +78,7 @@ const near = (a, e, label) => assert(Math.abs(a - e) < 0.01, `${label}: expected
     near(r[k].ltc, 20000 * Math.pow(1.03, k), `US LTC year ${k}`);
   }
   // Zero extra growth reproduces the old flat-CPI behavior exactly.
-  r = await rows(path.join(root, 'Planner_US.html'), true, [
+  r = await rows(plannerPath('Planner_US.html', root), true, [
     ['medicalInflation', 0],
     ['medicareYearly', 10000],
     ['healthcare', 0],
@@ -86,7 +87,7 @@ const near = (a, e, label) => assert(Math.abs(a - e) < 0.01, `${label}: expected
   console.log('[US] medical inflation test passed');
 
   // Canada: supplemental healthcare + LTC.
-  r = await rows(path.join(root, 'Planner_Canada.html'), false, [
+  r = await rows(plannerPath('Planner_Canada.html', root), false, [
     ['medicalInflation', 3],
     ['healthcare', 6000],
     ['ltcEnabled', true],

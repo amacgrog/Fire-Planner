@@ -2,6 +2,7 @@
 // income, one-time income, additional expenses, one-time expenses).
 // Run: node test_dynamic_lists.js
 const { chromium } = require('playwright');
+const { plannerPath } = require('./tests/helpers/planner-path');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -21,7 +22,7 @@ async function open(browser, file, viewport = { width: 1280, height: 900 }) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(400);
   await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
   return { ctx, page, errors };

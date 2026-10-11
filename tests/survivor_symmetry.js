@@ -6,6 +6,7 @@
 // streams, which ride on Partner A's slot, vanished from the profile).
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
@@ -14,7 +15,7 @@ const { translateFieldList } = require('./legacy_balances');
 // `high` (Canada only, 7N N1): pensions large enough that each return owes the OAS recovery tax.
 // `kids` (Canada only, 7N N3): a child born in 2035, a minor when the survivor is alone, so the eligible-dependant claim is in play.
 async function run(browser, planner, isUS, low = false, province = null, high = false, kids = false) {
-  const file = path.resolve(__dirname, '..', planner);
+  const file = plannerPath(planner);
   const rowsFor = async (deceased) => {
     const page = await browser.newPage();
     const errors = [];

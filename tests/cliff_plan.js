@@ -44,7 +44,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(300);
 
   // 1. `off` equals the default run with the guard off (no plan: planForState gives null), row for row. (Before the switch

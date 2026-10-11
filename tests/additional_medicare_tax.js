@@ -10,7 +10,7 @@ const path = require('path');
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(200);
   const near = (a, b, msg) => assert(Math.abs(a - b) < 0.01, `${msg}: got ${a}, want ${b}`);
 

@@ -12,6 +12,7 @@
 // optimizer run. Compare numbers only within one run configuration.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -26,7 +27,7 @@ const SETTLE_MS = 900;
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.join(ROOT, 'Planner_US.html'));
+  await page.goto('file://' + plannerPath('Planner_US.html', ROOT));
   await page.waitForTimeout(400);
   const median = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
   const cards = (open, only) => page.evaluate(({ open, only }) => {

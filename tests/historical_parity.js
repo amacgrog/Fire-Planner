@@ -30,6 +30,7 @@
 // Run: node tests/historical_parity.js
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 
@@ -159,7 +160,7 @@ function compare(label, std, hist, problems, preRetirement) {
 // hand the live mix the same remaining room, `max(0, magiSafeRoom - conversionAmount)`, and the
 // bucket's grouped stock step must forward it.
 function checkRoomWiring() {
-  const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'Planner_US.html'), 'utf8');
+  const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'dist', 'Planner_US.html'), 'utf8');
   const room = 'incomeRoom(magiSafeRoom, conversionAmount)';
   // Since 3C (B3) both strategies get one options object, `wopts`, built per engine mode and passed
   // through `runWithdraw` (since the cliff plan, called once in the year body: the legacy guard's dry runs are gone).
@@ -183,7 +184,7 @@ function checkRoomWiring() {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-    await page.goto('file://' + path.resolve(__dirname, '..', file));
+    await page.goto('file://' + plannerPath(file));
     await page.waitForTimeout(300);
     await page.evaluate(PAGE);
     for (const sc of SCENARIOS[key]) {

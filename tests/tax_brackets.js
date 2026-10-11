@@ -13,6 +13,7 @@
 // table to keep in sync.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 
@@ -23,7 +24,7 @@ async function withPage(file, fn) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.join(root, file));
+  await page.goto('file://' + plannerPath(file, root));
   await page.waitForTimeout(300);
   const failures = await page.evaluate(fn);
   await browser.close();

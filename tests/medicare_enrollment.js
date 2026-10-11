@@ -30,7 +30,7 @@ const BASE = [
   async function rowsFor(fields) {
     const page = await browser.newPage();
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+    await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
     await page.waitForTimeout(200);
     for (const [id, v] of translateFieldList([...BASE, ...fields], true))
       await page.evaluate(

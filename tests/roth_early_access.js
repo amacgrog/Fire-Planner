@@ -11,7 +11,7 @@ const assert = require('assert');
 const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
 
-const file = path.resolve(__dirname, '..', 'Planner_US.html');
+const file = path.resolve(__dirname, '..', 'dist', 'Planner_US.html');
 
 async function open(fields) {
   const browser = await chromium.launch();

@@ -9,6 +9,7 @@
 //   LEGACY_ROOT=<dir> node tests/legacy_state.js ...   load the planners from another checkout
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -128,7 +129,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         const errors = [];
         page.on('pageerror', (e) => errors.push(e.message));
         await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [p.storage, JSON.stringify({ state: raw, mode: 'real' })]);
-        await page.goto('file://' + path.join(ROOT, p.file));
+        await page.goto('file://' + plannerPath(p.file, ROOT));
         await page.waitForTimeout(150);
         const state = await page.evaluate(() => JSON.stringify(window.__test_getState()));
         if (errors.length) throw new Error(`${p.key} "${name}": page errors ${errors}`);

@@ -8,6 +8,7 @@
 //   (--root: a `git worktree` of the "before" ref)
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const { legacyToAccounts } = require('./legacy_balances');
 const args = process.argv.slice(2);
@@ -39,7 +40,7 @@ const SCENARIOS = {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await ctx.newPage();
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-    await page.goto('file://' + path.join(ROOT, file));
+    await page.goto('file://' + plannerPath(file, ROOT));
     await page.waitForTimeout(300);
     for (const [name, patch0] of Object.entries(SCENARIOS)) {
       const { onlyUS, ...patch } = patch0;

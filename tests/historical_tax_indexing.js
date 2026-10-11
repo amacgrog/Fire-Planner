@@ -22,6 +22,7 @@
 // withdrawal instead of the balance.)
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { setBalance } = require('./legacy_balances');
@@ -139,12 +140,12 @@ async function run(file, label, extra) {
 
 (async () => {
   const root = path.resolve(__dirname, '..');
-  await run(path.join(root, 'Planner_US.html'), 'US', [
+  await run(plannerPath('Planner_US.html', root), 'US', [
     ['stateTax', 'tx'],
     ['ssMonthlyA', 0],
     ['acaEnabled', false],
   ]);
-  await run(path.join(root, 'Planner_Canada.html'), 'Canada', [
+  await run(plannerPath('Planner_Canada.html', root), 'Canada', [
     ['cppMonthlyA', 0],
     ['oasMonthlyA', 0],
   ]);

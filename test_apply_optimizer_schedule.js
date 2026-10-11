@@ -36,7 +36,7 @@ async function withPage(fn) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve('Planner_US.html'));
+  await page.goto('file://' + path.resolve('dist', 'Planner_US.html'));
   await page.waitForTimeout(250);
   await fn(page);
   if (errors.length) { fail++; console.log('  FAIL page errors:', errors); }

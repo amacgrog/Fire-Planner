@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 
-const file = path.resolve(__dirname, '..', 'Planner_US.html');
+const file = path.resolve(__dirname, '..', 'dist', 'Planner_US.html');
 const close = (a, b, msg, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
 const closeArr = (a, b, msg) => a.forEach((x, i) => close(x, b[i], `${msg}[${i}]`));
 

@@ -22,7 +22,7 @@ async function openPlanner(browser, isoDate, fields, patchState) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: new Date(isoDate) });
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(300);
   const set = (id, v) =>
     page.evaluate(
@@ -188,7 +188,7 @@ async function rows(page) {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-    await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+    await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
     await page.waitForTimeout(300);
     const failures = await page.evaluate(`(${filingChecks.toString()})()`);
     assert.deepStrictEqual(errors, [], `page errors: ${errors}`);

@@ -9,6 +9,7 @@
 // per-call average, so a single call is not at the timer's resolution.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const { scenarios } = require('./snapshot_scenarios');
 const { legacyToAccounts } = require('./legacy_balances');
@@ -38,7 +39,7 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto('file://' + path.join(ROOT, 'Planner_US.html'));
+  await page.goto('file://' + plannerPath('Planner_US.html', ROOT));
   await page.waitForTimeout(300);
   let over = 0;
   for (const [name, patch] of Object.entries(HOUSEHOLDS)) {

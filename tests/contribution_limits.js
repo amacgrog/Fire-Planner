@@ -10,7 +10,7 @@ const path = require('path');
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(200);
   const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
   const rc = (patch, args) =>
@@ -119,7 +119,7 @@ const path = require('path');
       ([k, v]) => localStorage.setItem(k, v),
       ['fireCouplePlanner.massachusettsOffline.v1', JSON.stringify({ state: raw, mode: 'real' })],
     );
-    await p.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+    await p.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
     await p.waitForTimeout(150);
     const st = await p.evaluate(() => {
       const s = window.__test_getState();

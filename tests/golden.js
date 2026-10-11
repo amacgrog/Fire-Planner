@@ -22,6 +22,7 @@
 // If either of these ever drifts, the model's core arithmetic has changed.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { setBalance } = require('./legacy_balances');
@@ -73,7 +74,7 @@ async function testDrawdown(file, label, ssFields, benefitPerYear = 0) {
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(200);
 
   await setChecked(page, 'singlePerson', true);
@@ -134,7 +135,7 @@ async function testCompounding(file, label, ssFields) {
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(200);
 
   await setChecked(page, 'singlePerson', true);
@@ -217,7 +218,7 @@ async function testLiveMixRothUntouched(file, label) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(200);
 
   if (!(await page.evaluate(() => !!document.getElementById('withdrawalMixEnabled')))) {
@@ -274,7 +275,7 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(200);
 
   if (!(await page.evaluate(() => !!document.getElementById('withdrawalMixEnabled')))) {

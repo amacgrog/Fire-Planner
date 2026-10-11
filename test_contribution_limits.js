@@ -8,7 +8,7 @@ const path = require('path');
   const page = await (await browser.newContext()).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, 'dist', 'Planner_US.html'));
   await page.waitForTimeout(200);
   const type = async (sel, v) => {
     await page.fill(sel, String(v));

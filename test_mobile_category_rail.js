@@ -20,6 +20,7 @@
 // Not wired into `npm test`/CI — run directly with
 // `node test_mobile_category_rail.js`.
 const { chromium } = require('playwright');
+const { plannerPath } = require('./tests/helpers/planner-path');
 const path = require('path');
 
 let pass = 0, fail = 0;
@@ -34,7 +35,7 @@ function withPage(file, viewport, fn) {
     const page = await browser.newPage({ viewport });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto('file://' + path.resolve(file));
+    await page.goto('file://' + plannerPath(file));
     await page.waitForTimeout(300);
     await fn(page);
     if (errors.length) { fail++; console.log('  FAIL page errors:', errors); }

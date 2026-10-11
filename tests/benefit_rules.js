@@ -14,7 +14,7 @@ const ROW_KEYS = ['name', 'kind', 'scope', 'source', 'asOf', 'retrieved', 'verif
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_Canada.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_Canada.html'));
   await page.waitForTimeout(300);
   const fails = await page.evaluate(
     ({ IDS, KINDS, PROVINCES, ROW_KEYS }) => {

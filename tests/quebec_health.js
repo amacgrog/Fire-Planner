@@ -23,7 +23,7 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_Canada.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_Canada.html'));
   await page.waitForTimeout(300);
   const out = await page.evaluate(() => {
     const t = window.__test_tax;
