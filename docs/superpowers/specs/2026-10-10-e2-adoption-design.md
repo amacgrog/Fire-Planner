@@ -327,8 +327,11 @@ say so in the commit message.
 
 Extend it: a new child row shows an empty "Joins the household in" box with the placeholder and no `joinYear` key in the state;
 typing 2032 stores `joinYear: 2032` and changes `window.fireProjectionRows` (US: the section 8.1 ACA single household, with
-the scenario entered through the state and one child born 2027 added through the form; the `healthcare` of the rows for 2027 to
-2031 changes against the from-birth projection; Canada: the section 8.1 household, `benefitCcb` of the rows before 2032); clearing the box deletes the key and restores the from-birth rows;
+the scenario entered through the state and one child born 2027 added through the form; the `tax` of the rows for 2027 to 2031
+rises against the from-birth projection (no head of household and no Child Tax Credit before the join year). Not `healthcare`:
+with one child the household is 2, whose 400% line ($84,600) is still below this household's MAGI, so the premium is the full
+$20,000 either way (found in the plan review, round 1). Canada: the section 8.1 household, `benefitCcb` of the rows before the
+join year); clearing the box deletes the key and restores the from-birth rows;
 the reload round trip keeps 2032 and keeps a blank blank; the 390x844 overflow check. Other lists' number fields still show 0
 for a missing value (spot check one loan field).
 
@@ -372,3 +375,8 @@ for a missing value (spot check one loan field).
 - M12: the legacy cases are appended after the existing children cases and the diff is checked: section 8.2.
 The owner asked for the sources of S1, S2, S3 and M11; they were fetched and added (IRC 24, 2, 152; Pub. 501 quoted; CMCS
 bulletin), all retrieved 2026-10-10.
+
+**Found in the plan review, round 1** (independent Opus review of the plan at `d99cadf`, 2026-10-10; owner approved): section
+8.3's US projection check asserted on `healthcare`, which one child does not move for that household (household 2's 400% line,
+$84,600, is below its MAGI of about $92,750 to $120,512 in rows 0 to 5); it now asserts on `tax`, which the reviewer measured
+rising in every one of rows 1 to 5 (row 1 $5,218 -> $9,321).

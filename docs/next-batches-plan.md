@@ -2264,7 +2264,13 @@ findings, which meets the review loop's stop condition.
 Plan `docs/superpowers/plans/2026-10-10-e2-adoption.md` (three tasks: 1 the engine and normalization in the shared
 `01-LIST_MAX` plus the US `hasChildAtMost`, with the hand-computed tests and the legacy cases; 2 the field, the shared
 renderer option, copy, README and badges US V129 / Canada V60, with `test_children.js`; 3 CLAUDE.md, the implementation
-record and the gates). Plan review: pending.
+record and the gates). Plan review, round 1 (independent Opus, of `d99cadf`; the reviewer applied the plan to scratch
+copies and ran its tests): 0 blocking, 2 should-fix, 6 minor, all adopted. Should-fix: the US projection check asserts `tax`,
+not `healthcare` (one child does not move the 400% line past that household's MAGI; spec 8.3 corrected and recorded in spec
+section 10); the `hasChildAtMost` comment and the CLAUDE.md text given as fenced blocks with an exact anchor. Minor: the Task 2
+red is a 30-second locator timeout; the `snapshot_ui.js` reason; a stronger loan renderer check; the bench script named and
+US-only; two stale comments in `test_children.js`; CLAUDE.md's Medicaid paragraph and file list. Left for the owner: the Canada
+student checkbox copy (outside E2). No blocking findings, which meets the review loop's stop condition.
 
 ---
 
