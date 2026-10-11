@@ -23,9 +23,7 @@
 - Never `--no-verify`. Text files end with a newline. After 3 failed attempts at one step, stop and reassess.
 - Every commit message ends with the trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; the commands below pass it as a second `-m`.
 - Run commands in Git Bash (the examples use POSIX syntax).
-- Line endings: the repo stores LF, but a Windows checkout with `core.autocrlf=true` has CRLF working files. Every tool that reads sources (the split script, `scripts/build.js`, `scripts/sync-shared.js`, the analyzer) normalizes `
-` to `
-` on read and writes LF.
+- Line endings: the repo stores LF, but a Windows checkout with `core.autocrlf=true` has CRLF working files. Every tool that reads sources (the split script, `scripts/build.js`, `scripts/sync-shared.js`, the analyzer) normalizes CRLF to LF on read and writes LF.
 - Do not merge to `main` between Task 1 and Task 3: until Task 3 the repo holds both the root `Planner_*.html` files and their `src/` copies.
 
 ## Review Focus
@@ -189,9 +187,7 @@ const once = (html, token, file) => {
   return i;
 };
 for (const [dir, file] of [['us', 'Planner_US.html'], ['canada', 'Planner_Canada.html']]) {
-  const html = fs.readFileSync(file, 'utf8').replace(/
-/g, '
-');
+  const html = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
   const so = once(html, STYLE_OPEN, file), sc = once(html, STYLE_CLOSE, file);
   const jo = once(html, SCRIPT_OPEN, file), jc = once(html, SCRIPT_CLOSE, file);
   if (!(so < sc && sc < jo && jo < jc)) throw new Error(`${file}: unexpected order`);
@@ -232,9 +228,7 @@ const PLANNERS = [
   { dir: 'us', file: 'Planner_US.html' },
   { dir: 'canada', file: 'Planner_Canada.html' },
 ];
-const read = (file) => fs.readFileSync(file, 'utf8').replace(/
-/g, '
-');
+const read = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 
 fs.mkdirSync(outDir, { recursive: true });
 for (const { dir, file } of PLANNERS) {
@@ -330,22 +324,14 @@ for (const kind of KINDS) {
 
 Make both reads tolerate CRLF (a Windows checkout) by replacing
 ```js
-const readFragment = (r) => fs.readFileSync(fragmentPath(r), 'utf8').replace(/
-$/, '').split('
-');
+const readFragment = (r) => fs.readFileSync(fragmentPath(r), 'utf8').replace(/\n$/, '').split('\n');
 ```
 with:
 ```js
-const readText = (file) => fs.readFileSync(file, 'utf8').replace(/
-/g, '
-');
-const readFragment = (r) => readText(fragmentPath(r)).replace(/
-$/, '').split('
-');
+const readText = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+const readFragment = (r) => readText(fragmentPath(r)).replace(/\n$/, '').split('\n');
 ```
-and replacing `const lines = fs.readFileSync(path.join(root, file), 'utf8').split('
-');` with `const lines = readText(path.join(root, file)).split('
-');`. (`readText` is defined just above `readFragment`, which comes before `loaded`; if the file's order differs, move the definition up.) The `--pull` writer already emits LF.
+and replacing `const lines = fs.readFileSync(path.join(root, file), 'utf8').split('\n');` with `const lines = readText(path.join(root, file)).split('\n');`. (`readText` is defined just above `readFragment`, which comes before `loaded`; if the file's order differs, move the definition up.) The `--pull` writer already emits LF.
 
 Replace the success message so it no longer prints six "planners":
 ```js
@@ -593,9 +579,7 @@ const PLANNERS = [
   { dir: 'us', file: 'Planner_US.html' },
   { dir: 'canada', file: 'Planner_Canada.html' },
 ];
-const read = (file) => fs.readFileSync(file, 'utf8').replace(/
-/g, '
-');
+const read = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 
 // A classic (non-module) IIFE so the result runs from file:// in every browser.
 async function bundleJs(entry) {
@@ -1329,9 +1313,7 @@ if (require.main === module) {
   const outDir = path.join(root, 'docs', 'superpowers', 'inventory');
   fs.mkdirSync(outDir, { recursive: true });
   for (const [dir, title] of [['us', 'US'], ['canada', 'Canada']]) {
-    const model = analyze(fs.readFileSync(path.join(root, 'src', dir, 'main.js'), 'utf8').replace(/
-/g, '
-'));
+    const model = analyze(fs.readFileSync(path.join(root, 'src', dir, 'main.js'), 'utf8').replace(/\r\n/g, '\n'));
     fs.writeFileSync(path.join(outDir, `closure-${dir}.md`), render(model, title));
     console.log(`${title}: ${model.units.length} units, ${model.mutables.length} mutable, ${model.cycles.length} cycles, ${model.implicitGlobalWrites.length} implicit-global writes`);
   }
