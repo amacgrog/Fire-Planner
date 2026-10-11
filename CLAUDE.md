@@ -550,7 +550,7 @@ Each planner is one big IIFE. Core shape:
   `drawMixedStockAccounts`; a new draw path that honours `magiCapLeft` must add to it, or the plan never offers a
   stay-under for that mode). The bond reserve's traditional draw is uncapped in both strategies.
   **Run modes** (`runProjection({ ..., planMode, plan })`): `off` (no steering; byte for byte the guard-off year,
-  pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `5eb30fa`; `3ebee0e` up to `ce5fb56`), `choose` (deterministic run only: each withdrawal year with
+  pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `4834615`, E3 Task 3; before it `aef6cb2`, E3 Task 1, was the baseline, then `5eb30fa` up to E3 Task 1, and `3ebee0e` up to `ce5fb56`), `choose` (deterministic run only: each withdrawal year with
   a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
   stay-under at the nearest real cliff and at the largest one, offered only when `underEligible`: cappable traditional
   drawn and the natural MAGI less its conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free

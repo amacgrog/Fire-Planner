@@ -9268,7 +9268,9 @@
   //  - Medicare Part B/D + supplement (state.medicareYearly): per partner,
   //    from max(65, that partner's retirement age); independent of the spouse.
   //  - IRMAA surcharge per Medicare-eligible partner, from the two-year MAGI
-  //    lookback.
+  //    lookback on the tiers of the lookback return's filing status; in an
+  //    event window (E3, form SSA-44) the lowest of it and this year's / last
+  //    year's MAGI (appeal table, see irmaaAppealTable).
   //  - Long-term care once each partner reaches their LTC age.
   // A deceased partner's share drops out in the survivor period.
   function healthcareCost({
