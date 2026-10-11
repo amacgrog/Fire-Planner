@@ -2360,6 +2360,17 @@ Canada change. Sources (retrieved 2026-10-10): 20 CFR 418.1135, 418.1140(d), 418
 - Decision 8: rows carry `irmaaAppeal` where the appeal lowered the charge, shown in the status tooltip; callout, tooltip,
   README, badge V130; snapshot moves approved in two stages (decision 1, then the appeal).
 
+Spec review, round 1 (independent Opus, of `4f13fdb`, owner-run): 0 blocking, 7 should-fix, 9 minor, all adopted (owner,
+2026-10-11; spec section 11). Should-fix: a death before the plan must not open a window; the stand-in years read year 0's filing
+status (a death in year 0 with entered prior MAGIs); the in-year candidate prices the pass estimate, within the iteration's $1 of
+the realized MAGI (accepted, as for the ACA premium); the 162(l) deduction's feedback on an in-year tier (paragraph and test);
+price the candidate only when the normal charge is above 0, and time an appeal-window household; the lines test rebuilt on a
+drawing household; the inherited need adjustment and the 162(l) search also price the charge. Minor: `irmaaChecks` on this
+year's filing, the filing history written once per year, per-return line growth, the reported event kind, flat row scalars
+(`historical_parity.js` compares non-numbers with `!==`), events nobody can use dropped (the default household gets no table),
+the anchor re-base steps, two test-setup fixes. The owner also approved the `irmaaAt` / lines filing change and dropping the
+stale "Medicaid coverage gap" from the healthcare callout.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
