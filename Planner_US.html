@@ -7542,6 +7542,14 @@
     }
     return [magiHistoryA[y] || 0, magiHistoryB[y] || 0];
   }
+  // E3 (spec 5.1, decision 1): the filing status of the return IRMAA's lookback reads, whose tiers SSA uses (20 CFR
+  // 418.1120). The lookback year's own status; for the plan's first two years year 0's stands for the earlier returns, except
+  // that an entered return from a year in which a married partner (who dies in deathYear) was still alive was joint.
+  function irmaaLookbackFiling(filingHistory, year, filing, deathYear, marriedAtDeath) {
+    const L = year - 2;
+    if (L < 0 && state.irmaaPriorKnown && marriedAtDeath && L <= deathYear) return 'mfj';
+    return filingHistory ? filingHistory[Math.max(0, L)] : filing;
+  }
   // Roth conversion ladder — converts traditional balances to Roth each year
   // in the chosen window, solving for the gross conversion that fills
   // ordinary taxable income up to the top of the selected federal bracket
@@ -9233,6 +9241,9 @@
     irmaaHistoryA = null,
     irmaaHistoryB = null,
     twoReturnHistory = null,
+    irmaaFilingHistory = null,
+    deathYear = Infinity,
+    marriedAtDeath = false,
   }) {
     const inflate = (amount) => amount * factor * medicalGrowth(year);
     // An annual `total` shared equally between the two partners (or all Partner
@@ -9302,14 +9313,15 @@
         if (twoReturns) premB += ib;
       }
     } else {
-      const lookbackMagi = irmaaLookbackMagi(irmaaHistory, year);
+      const lookbackMagi = irmaaLookbackMagi(irmaaHistory, year),
+        lbFiling = irmaaLookbackFiling(irmaaFilingHistory, year, filing, deathYear, marriedAtDeath);
       if (medicareEligibleA) {
-        const ia = irmaaSurcharge(lookbackMagi, filing, year);
+        const ia = irmaaSurcharge(lookbackMagi, lbFiling, year);
         healthcare += ia;
         if (twoReturns) premA += ia;
       }
       if (medicareEligibleB) {
-        const ib = irmaaSurcharge(lookbackMagi, filing, year);
+        const ib = irmaaSurcharge(lookbackMagi, lbFiling, year);
         healthcare += ib;
         if (twoReturns) premB += ib;
       }
@@ -10883,7 +10895,9 @@
       magiHistoryB = [],
       irmaaMagiHistoryA = [],
       irmaaMagiHistoryB = [],
-      twoReturnHistory = [];
+      twoReturnHistory = [],
+      // E3: each year's filing status, the IRMAA lookback's tier table (spec 5.1).
+      irmaaFilingHistory = [];
     // Per-account Roth contribution/conversion ledgers (see rothAccountsNew).
     const rothAccts = rothAccountsNew();
     // Per-account shares of the traditional and Roth pools (see accountsNew).
@@ -10937,6 +10951,9 @@
     // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
     if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
     if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
+    // E3 (spec 5.1): whether the couple was married when a partner died (the lookback reads joint tiers for entered returns from
+    // before the death). False without a death, in single-person mode, or for an unmarried couple.
+    const marriedAtDeath = deathYear < Infinity && !singlePerson && (state.marryLater ? state.ageA + deathYear >= state.marriageAgeA : state.filingStatus === 'mfj');
     // E1e: the inherited accounts of this run (null for every state without an inherited row).
     const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear, deathYear, deceasedIsA, deceasedIsB });
     if (inh !== null) {
@@ -11137,6 +11154,7 @@
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
+      irmaaFilingHistory[year] = filing; // E3: once per year, before any healthcareCost call (spec 5.1, round 1 M2)
       const [acaEligibleA, acaEligibleB] = acaEligibility({
         age,
         ageB,
@@ -11316,6 +11334,9 @@
           irmaaHistoryA: irmaaMagiHistoryA,
           irmaaHistoryB: irmaaMagiHistoryB,
           twoReturnHistory,
+          irmaaFilingHistory,
+          deathYear,
+          marriedAtDeath,
         };
         // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
         // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
@@ -11345,19 +11366,16 @@
           return c;
         };
         // The IRMAA this year's MAGI sets is charged two years on (healthcareCost): to the partners on Medicare and alive
-        // then, against that year's tiers and filing status; a two-return year is charged per person on the single tiers.
+        // then, against that year's tiers (the filing status of this year's return, which SSA will read: E3); a two-return year is charged per person on the single tiers.
         // The solver prices its candidates on that year's tiers, estimated as this year's grown two years at the plan's
         // assumed inflation (a historical path's own future inflation is not known yet; scaling the tiers up equals scaling
         // the MAGI down). The IRMAA lines use the same estimate (magiThresholds, c.irmaaGrowth); the conversion ceiling keeps this year's edges
-        // (the safe side, deliberate; Batch 5 revisits it). The charging
-        // year's filing status is looked up only when a solver asks for it.
+        // (the safe side, deliberate; Batch 5 revisits it).
+        // The tier table is this year's return's filing status (E3, spec 5.1).
         const year2 = year + 2,
           survivor2 = year2 >= deathYear,
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((state.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((state.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
-        let filing2 = null;
-        const irmaaFiling2 = () =>
-          filing2 || (filing2 = twoReturns || !(medA || medB) ? 'single' : filingStatusFor({ age: age + 2, singlePerson, isSurvivorPeriod: survivor2, year: year2, deathYear }).filing);
         const irmaaSsH = irmaaSsOf(profile),
           irmaaStA = twoReturns ? returnStatusA(profile.dependents) : 'single';
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
@@ -11375,7 +11393,7 @@
               (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, irmaaFiling2(), year);
+          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
@@ -11802,7 +11820,7 @@
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing: irmaaFiling2(), a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
+                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
@@ -11850,7 +11868,7 @@
               planStats.applied++;
               if (yearPlan.kind === 'under') planStats.rothShift += rothWithdrawn - naturalRec.roth;
               if (yearPlan.kind === 'under' && lineFamily(yearPlan.id) === 'irmaa' && yearPlan.ret === 'H')
-                irmaaChecks.push({ y: year + 2, filing: irmaaFiling2(), nat: irmaaMagiOf(naturalRec.realized, irmaaSsH, filing), trial: irmaaMagiOf(realizedMagi, irmaaSsH, filing) });
+                irmaaChecks.push({ y: year + 2, filing, nat: irmaaMagiOf(naturalRec.realized, irmaaSsH, filing), trial: irmaaMagiOf(realizedMagi, irmaaSsH, filing) });
             } else {
               planStats.fallback++;
               yearPlan = NO_PLAN;
