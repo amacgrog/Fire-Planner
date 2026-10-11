@@ -38,6 +38,7 @@
 // (`--update-nothing` runs without checking or writing the baseline.)
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -154,7 +155,7 @@ async function runPlanner(browser, planner, list, dumpDir) {
   page.on('pageerror', (e) => errors.push(e.message));
   // Pin the wall clock: the engines key tax-index years off the current year.
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto('file://' + path.join(ROOT, planner.file));
+  await page.goto('file://' + plannerPath(planner.file, ROOT));
   await page.waitForTimeout(300);
   await page.evaluate(PAGE_RUNNER);
 

@@ -10,7 +10,7 @@ const path = require('path');
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, 'dist', 'Planner_US.html'));
   await page.waitForTimeout(300);
   const hidden = (id) => page.evaluate((id) => document.getElementById(id).hidden, id);
   const set = (patch) =>

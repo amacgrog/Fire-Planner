@@ -8,6 +8,7 @@
 // to 2026, so plan year 0 is tax year 2026.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 
@@ -115,7 +116,7 @@ const EXPECT_2026 = [
         page.on('pageerror', (e) => errors.push(e.message));
         const raw = saved === undefined ? {} : { children: saved };
         await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [p.storage, JSON.stringify({ state: raw, mode: 'real' })]);
-        await page.goto('file://' + path.resolve(__dirname, '..', p.file));
+        await page.goto('file://' + plannerPath(p.file));
         await page.waitForTimeout(150);
         const got = await page.evaluate(() => window.__test_getState().children);
         assert.deepStrictEqual(got, want, `[${p.key}] normalize "${name}"`);
@@ -127,7 +128,7 @@ const EXPECT_2026 = [
       const page = await browser.newPage();
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
-      await page.goto('file://' + path.resolve(__dirname, '..', p.file));
+      await page.goto('file://' + plannerPath(p.file));
       await page.waitForTimeout(200);
       const got = await page.evaluate((kids) => {
         const st = window.__test_getState();
@@ -203,7 +204,7 @@ const EXPECT_2026 = [
           mode: 'real',
         };
         await bp.addInitScript(([k, v]) => localStorage.setItem(k, v), [p.storage, JSON.stringify(save)]);
-        await bp.goto('file://' + path.resolve(__dirname, '..', p.file));
+        await bp.goto('file://' + plannerPath(p.file));
         await bp.waitForTimeout(300);
         await bp.evaluate(() => { document.getElementById('childrenGroup').open = true; });
         assert.strictEqual(await bp.inputValue('#child0JoinYear'), '', `[${p.key}] blank join year renders empty`);
@@ -224,7 +225,7 @@ const EXPECT_2026 = [
       const cerrors = [];
       cpage.on('pageerror', (e) => cerrors.push(e.message));
       await cpage.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-      await cpage.goto('file://' + path.resolve(__dirname, '..', 'Planner_Canada.html'));
+      await cpage.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_Canada.html'));
       await cpage.waitForTimeout(300);
       const ca = await cpage.evaluate(() => {
         const st = window.__test_getState();
@@ -259,7 +260,7 @@ const EXPECT_2026 = [
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+    await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
     await page.waitForTimeout(200);
     const res = await page.evaluate((kids) => {
       window.__test_setCurrentYear(2026);

@@ -12,7 +12,7 @@ const path = require('path');
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(200);
   const set = (id, v) =>
     page.evaluate(
@@ -104,7 +104,7 @@ const path = require('path');
   await ctx2.addInitScript(([key, value]) => localStorage.setItem(key, value), [key, JSON.stringify(raw)]);
   const old = await ctx2.newPage();
   old.on('pageerror', (e) => errors.push(e.message));
-  await old.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await old.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await old.waitForTimeout(300);
   const flags = await old.evaluate(() => [
     document.getElementById('employerCoversSpouseA').checked,

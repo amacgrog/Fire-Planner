@@ -25,7 +25,7 @@ const COUPLE = { ...PATCH, singlePerson: false, filingStatus: 'mfj', ageB: 60, r
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(300);
   const run = (patch) => page.evaluate((patch) => {
     const st = window.__test_getState();

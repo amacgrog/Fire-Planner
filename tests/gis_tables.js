@@ -21,7 +21,7 @@ const SERIES = [
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_Canada.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_Canada.html'));
   await page.waitForTimeout(300);
   for (const [key, situation, tol] of SERIES) {
     const rows = tables[key];

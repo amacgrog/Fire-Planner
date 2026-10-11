@@ -10,7 +10,7 @@ const path = require('path');
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, 'Planner_US.html'));
+  await page.goto('file://' + path.resolve(__dirname, 'dist', 'Planner_US.html'));
   await page.waitForTimeout(400);
   for (const code of ['ca', 'ny', 'pa', 'ct', 'wa', 'tx', 'ma', 'fl', 'nm', 'dc']) {
     await page.selectOption('#stateTax', code);

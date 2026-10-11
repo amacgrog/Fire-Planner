@@ -3,6 +3,7 @@
 // dashboard tiles (nest-egg numbers with a safe-withdrawal-rate box).
 // Run: node test_spending_and_fi_widgets.js
 const { chromium } = require('playwright');
+const { plannerPath } = require('./tests/helpers/planner-path');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -26,7 +27,7 @@ async function open(browser, file, viewport = { width: 1280, height: 900 }) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(400);
   await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
   return { ctx, page, errors };
@@ -233,7 +234,7 @@ async function run(browser, file) {
       return { r, n };
     };
     const a = await get(path.join(S, 'main_' + (file.includes('US') ? 'US' : 'Canada') + '.html')),
-      b = await get(path.resolve(file));
+      b = await get(plannerPath(file));
     check(a.r === b.r, 'legacy spending tiers reproduce main\'s baseSpend exactly');
     check(b.n === 2, 'only enabled legacy tiers become rows (got ' + b.n + ')');
   }

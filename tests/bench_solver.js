@@ -3,6 +3,7 @@
 // Cliff plan: each round plans once for the scenario (outside the timing), then times the raw hooks; a tree without the plan
 // hooks times the plain ones.
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const args = process.argv.slice(2);
 const base = path.resolve(args[args.indexOf('--base') + 1]);
@@ -17,7 +18,7 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
   const open = async (root) => {
     const page = await browser.newPage();
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-    await page.goto('file://' + path.join(root, 'Planner_US.html'));
+    await page.goto('file://' + plannerPath('Planner_US.html', root));
     await page.waitForTimeout(300);
     return page;
   };

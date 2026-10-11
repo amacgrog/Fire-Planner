@@ -5,22 +5,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators
-for a couple or single person — one for the US, one for Canada. Everything
-(markup, CSS, and JS) lives in one `<script>` block per file; there is no build
-step needed to run, no bundler, no framework, and no server. Opening the
-`.html` file in a browser is the entire deployment. (Code identical in both
-planners is kept in sync by the dev-time `scripts/sync-shared.js`; see
-"Shared code between the planners".) See `README.md` for the full user-facing
-feature list.
+for a couple or single person — one for the US, one for Canada. The source lives
+in `src/<country>/` (`index.html` markup shell, `styles.css`, `main.js`);
+`npm run build` (esbuild, `scripts/build.js`) assembles each into one
+self-contained `dist/Planner_US.html` / `dist/Planner_Canada.html` with the CSS and
+JS inlined. The built file needs no server and no network: opening it in a browser
+is the whole runtime. `dist/` is gitignored and published to GitHub Pages by CI;
+**edit `src/`, never `dist/`**. (Code identical in both planners is still kept in
+sync by the dev-time `scripts/sync-shared.js`, which is being replaced by real
+module imports; see "Shared code between the planners" and
+`docs/superpowers/specs/2026-10-10-modular-build-design.md`. Plans, specs and notes
+dated before 2026-10-11 describe the old layout, where `Planner_*.html` at the repo
+root was the source.) See `README.md` for the full user-facing feature list.
 
 ## Files
 
-- `Planner_US.html` / `Planner_Canada.html` — the two apps, each fully
-  self-contained (~4,500–4,700 lines including the inline `<script>`).
-  **Stable filenames**: never rename these or create version-numbered copies
-  (`Planner_US_v2.html`, etc.) — every update is a `git commit` to the same
-  file, not a rename-and-fix-links exercise.
-- `index.html` — a small landing page linking to both tools.
+- `src/us/` and `src/canada/` — each planner's source: `index.html` (markup shell with
+  `{{css}}` and `{{js}}` placeholders), `styles.css`, and `main.js` (the whole app as
+  one IIFE for now; it is being split into modules).
+- `scripts/build.js` + `scripts/lib/assemble-html.js` — the build. `dist/Planner_US.html`
+  and `dist/Planner_Canada.html` are its output (gitignored). **Stable filenames**:
+  never rename these or create version-numbered copies — every update is a `git commit`
+  to `src/`, and the built names never change.
+- `scripts/analyze-closure.js` — writes `docs/superpowers/inventory/closure-*.md`, the
+  per-declaration dependency inventory the module split is planned from.
+- `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
+  into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
   checks, run via `npm test` along with the other `tests/*.js` files listed in
   `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
@@ -30,7 +40,7 @@ feature list.
   `tests/state_mechanisms.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
-  state); not in `npm test`; compare a worktree of the previous commit with the working tree (+5% allowed).
+  state); not in `npm test`; compare a worktree of the previous commit (run `npm ci && npm run build` in the worktree first) with the working tree (+5% allowed).
   Wall-clock noise between runs is ±10% on this machine, so for a decision compare two trees in ONE process, interleaved
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
   `tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states ...]` is that comparison: bench_runs.js's workload,
@@ -113,7 +123,7 @@ feature list.
   run in `npm test`. **Only run `npm run snapshot:update` for an intended
   behavior change**, and say so in the commit; a pure refactor must leave the
   baseline untouched. To see *what* changed after a failure:
-  `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing`,
+  `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing` (run `npm ci && npm run build` in the worktree first),
   `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
 - `test_*.js` (repo root, committed) — ad-hoc Playwright scripts covering
   UI/feature behavior; not run by CI. Run individually with `node test_foo.js`.
@@ -124,17 +134,23 @@ feature list.
 
 ## Commands
 
-- `npm test` — runs `tests/golden.js` (requires `playwright`; `npm install`
-  first if `node_modules` isn't present). Must stay exact-to-the-cent.
+- `npm test` — builds `dist/` first, then runs the sync/generator checks, `tests/golden.js`
+  and the rest of the chain (requires `playwright`; `npm install` first if `node_modules`
+  isn't present). Must stay exact-to-the-cent.
+- `npm run build` — writes `dist/`. `npm run dev` rebuilds on every change under `src/`
+  with inline source maps: edit, save, refresh the browser. The built script carries a
+  `"use strict";` banner (the app runs in strict mode), and esbuild renames identifiers in
+  the bundled output, so tests must never regex-match source text in `dist/*.html`; read
+  `src/` instead, as `tests/historical_parity.js` does.
 - `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, committed,
   not wired into CI or `npm test`). Add/extend one of these when you add a
-  feature and actually run it.
-- Syntax-check a planner file without a browser: `node --check Planner_US.html`
-  won't work directly (it's HTML, not JS) — extract/lint the inline `<script>`
-  block, or just load the file in Playwright and check `page.on('pageerror')`.
-- No build/lint step exists — there's nothing to compile; edit the `.html`
-  files directly and reload in a browser.
-- CI: `.github/workflows/test.yml` runs `npm test` on every push/PR to `main`.
+  feature and actually run it. Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever
+  `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
+- Syntax-check a planner without a browser: `node --check src/us/main.js` (it is plain
+  JS), or load the built file in Playwright and watch `page.on('pageerror')`.
+- There is no lint step. The only build step is the esbuild bundle; the delivered file
+  is still a single self-contained HTML file that needs no server.
+- CI: `.github/workflows/test.yml` runs `npm test` (which builds first) on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). On pushes to `main` the `deploy` job publishes that same artifact to GitHub Pages instead of rebuilding.
 
 ## Architecture, per planner file
 
@@ -668,10 +684,11 @@ gesture, not `window.scrollTo()` + an overflow-width check).
 
 Code that is byte-identical in both planners lives between
 `// @@shared:<name> begin` / `end` marker comments, with the canonical copy in
-`shared/<name>.js`. Never edit one planner's region alone: edit the fragment
-and run `npm run sync`, or edit a planner in place, then
-`npm run sync -- --pull Planner_US.html` (copies back to `shared/`) and
-`npm run sync` (updates the other file). `npm test` runs
+`shared/<name>.js`. Never edit one planner's region alone: edit the fragment and run `npm run sync`, or
+edit a planner source in place, then `npm run sync -- --pull src/us/main.js` (copies
+back to `shared/`) and `npm run sync` (updates the other planner). Regions live in all
+three source files per planner: `main.js` (`//` markers), `styles.css` (`/* */`) and
+`index.html` (`<!-- -->`). `npm test` runs
 `scripts/sync-shared.js --check` first, so drift fails CI. Not a build step:
 the planners stay self-contained and run by opening the file. To make code
 shared that currently differs, first remove the difference (see
@@ -682,11 +699,7 @@ fragment type: `// @@shared:x begin` (JS, `shared/x.js`), `/* @@shared:x begin *
 shared region, so a CSS change is made once. The two `runProjection` year
 loops are deliberately not shared (see plan section 7, step 4.5): put a new
 per-year rule in a shared stage helper when it is identical in both
-countries, otherwise edit each loop. **Windows gotcha:** the working tree is CRLF
-(`core.autocrlf=true`), and `npm run sync` rewrites the planner HTML files with LF while
-the `shared/` fragments stay CRLF, so `--check` then fails on every region. After a sync,
-convert the two planners back to CRLF (e.g. `content.replace(/\r\n/g,'\n').replace(/\n/g,'\r\n')`
-in a one-line node script) and re-run `npm run check:shared`; git normalizes both on commit.
+countries, otherwise edit each loop. Line endings do not matter: the sync, build and analysis tools normalize CRLF to LF on read.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
@@ -977,10 +990,10 @@ not from older blurbs (see `docs/reference.md`, "Sidebar info bubbles").
 
 Stable filenames (`Planner_US.html`, `Planner_Canada.html`), no
 version-numbered copies. Full history lives in `git log`, not in old files;
-`index.html`'s links never go stale.
+the built names in `dist/` never change, so the copied `index.html`'s links never go stale.
 
 Each planner's topbar also carries a small hand-maintained version badge
-(the `<span>V19</span>`/`<span>V4</span>` inside the `<h1>`) — bump the
+(the `<span>V19</span>`/`<span>V4</span>` inside the `<h1>` of `src/<country>/index.html`) — bump the
 relevant file's badge in the same commit as any other user-facing change to
 that file. It's the one piece of on-page provenance a person (or a
 screenshot sent to Claude) can use to tell which build they're looking at,
@@ -991,7 +1004,8 @@ and it only stays trustworthy if every batch bumps it, not just some.
 1. `npm test` (golden math tests — exact-to-the-cent).
 2. Run the specific `test_*.js` file(s) relevant to what changed, plus a
    broader sweep if the change touches `simulate()`/`simulateHistorical()`,
-   `syncControls()`/`syncContributionControls()`, or the shared per-year loop.
+   `syncControls()`/`syncContributionControls()`, or the shared per-year loop. Single-script runs read whatever
+   `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
 3. Mobile-width check for any new sidebar field or result card (390×844
    viewport): `document.documentElement.scrollWidth >
    document.documentElement.clientWidth` should stay `false`.

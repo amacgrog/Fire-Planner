@@ -7,6 +7,7 @@
 // hand from the model's documented rules.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
@@ -75,7 +76,7 @@ const near = (actual, expected, tol, label) =>
   assert(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} (+/-${tol}), got ${actual}`);
 
 async function testUS() {
-  const file = path.join(root, 'Planner_US.html');
+  const file = plannerPath('Planner_US.html', root);
   // A. 2% yield on $1M, all non-qualified: $20,000 ordinary income. Single
   // 2026 standard deduction $16,100 -> $3,900 taxed at 10% = $390.
   let rows = await scenario(file, true, [
@@ -154,7 +155,7 @@ async function testUS() {
 }
 
 async function testCanada() {
-  const file = path.join(root, 'Planner_Canada.html');
+  const file = plannerPath('Planner_Canada.html', root);
   // Ontario excluded: its Health Premium is based on the grossed-up dividend and is not reduced by the credit.
   const ordinary = await scenario(file, false, [
     ['dividendYield', 4],

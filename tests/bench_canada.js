@@ -8,6 +8,7 @@
 //   (--base: a `git worktree` of the "before" ref)
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -24,7 +25,7 @@ async function open(browser, root) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto('file://' + path.join(root, 'Planner_Canada.html'));
+  await page.goto('file://' + plannerPath('Planner_Canada.html', root));
   await page.waitForTimeout(300);
   return page;
 }

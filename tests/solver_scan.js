@@ -34,6 +34,7 @@
 // __test_setCliffPlan(null)) must give the same per-cycle depletion and ending total as the per-path runs.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -317,7 +318,7 @@ function movedSection(byMode) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto(pathToFileURL(path.join(ROOT, 'Planner_US.html')).href);
+  await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
   await page.waitForTimeout(300);
   const R = Object.fromEntries(MODES.map((m) => [m, []]));
   let emptyChecks = 0, histChecks = 0;

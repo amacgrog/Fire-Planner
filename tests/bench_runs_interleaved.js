@@ -8,6 +8,7 @@
 //   (--base: a `git worktree` of the "before" ref; the "after" tree is this one)
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -33,7 +34,7 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
   const open = async (root) => {
     const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-    await page.goto('file://' + path.join(root, 'Planner_US.html'));
+    await page.goto('file://' + plannerPath('Planner_US.html', root));
     await page.waitForTimeout(300);
     return page;
   };

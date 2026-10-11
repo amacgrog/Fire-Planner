@@ -10,6 +10,7 @@
 // traditional, as in tests/solver_scan.js) is printed beside it for that reason. Not a gate; not in `npm test`
 // (about a minute). Usage: node tests/solver_gap.js [--root DIR] [--budget 200000]
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { legacyToAccounts } = require('./legacy_balances');
@@ -29,7 +30,7 @@ const CASES = [
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto(pathToFileURL(path.join(ROOT, 'Planner_US.html')).href);
+  await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
   await page.waitForTimeout(300);
   const fmt = (n) => (n == null ? 'never' : Math.round(n).toLocaleString('en-US'));
   console.log(`| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | After-tax end value, real: shipped / ref | Converted: shipped / ref | Depletion shipped / ref | Ref smooth | Reference evals | Seconds |`);

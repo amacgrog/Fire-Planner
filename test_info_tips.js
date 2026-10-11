@@ -1,5 +1,6 @@
 // Ad-hoc Playwright check for the sidebar info bubbles (ⓘ). Run: node test_info_tips.js
 const { chromium } = require('playwright');
+const { plannerPath } = require('./tests/helpers/planner-path');
 const path = require('path');
 
 const FILES = ['Planner_US.html', 'Planner_Canada.html'];
@@ -16,7 +17,7 @@ async function run(browser, file, viewport, label) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('file://' + path.resolve(file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(400);
   console.log(`[${file}] ${label}`);
   const mobile = viewport.width <= 820;

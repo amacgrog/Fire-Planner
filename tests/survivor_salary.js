@@ -1,6 +1,7 @@
 // A partner who dies before their retirement age stops working at death (E1b, both planners). Spec:
 // docs/superpowers/specs/2026-10-08-e1b-income-streams-design.md section 6. Hand-computed: zero growth, zero inflation.
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 
@@ -15,7 +16,7 @@ async function run(browser, planner, isUS) {
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', planner));
+  await page.goto('file://' + plannerPath(planner));
   await page.waitForTimeout(250);
   const sim = (patch) =>
     page.evaluate((p) => {

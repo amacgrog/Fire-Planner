@@ -3,6 +3,7 @@
 // that the join year reaches the projection, and the 390x844 overflow check.
 //   node test_children.js
 const { chromium } = require('playwright');
+const { plannerPath } = require('./tests/helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 
@@ -19,7 +20,7 @@ const PLANNERS = [
       const page = await ctx.newPage();
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
-      await page.goto('file://' + path.resolve(__dirname, p.file));
+      await page.goto('file://' + plannerPath(p.file));
       await page.waitForTimeout(300);
       // The first-run wizard / banner may cover the page; the group itself is in the DOM regardless.
       const group = page.locator('#childrenGroup');
@@ -136,7 +137,7 @@ const PLANNERS = [
                 children: [{ birthYear: 2025, student: false }],
               };
         await pg.addInitScript(([k, v]) => localStorage.setItem(k, v), [p.storage, JSON.stringify({ state: saved, mode: 'real' })]);
-        await pg.goto('file://' + path.resolve(__dirname, p.file));
+        await pg.goto('file://' + plannerPath(p.file));
         await pg.waitForTimeout(400);
         await pg.evaluate(() => (document.getElementById('childrenGroup').open = true));
         const field = p.key === 'US' ? 'tax' : 'benefitCcb';

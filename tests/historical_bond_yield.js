@@ -17,6 +17,7 @@
 // yield minus the drop without it), so earlier years' smaller taxes do not count.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { translateFieldList } = require('./legacy_balances');
@@ -26,7 +27,7 @@ async function run(file, isUS) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', file));
+  await page.goto('file://' + plannerPath(file));
   await page.waitForTimeout(300);
   const set = (id, v) =>
     page.evaluate(

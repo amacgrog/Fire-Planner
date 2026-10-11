@@ -10,6 +10,7 @@
 // Prints the count identical / different and the first differing scenarios; exits 1 on any difference. Not in `npm test`.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const { scenarios } = require('./snapshot_scenarios');
 const { legacyToAccounts } = require('./legacy_balances');
@@ -110,7 +111,7 @@ async function runTree(browser, root, list) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto('file://' + path.join(root, 'Planner_US.html'));
+  await page.goto('file://' + plannerPath('Planner_US.html', root));
   await page.waitForTimeout(300);
   await page.evaluate(PAGE_RUNNER);
   const out = [];

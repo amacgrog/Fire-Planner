@@ -24,6 +24,7 @@
 // Baselines live in tests/snapshots/ui_us.json and ui_canada.json.
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -120,7 +121,7 @@ async function newPage(browser, planner, opts = {}) {
   }
   await page.addInitScript(INIT);
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-  await page.goto('file://' + path.join(ROOT, planner.file));
+  await page.goto('file://' + plannerPath(planner.file, ROOT));
   await page.waitForTimeout(150);
   await page.evaluate(HELPERS);
   return page;

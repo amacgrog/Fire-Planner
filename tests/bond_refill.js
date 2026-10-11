@@ -21,6 +21,7 @@
 // Run: node tests/bond_refill.js
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 const { legacyToAccounts } = require('./legacy_balances');
@@ -259,7 +260,7 @@ async function engine(page, name, isUS) {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
-    await page.goto('file://' + path.resolve(__dirname, '..', file));
+    await page.goto('file://' + plannerPath(file));
     await page.waitForTimeout(300);
     await unit(page, name, isUS);
     await engine(page, name, isUS);

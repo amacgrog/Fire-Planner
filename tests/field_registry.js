@@ -10,6 +10,7 @@
 // Add a new field: markup + `defaults` + one FIELDS entry (see CLAUDE.md "Field registry").
 
 const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
 const assert = require('assert');
 const path = require('path');
 
@@ -25,7 +26,7 @@ async function check(browser, planner) {
     window.__tools = [];
     document.modelContext = { registerTool: (t) => window.__tools.push(t) };
   });
-  await page.goto('file://' + path.resolve(process.env.FIELD_ROOT || path.resolve(__dirname, '..'), planner));
+  await page.goto('file://' + plannerPath(planner, path.resolve(process.env.FIELD_ROOT || path.resolve(__dirname, '..'))));
   await page.waitForTimeout(300);
   const info = await page.evaluate(() => {
     const fields = window.__test_FIELDS.map((f) => ({

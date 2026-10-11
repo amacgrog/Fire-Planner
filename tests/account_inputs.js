@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 
-const file = path.resolve(__dirname, '..', 'Planner_US.html');
+const file = path.resolve(__dirname, '..', 'dist', 'Planner_US.html');
 const near = (a, e, tol, label) => assert(Math.abs(a - e) <= tol, `${label}: expected ${e} (+/-${tol}), got ${a}`);
 
 const BASE = {

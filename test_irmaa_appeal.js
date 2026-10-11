@@ -18,7 +18,7 @@ const path = require('path');
     await page.addInitScript(([k, v]) => localStorage.setItem(k, v), ['fireCouplePlanner.massachusettsOffline.v1', JSON.stringify({ state: saved, mode: 'real' })]);
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto('file://' + path.resolve(__dirname, 'Planner_US.html'));
+    await page.goto('file://' + path.resolve(__dirname, 'dist', 'Planner_US.html'));
     await page.waitForTimeout(500);
     const title = await page.evaluate(() => {
       for (const tr of document.querySelectorAll('#projectionRows tr'))

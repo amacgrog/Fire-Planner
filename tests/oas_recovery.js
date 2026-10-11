@@ -21,7 +21,7 @@ async function rowsFor(browser, over) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'Planner_Canada.html'));
+  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_Canada.html'));
   await page.waitForTimeout(250);
   const fields = {
     singlePerson: false, province: 'on', ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66,

@@ -1,15 +1,20 @@
 # FIRE Planner
 
-Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators for a couple (or single person). Nothing leaves your device — open the file in a browser and it runs entirely client-side, with no server, account, or internet connection required.
+Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators for a couple (or single person). Nothing leaves your device: the planner runs entirely client-side, with no server, account, or internet connection required. To use it:
+
+- Open the hosted GitHub Pages copy (its URL appears in the repository's Settings > Pages after the first deploy), or
+- Build locally: `npm ci && npm run build`, then open `dist/index.html` (or `dist/Planner_US.html` / `dist/Planner_Canada.html`) in a browser. `npm run dev` rebuilds on save.
 
 MIT licensed — see [LICENSE](LICENSE).
 
+**Hosted copy and saved data.** The planners can also be served from GitHub Pages. Your browser stores autosaved scenarios per site, so data saved while opening the file from disk is not visible on the hosted page (and vice versa); use the scenario export and import to move a plan between them. (Repo owner: set Settings > Pages > Source to "GitHub Actions" once.)
+
 ## Files
 
-- `index.html` — landing page linking to both tools
-- `Planner_US.html` — US version
-- `Planner_Canada.html` — Canada version (Ontario / BC)
-- `shared/` + `scripts/sync-shared.js` — canonical copies of the code (JS, CSS, markup) that is identical in both planners; `npm run sync` writes them into both files and `npm test` fails if they drift. Not needed to run a planner, which stays a single self-contained file
+- `index.html` — landing page template linking to both tools; the build copies it into `dist/`, where its relative links to the planners resolve (at the repo root they point at files that do not exist)
+- `src/us/`, `src/canada/` — the source of each planner (`index.html`, `styles.css`, `main.js`)
+- `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a single self-contained file (nothing is fetched at runtime). `dist/` is not committed; it is published to GitHub Pages by CI
+- `shared/` + `scripts/sync-shared.js` — canonical copies of the code (JS, CSS, markup) that is identical in both planners; `npm run sync` writes them into the sources and `npm test` fails if they drift
 - `CLAUDE.md` — architecture notes and gotchas for Claude Code (or any AI assistant) working in this repo
 
 ## Shared capabilities
@@ -146,7 +151,7 @@ Both tools run on the same underlying engine and share these features:
 
 ## Versioning
 
-These files use **stable filenames** — always `Planner_US.html` / `Planner_Canada.html`, never version-numbered suffixes. Version/date info can live in the on-page header if useful, but the filename itself never changes. This means:
+The built files use **stable filenames** — always `Planner_US.html` / `Planner_Canada.html`, never version-numbered suffixes. Version/date info can live in the on-page header if useful, but the filename itself never changes. This means:
 
 - `index.html`'s links never go stale.
 - Every update is just a `git commit`, not a rename-and-fix-links exercise.
@@ -154,17 +159,16 @@ These files use **stable filenames** — always `Planner_US.html` / `Planner_Can
 
 ## Testing
 
-`npm test` also checks that the shared regions are identical in both planners, the snapshot of every projection scenario, field wiring and legacy saved-state loading.
+`npm test` builds `dist/` and also checks that the shared regions are identical in both planners, the snapshot of every projection scenario, field wiring and legacy saved-state loading.
 
 `npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. There is no automated coverage of the UI itself beyond this; changes to interactive behavior are currently verified ad hoc (e.g. with Playwright) rather than via a committed test file.
 
 ## Making an update
 
-Code shared by both planners lives between `@@shared:<name> begin/end` marker comments; edit the fragment in `shared/` (or edit one planner and run `npm run sync -- --pull <file>`), then `npm run sync`. See `CLAUDE.md`.
+Edit the files under `src/<country>/` (`npm run dev` rebuilds `dist/` on every save), run `npm test`, then commit. Code shared by both planners lives between `@@shared:<name> begin/end` marker comments; edit the fragment in `shared/` (or edit one planner source and run `npm run sync -- --pull <file>`), then `npm run sync`. See `CLAUDE.md`.
 
-
-1. Edit the file (or have Claude edit it).
-2. Save it back over the same filename (`Planner_US.html` / `Planner_Canada.html`) — don't create a new versioned copy.
+1. Edit `src/`, never `dist/`.
+2. Run `npm test`; it builds first.
 3. If the change adds or changes a user-facing feature, update this README's feature list in the same batch of work. If it changes anything architectural (a new shared helper, a new gotcha, a new divergence between the US and Canada files), update `CLAUDE.md` too.
 4. Commit the change with a short message describing what changed.
 

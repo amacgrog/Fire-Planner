@@ -12,7 +12,7 @@ const path = require('path');
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   // E3_PLANNER_PATH: run against another copy of the planner (the pre-merge mutation checks); the real file by default.
-  await page.goto('file://' + path.resolve(process.env.E3_PLANNER_PATH || path.resolve(__dirname, '..', 'Planner_US.html')));
+  await page.goto('file://' + path.resolve(process.env.E3_PLANNER_PATH || path.resolve(__dirname, '..', 'dist', 'Planner_US.html')));
   await page.waitForTimeout(200);
   const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
 

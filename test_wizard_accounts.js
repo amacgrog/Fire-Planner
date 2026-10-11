@@ -17,7 +17,7 @@ const ACCOUNTS = ['trad401k', 'tradIra', 'roth401k', 'rothIra'];
     const page = await browser.newPage({ viewport: { width, height } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto('file://' + path.resolve(__dirname, 'Planner_US.html'));
+    await page.goto('file://' + path.resolve(__dirname, 'dist', 'Planner_US.html'));
     await page.waitForTimeout(300);
     const overflow = () => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     const visible = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return !!e && e.offsetParent !== null; }, sel);
@@ -119,7 +119,7 @@ const ACCOUNTS = ['trad401k', 'tradIra', 'roth401k', 'rothIra'];
   const ca = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const caErrors = [];
   ca.on('pageerror', (e) => caErrors.push(e.message));
-  await ca.goto('file://' + path.resolve(__dirname, 'Planner_Canada.html'));
+  await ca.goto('file://' + path.resolve(__dirname, 'dist', 'Planner_Canada.html'));
   await ca.waitForTimeout(300);
   await ca.click('#wizardBtn');
   const c1 = await ca.evaluate(() => ({
