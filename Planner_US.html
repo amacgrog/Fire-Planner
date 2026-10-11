@@ -9712,10 +9712,12 @@
         if (c.acaEligibleB) acaLines(fplForHousehold(1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca'));
       } else acaLines(fplForHousehold(acaHouseholdSize(c.singlePerson, c.isSurvivorPeriod, y), y), (line, label, id) => add(line, label, id, 'H', 'aca'));
     }
-    // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, under that
-    // year's filing status; a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
+    // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, on this year's
+    // return's filing status (the return SSA will read, E3); a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
     // the surcharge is charged, estimated as irmaaAt estimates them: this year's edge times c.irmaaGrowth (default 1;
     // the year loop passes irmaaGrowth2). That is where the charge jumps, so that is where a stay-under saves money.
+    // E3: a caller may pass c.irmaaGrowthA / c.irmaaGrowthB (two returns, per return); a year with an in-year IRMAA
+    // appeal candidate passes growth 1 (this year's edges).
     // (The conversion ceiling, irmaaTierCeiling, keeps this year's tiers: the safe side there; Batch 5 revisits it.)
     // The edges are Medicare's MAGI (only the taxable part of Social Security), translated into the engine's MAGI with
     // magiForIrmaaLine on this year's return (its benefit and filing status); the tier table is the charged year's.
@@ -9728,13 +9730,14 @@
         ssH = irmaaSsOf(p),
         stA = returnStatusA(p.dependents);
       if (c.twoReturns) {
-        const f = taxIndexFactor(y);
+        const f = taxIndexFactor(y),
+          gA = c.irmaaGrowthA === undefined ? g : c.irmaaGrowthA, // E3 (spec 5.5): per return
+          gB = c.irmaaGrowthB === undefined ? g : c.irmaaGrowthB;
         let k = 0;
         for (const [edge] of IRMAA_TIERS[filingKey('single', 'irmaa')]) {
-          const cap = edge * f * g;
-          if (cap < Infinity) k++;
-          if (irmaaA && cap < Infinity) add(toHousehold(magiForIrmaaLine(cap, p.ssA || 0, stA), c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa');
-          if (irmaaB && cap < Infinity) add(toHousehold(magiForIrmaaLine(cap, p.ssB || 0, 'single'), c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
+          if (edge < Infinity) k++;
+          if (irmaaA && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gA, p.ssA || 0, stA), c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa');
+          if (irmaaB && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gB, p.ssB || 0, 'single'), c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
         }
       } else {
         const f = taxIndexFactor(y);
@@ -11918,7 +11921,7 @@
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, lo, hi })
+                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;

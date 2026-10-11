@@ -298,6 +298,98 @@ const path = require('path');
   assert.strictEqual(f.alt, 2, 'case 15 variant: the alternative calculation in years 2 and 3');
   for (let y = 0; y < f.rows.length; y++) assert(f.d[y] <= hc(f.rows, y) + 1e-6, `case 15 variant year ${y}: deduction ${f.d[y]} above the premium ${hc(f.rows, y)}`);
 
+  // --- Stage 2b: the plan's IRMAA lines on this year's edges (spec 5.5; case 16) ---
+  // Inflation 3%; single, 66, salary 200,000 retiring at 68, no pension, traditional IRA 2,000,000. Year 2 has an in-year
+  // candidate (normal: year 0's 200,000, tier 3 at year-2 tiers). Lines at growth 1: 109,000 / 137,000 x 1.03^2 =
+  // 115,638.10 / 145,343.30. yearPlanCandidates offers the nearest line below the natural MAGI (and the largest step), so
+  // SPEND16 puts the natural MAGI between the two. The salary surplus of years 0 and 1 stays in cash and pays part of year 2,
+  // so the spending must be high: at 130,000 the natural MAGI is about 133,765 (measured in the plan review; year 3 also has an
+  // in-year candidate and its lines also sit at growth 1).
+  const SPEND16 = 130000;
+  const P16 = { singlePerson: true, ageA: 66, retireAgeA: 68, lifeExpectancyA: 85, incomeA: 200000, incomeKindA: 'wages', tradIraA: 2000000, inflation: 3, spending: SPEND16 };
+  const tr16 = await page.evaluate((patch) => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, patch);
+    try {
+      return JSON.parse(JSON.stringify(window.__test_planTrace()));
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  }, { ...QUIET, ...P16 });
+  const y2 = tr16.find((x) => x.year === 2);
+  assert(y2 && y2.candidates, 'case 16: year 2 is a planned withdrawal year');
+  const nat = y2.candidates.find((c) => c.kind === 'none').realized;
+  assert(nat > 115638.1 && nat < 145343.3, `case 16 precondition: natural MAGI ${nat}`);
+  const under = y2.candidates.find((c) => c.kind === 'under' && /IRMAA/.test(c.label));
+  assert(under, 'case 16: a stay-under candidate on an IRMAA line in year 2');
+  near(under.magi, 115638.1 - 1, 0.01, 'case 16: irmaa1 at growth 1 (the line less $1)');
+  // A later year without an in-year candidate (years 4 on: the windows are years 2 and 3) keeps growth irmaaGrowth2 (1.03^2):
+  // any IRMAA stay-under there sits at its edge x 1.03^y x 1.03^2 less $1.
+  for (const x of tr16.filter((x) => x.year >= 4 && x.candidates))
+    for (const c of x.candidates.filter((c) => c.kind === 'under' && /IRMAA/.test(c.label))) {
+      const g = Math.pow(1.03, x.year + 2);
+      const ok = [109000, 137000, 171000, 205000, 500000].some((e) => Math.abs(c.magi - (e * g - 1)) <= 0.01);
+      assert(ok, `case 16 year ${x.year}: IRMAA line ${c.magi} at growth irmaaGrowth2`);
+    }
+  // Review Focus 5: apply(choose's intents) replays choose (rows identical). On P16 alone choose keeps no intent (the plan has
+  // only the traditional IRA to draw, so the year-2 stay-under trial releases the cap and misses the line: a vacuous replay);
+  // a Roth IRA of 500,000 lets the stay-under meet irmaa1 in year 2 (age 68, the in-year year), so the replay applies a real
+  // in-year-line intent. A separate copy of the household: the line assertions above stay on P16.
+  const replay = await page.evaluate((patch) => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, patch);
+    try {
+      const ch = window.__test_runPlanMode({ planMode: 'choose' });
+      const ap = window.__test_runPlanMode({ planMode: 'apply', plan: { intents: ch.intents || {} } });
+      return {
+        same: JSON.stringify(ch.rows) === JSON.stringify(ap.rows),
+        n: ch.intents ? Object.keys(ch.intents).length : 0,
+        at68: ch.intents && ch.intents[68] ? { kind: ch.intents[68].kind, line: ch.intents[68].line } : null,
+      };
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  }, { ...QUIET, ...P16, rothIraA: 500000, rothIraBasisA: 500000 });
+  assert(replay.n >= 1, 'case 16 replay: choose records at least one intent (a non-vacuous replay)');
+  assert.deepStrictEqual(replay.at68, { kind: 'under', line: 'irmaa1' }, 'case 16 replay: the intent at age 68 stays under irmaa1');
+  assert.strictEqual(replay.same, true, `case 16: apply(choose intents) replays choose (${replay.n} intents)`);
+  // Per-return growth (spec 5.5, round 1 M3; plan review round 2, S2): a direct magiThresholds call on two returns with A
+  // at growth 1 and B at 1.0609 gives A's lines of an all-growth-1 call and B's lines of an all-1.0609 call, bit for bit.
+  // The two returns' MAGIs differ (40,000 / 60,000) so no A line falls within $1 of a B line (magiThresholds merges those).
+  const perReturn = await page.evaluate(() => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, { inflation: 0, children: [], acaEnhanced: false, acaEnabled: false });
+    const ctx = (extra) => ({
+      year: 0, filing: 'single', twoReturns: true, profile: { ownerShareA: 0.5, singlePerson: false, ssA: 0, ssB: 0, dependents: [] },
+      preMagi: 100000, preMagiA: 40000, preMagiB: 60000, acaEligibleA: false, acaEligibleB: false, singlePerson: false,
+      isSurvivorPeriod: false, deceasedIsA: false, deceasedIsB: false, workingA: false, workingB: false, age: 66, ageB: 66,
+      irmaa: { filing: 'single', a: true, b: true }, ...extra,
+    });
+    const pick = (lines, ret) => lines.filter((l) => l.family === 'irmaa' && l.ret === ret).map((l) => [l.id, l.magi]);
+    try {
+      const mixed = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1.0609, irmaaGrowthA: 1 })),
+        // Shaped like the year loop's call when only A has an in-year candidate (plan review round 3, S1): the household
+        // growth is 1, so only c.irmaaGrowthB can put B's lines at 1.0609.
+        site = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1, irmaaGrowthA: 1, irmaaGrowthB: 1.0609 })),
+        one = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1 })),
+        two = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1.0609 }));
+      return { mixedA: pick(mixed, 'A'), oneA: pick(one, 'A'), mixedB: pick(mixed, 'B'), twoB: pick(two, 'B'), siteA: pick(site, 'A'), siteB: pick(site, 'B') };
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  });
+  assert(perReturn.mixedA.length === 5 && perReturn.mixedB.length === 5, 'per-return growth: five finite IRMAA lines per return');
+  assert.deepStrictEqual(perReturn.mixedA, perReturn.oneA, 'per-return growth: A at growth 1');
+  assert.deepStrictEqual(perReturn.mixedB, perReturn.twoB, 'per-return growth: B at the household growth');
+  assert.deepStrictEqual(perReturn.siteA, perReturn.oneA, 'per-return growth, call-site shape: A at growth 1');
+  assert.deepStrictEqual(perReturn.siteB, perReturn.twoB, 'per-return growth, call-site shape: B reads c.irmaaGrowthB');
+
   assert.deepStrictEqual(errors, [], 'no page errors');
   await browser.close();
   console.log('irmaa_appeal: ok');
