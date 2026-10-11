@@ -48,7 +48,7 @@ function checks(CASES) {
     near(t.stateIncomeTax(retiree, 'mfj', 0), c.retiree, c.code + ' retiree (' + c.why + ')');
     near(t.stateIncomeTax(family, 'mfj', 0), c.family, c.code + ' family (' + c.why + ')');
     // Extra checks: a household, a plan year index, the expected tax (scheduled changes and other year-dependent rules).
-    for (const x of c.extra || []) near(t.stateIncomeTax(Object.assign({}, x.household === 'retiree' ? retiree : family, x.ages ? { ages: x.ages } : {}), 'mfj', x.yearIndex || 0), x.expect, c.code + ' ' + x.household + ' year ' + x.yearIndex + ' (' + x.why + ')');
+    for (const x of c.extra || []) near(t.stateIncomeTax(Object.assign({}, x.household === 'retiree' ? retiree : family, x.ages ? { ages: x.ages } : {}, x.patch || {}), 'mfj', x.yearIndex || 0), x.expect, c.code + ' ' + x.household + ' year ' + x.yearIndex + ' (' + x.why + ')');
   }
   st.stateTax = 'tx';
   return fails;
@@ -142,9 +142,16 @@ const CASES = [
   // RI (joint). Nobody at 67: taxable Social Security is included and no pension exclusion; std 22,400; exemptions 10,500 + 5,250 per child; 3.75% to 82,050, 4.75% above.
   //   retiree: 40,000 + 40,000 + 10,000 + 22,000 = 112,000 - 22,400 - 10,500 = 79,100 x 3.75% = 2,966.25
   //   family:  132,000 - 22,400 - 10,500 - 10,500 = 88,600: 3,076.875 + 6,550 x 4.75% (311.125) = 3,388
-  //   retiree ages 68 and 66: A subtracts all 14,000 of benefits and 50,000 of the 55,000 retirement income (AGI 112,000 under 133,750); B (66) nothing;
-  //   112,000 - 14,000 - 50,000 = 48,000 - 22,400 - 10,500 = 15,100 x 3.75% = 566.25
-  { code: 'ri', retiree: 2966.25, family: 3388, why: 'full-retirement-age tests', extra: [{ household: 'retiree', ages: [68, 66], expect: 566.25, why: 'one filer at 67 or older' }] },
+  //   retiree ages 68 and 66: A subtracts all 14,000 of benefits; of A's 55,000 retirement income only the pension (30,000) and the
+  //   401(k) part of the traditional draw qualify, never an IRA (PUB 2026-01), up to 50,000 (AGI 112,000 under 133,750); B (66) nothing.
+  //   All 25,000 of A's draw from an IRA: 112,000 - 14,000 - 30,000 = 68,000 - 22,400 - 10,500 = 35,100 x 3.75% = 1,316.25
+  //   10,000 of it from a 401(k): 112,000 - 14,000 - 40,000 = 58,000 - 32,900 = 25,100 x 3.75% = 941.25
+  //   all 25,000 from a 401(k): 30,000 + 25,000 = 55,000, capped at 50,000: 112,000 - 14,000 - 50,000 = 48,000 - 32,900 = 15,100 x 3.75% = 566.25
+  { code: 'ri', retiree: 2966.25, family: 3388, why: 'full-retirement-age tests', extra: [
+    { household: 'retiree', ages: [68, 66], expect: 1316.25, why: 'one filer at 67 or older, IRA draw (not excluded)' },
+    { household: 'retiree', ages: [68, 66], patch: { retirement401kA: 10000, retirement401kB: 0 }, expect: 941.25, why: 'one filer at 67 or older, 10,000 of the draw from a 401(k)' },
+    { household: 'retiree', ages: [68, 66], patch: { retirement401kA: 25000, retirement401kB: 0 }, expect: 566.25, why: 'one filer at 67 or older, all 401(k): the 50,000 cap' },
+  ] },
   // VA (joint). Std 17,500; exemption 930 each; age deduction 12,000 per filer 65+ cut dollar for dollar over 75,000 (AGI 90,000: gone); 2% / 3% / 5% / 5.75% at 3,000 / 5,000 / 17,000.
   //   retiree: 90,000 - 17,500 - 1,860 = 70,640: 60 + 60 + 600 + 53,640 x 5.75% (3,084.30) = 3,804.30
   //   family:  132,000 - 17,500 - 1,860 - 1,860 = 110,780: 720 + 93,780 x 5.75% (5,392.35) = 6,112.35

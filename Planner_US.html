@@ -273,7 +273,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V127</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V128</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -5457,7 +5457,7 @@
         kind: 'perPerson',
         pensionMinAge: 67,
         traditionalMinAge: 67,
-        applies: { pension: true, traditional: true },
+        applies: { pension: true, traditional: true, employerPlanOnly: true },
         tiers: [ [ 0, 50000 ] ],
         reducedBy: 'none',
         share: {
@@ -5473,7 +5473,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'One schedule for every filer: 3.75% to $82,050, 4.75% to $186,450, 5.99% above; standard deduction $11,200 / $22,400 / $16,800 and $5,250 per person and dependent for 2026 (Division of Taxation Advisory 2025-22, read). Social Security is subtracted, and up to $50,000 of pension, 401(k) and annuity income per filer, for a filer at full retirement age (the planner uses 67) when federal AGI is under $107,000 single or $133,750 joint (the 2025 limits; the pension cap of $50,000 is from the same Advisory). The phase-out of the deduction and exemptions between $261,000 and $290,800, the property tax relief credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: 'One schedule for every filer: 3.75% to $82,050, 4.75% to $186,450, 5.99% above; standard deduction $11,200 / $22,400 / $16,800 and $5,250 per person and dependent for 2026 (Division of Taxation Advisory 2025-22, read). Social Security is subtracted, and up to $50,000 of pension, 401(k) and annuity income per filer, for a filer at full retirement age (the planner uses 67) when federal AGI is under $107,000 single or $133,750 joint (the 2025 limits; the pension cap of $50,000 is from the same Advisory). IRA distributions never qualify (PUB 2026-01 Retirement Income Guide, read): only the 401(k) part of the traditional draw of each filer counts, taken pro rata to the 401(k) and IRA balances of that filer, and only once that filer has stopped working (a 401(k) draw while still working is taxed). The phase-out of the deduction and exemptions between $261,000 and $290,800, the property tax relief credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     sc: {
       name: 'South Carolina',
@@ -6043,6 +6043,8 @@
       tradFrom: ex.applies.traditional ? ex.traditionalMinAge : Infinity,
       // Employer-plan (401(k)) money drawn after retirement is exempt at any age (Pennsylvania); see sources.retirement401kA/B.
       employerPlan: ex.applies.employerPlanAfterRetirement === true,
+      // From the minimum age only employer-plan (401(k)) money qualifies, never an IRA (Rhode Island, PUB 2026-01); same 401(k) share.
+      employerPlanOnly: ex.applies.employerPlanOnly === true,
       tierAges: ex.tiers.map((t) => t[0]),
       tierCaps: ex.tiers.map((t) => (t[1] === null ? Infinity : t[1])), // a number or { single, mfj, hoh }
       reducedBy: ex.reducedBy === 'benefitsReceived' ? 1 : ex.reducedBy === 'socialSecuritySubtracted' ? 2 : 0,
@@ -6213,7 +6215,9 @@
         }
         const pension = age >= ex.pensionFrom ? Math.max(0, (i === 0 ? sources.pensionA : sources.pensionB) || 0) : 0,
           retirement = Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0),
-          traditional = age >= ex.tradFrom ? retirement : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
+          traditional = age >= ex.tradFrom
+            ? ex.employerPlanOnly ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : retirement
+            : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
         const traditionalAll = inhI > 0 && (inhKind === INH_HEIR_ANY || age >= ex.tradFrom) ? traditional + inhI : traditional;
         let room = cap;
         if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));

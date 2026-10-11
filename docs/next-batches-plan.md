@@ -6624,6 +6624,23 @@ reading (itself secondary).
   plans do. So a Rhode Island household's IRA draws at full retirement age are under-taxed by up to the $50,000 cap. A fix needs
   the 401(k) / IRA split of each filer's draw, which the PA mechanism already supplies (`retirement401kA/B`); an intended number
   change with a before/after table. Decide when to schedule it.
+  **Resolved (2026-10-10, branch `claude/ri-ira-exclusion`, US V128):** a new per-person flag `applies.employerPlanOnly` (RI only):
+  from the minimum age (67) only the 401(k) part of a filer's traditional draw counts toward the $50,000 cap, read from the same
+  `retirement401kA/B` share as Pennsylvania's rule (owner decision: reused as is, so it is zero while the filer still works: a 401(k)
+  draw by a filer still working at 67 or older is taxed; named in the row's notes). Before / after (hand-computed, in the tests):
+
+  | Household (2026, no inflation) | Before | After |
+  |---|---|---|
+  | `state_7d_households` RI joint retiree, A 68 (pension 30,000, IRA draw 25,000), B 66: RI tax | 566.25 | 1,316.25 |
+  | the same with 10,000 of A's draw from a 401(k) | 566.25 | 941.25 |
+  | the same with all 25,000 from a 401(k) (pension + draw 55,000, capped at 50,000) | 566.25 | 566.25 |
+  | `ri_ira_exclusion` single 68, spending 40,000 from an IRA: the year's tax | 1,879.55 | 3,011.42 |
+  | the same from a 401(k) | 1,879.55 | 1,879.55 |
+  | the same, half IRA half 401(k) | 1,879.55 | 2,075.04 |
+
+  No snapshot scenario has an RI household drawing an IRA at 67 or older, so `us.json` did not move (577 / 376 exact).
+  Timing (`bench_runs_interleaved.js --base` the pre-fix tree `b3825b4`, 21 rounds, median of three runs, simulate / historical):
+  TX 0.0% / 0.0%, CA -1.0% / -1.2%, NY +0.3% / 0.0%, PA -0.3% / +1.2%, CT +2.0% / +2.5%, WA +1.3% / +1.4%.
 - **Owner backlog (2026-10-09, raised during the E1e brainstorm; none scheduled yet, each to be designed when picked up):**
   1. Check self-employment against W-2 at the same income: a probe of a self-employed partner against a W-2 twin
      (SE tax and its half deduction against FICA plus the employer's half, QBI, the Solo 401(k) room against the W-2
