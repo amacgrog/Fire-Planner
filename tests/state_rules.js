@@ -158,6 +158,17 @@ function checks() {
     need(!row.inherited || row.inherited.kind === want, code + ': inherited ' + (row.inherited && row.inherited.kind) + ', expected ' + want);
   }
   need(!rules.ny.inherited || rules.ny.inherited.cap === 20000, 'ny: decedent cap 20000');
+  // The per-person exclusion's buckets: pension and traditional always, two optional employer-plan flags, all booleans.
+  // employerPlanOnly (Rhode Island: a traditional draw qualifies only for its 401(k) part, never an IRA) needs the traditional bucket.
+  const APPLIES = ['pension', 'traditional', 'employerPlanAfterRetirement', 'employerPlanOnly'];
+  for (const [code, row] of Object.entries(rules)) {
+    for (const ex of [row.retirementExclusion].concat((row.schedule || []).map((s) => s.retirementExclusion).filter(Boolean))) {
+      if (ex.kind !== 'perPerson') continue;
+      need(Object.keys(ex.applies).every((k) => APPLIES.includes(k) && typeof ex.applies[k] === 'boolean'), code + ': retirementExclusion.applies keys');
+      need(!ex.applies.employerPlanOnly || ex.applies.traditional, code + ': employerPlanOnly needs the traditional bucket');
+    }
+  }
+  need(rules.ri.retirementExclusion.applies.employerPlanOnly === true, 'ri: IRA income never qualifies (PUB 2026-01): employerPlanOnly');
 
   // --- The evaluator follows the selector (the resolved row is cached per state code) -----------
   const src = { wages: 100000, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] };

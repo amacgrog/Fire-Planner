@@ -6624,6 +6624,36 @@ reading (itself secondary).
   plans do. So a Rhode Island household's IRA draws at full retirement age are under-taxed by up to the $50,000 cap. A fix needs
   the 401(k) / IRA split of each filer's draw, which the PA mechanism already supplies (`retirement401kA/B`); an intended number
   change with a before/after table. Decide when to schedule it.
+  **Resolved (2026-10-10, branch `claude/ri-ira-exclusion`, US V128):** a new per-person flag `applies.employerPlanOnly` (RI only):
+  from the minimum age (67) only the 401(k) part of a filer's traditional draw counts toward the $50,000 cap, read from the same
+  `retirement401kA/B` share as Pennsylvania's rule. That share is zero while a filer works (Pennsylvania's after-retirement rule);
+  the owner first reused it as is, then, after the independent review showed PUB 2026-01's Example 4 gives the exclusion to a
+  filer of 68 who still earns wages, chose an ungated share for RI: `buildTaxProfile` drops the working test when the year's rule
+  is `employerPlanOnly`. Before / after (hand-computed, in the tests):
+
+  | Household (2026, no inflation) | Before | After |
+  |---|---|---|
+  | `state_7d_households` RI joint retiree, A 68 (pension 30,000, IRA draw 25,000), B 66: RI tax | 566.25 | 1,316.25 |
+  | the same with 10,000 of A's draw from a 401(k) | 566.25 | 941.25 |
+  | the same with all 25,000 from a 401(k) (pension + draw 55,000, capped at 50,000) | 566.25 | 566.25 |
+  | `ri_ira_exclusion` single 68, spending 40,000 from an IRA: the year's tax | 1,879.55 | 3,011.42 |
+  | the same from a 401(k) | 1,879.55 | 1,879.55 |
+  | the same, half IRA half 401(k) | 1,879.55 | 2,075.04 |
+
+  No snapshot scenario has an RI household drawing an IRA at 67 or older, so `us.json` did not move (577 / 376 exact).
+  Timing (`bench_runs_interleaved.js --base` the pre-fix tree `b3825b4`, 21 rounds, median of three runs, simulate / historical):
+  TX 0.0% / 0.0%, CA -1.0% / -1.2%, NY +0.3% / 0.0%, PA -0.3% / +1.2%, CT +2.0% / +2.5%, WA +1.3% / +1.4%.
+  Independent review (Opus, 2026-10-10): no blocking. Adopted: the ungated share for RI (above), engine cases for a filer still
+  working at 68, a joint couple with different IRA / 401(k) mixes and the survivor period (`tests/ri_ira_exclusion.js`), and a
+  stale comment. Checked and kept: the joint AGI limit $133,750 is ADV 2025-22's figure for the pension / 401(k) / annuity
+  modification (tax year 2025, married filing jointly; the row's "2025 limits" label is right), while PUB 2026-01's table and
+  Example 4 show $133,500: the two Division publications disagree; the Advisory, the primary inflation-adjustment table, is kept.
+- **Roth conversions take the pro-rata 401(k) share in RI and PA (found in the RI review, 2026-10-10; not scheduled).** The year's
+  conversion reaches `taxFor` inside `traditionalExtra` with the draw, so `sources.retirement401kA/B` gives it the filer's 401(k)
+  share; but the engine converts IRA money first (`applyRothConversion`), and an IRA conversion never qualifies in RI (Form 1040
+  line 4b) or for PA's under-59 1/2 employer-plan rule. Example: RI, 68, half IRA half 401(k), a $40,000 IRA conversion: about
+  $20,000 of it is excluded in error (before the RI fix all $40,000 was). A fix passes the conversion to `taxFor` apart from the
+  draw (a signature change on the hottest tax function), or splits it by the accounts it actually came from. Named in the RI notes.
 - **Owner backlog (2026-10-09, raised during the E1e brainstorm; none scheduled yet, each to be designed when picked up):**
   1. Check self-employment against W-2 at the same income: a probe of a self-employed partner against a W-2 twin
      (SE tax and its half deduction against FICA plus the employer's half, QBI, the Solo 401(k) room against the W-2

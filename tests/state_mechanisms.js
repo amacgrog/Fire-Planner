@@ -267,6 +267,17 @@ function checks() {
   near(run(emp, { ...trad(20000, 10000, 20000, 20000), ages: [52, 50] }, 'mfj'), 1000, 'employer plan, joint: both under 59.5, B all 401(k): only 10,000 of A is taxed');
   near(run({ retirementExclusion: perP({ traditionalMinAge: 59.5 }) }, { ...trad(40000, 30000), ages: [52] }), 4000, 'without the option the 401(k) part is taxed like any traditional draw at 52');
   near(run(emp, { ...trad(40000, 40000), pension: 5000, pensionA: 5000, ages: [52] }), 0, 'employer plan: a pension is excluded and so is the 401(k) draw');
+  // --- Mechanism 4b2: only employer-plan money qualifies, never an IRA (Rhode Island, PUB 2026-01) ----------------------
+  // Flat 10%, pension and traditional from 67, cap 50,000 per filer. retirement401kA is the 401(k) part of A's traditional draw.
+  const planOnly = { retirementExclusion: perP({ pensionMinAge: 67, traditionalMinAge: 67, applies: { pension: true, traditional: true, employerPlanOnly: true }, tiers: [[0, 50000]] }) };
+  near(run(planOnly, { ...trad(40000, 0), ages: [70] }), 4000, 'plan only: an IRA draw at 70 is all taxed (10% x 40,000)');
+  near(run(planOnly, { ...trad(40000, 30000), ages: [70] }), 1000, 'plan only: 30,000 of 40,000 is 401(k): 10% x 10,000');
+  near(run(planOnly, { ...trad(40000, 50000), ages: [70] }), 0, 'plan only: the 401(k) part is capped at the draw (40,000 excluded)');
+  near(run(planOnly, { ...trad(40000, 40000), ages: [66] }), 4000, 'plan only: under 67 even 401(k) money is taxed');
+  near(run(planOnly, { ...trad(40000, 10000), pension: 30000, pensionA: 30000, ages: [70] }), 3000, 'plan only: pension 30,000 + 401(k) 10,000 excluded of 70,000: 10% x 30,000');
+  near(run(planOnly, { ...trad(40000, 40000), pension: 30000, pensionA: 30000, ages: [70] }), 2000, 'plan only: pension + 401(k) 70,000 capped at 50,000: 10% x 20,000');
+  near(run(planOnly, { ...trad(20000, 20000, 20000, 0), ages: [70, 68] }, 'mfj'), 2000, 'plan only, joint: A 401(k) 20,000 excluded, B IRA 20,000 taxed: 10% x 20,000');
+  near(run({ retirementExclusion: perP({ pensionMinAge: 67, traditionalMinAge: 67, tiers: [[0, 50000]] }) }, { ...trad(40000, 0), ages: [70] }), 0, 'without the option an IRA draw at 70 is excluded as before');
 
   // --- Mechanism 4c (7O follow-up F1): a phase-out as a share of the whole credit ------------------------------
   // Flat 10% tax. Credit 1,000 per child of five or younger, refundable; start 20,000; the share is (income - 20,000) / 4,000.

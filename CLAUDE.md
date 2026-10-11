@@ -61,7 +61,8 @@ feature list.
 - `tests/aca_medicaid.js` — Medicaid and the premium-credit floor in `acaNetCost` (hand-computed: expansion, non-expansion and
   Wisconsin at several shares of the poverty line, the checkbox, 2026 versus 2027, the child-13 exemption, all 51 codes, engine rows).
   `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
-  including the 10% early-withdrawal penalty). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run
+  including the 10% early-withdrawal penalty). `tests/ri_ira_exclusion.js` — Rhode Island's exclusion end to end (401(k) money
+  from 67 qualifies, IRA money never; hand-computed). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run
   through each row's real credit literals on a flat-10% synthetic base.
 - `tests/income_streams.js` — income stream owner and kind (E1b, US): `streamAmountsForYear`, payroll tax on stream wages, the ACTC,
   two-return and survivor cases, hand-computed. `tests/stream_contributions.js` — `streamPlanContributions` and its rooms through
@@ -393,6 +394,10 @@ Each planner is one big IIFE. Core shape:
   stale. After changing a row, regenerate and commit the file. Not shared with Canada (US only).
 - **State rows, later additions (7O O3, O4).** The per-person retirement kind's `applies` takes an optional `employerPlanAfterRetirement: true` (Pennsylvania only,
   7O O3): below the traditional minimum age a retired filer's 401(k) part of their traditional draw is excluded at any age.
+  `applies.employerPlanOnly: true` (Rhode Island only, PUB 2026-01: IRA income never qualifies) reads the same 401(k) part the other way:
+  from the minimum age only that part of the traditional draw counts toward the cap, and RI has no "stopped working" test: for a state
+  whose rule is `employerPlanOnly`, `buildTaxProfile` computes `k401FracA/B` while the filer works too (PUB 2026-01, Example 4)
+  (`tests/ri_ira_exclusion.js`).
   `buildTaxProfile` puts `k401FracA/B` on the profile (the filer's 401(k) share of their own traditional accounts from the account ledger at the start
   of the year, zero while they work; a single person or survivor: the pool's 401(k) share) and `taxFor` fills `sources.retirement401kA/B` (draw x fraction,
   only when `needsPerPerson`); the draw is assumed pro rata, which the penalty-aware draw order and 72(t) payments can depart from. `childCredit` also
