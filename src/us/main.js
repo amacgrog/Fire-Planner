@@ -1,4 +1,5 @@
 import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
+import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
 (() => {
   const defaults = {
     singlePerson: false,
@@ -655,9 +656,8 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
     });
     return s;
   }
-  let state = normalizeState(null),
-    mode = 'real',
-    chartView = '3yr',
+  assignState(normalizeState(null));
+  let chartView = '3yr',
     // Display-only, like chartView/mode/logScale: which partner(s)
     // move for the ±1yr/±3yr comparison chart. 'together' shifts both
     // partners' dates by the same amount (today's original behavior);
@@ -698,9 +698,7 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
     // into a context where the toggle button to undo it isn't visible.
     chartToolbarCollapsed = false,
     mcPathCount = 1000,
-    lastProjectionView = '3yr',
-    scenarios = [],
-    compareIds = new Set();
+    lastProjectionView = '3yr';
   // @@shared:02-CHART_GROUPS begin
   // Which top-level chart "view" a given chartView value belongs to — the
   // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
@@ -807,10 +805,10 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
     storage?.removeItem(legacyStorageKey);
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
     if (saved?.state) {
-      state = normalizeState(saved.state);
+      assignState(normalizeState(saved.state));
       hadSavedState = true;
     }
-    if (['real', 'nominal'].includes(saved?.mode)) mode = saved.mode;
+    if (['real', 'nominal'].includes(saved?.mode)) assignMode(saved.mode);
   } catch {}
   // Whether it's OK to actually persist `state` yet. Starts equal to
   // `hadSavedState` (a returning visitor's data is already "personalized")
@@ -14205,7 +14203,7 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
   const cloneState = (s) => JSON.parse(JSON.stringify(s));
   function computeScenarioMetrics(scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let out;
     try {
       const sim = simulate();
@@ -14227,20 +14225,20 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
         endAssets: displayValue(end.total, end.year),
       };
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return out;
   }
   const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
   function computeOverlaySeriesFor(name, scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let rows;
     try {
       const sim = simulate();
       rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return { name, rows };
   }
@@ -14348,14 +14346,14 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
     snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
-    state = normalizeState(sc.state);
+    assignState(normalizeState(sc.state));
     syncControls();
     syncContributionControls();
     render();
     saveInputs();
   }
   function deleteScenario(id) {
-    scenarios = scenarios.filter((s) => s.id !== id);
+    assignScenarios(scenarios.filter((s) => s.id !== id));
     compareIds.delete(id);
     renderScenarioList();
     renderScenarioComparison();
@@ -15883,7 +15881,7 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
     render();
   }
   function setMode(next) {
-    mode = next;
+    assignMode(next);
     document.getElementById('realBtn').classList.toggle('active', mode === 'real');
     document.getElementById('nominalBtn').classList.toggle('active', mode === 'nominal');
     document.getElementById('realBtn').setAttribute('aria-checked', mode === 'real');
@@ -15922,8 +15920,8 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
-      state = undoSnapshot.state;
-      mode = undoSnapshot.mode;
+      assignState(undoSnapshot.state);
+      assignMode(undoSnapshot.mode);
       logScale = undoSnapshot.logScale;
       document.getElementById('logScaleToggle').checked = logScale;
       syncControls();
@@ -15942,7 +15940,7 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
     )
       return;
     snapshotForUndo('Reset to example data');
-    state = {
+    assignState({
       ...defaults,
       loans: defaults.loans.map((l) => ({ ...l })),
       spendingTiers: defaults.spendingTiers.map((t) => ({ ...t })),
@@ -15951,8 +15949,8 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
       children: defaults.children.map((t) => ({ ...t })),
-    };
-    mode = 'real';
+    });
+    assignMode('real');
     logScale = false;
     document.getElementById('logScaleToggle').checked = false;
     setMcPathCount(1000);
@@ -17029,7 +17027,7 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
   window.__test_planForState = () => JSON.parse(JSON.stringify(planForState()));
   // Replaces state the way load / undo / reset do, without render() (the stale-plan tests).
   window.__test_replaceState = (raw) => {
-    state = normalizeState(raw);
+    assignState(normalizeState(raw));
   };
   // The scenario comparison's own row function (defined in a shared region, in scope here).
   window.__test_scenarioMetrics = (raw) => computeScenarioMetrics(raw);

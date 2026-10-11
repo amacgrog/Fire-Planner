@@ -7,10 +7,10 @@
     storage?.removeItem(legacyStorageKey);
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
     if (saved?.state) {
-      state = normalizeState(saved.state);
+      assignState(normalizeState(saved.state));
       hadSavedState = true;
     }
-    if (['real', 'nominal'].includes(saved?.mode)) mode = saved.mode;
+    if (['real', 'nominal'].includes(saved?.mode)) assignMode(saved.mode);
   } catch {}
   // Whether it's OK to actually persist `state` yet. Starts equal to
   // `hadSavedState` (a returning visitor's data is already "personalized")
