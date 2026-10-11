@@ -1,6 +1,7 @@
 # E2: adoption, a child who joins the household after birth (US and Canada) — design
 
-Date: 2026-10-10. Owner decisions 1-5 from the brainstorm of this date. Base: `6bfb1ed` on `claude/batch-3b-penalty-rules`
+Date: 2026-10-10. Owner decisions 1-5 from the brainstorm of this date, revised the same day after an independent Opus review
+of `57e632c` (round 1: no blocking findings; section 10). Base: `6bfb1ed` on `claude/batch-3b-penalty-rules`
 (US V128, Canada V59). Both planners; two shared regions change (`01-LIST_MAX`, `23-dynFieldHtml`); one US-only engine
 function changes (`hasChildAtMost`). The review record is section 10.
 
@@ -24,12 +25,15 @@ exception (US `hasChildAtMost`, below). Readers confirmed in the code:
   returns); `acaHouseholdSize` (`acaNetCost` via `healthcareCost`, and the 400%-FPL guard in `conversionMagiCeiling`); the
   two-return ACA lines in `healthcareCost`, `conversionMagiCeiling` and `magiThresholds`; the CTC phase-out line in
   `magiThresholds`; the state code through `sources.dependents` (`dependentExemption`, `childCredit`, `childStepCredit`, the
-  per-child tiers); the cliff plan's and `lambdaEstimate`'s future years (they call the same functions with their own year).
+  per-child tiers); the cliff plan's later years (its whole-run candidates call the same functions with each year).
+  `lambdaEstimate` never sees children: `LAMBDA_PROFILE` carries `dependents: NO_DEPENDENTS` and a `single` / `mfj` filing.
 - **US exception:** `hasChildAtMost(taxYear, maxAge)` (`Planner_US.html`, just above `fplForHousehold`; Medicaid's 2027 work
   requirement exempts a parent of a child 13 or younger) loops over `state.children` itself and tests only the age.
 - **Canada** (all through `profile.dependents = dependentsInYear(CURRENT_YEAR + year)`): `benefitsFor` (CCB, CGEB, the
-  provincial child benefits and family credits), `incomeTaxCA` (the eligible-dependant and child amounts, Ontario's
-  low-income reduction children), the `solvePensionSplit` children (`kids`, `pay.rk`).
+  provincial child benefits and family credits), `incomeTaxCA` (the eligible-dependant and child amounts, Saskatchewan's
+  child amount, Ontario's low-income reduction children, the children in Quebec's RAMQ premium: `kids` in `incomeTaxCA`), the
+  `solvePensionSplit` children (`kids`, `pay.rk`). No state or provincial rule keys on the birth event or the year of birth:
+  every one tests age through `dependentsInYear`.
 - **Display only:** the group summary (`✓ n children`) counts rows; unchanged.
 
 The list renderer (shared `23-dynFieldHtml`) writes a number field as `value="${Number(item[f.key]) || 0}"` and its input
@@ -59,25 +63,43 @@ handler stores `Number(el.value) || 0`, so a number field cannot be blank today.
    update, for the Child Tax Credit and other federal and state credits": they were built in Batch 7) is reworded; README;
    CLAUDE.md; both version badges.
 
-## 4. Facts (primary sources; retrieved 2026-10-10)
+## 4. Facts (retrieved 2026-10-10; statute, regulation or official guidance, each labelled)
 
-### 4.1 US: an adopted child as a qualifying child and for head of household
+### 4.1 US: an adopted child as a qualifying child, for head of household and for QSS
 
-IRS Publication 501 (2025), https://www.irs.gov/publications/p501:
-- Relationship test: "An adopted child is always treated as your own child. The term 'adopted child' includes a child who was
-  lawfully placed with you for legal adoption."
-- Residency test (qualifying child; "Adopted child or foster child"): a child adopted or lawfully placed for adoption during the
-  year is treated as meeting the more-than-half-the-year test if your main home was the child's main home for more than half the
-  time since the adoption or placement.
-- Head of household ("Adopted child or foster child" under "Qualifying Person"): the same rule; the person is considered to
-  have lived with you for more than half the year if your main home was their main home for more than half the time since the
-  placement.
-- Qualifying surviving spouse ("Adopted child"): the child is considered to have lived with you all year if your main home was
-  the child's main home for the entire time since the placement.
+Statute (https://www.law.cornell.edu/uscode/text/26/152 and /26/2, /26/24):
+- IRC 152(f)(1)(B): "A legally adopted individual of the taxpayer, or an individual who is lawfully placed with the taxpayer for
+  legal adoption by the taxpayer, shall be treated as a child of such individual by blood." IRC 152(f)(1)(A) defines "child" as
+  a son, daughter, stepson or stepdaughter, or "an eligible foster child of the taxpayer".
+- IRC 152(c)(1)(B), the residency test of a qualifying child: "the same principal place of abode as the taxpayer for more than
+  one-half of such taxable year".
+- IRC 2(a)(1)(B), qualifying surviving spouse: a dependent "who (within the meaning of section 152 ...) is a son, stepson,
+  daughter, or stepdaughter of the taxpayer". The list omits the eligible foster child that 152(f)(1)(A) adds to "child", so a
+  foster child does not qualify a survivor (Pub. 501 says so outright: "a child or stepchild (not a foster child)").
+- IRC 24(h)(7), as rewritten by P.L. 119-21: no Child Tax Credit for a qualifying child unless the return includes "the social
+  security number of such qualifying child" (issued to a citizen or under the work-authorization rules, by the due date);
+  IRC 24(h)(4)(C) gives a qualifying child who fails (h)(7) the $500 credit for other dependents instead. A child placed for
+  adoption often has only an adoption taxpayer identification number (ATIN) until the adoption is final (Pub. 501, "Alien or
+  adoptee with no SSN": the return shows "the ITIN or adoption taxpayer identification number (ATIN) instead of an SSN").
 
-The planner assumes a child lives with the household continuously from the join year, so every test above is met for the
-whole join year: decision 2 is exact for the CTC, ODC and ACTC (which follow the qualifying-child rules), head of household and
-QSS. The join year to enter for an adoption is the year of placement (or the year the child moves in), which the tooltip says.
+IRS guidance (IRS Publication 501, 2025, https://www.irs.gov/publications/p501; no statute or final regulation states the
+placement-year rule; the sentences below are quoted):
+- Relationship test, "Adopted child": "An adopted child is always treated as your own child. The term 'adopted child' includes
+  a child who was lawfully placed with you for legal adoption."
+- Residency test, "Adopted child or foster child": "This child is considered to have lived with you for more than half of 2025
+  if your main home was this child's main home for more than half the time since this child was adopted or placed with you in
+  2025."
+- Head of household, "Adopted child or foster child": "The person is considered to have lived with you for more than half of
+  2025 if your main home was this person's main home for more than half the time since the child was adopted or placed with
+  you in 2025."
+- Qualifying surviving spouse, "Adopted child": "The child is considered to have lived with you for all of 2025 if your main
+  home was this child's main home for the entire time since this child was adopted or placed with you in 2025."
+
+The planner assumes a child lives with the household continuously from the join year, so under that guidance every test above
+is met for the whole join year: decision 2 is exact for dependency, head of household and QSS. The CTC assumes an SSN, as it
+does for every child (`childCredits`: "every child ... is assumed to have a valid Social Security number"); a placed child with
+only an ATIN gets the $500 credit instead until it has an SSN (section 9). The join year to enter for an adoption is the year
+of placement (or the year the child moves in), which the tooltip says.
 
 ### 4.2 US: the ACA household
 
@@ -85,7 +107,12 @@ QSS. The join year to enter for an adoption is the year of placement (or the yea
 taxpayer properly claims a deduction for a personal exemption under section 151 for the taxable year"; family size is the
 number of individuals in the family. Family size is annual and follows the dependents claimed, so the join year counts in full
 (the planner's `acaHouseholdSize`). The premium the household enters is its own (unchanged: the gross premium is not scaled for
-children). Medicaid's work-requirement exemption (a parent of a child 13 or younger, from 2027) reads the same household.
+children). Medicaid's work-requirement exemption (from 2027) covers "a parent, guardian, caretaker relative, or family caregiver
+... of a dependent child who is 13 years of age and under" (CMCS Informational Bulletin, 12/8/2025,
+https://www.medicaid.gov/federal-policy-guidance/downloads/cib12082025.pdf, official guidance on SSA 1902(xx) as added by P.L.
+119-21 section 71119; the statute's own text was not read). Community engagement is shown by month (one to three months before
+the month of application, then between renewals every six months), so the exemption is assessed for those months, not per
+calendar year: counting the whole join year (`hasChildAtMost`) is an approximation, like the CCB's (section 9).
 
 ### 4.3 Canada: the CCB and the other benefits
 
@@ -162,8 +189,8 @@ if (age >= 0 && age <= maxAge && !(kids[i].joinYear > taxYear)) return true;
 
 ### 6.3 Everything else
 
-Nothing. Every other reader receives the filtered list (section 2), including the future years that the cliff plan, the
-two-year IRMAA lookahead and `lambdaEstimate` price, because they call the same functions with their own year. No profile,
+Nothing. Every other reader receives the filtered list (section 2), including the later years the cliff plan's whole-run
+candidates price, because they call the same functions with each year (`lambdaEstimate` never sees children). No profile,
 row, snapshot or cache changes: `planForState` keys on the state's JSON, which now includes `joinYear` when set.
 
 **Exactness.** With no `joinYear` anywhere, every function returns the very values it returns today. No snapshot scenario,
@@ -181,7 +208,10 @@ Two opt-in options for `kind: 'num'`: `blank: true` and `placeholder` (a string)
 - `dynFieldHtml`: the value attribute is `''` when `f.blank` and `item[f.key] === undefined`, otherwise today's
   `Number(item[f.key]) || 0`; the input carries `placeholder="..."` (escaped) when `f.placeholder` is set.
 - The input handler (`apply`): for a `num` field with `f.blank`, an empty box (`String(el.value).trim() === ''`, which a number
-  input also reports for partly typed invalid text such as `-`) deletes `item[f.key]`; otherwise today's code.
+  input also reports for partly typed invalid text such as `-`) deletes `item[f.key]`, checked before any other number path;
+  otherwise today's code. The join-year field also sets the existing `int: true` option, so a typed `2032.4` is stored as
+  2032, as `normalizeLists` stores it on reload (the live and saved values agree; `int`'s `Math.max(0, ...)` is harmless for a
+  year). The birth year keeps today's unrounded live value (the same gap, outside E2; section 9).
 Edit `shared/23-dynFieldHtml.js`, run `npm run sync`, restore CRLF in the planners (CLAUDE.md, "Shared code"), `npm run
 check:shared`.
 
@@ -193,6 +223,7 @@ Inserted between `birthYear` and `student`:
 {
   key: 'joinYear',
   kind: 'num',
+  int: true,
   blank: true,
   placeholder: 'From birth',
   label: 'Joins the household in',
@@ -207,7 +238,9 @@ Inserted between `birthYear` and `student`:
 - US tip: "For a child who joins the household after birth, such as an adopted child: the year the child is placed with you or
   moves in. The child counts as a dependent for that whole year and every year after (IRS Publication 501's rule for a child
   placed for adoption), for the Child Tax Credit, head of household, the ACA household and the state credits. Age still comes
-  from the birth year. Leave blank for a child who has lived with you since birth. The adoption credit is not modeled."
+  from the birth year. Leave blank for a child who has lived with you since birth. The Child Tax Credit assumes the child has a
+  Social Security number; a child with only an adoption number (ATIN) gets the $500 credit for other dependents instead, which
+  is not modeled. The adoption credit is not modeled."
 - Canada tip: "For a child who joins the household after birth, such as an adopted child: the year the child moves in. The
   child counts for that whole year and every year after, for the Canada Child Benefit, the Canada Groceries and Essentials
   Benefit, the provincial benefits and the dependant amounts. The benefits really start the month after the child moves in,
@@ -229,8 +262,11 @@ Inserted between `birthYear` and `student`:
 
 ## 8. Tests (hand-computed)
 
-Clock pinned to 2026 (US `__test_setCurrentYear(2026)` where the existing test does so; Canada `page.clock.install` before
-load, as `tests/snapshot.js` does), inflation 0 where a dollar figure is asserted (so every index factor is exactly 1).
+Clock: the existing pages of `tests/child_dependents.js` install no clock (they rely on the wall clock being 2026, as the file
+header says) and stay as they are; the US cases call `__test_setCurrentYear(2026)` as the existing ACA case does; only the new
+Canada engine page installs `page.clock.install({ time: new Date('2026-06-15T12:00:00Z') })` before `goto` (as
+`tests/dependant_amounts.js` does), because Canada's `CURRENT_YEAR` is read at load. Inflation 0 where a dollar figure is
+asserted (so every index factor is exactly 1).
 
 ### 8.1 `tests/child_dependents.js` (both planners; in `npm test`)
 
@@ -238,8 +274,8 @@ Normalization (new `NORMALIZE` rows):
 - `{ birthYear: 2027, joinYear: 2032 }` -> `{ birthYear: 2027, student: false, joinYear: 2032 }`.
 - join year equal to the birth year (2027/2027), before it (2027/2020), `'x'`, `''`, `'  '`, `null`, `true`, `{}`: the row
   without `joinYear` (`{ birthYear: 2027, student: false }`); the row is never dropped.
-- `'2032.4'` -> 2032; `2500` with birth 2027 -> 2100; `1900` with birth 1950 -> clamped to 1950, not later than the birth year,
-  dropped.
+- `'2032.4'` -> 2032; `2500` with birth 2027 -> 2100; `1900` with birth 1950 -> clamped to 1950, not later than the birth year:
+  `{ birthYear: 1950, student: false }` (key left off).
 - A birth year clamped up (1900 -> 1950) with a join year 1960: kept (1960 > 1950).
 
 `dependentsInYear` (both planners), child `{ birthYear: 2027, student: false, joinYear: 2032 }`:
@@ -265,29 +301,34 @@ US only:
   children born 2020 and 2022, both with `joinYear: 2027`. Row 0's healthcare is $20,000 (household 1, over the cliff); row 1
   (2027) healthcare is above 0 and below $20,000 (household 3: 400% of $26,650 = $106,600 > MAGI). With the cliff plan off
   (`__test_runPlanMode({ planMode: 'off' })` for both runs), row 0 (2026) equals the no-children run's row 0 field for field
-  (`Object.is` on every own numeric field). The plan must be off for this identity: the cliff plan looks ahead (its scoring
-  and `lambdaEstimate` price later years), so a child who joins in 2027 can legitimately change the 2026 choice.
+  (`Object.is` on every own numeric field). The plan must be off for this identity: `computeCliffPlan` compares whole runs
+  (depletion, then the after-tax end value), so a child who joins in 2027 can legitimately change the 2026 choice.
+  (`lambdaEstimate` is not the reason: it never sees children.)
 - Engine identity: the same scenario with `joinYear: 2020` on the first child and `joinYear: 2022` on the second (equal to
   the birth years, set directly on the state, as a live row can hold) gives every row identical (`Object.is`) to the run with
   no `joinYear`, through the default `__test_simulate` (equivalent inputs give the same plan).
 
 Canada only (engine): Ontario couple, both 40, retired, inflation 0, all savings in the TFSA (`roth`), every other balance
-and every income input zero (no pension, no CPP or OAS before 60, no cash interest, no dividends), so family net income is 0; one child born 2025 with `joinYear: 2028`. Rows 0 and 1 (2026, 2027): `benefitCcb` 0; row 2 (2028,
-age 3): `benefitCcb` = 8,157 (CCB under-6 amount, July 2026 to June 2027, no reduction at income 0, factor 1); rows 0 and 1
-equal the no-children run's rows field for field.
+and every income input zero (no pension, no CPP or OAS before 60, no dividends); one child born 2025 with `joinYear: 2028`.
+Precondition, asserted from the row: row 2's family net income is at most $38,237 (the CCB's first reduction threshold,
+`BENEFIT_RULES.ccb.reduction.from1`, factor 1), so incidental income such as cash interest does not break the case. Rows 0 and 1
+(2026, 2027): `benefitCcb` 0; row 2 (2028, age 3): `benefitCcb` = 8,157 (CCB under-6 amount, July 2026 to June 2027, no
+reduction, factor 1); rows 0 and 1 equal the no-children run's rows field for field (Canada has no cliff plan).
 
 ### 8.2 `tests/legacy_state.js` (both planners; in `npm test`)
 
 Add cases `'children join year'` (`[{ birthYear: 2027, joinYear: 2032 }, { birthYear: 2015, joinYear: 2015 }, { birthYear: 2010,
 joinYear: 'x' }]`) and `'children join year junk'` (`[{ birthYear: 2027, joinYear: 1900 }, { birthYear: 2027, joinYear: 2500 },
-{ birthYear: 2020, joinYear: null, student: true }]`). Run `--update`; the diff of `tests/snapshots/legacy_state.json` must be
-additions only (every existing entry's hash unchanged), and the commit message says so.
+{ birthYear: 2020, joinYear: null, student: true }]`), appended to `COMMON` right after the existing children cases. `--update`
+rewrites the whole baseline file, so check that its diff is insertions only (every existing entry's line and hash unchanged), and
+say so in the commit message.
 
 ### 8.3 `test_children.js` (repo root, Playwright, not in CI; both planners)
 
 Extend it: a new child row shows an empty "Joins the household in" box with the placeholder and no `joinYear` key in the state;
-typing 2032 stores `joinYear: 2032` and changes `window.fireProjectionRows` (US: a household with a child born 2027; the rows
-for 2027 to 2031 change against the from-birth projection); clearing the box deletes the key and restores the from-birth rows;
+typing 2032 stores `joinYear: 2032` and changes `window.fireProjectionRows` (US: the section 8.1 ACA single household, with
+the scenario entered through the state and one child born 2027 added through the form; the `healthcare` of the rows for 2027 to
+2031 changes against the from-birth projection; Canada: the section 8.1 household, `benefitCcb` of the rows before 2032); clearing the box deletes the key and restores the from-birth rows;
 the reload round trip keeps 2032 and keeps a blank blank; the 390x844 overflow check. Other lists' number fields still show 0
 for a missing value (spot check one loan field).
 
@@ -301,6 +342,12 @@ for a missing value (spot check one loan field).
 - The US adoption credit (IRC 23: expenses, timing, the refundable part, the carryforward) and the employer adoption assistance
   exclusion (IRC 137); Canada's federal adoption expense credit and the provincial adoption credits (decision 1).
 - Canada: the month the benefits start (the join year counts in full; section 4.3).
+- US: a child placed for adoption with only an ATIN gets the $500 credit for other dependents, not the Child Tax Credit, until
+  it has a Social Security number (IRC 24(h)(7), 24(h)(4)(C)); the planner assumes an SSN for every child (section 4.1).
+- US: Medicaid's child-13 exemption is assessed by month; the whole join year counts (section 4.2).
+- US: a foster child entered with a join year would also qualify the survivor for QSS, which IRC 2(a)(1)(B) denies (section
+  4.1).
+- The birth year's live value is not rounded while typing (`normalizeLists` rounds it on reload); outside E2.
 - A child who leaves the household before the age limits (foster care ending, a child living with another parent); shared
   custody; a foster child as such (a foster child placed by an agency is a qualifying child under the same Pub. 501 rule, so a
   user can enter one with a join year, but no end year exists).
@@ -308,4 +355,20 @@ for a missing value (spot check one loan field).
 
 ## 10. Review record
 
-(Filled in after each independent review.)
+**Round 1** (independent Opus review of `57e632c`, 2026-10-10): 0 blocking, 3 should-fix, 9 minor; all adopted by the owner.
+- S1: the CTC is not exact for a placed child with only an ATIN (IRC 24(h)(7)): section 4.1, the US tooltip, section 9.
+- S2: a foster child entered here would get QSS, which IRC 2(a)(1)(B) denies: section 9.
+- S3: section 4.1's Pub. 501 text was partly paraphrase: now quoted, and labelled IRS guidance (no statute or final regulation
+  states the placement-year rule); the statute added beside it.
+- M4: `lambdaEstimate` never sees children (`LAMBDA_PROFILE`); the plan-off reason is `computeCliffPlan`'s whole-run
+  comparison: sections 2, 6.3, 8.1.
+- M5: Canada readers named in full (Quebec RAMQ children, Saskatchewan child amount): section 2.
+- M6: `int: true` on the field, so the live value rounds as a reload does: sections 7.1, 7.2, 9.
+- M7: the 1900/1950 normalization case written as the expected row: section 8.1.
+- M8: clock pinning only on the new Canada engine page: section 8.
+- M9: the Canada CCB precondition is income at most $38,237, not exactly 0: section 8.1.
+- M10: the UI test names its household and the field it asserts on: section 8.3.
+- M11: Medicaid's exemption is assessed by month (CMCS bulletin): sections 4.2, 9.
+- M12: the legacy cases are appended after the existing children cases and the diff is checked: section 8.2.
+The owner asked for the sources of S1, S2, S3 and M11; they were fetched and added (IRC 24, 2, 152; Pub. 501 quoted; CMCS
+bulletin), all retrieved 2026-10-10.

@@ -2253,6 +2253,14 @@ Spec `docs/superpowers/specs/2026-10-10-e2-adoption-design.md` (base `6bfb1ed`; 
 - UI (decision 4): shared renderer option `blank: true` (and `placeholder`) for number fields; clearing deletes the key.
 - Nothing else changes (decision 5): age from the birth year, spending the user's; the stale US Children tooltip sentence is fixed.
 
+Spec review, round 1 (independent Opus, of `57e632c`): 0 blocking, 3 should-fix, 9 minor, all adopted (spec section 10). The
+should-fix items: the CTC needs the child's SSN, so a placed child with only an ATIN gets the $500 credit for other dependents
+(IRC 24(h)(7), 24(h)(4)(C); not modeled); a foster child entered with a join year would get QSS, which IRC 2(a)(1)(B) denies (not
+modeled); Pub. 501 now quoted and labelled IRS guidance (no statute or final regulation states the placement-year rule). Minor:
+`lambdaEstimate` never sees children (the plan-off test reason is the whole-run plan comparison); Medicaid's child-13 exemption is
+assessed by month (CMCS bulletin 12/8/2025; the whole join year counts); `int: true` on the field; test details. No blocking
+findings, which meets the review loop's stop condition.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
