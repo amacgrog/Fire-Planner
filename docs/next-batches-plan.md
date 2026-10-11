@@ -2334,6 +2334,32 @@ from spec 8.3 is noted above. Minor 3: the Canada precondition message in `tests
 an upper bound on family net income). Minor 4: the Canada student checkbox tip left for the owner: it is accurate, since
 Canada reads children by age only.
 
+##### E3: design (owner decisions, 2026-10-10)
+
+Spec `docs/superpowers/specs/2026-10-10-e3-irmaa-appeal-design.md` (base `ea78ef6`; US V129). US only; no shared region and no
+Canada change. Sources (retrieved 2026-10-10): 20 CFR 418.1135, 418.1140(d), 418.1201-418.1265 (eCFR, version of 2026-10-01),
+418.1120 (filing status), form SSA-44 (rev. 12-2025), POMS HI 01120.005 and HI 01120.030.
+- Finding: SSA picks the IRMAA table by the filing status of the return it uses (418.1120), but `healthcareCost` uses the charged
+  year's status. Only a survivor's D+1 and D+2 differ (joint returns of D-1 and D charged on the single tiers). The plan's E3 text
+  ("the survivor charged on the old joint MAGI against the single tiers") described this engine error, not the real exposure.
+- Decision 1: the lookback uses the lookback return's filing status (`irmaaFilingHistory`), built first with its own movers table
+  (only survivor scenarios move); `irmaaAt` and the plan's lines take this year's return's status for the same reason.
+- Decision 2: events are a main-job retirement, the end of a W-2 or self-employed stream, and a married spouse's death. Marriage,
+  work reduction within one job, pension or property loss, settlements and not-earned streams are not modeled. Divorce and cars
+  stay excluded from Batch E (owner, reconfirmed; "annuity purchase" in the exclusion list is a separate item).
+- Decision 3: in premium years E and E+1 the lowest of the normal lookback and the allowed more recent years (E: year E; E+1:
+  years E and E+1), each on its own filing status, on realized MAGI (SSA corrects estimates to the return, 418.1140(d)).
+- Decision 4: always assumed; no new input.
+- Decision 5: only events inside the plan (a retirement or stream end with E >= 1, a death in any plan year); entered prior
+  MAGIs stay the normal lookback; the year-0 stand-in's missing convergence is a known limitation, not fixed in E3.
+- Decision 6: the in-year candidate is priced inside `healthcareCost` from the pass's MAGI and sets `usesMagiEstimate` (the year
+  converges like an ACA year; the forced pass covers a tier edge); two-return years per person, own events only; conversion
+  ceiling and `lambdaEstimate` unchanged.
+- Decision 7: in a year with an in-year candidate the plan's IRMAA lines sit on this year's edges (growth 1); ids unchanged;
+  `irmaaAt` unchanged (year E's effect on the E+1 charge is a Batch 5 note).
+- Decision 8: rows carry `irmaaAppeal` where the appeal lowered the charge, shown in the status tooltip; callout, tooltip,
+  README, badge V130; snapshot moves approved in two stages (decision 1, then the appeal).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
