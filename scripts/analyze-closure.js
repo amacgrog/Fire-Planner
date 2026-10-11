@@ -18,7 +18,7 @@ const DOM_GLOBALS = new Set([
   'cancelAnimationFrame', 'alert', 'confirm', 'prompt', 'getComputedStyle', 'matchMedia', 'history',
   'location', 'innerWidth', 'innerHeight', 'devicePixelRatio', 'scrollTo', 'screen', 'visualViewport',
   'CustomEvent', 'Event', 'FileReader', 'Image', 'XMLSerializer', 'DOMParser', 'MutationObserver',
-  'ResizeObserver', 'IntersectionObserver', 'HTMLElement', 'Element', 'Node', 'self', 'top',
+  'ResizeObserver', 'IntersectionObserver', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'Element', 'Node', 'self', 'top',
 ]);
 // Names every JS host has (Math, Object, setTimeout, ...); anything else that is free is "unknown".
 const KNOWN_GLOBALS = new Set(Object.getOwnPropertyNames(globalThis));
@@ -61,6 +61,12 @@ const statementKind = (node) => {
   if (node.type === 'ClassDeclaration') return 'class';
   if (node.type === 'VariableDeclaration') return node.kind;
   return 'statement';
+};
+
+const CALLABLE_INIT = /^(FunctionExpression|ArrowFunctionExpression|ClassExpression)$/;
+const isCallable = (node) => {
+  if (node.type === 'FunctionDeclaration' || node.type === 'ClassDeclaration') return true;
+  return node.type === 'VariableDeclaration' && node.declarations.every((d) => d.init && CALLABLE_INIT.test(d.init.type));
 };
 
 // Tarjan's algorithm. Components come out dependencies-first (a component is emitted only after every
@@ -171,12 +177,17 @@ function analyze(code) {
     u.region = regions.find((r) => u.startLine >= r.startLine && u.endLine <= r.endLine) || null;
     u.ui = u.dom.size > 0;
   }
+  // A unit becomes ui through a dependency d only if d is callable (a function or class declaration,
+  // or a declaration whose every initializer is a function, arrow or class expression) or touches a DOM
+  // global itself. A dependency that is ui only by transitivity and is not callable (a registry object, a
+  // grouped `let state, ...`) is just read by its users, so it does not drag them to the ui side.
+  for (const u of units) u.callable = isCallable(u.node);
   for (let changed = true; changed; ) {
     changed = false;
     for (const u of units) {
       if (u.ui) continue;
       for (const d of u.deps.keys()) {
-        if (d.ui) { u.ui = true; changed = true; break; }
+        if (d.ui && (d.callable || d.dom.size > 0)) { u.ui = true; changed = true; break; }
       }
     }
   }
@@ -195,6 +206,7 @@ function analyze(code) {
       dom: [...u.dom].sort(),
       ui: u.ui,
       deps: [...u.deps.keys()].map(label).sort(),
+      uses: [...u.deps].map(([d, names]) => ({ unit: label(d), names: [...names].sort() })).sort((x, y) => (x.unit < y.unit ? -1 : x.unit > y.unit ? 1 : 0)),
     })),
     mutables: mutables.map((m) => ({
       name: m.name,
@@ -240,9 +252,9 @@ function render(model, title) {
     const inside = model.units.filter((u) => u.region === r.name);
     const needs = new Set();
     for (const u of inside) {
-      for (const d of u.deps) {
-        const du = byLabel.get(d);
-        if (du.region !== r.name) needs.add(`${d} (${du.region || 'country'})`);
+      for (const use of u.uses) {
+        const du = byLabel.get(use.unit);
+        if (du.region !== r.name) for (const name of use.names) needs.add(`${name} (${du.region || 'country'})`);
       }
     }
     out.push(`| ${r.name} | ${r.startLine}-${r.endLine} | ${inside.length} | ${[...needs].sort().join('; ') || '-'} |`);
@@ -261,7 +273,7 @@ function render(model, title) {
   }
   out.push('');
 
-  out.push('## Extraction order', '', 'Dependencies first. `ui` means the unit touches the DOM directly or depends on one that does.', '');
+  out.push('## Extraction order', '', 'Dependencies first. `ui` means the unit touches the DOM directly or calls (or holds a value of) one that does; a plain read of a value that is ui only by transitivity does not count.', '');
   out.push('| # | unit(s) | kind | lines | region | side |', '|---|---|---|---|---|---|');
   model.order.forEach((component, i) => {
     const us = component.map((l) => byLabel.get(l));

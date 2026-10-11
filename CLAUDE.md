@@ -29,7 +29,8 @@ root was the source.) See `README.md` for the full user-facing feature list.
   to `src/`, and the built names never change.
 - `scripts/analyze-closure.js` — writes `docs/superpowers/inventory/closure-*.md`, the
   per-declaration dependency inventory the module split is planned from.
-- `index.html` — a small landing page linking to both tools.
+- `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
+  into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
   checks, run via `npm test` along with the other `tests/*.js` files listed in
   `package.json` (all wired into CI). `tests/tax_brackets.js` covers every tax
@@ -39,7 +40,7 @@ root was the source.) See `README.md` for the full user-facing feature list.
   `tests/state_mechanisms.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
-  state); not in `npm test`; compare a worktree of the previous commit with the working tree (+5% allowed).
+  state); not in `npm test`; compare a worktree of the previous commit (run `npm ci && npm run build` in the worktree first) with the working tree (+5% allowed).
   Wall-clock noise between runs is ±10% on this machine, so for a decision compare two trees in ONE process, interleaved
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
   `tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states ...]` is that comparison: bench_runs.js's workload,
@@ -122,7 +123,7 @@ root was the source.) See `README.md` for the full user-facing feature list.
   run in `npm test`. **Only run `npm run snapshot:update` for an intended
   behavior change**, and say so in the commit; a pure refactor must leave the
   baseline untouched. To see *what* changed after a failure:
-  `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing`,
+  `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing` (run `npm ci && npm run build` in the worktree first),
   `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
 - `test_*.js` (repo root, committed) — ad-hoc Playwright scripts covering
   UI/feature behavior; not run by CI. Run individually with `node test_foo.js`.
@@ -143,7 +144,8 @@ root was the source.) See `README.md` for the full user-facing feature list.
   `src/` instead, as `tests/historical_parity.js` does.
 - `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, committed,
   not wired into CI or `npm test`). Add/extend one of these when you add a
-  feature and actually run it.
+  feature and actually run it. Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever
+  `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
 - Syntax-check a planner without a browser: `node --check src/us/main.js` (it is plain
   JS), or load the built file in Playwright and watch `page.on('pageerror')`.
 - There is no lint step. The only build step is the esbuild bundle; the delivered file
@@ -988,7 +990,7 @@ not from older blurbs (see `docs/reference.md`, "Sidebar info bubbles").
 
 Stable filenames (`Planner_US.html`, `Planner_Canada.html`), no
 version-numbered copies. Full history lives in `git log`, not in old files;
-`index.html`'s links never go stale.
+the built names in `dist/` never change, so the copied `index.html`'s links never go stale.
 
 Each planner's topbar also carries a small hand-maintained version badge
 (the `<span>V19</span>`/`<span>V4</span>` inside the `<h1>` of `src/<country>/index.html`) — bump the
@@ -1002,7 +1004,8 @@ and it only stays trustworthy if every batch bumps it, not just some.
 1. `npm test` (golden math tests — exact-to-the-cent).
 2. Run the specific `test_*.js` file(s) relevant to what changed, plus a
    broader sweep if the change touches `simulate()`/`simulateHistorical()`,
-   `syncControls()`/`syncContributionControls()`, or the shared per-year loop.
+   `syncControls()`/`syncContributionControls()`, or the shared per-year loop. Single-script runs read whatever
+   `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
 3. Mobile-width check for any new sidebar field or result card (390×844
    viewport): `document.documentElement.scrollWidth >
    document.documentElement.clientWidth` should stay `false`.

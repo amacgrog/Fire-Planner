@@ -1,6 +1,9 @@
 # FIRE Planner
 
-Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators for a couple (or single person). Nothing leaves your device — open the file in a browser and it runs entirely client-side, with no server, account, or internet connection required.
+Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators for a couple (or single person). Nothing leaves your device: the planner runs entirely client-side, with no server, account, or internet connection required. To use it:
+
+- Open the hosted GitHub Pages copy (its URL appears in the repository's Settings > Pages after the first deploy), or
+- Build locally: `npm ci && npm run build`, then open `dist/index.html` (or `dist/Planner_US.html` / `dist/Planner_Canada.html`) in a browser. `npm run dev` rebuilds on save.
 
 MIT licensed — see [LICENSE](LICENSE).
 
@@ -8,7 +11,7 @@ MIT licensed — see [LICENSE](LICENSE).
 
 ## Files
 
-- `index.html` — landing page linking to both tools
+- `index.html` — landing page template linking to both tools; the build copies it into `dist/`, where its relative links to the planners resolve (at the repo root they point at files that do not exist)
 - `src/us/`, `src/canada/` — the source of each planner (`index.html`, `styles.css`, `main.js`)
 - `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a single self-contained file (nothing is fetched at runtime). `dist/` is not committed; it is published to GitHub Pages by CI
 - `shared/` + `scripts/sync-shared.js` — canonical copies of the code (JS, CSS, markup) that is identical in both planners; `npm run sync` writes them into the sources and `npm test` fails if they drift

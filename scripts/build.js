@@ -5,6 +5,7 @@
 //   node scripts/build.js --sourcemap  inline a source map (development; `npm run dev` uses it)
 //   node scripts/build.js --minify     minify the script (not the default)
 //   node scripts/build.js --raw        inline main.js exactly as written, skipping esbuild
+//                                      (so also the "use strict" banner: sloppy-mode output; for debugging the build only)
 //   node scripts/build.js --out DIR    write into DIR instead of dist/
 const fs = require('fs');
 const path = require('path');

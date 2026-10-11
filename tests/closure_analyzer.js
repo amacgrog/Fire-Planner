@@ -57,4 +57,31 @@ for (const heading of ['## Summary', '## Mutable top-level bindings', '## Shared
   assert.ok(md.includes(heading), `report is missing "${heading}"`);
 }
 
+// Used names per dependency.
+assert.deepStrictEqual(unit('bump').uses, [{ unit: 'base', names: ['base'] }, { unit: 'counter', names: ['counter'] }]);
+
+// ui propagates through callable dependencies and DOM-direct ones, not through plain reads of a
+// value that is ui only by transitivity.
+const UI_FIXTURE = `(() => {
+  const el = document.getElementById('x');
+  const f = () => document.title;
+  function touch() { document.title = 'x'; }
+  const FIELDS = { onInput: touch };
+  let state = FIELDS, other = 1;
+  function readState() { return state + other; }
+  function readEl() { return el; }
+  function callF() { return f(); }
+  function callTouch() { return touch(); }
+})();
+`;
+const ui = analyze(UI_FIXTURE);
+const uiOf = (label) => ui.units.find((u) => u.label === label).ui;
+assert.strictEqual(uiOf('touch'), true);
+assert.strictEqual(uiOf('FIELDS'), true, 'a value built from a ui function is ui itself');
+assert.strictEqual(uiOf('state, other'), false);
+assert.strictEqual(uiOf('readState'), false, '(a) a transitive, non-callable dependency does not propagate');
+assert.strictEqual(uiOf('callTouch'), true, '(a) a caller of a DOM-touching function is ui');
+assert.strictEqual(uiOf('callF'), true, '(b) a caller of a DOM-touching arrow function is ui');
+assert.strictEqual(uiOf('readEl'), true, '(c) a reader of a DOM-direct value is ui');
+
 console.log('closure_analyzer OK');
