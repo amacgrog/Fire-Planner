@@ -100,10 +100,12 @@ Windows and Linux (CI).
 
 ### Data generators
 
-`gen-state-rules`, `gen-province-rules` and `gen-benefit-rules` currently read and
-patch the planner HTML. They change to emit ordinary modules (for example
-`src/us/core/data/stateRules.js`) that the engine imports. Their `--check` modes stay
-and compare the committed generated modules against their sources.
+`gen-state-rules`, `gen-province-rules` and `gen-benefit-rules` do not patch the
+planner HTML. They scrape the `STATE_RULES` / `PROVINCE_RULES` / `BENEFIT_RULES`
+block out of the planner script and render `docs/*-rules.md` from it. Stage 0
+points them at `src/<country>/main.js` (the markers are unchanged). Once the rules
+data lives in its own module (stage 3), they import that module instead of
+scraping text, and their `--check` modes stay.
 
 ## 5. Tests and CI
 
@@ -121,22 +123,32 @@ and compare the committed generated modules against their sources.
 ## 6. Staging
 
 Each stage ends green (`npm test`, snapshot baseline unchanged) and is independently
-shippable. Docs for each stage are updated in that stage.
+shippable. Docs for each stage are updated in that stage. Amended 2026-10-11: the
+`shared/` fragments are closure code (for example `simulateHistorical` assigns
+`histTaxFactors`, declared elsewhere in the closure, and calls the country-specific
+`runProjection`; the US planner has about 35 top-level mutable `let`s), so they
+cannot become modules until their shared state and country-specific seams have
+homes. The stages are therefore reordered, and only stage 0 and the inventory are
+planned in detail up front; each later stage is planned from the previous one's
+results.
 
-0. **Pipeline.** Move each planner's current inline script verbatim to
-   `src/<country>/main.js` and its markup/CSS to the shell. Build produces `dist/`. The
-   marker sync still works at this point. All tests pass against `dist/`.
-1. **Retire the markers.** `shared/*.js` becomes real modules imported by both
-   planners; delete `sync-shared.js` and the marker comments; generators emit modules.
-2. **State singletons.** Extract `store`, `ui-prefs` and `dom`. Add the `core/` purity
-   check.
-3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults` and the
-   historical dataset move out. Add Vitest and first unit tests (taxes, bond refill,
-   mortgage schedule, normalizeState corpus).
+0. **Pipeline.** Split each planner into `src/<country>/{index.html,styles.css,main.js}`,
+   build `dist/` with esbuild, run all tests against `dist/`, deploy to Pages. The marker
+   sync keeps working, retargeted at the source files. Plan:
+   `docs/superpowers/plans/2026-10-11-build-pipeline-and-closure-inventory.md`.
+1. **Inventory and foundations.** A closure analyzer reports every top-level declaration's
+   dependencies, mutable bindings, DOM use, cycles and shared-region seams
+   (`docs/superpowers/inventory/`). Then each mutable binding gets a home in a
+   country-agnostic singleton module (`store`, `dom`, UI preferences, caches), and the
+   seam mechanism for shared code that needs country-specific functions is chosen.
+2. **Shared fragments become modules**, in the inventory's leaf-first order, retiring the
+   markers region by region; delete `sync-shared.js` with the last one.
+3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults`, rules
+   data and the historical dataset. Add Vitest, the purity scan and first unit tests.
 4. **Peel `ui/`.** Render, sync, charts, wizard and the MCP wiring move out last.
 
-Stages 3 and 4 are expected to split into several smaller steps in the implementation
-plan, each leaving the suite green.
+Stages 1-4 are each expected to split into several smaller steps, each leaving the
+suite green.
 
 ## 7. Dev tooling: hot reload later
 
