@@ -2317,11 +2317,22 @@ Left alone (code-review minors that need no change):
 - A negative join year typed in the field is stored as 0 (the `Math.max(0, ...)` int clamp) and counts from birth (spec decision 3).
 - A partial value at or below the birth year (such as "20" mid-typing) counts from birth and is dropped on reload (decision 3).
 - `test_children.js` stays out of CI by the repo's convention for `test_*.js` files; the engine side is guarded in `npm test`
-  by `tests/child_dependents.js` and the legacy corpus, the renderer by `snapshot_ui` and `field_registry`.
+  by `tests/child_dependents.js` and the legacy corpus. `snapshot_ui` and `field_registry` both skip list controls, so they do
+  not guard the renderer option: it is guarded in `npm test` by the blank list-field block in `tests/child_dependents.js` (both
+  planners), and in full by `test_children.js`.
+- `test_children.js`'s projection check loads the child from the save instead of adding it through the form (the form path is
+  covered earlier in the same test), a departure from spec 8.3's wording.
 - Task 1: the usable-year test appears twice in the `normalizeLists` map (kept verbatim from the brief); the
   `joinYear == birthYear` legacy case is pinned by hash, with its values asserted in `tests/child_dependents.js`.
 - The Canada "Full-time student after 18" checkbox copy ("Recorded for the credits that arrive in a later update ...") is
   stale (Canada's readers use age only); left for the owner, outside E2.
+
+Final review (independent Opus, 2026-10-10): 0 blocking, 1 should-fix, 3 minor. Should-fix 1: the CI coverage claim was wrong
+(`snapshot_ui` and `field_registry` skip list controls); fixed with the new block in `tests/child_dependents.js` (red on the
+`cb2c387` planners as a locator timeout on `#child0JoinYear`, green on the branch). Minor 2: the `test_children.js` departure
+from spec 8.3 is noted above. Minor 3: the Canada precondition message in `tests/child_dependents.js` reworded (gross income is
+an upper bound on family net income). Minor 4: the Canada student checkbox tip left for the owner: it is accurate, since
+Canada reads children by age only.
 
 ---
 

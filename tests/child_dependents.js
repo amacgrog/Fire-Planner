@@ -188,6 +188,34 @@ const EXPECT_2026 = [
       assert.deepStrictEqual(joined.mixed2032, [12, 5], `[${p.key}] mixed list 2032: ages 12 and 5, list order`);
       assert.deepStrictEqual(errors, [], `[${p.key}] page errors: ${errors}`);
       await page.close();
+
+      // ---- E2: the blank list-field option of the shared renderer (guards it in CI; test_children.js covers the rest) ----
+      {
+        const ctx = await browser.newContext();
+        const bp = await ctx.newPage();
+        const berrors = [];
+        bp.on('pageerror', (e) => berrors.push(e.message));
+        const save = {
+          state: {
+            children: [{ birthYear: 2027, student: false }, { birthYear: 2027, student: false, joinYear: 2032 }],
+            loans: [{ principal: 10000, balance: 8000, rate: 5, term: 5, extra: 0 }],
+          },
+          mode: 'real',
+        };
+        await bp.addInitScript(([k, v]) => localStorage.setItem(k, v), [p.storage, JSON.stringify(save)]);
+        await bp.goto('file://' + path.resolve(__dirname, '..', p.file));
+        await bp.waitForTimeout(300);
+        await bp.evaluate(() => { document.getElementById('childrenGroup').open = true; });
+        assert.strictEqual(await bp.inputValue('#child0JoinYear'), '', `[${p.key}] blank join year renders empty`);
+        assert.strictEqual(await bp.getAttribute('#child0JoinYear', 'placeholder'), 'From birth', `[${p.key}] join year placeholder`);
+        assert.strictEqual(await bp.inputValue('#child1JoinYear'), '2032', `[${p.key}] join year 2032 renders`);
+        await bp.evaluate(() => { document.getElementById('otherLoansGroup').open = true; });
+        await bp.evaluate(() => { delete window.__test_getState().loans[0].rate; });
+        await bp.$eval('#loanFields [data-dyn-add="loans"]', (b) => b.click()); // forces a rebuild
+        assert.strictEqual(await bp.inputValue('#loan0Rate'), '0', `[${p.key}] a number field without blank still renders 0 for a missing value`);
+        assert.deepStrictEqual(berrors, [], `[${p.key}] page errors: ${berrors}`);
+        await ctx.close();
+      }
     }
 
     // ---- Canada: the CCB starts in the join year (spec 8.1) -------------------------------------
@@ -220,7 +248,7 @@ const EXPECT_2026 = [
         };
       });
       // Precondition: no CCB reduction below $38,237 of family net income (BENEFIT_RULES.ccb.reduction.from1, factor 1).
-      assert(ca.income2 <= 38237, `precondition: 2028 family income ${ca.income2} is under the CCB reduction threshold`);
+      assert(ca.income2 <= 38237, `precondition: 2028 family income ${ca.income2} is under the CCB reduction threshold (gross income, an upper bound on family net income)`);
       assert.deepStrictEqual(ca.ccb, [0, 0, 8157], 'CCB: nothing in 2026-2027, the full under-6 amount (8,157) from the 2028 join year (age 3)');
       assert.strictEqual(ca.same01, true, 'Canada: 2026 and 2027 rows equal the no-children rows, field for field');
       assert.deepStrictEqual(cerrors, [], `Canada page errors: ${cerrors}`);
@@ -375,7 +403,7 @@ const EXPECT_2026 = [
     assert.strictEqual(usEngine.row0Same, true, 'plan off: 2026 row equals the no-children 2026 row, field for field');
     assert.strictEqual(usEngine.atBirthSame, true, 'join year equal to the birth year: every row as from birth');
     assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
-    console.log('child dependents tests passed (US + Canada normalize, dependents and join year; US ACA household, filing status, credits and engine; Canada CCB)');
+    console.log('child dependents tests passed (US + Canada normalize, dependents and join year; US ACA household, filing status, credits and engine; Canada CCB; blank list-field renderer option)');
   } finally {
     await browser.close();
   }
