@@ -34,7 +34,8 @@ feature list.
   Wall-clock noise between runs is ±10% on this machine, so for a decision compare two trees in ONE process, interleaved
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
   `tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states ...]` is that comparison: bench_runs.js's workload,
-  two trees in one process, interleaved rounds, medians; not in `npm test`.
+  two trees in one process, interleaved rounds, medians; not in `npm test`; `--household appeal` (E3) times the IRMAA
+  appeal household (age 66, retiring at 67) instead of the default one.
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
   the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
@@ -61,6 +62,8 @@ feature list.
   dependents, the US ACA household, Medicaid child-13 test, filing status and credits, a US engine case, the Canada CCB).
 - `tests/aca_medicaid.js` — Medicaid and the premium-credit floor in `acaNetCost` (hand-computed: expansion, non-expansion and
   Wisconsin at several shares of the poverty line, the checkbox, 2026 versus 2027, the child-13 exemption, all 51 codes, engine rows).
+  `tests/irmaa_appeal.js` — E3: the lookback's filing status and the IRMAA appeal (form SSA-44), hand-computed;
+  `test_irmaa_appeal.js` (Playwright, not in CI) covers the status tooltip and the callout.
   `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
   including the 10% early-withdrawal penalty). `tests/ri_ira_exclusion.js` — Rhode Island's exclusion end to end (401(k) money
   from 67 qualifies, IRA money never; hand-computed). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run
@@ -287,6 +290,20 @@ Each planner is one big IIFE. Core shape:
   `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
   `state.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
   `tests/tax_caches.js`.
+  **IRMAA appeal and the lookback's filing status (US, E3).** The household lookback charges on the tiers of the lookback
+  return's filing status (`irmaaFilingHistory`, written once per year before `hcArgs`; `irmaaLookbackFiling`: years 0 and 1
+  read year 0's status, except an entered prior return from before a married partner's death, which is joint), so a survivor's
+  D+1 and D+2 are on the joint tiers. `irmaaAppealTable` (per run; `null` for most runs) records each person's usable events by
+  first post-event year E (a main-job retirement, the end of a W-2 or self-employed stream, a married spouse's death; covered:
+  the owner, the spouse when married in E; kept for a covered person alive in E and 65 by E+1). In `healthcareCost`, a partner
+  on Medicare whose window is open (`irmaaAppealWindow`) and whose normal charge is above 0 is charged the lowest of the normal
+  charge, this year's MAGI (the pass's estimate, so it sets `usesMagiEstimate` and converges within `MAGI_ITER_TOL`; `costAt`,
+  the forced pass, the 162(l) search and the inherited need adjustment price it unchanged) and, in year E+1, last year's
+  realized MAGI; year 0 without entered prior MAGIs is skipped. The year loop keeps `appealYrA/B` (set from `hcOut`, and again
+  after the forced pass's `costAt`; never read from `lastCost`) for the row's `irmaaAppealYearA/B` / `irmaaAppealKindA/B`, and
+  `inYrA/B` for the cliff plan, whose IRMAA lines sit on this year's edges (growth 1, per return through
+  `c.irmaaGrowthA/B`) in a year with an in-year candidate. The plan's `irmaaAt`, lines and `irmaaChecks` use this year's
+  filing status (the return SSA will read); `irmaaFiling2` is gone. Test: `tests/irmaa_appeal.js`.
   Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
@@ -517,7 +534,9 @@ Each planner is one big IIFE. Core shape:
   irmaa1..irmaa5 | senior | ctc`, `ret` 'H' or, in a two-return year, 'A' / 'B', `family` `aca | irmaa | tax`; lines within $1 of each other count as one: the earlier is kept, except that an `aca` or `irmaa` line replaces a `tax` line, so an intent never names `senior` or `ctc`; with
   `c.lo/c.hi` only the lines in that reach, a shared empty list (`NO_THRESHOLDS`) when none; IRMAA lines sit on the tiers of
   the year the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate
-  `irmaaAt` uses), under the filing status and Medicare partners of that year; the edges are Medicare's MAGI translated
+  `irmaaAt` uses), on this year's return's filing status (the return SSA will read, E3) for the partners on Medicare then, and
+  in a year with an in-year IRMAA appeal candidate on this year's edges (growth 1, per return through `c.irmaaGrowthA/B`; the
+  candidate's partners added: `a: medA || inYrA`); the edges are Medicare's MAGI translated
   into the engine's with `magiForIrmaaLine` on this year's return (`c.profile`'s benefit, `c.filing`); the Roth-conversion ceiling
   `irmaaTierCeiling` keeps this year's edges, the safe side there, 13.7 A), `lambdaEstimate` (future tax on a
   traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at the real return net of
