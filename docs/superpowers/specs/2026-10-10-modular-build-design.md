@@ -136,11 +136,12 @@ results.
    build `dist/` with esbuild, run all tests against `dist/`, deploy to Pages. The marker
    sync keeps working, retargeted at the source files. Plan:
    `docs/superpowers/plans/2026-10-11-build-pipeline-and-closure-inventory.md`.
+   DONE (merged 2026-10-11).
 1. **Inventory and foundations.** A closure analyzer reports every top-level declaration's
    dependencies, mutable bindings, DOM use, cycles and shared-region seams
-   (`docs/superpowers/inventory/`). Then each mutable binding gets a home in a
-   country-agnostic singleton module (`store`, `dom`, UI preferences, caches), and the
-   seam mechanism for shared code that needs country-specific functions is chosen.
+   (`docs/superpowers/inventory/`; done in stage 0's plan). Then each cross-module mutable
+   binding gets a home in a country-agnostic module, and shared code reaches
+   country-specific functions through build-time import aliases. Designed in section 12.
 2. **Shared fragments become modules**, in the inventory's leaf-first order, retiring the
    markers region by region; delete `sync-shared.js` with the last one.
 3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults`, rules
@@ -240,3 +241,73 @@ for the docs-per-stage rule.
   `writeStorageNow`.
 - **Hot reload.** Vite as a dev-only layer (see section 7).
 - **Merging the US and Canada engines.**
+
+## 12. Stage 1 design: country seams and state homes
+
+Decided 2026-10-11 from the closure inventory (`docs/superpowers/inventory/closure-us.md`,
+"Shared regions" and "Mutable top-level bindings").
+
+### What the inventory showed
+
+The `(country)` dependencies of the shared fragments are mostly shared state (`state`, `mode`,
+`render`, `defaults`, the chart preferences, the storage keys), not real country differences.
+About two dozen are genuine seams that shared code must call: `taxFor`, `runProjection`,
+`BUCKET_STEP`, `STANDARD_MODE` / `BUCKET_MODE`, `housingForYear`, `FIELDS`, `DYN`,
+`DECISION_QUESTIONS`, `SENSITIVITY_LEVERS`, `computeSankeyFlow`, `buildPrintReport`, the MCP
+helpers, the Roth-optimizer hooks and a few more. Of the 55 US mutable bindings, roughly 25
+cross a region boundary; the rest (timers, tooltip elements, plan-status variables) are written
+by one future module only.
+
+### Seam mechanism: build-time import aliases
+
+- A new `src/package.json` declares `"type": "module"` and
+  `"imports": { "#country/*": { "us": "./us/*.js", "canada": "./canada/*.js" } }` (exact target
+  paths are fixed in the plan; the pattern must resolve relative to `src/package.json`). It lives
+  in `src/` because the root `package.json` stays CommonJS for the existing scripts and tests.
+- Shared code writes `import { taxFor } from '#country/tax'`. Each country provides the same
+  module names exporting the same names.
+- `scripts/build.js` passes esbuild `conditions: [country]`. A missing condition fails the
+  build (`Could not resolve "#country/tax"`). Plain Node resolves the same imports with
+  `--conditions=<country>`, so unit tests can run shared code against either country.
+- A contract test compares the two countries' export lists for every `#country/*` module and
+  fails when shared code imports a name one country lacks.
+- Verified before this design was accepted (throwaway spike, esbuild 0.28, Node 24): resolves
+  per condition, fails loudly without one, works in Node.
+- Constraint kept from section 3, rule 5: this is standard Node subpath imports plus custom
+  conditions, supported by Vite and Vitest, so a later Vite dev server needs no source change.
+- Factories (explicit dependency injection) were considered and deferred: they fit better
+  after the TypeScript conversion (section 11), when the dependencies can be typed.
+
+### Homes for mutable state
+
+- Cross-module state gets small country-neutral modules under `src/shared/core/`:
+  `state` (live binding plus `setState`), `mode`, the chart preferences (`chartView`,
+  `chartShiftMode`, `chartGapPartner`, `chartXAxisMode`, `logScale`, `chartExpanded`,
+  `chartToolbarCollapsed`, `mcPathCount`, `lastProjectionView`), `scenarios`, `currentYear`, and
+  `histTaxFactors` / `taxFactorInflation`.
+- Primitives are exported as live bindings with setters, so readers keep writing `chartView`
+  rather than `ui.chartView`; only the owning module assigns. Objects mutated in place are plain
+  exports.
+- US-only: the eight `cliffPlan*` variables become one `cliffPlan` state object in a US module;
+  the test-hook counters and flags (`inhTakeCount`, `testInhForce`, `testInhNoNeedAdj`,
+  `inhNoDrawCalls`, `irmaaInYearCalls`) become a `testHooks` object, out of the engine's way.
+- Module-private rule: a binding written by one future module stays private to it. Those
+  move with their region in stage 2; stage 1 extracts only the cross-region ones.
+- The big inventory cycle (`FIELDS` / `normalizeState` / the `state` group) is broken by
+  starting the store at `null`; `main.js` calls `setState(normalizeState(null))` at startup.
+  The store therefore imports nothing from a country.
+
+### Order and verification
+
+1. Alias plumbing: `src/package.json`, the build condition, the contract test. No code moves.
+2. Extract the store and preference modules one group at a time (replace the declaration with
+   an import, each assignment with a setter).
+3. Extract the US cliff-plan state object and the test-hook object.
+4. Re-run `npm run analyze`; the mutable table should shrink to the module-private bindings.
+
+Each step leaves `npm test` green and `tests/snapshots/` untouched; each task is reviewed.
+
+### Not in stage 1
+
+Moving any shared fragment into a module (stage 2), Vitest, the `core/` purity check,
+TypeScript.
