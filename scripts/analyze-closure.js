@@ -106,8 +106,8 @@ function stronglyConnected(units) {
 
 function analyze(code) {
   const lines = code.split('\n');
-  const ast = espree.parse(code, { ecmaVersion: ECMA, sourceType: 'script', range: true, loc: true });
-  const scopeManager = eslintScope.analyze(ast, { ecmaVersion: ECMA, sourceType: 'script' });
+  const ast = espree.parse(code, { ecmaVersion: ECMA, sourceType: 'module', range: true, loc: true });
+  const scopeManager = eslintScope.analyze(ast, { ecmaVersion: ECMA, sourceType: 'module' });
   const fn = findIifeFunction(ast);
   const fnScope = scopeManager.acquire(fn);
 
