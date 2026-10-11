@@ -37,6 +37,9 @@ const COMMON = {
   'children junk': { children: [{ birthYear: 'x' }, { birthYear: 1900, student: 'yes' }, { birthYear: 2500 }, { student: true }, null, 7, { birthYear: '2012.6', student: true }, { birthYear: null }, { birthYear: '' }] },
   'children wrong type': { children: 'two' },
   'children over the cap': { children: Array.from({ length: 14 }, (_, i) => ({ birthYear: 2000 + i })) },
+  // E2: the optional join year (exact values are asserted in tests/child_dependents.js).
+  'children join year': { children: [{ birthYear: 2027, joinYear: 2032 }, { birthYear: 2015, joinYear: 2015 }, { birthYear: 2010, joinYear: 'x' }] },
+  'children join year junk': { children: [{ birthYear: 2027, joinYear: 1900 }, { birthYear: 2027, joinYear: 2500 }, { birthYear: 2020, joinYear: null, student: true }] },
 };
 const US = {
   ...COMMON,

@@ -57,7 +57,8 @@ feature list.
   clock pinned. `tests/medicare_enrollment.js` — Medicare/IRMAA start at
   `max(65, retirement age)`.
 - `tests/child_dependents.js` — the children list: `normalizeState` cleaning, `dependentsInYear` /
-  qualifying-child ages, and the US ACA household size and its effect on the 400%-FPL cliff.
+  qualifying-child ages, and the US ACA household size and its effect on the 400%-FPL cliff; E2: the join year (normalization,
+  dependents, the US ACA household, Medicaid child-13 test, filing status and credits, a US engine case, the Canada CCB).
 - `tests/aca_medicaid.js` — Medicaid and the premium-credit floor in `acaNetCost` (hand-computed: expansion, non-expansion and
   Wisconsin at several shares of the poverty line, the checkbox, 2026 versus 2027, the child-13 exemption, all 51 codes, engine rows).
   `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
@@ -293,7 +294,7 @@ Each planner is one big IIFE. Core shape:
   `exemptChildMaxAge` 13). `acaNetCost` applies it before the credit schedule, so `healthcareCost` and the 400% guard still share one function:
   at or under the state's Medicaid line the cost is $0 (checkbox `medicaidWhenEligible`, default on) or the full premium (checkbox off, or from
   2027 a household with no child 13 or younger fails the work requirement, which also bars the credit); under 100% of FPL there is no credit.
-  A MAGI of 0 is no longer a free pass. `medicaidLimit(code)` is cached per code and `hasChildAtMost` loops the children list in place, so the
+  A MAGI of 0 is no longer a free pass. `medicaidLimit(code)` is cached per code and `hasChildAtMost` loops the children list in place (a child counts from its join year, E2), so the
   path allocates nothing. `conversionMagiCeiling` is unchanged: the new cliffs (the floor, the 138% line, the 2027 start) are priced by the cost
   and listed in the plan's cliffs register; 3C decides the policy. At the step-down cliffs the MAGI iteration has no fixed point: after the cap the pass that overpaid the least is re-run once (`forcedPass`), the cost at the realized MAGI is charged and the refund goes to cash (`magiStats`, 7O follow-up F5; filling to the line is 3C); the guardrail record and `firstWithdrawal` are re-recorded net of the refund so the guardrails do not cut spending for a premium that was never paid. Tests: `tests/aca_medicaid.js`.
 - **US federal deductions** (just above `ordinaryTax`): `standardDeduction(filing,
@@ -888,7 +889,13 @@ also `spending`; additional income is `income`; `extra` keeps survivor planning.
 planner's `DYN.children` spec, so Canada's note says it feeds the Canada Child Benefit, the Canada Groceries and Essentials Benefit and the provincial child benefits). A row is `{ birthYear, student }`;
 `normalizeLists` (shared) clamps the year to the **fixed** bounds `CHILD_BIRTH_YEAR_MIN/MAX` (1950-2100, never
 relative to the clock, so a saved year cannot drift on reload), drops rows without a usable year, and keeps
-`student` only when literally `true`. Nothing is adjusted for children automatically (spending stays the
+`student` only when literally `true`. An optional `joinYear` (E2, adoption; the row's "Joins the household in" field) is
+kept by `normalizeLists` only when it is a year (same fixed bounds) later than the birth year, otherwise the key is left
+off, so a legacy row keeps its exact shape; `dependentsInYear` and the US `hasChildAtMost` (the Medicaid child-13 test,
+the one reader that loops over `state.children` itself) skip a child while `c.joinYear > taxYear` (a missing key
+compares false), so a joined child counts for its whole join year and its age stays `taxYear - birthYear`. The field
+uses the shared list renderer's opt-in `blank: true` / `placeholder` number options (`23-dynFieldHtml`: a missing
+value shows an empty box; clearing the box deletes the key). Nothing is adjusted for children automatically (spending stays the
 user's). `dependentsInYear(taxYear)` (shared, in the `01-LIST_MAX` fragment, takes a CALENDAR year; the US
 engines pass `taxYearOf(yearIndex)`) returns `{ age, student, qualifyingChild }` per child born by then, with
 `age = taxYear - birthYear` (a birth year counts as age 0 for the whole year). `qualifyingChild` is the
