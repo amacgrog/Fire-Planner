@@ -2380,6 +2380,13 @@ joint tiers for the returns from before the death; the row reads dedicated local
 benchmark household option, the event table attached to the run's result. No blocking findings: the review loop's stop condition
 is met.
 
+Spec approved by the owner (2026-10-11). Plan `docs/superpowers/plans/2026-10-10-e3-irmaa-appeal.md` (six tasks: 1 the lookback's
+filing status, stage-1 movers; 2 the event table, no number change; 3 the appealed charge, the rows and the benchmark household,
+stage-2a movers; 4 the cliff plan's lines, stage-2b movers, guard-off identical; 5 the tooltip, copy, README and V130; 6
+CLAUDE.md, the implementation record and the final gates). Each movers task stops for the owner's approval before
+`snapshot:update`. Two corrections to spec section 8 found while planning: case 2's year 2 also moves at stage 1 (6,148.40 to
+5,000), and case 15's variant takes the alternative calculation in both window years (`seAlternative` + 2, not 1).
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
