@@ -5473,7 +5473,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'One schedule for every filer: 3.75% to $82,050, 4.75% to $186,450, 5.99% above; standard deduction $11,200 / $22,400 / $16,800 and $5,250 per person and dependent for 2026 (Division of Taxation Advisory 2025-22, read). Social Security is subtracted, and up to $50,000 of pension, 401(k) and annuity income per filer, for a filer at full retirement age (the planner uses 67) when federal AGI is under $107,000 single or $133,750 joint (the 2025 limits; the pension cap of $50,000 is from the same Advisory). IRA distributions never qualify (PUB 2026-01 Retirement Income Guide, read): only the 401(k) part of the traditional draw of each filer counts, taken pro rata to the 401(k) and IRA balances of that filer, and only once that filer has stopped working (a 401(k) draw while still working is taxed). The phase-out of the deduction and exemptions between $261,000 and $290,800, the property tax relief credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: 'One schedule for every filer: 3.75% to $82,050, 4.75% to $186,450, 5.99% above; standard deduction $11,200 / $22,400 / $16,800 and $5,250 per person and dependent for 2026 (Division of Taxation Advisory 2025-22, read). Social Security is subtracted, and up to $50,000 of pension, 401(k) and annuity income per filer, for a filer at full retirement age (the planner uses 67) when federal AGI is under $107,000 single or $133,750 joint (the 2025 limits; the pension cap of $50,000 is from the same Advisory). IRA distributions never qualify (PUB 2026-01 Retirement Income Guide, read): only the 401(k) part of the traditional draw of each filer counts, taken pro rata to the 401(k) and IRA balances of that filer, whether or not that filer still works (PUB 2026-01, Example 4). A Roth conversion is split the same way, although the planner converts IRA money first (an IRA conversion never qualifies), so part of a conversion can be excluded in error. The phase-out of the deduction and exemptions between $261,000 and $290,800, the property tax relief credit and the earned income credit are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     sc: {
       name: 'South Carolina',
@@ -9041,20 +9041,25 @@
     // E1e: the scheduled inherited traditional draw is ordinary income on the heir's return (never through the streams: the state would count it as wages).
     if (inheritedA > 0) otherA += inheritedA;
     if (inheritedB > 0) otherB += inheritedB;
-    // The share of each filer's traditional draw that is employer-plan (401(k)) money, once that filer has
-    // stopped working (Pennsylvania exempts it at any age): their 401(k) over their own traditional accounts, pro
-    // rata as the draws are. A one-person return (a single person or the survivor) owns the whole pool.
+    // The share of each filer's traditional draw that is employer-plan (401(k)) money: their 401(k) over their own
+    // traditional accounts, pro rata as the draws are; a one-person return (a single person or the survivor) owns the
+    // whole pool. Read by two state rules: Pennsylvania (employerPlanAfterRetirement: 401(k) money drawn after retirement
+    // is exempt at any age), so the share is 0 while that filer still works; and Rhode Island (employerPlanOnly: from 67
+    // only 401(k) money qualifies, never an IRA), which has no "stopped working" test (PUB 2026-01, Example 4), so the
+    // share counts while working too.
     let k401FracA = 0,
       k401FracB = 0;
     if (tradShares) {
       const ownA = tradShares[0] + tradShares[1],
-        ownB = tradShares[2] + tradShares[3];
+        ownB = tradShares[2] + tradShares[3],
+        yr = stateRuleForYear(year),
+        anyWork = !!(yr && yr.retirement && yr.retirement.employerPlanOnly);
       if (singlePerson || isSurvivorPeriod) {
-        const stopped = isSurvivorPeriod && deceasedIsA ? !workingB : !workingA;
+        const stopped = anyWork || (isSurvivorPeriod && deceasedIsA ? !workingB : !workingA);
         k401FracA = stopped ? tradShares[1] + tradShares[3] : 0;
       } else {
-        k401FracA = !workingA && ownA > 0 ? tradShares[1] / ownA : 0;
-        k401FracB = !workingB && ownB > 0 ? tradShares[3] / ownB : 0;
+        k401FracA = (anyWork || !workingA) && ownA > 0 ? tradShares[1] / ownA : 0;
+        k401FracB = (anyWork || !workingB) && ownB > 0 ? tradShares[3] / ownB : 0;
       }
     }
     const profile =

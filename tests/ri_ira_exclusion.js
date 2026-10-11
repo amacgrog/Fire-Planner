@@ -67,6 +67,64 @@ const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: expecte
   near(r[0].tax, XIRA - 40000, 0.05, 'single 66, 401(k) only: under full retirement age RI taxes it');
   for (const x of r) assert.strictEqual(x.penalty || 0, 0, 'no early-withdrawal penalty at 66');
 
+  // Year-0 trace cases: RI's part of the year's tax is read off the engine's own profile as taxFor under RI minus taxFor under
+  // TX (renting, standard deduction: the state tax does not move the federal one), t = the year's traditional draw.
+  const BASE = {
+    singlePerson: true, ageA: 68, retireAgeA: 68, lifeExpectancyA: 70, ageB: 68, retireAgeB: 68, lifeExpectancyB: 70,
+    returnRate: 0, bondReturn: 0, inflation: 0, hysaRate: 0, dividendYield: 0, medicalInflation: 0, healthcare: 0, medicareYearly: 0,
+    acaEnabled: false, ltcEnabled: false, ssMonthlyA: 0, ssMonthlyB: 0, tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0,
+    taxable: 0, cash: 0, cashReserve: 0, bondYears: 0, spending: 40000, stateTax: 'ri', children: [], survivorEnabled: false,
+    tradIraA: 0, trad401kA: 0, tradIraB: 0, trad401kB: 0, rothIraA: 0, roth401kA: 0, rothIraB: 0, roth401kB: 0,
+    rothConvEnabled: false, ruleOf55A: false, ruleOf55B: false, incomeSources: [], oneTimeIncome: [],
+    k401PctA: 0, k401PctB: 0, catchupPctA: 0, catchupPctB: 0, iraPctA: 0, iraPctB: 0, profitSharingPctA: 0, profitSharingPctB: 0, megaBackdoor: false,
+  };
+  const year0 = (patch, i = 0) =>
+    page.evaluate(([base, patch, i]) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      Object.assign(st, base, patch);
+      try {
+        const p = window.__test_accountTrace()[i].profile, row = window.__test_simulate().rows[i];
+        const t = row.traditionalWithdrawn;
+        const T = window.__test_tax;
+        const stateOf = (prof, extra) =>
+          window.__test_withState({ stateTax: 'ri' }, () => T.taxFor({ ...prof }, 0, extra)) - window.__test_withState({ stateTax: 'tx' }, () => T.taxFor({ ...prof }, 0, extra));
+        return { t, fracA: p.k401FracA, fracB: p.k401FracB, shareA: p.ownerShareA, ri: stateOf(p, t), ri0: stateOf(p, 0) };
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, [BASE, patch, i]);
+
+  // Still working at 68 (PUB 2026-01, Example 4: a filer who still earns wages qualifies; RI has no "stopped working" test, unlike
+  // Pennsylvania's after-retirement rule): wages 30,000, spending 60,000, the rest drawn from a 401(k) (under 50,000), so the
+  // whole draw is excluded and RI taxes only the wages: RI(t) = RI(0) = 3.75% x (30,000 - 16,450) = 508.125.
+  let y = await year0({ retireAgeA: 70, incomeA: 30000, spending: 60000, trad401kA: 1000000 });
+  assert(y.t > 20000 && y.t < 50000, 'working 68: a 401(k) draw between 20,000 and 50,000 (' + y.t + ')');
+  assert.strictEqual(y.fracA, 1, 'working 68: the 401(k) share counts while working (RI)');
+  near(y.ri0, 508.125, 0.01, 'working 68: RI on the wages alone');
+  near(y.ri, y.ri0, 0.01, 'working 68: the whole 401(k) draw is excluded');
+  // The same household with an IRA: nothing excluded, first bracket: RI(t) = 3.75% x (30,000 + t - 16,450).
+  y = await year0({ retireAgeA: 70, incomeA: 30000, spending: 60000, tradIraA: 1000000 });
+  near(y.ri, 0.0375 * (30000 + y.t - 16450), 0.01, 'working 68, IRA: the draw is taxed');
+
+  // Joint, both 68 and retired, A's traditional money all in a 401(k), B's all in an IRA, equal balances: the draw splits by the
+  // ownership share; A's part (under 50,000) is excluded, B's is not. Spending 80,000 keeps t / 2 under 50,000 and the MFJ
+  // AGI under 133,750. RI joint: std 22,400 + 2 x 5,250 = 32,900. RI = 3.75% x (t - t x shareA - 32,900).
+  y = await year0({ singlePerson: false, spending: 80000, trad401kA: 500000, tradIraB: 500000 });
+  assert(y.fracA === 1 && y.fracB === 0, 'joint: A all 401(k), B all IRA');
+  assert(y.t * y.shareA < 50000 && y.t < 133750, 'joint: under the cap and the AGI limit (' + y.t + ')');
+  near(y.ri, 0.0375 * (y.t - y.t * y.shareA - 32900), 0.01, 'joint: A\'s 401(k) part excluded, B\'s IRA part taxed');
+
+  // Survivor period, year 1 (A died at 68 in year 0, which is still a joint return; year 1 is the first single return): the
+  // survivor's one-person return owns the whole pool, half 401(k) and half IRA
+  // by balance, so half the draw is excluded. Spending 80,000 (the survivor spends its survivor share of it). RI single:
+  // 16,450. RI = 3.75% x (t - t / 2 - 16,450).
+  y = await year0({ singlePerson: false, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 68, spending: 80000, trad401kA: 500000, tradIraB: 500000 }, 1);
+  assert(y.t / 2 > 16450 && y.t / 2 < 50000 && y.t < 107000, 'survivor: half the draw above the deduction, under the cap and the AGI limit (' + y.t + ')');
+  near(y.fracA, 0.5, 1e-12, 'survivor: the pool\'s 401(k) share');
+  near(y.ri, 0.0375 * (y.t / 2 - 16450), 0.01, 'survivor: half the draw (the 401(k) half) excluded');
+
   assert.deepStrictEqual(errors, [], 'page errors: ' + errors.join('; '));
   await browser.close();
   console.log('[US] Rhode Island IRA exclusion tests passed');

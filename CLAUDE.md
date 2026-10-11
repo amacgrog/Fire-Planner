@@ -395,7 +395,9 @@ Each planner is one big IIFE. Core shape:
 - **State rows, later additions (7O O3, O4).** The per-person retirement kind's `applies` takes an optional `employerPlanAfterRetirement: true` (Pennsylvania only,
   7O O3): below the traditional minimum age a retired filer's 401(k) part of their traditional draw is excluded at any age.
   `applies.employerPlanOnly: true` (Rhode Island only, PUB 2026-01: IRA income never qualifies) reads the same 401(k) part the other way:
-  from the minimum age only that part of the traditional draw counts toward the cap (`tests/ri_ira_exclusion.js`).
+  from the minimum age only that part of the traditional draw counts toward the cap, and RI has no "stopped working" test: for a state
+  whose rule is `employerPlanOnly`, `buildTaxProfile` computes `k401FracA/B` while the filer works too (PUB 2026-01, Example 4)
+  (`tests/ri_ira_exclusion.js`).
   `buildTaxProfile` puts `k401FracA/B` on the profile (the filer's 401(k) share of their own traditional accounts from the account ledger at the start
   of the year, zero while they work; a single person or survivor: the pool's 401(k) share) and `taxFor` fills `sources.retirement401kA/B` (draw x fraction,
   only when `needsPerPerson`); the draw is assumed pro rata, which the penalty-aware draw order and 72(t) payments can depart from. `childCredit` also
