@@ -18,4 +18,15 @@ for (const name of ['Planner_US.html', 'Planner_Canada.html']) {
   assert.doesNotThrow(() => new vm.Script(scripts[0][1]), `${name}: the inline script does not parse`);
 }
 assert.ok(fs.existsSync(path.join(dist, 'index.html')), 'index.html is missing from dist/');
+// esbuild escapes non-ASCII characters to \uXXXX unless charset is utf8. The planners carry
+// characters such as "—", "✕" and "→" in strings and markup; the build must keep them literal.
+const escapeCount = (text) => (text.match(/\\u[0-9a-fA-F]{4}/g) || []).length;
+for (const [dir, name] of [['us', 'Planner_US.html'], ['canada', 'Planner_Canada.html']]) {
+  const built = fs.readFileSync(path.join(dist, name), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src', dir, 'main.js'), 'utf8');
+  assert.ok(
+    escapeCount(built) <= escapeCount(source),
+    `${name}: the build introduced \\u escapes (set charset: 'utf8')`,
+  );
+}
 console.log('build output OK');
