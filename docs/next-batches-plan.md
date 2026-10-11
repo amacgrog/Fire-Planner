@@ -2371,6 +2371,15 @@ year's filing, the filing history written once per year, per-return line growth,
 the anchor re-base steps, two test-setup fixes. The owner also approved the `irmaaAt` / lines filing change and dropping the
 stale "Medicaid coverage gap" from the healthcare callout.
 
+Spec review, round 2 (independent Opus, of `16098f7`, owner-run): 0 blocking, 6 should-fix, 7 minor, all adopted (owner,
+2026-10-11; spec section 11). Should-fix: two tests rebuilt so they reach what they assert (the lines test on a household whose
+nearest line is `irmaa1`; the 162(l) variant inside the band where no consistent deduction exists, with the alternative
+calculation's values); the stage-2 values of the year-0 death case; a death before the plan with entered prior MAGIs reads the
+joint tiers for the returns from before the death; the row reads dedicated locals, not `lastCost`; `healthcareCost` returns
+`inYearA/B` and the `magiThresholds` arguments are written out. Minor: wording, two more test assertions, retirement bounds, the
+benchmark household option, the event table attached to the run's result. No blocking findings: the review loop's stop condition
+is met.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)

@@ -1,7 +1,7 @@
 # E3: IRMAA appeal for a life-changing event (form SSA-44; US only) — design
 
-Date: 2026-10-10. Owner decisions 1-8 from the brainstorm of this date, revised 2026-10-11 after an independent Opus review of
-`4f13fdb` (round 1: no blocking findings; section 11). Base: `ea78ef6` on `claude/batch-3b-penalty-rules` (US V129, Canada V60).
+Date: 2026-10-10. Owner decisions 1-8 from the brainstorm of this date, revised 2026-10-11 after two independent Opus reviews
+(`4f13fdb`, `16098f7`; no blocking findings in either; section 11). Base: `ea78ef6` on `claude/batch-3b-penalty-rules` (US V129, Canada V60).
 US only: no shared region and no Canada change. The review record is section 11.
 
 ## 1. Where this sits
@@ -171,13 +171,23 @@ reduce the charge).
   `hcArgs` is built** (the year's `filing` does not change between passes; any `costAt` caller then reads a defined value;
   round 1, M2).
 - `hcArgs` gains `irmaaFilingHistory`. In `healthcareCost`'s household branch, the tier filing becomes
-  `irmaaLookbackFiling(irmaaFilingHistory, year, filing)` = `irmaaFilingHistory[Math.max(0, year - 2)]` (years 0 and 1: year 0's
-  status stands for the earlier returns, whether the MAGI is the entered one or the stand-in; decision 1, round 1 S2). The new
+  `irmaaLookbackFiling(irmaaFilingHistory, year, filing, deathYear, marriedAtDeath)` (just above `healthcareCost`):
+  - the lookback year `L = year - 2`;
+  - when `L < 0`, `state.irmaaPriorKnown`, `marriedAtDeath` and `L <= deathYear`: `'mfj'` (round 2, S4: the entered returns of
+    a couple who were married and both alive in that year were joint, even when the death came before the plan; `deathYear`
+    is `Infinity` without survivor modeling, so a married couple without a death reads `'mfj'` here, which is year 0's status
+    anyway);
+  - otherwise `irmaaFilingHistory[Math.max(0, L)]` (years 0 and 1: year 0's status stands for the earlier returns, whether the
+    MAGI is the entered one or the stand-in; decision 1, round 1 S2).
+
+  `marriedAtDeath` is the death event's married test of 5.2 (`state.marryLater ? state.ageA + deathYear >= state.marriageAgeA :
+  state.filingStatus === 'mfj'`, false in single-person mode), computed once per run and passed in `hcArgs`. The new
   `healthcareCost` parameters have defaults (`irmaaFilingHistory = null`, read as `filing`; `appeal = null`), so a caller that
   does not pass them prices as today.
-- Outside survivor years D+1 / D+2 the two filings select the same `IRMAA_TIERS` row (`filingKey(f, 'irmaa')`), so
-  `irmaaSurcharge` returns the identical double: no other number changes. The one other case that moves is a death in plan year
-  0 with entered prior MAGIs (year 1 charges the entered joint return on the joint tiers instead of the single ones).
+- Outside a survivor's D+1 / D+2 the two filings select the same `IRMAA_TIERS` row (`filingKey(f, 'irmaa')`), so
+  `irmaaSurcharge` returns the identical double: no other number changes. A death in year 0 or before the plan puts D+1 or D+2
+  in years 0 and 1, which the rule above covers: with entered prior MAGIs they are charged on the joint tiers; with the stand-in
+  (year 0's MAGI, on year 0's status) a death in year 0 reads year 0's joint status (round 2, minor 4).
 - `irmaaFiling2()` (the charged year's filing, read by `irmaaAt`, the lines call and `irmaaChecks`) is wrong by the same rule:
   the plan estimates the charge two years on from year t's MAGI, whose return is year t's own, so the table is year t's own
   `filing`, not the charged year's. **Corrected in the same stage:** `irmaaAt` and the `irmaa` argument of the lines call use `filing`
@@ -201,8 +211,9 @@ else `{ eventA, eventB }` (two `Int8Array(projectionYears + 1)`; allocated once 
 from it: `eventP[t - 1] !== 0` (t >= 1) opens both candidates (last year's and this year's MAGI), else `eventP[t] !== 0` opens
 this year's only, else none. Events, each with an owner and a year index E:
 
-- **Retirement** of partner X (X = A, or B when not `singlePerson`): `state.incomeX > 0` and `E = retireAgeX - state.ageX >= 1`
-  (the clamped retirement age; a retirement at death is the death event's year too: both are kept, the kind rule below picks one).
+- **Retirement** of partner X (X = A, or B when not `singlePerson`): `state.incomeX > 0` and `1 <= E = retireAgeX - state.ageX
+  <= projectionYears` (the clamped retirement age; a retirement at death is the death event's year too: both are kept, the kind
+  rule below picks one).
 - **Job end**: each `state.incomeSources` row of kind `wages` or `self` with `amount > 0` and `startAge <= endAge`; owner A in
   single-person mode, else the row's owner; `E = endAge + 1 - ownerAgeNow`, kept when `E >= 1`, `E <= projectionYears`, and the
   owner is alive in year E (`E < deathYear` for a deceased owner: a job ended by death is the death event).
@@ -214,15 +225,19 @@ Coverage: an event of owner X covers X, and covers X's partner when the couple i
 single-person mode). A death event covers only the survivor. A partner who is dead in year t is never charged (unchanged), so
 coverage of a dead partner is harmless.
 
-For each covered person P: `eventP[E] = max(eventP[E], kind)`, but only when P is 65 or over by year E+1 (`state.ageP + E + 1 >=
-65`): an event nobody it covers can use is dropped, and a run whose events are all dropped gets `null` (round 1, M6; the default
+For each covered person P: `eventP[E] = max(eventP[E], kind)`, but only when P is alive in year E (not the deceased partner from
+`deathYear` on; round 2, minor 3) and 65 or over by year E+1 (`state.ageP + E + 1 >= 65`): an event nobody it covers can use is
+dropped, and a run whose events are all dropped gets `null` (round 1, M6; the default
 household retires at 55, so its runs, Monte Carlo paths included, allocate nothing). Kind on a tie: death, then retirement, then
 job end (the higher code).
 
 The kind a row reports is that of an event the chosen tax year can cite (round 1, M4): for the candidate s = t-1, `eventP[t-1]`;
 for s = t, `eventP[t]` if set, else `eventP[t-1]` (the latest event at or before s).
 
-A test hook `window.__test_irmaaAppealTable()` returns the table of the current state (plain arrays) for `tests/irmaa_appeal.js`.
+The run attaches the table to its result as a non-enumerable property (`irmaaAppeal`, `null` or `{ eventA, eventB }`, like
+`estate`), so the result's own fields and every snapshot are unchanged and the test reads the very table the run used (the death
+clamp and `deathYear` included; round 2, minor 7): `tests/irmaa_appeal.js` reads `window.__test_simulate().irmaaAppeal` through a
+small `page.evaluate` that copies the typed arrays to plain arrays.
 
 ### 5.3 The charge (`healthcareCost`)
 
@@ -242,12 +257,18 @@ round 1, S5), the charge is the minimum of the normal charge and:
 
 The candidate is used only when strictly lower than the normal charge (decision 4); on a tie between the two candidates the
 earlier year is reported. `premA/premB` (the two-return 162(l) base) receive P's final charge as today. The return value gains
-`appealA` / `appealB` (the plan year used, or -1 when the normal charge stood), `medicareA` / `medicareB` (the partners on
-Medicare this year) and `appealInYear` (true when this year's MAGI was a candidate for some partner: a partner on Medicare with an
-open window and a normal charge above 0). **Year 0 without entered prior MAGIs** is skipped: its normal charge (the stand-in)
-already reads this year's own MAGI on this year's filing, so the in-year candidate equals it and can never be lower (only a death
-in year 0 opens a window there). Every other normal charge reads earlier years' history or the entered prior MAGIs, so
-`appealInYear` never depends on this pass's MAGI, and `choose` and `apply` build the same lines (5.5).
+(round 2, S6):
+- `appealA` / `appealB`: the plan year used, or -1 when the normal charge stood (read by the row, 5.6);
+- `inYearA` / `inYearB`: true when this year's MAGI was priced as a candidate for that partner (on Medicare, window open, normal
+  charge above 0); `appealInYear = inYearA || inYearB` is derived by the reader (5.5) and not returned separately.
+
+**Year 0 without entered prior MAGIs** is skipped: its normal charge (the stand-in) already reads this year's own MAGI on this
+year's filing, so the in-year candidate equals it and can never be lower (only a death in year 0 opens a window there). Every
+other normal charge reads earlier years' realized history or the entered prior MAGIs, so `inYearA/B` never depend on this pass's
+MAGI. Within one run, then, `choose` and an `apply` that replays `choose`'s intents build the same lines. The planning subsets (the
+ACA-only and IRMAA-only `apply` runs of `computeCliffPlan`) have different earlier years, so a year's normal charge, and with it
+whether its lines sit at growth 1, can differ from `choose`'s; an intent whose line is then absent is counted as `absent` and the
+natural year kept, as for any missing line (round 2, minor 1).
 
 **Exactness (round 1, S3).** The in-year candidate prices the pass's estimate (`hcArgs.magiProxy` = the pre-conversion MAGI plus
 the conversion and `estTrad + estGain`), while the history stores `irmaaMagiOf(realizedMagi, ...)` after convergence. The two
@@ -274,23 +295,29 @@ cost at this MAGI", and in an appeal year that cost includes the in-year candida
 - **The 162(l) deduction (round 1, S4).** For a self-employed person on Medicare the year's premiums, IRMAA included, are the
   deduction's base (`seHealthDeduction`). With an in-year candidate, a higher tier raises the deduction, which lowers the MAGI:
   negative feedback, so a year at a tier edge can have no fixed point and reach the 162(l) search (E1c decisions 9, 10, 12). The
-  search's step 1 prices `costAt` at a MAGI of 1e12: the in-year candidate is then the top tier, so the minimum returns the
-  normal charge (the deduction at the full premiums, as the alternative calculation intends). The bisection probes price the
+  search's step 1 prices `costAt(trad, gain, -1e12, -1e12)`: deduction arguments of -1e12 put the engine MAGI near +2e12 on one
+  return (+1e12 per return on two), above every line, so the in-year candidate is the top tier and the "strictly lower" rule
+  returns the normal charge (the deduction at the full premiums, as the alternative calculation intends; round 2, minor 5). The bisection probes price the
   candidate at each probe's MAGI, which keeps `g(D)` decreasing (a higher D lowers the MAGI, which can only lower the charge, so
   the allowed deduction falls). The invariant that the deduction never exceeds the premium paid is asserted for an appeal
-  household (section 8, case 14).
+  household (section 8, case 15).
 
 ### 5.5 The cliff plan (decision 7)
 
-At the `magiThresholds` call in the withdrawal plan, when the year's `hcOut.appealInYear` is true the call passes
-`irmaa: { filing, a: medA || nowA, b: medB || nowB }`, where `nowA/B` are the partners whose in-year candidate was priced this
-year (returned by `healthcareCost` as `inYearA/B`), and growth 1 for them; otherwise the call is unchanged (with 5.1's `filing`).
-Growth is per return (round 1, M3): `c.irmaaGrowth` stays the household's value, and a new `c.irmaaGrowthA` / `c.irmaaGrowthB`
-(default `c.irmaaGrowth`) is read by the two-return branch for A's and B's lines, so a two-return year in which only A has an
-in-year candidate moves only A's lines to growth 1. The household branch (one return) uses 1 when any partner has an in-year
-candidate (one MAGI sets both charges). The lines keep ids
-`irmaa1..5` and family `irmaa`, so `apply` finds them by id in the same year's lines. `yearPlanCandidates`, the trial rules,
-`irmaaAt` and `afterTaxValue` are unchanged.
+The year loop keeps the year's in-year flags in two locals, `inYrA` / `inYrB`, set from `hcOut.inYearA/B` (they do not depend
+on the pass's MAGI, 5.3, so any pass's values serve). At the `magiThresholds` call in the withdrawal plan (round 2, S6):
+
+```js
+irmaa: { filing, a: medA || inYrA, b: medB || inYrB },
+irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2,          // one return: one MAGI sets both charges
+irmaaGrowthA: inYrA ? 1 : irmaaGrowth2,                   // two returns: per return (round 1, M3)
+irmaaGrowthB: inYrB ? 1 : irmaaGrowth2,
+```
+
+`magiThresholds`' household branch reads `c.irmaaGrowth` (unchanged); its two-return branch reads `c.irmaaGrowthA` for A's lines
+and `c.irmaaGrowthB` for B's (each defaulting to `c.irmaaGrowth`, so other callers and the tests' direct calls are unchanged).
+Without an in-year flag the call is today's with 5.1's `filing`. The lines keep ids `irmaa1..5` and family `irmaa`, so `apply`
+finds them by id in the same year's lines. `yearPlanCandidates`, the trial rules, `irmaaAt` and `afterTaxValue` are unchanged.
 
 Unchanged readers, by design: `conversionMagiCeiling` (already this year's tier and edges), `lambdaEstimate` (its samples price
 IRMAA on their own MAGI), `irmaaChecks` / `planStats` (statistics; on this year's filing after 5.1, and in an appeal
@@ -298,9 +325,11 @@ year they still compare at the two-years-on tiers).
 
 ### 5.6 Rows and display
 
-After the year's final cost is charged (the year's `hcOut`, or `lastCost` after a forced-pass refund), for each partner P with
-`appealP >= 0` the row carries two flat scalars (round 1, M5: `tests/historical_parity.js` compares non-numbers with `!==`, so no
-objects): `irmaaAppealYearP` (the calendar tax year used, `taxYearOf(appealP)`) and `irmaaAppealKindP` (the event kind code of
+The year loop keeps the year's appeal result in two locals, `appealYrA` / `appealYrB` (round 2, S5: `lastCost` is overwritten
+later by the plan's `premiumAt` probes and by `seSearch`, so the row must not read it): set from `hcOut.appealA/B` right after the
+pass's `healthcareCost` call, and set again from `lastCost.appealA/B` immediately after the forced pass's `costAt` re-pricing (the
+cost actually charged). The row reads only these locals: for each partner P with `appealYrP >= 0` it carries two flat scalars (round 1, M5: `tests/historical_parity.js` compares non-numbers with `!==`, so no
+objects): `irmaaAppealYearP` (the calendar tax year used, `taxYearOf(appealYrP)`) and `irmaaAppealKindP` (the event kind code of
 5.2, chosen as 5.2's last paragraph says). The lookback year shown in the tooltip is `taxYearOf(row.year - 2)`. The fields exist
 only in rows whose charge the appeal lowered, which move anyway.
 
@@ -357,9 +386,12 @@ stage's identical / different counts against the previous baseline, as the IRMAA
 - Timing: `node tests/bench_runs_interleaved.js --base <baseline worktree> --rounds 21`, the median of three runs, at most +5%
   per path; `tests/bench_solver.js --base` (the ACA early retiree and the default household) and `tests/bench_plan.js` (planning
   at most 5x one off projection) recorded. Neither benchmark household has Medicare in an event window (round 1, S5), so the plan
-  adds one to the interleaved timing: a single person retiring at 67 from a 200,000 salary with a traditional balance and spending
-  that draws in years E and E+1 (400 `simulate()` and 120 historical runs, interleaved against the base, at most +5%; the extra
-  passes are inside this household's two window years only).
+  adds one to the interleaved timing (round 2, minor 6): `tests/bench_runs_interleaved.js` gains `--household appeal`, which
+  applies a fixed patch on both pages (single, age 66, salary 200,000 retiring at 67 so E = 1 and Medicare starts at 67, with a
+  normal charge above 0 from the year-0 salary; traditional IRA 1,500,000; spending that draws in years 1 and 2) and calls
+  `simulate(67, 67)` in every iteration instead of the script's retirement-age sweep (the sweep's 55 to 62 would put the
+  retirement before today and remove the event). Run with `--states tx,ca --household appeal --rounds 21` against the base;
+  at most +5% per path. The script lives in the head tree and drives both pages, so the base tree needs no change.
 - `tests/cliff_plan.js`, `tests/cliff_guard.js` and the other cliff-plan tests unchanged and green; `tests/plan_off_anchor.js`
   re-based as in section 6.
 
@@ -380,8 +412,16 @@ unless a case says otherwise. Tax years: plan year y is 2026 + y.
    Year 6 (lookback year 4, 125,000 single): 6,148.40 on both trees.
 2. **Decision 1, a death in year 0 with entered prior MAGIs** (stage 1; round 1, S2). Case 1's couple, A dies at 68 (`deathYear`
    0), `irmaaPriorKnown` with 250,000 for both prior years. Year 0 (B only): 5,000 + 1,148.40 (the entered joint 250,000 on the
-   joint tiers, year 0's status `mfj`; unchanged). Year 1: today the single tiers (tier 4), 11,355.20; after stage 1 year 0's
-   status `mfj`, 6,148.40.
+   joint tiers, year 0's status `mfj`; unchanged). Year 1: today the single tiers (tier 4), 11,355.20; after stage 1 the joint
+   tiers, 6,148.40. **After stage 2** (round 2, S3; these values replace the stage-1 ones in the file): year 0 is 5,000 (the
+   in-year 125,000 on `mfj`: 0), `irmaaAppealYearB` 2026, kind 3; year 1 is 5,000 (year 0's 125,000 on `irmaaFilingHistory[0]` =
+   `mfj`: 0), tax year 2026, kind 3.
+2b. **Decision 1, a death before the plan with entered prior MAGIs** (stage 1; round 2, S4). Case 1's couple, A dies at 66
+   (`deathYear` -2, so A is absent from 2024 on: 2024's return is joint, 2025's is B's own; before the plan, not an event),
+   `irmaaPriorKnown` with `irmaaMagiPrior2` 250,000 (the joint 2024 return) and `irmaaMagiPrior1` 125,000 (B's 2025 return).
+   Year 0 (B only, `L` = -2 <= `deathYear`): today on year 0's status `single`, 250,000 is tier 4, 5,000 + 6,355.20 = 11,355.20;
+   after stage 1 `'mfj'`, tier 1, 6,148.40. Year 1 (`L` = -1 > -2: year 0's status `single`): 125,000 on the single tiers, tier
+   1, 6,148.40 on both trees. Unchanged at stage 2 (no event).
 3. **The survivor with the appeal** (stage 2; case 1's household). Year 3: min(1,148.40; year 3's 125,000 on its joint return: 0)
    = 0, healthcare 5,000, `irmaaAppealYearB` 2029, `irmaaAppealKindB` 3. Year 4: min(1,148.40; year 3: 0; year 4's 125,000 single:
    1,148.40) = 0, 5,000, tax year 2029. Years 5 on as case 1 after stage 1. Partner A's fields are absent in every row.
@@ -410,15 +450,20 @@ unless a case says otherwise. Tax years: plan year y is 2026 + y.
    when married, covers the survivor). (e) A death before the plan (`survivorDeathAge` below today's age, `deathYear` -1; round 1,
    S1): no event, the table is `null`, years 0 and 1 unchanged. (f) An event nobody it covers can use: a single person retiring
    at 58 from 50 (65 is beyond E+1): `null` (round 1, M6). (g) The default state: `null`.
-11. **The table** (`__test_irmaaAppealTable`, `{ eventA, eventB }` as plain arrays or `null`): case 7 (`eventA[2] = eventB[2] =
+11. **The table** (the run's non-enumerable `irmaaAppeal`, read as plain arrays or `null`): case 7 (`eventA[2] = eventB[2] =
    2`, all else 0); case 8 (`eventA[4] = 1`); a married death at year 0 (the survivor's `[0] = 3`); a retirement at 68 (E = 2)
-   and a stream end at 69 (E = 3) for the same person (`[2] = 2`, `[3] = 1`); a retirement and a death in the same year (the
-   higher kind, 3); an event at the plan's last year (set at that index).
+   and a W-2 stream whose last working age is 68 (`endAge` 68, so E = 3) for the same person, aged 66 (`[2] = 2`, `[3] = 1`);
+   a retirement and a death in the same year (the higher kind, 3); an event at the plan's last year (set at that index); a
+   retirement clamped to the death age of an unmarried partner (covers only the dead partner: dropped, the table `null`; round
+   2, minor 3).
 12. **The kind a row reports** (round 1, M4). Case 11's retirement-then-stream-end person, single, salary 200,000 retiring at 68,
    a W-2 stream of 50,000 at 68 (ending after 68: E = 3), pension 60,000 from 68. Year 2 (MAGI 110,000, tier 1): min(4,620;
    1,148.40) = 1,148.40, tax year 2028, kind 2. Year 3 (MAGI 60,000): min(4,620; year 2: 1,148.40; year 3: 0) = 0, tax year 2029,
-   kind 1 (the stream end in year 3 is the latest event at or before 2029). A variant where year 3's MAGI is higher than year 2's
-   (an `ordinary` 100,000 at 69: 160,000) picks year 2 in year 3 (1,148.40) and reports kind 2, not 1.
+   kind 1 (the stream end in year 3 is the latest event at or before 2029). Year 4 (the stream end's E+1; normal = year 2's
+   110,000, 1,148.40): min(1,148.40; year 3: 0; year 4: 0) = 0, tax year 2029 (the earlier year on a tie), kind 1 (round 2,
+   minor 2). A variant where year 3's MAGI is higher than year 2's (an `ordinary` 100,000 at 69: 160,000) picks year 2 in year 3
+   (1,148.40) and reports kind 2, not 1; its year 4 is min(1,148.40; year 3: 2,884.80; year 4's 60,000: 0) = 0, tax year 2030,
+   kind 1.
 13. **Convergence (in-year; round 1, S3).** A single retiree retiring at 67 from 200,000 with a traditional IRA of 1,500,000 and
    spending that requires a draw in year E, set so the year's realized MAGI lands at least $100 away from every tier edge (the
    test asserts that precondition). The charged surcharge equals `irmaaSurcharge(irmaaMagiOf(row.magiProxy, 0, 'single'),
@@ -431,16 +476,28 @@ unless a case says otherwise. Tax years: plan year y is 2026 + y.
    its healthcare is 11,148.40.
 15. **The 162(l) deduction (round 1, S4).** Case 4 without its pension, plus a self-employed stream (owner A, profit 80,000 a year from 60 to 80):
    after 68 no employer coverage, so the premiums (Medicare and IRMAA) are deductible up to the plan net (Solo plan rate 0). Years 2 and 3: the
-   appealed charge is 0 (MAGI about 80,000 less half the SE tax and the deduction, under 109,000), healthcare 10,000, deduction 10,000. A variant whose year-2 MAGI sits just above
-   109,000 before the deduction (profit tuned in the test, stated there) asserts the invariant of `tests/se_health.js`: the
-   deduction never exceeds the premium actually charged, in every year of the run, and the run completes (converged, held or
-   forced).
-16. **The lines** (stage 2; round 1, S6). Inflation 3%; a single person, 66, salary 200,000 retiring at 68, no pension, a
-   traditional IRA of 2,000,000 and spending 110,000, so year 2 (an in-year candidate) draws and its natural MAGI is above the
-   first line. The plan trace of year 2 lists an IRMAA candidate on `irmaa1` whose line is `109,000 x taxIndexFactor(2)` =
-   115,638.10 (growth 1; no benefit, so `magiForIrmaaLine` is the identity). In year 5 (no candidate) the `irmaa1` line, if
-   offered, is `109,000 x 1.03^5 x 1.03^2` (growth `irmaaGrowth2`, as today). The test states the spending it settled on so that
-   the natural MAGI is within the year's reach and above the line.
+   appealed charge is 0 (MAGI about 80,000 less half the SE tax and the deduction: 80,000 - 5,651.80 - 10,000 = 64,348.20, under
+   109,000), healthcare 10,000, deduction 10,000.
+   **The feedback variant** (round 2, S2). The interplay exists only when the year-2 MAGI before the deduction lies in (119,000,
+   120,148.40]: with a deduction of 10,000 (no surcharge) the MAGI is over 109,000 and the charge is tier 1, but with a deduction
+   of 11,148.40 (tier 1 included) it is under 109,000 and the charge is 0. MAGI before the deduction is 0.92935 x profit (profit
+   less half the SE tax, under the Social Security wage base after the salary stops), so a profit of about 128,050 to 129,280
+   (the test states the value it uses). No consistent deduction exists in that band, so the year takes the alternative
+   calculation (E1c decisions 9, 10): step 1 prices the full premiums at the normal charge, tier 4 (year 0's MAGI, salary plus
+   profit, about 326,800), 10,000 + 6,355.20 = 16,355.20; at the MAGI that deduction gives, the in-year charge is 0, so the held
+   deduction is 10,000; the year's final charge is then tier 1 (MAGI before the deduction less 10,000 is over 109,000):
+   healthcare 11,148.40, deduction 10,000 (below the premium paid). Assert those values, `magiStats.seAlternative` = 1 for the
+   run (read as `tests/se_health.js` reads it), and the invariant of `tests/se_health.js` (the deduction never exceeds the
+   premium charged) in every year.
+16. **The lines** (stage 2; round 1, S6; round 2, S1). Inflation 3%; a single person, 66, salary 200,000 retiring at 68, no
+   pension, a traditional IRA of 2,000,000. Year 2 has an in-year candidate (normal charge tier 3 on year 0's 200,000 x 1.03^0,
+   above 0). Its lines at growth 1 are 109,000 / 137,000 / 171,000 x `taxIndexFactor(2)` = 115,638.10 / 145,343.30 / 181,413.90
+   (no benefit: `magiForIrmaaLine` is the identity). `yearPlanCandidates` offers only the nearest line below the natural MAGI
+   and the line with the largest step, so the spending is set (about 85,000 to 90,000; the test states its value and asserts the
+   natural MAGI lies between 115,638.10 and 145,343.30) so that the nearest line below is `irmaa1`. The plan trace of year 2
+   then lists a stay-under candidate on `irmaa1` whose line is 115,638.10. In a later year without a candidate an IRMAA line,
+   when one is offered, carries `irmaaGrowth2` (as today): the test asserts the line of whichever IRMAA candidate appears there
+   equals its tier edge x `taxIndexFactor(y)` x 1.03^2.
 17. **Legacy.** `tests/snapshot.js` (every non-mover identical), the existing IRMAA tests (`irmaa_magi`, `irmaa_startup`,
    `irmaa_gating`, `medicare_enrollment`, `two_return_magi`, `solver_hooks`, `cliff_plan`, `cliff_guard`) unchanged; any existing
    expectation that must change is listed with its reason in the stage's record (expected: case (d) of `tests/irmaa_magi.js` is
@@ -464,8 +521,9 @@ plan).
 - **Attribution:** any drop in MAGI in an event window is credited to the event; SSA requires the reduction to come from it. The
   guard is that the job had pay (a zero-income retirement or stream is not an event).
 - **Whole years:** events at the start of a year; a mid-year retirement's partial salary is not modeled (the engine has none).
-- **Events before the plan:** a retirement at or before today's age is not an event; the entered prior MAGIs (or the year-0
-  stand-in) stand. The entered returns' filing status is assumed to be year 0's.
+- **Events before the plan:** a retirement at or before today's age, or a death before the plan, is not an event; the entered
+  prior MAGIs (or the year-0 stand-in) stand. The entered returns' filing status is year 0's, except that a return from before
+  a married partner's death is joint (5.1, round 2 S4).
 - **Timing of SSA's corrections:** the estimate, the later IRS check and the retroactive adjustment are collapsed into a charge
   on the realized MAGI in the premium year.
 - **The plan's scoring:** `irmaaAt` prices only the charge two years on; the effect of year E's MAGI on year E+1's charge is not
@@ -500,3 +558,25 @@ match; SSA-44 and POMS taken from the spec), confirmed decision 1's analysis, th
 - Also adopted (the round's consequences): year 0 without entered prior MAGIs never prices an in-year candidate (its stand-in is
   already this year's MAGI), so `appealInYear` never depends on the pass's MAGI (5.3); `irmaaFiling2()` is removed (5.1).
 - Owner, 2026-10-11: the `irmaaAt` / lines filing change (5.1) and the callout's dropped "Medicaid coverage gap" (5.6) approved.
+
+**Round 2** (independent Opus, of `16098f7`, owner-run, 2026-10-11): no blocking findings; 6 should-fix and 7 minor, all
+adopted (owner, 2026-10-11). The reviewer confirmed that `inYearA/B` cannot depend on the pass's MAGI (every normal charge reads
+fixed inputs once year 0 is skipped), that the S2 change moves no non-survivor case (marry-later weddings in year 0 or 1, single,
+hoh, qss), the 162(l) argument (g(D) stays decreasing; per return on two returns), that `choose` and a replaying `apply` build the
+same lines, and re-derived cases 1 to 14 and the base of 15 (`SINGLE_LIFE_TABLE[68]` = 20.4, so the inherited floor does not bind).
+- S1: test 16 could not list `irmaa1` (`yearPlanCandidates` offers the nearest line below and the largest step; at spending
+  110,000 both are `irmaa2`): the spending is set so the natural MAGI lies between the first two lines. (The reviewer's line
+  values 145,342.30 and 181,412.90 are 1 low: 137,000 and 171,000 x 1.0609 are 145,343.30 and 181,413.90.)
+- S2: test 15's variant never reached the interplay: the band (MAGI before the deduction in (119,000, 120,148.40], a profit of
+  about 128,050 to 129,280), the alternative calculation's values and `magiStats.seAlternative` = 1 are now stated.
+- S3: cases 1 to 2 change at stage 2: the stage-2 values of case 2 are listed and replace the stage-1 ones.
+- S4: a death before the plan with entered prior MAGIs still read the single tiers in years 0 and 1: `irmaaLookbackFiling` reads
+  `'mfj'` for an entered return from a year the married partner was alive (5.1), case 2b.
+- S5: the row reads its own locals `appealYrA/B` (set from `hcOut`, and again after the forced pass's `costAt`), never `lastCost`.
+- S6: `healthcareCost` returns `inYearA/B` (not `medicareA/B`); the literal `magiThresholds` arguments for one and two returns.
+- Minor: the planning subsets can build different lines (reworded; harmless, `absent`); case 12's year 4 asserted and case 11's
+  stream end stated as `endAge` 68; retirements bounded by `projectionYears` and an event whose only covered person is dead
+  dropped; 5.1 and 5.4 wording; the benchmark household (age 66, retiring at 67) through a new `--household appeal` option of
+  `bench_runs_interleaved.js`; the event table attached non-enumerably to the run's result for the test.
+
+Round 2 had no blocking findings, which meets the review loop's stop condition.
