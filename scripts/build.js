@@ -34,6 +34,7 @@ async function bundleJs(entry) {
     format: 'iife',
     target: 'esnext',
     charset: 'utf8',
+    banner: { js: '"use strict";' },
     minify: flag('--minify'),
     sourcemap: flag('--sourcemap') ? 'inline' : false,
     logLevel: 'warning',
