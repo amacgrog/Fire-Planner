@@ -192,20 +192,20 @@ for the docs-per-stage rule.
 - **Cross-platform build.** The script must run on Windows and Linux.
 - **State interface churn.** About 67 `state.*` reads in the engine move to the store
   import (section 10). The live-binding design keeps these edits mechanical; the eight
-  or so `state = ...` reassignments become `setState(...)`.
+  or so `state = ...` reassignments become `assignState(...)`.
 - **Generator output review noise.** Moving generated data to modules produces a large
   one-time diff; keep that commit separate and mechanical.
 
 ## 10. Resolved decisions
 
 - **Store.** `src/shared/core/store.js` exports `state` (a live binding) and
-  `setState(next)`. `state` is reassigned wholesale in about eight places today
-  (load, scenario import, undo, backup restore); those become `setState(...)`, and
+  `assignState(next)`. `state` is reassigned wholesale in about eight places today
+  (load, scenario import, undo, backup restore); those become `assignState(...)`, and
   readers keep writing `state.x` unchanged. The shape mirrors Zustand's vanilla API so
   a library could be swapped in later. No state-management library now: input handlers
   mutate `state` in place, so a library's guarantees would not hold without converting
   every write, and Valtio-style proxies would slow the engine's hot path. Tests set
-  state with `setState(normalizeState({...}))`; Vitest isolates each test file.
+  state with `assignState(normalizeState({...}))`; Vitest isolates each test file.
 - **No `inputs` parameter now.** Threading a whole-`state` parameter through the engine
   only moves the global into every signature. See section 11.
 - **Purity check.** A Vitest scan (not ESLint; the project has no linter) reads every
@@ -281,20 +281,29 @@ by one future module only.
 ### Homes for mutable state
 
 - Cross-module state gets small country-neutral modules under `src/shared/core/`:
-  `state` (live binding plus `setState`), `mode`, the chart preferences (`chartView`,
+  `state` (live binding plus `assignState`), `mode`, the chart preferences (`chartView`,
   `chartShiftMode`, `chartGapPartner`, `chartXAxisMode`, `logScale`, `chartExpanded`,
-  `chartToolbarCollapsed`, `mcPathCount`, `lastProjectionView`), `scenarios`, `currentYear`, and
-  `histTaxFactors` / `taxFactorInflation`.
+  `chartToolbarCollapsed`, `mcPathCount`, `lastProjectionView`), `scenarios` and `histTaxFactors`.
+  (`taxFactorInflation` is written only inside its own region, so it stays module-private. The
+  US-only `currentYear` goes with the other US-only state below. `theme`, `hasPersonalizedData` and
+  the `setMobileView` holder are declared and written only inside shared fragments, each with a DOM
+  initializer, so they move with those fragments in stage 2.)
 - Primitives are exported as live bindings with setters, so readers keep writing `chartView`
-  rather than `ui.chartView`; only the owning module assigns. Objects mutated in place are plain
+  rather than `ui.chartView`; only the owning module assigns. Setters are named
+  `assign<Name>` (`assignState`, `assignMode`, ...) because the natural `set<Name>` names are taken by
+  UI handlers that do more than assign (`setMode`, `setChartView`, `setMcPathCount`, ...). Objects mutated in place are plain
   exports.
-- US-only: the eight `cliffPlan*` variables become one `cliffPlan` state object in a US module;
-  the test-hook counters and flags (`inhTakeCount`, `testInhForce`, `testInhNoNeedAdj`,
-  `inhNoDrawCalls`, `irmaaInYearCalls`) become a `testHooks` object, out of the engine's way.
+- US-only (modules under `src/us/core/`): the eight `cliffPlan*` variables become one
+  `cliffPlanStore` object; the optimizer override maps and the last optimizer run
+  (`rothBracketOverrideByAge`, `withdrawalMixOverrideByAge`, `lastMultiLeverRun`,
+  `rothPerYearEvalBudget`) become an `optimizerState` object; the test-hook counters and flags
+  (`inhTakeCount`, `testInhForce`, `testInhNoNeedAdj`, `inhNoDrawCalls`, `irmaaInYearCalls`)
+  become a `testHooks` object, out of the engine's way; `currentYear` becomes a live binding
+  with `assignCurrentYear`.
 - Module-private rule: a binding written by one future module stays private to it. Those
   move with their region in stage 2; stage 1 extracts only the cross-region ones.
 - The big inventory cycle (`FIELDS` / `normalizeState` / the `state` group) is broken by
-  starting the store at `null`; `main.js` calls `setState(normalizeState(null))` at startup.
+  starting the store at `null`; `main.js` calls `assignState(normalizeState(null))` at startup.
   The store therefore imports nothing from a country.
 
 ### Order and verification
