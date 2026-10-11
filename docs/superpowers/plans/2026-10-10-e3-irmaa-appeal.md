@@ -58,6 +58,15 @@ Minor: double-quoted messages (M1), the real comment text in Task 1 3.6 (M2), th
 anchor's printed names (M4), README spacing (M5), the untested forced-pass reset named in the record (M6). The owner asked for
 a third review.
 
+**Plan review, round 3** (independent Opus, of `f8c6eb3`, owner-run; Tasks 1-5 applied, each task red as predicted then
+green; the round-2 counter and growth tests go red on their mutations; movers 38 / 21 / 0 unchanged; `npm test` green with
+Tasks 1-3): no blocking findings; 2 should-fix and 4 minor, all adopted (owner, 2026-10-11). S1: a call-site-shaped growth case
+(only `c.irmaaGrowthB` can put B's lines at 1.0609). S2: the appeal household measured +5% to +7% at 21 rounds (medians of
+three), so the expected range is restated as "+4% to +35% depending on rounds and load; above about +40% is a finding" (spec
+section 7 matched). Minor: the case-2 messages, line-ending-only snapshot files after `snapshot:update`, the stale cliff-plan
+clause in CLAUDE.md and the matching `magiThresholds` comment, the README insertion point. No blocking findings: the review
+loop's stop condition is met.
+
 ## Global Constraints
 
 - Worktrees: `git -C C:\Users\Alex\code\Fire-Planner worktree add ../fp-e3 -b claude/e3-irmaa-appeal PLAN_COMMIT`
@@ -80,6 +89,11 @@ a third review.
   table (Step "STOP" in each). `canada.json` never changes. Every new term is skipped (not added as a zero) when its gate is
   off: with a `null` event table, a year without an open window, or a normal charge of 0, `healthcareCost` must give the
   very double it gives today (`healthcare += ia` in the same order, A before B).
+- `npm run snapshot:update` also runs `tests/snapshot_ui.js --update`, and on this CRLF tree it can leave `canada.json`,
+  `ui_us.json` and `ui_canada.json` shown as modified with **line-ending-only** changes (`git diff --stat` empty for them).
+  That is expected (plan review round 3, M2): restore them with `git checkout -- tests/snapshots/canada.json
+  tests/snapshots/ui_us.json tests/snapshots/ui_canada.json` (outside Task 5, where `ui_us.json` has real text-hash changes)
+  and never commit them. A real content change in any of them is a stop.
 - `tests/snapshots/ui_us.json` changes only in Task 5 (the healthcare callout text inside `<main>`; text hashes and lengths
   only) and the commit says which hashes moved. Any other `ui_us.json` change: stop and report.
 - No heuristic, gate or threshold the spec does not name.
@@ -88,9 +102,10 @@ a third review.
   this machine). From Task 3 on also run `node tests/bench_runs_interleaved.js --base ../fp-e3-base --rounds 21 --states
   tx,ca --household appeal` (the option Task 3 adds) three times and report the median: **a recorded measurement for the
   owner's sign-off, not a gate** (owner, 2026-10-11, plan review round 2, B1; spec section 7). The base tree has no appeal,
-  and the head tree's two window years run about three and two MAGI passes instead of one, so expect about +15% to +35%
-  (the review measured at 7 rounds: tx +15.6% simulate / +34.6% historical, ca +22.4% / +27.5%); a figure far outside that
-  range is a finding to report. Report the tables verbatim.
+  and the head tree's two window years run about three and two MAGI passes instead of one, so it is slower: plan reviews
+  measured +4% to +35% depending on the rounds and the machine's load (round 2 at 7 rounds: tx +15.6% simulate / +34.6%
+  historical, ca +22.4% / +27.5%; round 3 at 21 rounds, medians of three: tx +5.3% / +7.0%, ca +6.2% / +6.3%). Report the
+  figures; only a figure above about +40% is a finding. Report the tables verbatim.
 - **Movers tables** (Tasks 1, 3, 4): with `D=.superpowers/sdd/2026-10-10-e3/dumps-taskN` (N the task; git-excluded, never the
   worktree root): `node tests/snapshot.js --root ../fp-e3-prev --dump $D/A --update-nothing`, `node tests/snapshot.js --dump
   $D/B`, `node tests/snapshot.js --compare $D/A $D/B` (for Task 1 `fp-e3-prev` is at PLAN_COMMIT). The
@@ -532,7 +547,8 @@ stage-2 values replace the stage-1 ones in the file):
   `assert.strictEqual(c1[3].irmaaAppealYearB, 2029); assert.strictEqual(c1[3].irmaaAppealKindB, 3);`,
   `assert.strictEqual(c1[4].irmaaAppealYearB, 2029);`, and `for (const r of c1) assert.strictEqual(r.irmaaAppealYearA, undefined);`
   and `assert.strictEqual(c1[5].irmaaAppealYearB, undefined);`.
-- case 2: `hc(c2, 0)` and `hc(c2, 1)` are `5000`; `c2[0].irmaaAppealYearB === 2026`, `c2[0].irmaaAppealKindB === 3`,
+- case 2: `hc(c2, 0)` and `hc(c2, 1)` are `5000`, with the messages (double-quoted: they contain apostrophes) "case 2 year 0:
+  appealed on year 0's 125,000 on its joint return: 0" and "case 2 year 1: appealed on year 0's 125,000 (joint return): 0"; `c2[0].irmaaAppealYearB === 2026`, `c2[0].irmaaAppealKindB === 3`,
   `c2[1].irmaaAppealYearB === 2026` (year 1: min(1,148.40; year 0's 125,000 on `irmaaFilingHistory[0]` = mfj: 0; year 1's
   125,000 single: 1,148.40) = 0, the earlier year). Years 2 and 3 unchanged.
 
@@ -981,9 +997,12 @@ Append (case 16, spec 8; round 2 S1):
     const pick = (lines, ret) => lines.filter((l) => l.family === 'irmaa' && l.ret === ret).map((l) => [l.id, l.magi]);
     try {
       const mixed = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1.0609, irmaaGrowthA: 1 })),
+        // Shaped like the year loop's call when only A has an in-year candidate (plan review round 3, S1): the household
+        // growth is 1, so only c.irmaaGrowthB can put B's lines at 1.0609.
+        site = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1, irmaaGrowthA: 1, irmaaGrowthB: 1.0609 })),
         one = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1 })),
         two = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1.0609 }));
-      return { mixedA: pick(mixed, 'A'), oneA: pick(one, 'A'), mixedB: pick(mixed, 'B'), twoB: pick(two, 'B') };
+      return { mixedA: pick(mixed, 'A'), oneA: pick(one, 'A'), mixedB: pick(mixed, 'B'), twoB: pick(two, 'B'), siteA: pick(site, 'A'), siteB: pick(site, 'B') };
     } finally {
       for (const k of Object.keys(st)) delete st[k];
       Object.assign(st, saved);
@@ -992,6 +1011,8 @@ Append (case 16, spec 8; round 2 S1):
   assert(perReturn.mixedA.length === 5 && perReturn.mixedB.length === 5, 'per-return growth: five finite IRMAA lines per return');
   assert.deepStrictEqual(perReturn.mixedA, perReturn.oneA, 'per-return growth: A at growth 1');
   assert.deepStrictEqual(perReturn.mixedB, perReturn.twoB, 'per-return growth: B at the household growth');
+  assert.deepStrictEqual(perReturn.siteA, perReturn.oneA, 'per-return growth, call-site shape: A at growth 1');
+  assert.deepStrictEqual(perReturn.siteB, perReturn.twoB, 'per-return growth, call-site shape: B reads c.irmaaGrowthB');
 ```
 
 (`window.__test_runPlanMode({ planMode, plan })` (~17646) returns `{ rows, intents, ... }`; `tests/cliff_plan.js` (~225)
@@ -1037,8 +1058,10 @@ becomes (per-return growth; `gA === g` gives the identical double `edge * f * g`
         }
 ```
 
-(`cap < Infinity` was `edge < Infinity`: a finite edge times finite factors is finite.) Add one line to the IRMAA comment
-above: "E3: a caller may pass c.irmaaGrowthA / c.irmaaGrowthB (two returns, per return); a year with an in-year IRMAA
+(`cap < Infinity` was `edge < Infinity`: a finite edge times finite factors is finite.) In the IRMAA comment above the block,
+replace "to the partners on Medicare then, under that year's filing status; a caller may pass those" with "to the partners on
+Medicare then, on this year's return's filing status (the return SSA will read, E3); a caller may pass those" (plan review
+round 3, M3), and add one line: "E3: a caller may pass c.irmaaGrowthA / c.irmaaGrowthB (two returns, per return); a year with an in-year IRMAA
 appeal candidate passes growth 1 (this year's edges)."
 
 3.2. The call site (~11805): replace `irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2,` with
@@ -1197,14 +1220,13 @@ is appealed automatically (form SSA-44)." (inside the attribute; an apostrophe i
 
 3.4. Badge: `V129` -> `V130` in the `<h1>` span (~276).
 
-3.5. README.md, the IRMAA bullet (~110, begins "- Medicare IRMAA surcharge modeling"): append before its last sentence
-("Optionally enter your MAGI ..."): " The lookback uses the tiers of the filing status on that earlier return (a survivor's
+3.5. README.md, the IRMAA bullet (~110, begins "- Medicare IRMAA surcharge modeling"): insert immediately before its last
+sentence's first word "Optionally" (after the space already there; plan review round 3, M4): "The lookback uses the tiers of the filing status on that earlier return (a survivor's
 first two years after the death are charged on the joint tiers of the couple's joint returns). After a retirement, the end
 of a W-2 or self-employed job, or a spouse's death inside the plan, the household is assumed to file the IRMAA appeal for a
 life-changing event (form SSA-44): in the first one or two Medicare years after the event the surcharge uses that year's
 (or the year before's) income when that is lower; the year table's status tooltip says when. Marriage, divorce and the loss
-of a pension or property are not modeled as appeals. " (note the leading space before "The lookback" and the trailing space
-before "Optionally", so the sentences do not run together).
+of a pension or property are not modeled as appeals. " (no leading space; the trailing space separates it from "Optionally").
 
 - [ ] **Step 4: Run the tests**
 
@@ -1248,7 +1270,15 @@ after the forced pass's `costAt`; never read from `lastCost`) for the row's `irm
 `c.irmaaGrowthA/B`) in a year with an in-year candidate. The plan's `irmaaAt`, lines and `irmaaChecks` use this year's
 filing status (the return SSA will read); `irmaaFiling2` is gone. Test: `tests/irmaa_appeal.js`.
 
-1b. In the "Files" list, after the `tests/two_return_magi.js` mention or next to the IRMAA tests in the `tests/aca_medicaid.js`
+1b. In "Per-year solver and the cliff plan" (the `magiThresholds` hook description), the clause "IRMAA lines sit on the tiers of
+the year the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate
+`irmaaAt` uses), under the filing status and Medicare partners of that year;" becomes "IRMAA lines sit on the tiers of the year
+the surcharge is charged, two years on (`c.irmaaGrowth`, the year loop passes `irmaaGrowth2`, the estimate `irmaaAt` uses), on
+this year's return's filing status (the return SSA will read, E3) for the partners on Medicare then, and in a year with an
+in-year IRMAA appeal candidate on this year's edges (growth 1, per return through `c.irmaaGrowthA/B`; the candidate's partners
+added: `a: medA || inYrA`);" (spec section 9).
+
+1c. In the "Files" list, after the `tests/two_return_magi.js` mention or next to the IRMAA tests in the `tests/aca_medicaid.js`
 bullet, add: "`tests/irmaa_appeal.js` — E3: the lookback's filing status and the IRMAA appeal (form SSA-44), hand-computed;
 `test_irmaa_appeal.js` (Playwright, not in CI) covers the status tooltip and the callout." Also note under
 `tests/bench_runs_interleaved.js` the `--household appeal` option (one clause).

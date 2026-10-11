@@ -394,8 +394,9 @@ stage's identical / different counts against the previous baseline, as the IRMAA
   The script lives in the head tree and drives both pages, so the base tree needs no change. **This run is a recorded
   measurement for the owner's sign-off, not a +5% gate** (owner, 2026-10-11, after plan review round 2, B1): the base tree has
   no appeal and does strictly less work, and the head tree's two window years run about three and two MAGI passes instead of
-  one (the cost 5.7 accepts), so the household is expected to run about +15% to +35% slower (measured at 7 rounds: tx +15.6%
-  simulate / +34.6% historical, ca +22.4% / +27.5%). The +5% gate stays on the default paths above, the hot-path check (measured
+  one (the cost 5.7 accepts), so the household runs slower: plan reviews measured +4% to +35% depending on the rounds and
+  the machine's load (7 rounds: tx +15.6% simulate / +34.6% historical, ca +22.4% / +27.5%; 21 rounds, medians of three: tx
+  +5.3% / +7.0%, ca +6.2% / +6.3%); only a figure above about +40% is a finding. The +5% gate stays on the default paths above, the hot-path check (measured
   tx +0.5% / 0.0%).
 - `tests/cliff_plan.js`, `tests/cliff_guard.js` and the other cliff-plan tests unchanged and green; `tests/plan_off_anchor.js`
   re-based as in section 6.
@@ -587,5 +588,6 @@ same lines, and re-derived cases 1 to 14 and the base of 15 (`SINGLE_LIFE_TABLE[
 Round 2 had no blocking findings, which meets the review loop's stop condition.
 
 **Owner decision after plan review round 2 (2026-10-11):** the appeal household's timing (section 7) is a recorded
-measurement for the owner's sign-off, not a +5% gate: against a base without the appeal it is expected to run +15% to +35%
-slower (the extra MAGI passes of its two window years, the cost 5.7 accepts); the +5% gate stays on the default paths.
+measurement for the owner's sign-off, not a +5% gate: against a base without the appeal it runs slower (plan reviews measured
++4% to +35% depending on rounds and load; the extra MAGI passes of its two window years, the cost 5.7 accepts; above about
++40% is a finding); the +5% gate stays on the default paths.

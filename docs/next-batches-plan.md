@@ -2402,6 +2402,13 @@ decision: it is a recorded measurement for the owner's sign-off, the +5% gate st
 amended). S1: a test-only counter (`__test_irmaaInYearCalls`) pins that a zero normal charge is never priced. S2: a direct
 `magiThresholds` case pins the per-return line growth. The owner asked for a third plan review.
 
+Plan review, round 3 (independent Opus, of `f8c6eb3`, owner-run; Tasks 1-5 applied, every test red as predicted then green,
+movers 38 / 21 / 0 unchanged): 0 blocking, 2 should-fix, 4 minor, all adopted (owner, 2026-10-11). S1: a call-site-shaped case
+pins B's per-return growth. S2: the appeal household measured +5% to +7% at 21 rounds, so its expected range is restated as
+"+4% to +35% depending on rounds and load; above about +40% is a finding" (spec section 7 matched). Minor: the case-2 messages,
+line-ending-only snapshot files after `snapshot:update`, the stale cliff-plan clause in CLAUDE.md and its code comment, the
+README insertion point. No blocking findings: the review loop's stop condition is met; the plan goes to the implementer.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
