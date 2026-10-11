@@ -1,7 +1,7 @@
 # Modular source tree and single-file build: design
 
 Date: 2026-10-10
-Status: draft, awaiting review
+Status: approved; open items resolved (section 10)
 
 ## 1. Goal
 
@@ -177,15 +177,54 @@ for the docs-per-stage rule.
 - **Numeric drift.** The exact-match snapshots flag any change loudly.
 - **`file://` behavior.** Tests must run the built single file, not `src/`.
 - **Cross-platform build.** The script must run on Windows and Linux.
-- **State interface churn.** About 67 `state.*` reads in the engine need a settled path
-  (store import, plus an optional `inputs` parameter for tests). Decide the exact shape
-  at the start of stage 2.
+- **State interface churn.** About 67 `state.*` reads in the engine move to the store
+  import (section 10). The live-binding design keeps these edits mechanical; the eight
+  or so `state = ...` reassignments become `setState(...)`.
 - **Generator output review noise.** Moving generated data to modules produces a large
   one-time diff; keep that commit separate and mechanical.
 
-## 10. Open items for the implementation plan
+## 10. Resolved decisions
 
-- Exact shape of the `store` API and the optional `inputs` parameter.
-- Lint rule versus Vitest scan for the `core/` purity check.
-- Whether release builds minify by default.
-- Final directory names inside `shared/core` as the fragments are grouped by topic.
+- **Store.** `src/shared/core/store.js` exports `state` (a live binding) and
+  `setState(next)`. `state` is reassigned wholesale in about eight places today
+  (load, scenario import, undo, backup restore); those become `setState(...)`, and
+  readers keep writing `state.x` unchanged. The shape mirrors Zustand's vanilla API so
+  a library could be swapped in later. No state-management library now: input handlers
+  mutate `state` in place, so a library's guarantees would not hold without converting
+  every write, and Valtio-style proxies would slow the engine's hot path. Tests set
+  state with `setState(normalizeState({...}))`; Vitest isolates each test file.
+- **No `inputs` parameter now.** Threading a whole-`state` parameter through the engine
+  only moves the global into every signature. See section 11.
+- **Purity check.** A Vitest scan (not ESLint; the project has no linter) reads every
+  file under `src/**/core/`, strips comments, and fails on `document`, `window`,
+  `localStorage`, `navigator`, `requestAnimationFrame` or `alert`. A second test imports
+  each `core/` module in plain Node so a top-level DOM reference throws.
+- **Minification.** Output is unminified by default: readable stack traces and view
+  source, the tests run exactly what ships, and gzip on Pages covers transfer size. A
+  `--minify` flag exists in the build script; if it is ever enabled by default, CI runs
+  the suite once against the minified build.
+- **Directory names.** Group by topic and name files by content, not by the `NN-`
+  fragment numbers. Initial grouping, refined in stage 1 when each fragment is opened:
+  - `shared/core/`: `store`, `constants`, `housing`, `income`, `withdrawals`,
+    `guardrails`, `projection`, `decisions`, `sensitivity`, `taxFactors`, `format`
+  - `shared/ui/`: `persistence`, `plan`, `charts`, `table`, `dynamicLists`, `layout`,
+    `wizard`, `estimates`
+
+## 11. Future work (not part of this refactor)
+
+- **Stateless engine.** Goal: `runProjection` is a pure function of explicit inputs. It
+  does not read the store, does not mutate its inputs, and has no module-level mutable
+  state except documented memoization. Stage 3 adds Vitest ratchet tests for what is
+  already true: identical inputs give identical output; a deep-frozen `state` does not
+  throw; running scenario A then B equals B then A. At the start of stage 3, check
+  whether the sensitivity and optimizer code temporarily mutates `state` and restores
+  it, since those spots would need work.
+- **Precise function inputs via TypeScript.** Instead of passing `state` through the
+  engine, each function should take only the data it needs, with types documenting
+  that. esbuild strips TypeScript natively, so the build pipeline needs no change and
+  files can convert one at a time. Do this after the refactor, starting with `core/`.
+- **Centralized writes and subscriptions.** Once input handlers stop mutating `state`
+  directly, evaluate Zustand vanilla (or similar) to replace manual `render()` calls and
+  `writeStorageNow`.
+- **Hot reload.** Vite as a dev-only layer (see section 7).
+- **Merging the US and Canada engines.**
