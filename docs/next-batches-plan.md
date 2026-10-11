@@ -2237,6 +2237,22 @@ Left alone, and why:
 - The receipt-year forced-draw hook does not debit the row (test-only; the Step 0 identity compares everything but balances).
 - The RI row's IRA exclusion found during the state research stays an Open item (outside E1e).
 
+##### E2: design (owner decisions, 2026-10-10)
+
+Spec `docs/superpowers/specs/2026-10-10-e2-adoption-design.md` (base `6bfb1ed`; US V128, Canada V59). Both planners; the shared
+`01-LIST_MAX` (`dependentsInYear`, `normalizeLists`) and `23-dynFieldHtml` (a blankable number field) change, plus the US-only
+`hasChildAtMost` (the one reader that looped over `state.children` itself).
+- Scope (decision 1): an optional "Joins the household in" year per child row only; the adoption credits (US IRC 23, Canada
+  federal and provincial) are not modeled.
+- The child counts for the whole join year (decision 2): exact in the US (IRS Pub. 501, a child placed for adoption during the
+  year; 26 CFR 1.36B-1(d) for the ACA family); an approximation in Canada (ITA 122.61(1): the CCB starts the month after the
+  child moves in), as for the birth year today.
+- Validation (decision 3): a join year at or before the birth year means from birth; `normalizeLists` keeps `joinYear` only when
+  numeric and later than the birth year (fixed 1950-2100 bounds), else the key is absent, so legacy saves normalize exactly as
+  before; a bad join year never drops the row.
+- UI (decision 4): shared renderer option `blank: true` (and `placeholder`) for number fields; clearing deletes the key.
+- Nothing else changes (decision 5): age from the birth year, spending the user's; the stale US Children tooltip sentence is fixed.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
