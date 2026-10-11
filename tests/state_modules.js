@@ -21,6 +21,28 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   store.assignScenarios(list);
   assert.strictEqual(store.scenarios, list);
 
+  // chart-prefs.js: defaults, live bindings, setters
+  const prefs = await load('src/shared/core/chart-prefs.js');
+  assert.deepStrictEqual(
+    [prefs.chartView, prefs.chartShiftMode, prefs.chartGapPartner, prefs.chartXAxisMode, prefs.logScale,
+      prefs.chartExpanded, prefs.chartToolbarCollapsed, prefs.mcPathCount, prefs.lastProjectionView],
+    ['3yr', 'together', null, 'ageA', false, false, false, 1000, '3yr'],
+  );
+  prefs.assignChartView('mc');
+  prefs.assignChartShiftMode('gap');
+  prefs.assignChartGapPartner('B');
+  prefs.assignChartXAxisMode('year');
+  prefs.assignLogScale(true);
+  prefs.assignChartExpanded(true);
+  prefs.assignChartToolbarCollapsed(true);
+  prefs.assignMcPathCount(250);
+  prefs.assignLastProjectionView('cagr');
+  assert.deepStrictEqual(
+    [prefs.chartView, prefs.chartShiftMode, prefs.chartGapPartner, prefs.chartXAxisMode, prefs.logScale,
+      prefs.chartExpanded, prefs.chartToolbarCollapsed, prefs.mcPathCount, prefs.lastProjectionView],
+    ['mc', 'gap', 'B', 'year', true, true, true, 250, 'cagr'],
+  );
+
   console.log('state_modules OK');
 })().catch((err) => {
   console.error(err);

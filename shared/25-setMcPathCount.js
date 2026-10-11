@@ -32,7 +32,7 @@
     });
   });
   function setMcPathCount(n) {
-    mcPathCount = n;
+    assignMcPathCount(n);
     [
       ['mcPaths500Btn', 500],
       ['mcPaths1000Btn', 1000],
@@ -48,7 +48,7 @@
   document.getElementById('mcPaths1000Btn').addEventListener('click', () => setMcPathCount(1000));
   document.getElementById('mcPaths2000Btn').addEventListener('click', () => setMcPathCount(2000));
   document.getElementById('logScaleToggle').addEventListener('change', (e) => {
-    logScale = e.target.checked;
+    assignLogScale(e.target.checked);
     render();
   });
   // Best-effort only: real browser Fullscreen (which also hides the
@@ -78,7 +78,7 @@
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
   function setChartExpanded(next) {
-    chartExpanded = next;
+    assignChartExpanded(next);
     document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
     document.body.classList.toggle('chart-scroll-locked', next);
     if (next) tryEnterLandscapeFullscreen();
@@ -97,7 +97,7 @@
     requestAnimationFrame(() => requestAnimationFrame(render));
   }
   function setChartToolbarCollapsed(next) {
-    chartToolbarCollapsed = next;
+    assignChartToolbarCollapsed(next);
     const btn = document.getElementById('chartToolbarToggleBtn');
     document.getElementById('mainChartCard').classList.toggle('chart-toolbar-collapsed', next);
     btn.textContent = next ? '⌄' : '⌃';

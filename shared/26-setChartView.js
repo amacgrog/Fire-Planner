@@ -1,8 +1,8 @@
   function setChartView(next) {
-    chartView = next;
-    if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
+    assignChartView(next);
+    if (CHART_GROUPS[next] === 'projection') assignLastProjectionView(next);
     if (next === 'hist' || next === 'mc') {
-      logScale = true;
+      assignLogScale(true);
       document.getElementById('logScaleToggle').checked = true;
     }
     const map = {
@@ -67,7 +67,7 @@
       if (!undoSnapshot) return;
       assignState(undoSnapshot.state);
       assignMode(undoSnapshot.mode);
-      logScale = undoSnapshot.logScale;
+      assignLogScale(undoSnapshot.logScale);
       document.getElementById('logScaleToggle').checked = logScale;
       syncControls();
       syncContributionControls();
@@ -96,7 +96,7 @@
       children: defaults.children.map((t) => ({ ...t })),
     });
     assignMode('real');
-    logScale = false;
+    assignLogScale(false);
     document.getElementById('logScaleToggle').checked = false;
     setMcPathCount(1000);
     syncControls();

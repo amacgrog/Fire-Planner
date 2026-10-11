@@ -1,5 +1,6 @@
 import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
+import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
 (() => {
   const defaults = {
     singlePerson: false,
@@ -657,48 +658,6 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     return s;
   }
   assignState(normalizeState(null));
-  let chartView = '3yr',
-    // Display-only, like chartView/mode/logScale: which partner(s)
-    // move for the ±1yr/±3yr comparison chart. 'together' shifts both
-    // partners' dates by the same amount (today's original behavior);
-    // 'gap' shifts only one partner's date, narrowing or widening the gap
-    // between the two dates. Not part of state/scenario export, and reset
-    // to 'together' on reload — see chartShiftModeRow's visibility/
-    // disabled handling in render() for why.
-    chartShiftMode = 'together',
-    // Which partner moves in 'gap' mode: null means "auto" — track
-    // whichever partner currently retires earlier, same as this
-    // feature's original behavior. 'A' or 'B' means the person explicitly
-    // picked that partner via the Vary: Partner A/B buttons, which then
-    // sticks regardless of which partner is actually earlier — full
-    // manual control, not just auto-detection.
-    chartGapPartner = null,
-    // Display-only, like chartShiftMode above: which value the chart's
-    // x-axis is labeled/scrubbed in. All three are just an affine
-    // transform of the same underlying `age` (Partner A's age) every row
-    // already carries — 'ageB' = age - ageA + state.ageB, 'year' =
-    // CURRENT_YEAR + (age - ageA) — so this never changes how rows are
-    // generated or how the chart's internal x(age) pixel-mapping works,
-    // only how tick labels and the hover-tooltip header are formatted.
-    // Not part of state/scenario export, resets to 'ageA' on reload.
-    chartXAxisMode = 'ageA',
-    logScale = false,
-    // Display-only, like the above: whether the chart card is in its
-    // CSS-overlay "expanded" (fixed, full-viewport) presentation. Not
-    // part of state/scenario export, resets to false on reload/tab
-    // switch — see setChartExpanded() for the CSS class it toggles and
-    // the best-effort real-Fullscreen/landscape-lock attempt layered on
-    // top of it for capable mobile browsers.
-    chartExpanded = false,
-    // Display-only: whether #chartToolbar (the view/x-axis/shift/path
-    // rows) is collapsed out of the way. Independent of chartExpanded —
-    // see #chartToolbarToggleBtn's CSS for exactly when it's shown/has an
-    // effect. Reset to false whenever chartExpanded turns off (in
-    // setChartExpanded()) so a stale "collapsed" state can never carry
-    // into a context where the toggle button to undo it isn't visible.
-    chartToolbarCollapsed = false,
-    mcPathCount = 1000,
-    lastProjectionView = '3yr';
   // @@shared:02-CHART_GROUPS begin
   // Which top-level chart "view" a given chartView value belongs to — the
   // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
@@ -13392,7 +13351,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || gapDisabled;
     shiftGapBtn.disabled = gapDisabled;
     shiftGapBtn.title = "Hold one partner's retirement date fixed and vary only the other's";
-    if (gapDisabled && chartShiftMode === 'gap') chartShiftMode = 'together';
+    if (gapDisabled && chartShiftMode === 'gap') assignChartShiftMode('together');
     updateChartShiftModeButtons();
     // The Vary: Partner A/B picker only makes sense once Gap mode is
     // actually active (and available) — hidden otherwise. Its two buttons
@@ -15700,7 +15659,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     });
   });
   function setMcPathCount(n) {
-    mcPathCount = n;
+    assignMcPathCount(n);
     [
       ['mcPaths500Btn', 500],
       ['mcPaths1000Btn', 1000],
@@ -15716,7 +15675,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
   document.getElementById('mcPaths1000Btn').addEventListener('click', () => setMcPathCount(1000));
   document.getElementById('mcPaths2000Btn').addEventListener('click', () => setMcPathCount(2000));
   document.getElementById('logScaleToggle').addEventListener('change', (e) => {
-    logScale = e.target.checked;
+    assignLogScale(e.target.checked);
     render();
   });
   // Best-effort only: real browser Fullscreen (which also hides the
@@ -15746,7 +15705,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
   function setChartExpanded(next) {
-    chartExpanded = next;
+    assignChartExpanded(next);
     document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
     document.body.classList.toggle('chart-scroll-locked', next);
     if (next) tryEnterLandscapeFullscreen();
@@ -15765,7 +15724,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     requestAnimationFrame(() => requestAnimationFrame(render));
   }
   function setChartToolbarCollapsed(next) {
-    chartToolbarCollapsed = next;
+    assignChartToolbarCollapsed(next);
     const btn = document.getElementById('chartToolbarToggleBtn');
     document.getElementById('mainChartCard').classList.toggle('chart-toolbar-collapsed', next);
     btn.textContent = next ? '⌄' : '⌃';
@@ -15802,7 +15761,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     document.getElementById('chartShiftGapBtn').setAttribute('aria-checked', chartShiftMode === 'gap');
   }
   function setChartShiftMode(next) {
-    chartShiftMode = next;
+    assignChartShiftMode(next);
     updateChartShiftModeButtons();
     render();
   }
@@ -15823,7 +15782,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     document.getElementById('chartGapPartnerBBtn').setAttribute('aria-checked', !resolvedA);
   }
   function setChartGapPartner(next) {
-    chartGapPartner = next;
+    assignChartGapPartner(next);
     updateChartGapPartnerButtons();
     render();
   }
@@ -15836,7 +15795,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
   // — same fallback shape as chartShiftMode's gapDisabled handling.
   function updateChartXAxisButtons() {
     document.getElementById('chartXAxisAgeBBtn').hidden = state.singlePerson;
-    if (state.singlePerson && chartXAxisMode === 'ageB') chartXAxisMode = 'ageA';
+    if (state.singlePerson && chartXAxisMode === 'ageB') assignChartXAxisMode('ageA');
     document.getElementById('chartXAxisAgeABtn').classList.toggle('active', chartXAxisMode === 'ageA');
     document.getElementById('chartXAxisAgeABtn').setAttribute('aria-checked', chartXAxisMode === 'ageA');
     document.getElementById('chartXAxisAgeBBtn').classList.toggle('active', chartXAxisMode === 'ageB');
@@ -15845,7 +15804,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
     document.getElementById('chartXAxisYearBtn').setAttribute('aria-checked', chartXAxisMode === 'year');
   }
   function setChartXAxisMode(next) {
-    chartXAxisMode = next;
+    assignChartXAxisMode(next);
     updateChartXAxisButtons();
     render();
   }
@@ -15854,10 +15813,10 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
   document.getElementById('chartXAxisYearBtn').addEventListener('click', () => setChartXAxisMode('year'));
   // @@shared:26-setChartView begin
   function setChartView(next) {
-    chartView = next;
-    if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
+    assignChartView(next);
+    if (CHART_GROUPS[next] === 'projection') assignLastProjectionView(next);
     if (next === 'hist' || next === 'mc') {
-      logScale = true;
+      assignLogScale(true);
       document.getElementById('logScaleToggle').checked = true;
     }
     const map = {
@@ -15922,7 +15881,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
       if (!undoSnapshot) return;
       assignState(undoSnapshot.state);
       assignMode(undoSnapshot.mode);
-      logScale = undoSnapshot.logScale;
+      assignLogScale(undoSnapshot.logScale);
       document.getElementById('logScaleToggle').checked = logScale;
       syncControls();
       syncContributionControls();
@@ -15951,7 +15910,7 @@ import { state, mode, scenarios, compareIds, assignState, assignMode, assignScen
       children: defaults.children.map((t) => ({ ...t })),
     });
     assignMode('real');
-    logScale = false;
+    assignLogScale(false);
     document.getElementById('logScaleToggle').checked = false;
     setMcPathCount(1000);
     syncControls();
