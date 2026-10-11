@@ -47,6 +47,17 @@ tooltip keeps this plan's wording ("Partner A's surcharge uses 2034 income inste
 is not used: in that household the conversion ceiling already sets `estUsed` and nothing drifts, so a year runs one pass
 with or without the candidate; the observable checks (no row field, the premium only) and the snapshot and timing gates cover it.
 
+**Plan review, round 2** (independent Opus, of `a118cbc`, owner-run; Tasks 1-5 applied to a scratch tree, every test run as
+written: each red as predicted, then green; the movers reproduce 38 / 21 / 0 with anchors 539/38, 556/21, 577/0; `npm test`
+green with all five tasks): **1 blocking**, 2 should-fix, 6 minor, all adopted (owner, 2026-10-11). B1: the appeal household's
+timing cannot meet +5% against a base without the appeal (+15% to +35%, the extra passes of its window years): it is now a
+recorded measurement for the owner's sign-off, the +5% gate stays on the default paths (spec section 7 changed). S1: a
+removed "normal charge above 0" guard left every test green: a test-only counter `__test_irmaaInYearCalls` (0 for the
+zero-charge household, above 0 for case 4). S2: nothing reached the per-return line growth: a direct `magiThresholds` case.
+Minor: double-quoted messages (M1), the real comment text in Task 1 3.6 (M2), the `irmaa_gating.js` edit's extent (M3), the
+anchor's printed names (M4), README spacing (M5), the untested forced-pass reset named in the record (M6). The owner asked for
+a third review.
+
 ## Global Constraints
 
 - Worktrees: `git -C C:\Users\Alex\code\Fire-Planner worktree add ../fp-e3 -b claude/e3-irmaa-appeal PLAN_COMMIT`
@@ -74,15 +85,20 @@ with or without the candidate; the observable checks (no row field, the premium 
 - No heuristic, gate or threshold the spec does not name.
 - **Timing** (Tasks 1, 3, 4 and the final record in Task 6): `node tests/bench_runs_interleaved.js --base ../fp-e3-base
   --rounds 21`, at most +5% per path, the median of three runs on a quiet machine (never while another chat runs probes on
-  this machine). From Task 3 on also `node tests/bench_runs_interleaved.js --base ../fp-e3-base --rounds 21 --states tx,ca
-  --household appeal` (the option Task 3 adds), same gate. Report the tables verbatim.
+  this machine). From Task 3 on also run `node tests/bench_runs_interleaved.js --base ../fp-e3-base --rounds 21 --states
+  tx,ca --household appeal` (the option Task 3 adds) three times and report the median: **a recorded measurement for the
+  owner's sign-off, not a gate** (owner, 2026-10-11, plan review round 2, B1; spec section 7). The base tree has no appeal,
+  and the head tree's two window years run about three and two MAGI passes instead of one, so expect about +15% to +35%
+  (the review measured at 7 rounds: tx +15.6% simulate / +34.6% historical, ca +22.4% / +27.5%); a figure far outside that
+  range is a finding to report. Report the tables verbatim.
 - **Movers tables** (Tasks 1, 3, 4): with `D=.superpowers/sdd/2026-10-10-e3/dumps-taskN` (N the task; git-excluded, never the
   worktree root): `node tests/snapshot.js --root ../fp-e3-prev --dump $D/A --update-nothing`, `node tests/snapshot.js --dump
   $D/B`, `node tests/snapshot.js --compare $D/A $D/B` (for Task 1 `fp-e3-prev` is at PLAN_COMMIT). The
   table lists: US count moved / identical (standard and historical), Canada identical (must be all), the movers grouped by
   the first changed field and year, every mover's first changed year checked against the task's expected rule, the largest
   healthcare and end-total moves, and any depletion change. Then `node tests/plan_off_anchor.js --base ../fp-e3-prev` (the
-  guard-off comparison): its differing scenarios must be exactly the task's guard-off movers.
+  guard-off comparison): its differing count must equal the task's guard-off movers, and every name it prints (it prints at
+  most 25, in its own naming format) must be among the movers list.
 - Each commit: only your paths, `git commit -m "..." -- <paths>` (`git add` new files first), message ending
   `Co-Authored-By: Claude Sonnet <noreply@anthropic.com>`.
 - Ledger and task reports in `.superpowers/sdd/2026-10-10-e3/` inside the worktree (git-excluded).
@@ -278,8 +294,10 @@ the `deathYear` declaration and the death clamp (after `if (deceasedIsB) retireA
 3.6. The plan's filing (spec 5.1): delete `let filing2 = null;` and the `const irmaaFiling2 = () => ...;` statement. In
 `irmaaAt`, replace `irmaaFiling2()` with `filing`. At the `magiThresholds` call (~11805) replace
 `irmaa: { filing: irmaaFiling2(), a: medA, b: medB }` with `irmaa: { filing, a: medA, b: medB }`. In `irmaaChecks.push`
-(~11853) replace `filing: irmaaFiling2()` with `filing`. Update the comment above `year2` ("under that year's filing
-status") to say the tier table is this year's return's (the return SSA will read). `grep -n irmaaFiling2 Planner_US.html`
+(~11853) replace `filing: irmaaFiling2()` with `filing`. Update the comment above `year2`: in "to the partners on Medicare and
+alive then, against that year's tiers and filing status;" replace "and filing status" with "(the filing status of this year's
+return, which SSA will read: E3)", and replace its last sentence, "The charging year's filing status is looked up only when a
+solver asks for it.", with "The tier table is this year's return's filing status (E3, spec 5.1)." `grep -n irmaaFiling2 Planner_US.html`
 must find nothing.
 
 - [ ] **Step 4: Run the tests**
@@ -508,8 +526,9 @@ git commit -m "E3 Task 2: the IRMAA appeal event table (irmaaAppealTable; on the
 
 1a. Change Task 1's case 1 and case 2 expectations to their stage-2 values (spec 8 case 3 and case 2 "after stage 2"; the
 stage-2 values replace the stage-1 ones in the file):
-- case 1: `hc(c1, 3)` and `hc(c1, 4)` are `5000` (messages: "case 3, year 3 (D): appealed on year 3's 125,000 on its joint
-  return: 0" and "case 3, year 4 (D+1): min(1,148.40; year 3: 0; year 4 single: 1,148.40) = 0"). Add
+- case 1: `hc(c1, 3)` and `hc(c1, 4)` are `5000` (messages, written as double-quoted JS string literals because the first
+  contains an apostrophe: "case 3, year 3 (D): appealed on year 3's 125,000 on its joint return: 0" and "case 3, year 4 (D+1):
+  min(1,148.40; year 3: 0; year 4 single: 1,148.40) = 0"). Add
   `assert.strictEqual(c1[3].irmaaAppealYearB, 2029); assert.strictEqual(c1[3].irmaaAppealKindB, 3);`,
   `assert.strictEqual(c1[4].irmaaAppealYearB, 2029);`, and `for (const r of c1) assert.strictEqual(r.irmaaAppealYearA, undefined);`
   and `assert.strictEqual(c1[5].irmaaAppealYearB, undefined);`.
@@ -588,6 +607,25 @@ stage-2 values replace the stage-1 ones in the file):
   r = await run({ ...S4, incomeA: 100000 });
   near(hc(r.rows, 2), 10000, 1e-6, 'zero normal charge: year 2');
   assert.strictEqual(r.rows[2].irmaaAppealYearA, undefined, 'zero normal charge: no appeal recorded');
+  // The exact observable (plan review round 2, S1): how often the in-year candidate was priced, around one raw run (the
+  // re-plan of a new state runs first, outside the count).
+  const inYearCalls = (patch) =>
+    page.evaluate((patch) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      Object.assign(st, patch);
+      try {
+        window.__test_simulate();
+        window.__test_irmaaInYearCalls(true);
+        window.__test_simulateRaw();
+        return window.__test_irmaaInYearCalls(true);
+      } finally {
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+      }
+    }, { ...QUIET, ...patch });
+  assert.strictEqual(await inYearCalls({ ...S4, incomeA: 100000 }), 0, 'zero normal charge: the in-year candidate is never priced');
+  assert((await inYearCalls(S4)) > 0, 'case 4: the in-year candidate is priced');
   // Case 14: an inherited traditional IRA (10-year rule) of 600,000 received at 67 (year 1), heir A (factor 20.4 at 68):
   // draws 60,000 in years 2 and 3, MAGI 120,000 (tier 1).
   r = await run({ ...S4, oneTimeIncome: [{ amount: 600000, age: 67, flat: true, kind: 'inheritedTrad', owner: 'A' }] });
@@ -677,6 +715,8 @@ Run: `node tests/irmaa_appeal.js`. Expected: FAIL at case 1's `hc(c1, 3)` (`6148
   function irmaaAppealKind(ev, t, s) {
     return s === t - 1 ? ev[t - 1] : ev[t] !== 0 ? ev[t] : ev[t - 1];
   }
+  // E3, test-only (plan review round 2, S1): how many times healthcareCost priced an in-year appeal candidate.
+  let irmaaInYearCalls = 0;
 ```
 
 3.2. `healthcareCost` parameters: after `marriedAtDeath = false,` add `appeal = null,`, `irmaaSsH = 0,`, `ssA = 0,`,
@@ -705,6 +745,7 @@ actually on Medicare` through the closing brace of the `else` branch, just above
       if (w !== 0) {
         inYearA = true;
         usesMagiEstimate = true;
+        irmaaInYearCalls++;
         let best = ia;
         if (w === 2) {
           const s = year - 1,
@@ -724,6 +765,7 @@ actually on Medicare` through the closing brace of the `else` branch, just above
       if (w !== 0) {
         inYearB = true;
         usesMagiEstimate = true;
+        irmaaInYearCalls++;
         let best = ib;
         if (w === 2) {
           const s = year - 1,
@@ -780,6 +822,9 @@ In the forced pass, right after `healthcare = realizedCost;` add `appealYrA = la
         }
 ```
 
+3.4b. Next to `window.__test_inhNoDrawCalls = ...` (~17778) add the test hook, in the same style:
+`window.__test_irmaaInYearCalls = (reset) => { const n = irmaaInYearCalls; if (reset) irmaaInYearCalls = 0; return n; };`
+
 3.5. `tests/bench_runs_interleaved.js`: add the option (spec 7, round 2 minor 6). After `const STATES = ...` add:
 
 ```js
@@ -817,12 +862,13 @@ report.
 non-null event table (check by re-running the scenario's state through `window.__test_simulate().irmaaAppeal` if in
 doubt) and a partner on Medicare in E or E+1 with a normal charge above 0; its first changed year is an E or E+1 of one of
 its events. Canada identical. `node tests/plan_off_anchor.js --base ../fp-e3-prev`: the guard-off movers are this same
-rule's. Run both timing gates (three runs each).
+rule's. Run the timing gate (three runs) and the appeal-household measurement (three runs; not a gate).
 
 - [ ] **Step 6: STOP for the owner's approval**
 
 Report the movers table (expected about 21 US movers: retirement or survivor scenarios, first change at E or E+1), the two
-existing-test changes from Step 4, the anchor result (expected 21 different, the same scenarios) and both timing tables. Do not update or commit until the owner
+existing-test changes from Step 4, the anchor result (expected 21 different, the same scenarios), the timing gate's tables
+and the appeal-household measurement (for the owner's sign-off). Do not update or commit until the owner
 approves in writing.
 
 - [ ] **Step 7: After approval: update, re-base the anchor, commit**
@@ -830,8 +876,9 @@ approves in writing.
 `npm run snapshot:update` (changed keys = the approved movers; `ui_us.json` unchanged). Update `tests/plan_off_anchor.js`'s
 header with this task's counts against Task 2's commit. Update the two existing tests to the appeal (they keep testing the
 same household, now with its appealed charge):
-- `tests/irmaa_gating.js`: replace the comment block above the working-years loop's end ("Retired at 69 (index 3): enrolls,
-  and the lookback is year 1's MAGI ...") with: "Retired at 69 (index 3): enrolls. The lookback is year 1's MAGI (~$350k of
+- `tests/irmaa_gating.js`: in the comment block just above the working-years loop (it begins "Working at 66-68: no Medicare,
+  ..."), keep that first sentence and replace everything from "Retired at 69 (index 3): enrolls," to the end of the block
+  with: "Retired at 69 (index 3): enrolls. The lookback is year 1's MAGI (~$350k of
   wages), but the household appeals for the work stoppage (form SSA-44; E3): year 3's own MAGI (no wages) is under the first
   tier, so no surcharge in its first two Medicare years (69, 70)." Replace the surcharge assertion with
   `assert(Math.abs(surcharge) < 0.01, 'the appeal removes the surcharge in the first Medicare year (surcharge ' + surcharge + ')');`
@@ -918,6 +965,33 @@ Append (case 16, spec 8; round 2 S1):
     }
   }, { ...QUIET, ...P16 });
   assert.strictEqual(replay.same, true, `case 16: apply(choose intents) replays choose (${replay.n} intents)`);
+  // Per-return growth (spec 5.5, round 1 M3; plan review round 2, S2): a direct magiThresholds call on two returns with A
+  // at growth 1 and B at 1.0609 gives A's lines of an all-growth-1 call and B's lines of an all-1.0609 call, bit for bit.
+  // The two returns' MAGIs differ (40,000 / 60,000) so no A line falls within $1 of a B line (magiThresholds merges those).
+  const perReturn = await page.evaluate(() => {
+    const st = window.__test_getState();
+    const saved = JSON.parse(JSON.stringify(st));
+    Object.assign(st, { inflation: 0, children: [], acaEnhanced: false, acaEnabled: false });
+    const ctx = (extra) => ({
+      year: 0, filing: 'single', twoReturns: true, profile: { ownerShareA: 0.5, singlePerson: false, ssA: 0, ssB: 0, dependents: [] },
+      preMagi: 100000, preMagiA: 40000, preMagiB: 60000, acaEligibleA: false, acaEligibleB: false, singlePerson: false,
+      isSurvivorPeriod: false, deceasedIsA: false, deceasedIsB: false, workingA: false, workingB: false, age: 66, ageB: 66,
+      irmaa: { filing: 'single', a: true, b: true }, ...extra,
+    });
+    const pick = (lines, ret) => lines.filter((l) => l.family === 'irmaa' && l.ret === ret).map((l) => [l.id, l.magi]);
+    try {
+      const mixed = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1.0609, irmaaGrowthA: 1 })),
+        one = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1 })),
+        two = window.__test_solver.magiThresholds(ctx({ irmaaGrowth: 1.0609 }));
+      return { mixedA: pick(mixed, 'A'), oneA: pick(one, 'A'), mixedB: pick(mixed, 'B'), twoB: pick(two, 'B') };
+    } finally {
+      for (const k of Object.keys(st)) delete st[k];
+      Object.assign(st, saved);
+    }
+  });
+  assert(perReturn.mixedA.length === 5 && perReturn.mixedB.length === 5, 'per-return growth: five finite IRMAA lines per return');
+  assert.deepStrictEqual(perReturn.mixedA, perReturn.oneA, 'per-return growth: A at growth 1');
+  assert.deepStrictEqual(perReturn.mixedB, perReturn.twoB, 'per-return growth: B at the household growth');
 ```
 
 (`window.__test_runPlanMode({ planMode, plan })` (~17646) returns `{ rows, intents, ... }`; `tests/cliff_plan.js` (~225)
@@ -989,8 +1063,9 @@ change and the STOP below is a formality (report the zero table; the owner confi
 scenario with a withdrawal year in which `inYrA || inYrB` holds (an in-year candidate for a partner on Medicare); its first
 change is in such a year, in plan-priced fields (`cliffChoice`, the draw split, a conversion), then downstream. Canada
 identical. `node tests/plan_off_anchor.js --base ../fp-e3-prev` must report **every scenario identical** (the lines exist
-only with the plan on). Both timing gates (three runs each), plus `node tests/bench_plan.js` (planning at most 5x one off
-projection) and `node tests/bench_solver.js --base ../fp-e3-base --rounds 21`.
+only with the plan on). The timing gate (three runs) and the appeal-household measurement (three runs; not a gate), plus
+`node tests/bench_plan.js` (planning at most 5x one off projection) and `node tests/bench_solver.js --base ../fp-e3-base
+--rounds 21`.
 
 - [ ] **Step 6: STOP for the owner's approval**
 
@@ -1128,7 +1203,8 @@ first two years after the death are charged on the joint tiers of the couple's j
 of a W-2 or self-employed job, or a spouse's death inside the plan, the household is assumed to file the IRMAA appeal for a
 life-changing event (form SSA-44): in the first one or two Medicare years after the event the surcharge uses that year's
 (or the year before's) income when that is lower; the year table's status tooltip says when. Marriage, divorce and the loss
-of a pension or property are not modeled as appeals."
+of a pension or property are not modeled as appeals. " (note the leading space before "The lookback" and the trailing space
+before "Optionally", so the sentences do not run together).
 
 - [ ] **Step 4: Run the tests**
 
@@ -1185,13 +1261,16 @@ three movers tables as approved (verbatim), the anchor re-bases, every timing ta
 below), the two corrections to spec section 8 listed at the top of this plan, any
 existing test whose expectation changed
 (`irmaa_gating.js`, `medicare_enrollment.js` case 4, with the owner's approval), the tooltip wording's departure from spec 5.6,
+the appeal-household timing measurement (for the owner's sign-off), the one path no test reaches (the forced pass's reset of
+`appealYrA/B` from `lastCost`, spec 5.6: no constructed household takes the forced pass inside an appeal window),
 the `ui_us.json` hashes that moved in Task 5, and
 anything left for the owner.
 
 - [ ] **Step 3: Final gates**
 
-`npm test` green; `npm run check:shared` OK; `node tests/irmaa_appeal.js`; `node test_irmaa_appeal.js`; the two timing
-gates against `../fp-e3-base` (three runs each, at most +5% per path); `node tests/bench_plan.js`;
+`npm test` green; `npm run check:shared` OK; `node tests/irmaa_appeal.js`; `node test_irmaa_appeal.js`; the timing gate
+against `../fp-e3-base` (three runs, at most +5% per path) and the appeal-household measurement (three runs, recorded for the
+owner's sign-off); `node tests/bench_plan.js`;
 `node tests/bench_solver.js --base ../fp-e3-base --rounds 21`; `node tests/plan_off_anchor.js --base ../fp-e3-prev` with
 `fp-e3-prev` at Task 4's commit (all identical). Record the tables in the record (Step 2).
 

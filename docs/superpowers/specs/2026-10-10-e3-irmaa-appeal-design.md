@@ -356,7 +356,7 @@ retiring at 55, gets `null`). `healthcareCost` adds one null test and, for a par
 elsewhere (round 1, S5): a year that prices an in-year candidate sets `usesMagiEstimate`, so it runs at least two MAGI passes and a
 `costAt` per pass for the pass log, where it may have run one. Pricing it only when the normal charge is above 0 keeps that to the
 event windows of households that actually pay a surcharge. The candidates themselves are one or two `irmaaSurcharge` calls (each
-allocates the tier table through `irmaaTiers`, as the normal charge does today). Gate: section 7, with an appeal-window household.
+allocates the tier table through `irmaaTiers`, as the normal charge does today). Gate: section 7 (the default paths; the appeal-window household is a recorded measurement).
 
 ## 6. Legacy behavior and the movers
 
@@ -390,8 +390,13 @@ stage's identical / different counts against the previous baseline, as the IRMAA
   applies a fixed patch on both pages (single, age 66, salary 200,000 retiring at 67 so E = 1 and Medicare starts at 67, with a
   normal charge above 0 from the year-0 salary; traditional IRA 1,500,000; spending that draws in years 1 and 2) and calls
   `simulate(67, 67)` in every iteration instead of the script's retirement-age sweep (the sweep's 55 to 62 would put the
-  retirement before today and remove the event). Run with `--states tx,ca --household appeal --rounds 21` against the base;
-  at most +5% per path. The script lives in the head tree and drives both pages, so the base tree needs no change.
+  retirement before today and remove the event). Run with `--states tx,ca --household appeal --rounds 21` against the base.
+  The script lives in the head tree and drives both pages, so the base tree needs no change. **This run is a recorded
+  measurement for the owner's sign-off, not a +5% gate** (owner, 2026-10-11, after plan review round 2, B1): the base tree has
+  no appeal and does strictly less work, and the head tree's two window years run about three and two MAGI passes instead of
+  one (the cost 5.7 accepts), so the household is expected to run about +15% to +35% slower (measured at 7 rounds: tx +15.6%
+  simulate / +34.6% historical, ca +22.4% / +27.5%). The +5% gate stays on the default paths above, the hot-path check (measured
+  tx +0.5% / 0.0%).
 - `tests/cliff_plan.js`, `tests/cliff_guard.js` and the other cliff-plan tests unchanged and green; `tests/plan_off_anchor.js`
   re-based as in section 6.
 
@@ -580,3 +585,7 @@ same lines, and re-derived cases 1 to 14 and the base of 15 (`SINGLE_LIFE_TABLE[
   `bench_runs_interleaved.js`; the event table attached non-enumerably to the run's result for the test.
 
 Round 2 had no blocking findings, which meets the review loop's stop condition.
+
+**Owner decision after plan review round 2 (2026-10-11):** the appeal household's timing (section 7) is a recorded
+measurement for the owner's sign-off, not a +5% gate: against a base without the appeal it is expected to run +15% to +35%
+slower (the extra MAGI passes of its two window years, the cost 5.7 accepts); the +5% gate stays on the default paths.

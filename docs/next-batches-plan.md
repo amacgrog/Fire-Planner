@@ -2395,6 +2395,13 @@ stage 1, 38 US (all survivor; anchor 539 / 38); stage 2a, 21 (anchor 556 / 21); 
 counter read around one raw run; the measured spending of cases 13 and 16; the callout check reads `#methodologyCard`. The
 tooltip keeps the plan's wording, a recorded departure from spec 5.6. The owner asked for a second plan review.
 
+Plan review, round 2 (independent Opus, of `a118cbc`, owner-run; Tasks 1-5 applied and every test run as written): 1
+blocking, 2 should-fix, 6 minor, all adopted (owner, 2026-10-11). B1: the appeal household cannot meet +5% against a base
+without the appeal (measured +15% to +35%: the extra MAGI passes of its two window years, the cost spec 5.7 accepts); owner
+decision: it is a recorded measurement for the owner's sign-off, the +5% gate stays on the default paths (spec section 7
+amended). S1: a test-only counter (`__test_irmaaInYearCalls`) pins that a zero normal charge is never priced. S2: a direct
+`magiThresholds` case pins the per-return line growth. The owner asked for a third plan review.
+
 ---
 
 ## Batch 4: Canada mixed withdrawals (and the optimizer port)
