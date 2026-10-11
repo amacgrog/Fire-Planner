@@ -78,6 +78,72 @@ const path = require('path');
   near(hc(c2b, 1), 6148.4, 1e-6, 'case 2b year 1: B 2025 125,000 on the single tiers (year 0 status)');
   near(hc(c2b, 2), 6148.4, 1e-6, 'case 2b year 2: year 0 B 125,000 single');
 
+  // --- The event table (spec 5.2; cases 10 and 11) ---
+  const zeros = (n) => new Array(n).fill(0);
+  const withAt = (n, pairs) => { const a = zeros(n); for (const [i, v] of pairs) a[i] = v; return a; };
+  // Case 11, case 7's couple: A 66 (salary 300,000, retires at 68: E = 2), B 70 retired on Medicare; married: B covered too.
+  const C7 = {
+    singlePerson: false, filingStatus: 'mfj', marryLater: false, ageA: 66, ageB: 70, retireAgeA: 68, retireAgeB: 65,
+    lifeExpectancyA: 80, lifeExpectancyB: 84, incomeA: 300000, pensionCoverage: 'b', pensionYearlyB: 60000, pensionStartAgeB: 65,
+  };
+  let t = (await run(C7)).table;
+  assert.deepStrictEqual(t, { eventA: withAt(15, [[2, 2]]), eventB: withAt(15, [[2, 2]]) }, 'table: a retirement covers the spouse');
+  // Case 8's single: a W-2 stream (ages 60-69) ends: E = 4, kind 1.
+  const STREAM = { amount: 200000, startAge: 60, endAge: 69, followGrowth: false, growth: 0, owner: 'A', kind: 'wages', contribute: false, healthPremium: 0 };
+  const C8 = {
+    singlePerson: true, ageA: 66, retireAgeA: 60, lifeExpectancyA: 80, pensionCoverage: 'a', pensionYearlyA: 40000, pensionStartAgeA: 60,
+    incomeSources: [STREAM],
+  };
+  t = (await run(C8)).table;
+  assert.deepStrictEqual(t.eventA, withAt(15, [[4, 1]]), 'table: a job stream ends');
+  // A married death at year 0: the survivor's [0] = 3.
+  t = (await run({ ...C1, survivorDeathAge: 68 })).table;
+  assert.deepStrictEqual(t, { eventA: zeros(13), eventB: withAt(13, [[0, 3]]) }, 'table: a death in year 0');
+  // A retirement at 68 (E = 2) and a W-2 stream whose last working age is 68 (endAge 68: E = 3), same person aged 66.
+  const C12 = {
+    singlePerson: true, ageA: 66, retireAgeA: 68, lifeExpectancyA: 80, incomeA: 200000, incomeKindA: 'wages',
+    pensionCoverage: 'a', pensionYearlyA: 60000, pensionStartAgeA: 68,
+    incomeSources: [{ ...STREAM, amount: 50000, startAge: 68, endAge: 68 }],
+  };
+  t = (await run(C12)).table;
+  assert.deepStrictEqual(t.eventA, withAt(15, [[2, 2], [3, 1]]), 'table: retirement then a stream end');
+  // A retirement and a death in the same year: married couple both 66; A (salary 100,000, retiring at 70) dies at 70.
+  t = (await run({
+    singlePerson: false, filingStatus: 'mfj', marryLater: false, ageA: 66, ageB: 66, retireAgeA: 70, retireAgeB: 60,
+    lifeExpectancyA: 85, lifeExpectancyB: 85, incomeA: 100000, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 70,
+    survivorSpendingPct: 75,
+  })).table;
+  assert.deepStrictEqual(t, { eventA: zeros(20), eventB: withAt(20, [[4, 3]]) }, 'table: retirement and death in one year: the higher kind');
+  // An event at the plan's last year: single 66, life expectancy 70, retiring at 70 (E = 4 = projectionYears).
+  t = (await run({ singlePerson: true, ageA: 66, retireAgeA: 70, lifeExpectancyA: 70, incomeA: 100000 })).table;
+  assert.deepStrictEqual(t.eventA, withAt(5, [[4, 2]]), 'table: an event at the last plan year');
+  // Round 2 minor 3: an unmarried couple; A's retirement is clamped to A's death (E = 4): covers only the dead partner.
+  t = (await run({
+    singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 66, ageB: 66, retireAgeA: 75, retireAgeB: 60,
+    lifeExpectancyA: 85, lifeExpectancyB: 85, incomeA: 100000, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 70,
+    survivorSpendingPct: 75,
+  })).table;
+  assert.strictEqual(t, null, 'table: a retirement clamped to an unmarried partner death covers nobody');
+  // Case 10 (not events).
+  const S200 = { singlePerson: true, ageA: 66, lifeExpectancyA: 80, incomeA: 200000, incomeKindA: 'wages' };
+  let r = await run({ ...S200, retireAgeA: 66, irmaaPriorKnown: true, irmaaMagiPrior2: 200000, irmaaMagiPrior1: 200000 });
+  assert.strictEqual(r.table, null, 'case 10(a): a retirement at today\'s age is not an event');
+  near(hc(r.rows, 0), 14620, 1e-6, 'case 10(a) year 0: entered 200,000, tier 3');
+  near(hc(r.rows, 1), 14620, 1e-6, 'case 10(a) year 1: entered 200,000, tier 3');
+  assert.strictEqual((await run({ ...S200, incomeA: 0, retireAgeA: 68 })).table, null, 'case 10(b): a job with no pay');
+  assert.strictEqual((await run({ ...C1, filingStatus: 'single' })).table, null, 'case 10(c): an unmarried partner death');
+  t = (await run({
+    ...C1, ageA: 66, ageB: 66, survivorDeathAge: 70, incomeSources: [{ ...STREAM, startAge: 66, endAge: 69 }],
+  })).table;
+  assert.deepStrictEqual(t, { eventA: zeros(15), eventB: withAt(15, [[4, 3]]) }, 'case 10(d): a stream ending in its owner\'s death year is the death event');
+  assert.strictEqual((await run({ ...C1, survivorDeathAge: 66 })).table, null, 'case 10(e): a death before the plan');
+  assert.strictEqual((await run({ singlePerson: true, ageA: 50, retireAgeA: 58, lifeExpectancyA: 90, incomeA: 100000 })).table, null,
+    'case 10(f): nobody it covers is 65 by E+1');
+  const def = await page.evaluate(() => { const sim = window.__test_simulate(); return sim.irmaaAppeal === null; });
+  assert.strictEqual(def, true, 'case 10(g): the default state has no table');
+  assert.strictEqual(Object.keys(await page.evaluate(() => window.__test_simulate())).includes('irmaaAppeal'), false,
+    'the table is not an enumerable result field');
+
   assert.deepStrictEqual(errors, [], 'no page errors');
   await browser.close();
   console.log('irmaa_appeal: ok');
