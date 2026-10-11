@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#country/*": {
+      "us": "./us/*.js",
+      "canada": "./canada/*.js"
+    }
+  }
+}
