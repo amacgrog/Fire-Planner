@@ -1,3 +1,4 @@
+import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 (() => {
   const defaults = {
     singlePerson: false,
@@ -101,26 +102,6 @@
     dismissedEstimates: [],
     dismissedUnusualAssumptions: [],
   };
-  const storageKey = 'fireCouplePlanner.canadaOffline.v1',
-    legacyStorageKey = 'fireCouplePlanner.v3',
-    // Feature-detected rather than a bare `window.localStorage` reference:
-    // the property itself can throw (not just return undefined) in some
-    // private-browsing modes, and a browser that exposes the property can
-    // still refuse to actually read/write it (e.g. Safari private mode
-    // historically allowed getItem but threw on setItem). Probing with a
-    // real set/remove up front means every later `storage?.` call site can
-    // stay a simple optional-chain without its own try/catch.
-    storage = (() => {
-      try {
-        const probeKey = '__firePlannerStorageProbe__';
-        window.localStorage.setItem(probeKey, '1');
-        window.localStorage.removeItem(probeKey);
-        return window.localStorage;
-      } catch {
-        return null;
-      }
-    })(),
-    SCENARIO_SCHEMA_VERSION = 1;
   // @@shared:01-LIST_MAX begin
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
