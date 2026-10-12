@@ -142,11 +142,18 @@ results.
    (`docs/superpowers/inventory/`; done in stage 0's plan). Then each cross-module mutable
    binding gets a home in a country-agnostic module, and shared code reaches
    country-specific functions through build-time import aliases. Designed in section 12; plan: docs/superpowers/plans/2026-10-12-stage1-foundations.md. DONE on branch tyler/stage1-foundations (the owner adds the merge date when merging).
-2. **Shared fragments become modules**, in the inventory's leaf-first order, retiring the
-   markers region by region; delete `sync-shared.js` with the last one.
-3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults`, rules
-   data and the historical dataset. Add Vitest, the purity scan and first unit tests.
-4. **Peel `ui/`.** Render, sync, charts, wizard and the MCP wiring move out last.
+2. **Dependency-ordered peel, the first four layers.** Amended 2026-10-12: moving whole
+   shared regions leaf-first stalls after 11 of 43 regions, because the shared code calls
+   country hubs (`render`, `syncControls`, `taxFor`, `runProjection`, ...) that are still in
+   `main.js`. The closure is instead dismantled by dependency layer (23 layers in the US
+   planner, 24 in Canada), shared and country code together, with an analyzer-driven tool.
+   This stage builds the tool, turns the stylesheet and HTML partials into build-time
+   includes, and extracts layers 0-3 (about two thirds of the code). Designed in section 13.
+3. **Peel the higher layers, `core/` first.** Tax, per-year helpers, engine, the hubs;
+   Vitest, the first unit tests. `sync-shared.js` is deleted when the last shared region
+   leaves `main.js`.
+4. **Peel the remaining `ui/` layers.** Render, sync, charts, wizard and the MCP wiring move
+   out last.
 
 Stages 1-4 are each expected to split into several smaller steps, each leaving the
 suite green.
@@ -320,3 +327,93 @@ Each step leaves `npm test` green and `tests/snapshots/` untouched; each task is
 
 Moving any shared fragment into a module (stage 2), Vitest, the `core/` purity check,
 TypeScript.
+
+## 13. Stage 2 design: the extraction tool and the first four layers
+
+Decided 2026-10-12 from the stage 1 inventory.
+
+### What the data showed
+
+- Moving whole shared regions leaf-first is not enough: only 11 of 43 regions (42 of 303
+  shared units) have all their dependencies available as modules. The rest are blocked by
+  country-specific hubs still in `main.js`: `render`, `syncControls`, `defaults`, `normalizeState`,
+  `FIELDS`, `taxFor`, `runProjection`, `STANDARD_MODE` / `BUCKET_MODE` / `BUCKET_STEP`,
+  `housingForYear`, `DYN`, `DECISION_QUESTIONS`, `SENSITIVITY_LEVERS` and a few more.
+- At the level of units the graph is a clean layering. A unit's layer is its longest chain of
+  dependencies down to a leaf (leaf = layer 0). The US planner has 693 units in 23 layers and
+  Canada 443 units in 24; layers 0-3 hold 463 US units (67%, about 10,000 of 17,152 source
+  lines) and 284 Canada units (64%). The layers above hold the hubs and the engine. The only
+  cycles are four small ones in the US planner (2-4 units) and three in Canada.
+- Grouped by contiguous runs, the layer 0-3 units form 62 candidate modules (US) and 51
+  (Canada), with two module-level cycles per planner that merge into one module each.
+
+### The extraction tool
+
+`scripts/extract-units.js` is analyzer-driven and moves the units named in a manifest (module
+path, owner `shared` or one country, unit labels) into a new module:
+
+- Cuts each unit's text, with the contiguous comment lines directly above it, out of
+  `src/<country>/main.js`. For a shared unit it cuts from both planners and from the
+  `shared/<region>.js` fragment, after checking that the text is identical in all three
+  (modulo line endings).
+- Writes the module, adding `export` only to names used outside it, and adds the imports the
+  module needs and the imports `main.js` (and other modules) now need, computed from the
+  analyzer's reference data (`uses`), not from text search.
+- Updates the fragment and the markers: a region that is only partly moved keeps its markers
+  around what remains; an empty region and its fragment are deleted. `sync-shared.js` keeps
+  working until the last region leaves.
+- Refuses what it cannot do safely and reports why: a side-effect statement, a `let`
+  that is assigned from outside the module, a text mismatch between the two planners.
+- Verifies afterwards: the multiset of moved unit texts equals the original (apart from
+  `export`), no unknown names in `main.js` or any module, and the build works.
+
+It has unit tests against fixture trees, and a `--dry-run` mode that prints the plan.
+
+A manifest generator turns the analyzer's output into manifests: it computes the movable
+set as a fixpoint (a unit moves only if everything it depends on has moved or is an
+import), so units that depend on a unit that stays behind also stay.
+
+### What moves and where
+
+- **Stays in `main.js` for now:** the side-effect statements (listeners, test hooks, init:
+  94 in the US planner among layers 0-3), because moving them changes execution order, and
+  units that declare a `let` assigned from outside their module (they need setters; later).
+  Units that depend on a unit that stays behind also stay, so the real target is the
+  generator's fixpoint, somewhat below the layer totals.
+- **Where modules go:** units from a shared region go to `src/shared/`; country-only code to
+  `src/<country>/`. A module is placed under `core/` when none of its units touch the DOM (the
+  analyzer's `ui` flag) and under `ui/` otherwise; a region with mixed units goes to `ui/` for now
+  and is split in stages 3-4. Shared modules are named after their region (minus the number
+  prefix); country modules after their first unit or section.
+- **Cycles:** modules that import each other are merged. A cycle that crosses the
+  shared/country boundary stays in `main.js` until a later layer.
+
+### Build-time includes for the stylesheet and the HTML partials
+
+- The two country `styles.css` files are identical; they become `src/shared/styles/styles.css`,
+  read directly by the build.
+- Each shared HTML partial (`shared/html-*.html`) becomes `src/shared/partials/<name>.html`,
+  included from `index.html` with `<!-- @@include name -->`, which `assembleHtml` expands.
+  `sync-shared.js` then handles JS regions only.
+
+### Guards added in this stage
+
+- `tests/closure_names.js` covers every `src/**/*.js` file, so a forgotten import fails the
+  test (a stage 1 residual risk).
+- A `core/` purity test: no `document`, `window`, `localStorage` or `navigator` in any
+  `src/**/core/` file after stripping comments (the Vitest-era scan of section 10, in a
+  plain-Node form now that `core/` directories exist).
+- Every batch ends with the full suite, unchanged snapshots and an independent review.
+
+### Order and verification
+
+1. The tool, the manifest generator and their tests.
+2. The CSS and HTML partials as build-time includes.
+3. Extraction batches in dependency order (layer 0, layer 1, layers 2-3), each applied from a
+   generated manifest.
+4. Docs and a regenerated inventory.
+
+### Not in stage 2
+
+Layers 4 and up (the hubs, the engine, render and sync), moving side-effect statements,
+setters for cross-module `let` bindings, Vitest, TypeScript.
