@@ -1,9 +1,13 @@
+import { pct } from './basics.js';
+import { state } from './store.js';
+import { histTaxFactors } from './tax-factors.js';
+
   // ---- Year sources and modes for runProjection() ----
   // A year source supplies each year's market inputs: yearInputs(year) returns the stock
   // return, bond return, bond interest yield (taxed each year) and the cumulative inflation
   // `factor` (also the factor that indexes contribution limits); endOfYear() advances any
   // running state; `inflation` is the plan's assumed rate.
-  function standardYearSource() {
+  export function standardYearSource() {
     const stockReturn = pct(state.returnRate),
       bondReturn = pct(state.bondReturn),
       infl = pct(state.inflation);
@@ -21,7 +25,7 @@
   // tax-index factor for each year is recorded in histTaxFactors. Interest on the taxable
   // bond reserve is the start-of-year Treasury yield, or the bond return floored at zero
   // for a row without one.
-  function historicalYearSource(rowFn) {
+  export function historicalYearSource(rowFn) {
     let cumFactor = 1,
       yearInflation = 0;
     return {

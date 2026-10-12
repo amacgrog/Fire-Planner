@@ -1,4 +1,8 @@
-  function mortgagePayment(principal, annualRate, years) {
+import { pct } from './basics.js';
+import { chartXAxisMode } from './chart-prefs.js';
+import { mode, state } from './store.js';
+
+  export function mortgagePayment(principal, annualRate, years) {
     if (!principal || !years) return 0;
     const r = annualRate / 12,
       n = years * 12;
@@ -14,7 +18,7 @@
   // nominal dollars: the active spending change that started latest (a change
   // is active from its start age through its end age, inclusive), grown by
   // its own rule; otherwise the base "Annual household spending" inflated.
-  function baseSpendingNominal(age, year, inflationFactor, incomeFactor) {
+  export function baseSpendingNominal(age, year, inflationFactor, incomeFactor) {
     let best = null;
     for (const t of state.spendingTiers)
       if (age >= t.startAge && age <= t.endAge && (!best || t.startAge > best.startAge)) best = t;
@@ -23,23 +27,23 @@
       : state.spending * inflationFactor;
   }
   // Retirement-number multiplier for the safe withdrawal rate (4% -> 25x).
-  function fiMultiple() {
+  export function fiMultiple() {
     return 100 / Math.max(0.5, Number(state.fiWithdrawalRate) || 4);
   }
-  function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
+  export function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
     if (item.flat) return 1; // fixed dollar amount at the occurrence — no growth
     if (item.followGrowth) return kind === 'income' ? incomeFactor : inflationFactor;
     return Math.pow(1 + pct(Number(item.growth) || 0), year);
   }
   // A one-time expense hits at its first age, and (if repeatEvery > 0) again
   // every repeatEvery years after that through untilAge.
-  function lumpExpenseHits(e, age) {
+  export function lumpExpenseHits(e, age) {
     const first = Math.round(e.age),
       every = Math.round(Number(e.repeatEvery) || 0);
     if (age === first) return true;
     return every > 0 && age > first && age <= e.untilAge && (age - first) % every === 0;
   }
-  function loanSchedules() {
+  export function loanSchedules() {
     return state.loans.map((loan) => {
       let balance = Math.max(0, Number(loan.balance) || 0),
         rate = pct(Number(loan.rate) || 0) / 12,
@@ -112,7 +116,7 @@
   // forward), the one-time cash outlay (full price if paying cash, or down
   // payment + closing costs if financing), and the resulting mortgage
   // schedule.
-  function futureHomePurchase(homeGrowth) {
+  export function futureHomePurchase(homeGrowth) {
     const buyYear = Math.max(0, Math.round(state.buyAge - state.ageA));
     const homeValueAtPurchase = state.homeValue * Math.pow(1 + homeGrowth, buyYear);
     const downPayment = state.buyCash
@@ -139,7 +143,7 @@
       payoffYear: payoffIdx < 0 ? null : payoffIdx,
     };
   }
-  function mortgageSchedule() {
+  export function mortgageSchedule() {
     const payments = [],
       balances = [],
       interest = [];
@@ -179,7 +183,7 @@
       payoffYear: payoffYear < 0 ? null : payoffYear,
     };
   }
-  function displayValue(n, yearIndex) {
+  export function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
   }
   // Real calendar year for row.year === 0 ("now"), used only to label the
@@ -187,7 +191,7 @@
   // rather than hardcoded, unlike the "2026 dollars" real-dollar-mode
   // label elsewhere, since a chart axis that's visibly wrong past this
   // year would be a lot more obviously broken than a dollar-mode label.
-  const CURRENT_YEAR = new Date().getFullYear();
+  export const CURRENT_YEAR = new Date().getFullYear();
   // Converts an internal chart `age` (always Partner A's age — every row
   // from simulate()/simulateHistorical() carries one) to whatever the
   // person picked for the x-axis via chartXAxisMode. All three are a
@@ -195,7 +199,7 @@
   // place that needs to know about chartXAxisMode; x(age)/y(value) pixel
   // mapping and the mousemove age lookup stay entirely in Partner-A-age
   // space and are untouched by this setting.
-  function xAxisLabel(age) {
+  export function xAxisLabel(age) {
     if (chartXAxisMode === 'ageB' && !state.singlePerson)
       return Math.round(age - state.ageA + state.ageB);
     if (chartXAxisMode === 'year') return CURRENT_YEAR + Math.round(age - state.ageA);

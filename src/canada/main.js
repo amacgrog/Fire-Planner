@@ -1,10 +1,10 @@
 import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
-import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
+import { chartView, chartShiftMode, chartGapPartner, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
 import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
-import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX, NO_DEPENDENTS, clampRetireAgeA, clampRetireAgeB, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
+import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX, NO_DEPENDENTS, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
 import { defaults } from './core/defaults.js';
-import { attachMoneyPreview, compact, money } from '../shared/core/money-format.js';
+import { compact, money } from '../shared/core/money-format.js';
 import { ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS } from './core/estimate-always-ids.js';
 import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
 import { HIST, clamp, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
@@ -47,6 +47,19 @@ import { syncPlanStatusOffsets } from '../shared/ui/sync-plan-status-offsets.js'
 import { wizardOverlay, wizardSteps } from '../shared/ui/wizard-overlay.js';
 import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
 import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
+import { FIELDS } from './core/fields.js';
+import { infoBubble, markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
+import { CURRENT_YEAR, baseSpendingNominal, displayValue, fiMultiple, futureHomePurchase, itemGrowthFactor, loanSchedules, lumpExpenseHits, mortgagePayment, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
+import { getBondYears, medicalGrowth, taxFactorByYear } from '../shared/core/year-factors.js';
+import { OAS_RECOVERY_THRESHOLD, provinceTaxTreatmentNote, rrifMinPct } from './core/oas-and-rrif.js';
+import { AGE_AMOUNT, AGE_AMOUNT_REDUCTION, AGE_AMOUNT_THRESHOLD, FEDERAL_ELIGIBLE_DTC, PENSION_INCOME_AMOUNT, investmentIncomeCA } from './core/credits-and-gross-up.js';
+import { RRIF_PENSION_AGE, gisAnnual, gisEmploymentExemption, interpKnots } from './core/gis-and-rrif.js';
+import { historicalYearSource, standardYearSource } from '../shared/core/year-sources.js';
+import { bootstrapReturnSeries } from '../shared/core/monte-carlo-paths.js';
+import { cloneState, deltaAge, deltaMoney, overlayColors } from '../shared/core/scenario-helpers.js';
+import { DYN_GROWTH_FIELDS, dynLabel, dynTipBtn } from '../shared/core/dyn-field-helpers.js';
+import { refreshMoneyPreviews } from '../shared/ui/money-format.js';
+import { getBenefits } from './core/get-benefits.js';
 (() => {
   // @@shared:01-LIST_MAX begin
   function normalizeLists(s, raw) {
@@ -168,107 +181,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     delete s.otherIncomeEnabled;
   }
   // @@shared:01-LIST_MAX end
-  const clampLifeExpectancyA = () =>
-    (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
-  const clampLifeExpectancyB = () =>
-    (state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1)));
-  const FIELDS = [
-    { key: 'ageA', type: 'number', resync: true, onInput: () => { clampRetireAgeA(); clampLifeExpectancyA(); } },
-    { key: 'ageB', type: 'number', resync: true, onInput: () => { clampRetireAgeB(); clampLifeExpectancyB(); } },
-    { key: 'lifeExpectancyA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyA(); } },
-    { key: 'lifeExpectancyB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true, onInput: () => { clampLifeExpectancyB(); } },
-    { key: 'retireAgeA', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
-    { key: 'retireAgeB', type: 'number', out: (v) => `Age ${v}`, outSync: 'controls', resync: true },
-    { key: 'incomeA', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
-    { key: 'incomeB', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
-    { key: 'matchA', type: 'number' },
-    { key: 'matchB', type: 'number' },
-    { key: 'rrspPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
-    { key: 'rrspPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
-    { key: 'tfsaPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
-    { key: 'tfsaPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
-    { key: 'spending', type: 'number' },
-    { key: 'incomeGrowth', type: 'number' },
-    { key: 'inflation', type: 'number' },
-    { key: 'medicalInflation', type: 'number' },
-    { key: 'taxable', type: 'number' },
-    { key: 'basisRatio', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
-    { key: 'traditional', type: 'number' },
-    { key: 'roth', type: 'number' },
-    { key: 'cash', type: 'number' },
-    { key: 'cashReserve', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
-    { key: 'bondYears', type: 'number' },
-    { key: 'returnRate', type: 'number' },
-    { key: 'bondReturn', type: 'number' },
-    { key: 'hysaRate', type: 'number' },
-    { key: 'dividendYield', type: 'number' },
-    { key: 'qualifiedDivPct', type: 'number' },
-    { key: 'homeValue', type: 'number' },
-    { key: 'homeGrowth', type: 'number' },
-    { key: 'mortgagePrincipal', type: 'number' },
-    { key: 'mortgage', type: 'number' },
-    { key: 'mortgageRate', type: 'number' },
-    { key: 'mortgageYears', type: 'number' },
-    { key: 'extraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
-    { key: 'maintenance', type: 'number' },
-    { key: 'propertyTax', type: 'number' },
-    { key: 'propertyTaxGrowth', type: 'number' },
-    { key: 'homeInsurance', type: 'number' },
-    { key: 'homeInsuranceGrowth', type: 'number' },
-    { key: 'rent', type: 'number' },
-    { key: 'rentGrowth', type: 'number' },
-    { key: 'cppMonthlyA', type: 'number' },
-    { key: 'cppStartAgeA', type: 'number' },
-    { key: 'cppMonthlyB', type: 'number' },
-    { key: 'cppStartAgeB', type: 'number' },
-    { key: 'oasMonthlyA', type: 'number' },
-    { key: 'oasStartAgeA', type: 'number' },
-    { key: 'oasMonthlyB', type: 'number' },
-    { key: 'oasStartAgeB', type: 'number' },
-    { key: 'pensionYearlyA', type: 'number' },
-    { key: 'pensionStartAgeA', type: 'number' },
-    { key: 'pensionYearlyB', type: 'number' },
-    { key: 'pensionStartAgeB', type: 'number' },
-    { key: 'healthPremiumA', type: 'number' },
-    { key: 'healthPremiumB', type: 'number' },
-    { key: 'healthcare', type: 'number' },
-    { key: 'ltcYearlyA', type: 'number' },
-    { key: 'ltcAgeA', type: 'number' },
-    { key: 'ltcYearlyB', type: 'number' },
-    { key: 'ltcAgeB', type: 'number' },
-    { key: 'survivorDeathAge', type: 'number' },
-    { key: 'survivorSpendingPct', type: 'number' },
-    { key: 'meltdownStartAge', type: 'number' },
-    { key: 'meltdownEndAge', type: 'number' },
-    { key: 'buyAge', type: 'number' },
-    { key: 'buyDownPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
-    { key: 'buyClosingPct', type: 'number', out: (v) => `${v}%`, outSync: 'controls', resync: true },
-    { key: 'buyTerm', type: 'number' },
-    { key: 'buyExtraPrincipal', type: 'number', out: (v) => `+${money(v)}/mo`, outSync: 'controls', resync: true },
-    { key: 'fhsa', type: 'number' },
-    { key: 'fhsaPctA', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
-    { key: 'fhsaPctB', type: 'number', out: (v) => `${v}%`, outSync: 'contrib', syncAfter: 'contrib' },
-    // Checkboxes, selects and choices. `sync` says which sync function owns the control's DOM
-    // ('controls' | 'contrib'); `resync` lists the sync functions its listener runs; `reveals` are
-    // the elements it shows/hides; `mirrors` are the wizard checkboxes that follow it; `manual`
-    // marks button groups that are wired by hand (still registered for MCP and normalizeState);
-    // `mcp` exposes it through the update_fire_assumptions tool. MCP order = order below.
-    { key: 'singlePerson', type: 'bool', sync: 'controls', resync: ['controls', 'contrib'], mirrors: ['wizardSinglePerson'], mcp: true },
-    { key: 'tenure', type: 'choice', manual: true, values: ['own', 'rent', 'rentThenBuy'], fallback: 'own', mcp: true },
-    { key: 'buyCash', type: 'bool', manual: true, mcp: true },
-    { key: 'province', type: 'choice', sync: 'controls', resync: [], values: ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'], fallback: 'on', mcp: true },
-    { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
-    { key: 'pensionSplitEnabled', type: 'bool', sync: 'contrib', resync: [], mcp: true },
-    { key: 'meltdownEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mirrors: ['wizardMeltdownEnabled'], mcp: true },
-    { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
-    { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
-    // Not exposed through MCP.
-    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'] },
-    { key: 'smoothWithdrawals', type: 'bool', sync: 'controls', resync: [] },
-    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'], mirrors: ['wizardGuardrailsEnabled'] },
-    { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
-    { key: 'meltdownBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
-  ];
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
@@ -412,9 +324,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
   // returning visitor with "real" data, hiding the first-run banner for
   // someone who never actually entered anything.
   let hasPersonalizedData = hadSavedState;
-  function refreshMoneyPreviews(root) {
-    (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
-  }
   // The first-run banner flags the whole page as generic example data once,
   // but gives no lasting per-field cue once dismissed. This puts a small
   // amber marker (dot + "still the example value" tooltip) in front of the
@@ -527,15 +436,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
       }
     });
   }
-  // ---- Info bubbles: the small "i" buttons next to field labels -----------
-  // Short descriptors live in each field's <small>; anything longer lives in
-  // the button's data-tip and opens in this one shared, fixed-position bubble
-  // (fixed + appended to <body> so the sidebar's scroll container can't clip
-  // it). Click/tap or Enter/Space opens it; click elsewhere, Escape, scroll,
-  // or resize closes it. The buttons sit inside the field's <label for=...>,
-  // so the delegated handler must preventDefault() — otherwise the browser's
-  // label activation would focus/toggle the very control the label points at.
-  const infoBubble = document.createElement('div');
   infoBubble.id = 'infoBubble';
   infoBubble.className = 'info-bubble';
   infoBubble.setAttribute('role', 'tooltip');
@@ -789,20 +689,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     const jumpBtn = e.target.closest('.unusual-jump');
     if (jumpBtn) jumpToUnusualField(jumpBtn.dataset.field);
   });
-  // Live, passive per-field marker (red border + underlined label) for
-  // whichever UNUSUAL_RANGES fields are currently out of range — updates on
-  // every render(), same cadence as markDefaultFields()'s amber dot, so it's
-  // accurate even for the very last field someone edits and never navigates
-  // away from (nothing here waits for a blur). This is deliberately silent
-  // — no toast, no popup — just a quiet visual cue at the point of entry.
-  function markUnusualFields(flaggedIds) {
-    UNUSUAL_RANGES.forEach((r) => {
-      const el = document.getElementById(r.id);
-      if (!el) return;
-      const fieldEl = el.closest('.field, .range-field');
-      if (fieldEl) fieldEl.classList.toggle('unusual-value', flaggedIds.has(r.id));
-    });
-  }
   // The one non-passive cue: a brief "Unusual value" note right under the
   // field, shown only once the person actually leaves it (focusout, not
   // input) — per feedback, this shouldn't interrupt while they're still
@@ -1083,7 +969,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
   // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
   // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.
   let taxFactorInflation = NaN;
-  const taxFactorByYear = [];
   function taxIndexFactor(yearIndex) {
     if (histTaxFactors) {
       const f = histTaxFactors[Math.floor(yearIndex)];
@@ -1099,19 +984,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
       return v;
     }
     return Math.pow(1 + pct(state.inflation), yearIndex);
-  }
-  // Healthcare and long-term-care costs grow faster than general
-  // inflation. state.medicalInflation is the extra growth, in percentage
-  // points above CPI, applied on top of the engine's own CPI factor to the
-  // post-retirement healthcare premium, Medicare, LTC and pre-retirement
-  // health premiums. It is a steady relative premium over CPI even inside the
-  // historical backtest/Monte Carlo (where CPI itself follows the path).
-  function medicalGrowth(year) {
-    return Math.pow(1 + pct(state.medicalInflation), year);
-  }
-  function getBondYears() {
-    const v = Number(state.bondYears);
-    return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
   }
   // @@shared:06-histTaxFactors end
 
@@ -1233,119 +1105,12 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     PROV_TAX.last = tax;
     return tax;
   }
-  function provinceTaxTreatmentNote() {
-    const name = currentProvince().rule.name;
-    const capGainsText =
-      "Capital gains use the standard 50% inclusion rate and are taxed at each person's marginal federal + provincial rate, alongside CPP, OAS, RRIF/RRSP withdrawals, and pension income.";
-    let special = '';
-    if (state.province === 'on')
-      special =
-        ' plus the two-tier Ontario surtax (20%/36% on Ontario tax payable above its thresholds) and the income-tested Ontario Health Premium (up to $900/year)';
-    else if (state.province === 'qc')
-      special =
-        " Quebec residents also receive a 16.5% federal tax abatement (applied to the federal tax total below), since Quebec collects its own provincial tax independently — this is netted against Quebec's noticeably higher provincial brackets, not an extra credit on top of them.";
-    else if (state.province === 'bc')
-      special =
-        ' BC eliminated its Medical Services Plan premium in 2020, so no separate provincial health premium is modeled.';
-    else if (state.province === 'pe')
-      special =
-        ' PEI eliminated its provincial surtax for 2024 and later years, so none is modeled.';
-    return `<b>${name} provincial tax.</b> The model applies ${name}'s 2026 provincial brackets and basic personal amount on top of federal tax${state.province === 'on' ? special : ''}. ${capGainsText}${state.province !== 'on' ? special : ''} The basic personal amount, the spouse amount (claimed by the higher-income partner) and the eligible-dependant amount (a single parent or survivor with a child under 18) are credits at the province's lowest rate, not deductions.`;
-  }
-  // RRIF minimum withdrawal factors (CRA prescribed factors). An RRSP must be
-  // converted to a RRIF by the end of the year the holder turns 71; ages
-  // 65-70 use the 1/(90-age) formula for a RRIF opened voluntarily before
-  // then, though this planner only applies the minimum starting at 71 to
-  // match its simplified single conversion-age assumption.
-  function rrifMinPct(age) {
-    if (age < 71) return 0;
-    const table = {
-      71: 0.0528,
-      72: 0.054,
-      73: 0.0553,
-      74: 0.0567,
-      75: 0.0582,
-      76: 0.0598,
-      77: 0.0617,
-      78: 0.0636,
-      79: 0.0658,
-      80: 0.0682,
-      81: 0.0708,
-      82: 0.0738,
-      83: 0.0771,
-      84: 0.0808,
-      85: 0.0851,
-      86: 0.0899,
-      87: 0.0955,
-      88: 0.1021,
-      89: 0.1099,
-      90: 0.1192,
-      91: 0.1306,
-      92: 0.1449,
-      93: 0.1634,
-      94: 0.1879,
-    };
-    return age >= 95 ? 0.2 : table[age] || 0.2;
-  }
-  // OAS recovery tax ("clawback"): 15% of net income (including OAS itself)
-  // above the 2026 threshold, up to the full OAS amount received. Charged inside
-  // personTaxCA (7N N1), on the return's full income. Modeled using the same
-  // year's income rather than CRA's actual one-year lookback, as a planning-level
-  // simplification (similar in spirit to the US planner's IRMAA lookback approximation).
-  const OAS_RECOVERY_THRESHOLD = 95323; // 2026 (CRA OAS recovery tax page, retrieved 2026-10-06)
   function oasClawback(netIncomeInclOas, oasReceived, yearIndex) {
     if (oasReceived <= 0) return 0;
     const factor = taxIndexFactor(yearIndex),
       threshold = OAS_RECOVERY_THRESHOLD * factor;
     return Math.min(oasReceived, Math.max(0, (netIncomeInclOas - threshold) * 0.15));
   }
-  // Federal + provincial tax for one person. Capital gains use the 50%
-  // inclusion rate (added directly to taxable ordinary income) rather than a
-  // separate preferential bracket, per Canadian tax treatment. CPP and OAS
-  // (gross, before any clawback) are fully taxable ordinary income.
-  // Eligible-dividend tax credit. The grossed-up dividend (1.38x) is already
-  // inside the ordinaryIncome passed to personTaxCA(); dtcBase is that
-  // grossed-up amount. The federal credit (15.0198% of it) comes off the federal
-  // tax and the provincial credit (PROVINCE_RULES[code].dividend.eligible) off the
-  // provincial tax, each floored at zero. Ontario's surtax is computed before its
-  // dividend credit, which is the order on form ON428; Quebec's 16.5% abatement
-  // applies after the federal credits, the dividend credit included. Non-eligible
-  // Canadian dividends (15% gross-up, small credit) are not modeled: they are
-  // taxed like interest, like foreign dividends (named gap; they come mostly from
-  // private-company shares).
-  const DIVIDEND_GROSS_UP = 1.38,
-    FEDERAL_ELIGIBLE_DTC = 0.150198;
-  // Annual taxable investment income on the taxable account, taxable bond
-  // reserve and cash, on start-of-year balances. Dividends/interest are part
-  // of the modeled total return (never added on top of it) but are taxed in
-  // the year paid: interest and non-eligible/foreign dividends at ordinary
-  // rates, eligible Canadian dividends grossed up with a credit. Reinvested
-  // amounts raise adjusted cost base (see the callers) so the gain realized
-  // at sale is not taxed again. Bond interest uses the bond return
-  // assumption as its yield in both engines.
-  function investmentIncomeCA(taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
-    const divTotal = Math.max(0, taxableBal) * pct(state.dividendYield),
-      eligible = divTotal * clamp(pct(state.qualifiedDivPct), 0, 1),
-      bondInterest = Math.max(0, bondTaxableBal) * Math.max(0, bondRate),
-      cashInterest = Math.max(0, cashBal) * Math.max(0, cashRate);
-    return {
-      ordinary: divTotal - eligible + bondInterest + cashInterest,
-      eligGrossed: eligible * DIVIDEND_GROSS_UP,
-      divTotal,
-      bondInterest,
-    };
-  }
-  // Federal age amount (65+): $9,208 reduced by 15% of net income over $46,432
-  // (both indexed), and pension income amount: the first $2,000 of eligible
-  // pension income (not indexed), both at the 14% credit rate. Net income here
-  // is the person's own income after any pension split, with the 50% gains
-  // inclusion and grossed-up dividends; the OAS recovery tax is not deducted
-  // from it (planning-level simplification). The provincial age and pension
-  // amounts are in PROVINCE_RULES and are applied by provincialTaxCA.
-  const AGE_AMOUNT = 9208,
-    AGE_AMOUNT_THRESHOLD = 46432,
-    AGE_AMOUNT_REDUCTION = 0.15,
-    PENSION_INCOME_AMOUNT = 2000;
   function ageAndPensionCreditBase(netIncome, age, pensionIncome, yearIndex) {
     let base = Math.min(PENSION_INCOME_AMOUNT, Math.max(0, pensionIncome));
     if (age >= 65) {
@@ -1382,36 +1147,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     const provTax = provincialTaxCA(provDeduction > 0 ? taxableIncome - provDeduction : taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool, spouseNet, depKids, childKids, provCredit, medical, redKids) + recovery;
     PROV_TAX.fed = fedTax; // with PROV_TAX.pre: a zero means the return had no tax left for a credit (the medical claim chooser)
     return fedTax + provTax;
-  }
-  // The planner converts the RRSP to a RRIF at 71 (see rrifMinPct). CRA counts RRIF payments as
-  // pension income from 65, but a withdrawal from an RRSP that is not an annuity or RRIF payment
-  // is not pension income at any age, so the discretionary draw earns the pension income amount
-  // only once the account is a RRIF (7K fix of the 7J rule, which counted it from 65).
-  const RRIF_PENSION_AGE = 71;
-  // ---- Income-tested benefit evaluators (7L) ----
-  // Linear interpolation over [income, benefit] knots; zero past the last knot; a repeated income is a cliff.
-  function interpKnots(k, x) {
-    if (!(x > 0)) x = 0;
-    const n = k.length;
-    if (x >= k[n - 1][0]) return k[n - 1][1];
-    for (let i = 1; i < n; i++) {
-      if (x < k[i][0]) {
-        const xa = k[i - 1][0];
-        return k[i - 1][1] + ((k[i][1] - k[i - 1][1]) * (x - xa)) / (k[i][0] - xa);
-      }
-    }
-    return 0;
-  }
-  // Annual GIS (or Allowance) for one household situation at an annual income (net income less OAS and the
-  // employment exemption, combined for couples). `factor` is the plan inflation factor: amounts and income
-  // cutoffs scale together.
-  function gisAnnual(situation, income, factor = 1) {
-    return interpKnots(BENEFIT_RULES.gis.situations[situation], income / factor) * factor;
-  }
-  // GIS employment income exemption: the first 5,000 is exempt and half of the next 10,000 (per person).
-  function gisEmploymentExemption(earned) {
-    const e = BENEFIT_RULES.gis.employmentExemption;
-    return Math.min(earned, e.full) + 0.5 * Math.min(Math.max(earned - e.full, 0), e.halfBand);
   }
   function incomeTaxCA(profile, gains = 0, traditionalExtra = 0) {
     // Eligible pension income for the credit: the profile's pension (and RRIF
@@ -1919,9 +1654,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     BEN.total = BEN.gis + BEN.allowance + BEN.ccb + BEN.cgeb + BEN.provChild + BEN.provSenior + BEN.provCredit;
     return BEN.total;
   }
-  function getBenefits() {
-    return { ...BEN };
-  }
   // How much more income (extra traditional draw) the household can take before GIS and the Allowances end:
   // the hook the Canada mixed-withdrawal batch (4A) reads for its income room. Zero when no GIS situation applies.
   // Not hot: bisection over benefitsFor (benefits never rise with income, so the bisection is valid, cliffs included).
@@ -2156,211 +1888,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     const rule = PROVINCE_RULES[code];
     return [HOME_BUYERS_AMOUNT, rule && rule.homeBuyer ? rule.homeBuyer.amount : 0];
   }
-  // @@shared:07-mortgagePayment begin
-  function mortgagePayment(principal, annualRate, years) {
-    if (!principal || !years) return 0;
-    const r = annualRate / 12,
-      n = years * 12;
-    return r ? (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1) : principal / n;
-  }
-  // Growth multiplier for an "add another" income/expense item at `year`
-  // (years from today). `followGrowth` items track the engine's own running
-  // inflation factor (expenses — so the historical backtest uses actual
-  // historical inflation) or the Annual income growth factor (income); the
-  // rest compound at their own `growth` rate. Amounts are entered in today's
-  // dollars, so growth runs from today, not from the item's start age.
-  // The household spending figure in force at a given Partner A age, in
-  // nominal dollars: the active spending change that started latest (a change
-  // is active from its start age through its end age, inclusive), grown by
-  // its own rule; otherwise the base "Annual household spending" inflated.
-  function baseSpendingNominal(age, year, inflationFactor, incomeFactor) {
-    let best = null;
-    for (const t of state.spendingTiers)
-      if (age >= t.startAge && age <= t.endAge && (!best || t.startAge > best.startAge)) best = t;
-    return best
-      ? best.amount * itemGrowthFactor(best, year, 'expense', inflationFactor, incomeFactor)
-      : state.spending * inflationFactor;
-  }
-  // Retirement-number multiplier for the safe withdrawal rate (4% -> 25x).
-  function fiMultiple() {
-    return 100 / Math.max(0.5, Number(state.fiWithdrawalRate) || 4);
-  }
-  function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
-    if (item.flat) return 1; // fixed dollar amount at the occurrence — no growth
-    if (item.followGrowth) return kind === 'income' ? incomeFactor : inflationFactor;
-    return Math.pow(1 + pct(Number(item.growth) || 0), year);
-  }
-  // A one-time expense hits at its first age, and (if repeatEvery > 0) again
-  // every repeatEvery years after that through untilAge.
-  function lumpExpenseHits(e, age) {
-    const first = Math.round(e.age),
-      every = Math.round(Number(e.repeatEvery) || 0);
-    if (age === first) return true;
-    return every > 0 && age > first && age <= e.untilAge && (age - first) % every === 0;
-  }
-  function loanSchedules() {
-    return state.loans.map((loan) => {
-      let balance = Math.max(0, Number(loan.balance) || 0),
-        rate = pct(Number(loan.rate) || 0) / 12,
-        term = Math.max(0, Number(loan.term) || 0),
-        // Fixed at origination by the original principal and term, not
-        // recalculated from today's balance — see mortgageSchedule() for
-        // why. Falls back to the current balance if no original principal
-        // is entered.
-        originalPrincipal = Number(loan.principal) > 0 ? Number(loan.principal) : balance,
-        scheduled = mortgagePayment(originalPrincipal, Number(loan.rate) || 0, term),
-        payments = [],
-        balances = [];
-      for (let year = 0; year <= 70; year++) {
-        let paid = 0;
-        for (let month = 0; month < 12 && balance > 0 && year < term; month++) {
-          let interest = balance * rate,
-            principal = Math.min(
-              balance,
-              Math.max(0, scheduled - interest) + (Number(loan.extra) || 0),
-            );
-          balance -= principal;
-          paid += interest + principal;
-        }
-        payments.push(paid);
-        balances.push(Math.max(0, balance));
-      }
-      return { payments, balances };
-    });
-  }
-  // Builds a payment/balance schedule for a mortgage that doesn't start
-  // until startYear (used for a future home purchase), indexed 0..maxYear
-  // so it lines up directly with the main simulation loop; zero before
-  // startYear and after payoff.
-  function buildDeferredMortgage(
-    principal,
-    annualRate,
-    termYears,
-    extraMonthly,
-    startYear,
-    maxYear,
-  ) {
-    const payments = Array(maxYear + 1).fill(0),
-      balances = Array(maxYear + 1).fill(0),
-      interest = Array(maxYear + 1).fill(0);
-    if (principal <= 0 || termYears <= 0) return { payments, balances, interest, principal };
-    let balance = principal;
-    const scheduled = mortgagePayment(principal, annualRate, termYears),
-      rate = annualRate / 12;
-    for (let year = startYear; year <= maxYear; year++) {
-      let paid = 0,
-        interestPaid = 0;
-      if (year - startYear < termYears) {
-        for (let month = 0; month < 12 && balance > 0; month++) {
-          const monthInterest = balance * rate,
-            scheduledPrincipal = Math.max(0, scheduled - monthInterest),
-            princ = Math.min(balance, scheduledPrincipal + extraMonthly);
-          balance -= princ;
-          paid += monthInterest + princ;
-          interestPaid += monthInterest;
-        }
-      }
-      payments[year] = paid;
-      interest[year] = interestPaid;
-      balances[year] = Math.max(0, balance);
-    }
-    return { payments, balances, interest, principal };
-  }
-  // Precomputes the mechanics of a future rent-to-buy purchase: the home's
-  // value at the purchase year (today's homeValue input, appreciated
-  // forward), the one-time cash outlay (full price if paying cash, or down
-  // payment + closing costs if financing), and the resulting mortgage
-  // schedule.
-  function futureHomePurchase(homeGrowth) {
-    const buyYear = Math.max(0, Math.round(state.buyAge - state.ageA));
-    const homeValueAtPurchase = state.homeValue * Math.pow(1 + homeGrowth, buyYear);
-    const downPayment = state.buyCash
-      ? homeValueAtPurchase
-      : homeValueAtPurchase * pct(state.buyDownPct);
-    const closingCosts = state.buyCash ? 0 : homeValueAtPurchase * pct(state.buyClosingPct);
-    const loanPrincipal = state.buyCash ? 0 : Math.max(0, homeValueAtPurchase - downPayment);
-    const purchaseCash = downPayment + closingCosts;
-    const buyTermYears = state.buyTerm;
-    const buySchedule = buildDeferredMortgage(
-      loanPrincipal,
-      pct(state.mortgageRate),
-      buyTermYears,
-      state.buyExtraPrincipal,
-      buyYear,
-      100,
-    );
-    const payoffIdx = buySchedule.balances.findIndex((b, i) => i >= buyYear && b < 1);
-    return {
-      buyYear,
-      homeValueAtPurchase,
-      purchaseCash,
-      buySchedule,
-      payoffYear: payoffIdx < 0 ? null : payoffIdx,
-    };
-  }
-  function mortgageSchedule() {
-    const payments = [],
-      balances = [],
-      interest = [];
-    let balance = state.tenure === 'own' ? state.mortgage : 0;
-    // The level payment is fixed at origination by the *original* principal
-    // and term, not by whatever balance happens to be left today — extra
-    // principal already paid shortens the payoff, it doesn't change the
-    // payment amount. Falls back to the current balance if no original
-    // amount is entered (e.g. an older saved scenario), which reproduces
-    // the old (slightly wrong, but harmless-if-no-extra-payments) behavior
-    // rather than breaking silently.
-    const originalPrincipal = state.mortgagePrincipal > 0 ? state.mortgagePrincipal : balance,
-      scheduled = mortgagePayment(originalPrincipal, pct(state.mortgageRate), state.mortgageYears),
-      rate = pct(state.mortgageRate) / 12,
-      maxYears = Math.max(0, state.mortgageYears);
-    for (let year = 0; year <= Math.max(70, maxYears); year++) {
-      let paid = 0,
-        interestPaid = 0;
-      for (let month = 0; month < 12 && balance > 0 && year < maxYears; month++) {
-        const monthInterest = balance * rate,
-          scheduledPrincipal = Math.max(0, scheduled - monthInterest),
-          principal = Math.min(balance, scheduledPrincipal + state.extraPrincipal);
-        balance -= principal;
-        paid += monthInterest + principal;
-        interestPaid += monthInterest;
-      }
-      payments.push(paid);
-      interest.push(interestPaid);
-      balances.push(Math.max(0, balance));
-    }
-    const payoffYear = balances.findIndex((b) => b < 1);
-    return {
-      payments,
-      balances,
-      interest,
-      originalPrincipal,
-      payoffYear: payoffYear < 0 ? null : payoffYear,
-    };
-  }
-  function displayValue(n, yearIndex) {
-    return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
-  }
-  // Real calendar year for row.year === 0 ("now"), used only to label the
-  // chart x-axis in 'year' mode — computed once from the device clock
-  // rather than hardcoded, unlike the "2026 dollars" real-dollar-mode
-  // label elsewhere, since a chart axis that's visibly wrong past this
-  // year would be a lot more obviously broken than a dollar-mode label.
-  const CURRENT_YEAR = new Date().getFullYear();
-  // Converts an internal chart `age` (always Partner A's age — every row
-  // from simulate()/simulateHistorical() carries one) to whatever the
-  // person picked for the x-axis via chartXAxisMode. All three are a
-  // simple affine transform of the same age value, so this is the only
-  // place that needs to know about chartXAxisMode; x(age)/y(value) pixel
-  // mapping and the mousemove age lookup stay entirely in Partner-A-age
-  // space and are untouched by this setting.
-  function xAxisLabel(age) {
-    if (chartXAxisMode === 'ageB' && !state.singlePerson)
-      return Math.round(age - state.ageA + state.ageB);
-    if (chartXAxisMode === 'year') return CURRENT_YEAR + Math.round(age - state.ageA);
-    return Math.round(age);
-  }
-  // @@shared:07-mortgagePayment end
 
   // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----
   // This year's amounts from the add-as-you-go lists: recurring extra income
@@ -3019,55 +2546,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     };
   }
   // @@shared:11-makeProjectedExpense end
-  // @@shared:12-standardYearSource begin
-  // ---- Year sources and modes for runProjection() ----
-  // A year source supplies each year's market inputs: yearInputs(year) returns the stock
-  // return, bond return, bond interest yield (taxed each year) and the cumulative inflation
-  // `factor` (also the factor that indexes contribution limits); endOfYear() advances any
-  // running state; `inflation` is the plan's assumed rate.
-  function standardYearSource() {
-    const stockReturn = pct(state.returnRate),
-      bondReturn = pct(state.bondReturn),
-      infl = pct(state.inflation);
-    return {
-      inflation: infl,
-      yearInputs(year) {
-        const factor = Math.pow(1 + infl, year);
-        return { stockReturn, bondReturn, bondYield: bondReturn, factor, limitFactor: factor };
-      },
-      endOfYear() {},
-    };
-  }
-  // One path of the dataset: rowFn(year) returns [calendarYear, stockReturn%, inflation%,
-  // bondReturn%, optional Treasury yield%]. Inflation compounds from the path itself, and the
-  // tax-index factor for each year is recorded in histTaxFactors. Interest on the taxable
-  // bond reserve is the start-of-year Treasury yield, or the bond return floored at zero
-  // for a row without one.
-  function historicalYearSource(rowFn) {
-    let cumFactor = 1,
-      yearInflation = 0;
-    return {
-      inflation: pct(state.inflation),
-      startYear: rowFn(0)[0],
-      yearInputs(year) {
-        const histRow = rowFn(year),
-          bondReturn = histRow[3] / 100;
-        yearInflation = histRow[2] / 100;
-        histTaxFactors[year] = cumFactor;
-        return {
-          stockReturn: histRow[1] / 100,
-          bondReturn,
-          bondYield: histRow[4] != null ? histRow[4] / 100 : Math.max(0, bondReturn),
-          factor: cumFactor,
-          limitFactor: cumFactor,
-        };
-      },
-      endOfYear() {
-        cumFactor *= 1 + yearInflation;
-      },
-    };
-  }
-  // @@shared:12-standardYearSource end
 
   // ---- end per-year helpers ----
 
@@ -3472,24 +2950,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     return { cycles, successRate, projectionYears };
   }
 
-  // Monte Carlo via block bootstrap: instead of drawing each year's return
-  // independently (which has no memory of real market behavior — no mean
-  // reversion, no regime clustering, no macro coherence between stocks,
-  // bonds, and inflation), each simulated path is built by randomly
-  // stitching together contiguous 5-year blocks of the actual 1928-2025
-  // historical record. Every block is something that really happened, so a
-  // path structurally cannot contain an unrealistic run (e.g. decades of
-  // one-directional returns) the way independent-draw Monte Carlo can.
-  const MC_BLOCK_SIZE = 5;
-  function bootstrapReturnSeries(length) {
-    const series = [],
-      maxStart = HIST.length - MC_BLOCK_SIZE;
-    while (series.length < length) {
-      const s = Math.floor(Math.random() * (maxStart + 1));
-      for (let i = 0; i < MC_BLOCK_SIZE && series.length < length; i++) series.push(HIST[s + i]);
-    }
-    return series;
-  }
   function runMonteCarlo(pathCount) {
     const projectionYears = state.singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
@@ -5465,13 +4925,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
   }
   window.addEventListener('pagehide', writeStorageNow);
 
-  // Scenarios: named snapshots of the full input state, kept in memory for
-  // this tab and optionally exported to a JSON file for safekeeping. Every
-  // load path (boot, Load, and file import) runs through normalizeState(),
-  // so a scenario saved by an older or newer version of this tool still
-  // loads correctly — missing fields fall back to today's defaults, and
-  // unrecognized old fields are simply dropped.
-  const cloneState = (s) => JSON.parse(JSON.stringify(s));
   function computeScenarioMetrics(scenarioState) {
     const backup = state;
     assignState(normalizeState(scenarioState));
@@ -5500,7 +4953,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     }
     return out;
   }
-  const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
   function computeOverlaySeriesFor(name, scenarioState) {
     const backup = state;
     assignState(normalizeState(scenarioState));
@@ -5701,18 +5153,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
       }),
     );
   }
-  // Higher is better for every metric in this table (more money, longer-lasting
-  // portfolio), so a single up=green/down=red convention works for all of them.
-  function deltaMoney(diff) {
-    if (!diff || Math.abs(diff) < 1) return '';
-    const cls = diff > 0 ? 'up' : 'down';
-    return `<span class="delta ${cls}">${diff > 0 ? '+' : ''}${money(diff)}</span>`;
-  }
-  function deltaAge(diff) {
-    if (!diff) return '';
-    const cls = diff > 0 ? 'up' : 'down';
-    return `<span class="delta ${cls}">${diff > 0 ? '+' : ''}${Math.round(diff)}y</span>`;
-  }
   function renderScenarioComparison() {
     const compareCard = document.getElementById('scenarioCompareCard'),
       compareRows = document.getElementById('scenarioCompareRows');
@@ -5876,46 +5316,6 @@ import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
     link.remove();
     URL.revokeObjectURL(url);
   }
-  // ---- "Add another" lists: loans, recurring income, one-time income, ----------
-  // ---- recurring expenses, one-time expenses --------------------------------
-  // Each list is a plain array on `state` (starts empty) rendered by one shared
-  // builder: rows of fields, an "×" per row, and a "+ Add" button. Field specs
-  // below drive the markup, the parsing, and which fields show/hide. Event
-  // handling is delegated on each list's container (attached once, below), so
-  // rebuilding a list's innerHTML never needs to re-wire listeners.
-  function dynTipBtn(tip) {
-    return `<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="${escapeHtml(tip)}">i</button>`;
-  }
-  // Last word + the ⓘ button share a no-wrap span so the button can never wrap
-  // onto a line of its own (see "Field descriptors and info bubbles" in CLAUDE.md).
-  function dynLabel(text, tip) {
-    if (!tip) return escapeHtml(text);
-    const m = text.match(/^(.*?)(\S+)$/);
-    return `${m ? escapeHtml(m[1]) : ''}<span class="info-nw">${escapeHtml(m ? m[2] : text)}${dynTipBtn(tip)}</span>`;
-  }
-  const DYN_GROWTH_FIELDS = (kind) => [
-    {
-      key: 'followGrowth',
-      kind: 'check',
-      showIf: (it) => !it.flat,
-      label: kind === 'income' ? 'Grows with income growth' : 'Grows with inflation',
-      short: kind === 'income' ? 'Uses your annual income growth rate' : 'Uses your inflation rate',
-      tip:
-        kind === 'income'
-          ? 'Checked: this stream rises each year at the Annual income growth rate in the Income section. Unchecked: you set its own yearly growth rate instead — for example 0% for a fixed amount, or a rent-increase rate for rental income.'
-          : 'Checked: this expense rises each year with the Inflation rate in Market assumptions (actual historical inflation in the historical backtest). Unchecked: you set its own yearly growth rate instead — for example 0% for a fixed payment, or a higher rate for something like tuition.',
-    },
-    {
-      key: 'growth',
-      kind: 'num',
-      label: 'Annual growth (%)',
-      short: kind === 'income' ? "This stream's own yearly rate" : "This expense's own yearly rate",
-      min: -10,
-      max: 20,
-      step: 0.1,
-      showIf: (it) => !it.flat && !it.followGrowth,
-    },
-  ];
   // @@shared:22-exportCsv end
   const DYN = {
     loans: {

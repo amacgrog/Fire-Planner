@@ -24,9 +24,6 @@
   // returning visitor with "real" data, hiding the first-run banner for
   // someone who never actually entered anything.
   let hasPersonalizedData = hadSavedState;
-  function refreshMoneyPreviews(root) {
-    (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
-  }
   // The first-run banner flags the whole page as generic example data once,
   // but gives no lasting per-field cue once dismissed. This puts a small
   // amber marker (dot + "still the example value" tooltip) in front of the
