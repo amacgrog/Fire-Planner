@@ -29,4 +29,17 @@ assert.throws(() => assembleHtml({ shell, css: '/* </style> */\n', js: 'x();\n' 
 assert.throws(() => assembleHtml({ shell: '<script>{{js}}</script>', css: '\n', js: '\n' }), /\{\{css\}\} exactly once, found 0/);
 assert.throws(() => assembleHtml({ shell: shell + '{{js}}', css: '\n', js: '\n' }), /\{\{js\}\} exactly once, found 2/);
 
+// An include line is replaced by the partial's text (without its final newline); the include line's own
+// indentation is dropped because the partial carries its own.
+const withInclude = '<body>\n    <!-- @@include card -->\n</body>\n<style>{{css}}</style><script>{{js}}</script>\n';
+const included = assembleHtml({ shell: withInclude, css: '\n', js: '\n', partials: { card: '  <div>\n    one\n  </div>\n' } });
+assert.ok(included.startsWith('<body>\n  <div>\n    one\n  </div>\n</body>\n'), JSON.stringify(included));
+assert.ok(!included.includes('@@include'), 'the include line is gone');
+
+// A partial's text is inserted literally ($&, $1 and friends stay as they are).
+assert.ok(assembleHtml({ shell: withInclude, css: '\n', js: '\n', partials: { card: '<i>$&$1</i>\n' } }).includes('<i>$&$1</i>'));
+
+// An include of an unknown partial is an error, never silently dropped.
+assert.throws(() => assembleHtml({ shell: withInclude, css: '\n', js: '\n' }), /includes "card", which is not a partial/);
+
 console.log('assemble_html OK');
