@@ -119,6 +119,7 @@ function analyze(code) {
     endLine: node.loc.end.line,
     deps: new Map(), // unit -> Set of names used from it
     dom: new Set(),
+    importUses: new Set(), // local names of module-level import bindings this unit references
     ui: false,
     region: null,
   }));
@@ -153,6 +154,27 @@ function analyze(code) {
     }
     if (writers.size) mutables.push({ name: v.name, unit: owner, writers: [...writers] });
   }
+
+  // Module-level import bindings: which unit uses which, and the import declarations themselves.
+  const moduleScope = scopeManager.scopes.find((s) => s.type === 'module');
+  const imports = [];
+  for (const v of moduleScope ? moduleScope.variables : []) {
+    const def = v.defs[0];
+    if (!def || def.type !== 'ImportBinding') continue;
+    const spec = def.node;
+    imports.push({
+      local: v.name,
+      imported: spec.type === 'ImportSpecifier' ? spec.imported.name : spec.type === 'ImportDefaultSpecifier' ? 'default' : '*',
+      source: def.parent.source.value,
+    });
+    for (const ref of v.references) {
+      const user = unitAt(ref.identifier.range[0]);
+      if (user) user.importUses.add(v.name);
+    }
+  }
+  const importDecls = ast.body
+    .filter((n) => n.type === 'ImportDeclaration')
+    .map((n) => ({ startLine: n.loc.start.line, endLine: n.loc.end.line, source: n.source.value }));
 
   const unknownGlobals = new Map();
   const implicitGlobalWrites = [];
@@ -204,6 +226,7 @@ function analyze(code) {
       region: u.region ? u.region.name : null,
       regionKind: u.region ? u.region.kind : null,
       dom: [...u.dom].sort(),
+      importUses: [...u.importUses].sort(),
       ui: u.ui,
       deps: [...u.deps.keys()].map(label).sort(),
       uses: [...u.deps].map(([d, names]) => ({ unit: label(d), names: [...names].sort() })).sort((x, y) => (x.unit < y.unit ? -1 : x.unit > y.unit ? 1 : 0)),
@@ -219,7 +242,23 @@ function analyze(code) {
     unknownGlobals: [...unknownGlobals.values()],
     implicitGlobalWrites,
     regions,
+    imports,
+    importDecls,
   };
+}
+
+// Names a module (or a file whose code sits in an IIFE) uses without declaring or importing them and
+// that are not built-ins or browser globals. [{ name, line }]
+function undeclaredNames(code) {
+  const ast = espree.parse(code, { ecmaVersion: ECMA, sourceType: 'module', range: true, loc: true });
+  const scopeManager = eslintScope.analyze(ast, { ecmaVersion: ECMA, sourceType: 'module' });
+  const out = [];
+  for (const ref of scopeManager.globalScope.through) {
+    const name = ref.identifier.name;
+    if (DOM_GLOBALS.has(name) || KNOWN_GLOBALS.has(name)) continue;
+    out.push({ name, line: ref.identifier.loc.start.line });
+  }
+  return out;
 }
 
 function render(model, title) {
@@ -287,7 +326,17 @@ function render(model, title) {
   return out.join('\n');
 }
 
-module.exports = { analyze, render };
+// Browser globals (document, window, localStorage, ...) a module uses without declaring them. [{ name, line }]
+// Resolved through scope analysis, so comments, strings and shadowing local names are not counted.
+function domGlobalsUsed(code) {
+  const ast = espree.parse(code, { ecmaVersion: ECMA, sourceType: 'module', range: true, loc: true });
+  const scopeManager = eslintScope.analyze(ast, { ecmaVersion: ECMA, sourceType: 'module' });
+  return scopeManager.globalScope.through
+    .filter((ref) => DOM_GLOBALS.has(ref.identifier.name))
+    .map((ref) => ({ name: ref.identifier.name, line: ref.identifier.loc.start.line }));
+}
+
+module.exports = { analyze, render, undeclaredNames, domGlobalsUsed };
 
 if (require.main === module) {
   const root = path.join(__dirname, '..');
