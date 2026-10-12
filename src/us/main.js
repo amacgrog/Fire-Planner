@@ -6,214 +6,55 @@ import { currentYear, assignCurrentYear } from './core/tax-year.js';
 import { cliffPlanStore } from './core/cliff-plan-store.js';
 import { optimizerState } from './core/optimizer-state.js';
 import { testHooks } from './core/test-hooks.js';
+import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX, NO_DEPENDENTS, clampRetireAgeA, clampRetireAgeB, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
+import { defaults } from './core/defaults.js';
+import { REVEAL_BY_ID, clampLifeExpectancyA, clampLifeExpectancyB, normalizeUsLumps, normalizeUsStreams, revealHidden } from './core/normalize-lists.js';
+import { attachMoneyPreview, compact, money } from '../shared/core/money-format.js';
+import { ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS } from './core/estimate-always-ids.js';
+import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
+import { SS_EARNINGS_TEST_2026, fraText, ssBeforeRetirementCase } from './core/ss-earnings-test.js';
+import { HIST, clamp, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
+import { FILING, GAIN_BANDS, MORTGAGE_DEBT_LIMIT, NIIT_THRESHOLD, ORDINARY_BRACKETS, SALT_CAP_BY_YEAR, SALT_CAP_FLOOR, SALT_CAP_LAST_YEAR, SALT_PHASE_RATE, SALT_PHASE_START_2025, SENIOR_DEDUCTION_AMOUNT, SENIOR_DEDUCTION_LAST_YEAR, SENIOR_DEDUCTION_PHASE_RATE, SENIOR_PHASE_START, SS_BASE, STD_DEDUCTION, STD_EXTRA_65, filingKey, filingRow, taxYearOf } from './core/federal-deductions.js';
+import { MEDICAID_RULES, hasChildAtMost, medicaidLimit } from './core/medicaid-rules.js';
+import { IRMAA_TIERS } from './core/irmaa-tiers.js';
+import { SE_OUT, SS_WAGE_BASE } from './core/ss-wage-base.js';
+import { irmaaAppealKind, irmaaAppealTable, irmaaAppealWindow } from './core/irmaa-appeal-table.js';
+import { LAMBDA_MAX, NO_THRESHOLDS, REACH_GROSS_UP, SOLVER_LAMBDA_MULT, TAU_GAIN_MAX } from './core/solver-lambda-mult.js';
+import { hasPenalizedMoney, rothFreeCaps, tradGroup } from './core/trad-group.js';
+import { afterTaxValue, magiCapLeft } from './core/after-tax-value.js';
+import { takeCash, takeHomeEquity } from '../shared/core/take-cash.js';
+import { SE_HEALTH, seHealthDeduction } from './core/se-health.js';
+import { guardrailSpendingMultiplier, mortgageResultAges, newGuardrails, recordGuardrailWithdrawal } from '../shared/core/next-guardrail-multiplier.js';
+import { loanPaymentForYear } from '../shared/core/loan-payment-for-year.js';
+import { pensionIncome } from '../shared/core/pension-income.js';
+import { planBondLadder } from '../shared/core/bond-ladder.js';
+import { BUCKET_MODE, STANDARD_MODE, routeSurplus } from './core/year-modes.js';
+import { sweepExcessCash } from '../shared/core/sweep-excess-cash.js';
+import { planCandidateBetter } from './core/plan-candidate-better.js';
+import { APPEAL_EVENT, cliffPlanSummary } from './core/cliff-plan-summary.js';
+import { renderMultiLeverAppliedStatus } from './ui/render-multi-lever-applied-status.js';
+import { updateChartXAxisButtons } from './ui/update-chart-xaxis-buttons.js';
+import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from '../shared/ui/chart-colors.js';
+import { sankeyHue } from '../shared/core/sankey-hues.js';
+import { layoutSankeyColumn, sankeyRibbonPath } from '../shared/core/sankey-layout.js';
+import { cagrColors } from '../shared/core/simulate-at-real-cagr.js';
+import { updateChartGapPartnerButtons } from './ui/update-chart-gap-partner-buttons.js';
+import { updateChartShiftModeButtons } from './ui/update-chart-shift-mode-buttons.js';
+import { chartHoverEnabled } from '../shared/core/chart-hover.js';
+import { exportAllScenarios, exportScenario } from '../shared/ui/scenario-export.js';
+import { isDomWired } from '../shared/core/field-wiring.js';
+import { syncFieldDom } from '../shared/ui/field-wiring.js';
+import { syncFieldOut } from '../shared/ui/dyn-field-html.js';
+import { tryEnterLandscapeFullscreen, tryExitLandscapeFullscreen } from '../shared/ui/landscape-fullscreen.js';
+import { CHART_GROUPS } from '../shared/core/chart-groups.js';
+import { syncTopbarHeight, undoToastBtnEl } from '../shared/ui/topbar-and-undo.js';
+import { syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/sync-keyboard-inset.js';
+import { syncPlanStatusOffsets } from '../shared/ui/sync-plan-status-offsets.js';
+import { wizardOverlay, wizardSteps } from '../shared/ui/wizard-overlay.js';
+import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
+import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 (() => {
-  const defaults = {
-    singlePerson: false,
-    stateTax: 'ma',
-    basisRatio: 50,
-    k401PctA: 100,
-    k401PctB: 100,
-    catchupPctA: 100,
-    catchupPctB: 100,
-    iraPctA: 100,
-    iraPctB: 100,
-    megaBackdoor: false,
-    megaPctA: 100,
-    megaPctB: 100,
-    ageA: 48,
-    ageB: 43,
-    lifeExpectancyA: 100,
-    lifeExpectancyB: 100,
-    retireAgeA: 55,
-    retireAgeB: 55,
-    incomeA: 100000,
-    incomeB: 100000,
-    matchA: 0,
-    matchB: 0,
-    profitSharingPctA: 0,
-    profitSharingPctB: 0,
-    incomeKindA: 'wages',
-    incomeKindB: 'wages',
-    k401Type: 'traditional',
-    iraType: 'traditional',
-    spending: 60000,
-    incomeGrowth: 3,
-    fiWithdrawalRate: 4,
-    inflation: 2.5,
-    medicalInflation: 1,
-    taxable: 50000,
-    // Retirement accounts, per partner (Partner B's are ignored in single-person mode).
-    // Opening balances; each is one account in the engine's account ledger (see
-    // accountsNew). Roth IRA basis: dollars of contributions (and seasoned conversions);
-    // 0 means "not entered" and the planner assumes ROTH_BASIS_ASSUMED_PCT of the balance
-    // (enter $1 for none). Half is the default because most Roth balances hold some contributions and some
-    // earnings; early retirees should enter the real figure. Roth 401(k) basis is a slider: the share of the balance that is
-    // contributions (a Roth 401(k) is not a Roth IRA, so it has its own treatment).
-    tradIraA: 0,
-    tradIraB: 0,
-    trad401kA: 100000,
-    trad401kB: 100000,
-    rothIraA: 25000,
-    rothIraB: 25000,
-    roth401kA: 0,
-    roth401kB: 0,
-    rothIraBasisA: 0,
-    rothIraBasisB: 0,
-    roth401kBasisPctA: 50,
-    roth401kBasisPctB: 50,
-    cash: 50000,
-    cashReserve: 30000,
-    bondYears: 5,
-    smoothWithdrawals: false,
-    withdrawalMixEnabled: false,
-    // Cliff plan (the checkbox keeps its 3C key): steer withdrawal years' MAGI around the federal cost lines, planned once on
-    // the plan's own assumptions (on by default).
-    cliffGuardEnabled: true,
-    // Per-year schedules written by the "Apply this schedule" button on the
-    // Withdrawal & conversion optimizer card (see renderMultiLeverOptimizer/
-    // applyMultiLeverSchedule below) — plain {age: value} objects (not Maps,
-    // so they round-trip through JSON/localStorage/scenario export), null
-    // when nothing's been applied. simulate() (not simulateHistorical() —
-    // same scope as withdrawalMixEnabled above) consults these as a
-    // fallback at the exact two spots that already read
-    // optimizerState.rothBracketByAge/optimizerState.withdrawalMixByAge for the
-    // optimizer's own transient search, so an applied schedule behaves
-    // exactly like an in-progress optimizer run that never gets un-set —
-    // only for whichever ages it actually covers; other years fall through
-    // to the ordinary flat-bracket/live-toggle/default behavior unchanged.
-    appliedRothSchedule: null,
-    appliedMixSchedule: null,
-    guardrailsEnabled: false,
-    survivorEnabled: false,
-    survivorPartner: 'A',
-    survivorDeathAge: 85,
-    survivorSpendingPct: 75,
-    returnRate: 7,
-    bondReturn: 4,
-    hysaRate: 4,
-    dividendYield: 1.5,
-    qualifiedDivPct: 90,
-    tenure: 'own',
-    homeValue: 450000,
-    homeGrowth: 3,
-    mortgagePrincipal: 300000,
-    mortgage: 300000,
-    mortgageRate: 5.5,
-    mortgageYears: 30,
-    extraPrincipal: 0,
-    maintenance: 6000,
-    propertyTax: 0,
-    propertyTaxGrowth: 2.5,
-    homeInsurance: 0,
-    homeInsuranceGrowth: 2.5,
-    rent: 2500,
-    rentGrowth: 3,
-    ssMonthlyA: 2500,
-    ssStartAgeA: 62,
-    ssMonthlyB: 2500,
-    ssStartAgeB: 62,
-    pensionCoverage: 'none',
-    pensionYearlyA: 0,
-    pensionStartAgeA: 67,
-    pensionYearlyB: 0,
-    pensionStartAgeB: 67,
-    healthPremiumA: 0,
-    healthPremiumB: 0,
-    payFrequency: 'biweekly',
-    healthcare: 18000,
-    medicareYearly: 10000,
-    employerCoversSpouseA: true,
-    employerCoversSpouseB: true,
-    irmaaPriorKnown: false,
-    irmaaMagiPrior2: 0,
-    irmaaMagiPrior1: 0,
-    acaEnabled: false,
-    acaEnhanced: false,
-    medicaidWhenEligible: true,
-    ltcEnabled: false,
-    ltcYearlyA: 50000,
-    ltcAgeA: 82,
-    ltcYearlyB: 50000,
-    ltcAgeB: 82,
-    filingStatus: 'mfj',
-    marryLater: false,
-    marriageAgeA: 55,
-    rothConvEnabled: false,
-    rothConvStartAge: 60,
-    rothConvEndAge: 63,
-    rothConvBracket: 22,
-    ruleOf55A: false,
-    ruleOf55B: false,
-    sepp72tIraA: false,
-    sepp72tK401A: false,
-    sepp72tIraB: false,
-    sepp72tK401B: false,
-    sepp72tIraAgeA: 0,
-    sepp72tK401AgeA: 0,
-    sepp72tIraAgeB: 0,
-    sepp72tK401AgeB: 0,
-    buyAge: 50,
-    buyCash: false,
-    buyDownPct: 20,
-    buyClosingPct: 4,
-    buyTerm: 30,
-    buyExtraPrincipal: 0,
-    // "Add another" lists — all start empty; see normalizeLists().
-    loans: [],
-    spendingTiers: [],
-    incomeSources: [],
-    oneTimeIncome: [],
-    extraExpenses: [],
-    lumpExpenses: [],
-    children: [],
-    dismissedEstimates: [],
-    dismissedUnusualAssumptions: [],
-  };
   // @@shared:01-LIST_MAX begin
-  // Normalizes any raw/partial state object (a legacy autosave, an imported
-  // scenario file from an older or newer version of this tool, or a
-  // hand-edited one) into a complete, current-shape state by merging it over
-  // today's defaults. Fields the raw object is missing fall back to the
-  // current default; fields it has that no longer exist are simply dropped.
-  // This is what keeps saved scenarios working across future tool updates.
-  // Variable-length "add another" lists. Every list starts empty. Older saves
-  // (and scenario exports) stored fixed-length arrays gated by master
-  // `otherLoansEnabled` / `otherIncomeEnabled` flags plus per-row `enabled`
-  // flags; those flags no longer exist, so a legacy payload is recognised by
-  // the presence of the flag key and converted so the projection it produced
-  // before is unchanged: a list whose master flag was off is dropped, and
-  // disabled/all-zero rows are dropped. Legacy income streams were indexed to
-  // inflation, so they migrate as "own growth rate" pinned to the inflation
-  // value at load time instead of silently switching to income growth.
-  const LIST_MAX = 10;
-  const CHILD_BIRTH_YEAR_MIN = 1950,
-    CHILD_BIRTH_YEAR_MAX = 2100;
-  // Federal "qualifying child" age limits (IRC 152(c)(3)): under 19 at the end of the tax year,
-  // or under 24 for a full-time student. A child counts for the whole year of birth (age 0).
-  // Disabled-at-any-age children and qualifying relatives are not modeled. Each credit applies its
-  // own cutoff to `age` (the Child Tax Credit is age 16 or under; see docs/next-batches-plan.md).
-  const NO_DEPENDENTS = Object.freeze([]);
-  // The children on the plan in calendar year `taxYear`: `{ age, student, qualifyingChild }` for
-  // each child born by then. A child with a join year (E2: adoption) counts from that year, for the
-  // whole year; age is still from the birth year. A missing join year compares false (from birth).
-  // Returns a shared empty array when there are none (hot path).
-  function dependentsInYear(taxYear) {
-    const kids = state.children;
-    if (!kids || !kids.length) return NO_DEPENDENTS;
-    const out = [];
-    for (const c of kids) {
-      const age = taxYear - c.birthYear;
-      if (age < 0 || c.joinYear > taxYear) continue;
-      const student = c.student === true;
-      out.push({ age, student, qualifyingChild: age <= 18 || (student && age <= 23) });
-    }
-    return out;
-  }
-  function qualifyingChildCount(taxYear) {
-    let n = 0;
-    for (const d of dependentsInYear(taxYear)) if (d.qualifyingChild) n++;
-    return n;
-  }
   function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);
@@ -332,70 +173,7 @@ import { testHooks } from './core/test-hooks.js';
     delete s.otherLoansEnabled;
     delete s.otherIncomeEnabled;
   }
-  // ---- Field registry ----
-  // Every sidebar control that maps straight onto a `state` key is declared here ONCE, and the
-  // input listeners, the DOM sync (syncControls / syncContributionControls), `ids`, and the MCP
-  // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
-  // and one entry here (plus a hook only if it has a side effect).
-  //   key       the `state` key and the element id
-  //   type      'number' (input/range; money fields are read with non-digits stripped),
-  //             'bool' (checkbox), or 'choice' (select / button group with a value list)
-  //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
-  //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
-  //   inlineOut also refresh the label immediately on input
-  //   resync    call syncControls() on input (the field has clamping side effects or labels)
-  //   syncAfter 'contrib': call syncContributionControls() after the edit is saved
-  //   onInput   clamps / cross-field side effects that run right after state is updated
-  // The order of the numeric entries is the order of the MCP schema's properties.
-  const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
-  const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
   // @@shared:01-LIST_MAX end
-  // E1b: income stream owner, kind and retirement-contribution panel (US; Canada carries none of these keys until E1-CA).
-  // normalizeLists (shared) keeps only the common stream keys, so these are read from the raw save, aligned the way
-  // normalizeLists filtered it. Unknown values fall back to the legacy meaning: Partner A, not earned, no contribution.
-  function normalizeUsStreams(s, raw) {
-    const legacy = !!raw && 'otherIncomeEnabled' in raw,
-      src = !legacy && Array.isArray(raw?.incomeSources) ? raw.incomeSources.filter((x) => x && typeof x === 'object') : [],
-      pct0 = (v) => (v !== '' && v !== null && Number.isFinite(Number(v)) ? Math.min(100, Math.max(0, Number(v))) : 0);
-    s.incomeSources = s.incomeSources.map((x, i) => {
-      const r = src[i] || {};
-      return {
-        ...x,
-        owner: r.owner === 'B' ? 'B' : 'A',
-        kind: r.kind === 'wages' || r.kind === 'self' ? r.kind : 'other',
-        contribute: r.contribute === true,
-        deferralType: r.deferralType === 'roth' ? 'roth' : 'traditional',
-        deferralPct: pct0(r.deferralPct),
-        matchPct: pct0(r.matchPct),
-        afterTaxPct: pct0(r.afterTaxPct),
-        personalPct: pct0(r.personalPct),
-        profitSharingPct: Math.min(25, pct0(r.profitSharingPct)),
-        healthPremium: r.healthPremium !== '' && r.healthPremium !== null && Number.isFinite(Number(r.healthPremium)) ? Math.max(0, Number(r.healthPremium)) : 0,
-      };
-    });
-  }
-  // E1d: one-time income tax treatment and owner (US). normalizeLists (shared) keeps only amount, age and flat, so these
-  // are read from the raw save, aligned exactly as normalizeUsStreams aligns streams (a legacy save ignores the raw keys).
-  // Unknown values fall back to the legacy meaning: tax-free, Partner A.
-  function normalizeUsLumps(s, raw) {
-    const legacy = !!raw && 'otherIncomeEnabled' in raw,
-      src = !legacy && Array.isArray(raw?.oneTimeIncome) ? raw.oneTimeIncome.filter((x) => x && typeof x === 'object') : [];
-    s.oneTimeIncome = s.oneTimeIncome.map((x, i) => {
-      const r = src[i] || {};
-      const g = r.gainPct !== '' && r.gainPct !== null && Number.isFinite(Number(r.gainPct)) ? Math.min(100, Math.max(0, Number(r.gainPct))) : 100;
-      return {
-        ...x,
-        kind: r.kind === 'wages' || r.kind === 'ordinary' || r.kind === 'gain' || r.kind === 'inheritedTrad' || r.kind === 'inheritedRoth' ? r.kind : 'free',
-        owner: r.owner === 'B' ? 'B' : 'A',
-        gainPct: g,
-        activeBusiness: r.activeBusiness === true,
-      };
-    });
-  }
-  const clampLifeExpectancyA = () =>
-    (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
-  const clampLifeExpectancyB = () =>
-    (state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1)));
   // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
   const clampProfitSharing = (key) => {
     const v = Math.min(25, Math.max(0, state[key]));
@@ -540,42 +318,14 @@ import { testHooks } from './core/test-hooks.js';
     { key: 'stateTax', type: 'choice', sync: 'controls', resync: [] },
     { key: 'rothConvBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
   ];
-  // Registry reveals by element id, so code that shows or hides a whole group of elements (the partner-B
-  // loop in syncControls) does not undo a reveal that hides one of them.
-  const REVEAL_BY_ID = new Map();
   FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
-  function revealHidden(id) {
-    const fn = REVEAL_BY_ID.get(id);
-    return !!fn && fn(state);
-  }
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
-  // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
-  function syncFieldDom(field) {
-    const el = document.getElementById(field.key);
-    if (field.type === 'bool') el.checked = !!state[field.key];
-    else el.value = state[field.key];
-    (field.reveals || []).forEach((r) => (document.getElementById(r.id).hidden = r.hidden(state)));
-    (field.mirrors || []).forEach((id) => (document.getElementById(id).checked = !!state[field.key]));
-  }
   const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
-  const isDomWired = (field) => field.type !== 'number' && !field.manual;
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
   // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
   // @@shared:ids end
-  const mcpSchemaFor = (field) =>
-    field.type === 'number'
-      ? { type: 'number' }
-      : field.type === 'bool'
-        ? { type: 'boolean' }
-        : { type: 'string', enum: field.values };
-  const mcpAccepts = (field, v) =>
-    field.type === 'number'
-      ? Number.isFinite(v) && (field.min === undefined || v >= field.min) && (field.max === undefined || v <= field.max)
-      : field.type === 'bool'
-        ? typeof v === 'boolean'
-        : field.values.includes(v);
   function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
     FIELDS.forEach((field) => {
@@ -664,12 +414,6 @@ import { testHooks } from './core/test-hooks.js';
   }
   assignState(normalizeState(null));
   // @@shared:02-CHART_GROUPS begin
-  // Which top-level chart "view" a given chartView value belongs to — the
-  // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
-  // three projection sub-views (3yr/1yr/cagr) under one button, and
-  // lastProjectionView remembers which sub-view to restore when clicking
-  // back into "Projection" from Historical/Monte Carlo.
-  const CHART_GROUPS = { '3yr': 'projection', '1yr': 'projection', cagr: 'projection', hist: 'hist', mc: 'mc' };
   // Theme isn't part of state or scenarios (it's a display preference, not
   // a financial input) and, unlike state/mode below, is deliberately not
   // persisted — it just starts from the OS/browser preference each time the
@@ -786,84 +530,6 @@ import { testHooks } from './core/test-hooks.js';
   // returning visitor with "real" data, hiding the first-run banner for
   // someone who never actually entered anything.
   let hasPersonalizedData = hadSavedState;
-  // `ids` (the plain numeric inputs) is derived from FIELDS above.
-  const money = (n) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-      notation: Math.abs(n) >= 1e7 ? 'compact' : 'standard',
-    }).format(n || 0);
-  const compact = (n) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(n || 0);
-  // Dollar-amount fields (class="money") show live comma formatting right
-  // in the field ("$1,850,000") — a plain <input type="number"> can't do
-  // this itself (a number input strips anything that isn't a numeral), so
-  // the first time a field is touched it's switched to type="text" with
-  // inputmode="decimal" (keeps the numeric keypad on mobile) and given an
-  // 'input' listener that reformats on every keystroke, restoring the
-  // caret by counting digits rather than characters, so typing in the
-  // middle of a number doesn't jump the cursor to the end. Every other
-  // piece of code that reads one of these fields' value (the generic `ids`
-  // input handler, the dynamic loan/tier/income-source/one-time-income
-  // handlers) strips non-digits itself before calling Number() on it — see
-  // the "Money-field live formatting" note in CLAUDE.md for the full list.
-  // Idempotent: safe to call repeatedly (syncControls() re-sets values on
-  // reset/load/import) and safe on freshly-rebuilt dynamic rows (loans,
-  // spending tiers, income sources) without double-binding listeners.
-  function attachMoneyPreview(el) {
-    const reformat = (digitsBeforeCaret) => {
-      const digits = el.value.replace(/[^0-9]/g, '');
-      const formatted = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
-      // Skip the write when the field is already showing the correctly
-      // formatted string — a plain reassignment (even to an identical
-      // string) collapses the caret to the end and, on some mobile
-      // browsers, can re-show the on-screen keyboard for a field that's
-      // still focused but whose keyboard was just dismissed (e.g. via the
-      // Android back button). refreshMoneyPreviews() (called from
-      // syncControls(), on every render of a dynamic loan/tier/income row,
-      // etc.) re-runs this on every money field unconditionally, so this
-      // guard is what keeps those routine resyncs from nudging a field the
-      // user has already backed out of. Real typing always differs from
-      // `formatted` pre-write (the browser just inserted a raw, unformatted
-      // character), so this never skips an actual edit.
-      if (formatted === el.value) return;
-      el.value = formatted;
-      if (digitsBeforeCaret == null) return;
-      let count = 0,
-        pos = el.value.length;
-      if (digitsBeforeCaret === 0) {
-        pos = 0;
-      } else {
-        for (let i = 0; i < el.value.length; i++) {
-          if (/[0-9]/.test(el.value[i])) count++;
-          if (count === digitsBeforeCaret) {
-            pos = i + 1;
-            break;
-          }
-        }
-      }
-      el.setSelectionRange(pos, pos);
-    };
-    if (!el.dataset.moneyBound) {
-      el.type = 'text';
-      el.inputMode = 'decimal';
-      el.autocomplete = 'off';
-      el.addEventListener('input', () => {
-        const caret = el.selectionStart;
-        const digitsBeforeCaret =
-          caret == null ? Infinity : el.value.slice(0, caret).replace(/[^0-9]/g, '').length;
-        reformat(digitsBeforeCaret);
-      });
-      el.dataset.moneyBound = '1';
-    }
-    reformat(null);
-  }
   function refreshMoneyPreviews(root) {
     (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
   }
@@ -887,35 +553,6 @@ import { testHooks } from './core/test-hooks.js';
     });
   }
   // @@shared:03-hadSavedState end
-  // "Still estimated" badges + dashboard rollup + guided review nav. A field
-  // is "counted" when it's personal (not a pure modeling assumption like
-  // returnRate/inflation, which keep only the quiet `.is-default` dot
-  // above), its gating feature (if any) is currently on, it's still at its
-  // default value, and the person hasn't explicitly dismissed it. See the
-  // "estimated field badges" note in CLAUDE.md for the full design.
-  const ESTIMATE_ALWAYS_IDS = [
-    'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB', 'profitSharingPctA', 'profitSharingPctB',
-    'k401PctA', 'k401PctB', 'iraPctA', 'iraPctB', 'spending', 'taxable', 'basisRatio',
-    'trad401kA', 'trad401kB', 'tradIraA', 'tradIraB', 'roth401kA', 'roth401kB', 'rothIraA', 'rothIraB',
-    'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
-    'mortgageRate', 'mortgageYears', 'extraPrincipal', 'maintenance', 'propertyTax',
-    'homeInsurance', 'rent', 'ssMonthlyA', 'ssStartAgeA', 'ssMonthlyB', 'ssStartAgeB',
-    'pensionYearlyA', 'pensionStartAgeA', 'pensionYearlyB', 'pensionStartAgeB', 'healthPremiumA',
-    'healthPremiumB', 'healthcare', 'medicareYearly',
-  ];
-  const ESTIMATE_GATED_GROUPS = [
-    { ids: ['megaPctA', 'megaPctB'], gate: () => !!state.megaBackdoor },
-    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
-    { ids: ['rothConvStartAge', 'rothConvEndAge'], gate: () => !!state.rothConvEnabled },
-    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
-    {
-      ids: ['buyAge', 'buyDownPct', 'buyClosingPct', 'buyTerm', 'buyExtraPrincipal'],
-      gate: () => state.tenure === 'rentThenBuy',
-    },
-    // marriageAgeA only matters (and is only shown — see #marriageAgeField)
-    // while the "start single, then file MFJ" transition is enabled.
-    { ids: ['marriageAgeA'], gate: () => !!state.marryLater },
-  ];
   // @@shared:04-isEstimateCountable begin
   function isEstimateCountable(id) {
     if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
@@ -1209,100 +846,6 @@ import { testHooks } from './core/test-hooks.js';
     reviewingFieldId = null;
     renderEstimatedRollup(computeCountedEstimateIds());
   });
-  // "Surface unusual/important assumptions" — a second, independent layer
-  // on top of the "still estimated" badges above. That feature flags a
-  // personal fact still at its meaningless placeholder default; this one
-  // flags a *modeling assumption* whose current value (default or not,
-  // deliberately typed or not) sits outside a realistic real-world range —
-  // e.g. a 15% investment return or a 0% inflation rate, both of which are
-  // allowed by the field's own wide HTML min/max (so the browser won't stop
-  // you) but aren't a sane planning assumption. Reuses exactly the same
-  // fields the estimated-fields spec already classified as "Assumption,
-  // never counted" (lifeExpectancyA/B, incomeGrowth, inflation, bondYears,
-  // returnRate, bondReturn, hysaRate, homeGrowth, propertyTaxGrowth,
-  // homeInsuranceGrowth, rentGrowth) plus mortgageRate, which that spec
-  // didn't need to classify. Deliberately excludes ages/retirement ages —
-  // this is a FIRE app, so a 35-year-old retirement age is the expected
-  // case for a real slice of users, not something to nag about.
-  const UNUSUAL_RANGES = [
-    { id: 'returnRate', label: 'Investment return', unit: '%', min: 3, max: 11 },
-    { id: 'bondReturn', label: 'Bond return', unit: '%', min: 0, max: 6 },
-    { id: 'hysaRate', label: 'HYSA interest rate', unit: '%', min: 0, max: 6 },
-    { id: 'inflation', label: 'Inflation', unit: '%', min: 1, max: 5 },
-    { id: 'incomeGrowth', label: 'Income growth', unit: '%', min: 0, max: 6 },
-    { id: 'homeGrowth', label: 'Home appreciation', unit: '%', min: 0, max: 6 },
-    {
-      id: 'mortgageRate',
-      label: 'Mortgage interest rate',
-      unit: '%',
-      min: 2.5,
-      max: 9,
-      applicable: () => state.tenure !== 'rent',
-    },
-    {
-      id: 'propertyTaxGrowth',
-      label: 'Property tax growth',
-      unit: '%',
-      min: 0,
-      max: 6,
-      applicable: () => state.tenure !== 'rent',
-    },
-    {
-      id: 'homeInsuranceGrowth',
-      label: 'Home insurance growth',
-      unit: '%',
-      min: 0,
-      max: 8,
-      applicable: () => state.tenure !== 'rent',
-    },
-    {
-      id: 'rentGrowth',
-      label: 'Rent growth',
-      unit: '%',
-      min: 0,
-      max: 6,
-      applicable: () => state.tenure !== 'own',
-    },
-    { id: 'bondYears', label: 'Bond reserve size', unit: ' yrs', min: 0, max: 8 },
-    { id: 'lifeExpectancyA', label: 'Partner A life expectancy', unit: '', min: 75, max: 100 },
-    {
-      id: 'lifeExpectancyB',
-      label: 'Partner B life expectancy',
-      unit: '',
-      min: 75,
-      max: 100,
-      applicable: () => !state.singlePerson,
-    },
-  ];
-  // Returns the currently-flagged, not-yet-dismissed items. A dismissal is
-  // cleared automatically the moment a field's value moves back inside its
-  // realistic range — not on every edit the way dismissedEstimates is —
-  // so nudging an already-dismissed unusual value to a *different* unusual
-  // value never re-surfaces the flag; only actually fixing it (and then
-  // pushing it out of range again some other time) does. This is a
-  // deliberate, explicit design choice from user feedback, not an oversight
-  // matching the estimated-fields auto-undismiss-on-any-edit behavior.
-  function computeUnusualAssumptions() {
-    return UNUSUAL_RANGES.filter((r) => {
-      if (r.applicable && !r.applicable()) return false;
-      // A condition-based item (a planner adds one with `check` and `message` instead of a range): flagged while
-      // `check()` is true, dismissal cleared as soon as it is not, like a value that returns to its range.
-      const v = r.check ? (r.check() ? 1 : NaN) : Number(state[r.id]);
-      if (r.check && !Number.isFinite(v)) {
-        const at = state.dismissedUnusualAssumptions.indexOf(r.id);
-        if (at !== -1) state.dismissedUnusualAssumptions.splice(at, 1);
-        return false;
-      }
-      if (!Number.isFinite(v)) return false;
-      const out = r.check ? true : v < r.min || v > r.max;
-      if (!out) {
-        const idx = state.dismissedUnusualAssumptions.indexOf(r.id);
-        if (idx !== -1) state.dismissedUnusualAssumptions.splice(idx, 1);
-        return false;
-      }
-      return !state.dismissedUnusualAssumptions.includes(r.id);
-    });
-  }
   // Quantifies the impact of one flagged assumption by comparing the
   // current simulation against the same simulation with just that one
   // field nudged back to the nearer edge of its realistic range — the same
@@ -1476,32 +1019,6 @@ import { testHooks } from './core/test-hooks.js';
     syncUnusualToast(flagged);
   }
   // @@shared:04-isEstimateCountable end
-  // Social Security before retirement (7O O5; US only). The earnings test is not modeled (see the Social Security
-  // notes), so a partner whose benefit starts before both their retirement age and their full retirement age gets
-  // the whole benefit while wages continue. SSA: the benefit is withheld at $1 for every $2 of earnings over
-  // $24,480 in 2026 ($1 for every $3 over $65,160 in the year full retirement age is reached) until that age,
-  // and a permanently higher benefit from then on returns the months withheld. A condition-based item of the
-  // "Worth a second look" list (see `check` and `message` in computeUnusualAssumptions).
-  const SS_EARNINGS_TEST_2026 = { lower: 24480, higher: 65160 };
-  // Full retirement age in months by birth year (SSA, Normal Retirement Age table).
-  function fullRetirementAgeMonths(birthYear) {
-    if (birthYear <= 1954) return 66 * 12;
-    if (birthYear >= 1960) return 67 * 12;
-    return 66 * 12 + 2 * (birthYear - 1954);
-  }
-  function ssBeforeRetirementCase(p) {
-    if (p === 'B' && state.singlePerson) return null;
-    const start = state['ssStartAge' + p],
-      retire = state['retireAge' + p],
-      fra = fullRetirementAgeMonths(currentYear - state['age' + p]) / 12;
-    if (!(state['ssMonthly' + p] > 0) || !(state['income' + p] > 0)) return null;
-    return start < retire && start < fra ? { start, retire, fra } : null;
-  }
-  function fraText(fra) {
-    const years = Math.floor(fra),
-      months = Math.round((fra - years) * 12);
-    return months ? years + ' and ' + months + ' months' : String(years);
-  }
   ['A', 'B'].forEach((p) =>
     UNUSUAL_RANGES.push({
       id: 'ssStartAge' + p,
@@ -1705,131 +1222,6 @@ import { testHooks } from './core/test-hooks.js';
       setGroupState('withdrawalStrategyGroupState', '', false);
     }
   }
-  // @@shared:05-pct begin
-  const pct = (n) => (n || 0) / 100;
-  const escapeHtml = (s) =>
-    String(s).replace(
-      /[&<>"']/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-    );
-  // S&P 500 calendar-year total returns (dividends reinvested), US CPI
-  // inflation, and 10-year US Treasury bond total returns, 1928-2025.
-  // Source: Damodaran/NYU Stern "Historical Returns on Stocks, Bonds and Bills" (histretSP.xls,
-  // updated January 2026, https://pages.stern.nyu.edu/~adamodar/pc/datasets/histretSP.xls).
-  // S&P 500 total return (with dividends) and 10-year T-bond return columns are copied from that
-  // table (checked row by row, 1928-2025). The CPI column is not in that table: it matches
-  // December-to-December US CPI-U (checked against Shiller's CPI series, 1928-2022, mean difference 0.000
-  // points, max 0.02); its original source is not recorded in the repo history. The yield column is
-  // described below.
-  // [year, nominal S&P500 total return %, CPI inflation %, 10yr T-Bond total return %, 10yr Treasury yield % at the START of the year].
-  // The yield column is the prior December's Shiller long interest rate (monthly average,
-  // not an exact year-end print). 2025 is the December 2024 monthly figure (4.39); 2024 uses January 2024 (4.06)
-  // because no December 2023 value was supplied (both from multpl.com monthly 10-year rates).
-  // It is the coupon on a par bond bought at the start of the year, so it is what taxable bond
-  // interest uses in the historical engine (the bond *return* includes price change, which is not interest).
-  const HIST = [
-    [1928, 43.81, -1.16, 0.84, 3.33],
-    [1929, -8.3, 0.58, 4.2, 3.58],
-    [1930, -25.12, -6.4, 4.54, 3.32],
-    [1931, -43.84, -9.32, -2.56, 3.34],
-    [1932, -8.64, -10.27, 8.79, 3.65],
-    [1933, 49.98, 0.76, 1.86, 3.34],
-    [1934, -1.19, 1.52, 7.96, 3.14],
-    [1935, 46.74, 2.99, 4.47, 2.82],
-    [1936, 31.94, 1.45, 5.02, 2.66],
-    [1937, -35.34, 2.86, 1.38, 2.68],
-    [1938, 29.28, -2.78, 4.21, 2.57],
-    [1939, -1.1, 0.0, 4.41, 2.38],
-    [1940, -10.67, 0.71, 5.4, 2.22],
-    [1941, -12.77, 9.93, -2.02, 1.97],
-    [1942, 19.17, 9.03, 2.29, 2.42],
-    [1943, 25.06, 2.96, 2.49, 2.47],
-    [1944, 19.03, 2.3, 2.58, 2.48],
-    [1945, 35.82, 2.25, 3.8, 2.38],
-    [1946, -8.43, 18.13, 3.13, 2.21],
-    [1947, 5.2, 8.84, 0.92, 2.25],
-    [1948, 5.7, 2.99, 1.95, 2.42],
-    [1949, 18.3, -2.07, 4.66, 2.32],
-    [1950, 30.81, 5.93, 0.43, 2.32],
-    [1951, 23.68, 6.0, -0.3, 2.55],
-    [1952, 18.15, 0.75, 2.27, 2.67],
-    [1953, -1.21, 0.75, 4.14, 2.82],
-    [1954, 52.56, -0.74, 3.29, 2.59],
-    [1955, 32.6, 0.37, -1.34, 2.51],
-    [1956, 7.44, 2.99, -2.26, 2.96],
-    [1957, -10.46, 2.9, 6.8, 3.59],
-    [1958, 43.72, 1.76, -2.1, 3.21],
-    [1959, 12.06, 1.73, -2.65, 3.86],
-    [1960, 0.34, 1.36, 11.64, 4.69],
-    [1961, 26.64, 0.67, 2.06, 3.84],
-    [1962, -8.81, 1.33, 5.69, 4.06],
-    [1963, 22.61, 1.64, 1.68, 3.86],
-    [1964, 16.42, 0.97, 3.73, 4.13],
-    [1965, 12.4, 1.92, 0.72, 4.18],
-    [1966, -9.97, 3.46, 2.91, 4.62],
-    [1967, 23.8, 3.04, -1.58, 4.84],
-    [1968, 10.81, 4.72, 3.27, 5.70],
-    [1969, -8.24, 6.2, -5.01, 6.03],
-    [1970, 3.56, 5.57, 16.75, 7.65],
-    [1971, 14.22, 3.27, 9.79, 6.39],
-    [1972, 18.76, 3.41, 2.82, 5.93],
-    [1973, -14.31, 8.71, 3.66, 6.36],
-    [1974, -25.9, 12.34, 1.99, 6.74],
-    [1975, 37.0, 6.94, 3.61, 7.43],
-    [1976, 23.83, 4.86, 15.98, 8.00],
-    [1977, -6.98, 6.7, 1.29, 6.87],
-    [1978, 6.51, 9.02, -0.78, 7.69],
-    [1979, 18.52, 13.29, 0.67, 9.01],
-    [1980, 31.74, 12.52, -2.99, 10.39],
-    [1981, -4.7, 8.92, 8.2, 12.84],
-    [1982, 20.42, 3.83, 32.81, 13.72],
-    [1983, 22.34, 3.79, 3.2, 10.54],
-    [1984, 6.15, 3.95, 13.73, 11.83],
-    [1985, 31.24, 3.8, 25.71, 11.50],
-    [1986, 18.49, 1.1, 24.28, 9.26],
-    [1987, 5.81, 4.43, -4.96, 7.11],
-    [1988, 16.54, 4.42, 8.22, 8.99],
-    [1989, 31.48, 4.65, 17.69, 9.11],
-    [1990, -3.06, 6.11, 6.24, 7.84],
-    [1991, 30.23, 3.06, 15.0, 8.08],
-    [1992, 7.49, 2.9, 9.36, 7.09],
-    [1993, 9.97, 2.75, 14.21, 6.77],
-    [1994, 1.33, 2.67, -8.04, 5.77],
-    [1995, 37.2, 2.54, 23.48, 7.81],
-    [1996, 22.68, 3.32, 1.43, 5.71],
-    [1997, 33.1, 1.7, 9.94, 6.30],
-    [1998, 28.34, 1.61, 14.92, 5.81],
-    [1999, 20.89, 2.68, -8.25, 4.65],
-    [2000, -9.03, 3.39, 16.66, 6.28],
-    [2001, -11.85, 1.55, 5.57, 5.24],
-    [2002, -21.97, 2.38, 15.12, 5.09],
-    [2003, 28.36, 1.88, 0.38, 4.03],
-    [2004, 10.74, 3.26, 4.49, 4.27],
-    [2005, 4.83, 3.42, 2.87, 4.23],
-    [2006, 15.61, 2.54, 1.96, 4.47],
-    [2007, 5.48, 4.06, 10.21, 4.56],
-    [2008, -36.55, 0.11, 20.1, 4.10],
-    [2009, 25.94, 2.72, -11.12, 2.42],
-    [2010, 14.82, 1.5, 8.46, 3.59],
-    [2011, 2.1, 2.96, 16.04, 3.29],
-    [2012, 15.89, 1.74, 2.97, 1.98],
-    [2013, 32.15, 1.5, -9.1, 1.72],
-    [2014, 13.52, 0.76, 10.75, 2.90],
-    [2015, 1.38, 0.73, 1.28, 2.21],
-    [2016, 11.77, 2.07, 0.69, 2.24],
-    [2017, 21.61, 2.11, 2.8, 2.49],
-    [2018, -4.23, 1.91, -0.02, 2.40],
-    [2019, 31.21, 2.29, 9.64, 2.83],
-    [2020, 18.02, 1.36, 11.33, 1.86],
-    [2021, 28.47, 7.04, -4.42, 0.93],
-    [2022, -18.04, 6.45, -17.83, 1.47],
-    [2023, 26.06, 3.35, 3.88, 3.62],
-    [2024, 24.88, 2.89, -1.64, 4.06],
-    [2025, 17.78, 2.68, 7.8, 4.39],
-  ];
-  const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
-  const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
-  // @@shared:05-pct end
   // Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
   // FICA wage base all index by this factor. In the deterministic projection
   // it is the steady state.inflation compounded by yearIndex; inside
@@ -1873,102 +1265,6 @@ import { testHooks } from './core/test-hooks.js';
   }
   // @@shared:06-histTaxFactors end
 
-  // ---- Federal deductions --------------------------------------------------
-  // The tax year of plan year `yearIndex` is `currentYear + yearIndex` (the clock
-  // the engines already use for RMD birth years; tests pin it). Statutory
-  // amounts that are NOT inflation-indexed carry the law's own year limits.
-  //
-  // Temporary senior deduction (IRC 151(d)(5)(C), added by the 2025 budget
-  // reconciliation act, P.L. 119-21 section 70103): $6,000 per filer aged 65+,
-  // tax years 2025 through 2028 ONLY, reduced by 6% of MAGI over $75,000
-  // (single) / $150,000 (joint), allowed whether or not the filer itemizes.
-  // REVISIT if Congress extends it, when tax details are next updated for 2027:
-  // change SENIOR_DEDUCTION_LAST_YEAR (and tests/deductions.js, which pins the
-  // 2028/2029 cutoff).
-  const SENIOR_DEDUCTION_LAST_YEAR = 2028;
-  const SENIOR_DEDUCTION_AMOUNT = 6000;
-  const SENIOR_DEDUCTION_PHASE_RATE = 0.06;
-  // SALT cap (IRC 164(b)(7), same act): the limit on the state and local tax
-  // deduction (income + property tax). Reduced by 30% of MAGI over a threshold
-  // ($500,000 in 2025, +1% a year) but never below $10,000; both rise 1% a year
-  // through 2029 and the cap is a flat $10,000 again from 2030. Explicit year
-  // table, so REVISIT it with the senior deduction above if Congress changes it.
-  const SALT_CAP_BY_YEAR = { 2025: 40000, 2026: 40400, 2027: 40804, 2028: 41212, 2029: 41624 };
-  const SALT_CAP_LAST_YEAR = 2029;
-  const SALT_CAP_FLOOR = 10000; // the permanent cap, and the phase-down floor
-  const SALT_PHASE_RATE = 0.3;
-  const SALT_PHASE_START_2025 = 500000;
-  // Acquisition-debt limit for mortgage interest (permanent after the 2025 act).
-  const MORTGAGE_DEBT_LIMIT = 750000;
-  function taxYearOf(yearIndex) {
-    return currentYear + Math.floor(yearIndex);
-  }
-  // Standard deduction: the 2026 base (Rev. Proc. 2025-32) plus the additional
-  // amount for each filer on the return aged 65+ ($1,650 married / $2,050
-  // unmarried in 2026), all indexed by the tax-parameter factor. `ages` lists
-  // the filers on this return (one for a single return, two for MFJ).
-  // Filing-status table. Each status names, per parameter family, which data row it
-  // reads, so a status that mixes families (a qualifying surviving spouse uses the
-  // joint brackets but the single thresholds) is data, not a new branch. `joint` is
-  // the structural flag: the return combines both partners' income. A status the
-  // table does not know reads as single. Family keys: brackets, deduction (base),
-  // extraAge (the 65+ add-on), gains (0%/15% bands), ss (Social Security base
-  // amounts), niit, medicare (Additional Medicare Tax), irmaa, senior (senior
-  // deduction phase-out start), ctc (child-credit phase-out start). Each state's own row (STATE_RULES.statusAs) says which
-  // state-tax column a status reads.
-  const FILING = {
-    mfj: { joint: true, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'mfj', niit: 'mfj', medicare: 'mfj', irmaa: 'mfj', senior: 'mfj', ctc: 'mfj' },
-    single: { joint: false, brackets: 'single', deduction: 'single', extraAge: 'single', gains: 'single', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single' },
-    // Head of household: unmarried with a qualifying child. Own brackets, standard deduction and
-    // gain bands; every threshold set by statute for "any other case" is the single one.
-    hoh: { joint: false, brackets: 'hoh', deduction: 'hoh', extraAge: 'hoh', gains: 'hoh', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single' },
-    // Qualifying surviving spouse (two years after the death year, with a qualifying child): the joint
-    // brackets, standard deduction (and its married 65+ add-on) and gain bands, but the single
-    // Social Security bases, Additional Medicare Tax, IRMAA table and senior phase-out start
-    // (IRC 86(c), 3101(b)(2), CMS, 151(d)(5)(C): "joint return" thresholds only). The NIIT is the
-    // joint $250,000: IRC 1411(b)(1) names "a joint return or a surviving spouse". State tax
-    // reads the joint column in a state's own row unless it says otherwise (STATE_RULES.statusAs).
-    qss: { joint: false, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'single', niit: 'mfj', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single' },
-  };
-  const filingRow = (filing) => FILING[filing] || FILING.single;
-  const filingKey = (filing, family) => filingRow(filing)[family];
-  // Base 2026 amounts per data row (Rev. Proc. 2025-32), before the tax-index factor.
-  const STD_DEDUCTION = { mfj: 32200, single: 16100, hoh: 24150 };
-  const STD_EXTRA_65 = { mfj: 1650, single: 2050, hoh: 2050 };
-  const SENIOR_PHASE_START = { mfj: 150000, single: 75000 };
-  const NIIT_THRESHOLD = { mfj: 250000, single: 200000 };
-  const GAIN_BANDS = { mfj: [98900, 613700], single: [49450, 545500], hoh: [66200, 579600] };
-  // Social Security taxation: [lower base, upper base, cap on the 50% tier].
-  const SS_BASE = { mfj: [32000, 44000, 6000], single: [25000, 34000, 4500] };
-  const ORDINARY_BRACKETS = {
-    mfj: [
-      [24800, 0.1],
-      [100800, 0.12],
-      [211400, 0.22],
-      [403550, 0.24],
-      [512450, 0.32],
-      [768700, 0.35],
-      [Infinity, 0.37],
-    ],
-    single: [
-      [12400, 0.1],
-      [50400, 0.12],
-      [105700, 0.22],
-      [201775, 0.24],
-      [256225, 0.32],
-      [640600, 0.35],
-      [Infinity, 0.37],
-    ],
-    hoh: [
-      [17700, 0.1],
-      [67450, 0.12],
-      [105700, 0.22],
-      [201750, 0.24],
-      [256200, 0.32],
-      [640600, 0.35],
-      [Infinity, 0.37],
-    ],
-  };
   function standardDeduction(filing, yearIndex, ages = []) {
     const factor = taxIndexFactor(yearIndex);
     let deduction = STD_DEDUCTION[filingKey(filing, 'deduction')] * factor;
@@ -6391,53 +5687,6 @@ import { testHooks } from './core/test-hooks.js';
     return { taken, net, gain: taken * gainRatio, basisTaken: taken * basisRatio };
   }
   // @@shared:drawTaxable end
-  // ACA premium tax credit — 2026 plan year reverts to the pre-2021 structure:
-  // a sliding applicable-percentage schedule from 100%-400% of the federal
-  // poverty line (IRS Rev. Proc. 2025-25), then a hard cliff above 400%.
-  // "Assume enhanced subsidies return" models the 2021-2025 ARPA/IRA structure
-  // instead (no cliff, capped at 8.5% of income), in case Congress extends it.
-  // Medicaid for adults under 65 and the premium-credit floor (Batch 7O, O1). Pure literals (read by
-  // nothing else; the state-tax generator and coverage test do not see this table).
-  // `expansionLimit`: Medicaid for an adult at or below this share of the poverty line (42 CFR 435.119:
-  // 133%, plus the 5-point disregard of 435.603(d)(4)). `nonExpansion`: the ten states with no
-  // adult group (KFF, Aug 2026). `adultCoverage`: a non-expansion state that covers adults anyway,
-  // to that share (Wisconsin's BadgerCare waiver, 100% through 2029). `ptcFloor`: no premium tax
-  // credit below this share (IRC 36B(c)(1)(A)). `workRequirement`: from `fromYear` an adult 19 to 64
-  // in the adult group (or a waiver covering the same people) must show community engagement, unless
-  // a parent or caregiver of a child `exemptChildMaxAge` or younger (SSA 1902(xx), CMCS Informational
-  // Bulletin 12/8/2025); one denied for failing it is barred from the premium credit (1902(xx)(7)(B)).
-  // MEDICAID_RULES:begin
-  const MEDICAID_RULES = {
-    expansionLimit: 1.38,
-    nonExpansion: ['al', 'fl', 'ga', 'ks', 'ms', 'sc', 'tn', 'tx', 'wi', 'wy'],
-    adultCoverage: { wi: 1.0 },
-    ptcFloor: 1.0,
-    workRequirement: { fromYear: 2027, exemptChildMaxAge: 13 },
-    asOf: 2026,
-  };
-  // MEDICAID_RULES:end
-  // Highest share of the poverty line at which an adult is on Medicaid in this state (0: none).
-  const medicaidLimitCache = {};
-  function medicaidLimit(code) {
-    let v = medicaidLimitCache[code];
-    if (v === undefined) {
-      const R = MEDICAID_RULES;
-      v = R.nonExpansion.indexOf(code) < 0 ? R.expansionLimit : R.adultCoverage[code] || 0;
-      medicaidLimitCache[code] = v;
-    }
-    return v;
-  }
-  // True when the household has a child aged `maxAge` or younger in that calendar year (no allocation); a child
-  // counts from its join year, as in dependentsInYear (E2).
-  function hasChildAtMost(taxYear, maxAge) {
-    const kids = state.children;
-    if (!kids) return false;
-    for (let i = 0; i < kids.length; i++) {
-      const age = taxYear - kids[i].birthYear;
-      if (age >= 0 && age <= maxAge && !(kids[i].joinYear > taxYear)) return true;
-    }
-    return false;
-  }
   function fplForHousehold(size, yearIndex) {
     const factor = taxIndexFactor(yearIndex);
     return (15650 + (Math.max(1, size) - 1) * 5500) * factor;
@@ -6537,28 +5786,6 @@ import { testHooks } from './core/test-hooks.js';
     const expected = (magi * acaExpectedPct(ratio, state.acaEnhanced)) / 100;
     return Math.min(grossPremium, Math.max(0, expected));
   }
-  // Medicare IRMAA — 2026 Part B + Part D surcharge tiers (CMS, Nov 2025),
-  // applied per Medicare-enrolled partner against MAGI from two simulated
-  // years prior (the household's own entries for the first two plan years, if
-  // given — see irmaaLookbackMagi), as required by the actual two-year lookback rule.
-  const IRMAA_TIERS = {
-    mfj: [
-      [218000, 0, true],
-      [274000, 95.7, true],
-      [342000, 240.4, true],
-      [410000, 385.0, true],
-      [750000, 529.6, false],
-      [Infinity, 578.0, true],
-    ],
-    single: [
-      [109000, 0, true],
-      [137000, 95.7, true],
-      [171000, 240.4, true],
-      [205000, 385.0, true],
-      [500000, 529.6, false],
-      [Infinity, 578.0, true],
-    ],
-  };
   function irmaaTiers(filing, yearIndex) {
     const factor = taxIndexFactor(yearIndex);
     // [upper bound, monthly surcharge per enrolled partner, bound inclusive?].
@@ -7319,12 +6546,6 @@ import { testHooks } from './core/test-hooks.js';
       traditionalFirst = cascade(true);
     return traditionalFirst.cost < taxableFirst.cost ? traditionalFirst : taxableFirst;
   }
-  const SS_WAGE_BASE = 184500; // 2026 Social Security wage base (SSA), indexed with taxIndexFactor
-  // E1c: self-employment tax (IRC 1401, 1402) on one person's year of self-employment profit se. Net earnings are 92.35%
-  // of profit; nothing is due under $400 of net earnings. Social Security (12.4%) stops at the wage base less that person's
-  // W-2 Social Security wages; Medicare is 2.9% of all net earnings. half (IRC 164(f)) is deducted from income; the 0.9%
-  // Additional Medicare Tax is figured in payrollTax on wages plus ne. Pure; fills out.
-  const SE_OUT = { tax: 0, half: 0, ne: 0 };
   function selfEmploymentTax(se, ssWages, yearIndex, out) {
     const ne = 0.9235 * se;
     if (!(ne >= 400)) {
@@ -7535,18 +6756,6 @@ import { testHooks } from './core/test-hooks.js';
   }
   function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
-  }
-  function isDarkTheme() {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  }
-  function chartAxisColor() {
-    return isDarkTheme() ? '#93a3b8' : '#718096';
-  }
-  function chartGridColor() {
-    return isDarkTheme() ? '#2b3a4d' : '#e2e8f0';
-  }
-  function chartZeroLineColor() {
-    return isDarkTheme() ? '#4a5b70' : '#b8c2cf';
   }
   // Real calendar year for row.year === 0 ("now"), used only to label the
   // chart x-axis in 'year' mode — computed once from the device clock
@@ -7909,30 +7118,6 @@ import { testHooks } from './core/test-hooks.js';
     return { ssA, ssB, ss };
   }
 
-  // @@shared:08-pensionIncome begin
-  // Pension income for the year (which partner(s) are covered is set by
-  // state.pensionCoverage; the single-person case always uses Partner A's
-  // pension). The deceased partner's pension drops out in the survivor period.
-  function pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
-    let pensionA =
-        ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
-        age >= state.pensionStartAgeA
-          ? state.pensionYearlyA
-          : 0) * factor,
-      pensionB =
-        (!singlePerson &&
-        (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
-        ageB >= state.pensionStartAgeB
-          ? state.pensionYearlyB
-          : 0) * factor;
-    if (isSurvivorPeriod) {
-      if (deceasedIsA) pensionA = 0;
-      else pensionB = 0;
-    }
-    const pension = pensionA + pensionB;
-    return { pensionA, pensionB, pension };
-  }
-  // @@shared:08-pensionIncome end
 
   // Mandatory traditional distributions for the year: each partner's RMD plus
   // any elected 72(t) SEPP payment, both taxed as ordinary income and
@@ -8077,23 +7262,6 @@ import { testHooks } from './core/test-hooks.js';
     };
   }
 
-  // @@shared:loanPaymentForYear begin
-  // Total "other loans" payment for the year. In the survivor period the
-  // remaining balance is paid off as a lump sum in the year of death
-  // (approximating debts settled through probate) and nothing is owed after.
-  function loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans }) {
-    const loanPayment = isSurvivorPeriod && year > deathYear
-      ? 0
-      : year === deathYear
-        ? loans.reduce(
-            (sum, l, i) =>
-              sum + (year > 0 ? l.balances[year - 1] : Number(state.loans[i]?.balance) || 0),
-            0,
-          )
-        : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
-    return { loanPayment };
-  }
-  // @@shared:loanPaymentForYear end
 
   // Tax filing status for the year (a key of FILING).
   //  - Unmarried with a qualifying child that year: head of household; without: single.
@@ -8341,55 +7509,6 @@ import { testHooks } from './core/test-hooks.js';
     return { otherA, otherB, profile };
   }
 
-  // E3 (spec 5.2): the IRMAA appeal events of a run, per person, by first post-event year E (the year after the last
-  // working year, or the death year): 0 none, 1 the end of a W-2 or self-employed stream, 2 a main-job retirement, 3 a
-  // married spouse's death; the highest kind on a tie. An event covers its owner, and the owner's spouse when the couple is
-  // married in year E (a death covers only the survivor); it is kept for a covered person alive in year E and 65 or over by
-  // year E+1. Null when no event is kept (the default household, retiring at 55, allocates nothing).
-  function irmaaAppealTable({ singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears }) {
-    const married = (y) => !singlePerson && (state.marryLater ? state.ageA + y >= state.marriageAgeA : state.filingStatus === 'mfj');
-    let eventA = null,
-      eventB = null;
-    const put = (b, E, kind) => {
-      if ((b ? deceasedIsB : deceasedIsA) && E >= deathYear) return; // dead in year E
-      if ((b ? state.ageB : state.ageA) + E + 1 < 65) return; // cannot be on Medicare by E+1
-      if (eventA === null) {
-        eventA = new Int8Array(projectionYears + 1);
-        eventB = new Int8Array(projectionYears + 1);
-      }
-      const ev = b ? eventB : eventA;
-      if (kind > ev[E]) ev[E] = kind;
-    };
-    const cover = (b, E, kind) => {
-      put(b, E, kind);
-      if (married(E)) put(!b, E, kind);
-    };
-    const eA = retireAgeA - state.ageA;
-    if (state.incomeA > 0 && eA >= 1 && eA <= projectionYears) cover(false, eA, 2);
-    if (!singlePerson) {
-      const eB = retireAgeB - state.ageB;
-      if (state.incomeB > 0 && eB >= 1 && eB <= projectionYears) cover(true, eB, 2);
-    }
-    for (const s of state.incomeSources) {
-      if ((s.kind !== 'wages' && s.kind !== 'self') || !(s.amount > 0) || !(s.startAge <= s.endAge)) continue;
-      const b = !singlePerson && s.owner === 'B',
-        E = s.endAge + 1 - (b ? state.ageB : state.ageA);
-      if (E < 1 || E > projectionYears) continue;
-      if ((b ? deceasedIsB : deceasedIsA) && E >= deathYear) continue; // ended by its owner's death: the death event
-      cover(b, E, 1);
-    }
-    if ((deceasedIsA || deceasedIsB) && deathYear >= 0 && deathYear <= projectionYears && married(deathYear)) put(deceasedIsA, deathYear, 3);
-    return eventA === null ? null : { eventA, eventB };
-  }
-  // E3 (spec 5.2): partner P's appeal window in premium year `year` from P's event row: 2 when an event's E is last year
-  // (last year's and this year's MAGI may replace the lookback), 1 when it is this year (this year's MAGI), else 0.
-  function irmaaAppealWindow(ev, year) {
-    return year >= 1 && ev[year - 1] !== 0 ? 2 : ev[year] !== 0 ? 1 : 0;
-  }
-  // E3 (spec 5.2, round 1 M4): the kind of the event the chosen tax year s can cite in premium year t.
-  function irmaaAppealKind(ev, t, s) {
-    return s === t - 1 ? ev[t - 1] : ev[t] !== 0 ? ev[t] : ev[t - 1];
-  }
 
   // Healthcare and long-term-care cost for the year.
   //  - Pre-65 premium (state.healthcare): only for partners on the individual
@@ -8554,76 +7673,7 @@ import { testHooks } from './core/test-hooks.js';
     return { healthcare, ltc, usesMagiEstimate, premA, premB, appealA, appealB, inYearA, inYearB };
   }
 
-  // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
-  // the credit, the flat premium, Medicare and IRMAA; all of it is insurance for the household). A person may deduct it
-  // only in a year without employer coverage of their own or through a spouse (profile.seAllowX), up to their net
-  // self-employment earned income (sePlanNetX: profit less half the SE tax and the Solo 401(k) plan money, IRC 401(c)(2);
-  // a traditional IRA does not reduce it). One return: the
-  // household's premiums, up to both caps (either spouse may claim the family's). Two returns: each person's own part
-  // (premA includes the children). Pure; fills `out`.
-  const SE_HEALTH = [0, 0];
-  function seHealthDeduction(healthcare, premA, premB, twoReturns, profile, out) {
-    const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0,
-      capB = profile.seAllowB ? profile.sePlanNetB || 0 : 0;
-    if (twoReturns) {
-      out[0] = Math.min(premA, capA);
-      out[1] = Math.min(premB, capB);
-    } else {
-      const total = Math.min(healthcare, capA + capB);
-      out[0] = Math.min(total, capA);
-      out[1] = total - out[0];
-    }
-    return out;
-  }
 
-  // @@shared:nextGuardrailMultiplier begin
-  // Guyton-Klinger guardrails (simplified): compares last withdrawal year's
-  // draw rate to the rate at the first withdrawal. A rate more than 20% above
-  // it cuts discretionary spending 10%; more than 20% below raises it 10%; the
-  // multiplier is held to a 0.5x-1.5x band and persists until the next trigger.
-  function nextGuardrailMultiplier({ multiplier, initialWR, prevNeed, prevPortfolio }) {
-    const priorWR = prevNeed / prevPortfolio;
-    if (initialWR > 0) {
-      if (priorWR > initialWR * 1.2) return Math.max(0.5, multiplier * 0.9);
-      if (priorWR < initialWR * 0.8) return Math.min(1.5, multiplier * 1.1);
-    }
-    return multiplier;
-  }
-  // Per-run guardrail bookkeeping, a plain object so the US MAGI-iteration
-  // snapshot can copy it with `{ ...g }` and restore it with Object.assign.
-  function newGuardrails() {
-    return { multiplier: 1, initialWR: null, prevNeed: null, prevPortfolio: null };
-  }
-  // The factor applied to this year's household spending. Also advances the
-  // lagged rule from last year's recorded withdrawal.
-  function guardrailSpendingMultiplier(g, working) {
-    if (!state.guardrailsEnabled || working) return 1;
-    if (g.prevPortfolio > 0)
-      g.multiplier = nextGuardrailMultiplier({
-        multiplier: g.multiplier,
-        initialWR: g.initialWR,
-        prevNeed: g.prevNeed,
-        prevPortfolio: g.prevPortfolio,
-      });
-    return g.multiplier;
-  }
-  // Records a retired year's withdrawal need (lump expenses excluded) against
-  // the portfolio before the draw; the first one fixes the baseline rate.
-  function recordGuardrailWithdrawal(g, need, portfolioNow, working) {
-    if (!state.guardrailsEnabled || working) return;
-    if (g.initialWR === null && portfolioNow > 0) g.initialWR = need / portfolioNow;
-    g.prevNeed = need;
-    g.prevPortfolio = portfolioNow;
-  }
-  // Mortgage payoff and rent-then-buy fields that both engines return.
-  function mortgageResultAges(futureBuy, schedule) {
-    const payoffYear = state.tenure === 'rentThenBuy' ? futureBuy.payoffYear : schedule.payoffYear;
-    return {
-      payoffAge: payoffYear === null ? null : state.ageA + payoffYear,
-      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
-    };
-  }
-  // @@shared:nextGuardrailMultiplier end
 
   // Highest MAGI a Roth conversion (and, in simulate(), the withdrawal order)
   // may reach this year without a cost cliff, or Infinity if nothing binds:
@@ -8757,15 +7807,6 @@ import { testHooks } from './core/test-hooks.js';
   }
 
   // @@shared:09-sweepExcessCash begin
-  // Cash above the reserve target is invested in the taxable account (at full
-  // cost basis, since it was already-taxed cash).
-  function sweepExcessCash(bal, reserveTarget) {
-    if (bal.cash <= reserveTarget) return;
-    const moved = bal.cash - reserveTarget;
-    bal.taxable += moved;
-    bal.taxableBasis += moved;
-    bal.cash = reserveTarget;
-  }
 
   // Pre-retirement bond-ladder build: ramps linearly over the years available
   // before retirement so the full ladderTarget is reached by rotationEndYear.
@@ -8803,25 +7844,7 @@ import { testHooks } from './core/test-hooks.js';
   }
   // @@shared:09-sweepExcessCash end
 
-  // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
-  // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
-  // just over a floor, the stock-account order, whose accounts fund the draw) by dry-running the year's
-  // real withdrawal, and keeps the one that leaves the most after-tax wealth, with traditional dollars
-  // worth (1 - lambda). See docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md.
-  const SOLVER_LAMBDA_MULT = 1,
-    REACH_GROSS_UP = 2,
-    LAMBDA_MAX = 0.6,
-    TAU_GAIN_MAX = 0.5;
 
-  // The year's federal MAGI lines, in household MAGI: the ACA floor (100%), the Medicaid line and the 400%
-  // cliff for partners on the individual market; the IRMAA tier edges from 63 (retired); the senior-
-  // deduction phase-out start (65+, through 2028); the child-tax-credit phase-out start. With two returns
-  // each return's line is translated into household MAGI through that return's share of the traditional
-  // draw (the solver prices candidates with the real functions, so the translation only places them).
-  // State-law cliffs are priced by taxFor but are not candidates (documented gap).
-  // With c.lo / c.hi (the year's reach) only the lines in (lo, hi] are kept, the only ones the solver uses, and a
-  // year with none returns a shared empty list (the skip path allocates no line objects).
-  const NO_THRESHOLDS = Object.freeze([]);
   function magiThresholds(c) {
     const out = [],
       y = c.year,
@@ -9028,21 +8051,6 @@ import { testHooks } from './core/test-hooks.js';
     };
   }
 
-  // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded
-  // taxable gains at tauGain, Roth, cash, bond principal and home equity at face value.
-  function afterTaxValue(bal, lambda, tauGain) {
-    const gain = Math.max(0, bal.taxable - bal.taxableBasis) + Math.max(0, bal.bondTaxable - bal.bondTaxableBasis);
-    let v = bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
-    // E1e: the open inherited accounts (appended, and only when there are any: a legacy score is the same double).
-    if (bal.inheritedTrad + bal.inheritedRoth > 0) v += bal.inheritedTrad * (1 - lambda) + bal.inheritedRoth;
-    return v;
-  }
-  // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
-  // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
-  function magiCapLeft(wd) {
-    const c = wd.magiCap;
-    return !c || c.off ? Infinity : Math.max(0, c.limit - wd.traditionalGross - wd.taxableGainGross);
-  }
   // Lifts the cap and takes any remaining need from penalty-free traditional money (stocks, then the bond
   // bucket): runs before penalized money and before home equity, so a target never strands money.
   function releaseMagiCap(wd, solver) {
@@ -9212,36 +8220,6 @@ import { testHooks } from './core/test-hooks.js';
     return d.net;
   }
   // @@shared:takeTaxable end
-  // The accounts of the traditional pool that are penalty-free (or penalized) this year for a
-  // discretionary draw, and their share of the pool.
-  function tradGroup(wd, penalized) {
-    const slots = [0, 1, 2, 3].filter(
-      (i) => !wd.seppActive[i] && wd.status[i].free === !penalized && (wd.onlyPartner < 0 || (i < 2 ? 0 : 1) === wd.onlyPartner),
-    );
-    return { slots, share: slots.reduce((sum, i) => sum + wd.accts.trad[i], 0) };
-  }
-  // True when some account holding money would owe the 10% on a discretionary draw: a penalized
-  // traditional account, or a Roth account whose owner is neither 59.5+ nor covered by Rule of 55.
-  // While it is true the withdrawal order protects the penalty-free money (see withdrawStandard).
-  function hasPenalizedMoney(wd) {
-    const { bal, accts, status } = wd;
-    if (bal.traditional + bal.bondTraditional > 0 && tradGroup(wd, true).share > 0) return true;
-    return bal.roth + bal.bondRoth > 0 && [0, 1, 2, 3].some((i) => !status[i].free && accts.roth[i] > 0);
-  }
-  // Gross room per Roth account for a penalty-free draw from `bucket`: an account whose owner is
-  // free (59.5+, inherited, or a 401(k) under Rule of 55) all of it; an early Roth IRA only its
-  // basis (contributions and seasoned conversions); an early Roth 401(k) none (every draw is
-  // partly earnings).
-  function rothFreeCaps(wd, bucket) {
-    const { bal, accts, status, rothAccts } = wd,
-      pool = bal.roth + bal.bondRoth;
-    return accts.roth.map((sh, i) => {
-      const dollars = sh * pool;
-      if (!(dollars > 0)) return 0;
-      const frac = status[i].free ? 1 : i % 2 === 1 ? 0 : Math.min(Math.max(0, rothAccts[i].basis), dollars) / dollars;
-      return sh * bal[bucket] * frac;
-    });
-  }
   // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection bracket (see
   // solveTraditionalForNetFromNeed). Draws the penalty-free accounts only (no 10%); the penalized
   // ones are takePenalized's job. Every account holds the same stock/bond mix, so a group's room in a
@@ -9394,21 +8372,6 @@ import { testHooks } from './core/test-hooks.js';
       wd.need = Math.max(0, wd.need - best.c.run());
     }
   }
-  // @@shared:takeCash begin
-  function takeCash(wd, amount) {
-    const from = Math.min(wd.bal.cash, amount);
-    wd.bal.cash -= from;
-    return from;
-  }
-  // Last resort: home equity (value less mortgage) when the household owns.
-  function takeHomeEquity(wd, amount) {
-    const { bal } = wd;
-    if (state.tenure !== 'own' && state.tenure !== 'rentThenBuy') return 0;
-    const from = Math.min(Math.max(0, bal.home - bal.mortgage), amount);
-    bal.home -= from;
-    return from;
-  }
-  // @@shared:takeCash end
   // Same job as solveTraditionalForNet, but bisecting from [need, 6*need + 1]
   // instead of [0, min(balance, 6*need + 1)]. The brackets converge to slightly
   // different values (~1e-7 relative), so both are kept until the numerics are
@@ -9950,43 +8913,7 @@ import { testHooks } from './core/test-hooks.js';
       return baseSpendingNominal(ageA, year, factor, factor) + healthcare + ltc + shelter + extraRecurring;
     };
   }
-  // The pre-retirement bond ladder plan: the target is the sum of the first bondYears of
-  // projected expenses starting at retirement, built up linearly over the years before
-  // retirement (rotateIntoBondLadder does the moving).
-  function planBondLadder({ retirementYear, bondYears, projectedExpense }) {
-    const bondYearsCeil = Math.max(0, Math.ceil(bondYears)),
-      bondWhole = Math.floor(bondYears),
-      bondFrac = bondYears - bondWhole;
-    const ladderTranches = Array.from({ length: bondWhole }, (_, i) =>
-      projectedExpense(retirementYear + i),
-    );
-    if (bondFrac > 0) ladderTranches.push(projectedExpense(retirementYear + bondWhole) * bondFrac);
-    const ladderTarget = ladderTranches.reduce((a, b) => a + b, 0);
-    const rotationStartYear = Math.max(0, retirementYear - bondYearsCeil),
-      rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : Math.max(0, bondYearsCeil - 1);
-    return { ladderTranches, ladderTarget, rotationStartYear, rotationEndYear };
-  }
   // @@shared:11-makeProjectedExpense end
-  // A year with income above spending, tax and contributions: the surplus first tops cash
-  // up to the reserve, then (bucket strategy in an up year, bondTarget not null) rebuilds
-  // the bond reserve, and the rest is invested in taxable. This year's contributions then
-  // go into the traditional and Roth accounts.
-  function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib }) {
-    const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
-    bal.cash += cashTopUp;
-    let remainder = flow - cashTopUp;
-    if (bondTarget !== null) {
-      const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
-        toBonds = Math.min(remainder, bondDeficit);
-      bal.bondTaxable += toBonds;
-      bal.bondTaxableBasis += toBonds;
-      remainder -= toBonds;
-    }
-    bal.taxable += remainder;
-    bal.taxableBasis += remainder;
-    bal.traditional += traditionalContrib + employerMatch;
-    bal.roth += rothContrib;
-  }
   // @@shared:12-standardYearSource begin
   // ---- Year sources and modes for runProjection() ----
   // A year source supplies each year's market inputs: yearInputs(year) returns the stock
@@ -10036,13 +8963,6 @@ import { testHooks } from './core/test-hooks.js';
     };
   }
   // @@shared:12-standardYearSource end
-  // The explicit differences between the two ways of running the engine. These switches
-  // reproduce today's behavior exactly; the historical-parity work turns the bucket mode's
-  // switches on one at a time.
-  //  bucketStrategy:    bucket withdrawals (cash/bonds first in a down year, bond reserve
-  //                     refilled in up years) instead of the standard cascade
-  const STANDARD_MODE = { bucketStrategy: false };
-  const BUCKET_MODE = { bucketStrategy: true };
 
   // ---- end per-year helpers ----
 
@@ -11367,18 +10287,6 @@ import { testHooks } from './core/test-hooks.js';
     return e.roth + e.taxable + e.cash + e.homeEquity + T - Math.max(0, tax);
   }
 
-  // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
-  // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
-  // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer
-  // intents. Lifetime real tax plus healthcare is reported, never ranked.
-  function planCandidateBetter(a, b) {
-    const da = a.depletedAge == null ? Infinity : a.depletedAge,
-      db = b.depletedAge == null ? Infinity : b.depletedAge;
-    if (da !== db) return da > db;
-    if (a.value > b.value + 1) return true;
-    if (b.value > a.value + 1) return false;
-    return a.n < b.n;
-  }
   // Every candidate is a standard (deterministic) run: afterTaxEndValueUS reads the run's own tax law, which a historical
   // run's per-path tax factors no longer carry once it returns (standard runs only).
   // The plan for the current `state`, touching no module plan variable. Planning never sees a historical path's tax
@@ -12643,24 +11551,6 @@ import { testHooks } from './core/test-hooks.js';
       evalCount: r.evalCount,
     };
   }
-  // @@shared:SANKEY_HUES begin
-  // Validated categorical palette (see the `dataviz` skill's palette.md) —
-  // fixed hue order, never cycled/reassigned by rank. Reused across the two
-  // columns (sources / uses) since they're spatially separated by the hub,
-  // so only within-column neighbors need to stay visually distinct.
-  const SANKEY_HUES = {
-    blue: { light: '#2a78d6', dark: '#3987e5' },
-    orange: { light: '#eb6834', dark: '#d95926' },
-    aqua: { light: '#1baf7a', dark: '#199e70' },
-    yellow: { light: '#eda100', dark: '#c98500' },
-    magenta: { light: '#e87ba4', dark: '#d55181' },
-    green: { light: '#008300', dark: '#008300' },
-    violet: { light: '#7e57c2', dark: '#9575cd' },
-  };
-  function sankeyHue(name, dark) {
-    return SANKEY_HUES[name][dark ? 'dark' : 'light'];
-  }
-  // @@shared:SANKEY_HUES end
   // Builds the source/use category breakdown for a single projection year,
   // for the cash-flow (Sankey-style) diagram. Any gap between what income
   // covers and what taxes+spending require is shown as either a draw from
@@ -12709,38 +11599,6 @@ import { testHooks } from './core/test-hooks.js';
     return { sources, uses, total: Math.max(totalIn, totalOut) };
   }
   // @@shared:19-layoutSankeyColumn begin
-  // Stacks `nodes` top-to-bottom over [y0,y1] proportional to value/total.
-  // Returns each node's true (exact) y-range plus a gap-inset draw range
-  // (the "surface gap" spacer that visually separates touching bands
-  // instead of a border) — the true range is what hub-face partitions key
-  // off of so proportions line up exactly even though the drawn rects/
-  // ribbons are inset.
-  function layoutSankeyColumn(nodes, x0, x1, y0, y1, total, gap = 1.5) {
-    let y = y0;
-    return nodes.map((n) => {
-      const h = total > 0 ? (n.value / total) * (y1 - y0) : 0;
-      const trueY0 = y,
-        trueY1 = y + h;
-      y += h;
-      const mid = (trueY0 + trueY1) / 2;
-      return {
-        ...n,
-        x0,
-        x1,
-        y0: trueY0,
-        y1: trueY1,
-        drawY0: Math.min(trueY0 + gap, mid),
-        drawY1: Math.max(trueY1 - gap, mid),
-      };
-    });
-  }
-  // Standard Sankey ribbon: independent top/bottom cubic-bezier edges, so a
-  // band can run diagonally (and even change width) between its two ends.
-  function sankeyRibbonPath(x0, y0a, y0b, x1, y1a, y1b) {
-    const cx0 = x0 + (x1 - x0) * 0.45,
-      cx1 = x0 + (x1 - x0) * 0.55;
-    return `M ${x0} ${y0a} C ${cx0} ${y0a} ${cx1} ${y1a} ${x1} ${y1a} L ${x1} ${y1b} C ${cx1} ${y1b} ${cx0} ${y0b} ${x0} ${y0b} Z`;
-  }
   let sankeyTooltipEl = null;
   function ensureSankeyTooltip() {
     if (sankeyTooltipEl && document.body.contains(sankeyTooltipEl)) return sankeyTooltipEl;
@@ -13247,32 +12105,6 @@ import { testHooks } from './core/test-hooks.js';
     render();
     saveInputs();
   }
-  // Always-visible summary of whatever's currently applied — shown whether
-  // or not the card is expanded/has just been run, so a schedule applied in
-  // an earlier session isn't silently invisible the next time this page
-  // loads (it's otherwise undiscoverable: it doesn't show up as a checked
-  // box anywhere, only as a change in the numbers).
-  function renderMultiLeverAppliedStatus() {
-    const el = document.getElementById('multiLeverAppliedStatus');
-    const rothAges = state.appliedRothSchedule ? Object.keys(state.appliedRothSchedule) : [],
-      mixAges = state.appliedMixSchedule ? Object.keys(state.appliedMixSchedule) : [];
-    if (!rothAges.length && !mixAges.length) {
-      el.hidden = true;
-      el.innerHTML = '';
-      return;
-    }
-    const parts = [];
-    if (rothAges.length)
-      parts.push(
-        `a per-year Roth conversion schedule (ages ${Math.min(...rothAges)}–${Math.max(...rothAges)}) <button type="button" class="link-btn" data-clear-applied="roth">clear</button>`,
-      );
-    if (mixAges.length)
-      parts.push(
-        `a per-year withdrawal mix (ages ${Math.min(...mixAges)}–${Math.max(...mixAges)}) <button type="button" class="link-btn" data-clear-applied="mix">clear</button>`,
-      );
-    el.hidden = false;
-    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the optimizer below: ${parts.join(' and ')}.</div>`;
-  }
 
   // @@shared:simulateAtRealCagr begin
   function simulateAtRealCagr(realCagrPct) {
@@ -13284,16 +12116,6 @@ import { testHooks } from './core/test-hooks.js';
     state.returnRate = saved;
     return result;
   }
-  const cagrColors = [
-    '#b91c1c',
-    '#dc2626',
-    '#ea580c',
-    '#d97706',
-    '#65a30d',
-    '#16a34a',
-    '#0d9488',
-    '#0e7490',
-  ];
   // @@shared:simulateAtRealCagr end
   function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
@@ -13548,34 +12370,6 @@ import { testHooks } from './core/test-hooks.js';
     }
   }
 
-  // Cliff plan summary line (spec section 7): the kept plan's intents grouped into runs of consecutive ages, then the
-  // families that had a candidate and were not kept.
-  function cliffPlanSummary(plan, report) {
-    if (!plan) return 'Cliff plan: off.';
-    const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b);
-    if (!ages.length) return 'Cliff plan: no steering helps this plan.';
-    const lineName = (id) => {
-      const m = /^irmaa([0-9]+)$/.exec(id);
-      return id === 'aca400' ? 'the ACA 400% line' : id === 'acaFloor' ? 'the ACA credit floor' : id === 'medicaid' ? 'the Medicaid line' : m ? `IRMAA tier ${m[1]}` : id;
-    };
-    const runs = [];
-    for (const age of ages) {
-      const i = plan.intents[age],
-        last = runs[runs.length - 1];
-      if (last && last.kind === i.kind && last.line === i.line && last.ret === i.ret && last.to === age - 1) last.to = age;
-      else runs.push({ kind: i.kind, line: i.line, ret: i.ret, from: age, to: age });
-    }
-    const clause = (r) =>
-      `${r.kind === 'under' ? 'stay under' : 'fill to'} ${lineName(r.line)}${r.ret === 'A' || r.ret === 'B' ? ` (Partner ${r.ret}'s return)` : ''} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`;
-    const ordered = runs.filter((r) => r.kind === 'under').concat(runs.filter((r) => r.kind !== 'under'));
-    let text = 'Cliff plan: ' + ordered.map(clause).join('; ') + '.';
-    if (report) {
-      const fams = new Set(report.candidates.map((c) => c.family));
-      for (const [fam, name] of [['aca', 'ACA steering'], ['irmaa', 'IRMAA stay-unders']])
-        if (fams.has(fam) && report.kept !== fam && report.kept !== 'all') text += ` ${name} not used (no gain over the whole plan).`;
-    }
-    return text;
-  }
 
   // 3C: the year table's status cell explains the solver's choice for that year (title tooltip). US only (renderTable
   // is a shared region).
@@ -13607,9 +12401,6 @@ import { testHooks } from './core/test-hooks.js';
     }
   }
 
-  // E3: the status cell also names an IRMAA appeal (form SSA-44) where one lowered a partner's charge (appended to the title;
-  // US only, renderTable is shared).
-  const APPEAL_EVENT = ['', 'end of a job', 'retirement', "spouse's death"];
   function annotateAppealRows(sim) {
     for (const tr of document.querySelectorAll('#projectionRows tr')) {
       const age = Number(tr.cells[0] && tr.cells[0].textContent),
@@ -13957,9 +12748,6 @@ import { testHooks } from './core/test-hooks.js';
     lastChart = { series, valueFn, x, y, p, w, h, maxAge };
   }
   let lastChart = null;
-  function chartHoverEnabled() {
-    return ['3yr', '1yr', 'cagr', 'hist'].includes(chartView);
-  }
   function clearChartHover() {
     if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
@@ -14286,38 +13074,6 @@ import { testHooks } from './core/test-hooks.js';
     compareIds.delete(id);
     renderScenarioList();
     renderScenarioComparison();
-  }
-  function downloadJson(filename, dataObj) {
-    const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' }),
-      url = URL.createObjectURL(blob),
-      link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-  function exportScenario(id) {
-    const sc = scenarios.find((s) => s.id === id);
-    if (!sc) return;
-    downloadJson(
-      `fire-planner-scenario-${(sc.name || 'scenario').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.json`,
-      {
-        firePlannerScenario: true,
-        schemaVersion: SCENARIO_SCHEMA_VERSION,
-        name: sc.name,
-        savedAt: sc.savedAt,
-        state: sc.state,
-      },
-    );
-  }
-  function exportAllScenarios() {
-    downloadJson('fire-planner-scenarios.json', {
-      firePlannerScenarioList: true,
-      schemaVersion: SCENARIO_SCHEMA_VERSION,
-      scenarios: scenarios.map((sc) => ({ name: sc.name, savedAt: sc.savedAt, state: sc.state })),
-    });
   }
   function importScenarioFile(file) {
     const reader = new FileReader();
@@ -15009,10 +13765,6 @@ import { testHooks } from './core/test-hooks.js';
   function renderChildFields() {
     renderDynList('children');
   }
-  // Writes a slider's `<key>Out` label from the current state.
-  function syncFieldOut(field) {
-    document.getElementById(field.key + 'Out').textContent = field.out(state[field.key]);
-  }
   // @@shared:23-dynFieldHtml end
   function syncControls() {
     FIELDS.forEach((field) => {
@@ -15648,32 +14400,6 @@ import { testHooks } from './core/test-hooks.js';
     assignLogScale(e.target.checked);
     render();
   });
-  // Best-effort only: real browser Fullscreen (which also hides the
-  // mobile address bar) plus a landscape orientation lock, attempted
-  // together since Chrome/Android requires the page to already be in
-  // Fullscreen before it will grant an orientation lock at all. Neither
-  // API is required for the expand feature to work — the CSS overlay
-  // above is the actual mechanism, functional with or without this —
-  // this only reaches for the nicer outcome where the browser supports
-  // it (mainly Android Chrome) and silently does nothing everywhere else
-  // (notably iOS Safari, which supports neither API for a plain <div>).
-  async function tryEnterLandscapeFullscreen() {
-    try {
-      const el = document.getElementById('mainChartCard');
-      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
-      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-    } catch (err) {
-      // Unsupported or denied (e.g. iOS Safari, or a desktop browser with
-      // no orientation to lock) — the CSS overlay already covers the
-      // viewport regardless, so there's nothing to recover from here.
-    }
-  }
-  function tryExitLandscapeFullscreen() {
-    try {
-      if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-    } catch (err) {}
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  }
   function setChartExpanded(next) {
     assignChartExpanded(next);
     document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
@@ -15720,16 +14446,6 @@ import { testHooks } from './core/test-hooks.js';
     if (!document.fullscreenElement && chartExpanded) setChartExpanded(false);
   });
   // @@shared:25-setMcPathCount end
-  // Syncs the Both/Gap switch's visual state only — doesn't trigger a
-  // render(), so it's safe to call from inside an in-progress render pass
-  // (renderChartView's own live disabled/correction check) as well as from
-  // the click handlers below, which do call render() themselves afterward.
-  function updateChartShiftModeButtons() {
-    document.getElementById('chartShiftTogetherBtn').classList.toggle('active', chartShiftMode === 'together');
-    document.getElementById('chartShiftTogetherBtn').setAttribute('aria-checked', chartShiftMode === 'together');
-    document.getElementById('chartShiftGapBtn').classList.toggle('active', chartShiftMode === 'gap');
-    document.getElementById('chartShiftGapBtn').setAttribute('aria-checked', chartShiftMode === 'gap');
-  }
   function setChartShiftMode(next) {
     assignChartShiftMode(next);
     updateChartShiftModeButtons();
@@ -15739,18 +14455,6 @@ import { testHooks } from './core/test-hooks.js';
   document.getElementById('chartShiftGapBtn').addEventListener('click', () => {
     if (!document.getElementById('chartShiftGapBtn').disabled) setChartShiftMode('gap');
   });
-  // Same pattern as updateChartShiftModeButtons(): visual sync only, no
-  // render(), safe to call from inside an in-progress render pass. Shows
-  // an explicit pick (chartGapPartner) if there is one, otherwise the
-  // auto-detected earlier partner, so the two buttons always reflect
-  // whichever partner would actually move right now.
-  function updateChartGapPartnerButtons() {
-    const resolvedA = chartGapPartner ? chartGapPartner === 'A' : state.retireAgeA < state.retireAgeB;
-    document.getElementById('chartGapPartnerABtn').classList.toggle('active', resolvedA);
-    document.getElementById('chartGapPartnerABtn').setAttribute('aria-checked', resolvedA);
-    document.getElementById('chartGapPartnerBBtn').classList.toggle('active', !resolvedA);
-    document.getElementById('chartGapPartnerBBtn').setAttribute('aria-checked', !resolvedA);
-  }
   function setChartGapPartner(next) {
     assignChartGapPartner(next);
     updateChartGapPartnerButtons();
@@ -15758,21 +14462,6 @@ import { testHooks } from './core/test-hooks.js';
   }
   document.getElementById('chartGapPartnerABtn').addEventListener('click', () => setChartGapPartner('A'));
   document.getElementById('chartGapPartnerBBtn').addEventListener('click', () => setChartGapPartner('B'));
-  // Same visual-sync-only pattern as updateChartShiftModeButtons() above.
-  // The "Partner B age" button is hidden entirely in single-person mode
-  // (there's no second partner to switch to), and chartXAxisMode is reset
-  // out of 'ageB' if the person was on it when they switch to single-person
-  // — same fallback shape as chartShiftMode's gapDisabled handling.
-  function updateChartXAxisButtons() {
-    document.getElementById('chartXAxisAgeBBtn').hidden = state.singlePerson;
-    if (state.singlePerson && chartXAxisMode === 'ageB') assignChartXAxisMode('ageA');
-    document.getElementById('chartXAxisAgeABtn').classList.toggle('active', chartXAxisMode === 'ageA');
-    document.getElementById('chartXAxisAgeABtn').setAttribute('aria-checked', chartXAxisMode === 'ageA');
-    document.getElementById('chartXAxisAgeBBtn').classList.toggle('active', chartXAxisMode === 'ageB');
-    document.getElementById('chartXAxisAgeBBtn').setAttribute('aria-checked', chartXAxisMode === 'ageB');
-    document.getElementById('chartXAxisYearBtn').classList.toggle('active', chartXAxisMode === 'year');
-    document.getElementById('chartXAxisYearBtn').setAttribute('aria-checked', chartXAxisMode === 'year');
-  }
   function setChartXAxisMode(next) {
     assignChartXAxisMode(next);
     updateChartXAxisButtons();
@@ -15845,7 +14534,6 @@ import { testHooks } from './core/test-hooks.js';
     clearTimeout(undoToastTimer);
     undoSnapshot = null;
   }
-  const undoToastBtnEl = document.getElementById('undoToastBtn');
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
@@ -15888,80 +14576,9 @@ import { testHooks } from './core/test-hooks.js';
     setMode('real');
     setChartView('3yr');
   });
-  function syncTopbarHeight() {
-    const tb = document.querySelector('.topbar');
-    if (tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px');
-  }
   // @@shared:26-setChartView end
   // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
-  // @@shared:syncPlanStatusOffsets begin
-  // both stick to the top of the viewport as the page scrolls, and the
-  // sidebar's own sticky panel-title has to clear both of them too once
-  // they're stuck. `--plan-status-h` is just the status bar's own height
-  // (used by the tab switcher's sticky `top`); `--mobile-sticky-h` is the
-  // status bar plus the tab switcher's stuck offset and height combined
-  // (used by panel-title and the scroll-margin on cards a decision-question
-  // button scrolls to) — see the mobile media query above. Both are
-  // measured rather than guessed, so a future copy/font change that alters
-  // either bar's real height doesn't silently reopen the overlap.
-  function syncPlanStatusOffsets() {
-    const bar = document.getElementById('planStatusBar'),
-      tabs = document.querySelector('.mobile-tabs'),
-      panelTitle = document.querySelector('.panel-title'),
-      searchWrap = document.querySelector('.field-search-wrap');
-    if (!bar) return;
-    const barH = bar.offsetHeight;
-    document.documentElement.style.setProperty('--plan-status-h', barH + 'px');
-    const tabsH = tabs && window.innerWidth <= 820 ? tabs.offsetHeight : 0;
-    // No "+10" gap term here: .mobile-tabs sticks flush against the status
-    // bar's own bottom edge (top:var(--plan-status-h,0px)) rather than 10px
-    // below it. An earlier version left a real 10px offset between the two
-    // sticky bars, which is uncovered viewport space, not padding — once
-    // scrolled, whatever sidebar content happened to be at that exact
-    // vertical band (a group heading, a field) rendered visibly through the
-    // gap. The equivalent breathing room now lives inside the status bar's
-    // own opaque box (extra bottom padding, see .plan-status-bar), so it's
-    // baked into `barH` already and needs no separate addition here.
-    document.documentElement.style.setProperty(
-      '--mobile-sticky-h',
-      barH + (tabsH ? tabsH : 0) + 'px',
-    );
-    // .field-search-wrap sticks directly below .panel-title on mobile (both
-    // position:sticky, stacked), so it needs panel-title's real height on
-    // top of --mobile-sticky-h to stick at the right offset instead of
-    // overlapping whatever's in normal flow just below it.
-    if (panelTitle) {
-      document.documentElement.style.setProperty('--panel-title-h', panelTitle.offsetHeight + 'px');
-    }
-    // .category-rail (unlike .field-search-wrap, it isn't itself sticky —
-    // see setActiveCategory() below) needs the search bar's own height on
-    // top of --mobile-sticky-h for its scroll-margin-top, so a tapped
-    // category pill scrolls it to land just below the sticky status
-    // bar/tabs/search stack instead of partly underneath it.
-    if (searchWrap && window.innerWidth <= 820) {
-      document.documentElement.style.setProperty('--field-search-h', searchWrap.offsetHeight + 'px');
-    }
-  }
-  // @@shared:syncPlanStatusOffsets end
   // @@shared:27-syncKeyboardInset begin
-  // `#reviewNav` (the floating "Next →" pill) is `position:fixed;bottom:...`,
-  // anchored to the bottom of the *layout* viewport. When the on-screen
-  // keyboard opens for a focused text field, mobile browsers typically leave
-  // the layout viewport's height alone and only shrink the *visual*
-  // viewport -- so a plain fixed-bottom element ends up positioned behind
-  // the keyboard, off the bottom of what's actually visible, which is
-  // exactly the reported symptom ("covered up by the number pad ... can't
-  // click it when editing a text field"). The fix is the standard one for
-  // this class of bug: track `window.visualViewport` (widely supported on
-  // mobile browsers) and feed the gap between the layout and visual
-  // viewports into a CSS var the fixed element's `bottom` already reads, so
-  // it rides up above the keyboard instead of staying pinned under it.
-  function syncKeyboardInset() {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
-  }
   // Checking/unchecking a sidebar checkbox (or changing a <select> like
   // tenure/k401Type) can add or remove other fields elsewhere in the panel
   // -- singlePerson hides/shows every data-partner-b field across several
@@ -16276,35 +14893,6 @@ import { testHooks } from './core/test-hooks.js';
     document.addEventListener('pointerup', (e) => endGesture(e, false), true);
     document.addEventListener('pointercancel', (e) => endGesture(e, true), true);
   })();
-  // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
-  // internally rather than growing past the viewport — but its max-height
-  // used to be sized only against the sticky `top` offset it settles into
-  // *once scrolled*, not its natural (pre-scroll) position in the page flow,
-  // which sits further down (below the topbar, the Plan Status Bar, and the
-  // first-run banner when shown). Since that natural position is always
-  // lower than the eventual sticky one, sizing against the sticky offset
-  // alone left the sidebar's rendered box taller than the space actually
-  // available before any scrolling — its bottom edge sat below the fold,
-  // so seeing it required scrolling the whole page (not just the sidebar's
-  // own internal scroll). Measuring the leading elements directly (rather
-  // than `.panel`'s own getBoundingClientRect(), which reports its already-
-  // pinned position once sticky has engaged, not its natural one) keeps
-  // this correct regardless of current scroll position.
-  function syncPanelMaxHeight() {
-    const panel = document.querySelector('.panel');
-    if (!panel || window.innerWidth <= 820) return; // mobile: .panel is position:static, no max-height to size
-    const disclaimer = document.querySelector('.top-disclaimer'),
-      topbar = document.querySelector('.topbar'),
-      bar = document.getElementById('planStatusBar'),
-      banner = document.getElementById('firstRunBanner'),
-      mainEl = document.querySelector('main'),
-      heightOf = (el) =>
-        el && !el.hidden ? el.offsetHeight + (parseFloat(getComputedStyle(el).marginBottom) || 0) : 0,
-      mainPad = mainEl ? parseFloat(getComputedStyle(mainEl).paddingTop) || 0 : 0,
-      naturalTop = heightOf(disclaimer) + heightOf(topbar) + mainPad + heightOf(bar) + heightOf(banner),
-      maxH = Math.max(240, window.innerHeight - naturalTop - 22);
-    document.documentElement.style.setProperty('--panel-max-h', maxH + 'px');
-  }
   // Everything the status bar shows (retirement age, investable assets at
   // retirement, whether the plan depletes) is already computed by every
   // render() call — no extra cost. The one thing that isn't cheap is the
@@ -16519,10 +15107,6 @@ import { testHooks } from './core/test-hooks.js';
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
-  const wizardOverlay = document.getElementById('wizardOverlay');
-  // Steps are the [data-wizard-step] panels in document order; each carries its own
-  // data-title and data-note (the "Step i of N" prefix is added here).
-  const wizardSteps = Array.from(document.querySelectorAll('#wizardModal [data-wizard-step]'));
   let wizardStep = 1;
   function renderWizardStep() {
     wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
@@ -16822,31 +15406,12 @@ import { testHooks } from './core/test-hooks.js';
   syncKeyboardInset();
   initChartHover();
 
-  // Wide result tables scroll horizontally inside `.table-wrap` on
-  // narrower screens; a scrollable region needs to be reachable by
-  // keyboard (WCAG 2.1.1), so every one gets tabindex="0" plus a label,
-  // whether it's in the initial markup or built later by a render
-  // function (scenario comparison, projection table, sensitivity, Roth
-  // optimizer, etc.) — the observer catches those without having to
-  // touch each render function individually.
-  function makeTableWrapsFocusable(root) {
-    (root || document).querySelectorAll('.table-wrap').forEach((el) => {
-      if (el.hasAttribute('tabindex')) return;
-      el.setAttribute('tabindex', '0');
-      if (!el.hasAttribute('role')) el.setAttribute('role', 'region');
-      if (!el.hasAttribute('aria-label')) {
-        const caption = el.querySelector('th')?.textContent?.trim();
-        el.setAttribute('aria-label', caption ? `${caption} table, scrollable` : 'Scrollable table');
-      }
-    });
-  }
   makeTableWrapsFocusable();
   new MutationObserver(() => makeTableWrapsFocusable()).observe(document.body, {
     childList: true,
     subtree: true,
   });
 
-  const mc = document.modelContext;
   if (mc?.registerTool) {
     mc.registerTool({
       name: 'update_fire_assumptions',

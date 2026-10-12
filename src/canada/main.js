@@ -2,154 +2,53 @@ import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
 import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
 import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
+import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX, NO_DEPENDENTS, clampRetireAgeA, clampRetireAgeB, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
+import { defaults } from './core/defaults.js';
+import { attachMoneyPreview, compact, money } from '../shared/core/money-format.js';
+import { ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS } from './core/estimate-always-ids.js';
+import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
+import { HIST, clamp, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
+import { FED_BPA_ENHANCED, FED_BPA_MIN, FED_BPA_PHASE_END, FED_BPA_PHASE_START, FED_CAPS, FED_CREDIT_RATE, FED_RATES } from './core/federal-tax-constants.js';
+import { BENEFIT_RULES, PROVINCE_RULES, currentProvince, ontarioHealthPremium, scaledProgressiveTax } from './core/province-rules.js';
+import { PROV_TAX } from './core/prov-tax.js';
+import { FED_MEDICAL_THRESHOLD } from './core/fed-medical-threshold.js';
+import { OAS_RECOVERY } from './core/oas-recovery.js';
+import { BEN, BEN_NO_EXIT, bandValue, countKids, familyCreditCA } from './core/benefit-helpers.js';
+import { federalBracketCeilingCA } from './core/federal-bracket-ceiling-ca.js';
+import { probateFee } from './core/probate-fee.js';
+import { RAMQ_CAP } from './core/ramq-cap.js';
+import { CPP_ENHANCED_RATE, EI_MIE, EMPLOYMENT_AMOUNT, PAY, QC_WORKERS_DEDUCTION_MAX, QC_WORKERS_DEDUCTION_RATE } from './core/ei-mie.js';
+import { TAXABLE_BASIS_KEY, newWithdrawal } from './core/taxable-basis-key.js';
+import { takeCash, takeHomeEquity } from '../shared/core/take-cash.js';
+import { takeRoth } from './core/take-roth.js';
+import { guardrailSpendingMultiplier, mortgageResultAges, newGuardrails, recordGuardrailWithdrawal } from '../shared/core/next-guardrail-multiplier.js';
+import { loanPaymentForYear } from '../shared/core/loan-payment-for-year.js';
+import { pensionIncome } from '../shared/core/pension-income.js';
+import { planBondLadder } from '../shared/core/bond-ladder.js';
+import { BUCKET_MODE, STANDARD_MODE, routeSurplus } from './core/year-modes.js';
+import { sweepExcessCash } from '../shared/core/sweep-excess-cash.js';
+import { updateChartXAxisButtons } from './ui/update-chart-xaxis-buttons.js';
+import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from '../shared/ui/chart-colors.js';
+import { sankeyHue } from '../shared/core/sankey-hues.js';
+import { layoutSankeyColumn, sankeyRibbonPath } from '../shared/core/sankey-layout.js';
+import { cagrColors } from '../shared/core/simulate-at-real-cagr.js';
+import { updateChartGapPartnerButtons } from './ui/update-chart-gap-partner-buttons.js';
+import { updateChartShiftModeButtons } from './ui/update-chart-shift-mode-buttons.js';
+import { chartHoverEnabled } from '../shared/core/chart-hover.js';
+import { exportAllScenarios, exportScenario } from '../shared/ui/scenario-export.js';
+import { isDomWired } from '../shared/core/field-wiring.js';
+import { syncFieldDom } from '../shared/ui/field-wiring.js';
+import { syncFieldOut } from '../shared/ui/dyn-field-html.js';
+import { tryEnterLandscapeFullscreen, tryExitLandscapeFullscreen } from '../shared/ui/landscape-fullscreen.js';
+import { CHART_GROUPS } from '../shared/core/chart-groups.js';
+import { syncTopbarHeight, undoToastBtnEl } from '../shared/ui/topbar-and-undo.js';
+import { syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/sync-keyboard-inset.js';
+import { syncPlanStatusOffsets } from '../shared/ui/sync-plan-status-offsets.js';
+import { wizardOverlay, wizardSteps } from '../shared/ui/wizard-overlay.js';
+import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
+import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 (() => {
-  const defaults = {
-    singlePerson: false,
-    province: 'on',
-    basisRatio: 50,
-    rrspPctA: 100,
-    rrspPctB: 100,
-    tfsaPctA: 0,
-    tfsaPctB: 0,
-    ageA: 48,
-    ageB: 43,
-    lifeExpectancyA: 100,
-    lifeExpectancyB: 100,
-    retireAgeA: 55,
-    retireAgeB: 55,
-    incomeA: 100000,
-    incomeB: 100000,
-    matchA: 0,
-    matchB: 0,
-    spending: 60000,
-    incomeGrowth: 3,
-    fiWithdrawalRate: 4,
-    inflation: 2.5,
-    medicalInflation: 1,
-    taxable: 50000,
-    traditional: 200000,
-    roth: 50000,
-    cash: 50000,
-    cashReserve: 30000,
-    bondYears: 5,
-    smoothWithdrawals: false,
-    guardrailsEnabled: false,
-    returnRate: 7,
-    bondReturn: 4,
-    hysaRate: 4,
-    dividendYield: 2,
-    qualifiedDivPct: 25,
-    tenure: 'own',
-    homeValue: 450000,
-    homeGrowth: 3,
-    mortgagePrincipal: 300000,
-    mortgage: 300000,
-    mortgageRate: 5.5,
-    mortgageYears: 25,
-    extraPrincipal: 0,
-    maintenance: 6000,
-    propertyTax: 0,
-    propertyTaxGrowth: 2.5,
-    homeInsurance: 0,
-    homeInsuranceGrowth: 2.5,
-    rent: 2500,
-    rentGrowth: 3,
-    cppMonthlyA: 1200,
-    cppStartAgeA: 65,
-    cppMonthlyB: 1200,
-    cppStartAgeB: 65,
-    oasMonthlyA: 762.5,
-    oasStartAgeA: 65,
-    oasMonthlyB: 762.5,
-    oasStartAgeB: 65,
-    pensionCoverage: 'none',
-    pensionYearlyA: 0,
-    pensionStartAgeA: 67,
-    pensionYearlyB: 0,
-    pensionStartAgeB: 67,
-    healthPremiumA: 0,
-    healthPremiumB: 0,
-    payFrequency: 'biweekly',
-    healthcare: 3000,
-    ltcEnabled: false,
-    ltcYearlyA: 50000,
-    ltcAgeA: 82,
-    ltcYearlyB: 50000,
-    ltcAgeB: 82,
-    pensionSplitEnabled: false,
-    survivorEnabled: false,
-    survivorPartner: 'A',
-    survivorDeathAge: 85,
-    survivorSpendingPct: 75,
-    meltdownEnabled: false,
-    meltdownStartAge: 60,
-    meltdownEndAge: 70,
-    meltdownBracket: 20.5,
-    buyAge: 50,
-    buyCash: false,
-    buyDownPct: 20,
-    buyClosingPct: 4,
-    buyTerm: 25,
-    buyExtraPrincipal: 0,
-    fhsa: 0,
-    fhsaPctA: 0,
-    fhsaPctB: 0,
-    // "Add another" lists — all start empty; see normalizeLists().
-    loans: [],
-    spendingTiers: [],
-    incomeSources: [],
-    oneTimeIncome: [],
-    extraExpenses: [],
-    lumpExpenses: [],
-    children: [],
-    dismissedEstimates: [],
-    dismissedUnusualAssumptions: [],
-  };
   // @@shared:01-LIST_MAX begin
-  // Normalizes any raw/partial state object (a legacy autosave, an imported
-  // scenario file from an older or newer version of this tool, or a
-  // hand-edited one) into a complete, current-shape state by merging it over
-  // today's defaults. Fields the raw object is missing fall back to the
-  // current default; fields it has that no longer exist are simply dropped.
-  // This is what keeps saved scenarios working across future tool updates.
-  // Variable-length "add another" lists. Every list starts empty. Older saves
-  // (and scenario exports) stored fixed-length arrays gated by master
-  // `otherLoansEnabled` / `otherIncomeEnabled` flags plus per-row `enabled`
-  // flags; those flags no longer exist, so a legacy payload is recognised by
-  // the presence of the flag key and converted so the projection it produced
-  // before is unchanged: a list whose master flag was off is dropped, and
-  // disabled/all-zero rows are dropped. Legacy income streams were indexed to
-  // inflation, so they migrate as "own growth rate" pinned to the inflation
-  // value at load time instead of silently switching to income growth.
-  const LIST_MAX = 10;
-  const CHILD_BIRTH_YEAR_MIN = 1950,
-    CHILD_BIRTH_YEAR_MAX = 2100;
-  // Federal "qualifying child" age limits (IRC 152(c)(3)): under 19 at the end of the tax year,
-  // or under 24 for a full-time student. A child counts for the whole year of birth (age 0).
-  // Disabled-at-any-age children and qualifying relatives are not modeled. Each credit applies its
-  // own cutoff to `age` (the Child Tax Credit is age 16 or under; see docs/next-batches-plan.md).
-  const NO_DEPENDENTS = Object.freeze([]);
-  // The children on the plan in calendar year `taxYear`: `{ age, student, qualifyingChild }` for
-  // each child born by then. A child with a join year (E2: adoption) counts from that year, for the
-  // whole year; age is still from the birth year. A missing join year compares false (from birth).
-  // Returns a shared empty array when there are none (hot path).
-  function dependentsInYear(taxYear) {
-    const kids = state.children;
-    if (!kids || !kids.length) return NO_DEPENDENTS;
-    const out = [];
-    for (const c of kids) {
-      const age = taxYear - c.birthYear;
-      if (age < 0 || c.joinYear > taxYear) continue;
-      const student = c.student === true;
-      out.push({ age, student, qualifyingChild: age <= 18 || (student && age <= 23) });
-    }
-    return out;
-  }
-  function qualifyingChildCount(taxYear) {
-    let n = 0;
-    for (const d of dependentsInYear(taxYear)) if (d.qualifyingChild) n++;
-    return n;
-  }
   function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);
@@ -268,23 +167,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     delete s.otherLoansEnabled;
     delete s.otherIncomeEnabled;
   }
-  // ---- Field registry ----
-  // Every sidebar control that maps straight onto a `state` key is declared here ONCE, and the
-  // input listeners, the DOM sync (syncControls / syncContributionControls), `ids`, and the MCP
-  // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
-  // and one entry here (plus a hook only if it has a side effect).
-  //   key       the `state` key and the element id
-  //   type      'number' (input/range; money fields are read with non-digits stripped),
-  //             'bool' (checkbox), or 'choice' (select / button group with a value list)
-  //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
-  //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
-  //   inlineOut also refresh the label immediately on input
-  //   resync    call syncControls() on input (the field has clamping side effects or labels)
-  //   syncAfter 'contrib': call syncContributionControls() after the edit is saved
-  //   onInput   clamps / cross-field side effects that run right after state is updated
-  // The order of the numeric entries is the order of the MCP schema's properties.
-  const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
-  const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
   // @@shared:01-LIST_MAX end
   const clampLifeExpectancyA = () =>
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
@@ -389,32 +271,11 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   ];
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
-  // Writes one checkbox or select (and what it reveals / mirrors) from the current state.
-  function syncFieldDom(field) {
-    const el = document.getElementById(field.key);
-    if (field.type === 'bool') el.checked = !!state[field.key];
-    else el.value = state[field.key];
-    (field.reveals || []).forEach((r) => (document.getElementById(r.id).hidden = r.hidden(state)));
-    (field.mirrors || []).forEach((id) => (document.getElementById(id).checked = !!state[field.key]));
-  }
   const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
-  const isDomWired = (field) => field.type !== 'number' && !field.manual;
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
   // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
   // @@shared:ids end
-  const mcpSchemaFor = (field) =>
-    field.type === 'number'
-      ? { type: 'number' }
-      : field.type === 'bool'
-        ? { type: 'boolean' }
-        : { type: 'string', enum: field.values };
-  const mcpAccepts = (field, v) =>
-    field.type === 'number'
-      ? Number.isFinite(v)
-      : field.type === 'bool'
-        ? typeof v === 'boolean'
-        : field.values.includes(v);
   function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
     FIELDS.forEach((field) => {
@@ -435,12 +296,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   }
   assignState(normalizeState(null));
   // @@shared:02-CHART_GROUPS begin
-  // Which top-level chart "view" a given chartView value belongs to — the
-  // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
-  // three projection sub-views (3yr/1yr/cagr) under one button, and
-  // lastProjectionView remembers which sub-view to restore when clicking
-  // back into "Projection" from Historical/Monte Carlo.
-  const CHART_GROUPS = { '3yr': 'projection', '1yr': 'projection', cagr: 'projection', hist: 'hist', mc: 'mc' };
   // Theme isn't part of state or scenarios (it's a display preference, not
   // a financial input) and, unlike state/mode below, is deliberately not
   // persisted — it just starts from the OS/browser preference each time the
@@ -557,84 +412,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   // returning visitor with "real" data, hiding the first-run banner for
   // someone who never actually entered anything.
   let hasPersonalizedData = hadSavedState;
-  // `ids` (the plain numeric inputs) is derived from FIELDS above.
-  const money = (n) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-      notation: Math.abs(n) >= 1e7 ? 'compact' : 'standard',
-    }).format(n || 0);
-  const compact = (n) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(n || 0);
-  // Dollar-amount fields (class="money") show live comma formatting right
-  // in the field ("$1,850,000") — a plain <input type="number"> can't do
-  // this itself (a number input strips anything that isn't a numeral), so
-  // the first time a field is touched it's switched to type="text" with
-  // inputmode="decimal" (keeps the numeric keypad on mobile) and given an
-  // 'input' listener that reformats on every keystroke, restoring the
-  // caret by counting digits rather than characters, so typing in the
-  // middle of a number doesn't jump the cursor to the end. Every other
-  // piece of code that reads one of these fields' value (the generic `ids`
-  // input handler, the dynamic loan/tier/income-source/one-time-income
-  // handlers) strips non-digits itself before calling Number() on it — see
-  // the "Money-field live formatting" note in CLAUDE.md for the full list.
-  // Idempotent: safe to call repeatedly (syncControls() re-sets values on
-  // reset/load/import) and safe on freshly-rebuilt dynamic rows (loans,
-  // spending tiers, income sources) without double-binding listeners.
-  function attachMoneyPreview(el) {
-    const reformat = (digitsBeforeCaret) => {
-      const digits = el.value.replace(/[^0-9]/g, '');
-      const formatted = digits ? '$' + Number(digits).toLocaleString('en-US') : '';
-      // Skip the write when the field is already showing the correctly
-      // formatted string — a plain reassignment (even to an identical
-      // string) collapses the caret to the end and, on some mobile
-      // browsers, can re-show the on-screen keyboard for a field that's
-      // still focused but whose keyboard was just dismissed (e.g. via the
-      // Android back button). refreshMoneyPreviews() (called from
-      // syncControls(), on every render of a dynamic loan/tier/income row,
-      // etc.) re-runs this on every money field unconditionally, so this
-      // guard is what keeps those routine resyncs from nudging a field the
-      // user has already backed out of. Real typing always differs from
-      // `formatted` pre-write (the browser just inserted a raw, unformatted
-      // character), so this never skips an actual edit.
-      if (formatted === el.value) return;
-      el.value = formatted;
-      if (digitsBeforeCaret == null) return;
-      let count = 0,
-        pos = el.value.length;
-      if (digitsBeforeCaret === 0) {
-        pos = 0;
-      } else {
-        for (let i = 0; i < el.value.length; i++) {
-          if (/[0-9]/.test(el.value[i])) count++;
-          if (count === digitsBeforeCaret) {
-            pos = i + 1;
-            break;
-          }
-        }
-      }
-      el.setSelectionRange(pos, pos);
-    };
-    if (!el.dataset.moneyBound) {
-      el.type = 'text';
-      el.inputMode = 'decimal';
-      el.autocomplete = 'off';
-      el.addEventListener('input', () => {
-        const caret = el.selectionStart;
-        const digitsBeforeCaret =
-          caret == null ? Infinity : el.value.slice(0, caret).replace(/[^0-9]/g, '').length;
-        reformat(digitsBeforeCaret);
-      });
-      el.dataset.moneyBound = '1';
-    }
-    reformat(null);
-  }
   function refreshMoneyPreviews(root) {
     (root || document).querySelectorAll('input.money').forEach(attachMoneyPreview);
   }
@@ -658,31 +435,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     });
   }
   // @@shared:03-hadSavedState end
-  // "Still estimated" badges + dashboard rollup + guided review nav. A field
-  // is "counted" when it's personal (not a pure modeling assumption like
-  // returnRate/inflation, which keep only the quiet `.is-default` dot
-  // above), its gating feature (if any) is currently on, it's still at its
-  // default value, and the person hasn't explicitly dismissed it. See the
-  // "estimated field badges" note in CLAUDE.md for the full design.
-  const ESTIMATE_ALWAYS_IDS = [
-    'ageA', 'ageB', 'retireAgeA', 'retireAgeB', 'incomeA', 'incomeB', 'matchA', 'matchB',
-    'rrspPctA', 'rrspPctB', 'tfsaPctA', 'tfsaPctB', 'spending', 'taxable', 'basisRatio',
-    'traditional', 'roth', 'cash', 'cashReserve', 'homeValue', 'mortgagePrincipal', 'mortgage',
-    'mortgageRate', 'mortgageYears', 'extraPrincipal', 'maintenance', 'propertyTax',
-    'homeInsurance', 'rent', 'cppMonthlyA', 'cppStartAgeA', 'cppMonthlyB', 'cppStartAgeB',
-    'oasMonthlyA', 'oasStartAgeA', 'oasMonthlyB', 'oasStartAgeB', 'pensionYearlyA',
-    'pensionStartAgeA', 'pensionYearlyB', 'pensionStartAgeB', 'healthPremiumA', 'healthPremiumB',
-    'healthcare', 'fhsa', 'fhsaPctA', 'fhsaPctB',
-  ];
-  const ESTIMATE_GATED_GROUPS = [
-    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
-    { ids: ['meltdownStartAge', 'meltdownEndAge'], gate: () => !!state.meltdownEnabled },
-    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
-    {
-      ids: ['buyAge', 'buyDownPct', 'buyClosingPct', 'buyTerm', 'buyExtraPrincipal'],
-      gate: () => state.tenure === 'rentThenBuy',
-    },
-  ];
   // @@shared:04-isEstimateCountable begin
   function isEstimateCountable(id) {
     if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
@@ -976,100 +728,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     reviewingFieldId = null;
     renderEstimatedRollup(computeCountedEstimateIds());
   });
-  // "Surface unusual/important assumptions" — a second, independent layer
-  // on top of the "still estimated" badges above. That feature flags a
-  // personal fact still at its meaningless placeholder default; this one
-  // flags a *modeling assumption* whose current value (default or not,
-  // deliberately typed or not) sits outside a realistic real-world range —
-  // e.g. a 15% investment return or a 0% inflation rate, both of which are
-  // allowed by the field's own wide HTML min/max (so the browser won't stop
-  // you) but aren't a sane planning assumption. Reuses exactly the same
-  // fields the estimated-fields spec already classified as "Assumption,
-  // never counted" (lifeExpectancyA/B, incomeGrowth, inflation, bondYears,
-  // returnRate, bondReturn, hysaRate, homeGrowth, propertyTaxGrowth,
-  // homeInsuranceGrowth, rentGrowth) plus mortgageRate, which that spec
-  // didn't need to classify. Deliberately excludes ages/retirement ages —
-  // this is a FIRE app, so a 35-year-old retirement age is the expected
-  // case for a real slice of users, not something to nag about.
-  const UNUSUAL_RANGES = [
-    { id: 'returnRate', label: 'Investment return', unit: '%', min: 3, max: 11 },
-    { id: 'bondReturn', label: 'Bond return', unit: '%', min: 0, max: 6 },
-    { id: 'hysaRate', label: 'HYSA interest rate', unit: '%', min: 0, max: 6 },
-    { id: 'inflation', label: 'Inflation', unit: '%', min: 1, max: 5 },
-    { id: 'incomeGrowth', label: 'Income growth', unit: '%', min: 0, max: 6 },
-    { id: 'homeGrowth', label: 'Home appreciation', unit: '%', min: 0, max: 6 },
-    {
-      id: 'mortgageRate',
-      label: 'Mortgage interest rate',
-      unit: '%',
-      min: 2.5,
-      max: 9,
-      applicable: () => state.tenure !== 'rent',
-    },
-    {
-      id: 'propertyTaxGrowth',
-      label: 'Property tax growth',
-      unit: '%',
-      min: 0,
-      max: 6,
-      applicable: () => state.tenure !== 'rent',
-    },
-    {
-      id: 'homeInsuranceGrowth',
-      label: 'Home insurance growth',
-      unit: '%',
-      min: 0,
-      max: 8,
-      applicable: () => state.tenure !== 'rent',
-    },
-    {
-      id: 'rentGrowth',
-      label: 'Rent growth',
-      unit: '%',
-      min: 0,
-      max: 6,
-      applicable: () => state.tenure !== 'own',
-    },
-    { id: 'bondYears', label: 'Bond reserve size', unit: ' yrs', min: 0, max: 8 },
-    { id: 'lifeExpectancyA', label: 'Partner A life expectancy', unit: '', min: 75, max: 100 },
-    {
-      id: 'lifeExpectancyB',
-      label: 'Partner B life expectancy',
-      unit: '',
-      min: 75,
-      max: 100,
-      applicable: () => !state.singlePerson,
-    },
-  ];
-  // Returns the currently-flagged, not-yet-dismissed items. A dismissal is
-  // cleared automatically the moment a field's value moves back inside its
-  // realistic range — not on every edit the way dismissedEstimates is —
-  // so nudging an already-dismissed unusual value to a *different* unusual
-  // value never re-surfaces the flag; only actually fixing it (and then
-  // pushing it out of range again some other time) does. This is a
-  // deliberate, explicit design choice from user feedback, not an oversight
-  // matching the estimated-fields auto-undismiss-on-any-edit behavior.
-  function computeUnusualAssumptions() {
-    return UNUSUAL_RANGES.filter((r) => {
-      if (r.applicable && !r.applicable()) return false;
-      // A condition-based item (a planner adds one with `check` and `message` instead of a range): flagged while
-      // `check()` is true, dismissal cleared as soon as it is not, like a value that returns to its range.
-      const v = r.check ? (r.check() ? 1 : NaN) : Number(state[r.id]);
-      if (r.check && !Number.isFinite(v)) {
-        const at = state.dismissedUnusualAssumptions.indexOf(r.id);
-        if (at !== -1) state.dismissedUnusualAssumptions.splice(at, 1);
-        return false;
-      }
-      if (!Number.isFinite(v)) return false;
-      const out = r.check ? true : v < r.min || v > r.max;
-      if (!out) {
-        const idx = state.dismissedUnusualAssumptions.indexOf(r.id);
-        if (idx !== -1) state.dismissedUnusualAssumptions.splice(idx, 1);
-        return false;
-      }
-      return !state.dismissedUnusualAssumptions.includes(r.id);
-    });
-  }
   // Quantifies the impact of one flagged assumption by comparing the
   // current simulation against the same simulation with just that one
   // field nudged back to the nearer edge of its realistic range — the same
@@ -1414,131 +1072,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       setGroupState('withdrawalStrategyGroupState', '', false);
     }
   }
-  // @@shared:05-pct begin
-  const pct = (n) => (n || 0) / 100;
-  const escapeHtml = (s) =>
-    String(s).replace(
-      /[&<>"']/g,
-      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-    );
-  // S&P 500 calendar-year total returns (dividends reinvested), US CPI
-  // inflation, and 10-year US Treasury bond total returns, 1928-2025.
-  // Source: Damodaran/NYU Stern "Historical Returns on Stocks, Bonds and Bills" (histretSP.xls,
-  // updated January 2026, https://pages.stern.nyu.edu/~adamodar/pc/datasets/histretSP.xls).
-  // S&P 500 total return (with dividends) and 10-year T-bond return columns are copied from that
-  // table (checked row by row, 1928-2025). The CPI column is not in that table: it matches
-  // December-to-December US CPI-U (checked against Shiller's CPI series, 1928-2022, mean difference 0.000
-  // points, max 0.02); its original source is not recorded in the repo history. The yield column is
-  // described below.
-  // [year, nominal S&P500 total return %, CPI inflation %, 10yr T-Bond total return %, 10yr Treasury yield % at the START of the year].
-  // The yield column is the prior December's Shiller long interest rate (monthly average,
-  // not an exact year-end print). 2025 is the December 2024 monthly figure (4.39); 2024 uses January 2024 (4.06)
-  // because no December 2023 value was supplied (both from multpl.com monthly 10-year rates).
-  // It is the coupon on a par bond bought at the start of the year, so it is what taxable bond
-  // interest uses in the historical engine (the bond *return* includes price change, which is not interest).
-  const HIST = [
-    [1928, 43.81, -1.16, 0.84, 3.33],
-    [1929, -8.3, 0.58, 4.2, 3.58],
-    [1930, -25.12, -6.4, 4.54, 3.32],
-    [1931, -43.84, -9.32, -2.56, 3.34],
-    [1932, -8.64, -10.27, 8.79, 3.65],
-    [1933, 49.98, 0.76, 1.86, 3.34],
-    [1934, -1.19, 1.52, 7.96, 3.14],
-    [1935, 46.74, 2.99, 4.47, 2.82],
-    [1936, 31.94, 1.45, 5.02, 2.66],
-    [1937, -35.34, 2.86, 1.38, 2.68],
-    [1938, 29.28, -2.78, 4.21, 2.57],
-    [1939, -1.1, 0.0, 4.41, 2.38],
-    [1940, -10.67, 0.71, 5.4, 2.22],
-    [1941, -12.77, 9.93, -2.02, 1.97],
-    [1942, 19.17, 9.03, 2.29, 2.42],
-    [1943, 25.06, 2.96, 2.49, 2.47],
-    [1944, 19.03, 2.3, 2.58, 2.48],
-    [1945, 35.82, 2.25, 3.8, 2.38],
-    [1946, -8.43, 18.13, 3.13, 2.21],
-    [1947, 5.2, 8.84, 0.92, 2.25],
-    [1948, 5.7, 2.99, 1.95, 2.42],
-    [1949, 18.3, -2.07, 4.66, 2.32],
-    [1950, 30.81, 5.93, 0.43, 2.32],
-    [1951, 23.68, 6.0, -0.3, 2.55],
-    [1952, 18.15, 0.75, 2.27, 2.67],
-    [1953, -1.21, 0.75, 4.14, 2.82],
-    [1954, 52.56, -0.74, 3.29, 2.59],
-    [1955, 32.6, 0.37, -1.34, 2.51],
-    [1956, 7.44, 2.99, -2.26, 2.96],
-    [1957, -10.46, 2.9, 6.8, 3.59],
-    [1958, 43.72, 1.76, -2.1, 3.21],
-    [1959, 12.06, 1.73, -2.65, 3.86],
-    [1960, 0.34, 1.36, 11.64, 4.69],
-    [1961, 26.64, 0.67, 2.06, 3.84],
-    [1962, -8.81, 1.33, 5.69, 4.06],
-    [1963, 22.61, 1.64, 1.68, 3.86],
-    [1964, 16.42, 0.97, 3.73, 4.13],
-    [1965, 12.4, 1.92, 0.72, 4.18],
-    [1966, -9.97, 3.46, 2.91, 4.62],
-    [1967, 23.8, 3.04, -1.58, 4.84],
-    [1968, 10.81, 4.72, 3.27, 5.70],
-    [1969, -8.24, 6.2, -5.01, 6.03],
-    [1970, 3.56, 5.57, 16.75, 7.65],
-    [1971, 14.22, 3.27, 9.79, 6.39],
-    [1972, 18.76, 3.41, 2.82, 5.93],
-    [1973, -14.31, 8.71, 3.66, 6.36],
-    [1974, -25.9, 12.34, 1.99, 6.74],
-    [1975, 37.0, 6.94, 3.61, 7.43],
-    [1976, 23.83, 4.86, 15.98, 8.00],
-    [1977, -6.98, 6.7, 1.29, 6.87],
-    [1978, 6.51, 9.02, -0.78, 7.69],
-    [1979, 18.52, 13.29, 0.67, 9.01],
-    [1980, 31.74, 12.52, -2.99, 10.39],
-    [1981, -4.7, 8.92, 8.2, 12.84],
-    [1982, 20.42, 3.83, 32.81, 13.72],
-    [1983, 22.34, 3.79, 3.2, 10.54],
-    [1984, 6.15, 3.95, 13.73, 11.83],
-    [1985, 31.24, 3.8, 25.71, 11.50],
-    [1986, 18.49, 1.1, 24.28, 9.26],
-    [1987, 5.81, 4.43, -4.96, 7.11],
-    [1988, 16.54, 4.42, 8.22, 8.99],
-    [1989, 31.48, 4.65, 17.69, 9.11],
-    [1990, -3.06, 6.11, 6.24, 7.84],
-    [1991, 30.23, 3.06, 15.0, 8.08],
-    [1992, 7.49, 2.9, 9.36, 7.09],
-    [1993, 9.97, 2.75, 14.21, 6.77],
-    [1994, 1.33, 2.67, -8.04, 5.77],
-    [1995, 37.2, 2.54, 23.48, 7.81],
-    [1996, 22.68, 3.32, 1.43, 5.71],
-    [1997, 33.1, 1.7, 9.94, 6.30],
-    [1998, 28.34, 1.61, 14.92, 5.81],
-    [1999, 20.89, 2.68, -8.25, 4.65],
-    [2000, -9.03, 3.39, 16.66, 6.28],
-    [2001, -11.85, 1.55, 5.57, 5.24],
-    [2002, -21.97, 2.38, 15.12, 5.09],
-    [2003, 28.36, 1.88, 0.38, 4.03],
-    [2004, 10.74, 3.26, 4.49, 4.27],
-    [2005, 4.83, 3.42, 2.87, 4.23],
-    [2006, 15.61, 2.54, 1.96, 4.47],
-    [2007, 5.48, 4.06, 10.21, 4.56],
-    [2008, -36.55, 0.11, 20.1, 4.10],
-    [2009, 25.94, 2.72, -11.12, 2.42],
-    [2010, 14.82, 1.5, 8.46, 3.59],
-    [2011, 2.1, 2.96, 16.04, 3.29],
-    [2012, 15.89, 1.74, 2.97, 1.98],
-    [2013, 32.15, 1.5, -9.1, 1.72],
-    [2014, 13.52, 0.76, 10.75, 2.90],
-    [2015, 1.38, 0.73, 1.28, 2.21],
-    [2016, 11.77, 2.07, 0.69, 2.24],
-    [2017, 21.61, 2.11, 2.8, 2.49],
-    [2018, -4.23, 1.91, -0.02, 2.40],
-    [2019, 31.21, 2.29, 9.64, 2.83],
-    [2020, 18.02, 1.36, 11.33, 1.86],
-    [2021, 28.47, 7.04, -4.42, 0.93],
-    [2022, -18.04, 6.45, -17.83, 1.47],
-    [2023, 26.06, 3.35, 3.88, 3.62],
-    [2024, 24.88, 2.89, -1.64, 4.06],
-    [2025, 17.78, 2.68, 7.8, 4.39],
-  ];
-  const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
-  const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
-  // @@shared:05-pct end
   // Tax-parameter indexing. Brackets, credits, the OAS clawback threshold and
   // CPP contribution limits all index by this factor. In the deterministic
   // projection it is the steady state.inflation compounded by yearIndex;
@@ -1582,33 +1115,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   }
   // @@shared:06-histTaxFactors end
 
-  function progressiveTax(income, brackets) {
-    let tax = 0,
-      prev = 0;
-    for (const [cap, rate] of brackets) {
-      const slice = Math.min(Math.max(0, income - prev), cap - prev);
-      tax += slice * rate;
-      prev = cap;
-      if (income <= cap) break;
-    }
-    return tax;
-  }
-  // 2026 federal brackets (CRA), held constant in real terms like the rest of
-  // this planner's tax parameters. Non-refundable credits are worth the lowest
-  // rate (14% in 2026) of the credit amount, subtracted from the tax on the
-  // brackets (they are not deductions at the marginal rate). The basic personal
-  // amount is $16,452 up to the 29% bracket threshold and phases down linearly
-  // to $14,829 at the 33% threshold (CRA indexation notice for 2026), keyed on
-  // net income. `extraCreditBase` is further credit amounts (age amount, pension
-  // income amount) the caller has already worked out; tax cannot go below zero.
-  const FED_CREDIT_RATE = 0.14,
-    FED_BPA_MIN = 14829,
-    FED_BPA_ENHANCED = 1623, // 16,452 - 14,829
-    FED_BPA_PHASE_START = 181440,
-    FED_BPA_PHASE_END = 258482;
-  // The federal brackets as flat arrays (no per-call allocation); scaledProgressiveTax multiplies the caps by the index factor.
-  const FED_CAPS = [58523, 117045, 181440, 258482, Infinity],
-    FED_RATES = [0.14, 0.205, 0.26, 0.2929, 0.33];
   function federalTaxCA(income, yearIndex, extraCreditBase = 0, claimMinus = -1) {
     const factor = taxIndexFactor(yearIndex);
     const phaseStart = FED_BPA_PHASE_START * factor,
@@ -1623,1009 +1129,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       scaledProgressiveTax(Math.max(0, income), FED_CAPS, FED_RATES, factor) -
         FED_CREDIT_RATE * (bpa + extraCreditBase + (claimMinus >= 0 ? Math.max(0, bpa - claimMinus) : 0)),
     );
-  }
-  // 2026 provincial rules for all 10 provinces (no territories), one data row each
-  // and one evaluator, `provincialTaxCA`. The block between the `PROVINCE_RULES:begin`
-  // and `end` comments is pure literals so `scripts/gen-province-rules.js` can read it
-  // and write docs/province-tax-rules.md (the review artifact; `npm test` fails if it
-  // is stale). Every family is explicit per row: `creditRate` (the lowest bracket rate,
-  // the rate every non-refundable credit is worth), `brackets` (cap, rate), `bpa`
-  // (amount, optional high-income phase-down to a floor), `age` (amount, income
-  // threshold, 15% reduction rate, optional supplement that is not reduced), `pension`
-  // (maximum), `pooled` (Quebec age, retirement-income and living-alone amounts,
-  // reduced together by family income), `payroll` (the employee pension contribution
-  // rate, CPP or QPP, and Quebec QPIP premium), `dividend` (eligible-dividend credit as a share of the grossed-up
-  // dividend), Ontario's `surtax` and `healthPremium`. `indexing` has one boolean per
-  // family; a true flag scales that family by `taxIndexFactor`. `verified` records, per
-  // family, whether the figure was read on a primary page or only on a secondary one.
-  // Credits are subtracted from the tax at `creditRate`, floored at zero, never taken
-  // off income as deductions. Quebec's mechanisms are the `pooled` and `payroll` fields and the federal abatement.
-  // PROVINCE_RULES:begin
-  const PROVINCE_RULES = {
-    on: {
-      name: 'Ontario',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.0505,
-      brackets: [[53891, 0.0505], [107785, 0.0915], [150000, 0.1116], [220000, 0.1216], [Infinity, 0.1316]],
-      bpa: { amount: 12989, phase: null },
-      age: { amount: 6342, threshold: 47210, rate: 0.15, supplement: 0 },
-      pension: { amount: 1796 },
-      spouse: { amount: 11029, threshold: 1103 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 2940, familyIncome: false },
-      careAtHome: { age: 70, rate: 0.25, maxExpenses: 6000, startIncome: 35000, reductionRate: 0.05 },
-      lowIncomeReduction: { kind: "perReturn", basic: 294, spouse: 0, dependant: 0, child: 544, age: 0, multiplier: 2, rate: 0, base: 0, baseWithDependants: null, eligibility: null, ageTaxCredit: null },
-      healthContributions: null,
-      probate: { steps: [[50000, 0]], base: 0, bands: [[50000, 15]] },
-      dividend: { eligible: 0.1 },
-      surtax: { first: 5818, firstRate: 0.2, second: 7446, secondRate: 0.36 },
-      healthPremium: true,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: true, surtaxIndexed: true },
-      notes: 'Surtax: 20% of Ontario tax over $5,818 plus 36% of Ontario tax over $7,446 (both apply above the second threshold, a 56% surtax on the top slice), computed on the tax after non-refundable credits and before the dividend tax credit (the order on CRA form ON428). Until 7K the code used 16% for the second tier, a bug. The Ontario Health Premium (up to $900) is based on taxable income. Ontario tax reduction is a low-income item (not yet modeled).',
-    },
-    bc: {
-      name: 'British Columbia',
-      source: 'https://www2.gov.bc.ca/gov/content/taxes/income-taxes/personal/tax-rates',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.056,
-      brackets: [[50363, 0.056], [100728, 0.077], [115648, 0.105], [140430, 0.1229], [190405, 0.147], [265545, 0.168], [Infinity, 0.205]],
-      bpa: { amount: 13216, phase: null },
-      age: { amount: 5927, threshold: 44119, rate: 0.15, supplement: 0 },
-      pension: { amount: 1000 },
-      spouse: { amount: 11317, threshold: 1132 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 2748, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: { kind: "income", basic: 575, spouse: 0, dependant: 0, child: 0, age: 0, multiplier: 1, rate: 0.0356, base: 25570, baseWithDependants: null, eligibility: null, ageTaxCredit: null },
-      healthContributions: null,
-      probate: { steps: [[25000, 0]], base: 0, bands: [[25000, 6], [50000, 14]] },
-      dividend: { eligible: 0.12 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: 'The lowest rate is 5.60% for 2026 (BC Ministry of Finance); CRA payroll tables still show 5.06%, a stale payroll figure. No Medical Services Plan premium since 2020.',
-    },
-    ab: {
-      name: 'Alberta',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.08,
-      brackets: [[61200, 0.08], [154259, 0.1], [185111, 0.12], [246813, 0.13], [370220, 0.14], [Infinity, 0.15]],
-      bpa: { amount: 22769, phase: null },
-      age: { amount: 6345, threshold: 47234, rate: 0.15, supplement: 0 },
-      pension: { amount: 1753 },
-      spouse: { amount: 22769, threshold: 0 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 2942, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: null,
-      healthContributions: null,
-      probate: { steps: [[10000, 35], [25000, 135], [125000, 275], [250000, 400]], base: 525, bands: [] },
-      dividend: { eligible: 0.0812 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: true, surtaxIndexed: false },
-      notes: '',
-    },
-    sk: {
-      name: 'Saskatchewan',
-      source: 'https://www.saskatchewan.ca/residents/taxes-and-investments/personal-income-tax/2026-personal-income-tax-structure',
-      amountsSource: 'https://www.saskatchewan.ca/residents/taxes-and-investments/personal-income-tax/2026-personal-income-tax-structure',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.105,
-      brackets: [[54532, 0.105], [155805, 0.125], [Infinity, 0.145]],
-      bpa: { amount: 20381, phase: null },
-      age: { amount: 5901, threshold: 43927, rate: 0.15, supplement: 2569 },
-      pension: { amount: 1000 },
-      spouse: { amount: 20381, threshold: 2038 },
-      childAmount: { amount: 8358, maxAge: 17 },
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: { amount: 15000 },
-      medical: { threshold: 2736, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: null,
-      healthContributions: null,
-      probate: { steps: [], base: 0, bands: [[0, 7]] },
-      dividend: { eligible: 0.11 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: 'The senior supplement ($2,569, age 65+, claimable even when the age amount is nil) is added to the age amount and is not reduced by income. Saskatchewan raises its personal amounts by a further $500 a year by statute; modeled as ordinary indexing only.',
-    },
-    mb: {
-      name: 'Manitoba',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.108,
-      brackets: [[47000, 0.108], [100000, 0.1275], [Infinity, 0.174]],
-      bpa: { amount: 15780, phase: { start: 200000, end: 400000, floor: 0 } },
-      age: { amount: 3728, threshold: 27749, rate: 0.15, supplement: 0 },
-      pension: { amount: 1000 },
-      spouse: { amount: 9134, threshold: 0 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 1728, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: null,
-      healthContributions: null,
-      probate: { steps: [], base: 0, bands: [] },
-      dividend: { eligible: 0.08 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: false, bpaIndexed: false, ageAmountIndexed: false, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: 'The basic personal amount is $15,780 up to $200,000 of net income, reduced proportionally to nil at $400,000 (amount x (400,000 - income) / 200,000 between); it, the phase-down range and the brackets are frozen, not indexed (CRA T4127). The age amount is also unindexed for 2026 per TaxTips (factor 1.000, secondary).',
-    },
-    qc: {
-      name: 'Quebec',
-      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
-      amountsSource: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'secondary', healthContributions: 'primary', lowIncome: 'primary', medical: 'primary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.14,
-      brackets: [[54345, 0.14], [108680, 0.19], [132245, 0.24], [Infinity, 0.2575]],
-      bpa: { amount: 18952, phase: null },
-      age: null,
-      pension: null,
-      spouse: null,
-      childAmount: null,
-      pooled: { ageAmount: 3986, retirementAmount: 3541, retirementMultiplier: 1.25, livingAlone: 2172, reductionThreshold: 42955, reductionRate: 0.1875 },
-      payroll: { pensionRate: 0.063, eiRate: 0.013, premium: { rate: 0.0043, max: 103000 } },
-      homeBuyer: { amount: 10000 },
-      medical: { threshold: null, familyIncome: true },
-      careAtHome: null,
-      lowIncomeReduction: null,
-      healthContributions: { hsf: { t1: 18500, t2: 64355, rate: 0.01, cap1: 150, cap2: 1000 }, ramq: { max: 777.48, max2025: 755, step: 5000, couple: { exempt: 32240, childOne: 4220, childMore: 8120, low: 0.0393, high: 0.0589 }, single: { exempt: 19890, childOne: 12350, childMore: 16570, low: 0.0784, high: 0.1176 } } },
-      probate: { steps: [], base: 0, bands: [] },
-      dividend: { eligible: 0.117 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: true, surtaxIndexed: false },
-      notes: 'Quebec files its own provincial return and residents get a 16.5% federal abatement (applied after the federal credits). Its age ($3,986), retirement-income ($3,541) and living-alone ($2,172) amounts are one pool, reduced by 18.75% of family income over $42,955 (Revenu Quebec form TP-1015.3-V 2026, Work Chart 2, and the Finance Quebec parameters PDF); the retirement-income amount is the lesser of $3,541 and 1.25 times the qualifying retirement income (pension and RRIF income, not CPP, QPP or OAS); for a couple the two spouses amounts are added and reduced once, by 18.75% of their combined net income over $42,955; every amount is indexed (Quebec uses its own CPI factor, 2.05% for 2026; the planner applies its plan inflation). Contributions: QPP 6.30% (basic plus first additional) on earnings from $3,500 to $74,600 and a 4% second tier to $85,000; QPIP 0.430% up to $103,000, a separate ceiling (relayed from a review citing the Act respecting the Quebec Pension Plan, CQLR c. R-9, ss. 44 to 44.3 and 50, and the Act respecting parental insurance, CQLR c. A-29.011, s. 6, which leaves the rate to a regulation; not read on a primary page: backlog). Not modeled: a spouse unused-amount transfer beyond the pooled split (each spouse takes a share of the reduced pool in proportion to their own amounts), the additional amount for a person living alone in a single-parent family (it needs a child 18 or over in post-secondary studies and no Family Allowance), the solidarity credit and work premium (paid benefits, 7L). Modeled since 7N: the Health Services Fund contribution (Revenu Quebec Schedule F: 1% of income other than employment income and OAS over 18,500, to 150 at 33,500, flat to 64,355, then 1% to a 1,000 maximum) and the RAMQ drug insurance premium of every retired adult (Schedule K table, 2026 maximum 777.48, scaled from the 2025 table; a working partner is assumed to be on a group plan; the premium is also a medical expense).',
-    },
-    nb: {
-      name: 'New Brunswick',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.094,
-      brackets: [[52333, 0.094], [104666, 0.14], [193861, 0.16], [Infinity, 0.195]],
-      bpa: { amount: 13664, phase: null },
-      age: { amount: 6158, threshold: 45844, rate: 0.15, supplement: 0 },
-      pension: { amount: 1000 },
-      spouse: { amount: 10709, threshold: 1072 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 2854, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: { kind: "family", basic: 802, spouse: 802, dependant: 802, child: 0, age: 0, multiplier: 1, rate: 0.03, base: 21920, baseWithDependants: null, eligibility: { singleBelow: 48653, familyBelow: 75387 }, ageTaxCredit: null },
-      healthContributions: null,
-      probate: { steps: [[20000, 200]], base: 200, bands: [[20000, 5], [100000, 15]] },
-      dividend: { eligible: 0.14 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: '',
-    },
-    ns: {
-      name: 'Nova Scotia',
-      source: 'https://www.novascotia.ca/personal-income-tax-rates-and-indexation',
-      amountsSource: 'https://www.novascotia.ca/personal-income-tax-rates-and-indexation',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.0879,
-      brackets: [[30995, 0.0879], [61991, 0.1495], [97417, 0.1667], [157124, 0.175], [Infinity, 0.21]],
-      bpa: { amount: 11932, phase: null },
-      age: { amount: 5826, threshold: 30828, rate: 0.15, supplement: 0 },
-      pension: { amount: 1173 },
-      spouse: { amount: 11932, threshold: 888 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 1637, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: { kind: "family", basic: 300, spouse: 300, dependant: 300, child: 165, age: 0, multiplier: 1, rate: 0.05, base: 15000, baseWithDependants: null, eligibility: null, ageTaxCredit: { amount: 1000, incomeBelow: 24000, age: 65 } },
-      healthContributions: null,
-      probate: { steps: [[10000, 85.6], [25000, 215.2], [50000, 358.15], [100000, 1002.65]], base: 1002.65, bands: [[100000, 16.95]] },
-      dividend: { eligible: 0.0885 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: true, surtaxIndexed: false },
-      notes: 'The old income-tested reduction of the basic personal amount no longer applies in 2026 (CRA T4127: the maximum is available at every income).',
-    },
-    pe: {
-      name: 'Prince Edward Island',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'secondary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.095,
-      brackets: [[33928, 0.095], [65820, 0.1347], [106890, 0.166], [142520, 0.1762], [200000, 0.19], [Infinity, 0.2]],
-      bpa: { amount: 15000, phase: null },
-      age: { amount: 6510, threshold: 36600, rate: 0.15, supplement: 0 },
-      pension: { amount: 1000 },
-      spouse: { amount: 12740, threshold: 1274 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 1678, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: { kind: "family", basic: 350, spouse: 350, dependant: 350, child: 300, age: 250, multiplier: 1, rate: 0.05, base: 22650, baseWithDependants: null, eligibility: null, ageTaxCredit: null },
-      healthContributions: null,
-      probate: { steps: [[10000, 50], [25000, 100], [50000, 200], [100000, 400]], base: 400, bands: [[100000, 4]] },
-      dividend: { eligible: 0.105 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: 'The fourth threshold is $142,520 (CRA T4127 and PEI Finance; the code had $142,250). The 20% bracket over $200,000 applies from 2026 per EY (the CRA payroll table still lists 19% as the top rate; backlog). CRA says no statutory indexing applies for 2026 (the budget raised thresholds by hand); modeled as indexed as a planning assumption.',
-    },
-    nl: {
-      name: 'Newfoundland and Labrador',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html',
-      amountsSource: 'https://www.taxtips.ca/nrcredits/tax-credits-2026.htm',
-      asOf: '2026',
-      retrieved: '2026-10-05',
-      verified: { probate: 'primary', healthContributions: 'primary', lowIncome: 'primary', medical: 'secondary', spouse: 'primary', brackets: 'primary', bpa: 'primary', age: 'primary', pension: 'primary', dividend: 'secondary' },
-      creditRate: 0.087,
-      brackets: [[44678, 0.087], [89354, 0.145], [159528, 0.158], [223340, 0.178], [285319, 0.198], [570638, 0.208], [1141275, 0.213], [Infinity, 0.218]],
-      bpa: { amount: 13094, phase: null },
-      age: { amount: 7142, threshold: 39138, rate: 0.15, supplement: 0 },
-      pension: { amount: 1000 },
-      spouse: { amount: 9142, threshold: 915 },
-      childAmount: null,
-      pooled: null,
-      payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
-      homeBuyer: null,
-      medical: { threshold: 2437, familyIncome: false },
-      careAtHome: null,
-      lowIncomeReduction: { kind: "family", basic: 997, spouse: 557, dependant: 557, child: 0, age: 0, multiplier: 1, rate: 0.16, base: 23928, baseWithDependants: 40460, eligibility: null, ageTaxCredit: null },
-      healthContributions: null,
-      probate: { steps: [[1000, 60]], base: 60, bands: [[1000, 6]] },
-      dividend: { eligible: 0.063 },
-      surtax: null,
-      healthPremium: false,
-      indexing: { bracketsIndexed: true, bpaIndexed: true, ageAmountIndexed: true, pensionAmountIndexed: false, surtaxIndexed: false },
-      notes: '2026 transitional basic personal amount: $13,094, reflecting $11,188 for January to June and $15,000 from July 1, 2026 (a time-weighted figure, not an indexed amount; backlog: not read on an NL Finance page). The full-year amount is $15,000 from 2027 (not modeled); the planner indexes $13,094 forward.',
-    },
-  };
-  // PROVINCE_RULES:end
-  // ---- Income-tested benefits (7L) ----
-  // One row per program; evaluators in benefitsFor read these by kind. Pure literals between the
-  // begin and end markers (scripts/gen-benefit-rules.js evaluates the block). Amounts are annual
-  // dollars for the benefit year that starts in 2026 unless the row says otherwise. Same-year income
-  // stands in for the prior-year test the programs really use (engine convention).
-  // BENEFIT_RULES:begin
-  const BENEFIT_RULES = {
-    gis: {
-      name: 'Guaranteed Income Supplement, Allowance and Allowance for the Survivor',
-      kind: 'gisAllowance',
-      scope: 'federal',
-      source: 'https://www.canada.ca/en/services/benefits/publicpensions/old-age-security/payments.html',
-      asOf: '2026-10-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', formula: 'primary', employmentExemption: 'secondary' },
-      indexing: { quarterlyCpi: true },
-      dependsOn: [],
-      employmentExemption: { full: 5000, halfBand: 10000 },
-      situations: {
-        single: [[0, 13666.8], [2040, 12646.8], [10464, 6322.8], [10512, 6293.88], [23088, 5.88], [23112, 0]],
-        spouseOas: [[0, 8226.72], [4080, 7206.72], [8832, 5418.84], [30528, 0]],
-        spouseNoOas: [[0, 13666.8], [4096, 13654.8], [9184, 13018.8], [20928, 8614.8], [21024, 8585.88], [55344, 5.88], [55392, 0]],
-        couplePensioner: [[0, 8226.72], [4080, 8226.72], [8800, 7626.84], [12240, 7626.84], [30144, 3155.04], [42768, 3155.04], [42768, 0]],
-        coupleAllowance: [[0, 17376.72], [4096, 14304.72], [8832, 10152.84], [12192, 7632.84], [42768, 0]],
-        survivorAllowance: [[0, 20714.16], [2048, 19190.16], [10464, 10754.16], [12192, 9453.24], [31152, 0]],
-      },
-      notes: 'Fitted to ESDC tables 1 to 5 for October to December 2026 (docs/sources). Income is annual net income less OAS and the employment exemption, combined for couples. Amounts and income cutoffs scale together with the plan inflation factor (quarterly CPI approximated by annual plan inflation). A single filer aged 60 to 64 who is not a survivor gets no Allowance. Table 4 (a spouse aged 60 to 64 on the Allowance) ends at 42,768 where that Allowance reaches 0; the pensioner then continues on table 3, so there is no cliff.',
-    },
-    oas: {
-      name: 'Old Age Security pension: 75 plus step and recommended amount',
-      kind: 'oasPension',
-      scope: 'federal',
-      source: 'https://www.canada.ca/en/services/benefits/publicpensions/old-age-security/payments.html',
-      asOf: '2026-10-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', ageFactor: 'primary' },
-      indexing: { quarterlyCpi: true },
-      dependsOn: [],
-      // UPDATE FOR 2027: the recommended amount is the October to December 2026 maximum and changes every quarter.
-      recommendedMonthly: 762.5,
-      ageFactors: [{ from: 75, factor: 1.1 }],
-      notes: 'The OAS inputs stay: enter the 65 to 74 amount in todays dollars (2026 maximum 762.50 a month, recommended default; prorate for partial residence; raise it yourself for a deferral, 0.6 percent per month up to 36 percent at 70). The planner applies the 10 percent increase from age 75 (ESDC maximum 838.75; the ratio 75 plus to 65 to 74 is exactly 1.10 in every quarter checked since July 2022 and 1.00 before). Quarterly CPI indexation is approximated by annual plan inflation.',
-    },
-    cgeb: {
-      name: 'Canada Groceries and Essentials Benefit (formerly the GST/HST credit)',
-      kind: 'familyCredit',
-      scope: 'federal',
-      source: 'https://www.parl.ca/DocumentViewer/en/45-1/bill/C-19/royal-assent',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', formula: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      childMaxAge: 18,
-      adult: 445,
-      spouse: 445,
-      eligibleDependant: 445,
-      child: 234,
-      singleParentExtra: 234,
-      singleSupplement: { max: 234, rate: 0.02, from: 11564 },
-      reduction: { rate: 0.05, from: 46432 },
-      notes: 'Income Tax Act 122.5(3.005) as enacted by Bill C-19 (S.C. 2026 c. 1): 445 for the individual, 445 for a spouse or for the first child of a single parent, 234 for each other child, 234 more for a single parent, a single supplement of the lesser of 234 and 2 percent of income over 11,564, less 5 percent of income over 46,432. Children under 19. Indexed from 2027.',
-    },
-    ccb: {
-      name: 'Canada Child Benefit',
-      kind: 'childSchedule',
-      scope: 'federal',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/canada-child-benefit-overview/canada-child-benefit-we-calculate-your-ccb.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'ccb',
-      amounts: [{ maxAge: 5, amount: 8157 }, { maxAge: 17, amount: 6883 }],
-      reduction: {
-        from1: 38237,
-        from2: 82847,
-        rate1: [0.07, 0.135, 0.19, 0.23],
-        base2: [3123, 6022, 8476, 10260],
-        rate2: [0.032, 0.057, 0.08, 0.095],
-      },
-      notes: 'Reduction by the number of children (four or more use the last column) on adjusted family net income. The child disability benefit and the child care expense and shared custody rules are not modeled. Indexed in July; approximated by annual plan inflation.',
-    },
-    ocb: {
-      name: 'Ontario Child Benefit',
-      kind: 'childSchedule',
-      scope: 'on',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-ontario.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'ocb',
-      maxAge: 17,
-      amountPerChild: 1759.92,
-      reduction: { from: 26865, rate: 0.08 },
-      notes: 'Up to 146.66 a month per child under 18 (CRA); partial above 26,865. The 8 percent reduction rate on the family total is secondary and on the verification backlog.',
-    },
-    ostc: {
-      name: 'Ontario Sales Tax Credit',
-      kind: 'familyCredit',
-      scope: 'on',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-ontario.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      childMaxAge: 18,
-      adult: 378,
-      spouse: 378,
-      eligibleDependant: 378,
-      child: 378,
-      singleParentExtra: 0,
-      singleSupplement: { max: 0, rate: 0, from: 0 },
-      reduction: { rate: 0.04, from: 36309, fromSingle: 29047 },
-      notes: '378 for each adult and each child under 19; reduced by 4 percent of family net income over 36,309, or over 29,047 for a single person with no children. The seniors income threshold option is not modeled.',
-    },
-    bcfb: {
-      name: 'BC Family Benefit',
-      kind: 'childSchedule',
-      scope: 'bc',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-british-columbia.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'bcfb',
-      maxAge: 17,
-      amounts: [1749.96, 1099.92, 900],
-      singleParentFirstChild: 499.92,
-      floors: [774.96, 750, 724.92],
-      reduction: { from1: 30176, from2: 96562, rate: 0.04 },
-      notes: 'Per child by order: 145.83, 91.66 and 75 a month; 41.66 more for the first child of a single parent. Reduced by 4 percent of income over 30,176 but not below 64.58, 62.50 and 60.41 a month per child until 96,562; above that the remaining benefit falls by 4 percent of the excess.',
-    },
-    acfb: {
-      name: 'Alberta Child and Family Benefit',
-      kind: 'childSchedule',
-      scope: 'ab',
-      source: 'https://www.alberta.ca/alberta-child-and-family-benefit',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', baseReduction: 'secondary', workingComponent: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'acfb',
-      maxAge: 17,
-      baseMax: [1529, 2293, 3057, 3821],
-      baseRate: [0.0805, 0.1207, 0.1609, 0.2011],
-      baseFrom: 28116,
-      workingMax: [782, 1494, 1920, 2061],
-      workingPhaseInRate: 0.15,
-      workingPhaseInFrom: 2760,
-      workingRate: [0.034, 0.0649, 0.0834, 0.0895],
-      workingFrom: 47115,
-      notes: 'Maximums are on the Alberta page. The base reduction rates are implied by each maximum divided by the 18,999 dollar span to 47,115; the working component rates and the 15 percent phase-in come from a reviewer and are on the verification backlog. Working income is wages.',
-    },
-    absb: {
-      name: 'Alberta Seniors Benefit',
-      kind: 'seniorSupplement',
-      scope: 'ab',
-      source: 'https://www.alberta.ca/alberta-seniors-benefit',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', rates: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: ['oas', 'gis'],
-      style: 'absb',
-      single: { max: 3946, rate: 0.1714 },
-      couple: { max: 5918, rate: 0.1717 },
-      employmentDeduction: 3600,
-      notes: 'Homeowner, renter or lodge resident rows. Income used is net income less OAS, GIS and Allowance and up to 3,600 of employment income; the RRSP, pension plan and split-pension deductions are not modeled. Requires OAS in payment (deferring OAS removes eligibility).',
-    },
-    qcfa: {
-      name: 'Quebec Family Allowance',
-      kind: 'childSchedule',
-      scope: 'qc',
-      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
-      asOf: '2026-01-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', thresholds: 'primary', reductionEnd: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'qcfa',
-      maxAge: 17,
-      perChild: { max: 3068, min: 1221 },
-      singleParentSupplement: { max: 1077, min: 430 },
-      from: { twoParent: 60398, oneParent: 44032 },
-      to: 107000,
-      notes: 'Finance Quebec Table 3 (2026): 3,068 maximum and 1,221 minimum for each child, plus 1,077 maximum and 430 minimum once per single-parent family; reduction thresholds 60,398 for a couple and 44,032 for a single parent. The income where the minimum is reached (107,000, from the Retraite Quebec table) and the linear shape in between are secondary and on the verification backlog. The school supplies and handicapped children supplements are not modeled.',
-    },
-    oshptg: {
-      name: 'Ontario Senior Homeowners Property Tax Grant',
-      kind: 'occupancyCredit',
-      scope: 'on',
-      source: 'https://www.ontario.ca/page/senior-homeowners-property-tax-grant',
-      asOf: '2026-01-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'secondary', thresholds: 'secondary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'oshptg',
-      seniorAge: 64,
-      max: 500,
-      singleFrom: 35000,
-      coupleFrom: 45000,
-      singleTo: 50000,
-      coupleTo: 60000,
-      rate: 0.0333,
-      notes: 'Up to 500 a year for a homeowner aged 64 or older who pays property tax: full at family net income of 35,000 or less (45,000 for a couple), reduced by 3.33 percent of the excess, nil at 50,000 (60,000). Figures are from a summary of the ontario.ca page and are on the verification backlog. Not indexed (500 since 2010).',
-    },
-    oeptc: {
-      name: 'Ontario Energy and Property Tax Credit',
-      kind: 'occupancyCredit',
-      scope: 'on',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/ontario-energy-property-tax-credit-oeptc-calculation-sheets/2026-ontario-energy-property-tax-credit-calculation-sheets.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { formula: 'primary', amounts: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: ['oshptg'],
-      style: 'oeptc',
-      seniorAge: 64,
-      rentRate: 0.2,
-      propertyTaxRate: 0.1,
-      reductionRate: 0.02,
-      nonSenior: { propertyTaxCap: 944, propertyTaxAdd: 73, energyCap: 290, fromSingle: 29047, fromCouple: 36309, fromSingleParent: 36309 },
-      senior: { propertyTaxCap: 581, propertyTaxAdd: 617, energyCap: 290, fromSingle: 36309, fromCouple: 43571, fromSingleParent: 43571 },
-      notes: 'CRA 2026 calculation sheets. Occupancy cost is 20 percent of rent plus property tax. Energy component is the lesser of the occupancy cost and 290; property tax component is the lesser of the occupancy cost and (10 percent of it, capped, plus a fixed add-on); less 2 percent of family net income over the threshold. Seniors (either spouse 64 or older) use the senior figures and, with a senior homeowners grant, the credit plus the grant cannot exceed the energy component plus the occupancy cost. The long-term-care and on-reserve energy lines and the student residence 25 dollars are not modeled. Children matter only for a single filer (the sole-care sheet).',
-    },
-    nbpta: {
-      name: 'New Brunswick Residential Property Tax Allowance for Low-Income Homeowners',
-      kind: 'occupancyCredit',
-      scope: 'nb',
-      source: 'https://www.gnb.ca/en/topic/family-home-community/housing-property/property-tax/property-tax-allowance.html',
-      asOf: '2026-01-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', incomeTiers: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'nbpta',
-      // [income below this, allowance]: the page lists less than 22,000, 22,001 to 25,000 and 25,001 to 30,000 (whole dollars).
-      tiers: [[22001, 300], [25001, 200], [30001, 100]],
-      notes: 'Up to 300 for household income below 22,000, 200 from 22,001 to 25,000 and 100 from 25,001 to 30,000, never more than the property tax paid; for an owner who lives in the property and receives the residential property tax credit. The page is undated; the allowance is tested on the prior-year return (same-year income stands in). The whole-dollar tier edges are a reading of the page. Not indexed.',
-    },
-    nsptr: {
-      name: 'Nova Scotia Property Tax Rebate for Seniors',
-      kind: 'occupancyCredit',
-      scope: 'ns',
-      source: 'https://novascotia.ca/just/Regulations/regs/scproptaxrebate.htm',
-      asOf: '2026-07-02',
-      retrieved: '2026-10-05',
-      verified: { amount: 'primary', gisTest: 'primary', survivorAllowance: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: ['gis'],
-      style: 'nsptr',
-      max: 800,
-      min: 15,
-      share: 0.5,
-      notes: 'Senior Citizens Property Tax Rebate Regulations s. 3(b), 3(ba) and 7: the greater of 15 and 50 percent of the actual municipal residential property tax paid, to a maximum of 800, for an owner who lives in the property and receives (or is eligible for) the Guaranteed Income Supplement, the spouse allowance or the survivor allowance. Modeled as that amount when the household receives any GIS or Allowance (the Allowance for the Survivor is inside the Allowance line). The planner property tax is the whole bill, taken as municipal. Not indexed. The 2026 amounts are also on the news release of 2026-07-02.',
-    },
-    mbhatc: {
-      name: 'Manitoba Homeowners Affordability Tax Credit',
-      kind: 'occupancyCredit',
-      scope: 'mb',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html',
-      asOf: '2025-01-01',
-      retrieved: '2026-10-05',
-      verified: { baseAmount: 'primary', schoolTaxProxy: 'secondary' },
-      indexing: { amounts: true },
-      dependsOn: [],
-      style: 'mbhatc',
-      max: 1500,
-      notes: 'Form MB479 for 2025 (page 2, lines 22 to 28): the lesser of the base amount, 1,500 for 2025 (Information Bulletin 126 gives 1,600 for 2026 and 1,700 for 2027; the 2025 form is the latest published, owner ruling), and the school taxes on the principal residence. No income test. The planner has only total property tax, so school taxes are proxied by the property tax paid, an upper bound. The maximum scales with plan inflation.',
-    },
-    mbsstr: {
-      name: 'Manitoba Seniors School Tax Rebate',
-      kind: 'occupancyCredit',
-      scope: 'mb',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html',
-      asOf: '2025-01-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', incomeTest: 'primary', schoolTaxLimit: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'mbsstr',
-      seniorAge: 65,
-      max: 235,
-      from: 40000,
-      rate: 0.01,
-      notes: 'Form MB479 for 2025 (page 4, lines 42 to 52): for a homeowner (either spouse) 65 or older with family income under 63,500, the school taxes less the homeowners affordability credit (maximum 235) less 1 percent of family income over 40,000. Modeled as the lesser of the property tax left after the homeowners credit (the whole property tax stands in for school taxes) and 235 less that reduction. Not indexed.',
-    },
-    mbratc: {
-      name: 'Manitoba Renters Affordability Tax Credit',
-      kind: 'occupancyCredit',
-      scope: 'mb',
-      source: 'https://www.canada.ca/en/revenue-agency/services/forms-publications/tax-packages-years/general-income-tax-benefit-package/manitoba/5007-tc.html',
-      asOf: '2025-01-01',
-      retrieved: '2026-10-05',
-      verified: { baseAmount: 'primary', seniorsTopUp: 'primary', rentLimit: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'mbratc',
-      max: 575,
-      topUp: 328.57,
-      topUpRate: 0.008214,
-      seniorAge: 65,
-      notes: 'Form MB479 for 2025 (page 3, lines 29 to 40): 575 a year (47.91 a month) for a renter, no income test; a household with a person 65 or older gets 903.57 less 0.8214 percent of family income, the reduction capped at 328.57 (so the credit is 575 plus the larger of zero and 328.57 less 0.008214 times family income); the credit is the lesser of the rent paid and that amount. One credit per household. A full year of rent is assumed. The 2025 form is the latest published (owner ruling); the 2026 maxima of 625 and 357 (Information Bulletin 126) are not used. Amounts and the income point scale with plan inflation.',
-    },
-    sklitc: {
-      name: 'Saskatchewan Low-Income Tax Credit',
-      kind: 'familyCredit',
-      scope: 'sk',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-saskatchewan.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', threshold: 'primary', reductionRate: 'secondary', childAge: 'secondary', singleParent: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      childMaxAge: 17,
-      childCap: 2,
-      adult: 460,
-      spouse: 460,
-      eligibleDependant: 460,
-      child: 181,
-      dependantReplacesChild: false,
-      reduction: { rate: 0.03029085839850672, from: 39345 },
-      notes: 'CRA Saskatchewan page for July 2026 to June 2027: 460 for the individual, 460 for a spouse or eligible dependant, 181 a child for two children at most, family maximum 1,282; reduced from family net income 39,345 to nil at 81,668. The reduction rate is derived: 1,282 divided by the 42,323 dollar span is 3.029 percent (the saskatchewan.ca page states 2.88 percent for the 2025 to 2026 year only; the 2025 rate is not carried). Children under 18 is a reading. A single parent gets the eligible dependant amount and the child amounts (up to two children), a reading: the GST-style alternative (the first child counts as the dependant) would be 181 lower. Indexed annually, with 5 percent yearly increases announced under the Affordability Act (not modeled beyond inflation).',
-    },
-    sksip: {
-      name: 'Saskatchewan Seniors Income Plan',
-      kind: 'seniorSupplement',
-      scope: 'sk',
-      source: 'https://www.saskatchewan.ca/residents/family-and-social-support/seniors-services/seniors-income-plan',
-      asOf: '2026-04-01',
-      retrieved: '2026-10-05',
-      verified: { maxima: 'primary', zeroPoints: 'primary', shape: 'primary', spouseUnder60Endpoint: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: ['oas', 'gis'],
-      style: 'sksip',
-      single: { max: 4320, zero: 4560, flatTo: 0 },
-      couple: { max: 7800, zero: 7440, flatTo: 0 },
-      spouseUnder60: { max: 4320, zero: 11568, flatTo: 9184 },
-      spouseAllowance: { max: 4320, zero: 9120, flatTo: 0 },
-      notes: 'saskatchewan.ca, income thresholds effective April 1 2026: 360 a month for a single OAS and GIS recipient (4,320 a year), nil at income 4,560 (income excluding OAS and GIS); a couple both on OAS and GIS 325 each (7,800), nil at 7,440; a spouse under 60 360 nil at 11,568; a spouse aged 60 to 64 on the Allowance 360 nil at 9,120. The Seniors Income Plan Regulations (RRS c S-25.1 Reg 3, consolidated to SR 39/2023, section 5(2)) reduce the maximum by 1.90 (single), 2.10 (spouse a pensioner) or 6.55 (spouse not a pensioner) dollars for every dollar the GIS is reduced, and 1.90 for every 3 dollars the spouse Allowance is reduced. The base GIS falls 0.5 (single) or 0.25 (each of a couple) per dollar of income from the first dollar, so the benefit is a straight line from the maximum at no income to nil at about 4,547 and 7,429, which the published nil points 4,560 and 7,440 (190 bands of 24 and 155 bands of 48) confirm; with a spouse on the Allowance the line reaches nil near 9,095 (published 9,120). For a pensioner whose spouse is not a pensioner the base GIS is flat until income 9,184 (ESDC table 3), so the benefit stays at the maximum to there and then falls to nil at the published 11,568. Source validation (ESDC table 3, October to December 2026): the total GIS is flat to 4,096, falls 12.5 percent to 9,184 and 37.5 percent after; reducing the 360 by the total GIS drop would end the benefit at 9,216, and the same reading gives 3,720 for a single person against the published 4,560, so the published points use the base GIS reduction. For a spouse under 60, 49.67 bands of base reduction at 6.55 dollars equals 325, not 360, so the published 11,568 looks computed with the 325 maximum; the regulation formula with 360 gives about 11,822. The regulation maximum 360 is kept and the published nil point is used for the model (secondary). Paid while the household receives GIS. Not paid to a 60 to 64 survivor on the Allowance for the Survivor.',
-    },
-    mbmcb: {
-      name: 'Manitoba Child Benefit',
-      kind: 'childSchedule',
-      scope: 'mb',
-      source: 'https://www.gov.mb.ca/fs/eia/mcb_table.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', fullIncome: 'primary', nilPoints: 'primary', shape: 'secondary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'mbmcb',
-      maxAge: 17,
-      perChild: 420,
-      fullTo: 15000,
-      zero: [20435, 20435, 20435, 22242, 24052, 25864],
-      notes: 'gov.mb.ca benefit levels table: 420 a year for each child under 18, paid in full at family income 15,000 or less and nil above 20,435 for one to three children, 22,242 for four, 24,052 for five and 25,864 for six (all published; more than six children use the six-child nil point). The table gives the endpoints only, so the benefit falls in a straight line between the full amount at 15,000 and the nil point (secondary). Not indexed (35 a month for many years). Needs the Canada Child Benefit and no income assistance; modeled from income alone.',
-    },
-    mb55j: {
-      name: 'Manitoba 55 PLUS, junior component',
-      kind: 'seniorSupplement',
-      scope: 'mb',
-      source: 'https://web2.gov.mb.ca/laws/regs/current/_pdf-regs.php?reg=64/90',
-      asOf: '2026-10-05',
-      retrieved: '2026-10-05',
-      verified: { tables: 'primary', eligibility: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: ['oas'],
-      style: 'mb55j',
-      minAge: 55,
-      maxAge: 64,
-      single: { from: 8930.4, width: 24, max: 647.2, values: [630.00, 612.40, 595.20, 577.60, 560.40, 542.80, 525.60, 508.00, 490.80, 473.20, 456.00, 438.40, 421.20, 403.60, 386.40, 368.80, 351.60, 334.00, 316.80, 299.20, 282.00, 264.40, 247.20, 229.60, 212.40, 194.80, 177.60, 160.00, 142.80, 125.20, 108.00, 90.40, 73.20, 55.60] },
-      couple: { from: 14479.2, width: 48, max: 695.6, values: [678.40, 660.80, 643.60, 626.00, 608.80, 591.20, 574.00, 556.40, 539.20, 521.60, 504.40, 486.80, 469.60, 452.00, 434.80, 417.20, 400.00, 382.40, 365.20, 347.60, 330.40, 312.80, 295.60, 278.00, 260.80, 243.20, 226.00, 208.40, 191.20, 173.60, 156.40, 138.80, 121.60, 104.00, 86.80, 69.20, 52.00] },
-      notes: 'Regulation 64/90 (55 PLUS), section 4 tables, current at 5 October 2026: a person aged 55 or older who is not eligible for OAS gets 647.20 a year (161.80 a quarter) at net family income up to 8,930.40, then a step down in 24 dollar bands to 55.60 in the last band (to 9,746.40) and nil above; in a couple each eligible person gets 695.60 up to 14,479.20, then 48 dollar bands to 52.00 (to 16,255.20). Modeled for ages 55 to 64 (not yet eligible for OAS); a couple with one eligible partner pays that partner the couple amount (a reading, secondary). Not paid to someone who receives the Allowance or the Allowance for the Survivor (an OAS Act benefit, section 2(3)(a)). Net family income is taken as the planner family income (the CPP and EI premium and employment expense deductions are not modeled). The senior component for OAS recipients is a separate scheme and is not modeled. Not indexed.',
-    },
-    mb55s: {
-      name: 'Manitoba 55 PLUS, senior component',
-      kind: 'seniorSupplement',
-      scope: 'mb',
-      source: 'https://web2.gov.mb.ca/laws/regs/current/_pdf-regs.php?reg=65/90',
-      asOf: '2026-10-05',
-      retrieved: '2026-10-05',
-      verified: { tables: 'primary', eligibility: 'primary', incomeBasis: 'secondary', lastRowsOfCoupleTable: 'secondary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: ['oas', 'gis'],
-      style: 'mb55s',
-      single: { width: 24, shift: 0, values: [161.80, 157.50, 153.10, 148.80, 144.40, 140.10, 135.70, 131.40, 127.00, 122.70, 118.30, 114.00, 109.60, 105.30, 100.90, 96.60, 92.20, 87.90, 83.50, 79.20, 74.80, 70.50, 66.10, 61.80, 57.40, 53.10, 48.70, 44.40, 40.00, 35.70, 31.30, 27.00, 22.60, 18.30, 13.90] },
-      bothPensioners: { width: 48, shift: 0, values: [173.90, 169.60, 165.20, 160.90, 156.50, 152.20, 147.80, 143.50, 139.10, 134.80, 130.40, 126.10, 121.70, 117.40, 113.00, 108.70, 104.30, 100.00, 95.60, 91.30, 86.90, 82.60, 78.20, 73.90, 69.50, 65.20, 60.80, 56.50, 52.10, 47.80, 43.40, 39.10, 34.70, 30.40, 26.00, 21.70, 17.30, 13.00] },
-      spouseNeither: { width: 48, shift: 47.99, values: [161.80, 148.80, 135.70, 122.70, 109.60, 96.60, 83.50, 70.50, 57.40, 44.40, 31.30, 18.30] },
-      spouseAllowance: { width: 48, shift: 0, values: [173.90, 171.70, 169.50, 167.30, 165.20, 163.00, 160.80, 158.60, 156.50, 154.30, 152.10, 149.90, 147.80, 145.60, 143.40, 141.20, 139.10, 136.90, 134.70, 132.50, 130.40, 128.20, 126.00, 123.80, 121.70, 119.50, 117.30, 115.10, 113.00, 110.80, 108.60, 106.40, 104.30, 102.10, 99.90, 97.70, 95.60, 93.40, 91.20, 89.00, 86.90, 84.70, 82.50, 80.30, 78.20, 76.00, 73.80, 71.60, 69.50, 67.30, 65.10, 62.90, 60.80, 58.60, 56.40, 54.20, 52.10, 49.90, 47.70, 45.50, 43.40, 41.20, 39.00, 36.80, 34.70, 32.50, 30.30, 28.10, 26.00, 23.80, 21.60, 19.40, 17.30, 15.10, 12.90, 10.70] },
-      survivorAllowance: { width: 48, shift: 0, values: [173.90, 169.60, 165.20, 160.90, 156.50, 152.20, 147.80, 143.50, 139.10, 134.80, 130.40, 126.10, 121.70, 117.40, 113.00, 108.70, 104.30, 100.00, 95.60, 91.30, 86.90, 82.60, 78.20, 73.90, 69.50, 65.20, 60.80, 56.50, 52.10, 47.80, 43.40, 39.10, 34.70, 30.40, 26.00, 21.70, 17.30, 13.00] },
-      notes: 'Regulation 65/90 (55 PLUS for persons eligible for OAS), section 2, current at 5 October 2026: quarterly amounts by total annual income declared in the GIS application (taken as family income excluding OAS and GIS; the application income is not otherwise modeled). Single pensioner: 161.80 at 0 to 23.99 in 24 dollar bands to 13.90 at 816 to 839.99. Both spouses pensioners, each: 173.90 in 48 dollar bands to 13.00 at 1,776 to 1,823.99. A pensioner whose spouse is not a pensioner and gets no Allowance (spouse under 60): 161.80 down to 18.30 at 528 to 575.99 on income less 47.99 (a reading of the table heading). A pensioner whose spouse is 60 to 64 on the Allowance: 173.90 to 10.70 at 3,600 to 3,647.99. A survivor 60 to 64 on the Allowance for the Survivor: the both-pensioners table (its visible rows are identical; the rest of that table was not read). The last six rows of the both-pensioners table are reconstructed from the regular 4.30 and 4.40 step pattern that ends at the 13.00 quoted for 1,776 to 1,823.99 (secondary). Annual amount is 4 times the quarterly amount. Not indexed.',
-    },
-    nsncb: {
-      name: 'Nova Scotia Child Benefit',
-      kind: 'childSchedule',
-      scope: 'ns',
-      source: 'https://novascotia.ca/coms/families/childbenefit.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', steps: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'nsncb',
-      maxAge: 17,
-      perChild: 1524.96,
-      halfFrom: 26000,
-      zeroFrom: 34000,
-      notes: 'Up to 127.08 a month (1,524.96 a year) for each child under 18 below family income 26,000; from 26,000 to 33,999 the first child gets the full amount and later children half; nil from 34,000 (novascotia.ca page and the CRA Nova Scotia page, which agree). Not indexed since 2023.',
-    },
-    nsaltc: {
-      name: 'Nova Scotia Affordable Living Tax Credit',
-      kind: 'familyCredit',
-      scope: 'ns',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-nova-scotia.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'primary', childAge: 'secondary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      childMaxAge: 17,
-      childCap: 99,
-      adult: 255,
-      spouse: 0,
-      eligibleDependant: 60,
-      child: 60,
-      dependantReplacesChild: true,
-      reduction: { rate: 0.05, from: 30000 },
-      notes: 'CRA Nova Scotia page: 255 for an individual or a couple plus 60 a child, reduced by 5 percent of family net income over 30,000. A single parent gets 255 plus 60 for each child. Children under 18 is a reading. Not indexed.',
-    },
-    nbctb: {
-      name: 'New Brunswick Child Tax Benefit',
-      kind: 'childSchedule',
-      scope: 'nb',
-      source: 'https://www2.gnb.ca/content/gnb/en/departments/finance/taxes/child_tax_benefit.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'nbctb',
-      maxAge: 17,
-      perChild: 250,
-      from: 20000,
-      rateOne: 0.025,
-      rateMore: 0.05,
-      notes: 'gnb.ca: 250 a year for each dependent child under 18, less 2.5 percent (one child) or 5 percent (more than one child) of family net income over 20,000. Not indexed.',
-    },
-    nbwis: {
-      name: 'New Brunswick Working Income Supplement',
-      kind: 'childSchedule',
-      scope: 'nb',
-      source: 'https://www2.gnb.ca/content/gnb/en/departments/finance/taxes/child_tax_benefit.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { formula: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'nbwis',
-      maxAge: 17,
-      max: 250,
-      earnedFrom: 3750,
-      earnedRate: 0.04,
-      incomeFrom: 20921,
-      incomeRate: 0.05,
-      notes: 'gnb.ca: for a family with a child under 18, the lesser of 250 and 4 percent of family earned income over 3,750, less 5 percent of family net income over 20,921. This benefit rises with earned income at low incomes, which a withdrawal does not change, and falls with family net income, so it does not add to the phase-in limitation. Earned income is wages. Not indexed.',
-    },
-    nbss: {
-      name: 'New Brunswick School Supplement',
-      kind: 'childSchedule',
-      scope: 'nb',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-new-brunswick.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amount: 'primary', incomeTest: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'nbss',
-      minAge: 5,
-      maxAge: 17,
-      perChild: 100,
-      incomeMax: 20000,
-      notes: 'CRA New Brunswick page: an annual payment in July of 100 for each child born between January 1 2009 and December 31 2021 (the July 2026 payment: ages 5 to 17 in 2026, a window that moves with the year) when family net income is 20,000 or less (paid on the prior-year income; same-year income stands in). A step at 20,000 (no phase-out). Not indexed.',
-    },
-    nbhst: {
-      name: 'New Brunswick Harmonized Sales Tax Credit',
-      kind: 'familyCredit',
-      scope: 'nb',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-new-brunswick.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      childMaxAge: 18,
-      childCap: 99,
-      adult: 300,
-      spouse: 300,
-      eligibleDependant: 300,
-      child: 100,
-      dependantReplacesChild: true,
-      reduction: { rate: 0.02, from: 35000 },
-      notes: 'CRA New Brunswick page: 300 for the individual, 300 for a spouse, 100 for each child under 19 (300 for the first child of a single parent), reduced by 2 percent of family net income over 35,000. Not indexed.',
-    },
-    nblisb: {
-      name: 'New Brunswick Low-Income Seniors Benefit',
-      kind: 'seniorSupplement',
-      scope: 'nb',
-      source: 'https://www2.gnb.ca/content/gnb/en/corporate/promo/new-brunswick-low-income-seniors-benefit.html',
-      asOf: '2026-01-01',
-      retrieved: '2026-10-05',
-      verified: { amount: 'primary', eligibility: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: ['oas', 'gis'],
-      style: 'nblisb',
-      amount: 629,
-      notes: 'gnb.ca: 629 for 2026 for a person who received GIS, the Allowance or the Allowance for the Survivor in 2025 (this year GIS or Allowance stands in); one benefit per household where both partners receive GIS and live together. Not indexed.',
-    },
-    nlcb: {
-      name: 'Newfoundland and Labrador Child Benefit',
-      kind: 'childSchedule',
-      scope: 'nl',
-      source: 'https://www.gov.nl.ca/sswb/income-support/child/',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', thresholds: 'primary', shape: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'nlcb',
-      maxAge: 17,
-      monthly: [157.33, 166.83, 179.16],
-      monthlyLater: 192.5,
-      from: 20397,
-      zero: 38193,
-      nutrition: { monthly: 150, maxAge: 4 },
-      notes: 'gov.nl.ca, July 2026 to June 2027: 157.33, 166.83 and 179.16 a month for the first three children under 18 and 192.50 for each later child (yearly totals 1,888, 3,890, 6,040 and 8,350), full below family net income 20,397 and nil at 38,193. A straight line between the two reproduces the regulation reduction rates (10.61, 21.86 and 33.94 percent, plus 12.98 for each child over three), so the shape is consistent with the regulation although its text was not read. The Prenatal-Early Childhood Nutrition Supplement (gov.nl.ca nutrition supplement page) is added: 150 a month for each child under five, paid to a family eligible for the Child Benefit (income below the nil point); the page states no income reduction; pregnancy and the one-time birth payment are not modeled, and a child counts as under five by tax-year age (0 to 4). Indexed each July.',
-    },
-    nlis: {
-      name: 'Newfoundland and Labrador Income Supplement',
-      kind: 'familyCredit',
-      scope: 'nl',
-      source: 'https://www.gov.nl.ca/fin/tax-programs-incentives/personal/income-supplement/',
-      asOf: '2025-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', phaseIn: 'primary', phaseOut: 'primary', year2026: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      childMaxAge: 18,
-      basic: 254,
-      phaseInAdd: 266,
-      phaseInRate: 0.0532,
-      phaseInFrom: 15000,
-      spouse: 69,
-      child: 231,
-      reduction: { rate: 0.09, from: 40000 },
-      notes: 'gov.nl.ca page (2025 benefit year; the maxima 520 single, 589 with a spouse and 231 a child match the CRA 2026-27 page): a basic credit of 254, plus 266 phased in at 5.32 percent of family net income over 15,000 (so 520 at 20,000), 69 for a spouse and 231 for each child under 19, the whole reduced at 9 percent over 40,000. The phase-in means a taxable sale can net more than its gross between 15,000 and 20,000. Disability amounts are not modeled. Indexed.',
-    },
-    nlsb: {
-      name: 'Newfoundland and Labrador Seniors Benefit',
-      kind: 'seniorSupplement',
-      scope: 'nl',
-      source: 'https://www.gov.nl.ca/fin/tax-programs-incentives/personal/income-supplement/',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', thresholds: 'primary', rate: 'primary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: ['oas'],
-      style: 'nlsb',
-      minAge: 64,
-      max: 1882,
-      from: 30409,
-      rate: 0.1166,
-      notes: 'gov.nl.ca (2026 announcement, 20 percent increase plus indexation from July 2026): 1,882 for a person 64 or older by December 31 (either spouse) with family net income up to 30,409, reduced at 11.66 percent above, nil near 46,550. Indexed.',
-    },
-    peicb: {
-      name: 'Prince Edward Island Child Benefit',
-      kind: 'childSchedule',
-      scope: 'pe',
-      source: 'https://www.canada.ca/en/revenue-agency/services/child-family-benefits/provincial-territorial-programs/province-prince-edward-island.html',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', thresholds: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      style: 'peicb',
-      maxAge: 17,
-      monthlyLow: 34.16,
-      monthlyMid: 24.16,
-      lowTo: 45000,
-      midTo: 80000,
-      notes: 'CRA PEI page, July 2026 to June 2027: 34.16 a month for each child under 18 below family net income 45,000, 24.16 a month from 45,000 to 80,000, nil above 80,000 (a step, no phase-out). Not indexed.',
-    },
-    peieb: {
-      name: 'Prince Edward Island Island Essentials Benefit',
-      kind: 'familyCredit',
-      scope: 'pe',
-      source: 'https://www.princeedwardisland.ca/en/information/finance-and-affordability/island-essentials-benefit-frequently-asked-questions',
-      asOf: '2026-04-23',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', thresholds: 'primary' },
-      indexing: { amountsAndThresholds: false },
-      dependsOn: [],
-      single: 310,
-      couple: 365,
-      min: 175,
-      fullTo: 95000,
-      singleZero: 108500,
-      coupleZero: 114000,
-      notes: 'PEI Island Essentials Benefit FAQ (2026-04-23), replaces the Sales Tax Credit: 310 for a single person and 365 for a couple or single parent at net income up to 95,000, prorated down to the minimum 175 at 108,500 (single) or 114,000 (couple or single parent), and 175 at any higher income (no upper income limit, so the high-income early exit does not apply in PEI). For residents 19 or older; paid on the prior-year return. The province pages say the benefit begins in July 2026 and the 175 minimum is paid in November (the CRA page describes the renaming from November 2026); the planner applies the annual entitlement from 2026. Not indexed.',
-    },
-    qcsol: {
-      name: 'Quebec Solidarity Tax Credit (QST and housing components)',
-      kind: 'quebecCredit',
-      scope: 'qc',
-      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
-      asOf: '2026-07-01',
-      retrieved: '2026-10-05',
-      verified: { amounts: 'primary', reduction: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'solidarity',
-      childMaxAge: 17,
-      qst: { basic: 363, spouse: 363, livingAlone: 172 },
-      housing: { couple: 906, singleOrParent: 746, child: 158 },
-      reductionFrom: 43195,
-      reductionRate: 0.06,
-      notes: 'Finance Quebec Table 4, July 2026 to June 2027. A single person or single parent gets the basic and living-alone QST amounts; a couple gets the basic and spouse amounts; housing is the couple or single amount plus 158 per dependent child, for owners and tenants alike. Reduced by 6 percent of family income over 43,195 (3 percent applies when only one component is received: not modeled). The northern village component is not modeled.',
-    },
-    qcwp: {
-      name: 'Quebec Work Premium (general)',
-      kind: 'quebecCredit',
-      scope: 'qc',
-      source: 'https://cdn-contenu.quebec.ca/cdn-contenu/adm/min/finances/publications-adm/parametres/AUTEN_IncomeTax2026.pdf',
-      asOf: '2026-01-01',
-      retrieved: '2026-10-05',
-      verified: { maxima: 'primary', thresholds: 'primary', rates: 'secondary' },
-      indexing: { amountsAndThresholds: true },
-      dependsOn: [],
-      style: 'workPremium',
-      childMaxAge: 17,
-      exclusion: { single: 2400, couple: 3600 },
-      reductionRate: 0.1,
-      situations: {
-        alone: { rate: 0.116, threshold: 12808 },
-        coupleNoKids: { rate: 0.116, threshold: 19828 },
-        singleParent: { rate: 0.3, threshold: 12808 },
-        coupleKids: { rate: 0.25, threshold: 19828 },
-      },
-      notes: 'Finance Quebec Table 3 (2026 maxima 1,207.33 / 1,882.45 / 3,122.40 / 4,057.00 and the two reduction thresholds) and the work income exclusions of 2,400 and 3,600. Premium = rate x (the lesser of work income and the threshold, less the exclusion) less 10 percent of family income over the threshold. The rates are derived from the table maxima (maximum / (threshold - exclusion)); 11.6 percent is also in a search summary. Work income is wages. The adapted work premium and the supplement are not modeled; full-time student and other eligibility exclusions are not modeled.',
-    },
-  };
-  // BENEFIT_RULES:end
-  // Each row is resolved once per province code: its brackets are split into flat cap and
-  // rate arrays so the evaluator allocates nothing.
-  const PROVINCE_COMPILED = {};
-  function compileProvince(code) {
-    let c = PROVINCE_COMPILED[code];
-    if (c) return c;
-    const rule = PROVINCE_RULES[code];
-    c = PROVINCE_COMPILED[code] = {
-      rule,
-      caps: rule.brackets.map((b) => b[0]),
-      rates: rule.brackets.map((b) => b[1]),
-    };
-    return c;
-  }
-  function currentProvince() {
-    return compileProvince(PROVINCE_RULES[state.province] ? state.province : 'on');
-  }
-  // Same loop as progressiveTax, with the caps scaled by `f` in place of a scaled copy.
-  function scaledProgressiveTax(income, caps, rates, f) {
-    let tax = 0,
-      prev = 0;
-    for (let i = 0; i < caps.length; i++) {
-      const cap = caps[i] * f;
-      tax += Math.min(Math.max(0, income - prev), cap - prev) * rates[i];
-      prev = cap;
-      if (income <= cap) break;
-    }
-    return tax;
-  }
-  function ontarioHealthPremium(taxableIncome, factor) {
-    const i = Math.max(0, taxableIncome);
-    if (i <= 20000 * factor) return 0;
-    if (i <= 25000 * factor) return (i - 20000 * factor) * 0.06;
-    if (i <= 36000 * factor) return 300 * factor;
-    if (i <= 38500 * factor) return 300 * factor + (i - 36000 * factor) * 0.06;
-    if (i <= 48000 * factor) return 450 * factor;
-    if (i <= 48600 * factor) return 450 * factor + (i - 48000 * factor) * 0.25;
-    if (i <= 72000 * factor) return 600 * factor;
-    if (i <= 72600 * factor) return 600 * factor + (i - 72000 * factor) * 0.25;
-    if (i <= 200000 * factor) return 750 * factor;
-    if (i <= 200600 * factor) return 750 * factor + (i - 200000 * factor) * 0.25;
-    return 900 * factor;
   }
   // Quebec: a person's age amount (65+) plus retirement-income amount (the lesser of the amount and
   // 1.25 times the eligible pension or RRIF income); zero outside Quebec. The living-alone amount is
@@ -2854,13 +1357,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     }
     return base;
   }
-  // `oas` is the OAS this person received. The recovery tax (15% of net income, OAS included, over the
-  // threshold, up to the OAS) is worked out here, on the return's full income, so every caller (the year
-  // loop, the draw solvers through taxFor, the pension-split search) prices it. As on the T1 the repayment
-  // is deducted from net income (line 23500, so net income at line 23600 and the age amount see the
-  // lower figure) and added to the tax payable (line 42200); it is not reduced by credits and the Quebec
-  // abatement does not touch it. The amount is left in OAS_RECOVERY.last for the caller to read.
-  const OAS_RECOVERY = { last: 0, a: 0, b: 0 };
   function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, oas = 0, spouseNet = -1, depKids = 0, childKids = 0, fedCredit = 0, provCredit = 0, provDeduction = 0, medical = 0, redKids = 0) {
     let taxableIncome = Math.max(0, ordinaryIncome + Math.max(0, gains) * 0.5),
       recovery = 0;
@@ -3060,39 +1556,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   function taxFor(profile, gains = 0, traditionalExtra = 0) {
     return incomeTaxCA(profile, gains, traditionalExtra) - benefitsFor(profile, gains, traditionalExtra);
   }
-  // Income-tested benefits for one year (annual dollars). Fills the module-level scratch object BEN (read the
-  // lines with getBenefits() right after the call; any later benefitsFor call overwrites them) and returns the
-  // total. Allocation-free. Evaluation order: GIS and Allowance first (their results gate the provincial seniors
-  // programs), then the child and sales-tax programs. Same-year income stands in for the prior-year return.
-  // Children whose age is within [minAge, maxAge] (the list is dependentsInYear; allocation-free).
-  function countKids(kids, minAge, maxAge) {
-    let n = 0;
-    for (let i = 0; i < kids.length; i++) {
-      const a = kids[i].age;
-      if (a >= minAge && a <= maxAge) n++;
-    }
-    return n;
-  }
-  // Family credit in the shape of the CGEB: an amount for the adult, for a spouse or an eligible dependant (a single parent) and for
-  // each child (at most childCap), reduced over a threshold. dependantReplacesChild: the first child of a single parent counts as the
-  // eligible dependant instead of as a child. Amounts and thresholds scale with the plan inflation factor when the row is indexed.
-  function familyCreditCA(R, f, fam, couple, n) {
-    const fx = R.indexing.amountsAndThresholds ? f : 1,
-      m = n > R.childCap ? R.childCap : n;
-    let a = R.adult * fx;
-    if (couple) a += (R.spouse + R.child * m) * fx;
-    else if (m > 0) a += (R.eligibleDependant + R.child * (R.dependantReplacesChild ? m - 1 : m)) * fx;
-    return Math.max(0, a - R.reduction.rate * Math.max(0, fam - R.reduction.from * fx));
-  }
-  // A band table keyed by income: bands of equal width starting at `shift`; income below the first band gets the first value, income past
-  // the last band gets nothing (Manitoba 55 PLUS senior component).
-  function bandValue(T, x) {
-    const k = Math.floor((x - T.shift) / T.width + 1e-9);
-    return k < 0 ? T.values[0] : k >= T.values.length ? 0 : T.values[k];
-  }
-  // Provinces whose programs pay at any income (no income test), so benefitsFor must not take the high-income early exit.
-  const BEN_NO_EXIT = { mb: true, pe: true };
-  const BEN = { gis: 0, allowance: 0, ccb: 0, cgeb: 0, provChild: 0, provSenior: 0, provCredit: 0, total: 0 };
   function benefitsFor(profile, gains, traditionalExtra) {
     BEN.gis = BEN.allowance = BEN.ccb = BEN.cgeb = BEN.provChild = BEN.provSenior = BEN.provCredit = BEN.total = 0;
     const couple = !profile.singlePerson,
@@ -3503,25 +1966,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     return { taken, net, gain: taken * gainRatio, basisTaken: taken * basisRatio };
   }
   // @@shared:drawTaxable end
-  // RRSP meltdown ladder — withdraws from RRSP each year in the chosen
-  // window, solving for the gross withdrawal that fills that person's
-  // taxable income up to the top of the selected federal bracket. Net
-  // proceeds are assumed moved to TFSA (sufficient TFSA room is assumed,
-  // consistent with this planner's simplified-limits approach elsewhere).
-  // Unlike a US Roth conversion, no bisection is needed: CPP/OAS are fully
-  // taxable with no nonlinear provisional-income step, so income is linear
-  // in the withdrawal amount.
-  function federalBracketCeilingCA(pctTarget) {
-    const brackets = [
-      [14, 58523],
-      [20.5, 117045],
-      [26, 181440],
-      [29.29, 258482],
-      [33, 258482],
-    ];
-    const found = brackets.find(([p]) => p === pctTarget);
-    return found ? found[1] : brackets[brackets.length - 1][1];
-  }
   function solveMeltdown(otherIncome, maxAvailable, yearIndex) {
     if (maxAvailable <= 0) return 0;
     const factor = taxIndexFactor(yearIndex);
@@ -3620,13 +2064,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       cpp2 = Math.max(0, Math.min(wages, yampe) - ympe) * 0.04;
     return payroll.premium ? cpp1 + cpp2 + Math.min(wages, payroll.premium.max * f) * payroll.premium.rate : cpp1 + cpp2;
   }
-  // Medical expense credit (7N N5). The eligible expenses are the household's private health premium plus the whole long-term-care
-  // cost (owner decision: nursing-home care), claimed on ONE return: the lower net income's (a smaller 3% floor) unless that
-  // partner is under the basic personal amount and could not use it, then the other. Federal: expenses above the lesser of 3% of
-  // net income and 2,890 (2026) at the lowest rate; provincially the same shape with the province's own threshold; Quebec has no
-  // dollar floor and takes 3% of family income. Not built: the federal top-up tax credit (it keeps 15 percent on credit amounts
-  // above the first bracket, 58,523: at most 1 percent of the excess, so under about 200 dollars in the largest plans).
-  const FED_MEDICAL_THRESHOLD = 2890;
   function medicalClaimToB(netA, netB, yearIndex) {
     const bpa = FED_BPA_MIN * taxIndexFactor(yearIndex);
     return netA <= netB ? netA < bpa : netB >= bpa;
@@ -3642,24 +2079,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     if (!(claimable > 0)) return 0;
     return Math.max(0, c.rate * Math.min(c.maxExpenses, claimable) - c.reductionRate * Math.max(0, famNet - c.startIncome));
   }
-  // After-tax estate (7N N8), a display figure that changes no projection. At the last death the RRSP/RRIF is income on the final
-  // return and the unrealized gains of the taxable accounts are deemed realized (50% inclusion); the TFSA and the principal residence
-  // are not taxed. Provincial probate fees fall on the estate that passes through probate: the taxable accounts, cash and the home
-  // (registered accounts and the TFSA are assumed to pass by beneficiary designation, outside the estate; Ontario's page confirms that
-  // designated RRSP, RRIF and TFSA are excluded). The final return is one person's: the deemed income is stacked on that person's share
-  // of the last year's income, and the tax is the difference. Fee schedules are in today's dollars (indexed with the plan). Quebec: a
-  // notarial will needs no probate (no fee); Manitoba abolished its probate charges in 2020.
-  function probateFee(rule, value) {
-    const p = rule.probate;
-    for (let i = 0; i < p.steps.length; i++) if (value <= p.steps[i][0]) return p.steps[i][1];
-    let fee = p.base;
-    for (let i = 0; i < p.bands.length; i++) {
-      const from = p.bands[i][0],
-        to = i + 1 < p.bands.length ? p.bands[i + 1][0] : Infinity;
-      if (value > from) fee += p.bands[i][1] * Math.ceil((Math.min(value, to) - from) / 1000);
-    }
-    return fee;
-  }
   function afterTaxEstate(sim) {
     const e = sim.estate;
     if (!e || !sim.rows.length) return 0;
@@ -3674,19 +2093,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       probate = probateFee(currentProvince().rule, (e.taxable + e.cash + e.homeEquity) / f) * f;
     return last.total - Math.max(0, tax) - probate;
   }
-  // Quebec health contributions (7N N7), charged on the Quebec return like the Ontario Health Premium. (1) The Health Services Fund
-  // contribution on income other than employment income and OAS (Revenu Quebec Schedule F, 2025-12; the 2026 thresholds are in the Finance
-  // Quebec parameters, Table 3): nil to the first threshold, 1% of the excess to 150, flat to the second threshold, then 150 plus 1% of the
-  // excess to 1,000 (the dollar caps are statutory, not indexed). (2) The RAMQ prescription drug insurance premium (Schedule K, 2025-12,
-  // premium table; the 2026 maximum from the RAMQ page): the income used is the family net income less 19,890 (single) or 32,240 (couple)
-  // plus an amount for dependent children; 7.84% of the first 5,000 and 11.76% above for a single person, 3.93% and 5.89% for each spouse of
-  // a couple, capped at the year's maximum. The 2025 table maximum is 755 (six months at 62.00 and six at 63.83); 2026 is six months at
-  // 63.83 and six at 65.75 (789 a year from July 2026) = 777.48, so the table is scaled by 777.48 / 755. Every retired adult pays it (owner
-  // decision: a working partner is assumed to be on a group plan); the premium is also an eligible medical expense. Not modeled: the
-  // exemptions (a group plan, a claim slip, 65 and over with at least 94% of the maximum GIS: that household's income is nil here anyway).
-  // The hot path: the rule is passed in (one province lookup per tax call) and the income at which the premium reaches its maximum is
-  // worked out once per rule, so a household above it costs one comparison.
-  const RAMQ_CAP = new Map();
   function quebecHsf(income, yearIndex, h = currentProvince().rule.healthContributions.hsf) {
     const f = taxIndexFactor(yearIndex),
       t1 = h.t1 * f;
@@ -3709,16 +2115,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     if (u >= cap) return f * r.max;
     return f * Math.min(r.max, ((g.low * Math.min(u, r.step) + g.high * Math.max(0, u - r.step)) * r.max) / r.max2025);
   }
-  // Low-income provincial tax reductions (7N N6), read on the CRA 2025 provincial forms (British Columbia: the 2026 figures of CRA T4127,
-  // which are the 2025 form figures indexed). Ontario and British Columbia work per return inside provincialTaxCA (Ontario: 2 x the
-  // basic reduction and the child amounts, less the tax, off the tax; British Columbia: a maximum less a rate on net income over a base).
-  // New Brunswick, Newfoundland and Labrador, Nova Scotia and Prince Edward Island have ONE family reduction (basic, spouse or eligible
-  // dependant, children, PEI age amounts, less a rate on adjusted family income over a base), limited to the family's provincial tax (an
-  // unused part passes to the spouse), worked out in incomeTaxCA from the provincial tax each return reports in PROV_TAX. Nova Scotia
-  // also gives an age tax credit (65 and over, taxable income under 24,000), taken per return. Alberta, Saskatchewan, Manitoba and Quebec
-  // have none (their forms were read). Not built: Ontario's dependants with an impairment, the LIFT credit (Schedule ON428-A), and the
-  // reduction passing between spouses when the household's income is split unevenly beyond the family limit.
-  const PROV_TAX = { last: 0, pre: 0, fed: 0 };
   function lowIncomeFamilyReduction(li, ageA, ageB, couple, kidsU18, kids18, netA, netB, pTotal, yearIndex, indexed) {
     const fb = indexed ? taxIndexFactor(yearIndex) : 1,
       afi = netA + netB;
@@ -3733,20 +2129,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       r = items * fb - li.rate * Math.max(0, afi - baseIncome * fb);
     return r > 0 ? (r < pTotal ? r : pTotal) : 0;
   }
-  // Working-year payroll items for one earner (7N N4), per CRA and Revenu Quebec 2026 figures. cash is the employee cost
-  // (CPP or QPP, CPP2, EI, QPIP). The tax return treats the pieces differently: the base CPP/QPP contribution (CPP 4.95%,
-  // QPP 5.30%: the rate less the 1% first additional), the EI premium and the QPIP premium are non-refundable credits at
-  // the lowest rate (federal and, outside Quebec, provincial); the enhanced part (the 1% first additional and the 4%
-  // second additional, CPP2) is a deduction from income, federal, provincial and Quebec's (Schedule U part B); the Canada
-  // employment amount is a federal credit; Quebec has no credit for these but gives a workers deduction (6% of work
-  // income to a maximum) at the provincial level only. The result is left in the scratch object PAY (allocation-free);
-  // read it right after the call. Everything is zero without wages. Computed once a year (not inside the solvers).
-  const EI_MIE = 68900,
-    CPP_ENHANCED_RATE = 0.01,
-    EMPLOYMENT_AMOUNT = 1501,
-    QC_WORKERS_DEDUCTION_MAX = 1450,
-    QC_WORKERS_DEDUCTION_RATE = 0.06;
-  const PAY = { cash: 0, fedCredit: 0, provCredit: 0, deduction: 0, provDeduction: 0 };
   function payrollItems(wages, yearIndex) {
     PAY.cash = PAY.fedCredit = PAY.provCredit = PAY.deduction = PAY.provDeduction = 0;
     if (!(wages > 0)) return PAY;
@@ -3959,18 +2341,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
   }
-  function isDarkTheme() {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  }
-  function chartAxisColor() {
-    return isDarkTheme() ? '#93a3b8' : '#718096';
-  }
-  function chartGridColor() {
-    return isDarkTheme() ? '#2b3a4d' : '#e2e8f0';
-  }
-  function chartZeroLineColor() {
-    return isDarkTheme() ? '#4a5b70' : '#b8c2cf';
-  }
   // Real calendar year for row.year === 0 ("now"), used only to label the
   // chart x-axis in 'year' mode — computed once from the device clock
   // rather than hardcoded, unlike the "2026 dollars" real-dollar-mode
@@ -4013,97 +2383,8 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     return { extraIncome, oneTimeAmount, extraExpense, lumpExpense };
   }
 
-  // @@shared:08-pensionIncome begin
-  // Pension income for the year (which partner(s) are covered is set by
-  // state.pensionCoverage; the single-person case always uses Partner A's
-  // pension). The deceased partner's pension drops out in the survivor period.
-  function pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
-    let pensionA =
-        ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
-        age >= state.pensionStartAgeA
-          ? state.pensionYearlyA
-          : 0) * factor,
-      pensionB =
-        (!singlePerson &&
-        (state.pensionCoverage === 'b' || state.pensionCoverage === 'both') &&
-        ageB >= state.pensionStartAgeB
-          ? state.pensionYearlyB
-          : 0) * factor;
-    if (isSurvivorPeriod) {
-      if (deceasedIsA) pensionA = 0;
-      else pensionB = 0;
-    }
-    const pension = pensionA + pensionB;
-    return { pensionA, pensionB, pension };
-  }
-  // @@shared:08-pensionIncome end
 
-  // @@shared:loanPaymentForYear begin
-  // Total "other loans" payment for the year. In the survivor period the
-  // remaining balance is paid off as a lump sum in the year of death
-  // (approximating debts settled through probate) and nothing is owed after.
-  function loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans }) {
-    const loanPayment = isSurvivorPeriod && year > deathYear
-      ? 0
-      : year === deathYear
-        ? loans.reduce(
-            (sum, l, i) =>
-              sum + (year > 0 ? l.balances[year - 1] : Number(state.loans[i]?.balance) || 0),
-            0,
-          )
-        : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
-    return { loanPayment };
-  }
-  // @@shared:loanPaymentForYear end
 
-  // @@shared:nextGuardrailMultiplier begin
-  // Guyton-Klinger guardrails (simplified): compares last withdrawal year's
-  // draw rate to the rate at the first withdrawal. A rate more than 20% above
-  // it cuts discretionary spending 10%; more than 20% below raises it 10%; the
-  // multiplier is held to a 0.5x-1.5x band and persists until the next trigger.
-  function nextGuardrailMultiplier({ multiplier, initialWR, prevNeed, prevPortfolio }) {
-    const priorWR = prevNeed / prevPortfolio;
-    if (initialWR > 0) {
-      if (priorWR > initialWR * 1.2) return Math.max(0.5, multiplier * 0.9);
-      if (priorWR < initialWR * 0.8) return Math.min(1.5, multiplier * 1.1);
-    }
-    return multiplier;
-  }
-  // Per-run guardrail bookkeeping, a plain object so the US MAGI-iteration
-  // snapshot can copy it with `{ ...g }` and restore it with Object.assign.
-  function newGuardrails() {
-    return { multiplier: 1, initialWR: null, prevNeed: null, prevPortfolio: null };
-  }
-  // The factor applied to this year's household spending. Also advances the
-  // lagged rule from last year's recorded withdrawal.
-  function guardrailSpendingMultiplier(g, working) {
-    if (!state.guardrailsEnabled || working) return 1;
-    if (g.prevPortfolio > 0)
-      g.multiplier = nextGuardrailMultiplier({
-        multiplier: g.multiplier,
-        initialWR: g.initialWR,
-        prevNeed: g.prevNeed,
-        prevPortfolio: g.prevPortfolio,
-      });
-    return g.multiplier;
-  }
-  // Records a retired year's withdrawal need (lump expenses excluded) against
-  // the portfolio before the draw; the first one fixes the baseline rate.
-  function recordGuardrailWithdrawal(g, need, portfolioNow, working) {
-    if (!state.guardrailsEnabled || working) return;
-    if (g.initialWR === null && portfolioNow > 0) g.initialWR = need / portfolioNow;
-    g.prevNeed = need;
-    g.prevPortfolio = portfolioNow;
-  }
-  // Mortgage payoff and rent-then-buy fields that both engines return.
-  function mortgageResultAges(futureBuy, schedule) {
-    const payoffYear = state.tenure === 'rentThenBuy' ? futureBuy.payoffYear : schedule.payoffYear;
-    return {
-      payoffAge: payoffYear === null ? null : state.ageA + payoffYear,
-      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
-    };
-  }
-  // @@shared:nextGuardrailMultiplier end
 
   // Takes the year's mandatory distribution (RMD + 72(t) SEPP) out of the
   // traditional balance first, then out of the traditional bond bucket.
@@ -4114,15 +2395,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   }
 
   // @@shared:09-sweepExcessCash begin
-  // Cash above the reserve target is invested in the taxable account (at full
-  // cost basis, since it was already-taxed cash).
-  function sweepExcessCash(bal, reserveTarget) {
-    if (bal.cash <= reserveTarget) return;
-    const moved = bal.cash - reserveTarget;
-    bal.taxable += moved;
-    bal.taxableBasis += moved;
-    bal.cash = reserveTarget;
-  }
 
   // Pre-retirement bond-ladder build: ramps linearly over the years available
   // before retirement so the full ladderTarget is reached by rotationEndYear.
@@ -4514,25 +2786,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     );
   }
 
-  // ---- Withdrawal building blocks ----
-  const TAXABLE_BASIS_KEY = { taxable: 'taxableBasis', bondTaxable: 'bondTaxableBasis' };
-  // A year's discretionary withdrawal in progress. `need` is the cash still to
-  // be raised; the other fields accumulate what the draws did, for tax and the
-  // cash-flow display. traditionalGross starts at the RRSP meltdown (ordinary
-  // income already this year) and traditionalWithdrawn at the mandatory RRIF
-  // minimum; traditionalWithdrawn / taxableWithdrawn fold the bond-reserve
-  // buckets into their parent tax status so the Sankey does not undercount them.
-  function newWithdrawal({ bal, profile, meltdownAmount, rmd }) {
-    return {
-      bal,
-      profile,
-      need: 0,
-      taxableGainGross: 0,
-      traditionalGross: meltdownAmount,
-      traditionalWithdrawn: rmd,
-      taxableWithdrawn: 0,
-    };
-  }
   // @@shared:takeTaxable begin
   // Each take*() draws up to `amount` of net cash from one bucket, updates the
   // balances and the running totals on `wd`, and returns the NET cash raised
@@ -4560,28 +2813,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     wd.traditionalWithdrawn += fromTrad;
     return tradNet;
   }
-  // TFSA withdrawals are tax-free, so the net cash is simply what is taken.
-  // `bucket` is 'roth' | 'bondRoth' (the TFSA and its bond bucket).
-  function takeRoth(wd, bucket, amount) {
-    const from = Math.min(wd.bal[bucket], amount);
-    wd.bal[bucket] -= from;
-    return from;
-  }
-  // @@shared:takeCash begin
-  function takeCash(wd, amount) {
-    const from = Math.min(wd.bal.cash, amount);
-    wd.bal.cash -= from;
-    return from;
-  }
-  // Last resort: home equity (value less mortgage) when the household owns.
-  function takeHomeEquity(wd, amount) {
-    const { bal } = wd;
-    if (state.tenure !== 'own' && state.tenure !== 'rentThenBuy') return 0;
-    const from = Math.min(Math.max(0, bal.home - bal.mortgage), amount);
-    bal.home -= from;
-    return from;
-  }
-  // @@shared:takeCash end
   // How much RRSP to withdraw to net `targetNet` after tax, by bisection over
   // [0, min(balance, 3*target + 1)]. Used for the smooth-withdrawal RRSP share.
   function solveTraditionalForNet(traditionalBal, targetNet, taxableGainGross, traditionalGross, profile) {
@@ -4787,44 +3018,7 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       return baseSpendingNominal(ageA, year, factor, factor) + healthcare + ltc + shelter + extraRecurring;
     };
   }
-  // The pre-retirement bond ladder plan: the target is the sum of the first bondYears of
-  // projected expenses starting at retirement, built up linearly over the years before
-  // retirement (rotateIntoBondLadder does the moving).
-  function planBondLadder({ retirementYear, bondYears, projectedExpense }) {
-    const bondYearsCeil = Math.max(0, Math.ceil(bondYears)),
-      bondWhole = Math.floor(bondYears),
-      bondFrac = bondYears - bondWhole;
-    const ladderTranches = Array.from({ length: bondWhole }, (_, i) =>
-      projectedExpense(retirementYear + i),
-    );
-    if (bondFrac > 0) ladderTranches.push(projectedExpense(retirementYear + bondWhole) * bondFrac);
-    const ladderTarget = ladderTranches.reduce((a, b) => a + b, 0);
-    const rotationStartYear = Math.max(0, retirementYear - bondYearsCeil),
-      rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : Math.max(0, bondYearsCeil - 1);
-    return { ladderTranches, ladderTarget, rotationStartYear, rotationEndYear };
-  }
   // @@shared:11-makeProjectedExpense end
-  // A year with income above spending, tax and contributions: the surplus first tops cash
-  // up to the reserve, then (bucket strategy in an up year, bondTarget not null) rebuilds
-  // the bond reserve, and the rest is invested in taxable. This year's contributions then
-  // go into the RRSP, TFSA and FHSA.
-  function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib, fhsaContrib }) {
-    const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
-    bal.cash += cashTopUp;
-    let remainder = flow - cashTopUp;
-    if (bondTarget !== null) {
-      const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
-        toBonds = Math.min(remainder, bondDeficit);
-      bal.bondTaxable += toBonds;
-      bal.bondTaxableBasis += toBonds;
-      remainder -= toBonds;
-    }
-    bal.taxable += remainder;
-    bal.taxableBasis += remainder;
-    bal.traditional += traditionalContrib + employerMatch;
-    bal.roth += rothContrib;
-    bal.fhsa += fhsaContrib;
-  }
   // @@shared:12-standardYearSource begin
   // ---- Year sources and modes for runProjection() ----
   // A year source supplies each year's market inputs: yearInputs(year) returns the stock
@@ -4874,13 +3068,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     };
   }
   // @@shared:12-standardYearSource end
-  // The explicit differences between the two ways of running the engine. These switches
-  // reproduce today's behavior exactly; the historical-parity work turns the bucket mode's
-  // switches on one at a time.
-  //  bucketStrategy: bucket withdrawals (cash/bonds first in a down year, bond reserve
-  //                  refilled in up years) instead of the standard cascade
-  const STANDARD_MODE = { bucketStrategy: false };
-  const BUCKET_MODE = { bucketStrategy: true };
 
   // ---- end per-year helpers ----
 
@@ -6234,24 +4421,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       )
       .join('');
   }
-  // @@shared:SANKEY_HUES begin
-  // Validated categorical palette (see the `dataviz` skill's palette.md) —
-  // fixed hue order, never cycled/reassigned by rank. Reused across the two
-  // columns (sources / uses) since they're spatially separated by the hub,
-  // so only within-column neighbors need to stay visually distinct.
-  const SANKEY_HUES = {
-    blue: { light: '#2a78d6', dark: '#3987e5' },
-    orange: { light: '#eb6834', dark: '#d95926' },
-    aqua: { light: '#1baf7a', dark: '#199e70' },
-    yellow: { light: '#eda100', dark: '#c98500' },
-    magenta: { light: '#e87ba4', dark: '#d55181' },
-    green: { light: '#008300', dark: '#008300' },
-    violet: { light: '#7e57c2', dark: '#9575cd' },
-  };
-  function sankeyHue(name, dark) {
-    return SANKEY_HUES[name][dark ? 'dark' : 'light'];
-  }
-  // @@shared:SANKEY_HUES end
   // Builds the source/use category breakdown for a single projection year,
   // for the cash-flow (Sankey-style) diagram. Any gap between what income
   // covers and what taxes+spending require is shown as either a draw from
@@ -6303,38 +4472,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     return { sources, uses, total: Math.max(totalIn, totalOut) };
   }
   // @@shared:19-layoutSankeyColumn begin
-  // Stacks `nodes` top-to-bottom over [y0,y1] proportional to value/total.
-  // Returns each node's true (exact) y-range plus a gap-inset draw range
-  // (the "surface gap" spacer that visually separates touching bands
-  // instead of a border) — the true range is what hub-face partitions key
-  // off of so proportions line up exactly even though the drawn rects/
-  // ribbons are inset.
-  function layoutSankeyColumn(nodes, x0, x1, y0, y1, total, gap = 1.5) {
-    let y = y0;
-    return nodes.map((n) => {
-      const h = total > 0 ? (n.value / total) * (y1 - y0) : 0;
-      const trueY0 = y,
-        trueY1 = y + h;
-      y += h;
-      const mid = (trueY0 + trueY1) / 2;
-      return {
-        ...n,
-        x0,
-        x1,
-        y0: trueY0,
-        y1: trueY1,
-        drawY0: Math.min(trueY0 + gap, mid),
-        drawY1: Math.max(trueY1 - gap, mid),
-      };
-    });
-  }
-  // Standard Sankey ribbon: independent top/bottom cubic-bezier edges, so a
-  // band can run diagonally (and even change width) between its two ends.
-  function sankeyRibbonPath(x0, y0a, y0b, x1, y1a, y1b) {
-    const cx0 = x0 + (x1 - x0) * 0.45,
-      cx1 = x0 + (x1 - x0) * 0.55;
-    return `M ${x0} ${y0a} C ${cx0} ${y0a} ${cx1} ${y1a} ${x1} ${y1a} L ${x1} ${y1b} C ${cx1} ${y1b} ${cx0} ${y0b} ${x0} ${y0b} Z`;
-  }
   let sankeyTooltipEl = null;
   function ensureSankeyTooltip() {
     if (sankeyTooltipEl && document.body.contains(sankeyTooltipEl)) return sankeyTooltipEl;
@@ -6601,16 +4738,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     state.returnRate = saved;
     return result;
   }
-  const cagrColors = [
-    '#b91c1c',
-    '#dc2626',
-    '#ea580c',
-    '#d97706',
-    '#65a30d',
-    '#16a34a',
-    '#0d9488',
-    '#0e7490',
-  ];
   // @@shared:simulateAtRealCagr end
   function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
@@ -7175,9 +5302,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     lastChart = { series, valueFn, x, y, p, w, h, maxAge };
   }
   let lastChart = null;
-  function chartHoverEnabled() {
-    return ['3yr', '1yr', 'cagr', 'hist'].includes(chartView);
-  }
   function clearChartHover() {
     if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
@@ -7504,38 +5628,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     compareIds.delete(id);
     renderScenarioList();
     renderScenarioComparison();
-  }
-  function downloadJson(filename, dataObj) {
-    const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' }),
-      url = URL.createObjectURL(blob),
-      link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-  function exportScenario(id) {
-    const sc = scenarios.find((s) => s.id === id);
-    if (!sc) return;
-    downloadJson(
-      `fire-planner-scenario-${(sc.name || 'scenario').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.json`,
-      {
-        firePlannerScenario: true,
-        schemaVersion: SCENARIO_SCHEMA_VERSION,
-        name: sc.name,
-        savedAt: sc.savedAt,
-        state: sc.state,
-      },
-    );
-  }
-  function exportAllScenarios() {
-    downloadJson('fire-planner-scenarios.json', {
-      firePlannerScenarioList: true,
-      schemaVersion: SCENARIO_SCHEMA_VERSION,
-      scenarios: scenarios.map((sc) => ({ name: sc.name, savedAt: sc.savedAt, state: sc.state })),
-    });
   }
   function importScenarioFile(file) {
     const reader = new FileReader();
@@ -8181,10 +6273,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   function renderChildFields() {
     renderDynList('children');
   }
-  // Writes a slider's `<key>Out` label from the current state.
-  function syncFieldOut(field) {
-    document.getElementById(field.key + 'Out').textContent = field.out(state[field.key]);
-  }
   // @@shared:23-dynFieldHtml end
   function syncControls() {
     FIELDS.forEach((field) => {
@@ -8721,16 +6809,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   document.getElementById('chartGroupProjectionBtn').addEventListener('click', () => setChartView(lastProjectionView));
   document.getElementById('chartGroupHistBtn').addEventListener('click', () => setChartView('hist'));
   document.getElementById('chartGroupMcBtn').addEventListener('click', () => setChartView('mc'));
-  // Syncs the Both/Gap switch's visual state only — doesn't trigger a
-  // render(), so it's safe to call from inside an in-progress render pass
-  // (renderChartView's own live disabled/correction check) as well as from
-  // the click handlers below, which do call render() themselves afterward.
-  function updateChartShiftModeButtons() {
-    document.getElementById('chartShiftTogetherBtn').classList.toggle('active', chartShiftMode === 'together');
-    document.getElementById('chartShiftTogetherBtn').setAttribute('aria-checked', chartShiftMode === 'together');
-    document.getElementById('chartShiftGapBtn').classList.toggle('active', chartShiftMode === 'gap');
-    document.getElementById('chartShiftGapBtn').setAttribute('aria-checked', chartShiftMode === 'gap');
-  }
   function setChartShiftMode(next) {
     assignChartShiftMode(next);
     updateChartShiftModeButtons();
@@ -8740,18 +6818,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   document.getElementById('chartShiftGapBtn').addEventListener('click', () => {
     if (!document.getElementById('chartShiftGapBtn').disabled) setChartShiftMode('gap');
   });
-  // Same pattern as updateChartShiftModeButtons(): visual sync only, no
-  // render(), safe to call from inside an in-progress render pass. Shows
-  // an explicit pick (chartGapPartner) if there is one, otherwise the
-  // auto-detected earlier partner, so the two buttons always reflect
-  // whichever partner would actually move right now.
-  function updateChartGapPartnerButtons() {
-    const resolvedA = chartGapPartner ? chartGapPartner === 'A' : state.retireAgeA < state.retireAgeB;
-    document.getElementById('chartGapPartnerABtn').classList.toggle('active', resolvedA);
-    document.getElementById('chartGapPartnerABtn').setAttribute('aria-checked', resolvedA);
-    document.getElementById('chartGapPartnerBBtn').classList.toggle('active', !resolvedA);
-    document.getElementById('chartGapPartnerBBtn').setAttribute('aria-checked', !resolvedA);
-  }
   function setChartGapPartner(next) {
     assignChartGapPartner(next);
     updateChartGapPartnerButtons();
@@ -8759,20 +6825,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   }
   document.getElementById('chartGapPartnerABtn').addEventListener('click', () => setChartGapPartner('A'));
   document.getElementById('chartGapPartnerBBtn').addEventListener('click', () => setChartGapPartner('B'));
-  // Visual-sync-only, safe to call mid-render. The "Partner B age" button
-  // is hidden entirely in single-person mode (no second partner to switch
-  // to), and chartXAxisMode is reset out of 'ageB' if the person was on it
-  // when they switch to single-person mode.
-  function updateChartXAxisButtons() {
-    document.getElementById('chartXAxisAgeBBtn').hidden = state.singlePerson;
-    if (state.singlePerson && chartXAxisMode === 'ageB') assignChartXAxisMode('ageA');
-    document.getElementById('chartXAxisAgeABtn').classList.toggle('active', chartXAxisMode === 'ageA');
-    document.getElementById('chartXAxisAgeABtn').setAttribute('aria-checked', chartXAxisMode === 'ageA');
-    document.getElementById('chartXAxisAgeBBtn').classList.toggle('active', chartXAxisMode === 'ageB');
-    document.getElementById('chartXAxisAgeBBtn').setAttribute('aria-checked', chartXAxisMode === 'ageB');
-    document.getElementById('chartXAxisYearBtn').classList.toggle('active', chartXAxisMode === 'year');
-    document.getElementById('chartXAxisYearBtn').setAttribute('aria-checked', chartXAxisMode === 'year');
-  }
   function setChartXAxisMode(next) {
     assignChartXAxisMode(next);
     updateChartXAxisButtons();
@@ -8835,32 +6887,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     assignLogScale(e.target.checked);
     render();
   });
-  // Best-effort only: real browser Fullscreen (which also hides the
-  // mobile address bar) plus a landscape orientation lock, attempted
-  // together since Chrome/Android requires the page to already be in
-  // Fullscreen before it will grant an orientation lock at all. Neither
-  // API is required for the expand feature to work — the CSS overlay
-  // above is the actual mechanism, functional with or without this —
-  // this only reaches for the nicer outcome where the browser supports
-  // it (mainly Android Chrome) and silently does nothing everywhere else
-  // (notably iOS Safari, which supports neither API for a plain <div>).
-  async function tryEnterLandscapeFullscreen() {
-    try {
-      const el = document.getElementById('mainChartCard');
-      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
-      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-    } catch (err) {
-      // Unsupported or denied (e.g. iOS Safari, or a desktop browser with
-      // no orientation to lock) — the CSS overlay already covers the
-      // viewport regardless, so there's nothing to recover from here.
-    }
-  }
-  function tryExitLandscapeFullscreen() {
-    try {
-      if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-    } catch (err) {}
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  }
   function setChartExpanded(next) {
     assignChartExpanded(next);
     document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
@@ -8971,7 +6997,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     clearTimeout(undoToastTimer);
     undoSnapshot = null;
   }
-  const undoToastBtnEl = document.getElementById('undoToastBtn');
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
@@ -9014,80 +7039,9 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     setMode('real');
     setChartView('3yr');
   });
-  function syncTopbarHeight() {
-    const tb = document.querySelector('.topbar');
-    if (tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px');
-  }
   // @@shared:26-setChartView end
   // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
-  // @@shared:syncPlanStatusOffsets begin
-  // both stick to the top of the viewport as the page scrolls, and the
-  // sidebar's own sticky panel-title has to clear both of them too once
-  // they're stuck. `--plan-status-h` is just the status bar's own height
-  // (used by the tab switcher's sticky `top`); `--mobile-sticky-h` is the
-  // status bar plus the tab switcher's stuck offset and height combined
-  // (used by panel-title and the scroll-margin on cards a decision-question
-  // button scrolls to) — see the mobile media query above. Both are
-  // measured rather than guessed, so a future copy/font change that alters
-  // either bar's real height doesn't silently reopen the overlap.
-  function syncPlanStatusOffsets() {
-    const bar = document.getElementById('planStatusBar'),
-      tabs = document.querySelector('.mobile-tabs'),
-      panelTitle = document.querySelector('.panel-title'),
-      searchWrap = document.querySelector('.field-search-wrap');
-    if (!bar) return;
-    const barH = bar.offsetHeight;
-    document.documentElement.style.setProperty('--plan-status-h', barH + 'px');
-    const tabsH = tabs && window.innerWidth <= 820 ? tabs.offsetHeight : 0;
-    // No "+10" gap term here: .mobile-tabs sticks flush against the status
-    // bar's own bottom edge (top:var(--plan-status-h,0px)) rather than 10px
-    // below it. An earlier version left a real 10px offset between the two
-    // sticky bars, which is uncovered viewport space, not padding — once
-    // scrolled, whatever sidebar content happened to be at that exact
-    // vertical band (a group heading, a field) rendered visibly through the
-    // gap. The equivalent breathing room now lives inside the status bar's
-    // own opaque box (extra bottom padding, see .plan-status-bar), so it's
-    // baked into `barH` already and needs no separate addition here.
-    document.documentElement.style.setProperty(
-      '--mobile-sticky-h',
-      barH + (tabsH ? tabsH : 0) + 'px',
-    );
-    // .field-search-wrap sticks directly below .panel-title on mobile (both
-    // position:sticky, stacked), so it needs panel-title's real height on
-    // top of --mobile-sticky-h to stick at the right offset instead of
-    // overlapping whatever's in normal flow just below it.
-    if (panelTitle) {
-      document.documentElement.style.setProperty('--panel-title-h', panelTitle.offsetHeight + 'px');
-    }
-    // .category-rail (unlike .field-search-wrap, it isn't itself sticky —
-    // see setActiveCategory() below) needs the search bar's own height on
-    // top of --mobile-sticky-h for its scroll-margin-top, so a tapped
-    // category pill scrolls it to land just below the sticky status
-    // bar/tabs/search stack instead of partly underneath it.
-    if (searchWrap && window.innerWidth <= 820) {
-      document.documentElement.style.setProperty('--field-search-h', searchWrap.offsetHeight + 'px');
-    }
-  }
-  // @@shared:syncPlanStatusOffsets end
   // @@shared:27-syncKeyboardInset begin
-  // `#reviewNav` (the floating "Next →" pill) is `position:fixed;bottom:...`,
-  // anchored to the bottom of the *layout* viewport. When the on-screen
-  // keyboard opens for a focused text field, mobile browsers typically leave
-  // the layout viewport's height alone and only shrink the *visual*
-  // viewport -- so a plain fixed-bottom element ends up positioned behind
-  // the keyboard, off the bottom of what's actually visible, which is
-  // exactly the reported symptom ("covered up by the number pad ... can't
-  // click it when editing a text field"). The fix is the standard one for
-  // this class of bug: track `window.visualViewport` (widely supported on
-  // mobile browsers) and feed the gap between the layout and visual
-  // viewports into a CSS var the fixed element's `bottom` already reads, so
-  // it rides up above the keyboard instead of staying pinned under it.
-  function syncKeyboardInset() {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
-  }
   // Checking/unchecking a sidebar checkbox (or changing a <select> like
   // tenure/k401Type) can add or remove other fields elsewhere in the panel
   // -- singlePerson hides/shows every data-partner-b field across several
@@ -9402,35 +7356,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
     document.addEventListener('pointerup', (e) => endGesture(e, false), true);
     document.addEventListener('pointercancel', (e) => endGesture(e, true), true);
   })();
-  // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
-  // internally rather than growing past the viewport — but its max-height
-  // used to be sized only against the sticky `top` offset it settles into
-  // *once scrolled*, not its natural (pre-scroll) position in the page flow,
-  // which sits further down (below the topbar, the Plan Status Bar, and the
-  // first-run banner when shown). Since that natural position is always
-  // lower than the eventual sticky one, sizing against the sticky offset
-  // alone left the sidebar's rendered box taller than the space actually
-  // available before any scrolling — its bottom edge sat below the fold,
-  // so seeing it required scrolling the whole page (not just the sidebar's
-  // own internal scroll). Measuring the leading elements directly (rather
-  // than `.panel`'s own getBoundingClientRect(), which reports its already-
-  // pinned position once sticky has engaged, not its natural one) keeps
-  // this correct regardless of current scroll position.
-  function syncPanelMaxHeight() {
-    const panel = document.querySelector('.panel');
-    if (!panel || window.innerWidth <= 820) return; // mobile: .panel is position:static, no max-height to size
-    const disclaimer = document.querySelector('.top-disclaimer'),
-      topbar = document.querySelector('.topbar'),
-      bar = document.getElementById('planStatusBar'),
-      banner = document.getElementById('firstRunBanner'),
-      mainEl = document.querySelector('main'),
-      heightOf = (el) =>
-        el && !el.hidden ? el.offsetHeight + (parseFloat(getComputedStyle(el).marginBottom) || 0) : 0,
-      mainPad = mainEl ? parseFloat(getComputedStyle(mainEl).paddingTop) || 0 : 0,
-      naturalTop = heightOf(disclaimer) + heightOf(topbar) + mainPad + heightOf(bar) + heightOf(banner),
-      maxH = Math.max(240, window.innerHeight - naturalTop - 22);
-    document.documentElement.style.setProperty('--panel-max-h', maxH + 'px');
-  }
   // Everything the status bar shows (retirement age, investable assets at
   // retirement, whether the plan depletes) is already computed by every
   // render() call — no extra cost. The one thing that isn't cheap is the
@@ -9643,10 +7568,6 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
       real.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
-  const wizardOverlay = document.getElementById('wizardOverlay');
-  // Steps are the [data-wizard-step] panels in document order; each carries its own
-  // data-title and data-note (the "Step i of N" prefix is added here).
-  const wizardSteps = Array.from(document.querySelectorAll('#wizardModal [data-wizard-step]'));
   let wizardStep = 1;
   function renderWizardStep() {
     wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
@@ -9886,31 +7807,12 @@ import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors
   syncKeyboardInset();
   initChartHover();
 
-  // Wide result tables scroll horizontally inside `.table-wrap` on
-  // narrower screens; a scrollable region needs to be reachable by
-  // keyboard (WCAG 2.1.1), so every one gets tabindex="0" plus a label,
-  // whether it's in the initial markup or built later by a render
-  // function (scenario comparison, projection table, sensitivity, Roth
-  // optimizer, etc.) — the observer catches those without having to
-  // touch each render function individually.
-  function makeTableWrapsFocusable(root) {
-    (root || document).querySelectorAll('.table-wrap').forEach((el) => {
-      if (el.hasAttribute('tabindex')) return;
-      el.setAttribute('tabindex', '0');
-      if (!el.hasAttribute('role')) el.setAttribute('role', 'region');
-      if (!el.hasAttribute('aria-label')) {
-        const caption = el.querySelector('th')?.textContent?.trim();
-        el.setAttribute('aria-label', caption ? `${caption} table, scrollable` : 'Scrollable table');
-      }
-    });
-  }
   makeTableWrapsFocusable();
   new MutationObserver(() => makeTableWrapsFocusable()).observe(document.body, {
     childList: true,
     subtree: true,
   });
 
-  const mc = document.modelContext;
   if (mc?.registerTool) {
     mc.registerTool({
       name: 'update_fire_assumptions',

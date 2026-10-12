@@ -61,7 +61,6 @@
     clearTimeout(undoToastTimer);
     undoSnapshot = null;
   }
-  const undoToastBtnEl = document.getElementById('undoToastBtn');
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
@@ -104,7 +103,3 @@
     setMode('real');
     setChartView('3yr');
   });
-  function syncTopbarHeight() {
-    const tb = document.querySelector('.topbar');
-    if (tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px');
-  }

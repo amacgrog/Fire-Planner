@@ -182,18 +182,6 @@
   function displayValue(n, yearIndex) {
     return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
   }
-  function isDarkTheme() {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  }
-  function chartAxisColor() {
-    return isDarkTheme() ? '#93a3b8' : '#718096';
-  }
-  function chartGridColor() {
-    return isDarkTheme() ? '#2b3a4d' : '#e2e8f0';
-  }
-  function chartZeroLineColor() {
-    return isDarkTheme() ? '#4a5b70' : '#b8c2cf';
-  }
   // Real calendar year for row.year === 0 ("now"), used only to label the
   // chart x-axis in 'year' mode — computed once from the device clock
   // rather than hardcoded, unlike the "2026 dollars" real-dollar-mode

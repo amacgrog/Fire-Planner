@@ -1,5 +1,5 @@
-  const pct = (n) => (n || 0) / 100;
-  const escapeHtml = (s) =>
+  export const pct = (n) => (n || 0) / 100;
+  export const escapeHtml = (s) =>
     String(s).replace(
       /[&<>"']/g,
       (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
@@ -19,7 +19,7 @@
   // because no December 2023 value was supplied (both from multpl.com monthly 10-year rates).
   // It is the coupon on a par bond bought at the start of the year, so it is what taxable bond
   // interest uses in the historical engine (the bond *return* includes price change, which is not interest).
-  const HIST = [
+  export const HIST = [
     [1928, 43.81, -1.16, 0.84, 3.33],
     [1929, -8.3, 0.58, 4.2, 3.58],
     [1930, -25.12, -6.4, 4.54, 3.32],
@@ -119,5 +119,5 @@
     [2024, 24.88, 2.89, -1.64, 4.06],
     [2025, 17.78, 2.68, 7.8, 4.39],
   ];
-  const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
-  const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
+  export const clamp = (n, min = 0, max = Infinity) => Math.min(max, Math.max(min, n));
+  export const paychecksPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };

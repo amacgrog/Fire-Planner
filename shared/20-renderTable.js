@@ -325,9 +325,6 @@
     lastChart = { series, valueFn, x, y, p, w, h, maxAge };
   }
   let lastChart = null;
-  function chartHoverEnabled() {
-    return ['3yr', '1yr', 'cagr', 'hist'].includes(chartView);
-  }
   function clearChartHover() {
     if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';

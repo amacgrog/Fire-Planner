@@ -7,7 +7,7 @@
   // button scrolls to) — see the mobile media query above. Both are
   // measured rather than guessed, so a future copy/font change that alters
   // either bar's real height doesn't silently reopen the overlap.
-  function syncPlanStatusOffsets() {
+  export function syncPlanStatusOffsets() {
     const bar = document.getElementById('planStatusBar'),
       tabs = document.querySelector('.mobile-tabs'),
       panelTitle = document.querySelector('.panel-title'),

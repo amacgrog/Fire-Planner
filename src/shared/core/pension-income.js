@@ -1,7 +1,9 @@
+import { state } from './store.js';
+
   // Pension income for the year (which partner(s) are covered is set by
   // state.pensionCoverage; the single-person case always uses Partner A's
   // pension). The deceased partner's pension drops out in the survivor period.
-  function pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+  export function pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
     let pensionA =
         ((singlePerson || state.pensionCoverage === 'a' || state.pensionCoverage === 'both') &&
         age >= state.pensionStartAgeA

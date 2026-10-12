@@ -11,6 +11,6 @@
     green: { light: '#008300', dark: '#008300' },
     violet: { light: '#7e57c2', dark: '#9575cd' },
   };
-  function sankeyHue(name, dark) {
+  export function sankeyHue(name, dark) {
     return SANKEY_HUES[name][dark ? 'dark' : 'light'];
   }
