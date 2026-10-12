@@ -12,9 +12,9 @@ MIT licensed — see [LICENSE](LICENSE).
 ## Files
 
 - `index.html` — landing page template linking to both tools; the build copies it into `dist/`, where its relative links to the planners resolve (at the repo root they point at files that do not exist)
-- `src/us/`, `src/canada/` — the source of each planner (`index.html`, `styles.css`, `main.js`)
+- `src/us/`, `src/canada/` — the source of each planner (`index.html`, `main.js`, and modules under `core/` and `ui/`); `src/shared/` holds the code, the stylesheet and the HTML partials both planners use
 - `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a single self-contained file (nothing is fetched at runtime). `dist/` is not committed; it is published to GitHub Pages by CI
-- `shared/` + `scripts/sync-shared.js` — canonical copies of the code (JS, CSS, markup) that is identical in both planners; `npm run sync` writes them into the sources and `npm test` fails if they drift
+- `shared/` + `scripts/sync-shared.js` — canonical copies of the script regions that are still identical in both planners' `main.js` (shrinking as code moves into `src/shared/` modules); `npm run sync` writes them into the sources and `npm test` fails if they drift
 - `CLAUDE.md` — architecture notes and gotchas for Claude Code (or any AI assistant) working in this repo
 
 ## Shared capabilities
@@ -165,7 +165,7 @@ The built files use **stable filenames** — always `Planner_US.html` / `Planner
 
 ## Making an update
 
-Edit the files under `src/<country>/` (`npm run dev` rebuilds `dist/` on every save), run `npm test`, then commit. Code shared by both planners lives between `@@shared:<name> begin/end` marker comments; edit the fragment in `shared/` (or edit one planner source and run `npm run sync -- --pull <file>`), then `npm run sync`. See `CLAUDE.md`.
+Edit the files under `src/<country>/` (`npm run dev` rebuilds `dist/` on every save), run `npm test`, then commit. Code shared by both planners lives in modules under `src/shared/`; the few script regions that remain between `@@shared:<name> begin/end` markers are edited in the fragment in `shared/` (or in one planner source with `npm run sync -- --pull <file>`), then `npm run sync`. See `CLAUDE.md`.
 
 1. Edit `src/`, never `dist/`.
 2. Run `npm test`; it builds first.

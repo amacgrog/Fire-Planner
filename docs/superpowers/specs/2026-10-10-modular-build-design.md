@@ -148,7 +148,7 @@ results.
    `main.js`. The closure is instead dismantled by dependency layer (23 layers in the US
    planner, 24 in Canada), shared and country code together, with an analyzer-driven tool.
    This stage builds the tool, turns the stylesheet and HTML partials into build-time
-   includes, and extracts layers 0-3 (about two thirds of the code). Designed in section 13.
+   includes, and extracts layers 0-3 (about two thirds of the code). Designed in section 13; plan: docs/superpowers/plans/2026-10-12-stage2-extraction.md. DONE on branch tyler/stage2-fragments (the owner adds the merge date when merging).
 3. **Peel the higher layers, `core/` first.** Tax, per-year helpers, engine, the hubs;
    Vitest, the first unit tests. `sync-shared.js` is deleted when the last shared region
    leaves `main.js`.
@@ -346,6 +346,8 @@ Decided 2026-10-12 from the stage 1 inventory.
   cycles are four small ones in the US planner (2-4 units) and three in Canada.
 - Grouped by contiguous runs, the layer 0-3 units form 62 candidate modules (US) and 51
   (Canada), with two module-level cycles per planner that merge into one module each.
+  Amended after the prototype: splitting every group into a `core` and a `ui` part, keeping data blocks whole and letting
+  side-effect statements sit inside a run gives 115 modules in three batches (66, 25, 24); 308 US and 160 Canada units move.
 
 ### The extraction tool
 

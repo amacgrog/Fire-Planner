@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators
 for a couple or single person — one for the US, one for Canada. The source lives
-in `src/<country>/` (`index.html` markup shell, `styles.css`, `main.js`);
+in `src/<country>/` (`index.html` markup shell, `main.js`, and modules) and `src/shared/` (modules, the stylesheet and HTML partials);
 `npm run build` (esbuild, `scripts/build.js`) assembles each into one
 self-contained `dist/Planner_US.html` / `dist/Planner_Canada.html` with the CSS and
 JS inlined. The built file needs no server and no network: opening it in a browser
@@ -21,8 +21,10 @@ root was the source.) See `README.md` for the full user-facing feature list.
 ## Files
 
 - `src/us/` and `src/canada/` — each planner's source: `index.html` (markup shell with
-  `{{css}}` and `{{js}}` placeholders), `styles.css`, and `main.js` (the whole app as
-  one IIFE for now; it is being split into modules).
+  `{{css}}` and `{{js}}` placeholders and `<!-- @@include name -->` lines) and `main.js`
+  (what has not been extracted into modules yet: one IIFE plus an import block). Most of the
+  code now lives in modules: `src/<country>/core|ui/` for country code and `src/shared/core|ui/`
+  for code both planners use (see "Modules and the extraction tool" below).
 - `scripts/build.js` + `scripts/lib/assemble-html.js` — the build. `dist/Planner_US.html`
   and `dist/Planner_Canada.html` are its output (gitignored). **Stable filenames**:
   never rename these or create version-numbered copies — every update is a `git commit`
@@ -30,7 +32,12 @@ root was the source.) See `README.md` for the full user-facing feature list.
 - `scripts/analyze-closure.js` — writes `docs/superpowers/inventory/closure-*.md`, the
   per-declaration dependency inventory the module split is planned from.
 - `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: `store.js` (`state`, `mode`, `scenarios`, `compareIds`), `chart-prefs.js` (the chart display preferences), `tax-factors.js` (`histTaxFactors`). `src/shared/ui/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
-- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in either `main.js`).
+- `src/shared/styles/styles.css` and `src/shared/partials/*.html` — the stylesheet and the shared HTML partials. Edit them there:
+  `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
+- `scripts/plan-extraction.js` + `scripts/extract-units.js` (code in `scripts/lib/extraction-plan.js`, `extract-units.js`,
+  `marker-source.js`) — the tool that moved top-level units out of `main.js` into modules. `scripts/extractions/stage2.json` is the plan
+  it applied (every module with its unit labels and batch) and `names.json` the module-name overrides.
+- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js` (no browser global in any `src/**/core/` file), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` (the extraction tool and its helper, on fixture trees).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
@@ -364,9 +371,9 @@ Each planner is one big IIFE. Core shape:
   senior deduction, no state tax). `mortgageSchedule()` and `buildDeferredMortgage()`
   (shared fragment `07-mortgagePayment`) now also return a per-year `interest` array.
   Canada has no equivalent in this batch. The Annual property tax field line sits
-  between two shared markup regions (`html-medicalInflation` ends before it,
-  `html-propertyTaxGrowth` starts after it) so each planner can word its label
-  differently; keep it outside the shared regions.
+  between two shared partials (`medicalInflation` ends before it,
+  `propertyTaxGrowth` starts after it) so each planner can word its label
+  differently; keep it outside the shared partials.
 - **Filing-status table (US, `FILING`, just above `standardDeduction`).** Each status row names, per
   parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, ctc), which
   data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
@@ -689,17 +696,17 @@ Code that is byte-identical in both planners lives between
 `// @@shared:<name> begin` / `end` marker comments, with the canonical copy in
 `shared/<name>.js`. Never edit one planner's region alone: edit the fragment and run `npm run sync`, or
 edit a planner source in place, then `npm run sync -- --pull src/us/main.js` (copies
-back to `shared/`) and `npm run sync` (updates the other planner). Regions live in all
-three source files per planner: `main.js` (`//` markers), `styles.css` (`/* */`) and
-`index.html` (`<!-- -->`). `npm test` runs
+back to `shared/`) and `npm run sync` (updates the other planner). Regions live in each
+planner's `main.js` only (`//` markers); the stylesheet and the HTML partials are build-time
+includes (above). `npm test` runs
 `scripts/sync-shared.js --check` first, so drift fails CI. Not a build step:
 the planners stay self-contained and run by opening the file. To make code
 shared that currently differs, first remove the difference (see
 `docs/phase2-refactor-plan.md` section 7), then wrap it in a new region (add
-the markers to both files plus a `shared/` fragment). Marker style picks the
-fragment type: `// @@shared:x begin` (JS, `shared/x.js`), `/* @@shared:x begin */`
-(CSS) and `<!-- @@shared:x begin -->` (markup). The whole stylesheet is one
-shared region, so a CSS change is made once. The two `runProjection` year
+the markers to both files plus a `shared/` fragment). **New shared code goes in a
+module under `src/shared/`, not in a region**: regions are what is left of the old mechanism and
+shrink as units are extracted (`docs/superpowers/inventory/stage2-region-map.md` says where each
+old region's units went). The two `runProjection` year
 loops are deliberately not shared (see plan section 7, step 4.5): put a new
 per-year rule in a shared stage helper when it is identical in both
 countries, otherwise edit each loop. Line endings do not matter: the sync, build and analysis tools normalize CRLF to LF on read.
@@ -728,6 +735,29 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
 - **Checks that guard this:** `tests/closure_names.js` fails on any name a `main.js` uses without declaring (esbuild does not
   report that; stage 1 edits remove declarations), `npm run analyze` regenerates `docs/superpowers/inventory/` (run it at the
   start of each later stage), and `src/**/core/` files must not touch `document`, `window`, `localStorage` or `navigator`.
+
+## Modules and the extraction tool (stage 2 of the module split)
+
+- **Where code lives now.** Units are top-level statements of the planner IIFE. The first four dependency layers (the
+  leaves and the units that depend only on them) were moved out of `main.js` into modules: byte-identical shared code under
+  `src/shared/core|ui/`, country-only code under `src/<country>/core|ui/`. A module is under `core/` when none of its units touches
+  the DOM (`tests/core_purity.js` enforces it) and under `ui/` otherwise. Module names come from `scripts/extractions/names.json`;
+  the first unit's name or the old region's name is used where there is no override. Module files keep the two-space indentation
+  they had inside the IIFE (the tool moves text verbatim; do not reformat a module in a commit that also changes it).
+- **What stayed in `main.js` and why.** Side-effect statements (listeners, test hooks, initialisation: moving them changes
+  execution order), units that declare a `let` assigned from outside their module, and everything above layer 3 (the hubs: `render`,
+  `syncControls`, `taxFor`, `runProjection`, `FIELDS`, `defaults`, ...), because their dependencies were not modules yet. Stage 3
+  continues from the regenerated inventory (`npm run analyze`) and `node scripts/plan-extraction.js --max-layer=N`.
+- **Adding or moving code.** Put new shared code in a module under `src/shared/core|ui/` and import it (relative path); new
+  country code in `src/<country>/core|ui/`. Do not add `@@shared` regions. A name a module uses must be declared in it or imported
+  (`tests/closure_names.js` fails otherwise: esbuild does not report an undeclared identifier). Cross-module state goes through the
+  `assign…` functions described above.
+- **Data blocks.** A `// NAME:begin ... // NAME:end` block (`STATE_RULES`, `MEDICAID_RULES`, `PROVINCE_RULES`, `BENEFIT_RULES`) is moved whole
+  with both markers. `scripts/gen-*-rules.js` find it in whichever file holds it (`scripts/lib/marker-source.js`) and evaluate the
+  text with `export` removed.
+- **Using the tool again.** `node scripts/plan-extraction.js > plan.json` prints a plan for the current source;
+  `node scripts/extract-units.js --manifest plan.json --batch N [--dry-run]` applies one batch and writes nothing unless every check
+  passes. After a batch: `npm run gen:states && npm run gen:provinces && npm run gen:benefits`, `npm test`.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
@@ -946,7 +976,7 @@ changes, which reproduces the old projections exactly. Additional expenses
 (`#extraExpensesGroup`) is `data-cat="spending"`; one-time expenses, other loans and the pre-retirement healthcare group are
 also `spending`; additional income is `income`; `extra` keeps survivor planning.
 `state.children` is a seventh DYN list (ids `child<i>BirthYear` / `child<i>Student`; group `#childrenGroup`,
-`data-cat="profile"`, inside the shared `html-spendingTiersGroup` markup region; its copy lives in each
+`data-cat="profile"`, inside the shared `spendingTiersGroup` partial (`src/shared/partials/`); its copy lives in each
 planner's `DYN.children` spec, so Canada's note says it feeds the Canada Child Benefit, the Canada Groceries and Essentials Benefit and the provincial child benefits). A row is `{ birthYear, student }`;
 `normalizeLists` (shared) clamps the year to the **fixed** bounds `CHILD_BIRTH_YEAR_MIN/MAX` (1950-2100, never
 relative to the clock, so a saved year cannot drift on reload), drops rows without a usable year, and keeps
