@@ -298,8 +298,13 @@ function applyModules(root, modules, { dryRun = false } = {}) {
     const newText = content + '\n';
     if (!fs.existsSync(frag) || readText(frag) !== newText) files.set(frag, newText);
   }
+  for (const r of ca.regions) {
+    if (!us.regions.some((x) => x.name === r.name)) throw new Error(`region ${r.name} exists in canada/main.js but not in us/main.js`);
+  }
   for (const name of deleted) {
-    if (us.regions.some((r) => r.name === name)) throw new Error(`region ${name} was emptied in only one planner`);
+    if (us.regions.some((r) => r.name === name) || ca.regions.some((r) => r.name === name)) {
+      throw new Error(`region ${name} was emptied in only one planner`);
+    }
     files.set(path.join(fragmentDir, `${name}.js`), null);
   }
 

@@ -206,6 +206,9 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     /data block RULES is split/,
   );
 
+  // a region emptied in one planner while the other still carries it
+  refuse(fixture, one('src/us/core/x.js', 'us', ['twice', 'addBase']), /region helpers exists in canada\/main\.js but not in us\/main\.js/);
+
   console.log('extract_units OK');
 })()
   .catch((err) => {
