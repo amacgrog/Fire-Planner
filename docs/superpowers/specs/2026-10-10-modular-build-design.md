@@ -149,9 +149,12 @@ results.
    planner, 24 in Canada), shared and country code together, with an analyzer-driven tool.
    This stage builds the tool, turns the stylesheet and HTML partials into build-time
    includes, and extracts layers 0-3 (about two thirds of the code). Designed in section 13; plan: docs/superpowers/plans/2026-10-12-stage2-extraction.md. DONE on branch tyler/stage2-fragments (the owner adds the merge date when merging).
-3. **Peel the higher layers, `core/` first.** Tax, per-year helpers, engine, the hubs;
-   Vitest, the first unit tests. `sync-shared.js` is deleted when the last shared region
-   leaves `main.js`.
+3. **Peel every DOM-free unit.** Amended 2026-10-12: the layer limit was never the obstacle,
+   mutable bindings were (`taxFactorInflation` alone blocks 104 US units). All units the analyzer
+   marks DOM-free move, at any layer: tax, per-year helpers, the engine and the hubs' logic.
+   A binding with one writer moves with it; multi-writer and statement-written bindings (all UI
+   state) wait for stage 4. Designed in section 14. Vitest and deleting `sync-shared.js` move
+   to after stage 4 (the last shared regions are UI code).
 4. **Peel the remaining `ui/` layers.** Render, sync, charts, wizard and the MCP wiring move
    out last.
 
@@ -419,3 +422,90 @@ import), so units that depend on a unit that stays behind also stay.
 
 Layers 4 and up (the hubs, the engine, render and sync), moving side-effect statements,
 setters for cross-module `let` bindings, Vitest, TypeScript.
+
+## 14. Stage 3 design: every DOM-free unit leaves main.js
+
+Designed 2026-10-12 from the state of `main.js` after stage 2.
+
+### What the data showed
+
+- After stage 2 the planner finds 4 movable units, whatever the layer limit. The layer limit was
+  never the obstacle: 24 mutable top-level bindings were. `taxFactorInflation` alone blocks 104
+  of the 155 blocked US units (66 in Canada), because `taxIndexFactor` is under `taxFor`, the
+  engine and most of the tax chain. The other mutables are UI state (timers, tooltip elements,
+  the undo snapshot, the wizard step) and block the render and sync code.
+- No remaining unit depends on a side-effect statement, so the statements can stay in `main.js`.
+- What is left in `main.js`: 180 units that are not statements in the US planner (99 DOM-free
+  by the analyzer's `ui` flag, about 4,160 lines) and 153 in Canada (77, about 2,090 lines),
+  plus 205 (US) and 130 (Canada) side-effect statements of about 1,490 and 1,180 lines.
+- Of the 24 US bindings (25 in Canada, which adds `lastRothOptimizer`), 16 (17) are written by
+  exactly one function and no statement. Eight are not: five have several writers (`sidebarCollapsed`,
+  `infoBubbleBtn`, `reviewingFieldId`, `undoSnapshot`, `wizardStep`) and six are written by statements
+  that stay in `main.js` (`theme`, `sidebarCollapsed`, `hadSavedState`, `setMobileView`,
+  `reviewingFieldId`, `wizardStep`); the groups overlap.
+- A dry estimate with that rule moves about 90 US units (about 4,140 lines) and 68 Canada units
+  (about 2,080 lines). The 9 DOM-free units it leaves behind per planner all belong to the UI
+  state bindings below.
+
+### Scope
+
+All units the analyzer marks DOM-free (`ui: false`) move, at any layer. The layer limit is gone;
+batches are by module depth, as in stage 2. Units that touch the DOM, side-effect statements,
+Vitest, and deleting `sync-shared.js` are not in this stage: the last shared regions are UI code,
+so `sync-shared.js` outlives stage 3.
+
+### Mutable bindings
+
+The planner classifies every mutable binding by who writes it:
+
+1. **One writer function, no statement writer** (16 US, 17 Canada, among them `taxFactorInflation`,
+   `lastRothOptimizer`, the timers and tooltip elements): the declaration moves into the same
+   module as its writer. It is that function's private state, so nothing unrelated is grouped.
+   Readers in other modules import it as a live binding.
+2. **Several writers, or any statement writer** (the same 8 in both planners: `theme`, `sidebarCollapsed`,
+   `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`, `undoSnapshot`,
+   `wizardStep`): the planner does not move the declaration, refuses everything that depends on
+   it, and reports the binding by name with its writers. All eight are UI state, so in stage 3 they
+   stay put. Each is decided later, binding by binding: either its writer functions are combined
+   into one module with it (for example `infoBubbleBtn` with `openInfoBubble` and
+   `closeInfoBubble`), or it gets a `assign<Name>` state module as in stage 1 (needed whenever a
+   statement in `main.js` writes it).
+
+Making a binding "state" does not make the engine stateless: a module-level `let` is hidden state
+whichever way it is wrapped. That remains the later factory and TypeScript work (section 11).
+
+### Tool changes, made first and tested with fixtures
+
+- A bare side-effect import (`import './x.js'`) in `main.js` is refused or carried through; it
+  was silently dropped (stage 2 final review, Important).
+- `#country/*` specifiers pass through verbatim and count as country code for the shared check;
+  they were resolved as relative paths (same review, Important).
+- The comment attached to a unit stops at a blank line, so a trailing note about the previous unit
+  stays with it; `/* */` and JSDoc blocks above a unit travel with it.
+- The layer limit becomes optional, and mutable declarers move under rule 1 above.
+- Writes are staged in a temporary directory and swapped in, and module paths must lie under the
+  source root (parked stage 2 minors).
+
+### Placement
+
+Same rules as section 13: shared regions become shared modules only when movable in both planners;
+a module is under `core/` when no unit uses a browser global. Helpers that call methods on an
+element passed in (`attachMoneyPreview` in `core/money-format.js`) are found by a new check
+(method calls on parameters named like elements are listed, not blocked) and moved to `ui/` by
+name override. Same-topic one-unit modules are merged by topic at the end, using the name file.
+
+### Order and verification
+
+1. Tool changes with fixtures.
+2. A rehearsal in a scratch worktree produces the manifest (module and batch counts are fixed by
+   it, as in stage 2), committed as `scripts/extractions/stage3.json`.
+3. Batches by depth, each ending with the full suite, unchanged snapshots and an independent
+   review.
+4. The built HTML is compared with the pre-stage build statement by statement (stage 2's final
+   review method) before the stage is called done.
+5. Docs, a regenerated inventory and a region map for what leaves.
+
+### Not in stage 3
+
+UI units, side-effect statements, the eight UI state bindings, Vitest, deleting `sync-shared.js`,
+the stateless engine and TypeScript.
