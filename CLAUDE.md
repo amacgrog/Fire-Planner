@@ -740,8 +740,9 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
 
 - **Where code lives now.** Units are top-level statements of the planner IIFE. The first four dependency layers (the
   leaves and the units that depend only on them) were moved out of `main.js` into modules: byte-identical shared code under
-  `src/shared/core|ui/`, country-only code under `src/<country>/core|ui/`. A module is under `core/` when none of its units touches
-  the DOM (`tests/core_purity.js` enforces it) and under `ui/` otherwise. Module names come from `scripts/extractions/names.json`;
+  `src/shared/core|ui/`, country-only code under `src/<country>/core|ui/`. A module is under `core/` when none of its units uses a browser global
+  (`tests/core_purity.js` detects only `document`, `window`, `localStorage` and `navigator`, so a core module may still call methods on an
+  element passed to it, e.g. `attachMoneyPreview` in `src/shared/core/money-format.js`; moving such helpers to `ui/` is a stage 3 cleanup) and under `ui/` otherwise. Module names come from `scripts/extractions/names.json`;
   the first unit's name or the old region's name is used where there is no override. Module files keep the two-space indentation
   they had inside the IIFE (the tool moves text verbatim; do not reformat a module in a commit that also changes it).
 - **What stayed in `main.js` and why.** Side-effect statements (listeners, test hooks, initialisation: moving them changes
@@ -761,7 +762,7 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
-(Shared warnings: `UNUSUAL_RANGES` lives in the `04-isEstimateCountable` region and accepts an item with `check()` and `message()` instead of a
+(Shared warnings: `UNUSUAL_RANGES` lives in `src/shared/core/estimates-and-warnings.js` and accepts an item with `check()` and `message()` instead of a
 range; the US pushes its Social Security-before-retirement items onto it just after the region ends (7O O5), so the region stays identical in both files.)
 
 The two planners share overall structure but diverge in ways that make blind
@@ -882,7 +883,7 @@ retired field must be deleted explicitly or it re-migrates on every load.
 normalized by the US-only `normalizeUsStreams(s, raw)` (just below the shared `01-LIST_MAX` region; the shared `normalizeLists`
 keeps only the common keys, so these are read from `raw`, aligned to the filtered list; anything but a literal `'B'` / `'wages'` /
 `true` / `'roth'` is the legacy meaning). Canada's streams are unchanged until E1-CA. The shared list renderer
-(`23-dynFieldHtml`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, ctx, out)`
+(now `src/shared/core/dyn-field-html.js`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, ctx, out)`
 (pure, scratch `STREAM_OUT`, just above `listAmountsForYear`) splits the year's streams: owner A in single-person mode, the window
 tested on the owner's age, W-2 skipped once the owner is dead, not-earned moved to the survivor's bucket; `total` is the old
 `extraIncome` sum bit for bit and stays the cash figure. `buildTaxProfile` takes `streamWagesA/B` (added to the owner's wages, less
@@ -985,9 +986,9 @@ kept by `normalizeLists` only when it is a year (same fixed bounds) later than t
 off, so a legacy row keeps its exact shape; `dependentsInYear` and the US `hasChildAtMost` (the Medicaid child-13 test,
 the one reader that loops over `state.children` itself) skip a child while `c.joinYear > taxYear` (a missing key
 compares false), so a joined child counts for its whole join year and its age stays `taxYear - birthYear`. The field
-uses the shared list renderer's opt-in `blank: true` / `placeholder` number options (`23-dynFieldHtml`: a missing
+uses the shared list renderer's opt-in `blank: true` / `placeholder` number options (`src/shared/core/dyn-field-html.js`: a missing
 value shows an empty box; clearing the box deletes the key). Nothing is adjusted for children automatically (spending stays the
-user's). `dependentsInYear(taxYear)` (shared, in the `01-LIST_MAX` fragment, takes a CALENDAR year; the US
+user's). `dependentsInYear(taxYear)` (shared, now in `src/shared/core/lists-and-children.js`, takes a CALENDAR year; the US
 engines pass `taxYearOf(yearIndex)`) returns `{ age, student, qualifyingChild }` per child born by then, with
 `age = taxYear - birthYear` (a birth year counts as age 0 for the whole year). `qualifyingChild` is the
 federal rule: `age <= 18`, or `age <= 23` for a full-time student; each credit applies its OWN cutoff to `age`

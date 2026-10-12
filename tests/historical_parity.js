@@ -154,13 +154,30 @@ function compare(label, std, hist, problems, preRetirement) {
   }
 }
 
+// main.js plus every module under src/us/ and src/shared/, so the checks see code that moved out of main.js.
+function readUsAndSharedSource() {
+  const fs = require('fs');
+  const srcRoot = path.resolve(__dirname, '..', 'src');
+  const files = [path.join(srcRoot, 'us', 'main.js')];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.js') && !files.includes(full)) files.push(full);
+    }
+  };
+  walk(path.join(srcRoot, 'us'));
+  walk(path.join(srcRoot, 'shared'));
+  return files.map((f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n')).join('\n');
+}
+
 // Wiring check for the safe-MAGI room (US). No scenario was found where the room changes the live
 // mix's choice (828 searched, see docs/next-batches-plan.md "Batch 1 notes"), so behavior alone
 // cannot prove the historical engine passes it on. Check the source instead: both strategies must
 // hand the live mix the same remaining room, `max(0, magiSafeRoom - conversionAmount)`, and the
 // bucket's grouped stock step must forward it.
 function checkRoomWiring() {
-  const src = require('fs').readFileSync(path.resolve(__dirname, '..', 'src', 'us', 'main.js'), 'utf8');
+  const src = readUsAndSharedSource();
   const room = 'incomeRoom(magiSafeRoom, conversionAmount)';
   // Since 3C (B3) both strategies get one options object, `wopts`, built per engine mode and passed
   // through `runWithdraw` (since the cliff plan, called once in the year body: the legacy guard's dry runs are gone).
