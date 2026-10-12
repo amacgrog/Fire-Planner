@@ -29,7 +29,6 @@ import { BUCKET_MODE, STANDARD_MODE, routeSurplus } from './core/year-modes.js';
 import { sweepExcessCash } from '../shared/core/sweep-excess-cash.js';
 import { updateChartXAxisButtons } from './ui/update-chart-xaxis-buttons.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from '../shared/ui/chart-colors.js';
-import { sankeyHue } from '../shared/core/sankey-hues.js';
 import { layoutSankeyColumn, sankeyRibbonPath } from '../shared/core/sankey-layout.js';
 import { cagrColors } from '../shared/core/simulate-at-real-cagr.js';
 import { updateChartGapPartnerButtons } from './ui/update-chart-gap-partner-buttons.js';
@@ -49,17 +48,29 @@ import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
 import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 import { FIELDS } from './core/fields.js';
 import { infoBubble, markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
-import { CURRENT_YEAR, baseSpendingNominal, displayValue, fiMultiple, futureHomePurchase, itemGrowthFactor, loanSchedules, lumpExpenseHits, mortgagePayment, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
+import { CURRENT_YEAR, baseSpendingNominal, displayValue, fiMultiple, futureHomePurchase, itemGrowthFactor, loanSchedules, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
 import { getBondYears, medicalGrowth, taxFactorByYear } from '../shared/core/year-factors.js';
-import { OAS_RECOVERY_THRESHOLD, provinceTaxTreatmentNote, rrifMinPct } from './core/oas-and-rrif.js';
+import { OAS_RECOVERY_THRESHOLD, provinceTaxTreatmentNote } from './core/oas-and-rrif.js';
 import { AGE_AMOUNT, AGE_AMOUNT_REDUCTION, AGE_AMOUNT_THRESHOLD, FEDERAL_ELIGIBLE_DTC, PENSION_INCOME_AMOUNT, investmentIncomeCA } from './core/credits-and-gross-up.js';
 import { RRIF_PENSION_AGE, gisAnnual, gisEmploymentExemption, interpKnots } from './core/gis-and-rrif.js';
 import { historicalYearSource, standardYearSource } from '../shared/core/year-sources.js';
 import { bootstrapReturnSeries } from '../shared/core/monte-carlo-paths.js';
 import { cloneState, deltaAge, deltaMoney, overlayColors } from '../shared/core/scenario-helpers.js';
-import { DYN_GROWTH_FIELDS, dynLabel, dynTipBtn } from '../shared/core/dyn-field-helpers.js';
+import { dynTipBtn } from '../shared/core/dyn-field-helpers.js';
 import { refreshMoneyPreviews } from '../shared/ui/money-format.js';
 import { getBenefits } from './core/get-benefits.js';
+import { decisionDeltaPhrase } from '../shared/core/decision-end-assets.js';
+import { homeBuyerAmounts, listAmountsForYear, withdrawRequiredDistributions } from './core/list-amounts-and-home-buyers.js';
+import { cppAndOasIncome, housingForYear, oasAgeFactor, requiredDistributions, retirementContributions } from './core/income-and-housing-per-year.js';
+import { applyRrspMeltdown, growBalances, healthcareCost } from './core/grow-balances.js';
+import { renderGroupSummaries } from './ui/render-group-summaries.js';
+import { renderPlanHeadline } from '../shared/ui/render-plan-headline.js';
+import { renderMonteCarloChart, renderTable } from '../shared/ui/chart-render.js';
+import { compactDecisionDelta } from '../shared/core/compact-decision-delta.js';
+import { computeSankeyFlow } from './ui/compute-sankey-flow.js';
+import { DYN } from './core/dyn.js';
+import { dynFieldHtml } from '../shared/core/dyn-field-html.js';
+import { renderDecisionCompareTable } from './core/render-decision-compare-table.js';
 (() => {
   // @@shared:01-LIST_MAX begin
   function normalizeLists(s, raw) {
@@ -787,177 +798,6 @@ import { getBenefits } from './core/get-benefits.js';
     syncUnusualToast(flagged);
   }
   // @@shared:04-isEstimateCountable end
-  // Cheap, string-only sidebar group summaries — no simulate() calls, just
-  // formatting already-live `state`. Called from the top of render(),
-  // alongside markDefaultFields(). "Always-on" groups always get plain
-  // text (never blank); "hide-when-off" groups get a '✓ ...' string (and
-  // the .is-on accent class) when their feature flag is on, or an empty
-  // string when it's off.
-  function renderGroupSummaries() {
-    const setGroupState = (id, text, isOn) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.textContent = text || '';
-      el.classList.toggle('is-on', !!isOn);
-    };
-    const freqPerYear = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 };
-
-    // Timeline: retirement ages + life expectancy.
-    const retireText = state.singlePerson || state.retireAgeA === state.retireAgeB
-      ? `Retire ${state.retireAgeA}`
-      : `Retire ${state.retireAgeA}/${state.retireAgeB}`;
-    const planToText = state.singlePerson || state.lifeExpectancyA === state.lifeExpectancyB
-      ? `plan to ${state.lifeExpectancyA}`
-      : `plan to ${state.lifeExpectancyA}/${state.lifeExpectancyB}`;
-    setGroupState('timelineGroupState', `${retireText} · ${planToText}`);
-
-    // Income: partner income(s) + income growth rate.
-    const incomeText = state.singlePerson
-      ? `${compact(state.incomeA)}/yr`
-      : state.incomeA === state.incomeB
-        ? `${compact(state.incomeA)} each`
-        : `${compact(state.incomeA)} + ${compact(state.incomeB)}`;
-    setGroupState('incomeGroupState', `${incomeText} · ${state.incomeGrowth}%/yr growth`);
-
-    // Retirement contributions: RRSP + TFSA contribution %. No account-type
-    // choice and no mega backdoor equivalent in Canada.
-    setGroupState(
-      'retireContribGroupState',
-      `${state.rrspPctA}% RRSP · ${state.tfsaPctA}% TFSA`,
-    );
-
-    // Pre-retirement healthcare: combined premium (converted to a monthly
-    // figure regardless of actual pay frequency, for a consistent unit).
-    const premiumPerPeriod =
-      (Number(state.healthPremiumA) || 0) +
-      (state.singlePerson ? 0 : Number(state.healthPremiumB) || 0);
-    const annualPremium = premiumPerPeriod * (freqPerYear[state.payFrequency] || 26);
-    setGroupState(
-      'preRetireHealthGroupState',
-      annualPremium > 0 ? `${compact(annualPremium / 12)}/mo premiums` : 'None',
-    );
-
-    // Household spending: core annual spending + any active spending tiers.
-    const activeTierCount = (state.spendingTiers || []).length;
-    let spendingText = `${compact(state.spending)}/yr`;
-    if (activeTierCount > 0)
-      spendingText += ` · ${activeTierCount} spending change${activeTierCount === 1 ? '' : 's'}`;
-    setGroupState('spendingGroupState', spendingText);
-
-    // Assets: taxable + RRSP + TFSA as "invested", cash separately.
-    const invested = (state.taxable || 0) + (state.traditional || 0) + (state.roth || 0);
-    setGroupState('assetsGroupState', `${compact(invested)} invested · ${compact(state.cash || 0)} cash`);
-
-    // Market assumptions: return, bond return, inflation.
-    setGroupState(
-      'marketGroupState',
-      `${state.returnRate}% / ${state.bondReturn}% bonds · ${state.inflation}% inflation`,
-    );
-
-    // Housing: depends on tenure.
-    let housingText;
-    if (state.tenure === 'rent') {
-      housingText = `Rent · ${compact(state.rent)}/mo`;
-    } else if (state.tenure === 'rentThenBuy') {
-      housingText = `Rent → buy at ${state.buyAge}`;
-    } else {
-      housingText = `Own · ${compact(state.homeValue)} · ${compact(state.mortgage)} mortgage`;
-    }
-    setGroupState('housingGroupState', housingText);
-
-    // Retirement income & healthcare: CPP/OAS start ages + LTC clause.
-    let riText = `CPP ${state.cppStartAgeA} · OAS ${state.oasStartAgeA}`;
-    if (state.ltcEnabled) riText += ' · LTC on';
-    setGroupState('retireIncomeHealthGroupState', riText);
-
-    // --- Hide-when-off groups: empty string when off, '✓ ...' when on. ---
-
-    // Other loans.
-    if (state.loans.length) {
-      const annualPayment = state.loans.reduce((sum, l) => {
-        const originalPrincipal = Number(l.principal) > 0 ? Number(l.principal) : Number(l.balance) || 0;
-        return sum + mortgagePayment(originalPrincipal, Number(l.rate) || 0, Number(l.term) || 0) * 12;
-      }, 0);
-      setGroupState(
-        'otherLoansGroupState',
-        `✓ ${state.loans.length} loan${state.loans.length === 1 ? '' : 's'} · ${compact(annualPayment)}/yr`,
-        true,
-      );
-    } else {
-      setGroupState('otherLoansGroupState', '', false);
-    }
-
-    // Children.
-    if (state.children.length) {
-      setGroupState(
-        'childrenGroupState',
-        `✓ ${state.children.length} child${state.children.length === 1 ? '' : 'ren'}`,
-        true,
-      );
-    } else {
-      setGroupState('childrenGroupState', '', false);
-    }
-
-    // Additional income.
-    if (state.incomeSources.length || state.oneTimeIncome.length) {
-      const sourcesTotal = state.incomeSources.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-      let text;
-      if (sourcesTotal > 0 && state.oneTimeIncome.length > 0) text = `✓ ${compact(sourcesTotal)}/yr + lump sum`;
-      else if (sourcesTotal > 0) text = `✓ ${compact(sourcesTotal)}/yr`;
-      else if (state.oneTimeIncome.length > 0) text = '✓ lump sum planned';
-      else text = '✓ stream added';
-      setGroupState('otherIncomeGroupState', text, true);
-    } else {
-      setGroupState('otherIncomeGroupState', '', false);
-    }
-
-    // Additional expenses.
-    if (state.extraExpenses.length) {
-      const total = state.extraExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      setGroupState(
-        'extraExpensesGroupState',
-        `✓ ${state.extraExpenses.length} added · ${compact(total)}/yr`,
-        true,
-      );
-    } else {
-      setGroupState('extraExpensesGroupState', '', false);
-    }
-
-    // One-time expenses.
-    if (state.lumpExpenses.length) {
-      const repeating = state.lumpExpenses.filter((e) => Number(e.repeatEvery) > 0).length;
-      setGroupState(
-        'lumpExpensesGroupState',
-        `✓ ${state.lumpExpenses.length} planned${repeating ? ` · ${repeating} repeating` : ''}`,
-        true,
-      );
-    } else {
-      setGroupState('lumpExpensesGroupState', '', false);
-    }
-
-    // Survivor planning.
-    if (state.survivorEnabled) {
-      setGroupState(
-        'survivorGroupState',
-        `✓ Partner ${state.survivorPartner}, age ${state.survivorDeathAge}`,
-        true,
-      );
-    } else {
-      setGroupState('survivorGroupState', '', false);
-    }
-
-    // Withdrawal & tax strategy: no single master flag — off means every
-    // one of these is false.
-    if (state.guardrailsEnabled || state.meltdownEnabled || state.pensionSplitEnabled) {
-      const parts = [];
-      if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
-      if (state.meltdownEnabled) parts.push('RRSP meltdown on');
-      if (state.pensionSplitEnabled) parts.push('Pension splitting on');
-      setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
-    } else {
-      setGroupState('withdrawalStrategyGroupState', '', false);
-    }
-  }
   // Tax-parameter indexing. Brackets, credits, the OAS clawback threshold and
   // CPP contribution limits all index by this factor. In the deterministic
   // projection it is the steady state.inflation compounded by yearIndex;
@@ -1880,46 +1720,11 @@ import { getBenefits } from './core/get-benefits.js';
     else PAY.provCredit = credit;
     return PAY;
   }
-  // Home buyers' amounts for a first-time buyer in the purchase year (7N N10): the federal 10,000 and the province's own
-  // (Saskatchewan 15,000 from 2025, Quebec 10,000 = the 1,400 maximum at its 14% rate), each a non-refundable credit base.
-  // Statutory flat amounts, not indexed. One claim on the higher-income partner's return.
-  const HOME_BUYERS_AMOUNT = 10000;
-  function homeBuyerAmounts(code) {
-    const rule = PROVINCE_RULES[code];
-    return [HOME_BUYERS_AMOUNT, rule && rule.homeBuyer ? rule.homeBuyer.amount : 0];
-  }
-
-  // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----
-  // This year's amounts from the add-as-you-go lists: recurring extra income
-  // and extra expenses (active between their start and end age, growing with
-  // inflation or their own rate), one-time income at an exact age, and lump
-  // expenses (which may repeat). Ages are Partner A's.
-  function listAmountsForYear({ age, year, factor, incomeFactor }) {
-    const extraIncome = state.incomeSources
-      .filter((s) => age >= s.startAge && age <= s.endAge)
-      .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
-    const oneTimeAmount = state.oneTimeIncome
-      .filter((o) => Math.round(o.age) === age)
-      .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
-    const extraExpense = state.extraExpenses
-      .filter((e) => age >= e.startAge && age <= e.endAge)
-      .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-    const lumpExpense = state.lumpExpenses
-      .filter((e) => lumpExpenseHits(e, age))
-      .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-    return { extraIncome, oneTimeAmount, extraExpense, lumpExpense };
-  }
 
 
 
 
-  // Takes the year's mandatory distribution (RMD + 72(t) SEPP) out of the
-  // traditional balance first, then out of the traditional bond bucket.
-  function withdrawRequiredDistributions(bal, rmd) {
-    const rmdFromTraditional = Math.min(bal.traditional, rmd);
-    bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
-    bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
-  }
+
 
   // @@shared:09-sweepExcessCash begin
 
@@ -1959,160 +1764,9 @@ import { getBenefits } from './core/get-benefits.js';
   }
   // @@shared:09-sweepExcessCash end
 
-  // RRSP, TFSA and FHSA contributions for one year, from each partner's modeled
-  // wage (zero once retired). RRSP room is 18% of wages up to the dollar limit;
-  // the TFSA and FHSA take a percent of wages up to their annual limits (2026
-  // values scaled by limitFactor). The FHSA is only open while saving for a
-  // future purchase (rentThenBuy, before the buy year) and has a $40,000
-  // lifetime cap, so the caller passes what each partner has already put in.
-  // Returns RRSP amounts as traditionalContrib and TFSA amounts as rothContrib.
-  function retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB }) {
-    const rrspRoomA = Math.min(wageA * 0.18, 33810 * limitFactor),
-      rrspRoomB = Math.min(wageB * 0.18, 33810 * limitFactor);
-    const rrspContribA = Math.min(wageA, rrspRoomA) * pct(state.rrspPctA),
-      rrspContribB = Math.min(wageB, rrspRoomB) * pct(state.rrspPctB);
-    const tfsaLimit = 7000 * limitFactor,
-      tfsaContribA = Math.min(wageA * pct(state.tfsaPctA), tfsaLimit),
-      tfsaContribB = Math.min(wageB * pct(state.tfsaPctB), tfsaLimit);
-    const traditionalContrib = rrspContribA + rrspContribB,
-      rothContrib = tfsaContribA + tfsaContribB;
-    const fhsaAnnualCap = 8000 * limitFactor,
-      fhsaLifetimeCap = 40000;
-    const fhsaEligible = state.tenure === 'rentThenBuy' && year < futureBuy.buyYear;
-    const fhsaContribA = fhsaEligible
-      ? Math.max(
-          0,
-          Math.min(wageA * pct(state.fhsaPctA), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedA),
-        )
-      : 0;
-    const fhsaContribB = fhsaEligible
-      ? Math.max(
-          0,
-          Math.min(wageB * pct(state.fhsaPctB), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedB),
-        )
-      : 0;
-    const fhsaContrib = fhsaContribA + fhsaContribB;
-    return { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib };
-  }
 
-  // CPP and OAS (gross, before the OAS recovery tax that personTaxCA charges) for the year: each partner's own
-  // benefit once they reach their start age, inflated by `factor`. In the
-  // survivor period the household keeps the greater CPP (a simplified survivor swap, not the full CPP survivor-benefit rules)
-  // and the survivor's OWN OAS (never inherited; 7N N9).
-  // OAS 75-plus step: the pension is increased 10 percent from age 75 (permanent since July 2022; the ESDC
-  // maximums are 762.50 a month at 65 to 74 and 838.75 at 75 and over, a ratio of exactly 1.10). The OAS
-  // input is the 65 to 74 amount in today's dollars; this factor is applied by the partner's actual age.
-  // Deferral increases (0.6 percent a month, up to 36 percent at 70) are not applied: raise the input.
-  function oasAgeFactor(age) {
-    const f = BENEFIT_RULES.oas.ageFactors;
-    return age >= f[0].from ? f[0].factor : 1;
-  }
-  function cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
-    let cppA = (age >= state.cppStartAgeA ? state.cppMonthlyA * 12 : 0) * factor,
-      cppB = singlePerson
-        ? 0
-        : (ageB >= state.cppStartAgeB ? state.cppMonthlyB * 12 : 0) * factor;
-    let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 * oasAgeFactor(age) : 0) * factor,
-      oasGrossB = singlePerson
-        ? 0
-        : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 * oasAgeFactor(ageB) : 0) * factor;
-    if (isSurvivorPeriod) {
-      // Simplified survivor-benefit swap: the survivor keeps the greater
-      // of the two benefits (each computed as if both were still alive),
-      // rather than modeling full CPP survivor pension / OAS allowance
-      // rules.
-      // OAS is never inherited (7N N9): the survivor keeps their OWN OAS, with their own start age and their own 75-plus step (none
-      // before their start age; a survivor under 65 may get the Allowance for the Survivor instead, see benefitsFor). Only the CPP keeps
-      // the greater-of simplification.
-      const survivorCpp = Math.max(cppA, cppB);
-      if (deceasedIsA) {
-        cppA = 0;
-        oasGrossA = 0;
-        cppB = survivorCpp;
-      } else {
-        cppB = 0;
-        oasGrossB = 0;
-        cppA = survivorCpp;
-      }
-    }
-    return { cppA, cppB, oasGrossA, oasGrossB };
-  }
 
-  // Mandatory RRIF minimum withdrawals for the year, from the pooled RRSP/RRIF
-  // balance. Each partner is assumed to own half (the whole balance once only
-  // one partner remains), and the deceased partner's minimum drops out in the
-  // survivor period. rrifA/rrifB are ordinary income; `rmd` is capped at the balance.
-  function requiredDistributions({
-    traditional,
-    bondTraditional,
-    age,
-    ageB,
-    singlePerson,
-    isSurvivorPeriod,
-    deceasedIsA,
-  }) {
-    const traditionalBeforeRmd = traditional + bondTraditional,
-      traditionalShare =
-        singlePerson || isSurvivorPeriod ? traditionalBeforeRmd : traditionalBeforeRmd / 2;
-    let rrifA = rrifMinPct(age) * traditionalShare,
-      rrifB = !singlePerson ? rrifMinPct(ageB) * traditionalShare : 0;
-    if (isSurvivorPeriod) {
-      if (deceasedIsA) rrifA = 0;
-      else rrifB = 0;
-    }
-    const rmd = Math.min(traditionalBeforeRmd, rrifA + rrifB);
-    return { traditionalBeforeRmd, rrifA, rrifB, rmd };
-  }
 
-  // Shelter cost for one year: rent, or (once a home is owned) mortgage payment
-  // + maintenance + property tax and insurance, plus the one-off cash cost in
-  // the year a future purchase happens. In the purchase year the FHSA balance
-  // pays part of that cost first, and whatever is left rolls tax-free into the
-  // TFSA (simplified; CRA also allows a tax-free RRSP rollover).
-  // Also reports the balance-sheet change that comes with it: `mortgage` is the
-  // loan balance when it changes this year, `homeValue` the home's value in the
-  // purchase year, `fhsaToRoth` the FHSA amount moving to the TFSA (the caller
-  // then empties the FHSA); each is null when nothing changes. projectedExpense()
-  // reads only `.housing` and passes no FHSA balance.
-  function housingForYear(year, factor, schedule, futureBuy, fhsa = 0) {
-    const ownsHome =
-      state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
-    const propCosts = ownsHome
-      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-        state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
-      : 0;
-    const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-    const propertyTaxPaid = ownsHome ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) : 0;
-    if (state.tenure === 'own') {
-      const annualPI = schedule.payments[year] || 0;
-      return {
-        housing: annualPI + state.maintenance * factor + propCosts,
-        mortgage: schedule.balances[year] || 0,
-        homeValue: null,
-        fhsaToRoth: null,
-        rentPaid: 0,
-        propertyTaxPaid,
-      };
-    }
-    if (state.tenure === 'rent' || year < futureBuy.buyYear)
-      return { housing: rent, mortgage: null, homeValue: null, fhsaToRoth: null, rentPaid: rent, propertyTaxPaid: 0 };
-    const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
-    let purchaseCashNet = year === futureBuy.buyYear ? futureBuy.purchaseCash : 0;
-    let fhsaToRoth = null;
-    if (year === futureBuy.buyYear) {
-      const fromFhsa = Math.min(fhsa, purchaseCashNet);
-      purchaseCashNet -= fromFhsa;
-      fhsaToRoth = fhsa - fromFhsa;
-    }
-    return {
-      housing: buyAnnualPI + state.maintenance * factor + propCosts + purchaseCashNet,
-      mortgage: futureBuy.buySchedule.balances[year] || 0,
-      homeValue: year === futureBuy.buyYear ? futureBuy.homeValueAtPurchase : null,
-      fhsaToRoth,
-      rentPaid: 0,
-      propertyTaxPaid,
-    };
-  }
 
   // The tax profile handed to taxFor() for the year, and each partner's income. Canada taxes spouses as two individuals, so
   // `totalA`/`totalB` are each partner's own income (zero if deceased), and with
@@ -2246,63 +1900,8 @@ import { getBenefits } from './core/get-benefits.js';
     return { aliveA, aliveB, totalA, totalB, splitA, splitB, profile };
   }
 
-  // One year of growth on every account. Stocks (taxable/RRSP/TFSA and the FHSA),
-  // bonds (the three bond-reserve buckets) and cash each grow at their own rate;
-  // the home appreciates only when owned. Dividends and interest were already
-  // taxed this year (`inv`), so reinvesting them raises cost basis rather than
-  // leaving untaxed embedded gain.
-  function growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv }) {
-    bal.taxable *= 1 + stockReturn;
-    bal.traditional *= 1 + stockReturn;
-    bal.roth *= 1 + stockReturn;
-    bal.bondTaxable *= 1 + bondReturn;
-    bal.bondTraditional *= 1 + bondReturn;
-    bal.bondRoth *= 1 + bondReturn;
-    bal.cash *= 1 + hysa;
-    bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
-    bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
-    bal.fhsa *= 1 + stockReturn;
-    if (state.tenure === 'own' || state.tenure === 'rentThenBuy') bal.home *= 1 + homeGrowth;
-  }
 
-  // The RRSP meltdown ladder: moves the year's meltdown amount from the pooled
-  // RRSP balance (then the RRSP bond bucket) into the TFSA, after it has been
-  // withdrawn and taxed as income.
-  function applyRrspMeltdown(bal, meltdownAmount) {
-    if (meltdownAmount <= 0) return;
-    const fromTradMelt = Math.min(bal.traditional, meltdownAmount);
-    bal.traditional -= fromTradMelt;
-    bal.bondTraditional = Math.max(0, bal.bondTraditional - (meltdownAmount - fromTradMelt));
-    bal.roth += meltdownAmount;
-  }
 
-  // Healthcare and long-term-care cost for the year. Provincial coverage is
-  // universal at every age, so `healthcare` is the supplemental private
-  // insurance once retired (flat; no age-65 change in Canada).
-    // A couple is assumed to have coverage available for both partners as
-    // long as either one is still working — a retired partner isn't
-    // paying for private supplemental insurance solo while their spouse
-    // still has a job-based plan they can be added to. So for a couple,
-    // this cost doesn't apply until BOTH partners have stopped working.
-    // Single-person and survivor cases are unaffected — there's no
-    // spouse's plan to fall back on.
-  function healthcareCost({ workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB }) {
-    const bothRetired = !workingA && !workingB;
-    const healthcare = singlePerson
-      ? (workingA ? 0 : state.healthcare) * factor * medicalGrowth(year)
-      : isSurvivorPeriod
-        ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor * medicalGrowth(year)
-        : (bothRetired ? state.healthcare : 0) * factor * medicalGrowth(year);
-    const ltc = state.ltcEnabled
-      ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-          factor * medicalGrowth(year) +
-        (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
-          ? state.ltcYearlyB
-          : 0) *
-          factor * medicalGrowth(year)
-      : 0;
-    return { healthcare, ltc };
-  }
 
   // Employee CPP/QPP, QPIP and EI contributions on this year's wages (net of pre-tax health
   // premiums), both partners. Separate from taxFor(), which covers income tax.
@@ -3225,29 +2824,6 @@ import { getBenefits } from './core/get-benefits.js';
   }
 
   // @@shared:15-renderPlanHeadline begin
-  // The positive counterpart to renderShortfallBanner(): when the plan
-  // doesn't deplete, says so plainly with the actual numbers (end age,
-  // end assets) rather than leaving the top of the dashboard silent.
-  // Mutually exclusive with the shortfall banner — exactly one of the two
-  // is ever visible, since both key off the same selected.depletedAge.
-  function renderPlanHeadline(selected) {
-    const banner = document.getElementById('planHeadlineBanner');
-    if (selected.depletedAge) {
-      banner.hidden = true;
-      banner.innerHTML = '';
-      return;
-    }
-    banner.hidden = false;
-    const endAge = Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB);
-    const end = selected.rows.at(-1);
-    const endValue = compact(displayValue(end.total, end.year));
-    const retiring = state.singlePerson
-      ? `retiring at ${state.retireAgeA}`
-      : state.retireAgeA === state.retireAgeB
-        ? `retiring at ${state.retireAgeA}`
-        : `retiring at ${state.retireAgeA} / ${state.retireAgeB}`;
-    banner.innerHTML = `<b>On track:</b> ${retiring}, the plan is projected to last through age ${endAge}+ with about ${endValue} remaining (in ${mode === 'real' ? "today's" : 'future'} dollars).`;
-  }
   function renderShortfallBanner(selected) {
     const banner = document.getElementById('shortfallBanner');
     const driver = analyzeShortfallDrivers(selected);
@@ -3436,75 +3012,7 @@ import { getBenefits } from './core/get-benefits.js';
       },
     },
   ];
-  // @@shared:16-decisionEndAssets begin
-  // "Explore a question" menu: a handful of pre-wired comparisons over
-  // logic that already exists elsewhere (simulate()'s retireAgeA/B override
-  // params, and the mutate/simulate/restore idiom SENSITIVITY_LEVERS uses),
-  // presented as a plain-language answer instead of another chart to
-  // interpret. `compare` questions render a small table + takeaway sentence
-  // into #decisionAnswer; `open` questions just scroll to and open an
-  // existing card. Keep this list short and additive — each entry should
-  // reuse a comparison the app already knows how to run, not invent new
-  // modeling.
-  function decisionEndAssets(sim) {
-    const r = sim.rows.at(-1);
-    return displayValue(r.total, r.year);
-  }
-  function decisionDepletionLabel(sim) {
-    return sim.depletedAge ? `age ${sim.depletedAge}` : 'the end of the plan';
-  }
-  function decisionDeltaPhrase(fromSim, toSim) {
-    const fromEnd = decisionEndAssets(fromSim),
-      toEnd = decisionEndAssets(toSim),
-      delta = toEnd - fromEnd,
-      // Once a plan is fully depleted, "end assets" is $0 either way — the
-      // real story is the depletion age, not a meaningless $0 delta.
-      assetsPart =
-        fromEnd <= 1 && toEnd <= 1
-          ? 'still depletes the portfolio either way'
-          : `${delta >= 0 ? 'adds' : 'costs'} ${compact(Math.abs(delta))} in end assets`;
-    if (fromSim.depletedAge === toSim.depletedAge) return assetsPart;
-    return `${assetsPart} and moves your depletion point from ${decisionDepletionLabel(fromSim)} to ${decisionDepletionLabel(toSim)}`;
-  }
-  // @@shared:16-decisionEndAssets end
   // A compact one-line preview shown right on each "Explore a question"
-  // @@shared:compactDecisionDelta begin
-  // button, so the likely answer is visible at a glance without clicking
-  // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
-  // Deliberately reuses the two most extreme rows a compare-question's
-  // run() already returns (rows[0]/rows.at(-1) — for a 2-row question
-  // that's just both rows, for a 3-row question like retireTiming
-  // it's the two endpoints, skipping the middle "current" row) rather than
-  // introducing a second, separate metric: the full comparison table
-  // behind the click uses the same decisionEndAssets()/depletedAge data,
-  // so the preview and the detail it expands into never disagree with each
-  // other. Doesn't use a success-rate delta (the "+6pts" a UX suggestion
-  // proposed) on purpose — that would need a historical backtest per
-  // question, and the whole reason the Plan Status Bar's own backtest is
-  // debounced (see CLAUDE.md) is that it's too expensive to run this
-  // casually; end-assets + depletion age are already computed as part of
-  // run()'s normal simulate() calls, so this preview costs nothing extra.
-  function compactDecisionDelta(rows) {
-    const left = rows[0],
-      right = rows[rows.length - 1],
-      fromEnd = decisionEndAssets(left.sim),
-      toEnd = decisionEndAssets(right.sim),
-      delta = toEnd - fromEnd,
-      dollarPart =
-        fromEnd <= 1 && toEnd <= 1
-          ? 'depletes either way'
-          : `${delta >= 0 ? '+' : '-'}${compact(Math.abs(delta))} end assets`,
-      lastsPart =
-        left.sim.depletedAge === right.sim.depletedAge
-          ? ''
-          : ` · lasts to ${decisionDepletionLabel(right.sim)}`,
-      // Strip only the "(current)" annotation some labels carry — unlike a
-      // substantive parenthetical (e.g. a conversion ladder's age window), that
-      // tag is just noise once shown as A → B on a button.
-      stripCurrent = (s) => s.replace(/\s*\(current\)\s*$/, '').trim();
-    return `${stripCurrent(left.label)} → ${stripCurrent(right.label)}: ${dollarPart}${lastsPart}`;
-  }
-  // @@shared:compactDecisionDelta end
   // @@shared:17-renderDecisionQuestionPreviews begin
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
   // ones (sensitivity, returns) don't compare two scenarios, they just hand
@@ -3532,26 +3040,6 @@ import { getBenefits } from './core/get-benefits.js';
     if (document.getElementById('workspace').dataset.mobileView === 'inputs') setMobileView('dashboard');
   }
   // @@shared:17-renderDecisionQuestionPreviews end
-  function renderDecisionCompareTable(rows) {
-    // "Investments last through" follows the same "Age {maxLifeExpectancy}+"
-    // convention as the main scenario-compare table and the conversion-ladder
-    // optimizer table (computeScenarioMetrics()/renderRothOptimizer() above) —
-    // a plan that never depletes is described by the age it was actually
-    // modeled to, not the word "Never", which read as an error/edge-case
-    // rather than a healthy outcome.
-    const maxLifeExpectancy = Math.max(
-      state.lifeExpectancyA,
-      state.singlePerson ? 0 : state.lifeExpectancyB,
-    );
-    const body = rows
-      .map(({ label, sim }) => {
-        const r = sim.rows.find((row) => row.year === sim.retirementYear) || sim.rows[0];
-        const lastsTo = sim.depletedAge ? `Age ${sim.depletedAge}` : `Age ${maxLifeExpectancy}+`;
-        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValue(r.investable, r.year))}</td><td><span class="table-status ${sim.depletedAge ? 'fail' : ''}">${lastsTo}</span></td><td>${compact(decisionEndAssets(sim))}</td></tr>`;
-      })
-      .join('');
-    return `<div class="table-wrap decision-table-wrap"><table class="decision-compare-table"><thead><tr><th>Scenario</th><th>Investable</th><th>Lasts to</th><th>End assets</th></tr></thead><tbody>${body}</tbody></table></div>`;
-  }
   const DECISION_QUESTIONS = {
     retireTiming: {
       kind: 'compare',
@@ -3880,56 +3368,6 @@ import { getBenefits } from './core/get-benefits.js';
           `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEstate)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
-  }
-  // Builds the source/use category breakdown for a single projection year,
-  // for the cash-flow (Sankey-style) diagram. Any gap between what income
-  // covers and what taxes+spending require is shown as either a draw from
-  // savings ("From portfolio") or a surplus added to it ("To savings") —
-  // this planner doesn't track which specific dollar funded which specific
-  // expense, so the diagram pools all sources into a single "cash flow" hub
-  // and fans back out to categories, rather than implying specific
-  // source-to-expense pairings the underlying data can't support.
-  // "Traditional withdrawal" and "Taxable/brokerage" are each the FULL
-  // amount drawn from that tax-status bucket, folding in whatever came from
-  // the same-status slice of the bond reserve (bondTraditional/bondTaxable)
-  // — otherwise a year that drained the equity sub-account but still had
-  // money sitting in the bond sub-account would make traditional/taxable
-  // withdrawals look artificially small next to a vague "from portfolio"
-  // catch-all. "From portfolio" now only covers Roth, cash, and home-equity
-  // draws (plus any pooled equity/pension shortfall not itemized here).
-  function computeSankeyFlow(row) {
-    const dark = isDarkTheme(),
-      val = (n) => Math.max(0, displayValue(n || 0, row.year)),
-      muted = dark ? '#898781' : '#898781';
-    const sources = [
-      { label: 'Wages', value: val(row.wages), color: sankeyHue('blue', dark) },
-      { label: 'CPP + OAS', value: val(row.ss), color: sankeyHue('orange', dark) },
-      { label: 'Pension', value: val(row.pension), color: sankeyHue('aqua', dark) },
-      { label: 'Traditional withdrawal', value: val(row.traditionalWithdrawn), color: sankeyHue('yellow', dark) },
-      { label: 'Taxable/brokerage', value: val(row.taxableWithdrawn), color: sankeyHue('magenta', dark) },
-      { label: 'GIS / Allowance', value: val((row.benefitGis || 0) + (row.benefitAllowance || 0)), color: sankeyHue('green', dark) },
-      { label: 'Child benefits', value: val((row.benefitCcb || 0) + (row.benefitProvChild || 0)), color: sankeyHue('green', dark) },
-      { label: 'Credits and provincial seniors', value: val((row.benefitCgeb || 0) + (row.benefitProvCredit || 0) + (row.benefitProvSenior || 0)), color: sankeyHue('green', dark) },
-    ].filter((s) => s.value > 1);
-    const uses = [
-      { label: 'Taxes', value: val(row.tax), color: sankeyHue('blue', dark) },
-      { label: 'Housing', value: val(row.housing), color: sankeyHue('orange', dark) },
-      { label: 'Healthcare', value: val(row.healthcare), color: sankeyHue('aqua', dark) },
-      { label: 'Long-term care', value: val(row.ltc), color: sankeyHue('yellow', dark) },
-      { label: 'Loan payments', value: val(row.loanPayment), color: sankeyHue('magenta', dark) },
-      {
-        label: 'Additional expenses',
-        value: val((row.extraExpense || 0) + (row.lumpExpense || 0)),
-        color: sankeyHue('violet', dark),
-      },
-      { label: 'Discretionary spending', value: val(row.baseSpend), color: sankeyHue('green', dark) },
-    ].filter((u) => u.value > 1);
-    const totalIn = sources.reduce((a, s) => a + s.value, 0),
-      totalOut = uses.reduce((a, u) => a + u.value, 0);
-    if (totalIn > totalOut + 1) uses.push({ label: 'To savings', value: totalIn - totalOut, color: muted, plug: true });
-    else if (totalOut > totalIn + 1)
-      sources.push({ label: 'From portfolio', value: totalOut - totalIn, color: muted, plug: true });
-    return { sources, uses, total: Math.max(totalIn, totalOut) };
   }
   // @@shared:19-layoutSankeyColumn begin
   let sankeyTooltipEl = null;
@@ -4435,218 +3873,7 @@ import { getBenefits } from './core/get-benefits.js';
   }
 
   // @@shared:20-renderTable begin
-  function renderTable(sim) {
-    const years = [
-      0,
-      state.retireAgeA - state.ageA,
-      !state.singlePerson ? state.retireAgeB - state.ageB : null,
-      55 - state.ageA,
-      62 - state.ageA,
-      67 - state.ageA,
-      75 - state.ageA,
-      82 - state.ageA,
-      90 - state.ageA,
-      state.lifeExpectancyA - state.ageA,
-    ]
-      .filter(
-        (v, i, a) =>
-          Number.isFinite(v) && v >= 0 && v <= sim.rows.at(-1).year && a.indexOf(v) === i,
-      )
-      .sort((a, b) => a - b);
-    document.getElementById('projectionRows').innerHTML = years
-      .map((year) => {
-        const r = sim.rows.find((x) => x.year === year);
-        if (!r) return '';
-        const vals = [
-          'taxable',
-          'bonds',
-          'traditional',
-          'roth',
-          'cash',
-          'homeEquity',
-          'loanBalance',
-          'total',
-        ]
-          .map((k) => `<td>${money(displayValue(r[k], r.year))}</td>`)
-          .join('');
-        let cls =
-          r.investable <= 0
-            ? 'fail'
-            : r.investable < state.spending * Math.pow(1 + pct(state.inflation), r.year) * 3
-              ? 'warn'
-              : '';
-        let status = state.singlePerson
-          ? r.workingA
-            ? 'Working'
-            : r.investable <= 0
-              ? 'Depleted'
-              : 'Retired'
-          : r.workingA && r.workingB
-            ? 'Both working'
-            : r.workingA
-              ? 'A working'
-              : r.workingB
-                ? 'B working'
-                : r.investable <= 0
-                  ? 'Depleted'
-                  : 'Retired';
-        return `<tr><td><b>${r.age}</b></td>${state.singlePerson ? '' : `<td><b>${r.ageB}</b></td>`}<td><span class="table-status ${cls}">${status}</span></td>${vals}</tr>`;
-      })
-      .join('');
-  }
 
-  // Renders a Monte Carlo run as a percentile "fan" (10-90 and 25-75 bands
-  // plus a median line) rather than one line per path — with 500-2000 paths,
-  // drawing every path individually would be unreadable and slow. Shares the
-  // axis/gridline/log-scale logic with renderChart by design, kept as a
-  // parallel implementation to avoid destabilizing that function.
-  function renderMonteCarloChart(
-    mc,
-    valueFn = (r) => (mode === 'real' ? r.total / r.cumFactor : r.total),
-  ) {
-    const canvas = document.getElementById('chart'),
-      rect = canvas.getBoundingClientRect(),
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(600, rect.width * dpr);
-    canvas.height = Math.max(300, rect.height * dpr);
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    const w = canvas.width / dpr,
-      h = canvas.height / dpr,
-      p = { l: 66, r: 18, t: 16, b: 40 };
-    const maxAge = state.ageA + mc.projectionYears;
-    const pctl = (sortedVals, q) => {
-      const idx = (sortedVals.length - 1) * q,
-        lo = Math.floor(idx),
-        hi = Math.ceil(idx);
-      return sortedVals[lo] + (sortedVals[hi] - sortedVals[lo]) * (idx - lo);
-    };
-    const bands = [];
-    for (let year = 0; year <= mc.projectionYears; year++) {
-      const vals = mc.paths.map((pth) => valueFn(pth.rows[year])).sort((a, b) => a - b);
-      bands.push({
-        age: state.ageA + year,
-        p10: pctl(vals, 0.1),
-        p25: pctl(vals, 0.25),
-        p50: pctl(vals, 0.5),
-        p75: pctl(vals, 0.75),
-        p90: pctl(vals, 0.9),
-      });
-    }
-    const all = bands.flatMap((b) => [b.p10, b.p90]);
-    let min = Math.min(0, ...all),
-      max = Math.max(1, ...all);
-    if (min < 0) min *= 1.1;
-    max *= 1.08;
-    const x = (age) => p.l + ((age - state.ageA) / (maxAge - state.ageA)) * (w - p.l - p.r);
-    let y, floor, logMin, logMax;
-    if (logScale) {
-      floor = Math.max(1, max * 0.0005);
-      logMax = Math.log10(Math.max(max, floor * 10));
-      logMin = Math.log10(floor);
-      y = (v) =>
-        p.t + ((logMax - Math.log10(Math.max(v, floor))) / (logMax - logMin)) * (h - p.t - p.b);
-    } else {
-      y = (v) => p.t + ((max - v) / (max - min)) * (h - p.t - p.b);
-    }
-    ctx.clearRect(0, 0, w, h);
-    ctx.font = '12px Inter,system-ui';
-    ctx.fillStyle = chartAxisColor();
-    ctx.strokeStyle = chartGridColor();
-    ctx.lineWidth = 1;
-    if (logScale) {
-      for (let i = 0; i <= 6; i++) {
-        const val = Math.pow(10, logMin + (logMax - logMin) * (i / 6)),
-          yy = y(val);
-        ctx.beginPath();
-        ctx.moveTo(p.l, yy);
-        ctx.lineTo(w - p.r, yy);
-        ctx.stroke();
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(compact(val), p.l - 9, yy);
-      }
-    } else {
-      for (let i = 0; i <= 5; i++) {
-        const val = min + (max - min) * (i / 5),
-          yy = y(val);
-        ctx.beginPath();
-        ctx.moveTo(p.l, yy);
-        ctx.lineTo(w - p.r, yy);
-        ctx.stroke();
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(compact(val), p.l - 9, yy);
-      }
-    }
-    Array.from({ length: 7 }, (_, i) => Math.round(state.ageA + (maxAge - state.ageA) * (i / 6)))
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .forEach((age) => {
-        ctx.fillStyle = chartAxisColor();
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(xAxisLabel(age), x(age), h - p.b + 10);
-      });
-    if (!logScale) {
-      const zero = y(0);
-      ctx.strokeStyle = chartZeroLineColor();
-      ctx.beginPath();
-      ctx.moveTo(p.l, zero);
-      ctx.lineTo(w - p.r, zero);
-      ctx.stroke();
-    }
-    const drawBand = (hiKey, loKey, fill) => {
-      ctx.beginPath();
-      bands.forEach((b, i) => {
-        const px = x(b.age),
-          py = y(b[hiKey]);
-        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-      });
-      for (let i = bands.length - 1; i >= 0; i--) {
-        const px = x(bands[i].age),
-          py = y(bands[i][loKey]);
-        ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fillStyle = fill;
-      ctx.fill();
-    };
-    drawBand('p90', 'p10', 'rgba(37,99,235,0.12)');
-    drawBand('p75', 'p25', 'rgba(37,99,235,0.26)');
-    ctx.beginPath();
-    bands.forEach((b, i) => {
-      const px = x(b.age),
-        py = y(b.p50);
-      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-    });
-    ctx.strokeStyle = '#2563eb';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    const drawRetirementMarker = (chartAge, label, color, offset = 0) => {
-      if (chartAge < state.ageA || chartAge > maxAge) return;
-      const rx = x(chartAge);
-      ctx.save();
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(rx, p.t);
-      ctx.lineTo(rx, h - p.b);
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = color;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(label, rx + 2, p.t + 2 + offset);
-    };
-    drawRetirementMarker(state.retireAgeA, state.singlePerson ? 'Retire' : 'A retires', '#475569');
-    if (!state.singlePerson)
-      drawRetirementMarker(
-        state.ageA + (state.retireAgeB - state.ageB),
-        'B retires',
-        '#0e7490',
-        14,
-      );
-  }
 
   function renderChart(series, valueFn = (r) => displayValue(r.total, r.year)) {
     const canvas = document.getElementById('chart'),
@@ -5317,187 +4544,6 @@ import { getBenefits } from './core/get-benefits.js';
     URL.revokeObjectURL(url);
   }
   // @@shared:22-exportCsv end
-  const DYN = {
-    loans: {
-      key: 'loans',
-      container: 'loanFields',
-      prefix: 'loan',
-      noun: 'loan',
-      rowTitle: (i) => `Loan ${i + 1}`,
-      addLabel: '+ Add a loan',
-      note: 'Car loans, personal loans, and similar — separate from your mortgage.',
-      tip: "Each loan's payment and remaining balance are included in the projection. Add as many as you have; remove one with the × on its row.",
-      fresh: () => ({ principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
-      fields: [
-        {
-          key: 'principal',
-          kind: 'money',
-          label: 'Original principal',
-          short: 'Amount originally borrowed',
-          tip: "The amount originally borrowed, before any payments. Used with the loan term below to work out the actual fixed payment — it's not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.",
-          step: 1000,
-        },
-        { key: 'balance', kind: 'money', label: 'Remaining balance', step: 1000 },
-        { key: 'rate', kind: 'num', label: 'Interest rate', min: 0, max: 40, step: 0.01 },
-        {
-          key: 'term',
-          kind: 'num',
-          label: 'Loan term (years)',
-          short: 'Original term, not years remaining',
-          tip: "The loan's original term — not how many years you have left. If you've paid extra, the model works out the real remaining time from your current balance.",
-          min: 0,
-          max: 50,
-          step: 1,
-        },
-        { key: 'extra', kind: 'money', label: 'Extra monthly principal', step: 50 },
-      ],
-    },
-    incomeSources: {
-      key: 'incomeSources',
-      container: 'incomeSourceFields',
-      prefix: 'incSrc',
-      noun: 'income stream',
-      rowTitle: (i) => `Income stream ${i + 1}`,
-      addLabel: '+ Add an income stream',
-      note: 'Recurring income over an age window.',
-      tip: 'e.g. rental income or alimony. Taxed as ordinary income attributed to Partner A. Add as many streams as you need; remove one with the × on its row.',
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth }),
-      fields: [
-        {
-          key: 'amount',
-          kind: 'money',
-          label: 'Annual amount',
-          short: "In today's dollars",
-          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a stream that starts years from now begins higher than the number you enter.",
-          step: 1000,
-        },
-        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 100, step: 1 },
-        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: "Last age it's received", min: 18, max: 100, step: 1 },
-        ...DYN_GROWTH_FIELDS('income'),
-      ],
-    },
-    oneTimeIncome: {
-      key: 'oneTimeIncome',
-      container: 'oneTimeIncomeFields',
-      prefix: 'oneTime',
-      noun: 'lump sum',
-      rowTitle: (i) => `One-time income ${i + 1}`,
-      addLabel: '+ Add a one-time income',
-      note: 'Tax-free lump sums received at a specific age.',
-      tip: "e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
-      fresh: () => ({ amount: 0, age: 65, flat: false }),
-      fields: [
-        { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
-        { key: 'age', kind: 'num', label: 'Received at Partner A age', min: 18, max: 100, step: 1 },
-        {
-          key: 'flat',
-          kind: 'check',
-          label: 'Fixed amount (no inflation)',
-          short: 'Exact dollars at that age',
-          tip: "Checked: the amount is the exact dollars received at that age — it is not inflated from today. Unchecked: the amount is in today's dollars and is adjusted for inflation to the year it is received.",
-        },
-      ],
-    },
-    extraExpenses: {
-      key: 'extraExpenses',
-      container: 'extraExpenseFields',
-      prefix: 'extraExp',
-      noun: 'expense',
-      rowTitle: (i) => `Expense ${i + 1}`,
-      addLabel: '+ Add an expense',
-      note: 'Recurring costs on top of household spending, over an age window.',
-      tip: "e.g. travel in early retirement, tuition, or support for a family member. Paid after tax on top of the household spending above. Unlike household spending, it isn't reduced by the survivor spending percentage or by guardrails. Add as many as you need; remove one with the × on its row.",
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.inflation }),
-      fields: [
-        {
-          key: 'amount',
-          kind: 'money',
-          label: 'Annual amount',
-          short: "In today's dollars, after tax",
-          tip: "Entered in today's dollars and grown from today at the rate chosen below, so an expense that starts years from now begins higher than the number you enter.",
-          step: 500,
-        },
-        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 100, step: 1 },
-        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: 'Last age it applies', min: 18, max: 100, step: 1 },
-        ...DYN_GROWTH_FIELDS('expense'),
-      ],
-    },
-    spendingTiers: {
-      key: 'spendingTiers',
-      container: 'spendingTierFields',
-      prefix: 'tier',
-      noun: 'spending change',
-      rowTitle: (i) => `Spending change ${i + 1}`,
-      addLabel: '+ Add a spending change',
-      note: 'Age-based changes to household spending.',
-      tip: "e.g. mortgage payoff, an empty nest, or slowing down in your 80s. While a change is active it replaces the household spending figure above. When two overlap, the one that started later wins; after a change ends, spending returns to the figure above (or an earlier change that is still active). Add as many as you need; remove one with the × on its row.",
-      fresh: () => ({ amount: 60000, startAge: 65, endAge: 110, followGrowth: true, growth: defaults.inflation }),
-      fields: [
-        {
-          key: 'amount',
-          kind: 'money',
-          label: 'New annual household spending',
-          short: "In today's dollars",
-          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a change that starts years from now begins higher than the number you enter. Replaces — not adds to — the household spending figure.",
-          step: 1000,
-        },
-        { key: 'startAge', kind: 'num', label: 'Starts at Partner A age', min: 18, max: 120, step: 1 },
-        { key: 'endAge', kind: 'num', label: 'Ends at Partner A age', short: 'Last age it applies', min: 18, max: 120, step: 1 },
-        ...DYN_GROWTH_FIELDS('expense'),
-      ],
-    },
-    lumpExpenses: {
-      key: 'lumpExpenses',
-      container: 'lumpExpenseFields',
-      prefix: 'lumpExp',
-      noun: 'one-time expense',
-      rowTitle: (i) => `One-time expense ${i + 1}`,
-      addLabel: '+ Add a one-time expense',
-      note: 'Big, lumpy costs — optionally repeating.',
-      tip: 'e.g. a roof, a car, a wedding, or a new car every ten years. Paid in the year it occurs from your portfolio, like any other expense. It is left out of the guardrails withdrawal-rate check and the bond-reserve sizing, so one large purchase does not distort either.',
-      fresh: () => ({ amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
-      fields: [
-        {
-          key: 'amount',
-          kind: 'money',
-          label: 'Amount',
-          short: "Today's dollars unless fixed below",
-          tip: "Entered in today's dollars and grown from today at the rate chosen below, so a purchase years away costs more in future dollars than the number you enter. Check 'Fixed amount' to use the exact dollars instead.",
-          step: 1000,
-        },
-        { key: 'age', kind: 'num', label: 'Occurs at Partner A age', short: 'First (or only) occurrence', min: 18, max: 100, step: 1 },
-        {
-          key: 'repeatEvery',
-          kind: 'num',
-          label: 'Repeats every (years)',
-          short: '0 = one time only',
-          tip: "Leave at 0 for a single expense. Enter a number to have it recur — e.g. 10 for a new car every ten years — from the age above through the 'Repeat until' age.",
-          min: 0,
-          max: 50,
-          step: 1,
-          int: true,
-        },
-        {
-          key: 'untilAge',
-          kind: 'num',
-          label: 'Repeat until Partner A age',
-          short: 'Last age it can occur',
-          min: 18,
-          max: 120,
-          step: 1,
-          showIf: (it) => Number(it.repeatEvery) > 0,
-        },
-        {
-          key: 'flat',
-          kind: 'check',
-          label: 'Fixed amount (no inflation)',
-          short: 'Exact dollars at that age',
-          tip: "Checked: the amount is the exact dollars paid at that age (every occurrence, if it repeats) — it is not inflated or grown from today. Unchecked: the amount is in today's dollars and grows at the rate below.",
-        },
-        ...DYN_GROWTH_FIELDS('expense'),
-      ],
-    },
-  };
   DYN.children = {
     key: 'children',
     container: 'childFields',
@@ -5542,26 +4588,6 @@ import { getBenefits } from './core/get-benefits.js';
     ],
   };
   // @@shared:23-dynFieldHtml begin
-  function dynFieldHtml(spec, f, item, i) {
-    const id = `${spec.prefix}${i}${f.key[0].toUpperCase()}${f.key.slice(1)}`,
-      small = f.short ? `<small>${escapeHtml(f.short)}</small>` : '',
-      wrapAttrs = `class="field" data-dyn-wrap="${f.key}"${f.showIf && !f.showIf(item) ? ' hidden' : ''}`;
-    if (f.kind === 'check') {
-      return `<div ${wrapAttrs}><label for="${id}"><input id="${id}" type="checkbox" data-dyn-i="${i}" data-dyn-k="${f.key}" ${item[f.key] ? 'checked' : ''}> ${dynLabel(f.label, f.tip)}${small}</label></div>`;
-    }
-    if (f.kind === 'select') {
-      const opts = f.options
-        .map(([v, l]) => `<option value="${escapeHtml(v)}"${String(item[f.key]) === v ? ' selected' : ''}>${escapeHtml(l)}</option>`)
-        .join('');
-      return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><select id="${id}" data-dyn-i="${i}" data-dyn-k="${f.key}">${opts}</select></div>`;
-    }
-    const money = f.kind === 'money' ? ' class="money"' : '',
-      bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`,
-      // `blank: true` (opt-in): a missing value shows an empty box, with an optional placeholder.
-      value = f.blank && item[f.key] === undefined ? '' : Number(item[f.key]) || 0,
-      placeholder = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
-    return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds}${placeholder} value="${value}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
-  }
   function renderDynList(name, force) {
     const spec = DYN[name],
       container = document.getElementById(spec.container),

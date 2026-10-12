@@ -1,3 +1,6 @@
+import { decisionDepletionLabel, decisionEndAssets } from './decision-end-assets.js';
+import { compact } from './money-format.js';
+
   // button, so the likely answer is visible at a glance without clicking
   // in first — e.g. "3 yrs earlier → 3 yrs later: +$240k · lasts to age 98".
   // Deliberately reuses the two most extreme rows a compare-question's
@@ -13,7 +16,7 @@
   // debounced (see CLAUDE.md) is that it's too expensive to run this
   // casually; end-assets + depletion age are already computed as part of
   // run()'s normal simulate() calls, so this preview costs nothing extra.
-  function compactDecisionDelta(rows) {
+  export function compactDecisionDelta(rows) {
     const left = rows[0],
       right = rows[rows.length - 1],
       fromEnd = decisionEndAssets(left.sim),
