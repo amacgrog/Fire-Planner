@@ -369,7 +369,7 @@ Each planner is one big IIFE. Core shape:
   branch splits housing deductions 50/50. `solveRothConversion` uses a conservative
   lower bound (age-adjusted standard, or property tax + interest if larger; no
   senior deduction, no state tax). `mortgageSchedule()` and `buildDeferredMortgage()`
-  (shared fragment `07-mortgagePayment`) now also return a per-year `interest` array.
+  (now `src/shared/core/spending-and-loans.js`; see `docs/superpowers/inventory/stage2-region-map.md`) now also return a per-year `interest` array.
   Canada has no equivalent in this batch. The Annual property tax field line sits
   between two shared partials (`medicalInflation` ends before it,
   `propertyTaxGrowth` starts after it) so each planner can word its label
@@ -458,7 +458,7 @@ Each planner is one big IIFE. Core shape:
   contributions; extra income streams are not earned income. The no-children path returns a shared constant and
   leaves the float order of the sum untouched (snapshot-exact). The two-filer branch puts the credits on Partner A.
 - **Tax-code hot-path rules (7D part 2).** `taxFor` is the hottest function (a withdrawal solve probes it 25 to 50 times
-  per year), so: `taxIndexFactor(yearIndex)` (shared fragment `06-histTaxFactors`) remembers the plan's own factor per whole
+  per year), so: `taxIndexFactor(yearIndex)` (now `src/shared/core/year-factors.js`; see the region map) remembers the plan's own factor per whole
   year index while `state.inflation` is the value it was computed for (`Math.pow` was a fifth of a projection; the historical
   path still reads its own per-run array first); `drawTaxable`'s bisection computes the no-draw `taxFor` once, not per probe
   (the other solvers already did). Measured and rejected, do not retry: a memo inside `standardDeduction`, a conformity-
@@ -732,7 +732,7 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
   (`import { a, b } from '#country/<name>'`). The first seam is `#country/storage-key`, used by `src/shared/ui/storage.js`.
   To add a seam: create `src/us/<name>.js` and `src/canada/<name>.js`, import from `#country/<name>` in shared code, run
   `node tests/country_contract.js`.
-- **Checks that guard this:** `tests/closure_names.js` fails on any name a `main.js` uses without declaring (esbuild does not
+- **Checks that guard this:** `tests/closure_names.js` fails on any name a source file under `src/` uses without declaring (esbuild does not
   report that; stage 1 edits remove declarations), `npm run analyze` regenerates `docs/superpowers/inventory/` (run it at the
   start of each later stage), and `src/**/core/` files must not touch `document`, `window`, `localStorage` or `navigator`.
 
