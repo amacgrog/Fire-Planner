@@ -4,9 +4,8 @@
 //   node scripts/build.js --watch      rebuild whenever anything under src/ changes
 //   node scripts/build.js --sourcemap  inline a source map (development; `npm run dev` uses it)
 //   node scripts/build.js --minify     minify the script (not the default)
-//   node scripts/build.js --raw        inline main.js exactly as written, skipping esbuild
-//                                      (so also the "use strict" banner: sloppy-mode output; for debugging the build only)
 //   node scripts/build.js --out DIR    write into DIR instead of dist/
+//   (shared code imports country code as '#country/<name>'; the build passes the planner's name as the esbuild condition)
 const fs = require('fs');
 const path = require('path');
 const { assembleHtml } = require('./lib/assemble-html');
@@ -24,8 +23,7 @@ const PLANNERS = [
 const read = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 
 // A classic (non-module) IIFE so the result runs from file:// in every browser.
-async function bundleJs(entry) {
-  if (flag('--raw')) return read(entry);
+async function bundleJs(entry, country) {
   const { build } = require('esbuild');
   const result = await build({
     entryPoints: [entry],
@@ -34,6 +32,7 @@ async function bundleJs(entry) {
     write: false,
     format: 'iife',
     target: 'esnext',
+    conditions: [country],
     charset: 'utf8',
     banner: { js: '"use strict";' },
     minify: flag('--minify'),
@@ -50,7 +49,7 @@ async function buildAll() {
     const html = assembleHtml({
       shell: read(path.join(src, 'index.html')),
       css: read(path.join(src, 'styles.css')),
-      js: await bundleJs(path.join(src, 'main.js')),
+      js: await bundleJs(path.join(src, 'main.js'), dir),
     });
     fs.writeFileSync(path.join(outDir, file), html);
   }

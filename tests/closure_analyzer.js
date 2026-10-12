@@ -84,4 +84,14 @@ assert.strictEqual(uiOf('callTouch'), true, '(a) a caller of a DOM-touching func
 assert.strictEqual(uiOf('callF'), true, '(b) a caller of a DOM-touching arrow function is ui');
 assert.strictEqual(uiOf('readEl'), true, '(c) a reader of a DOM-direct value is ui');
 
+// ES-module sources: top-level imports are resolved bindings (not unknown names), and an
+// undeclared name is still reported.
+const withImport = analyze(`import { shared } from './shared.js';
+(() => {
+  function use() { return shared + missing; }
+})();
+`);
+assert.deepStrictEqual(withImport.unknownGlobals.map((g) => g.name), ['missing']);
+assert.deepStrictEqual(withImport.units.find((u) => u.label === 'use').deps, []);
+
 console.log('closure_analyzer OK');

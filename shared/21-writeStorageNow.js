@@ -35,7 +35,7 @@
   const cloneState = (s) => JSON.parse(JSON.stringify(s));
   function computeScenarioMetrics(scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let out;
     try {
       const sim = simulate();
@@ -57,20 +57,20 @@
         endAssets: displayValue(end.total, end.year),
       };
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return out;
   }
   const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
   function computeOverlaySeriesFor(name, scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let rows;
     try {
       const sim = simulate();
       rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return { name, rows };
   }
@@ -178,14 +178,14 @@
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
     snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
-    state = normalizeState(sc.state);
+    assignState(normalizeState(sc.state));
     syncControls();
     syncContributionControls();
     render();
     saveInputs();
   }
   function deleteScenario(id) {
-    scenarios = scenarios.filter((s) => s.id !== id);
+    assignScenarios(scenarios.filter((s) => s.id !== id));
     compareIds.delete(id);
     renderScenarioList();
     renderScenarioComparison();

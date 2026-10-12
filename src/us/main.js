@@ -1,3 +1,11 @@
+import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
+import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
+import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
+import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
+import { currentYear, assignCurrentYear } from './core/tax-year.js';
+import { cliffPlanStore } from './core/cliff-plan-store.js';
+import { optimizerState } from './core/optimizer-state.js';
+import { testHooks } from './core/test-hooks.js';
 (() => {
   const defaults = {
     singlePerson: false,
@@ -68,7 +76,7 @@
     // when nothing's been applied. simulate() (not simulateHistorical() —
     // same scope as withdrawalMixEnabled above) consults these as a
     // fallback at the exact two spots that already read
-    // rothBracketOverrideByAge/withdrawalMixOverrideByAge for the
+    // optimizerState.rothBracketByAge/optimizerState.withdrawalMixByAge for the
     // optimizer's own transient search, so an applied schedule behaves
     // exactly like an in-progress optimizer run that never gets un-set —
     // only for whichever ages it actually covers; other years fall through
@@ -161,26 +169,6 @@
     dismissedEstimates: [],
     dismissedUnusualAssumptions: [],
   };
-  const storageKey = 'fireCouplePlanner.massachusettsOffline.v1',
-    legacyStorageKey = 'fireCouplePlanner.v3',
-    // Feature-detected rather than a bare `window.localStorage` reference:
-    // the property itself can throw (not just return undefined) in some
-    // private-browsing modes, and a browser that exposes the property can
-    // still refuse to actually read/write it (e.g. Safari private mode
-    // historically allowed getItem but threw on setItem). Probing with a
-    // real set/remove up front means every later `storage?.` call site can
-    // stay a simple optional-chain without its own try/catch.
-    storage = (() => {
-      try {
-        const probeKey = '__firePlannerStorageProbe__';
-        window.localStorage.setItem(probeKey, '1');
-        window.localStorage.removeItem(probeKey);
-        return window.localStorage;
-      } catch {
-        return null;
-      }
-    })(),
-    SCENARIO_SCHEMA_VERSION = 1;
   // @@shared:01-LIST_MAX begin
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
@@ -674,52 +662,7 @@
     });
     return s;
   }
-  let state = normalizeState(null),
-    mode = 'real',
-    chartView = '3yr',
-    // Display-only, like chartView/mode/logScale: which partner(s)
-    // move for the ±1yr/±3yr comparison chart. 'together' shifts both
-    // partners' dates by the same amount (today's original behavior);
-    // 'gap' shifts only one partner's date, narrowing or widening the gap
-    // between the two dates. Not part of state/scenario export, and reset
-    // to 'together' on reload — see chartShiftModeRow's visibility/
-    // disabled handling in render() for why.
-    chartShiftMode = 'together',
-    // Which partner moves in 'gap' mode: null means "auto" — track
-    // whichever partner currently retires earlier, same as this
-    // feature's original behavior. 'A' or 'B' means the person explicitly
-    // picked that partner via the Vary: Partner A/B buttons, which then
-    // sticks regardless of which partner is actually earlier — full
-    // manual control, not just auto-detection.
-    chartGapPartner = null,
-    // Display-only, like chartShiftMode above: which value the chart's
-    // x-axis is labeled/scrubbed in. All three are just an affine
-    // transform of the same underlying `age` (Partner A's age) every row
-    // already carries — 'ageB' = age - ageA + state.ageB, 'year' =
-    // CURRENT_YEAR + (age - ageA) — so this never changes how rows are
-    // generated or how the chart's internal x(age) pixel-mapping works,
-    // only how tick labels and the hover-tooltip header are formatted.
-    // Not part of state/scenario export, resets to 'ageA' on reload.
-    chartXAxisMode = 'ageA',
-    logScale = false,
-    // Display-only, like the above: whether the chart card is in its
-    // CSS-overlay "expanded" (fixed, full-viewport) presentation. Not
-    // part of state/scenario export, resets to false on reload/tab
-    // switch — see setChartExpanded() for the CSS class it toggles and
-    // the best-effort real-Fullscreen/landscape-lock attempt layered on
-    // top of it for capable mobile browsers.
-    chartExpanded = false,
-    // Display-only: whether #chartToolbar (the view/x-axis/shift/path
-    // rows) is collapsed out of the way. Independent of chartExpanded —
-    // see #chartToolbarToggleBtn's CSS for exactly when it's shown/has an
-    // effect. Reset to false whenever chartExpanded turns off (in
-    // setChartExpanded()) so a stale "collapsed" state can never carry
-    // into a context where the toggle button to undo it isn't visible.
-    chartToolbarCollapsed = false,
-    mcPathCount = 1000,
-    lastProjectionView = '3yr',
-    scenarios = [],
-    compareIds = new Set();
+  assignState(normalizeState(null));
   // @@shared:02-CHART_GROUPS begin
   // Which top-level chart "view" a given chartView value belongs to — the
   // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
@@ -826,10 +769,10 @@
     storage?.removeItem(legacyStorageKey);
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
     if (saved?.state) {
-      state = normalizeState(saved.state);
+      assignState(normalizeState(saved.state));
       hadSavedState = true;
     }
-    if (['real', 'nominal'].includes(saved?.mode)) mode = saved.mode;
+    if (['real', 'nominal'].includes(saved?.mode)) assignMode(saved.mode);
   } catch {}
   // Whether it's OK to actually persist `state` yet. Starts equal to
   // `hadSavedState` (a returning visitor's data is already "personalized")
@@ -1894,7 +1837,6 @@
   // cumulative CPI, so a 1970s-style inflation sequence raises the brackets
   // along with spending instead of leaving them on a 2.5% schedule.
   // @@shared:06-histTaxFactors begin
-  let histTaxFactors = null;
   // The plan's own factor for a whole year index, remembered while state.inflation is the value it was computed
   // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
   // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.
@@ -5844,8 +5786,7 @@
   }
   // SECURE 2.0: RMDs begin at 75 for people born in 1960 or later, and at 73 for
   // those born 1951-1959. Birth year is estimated from today's age (the planner
-  // only collects age), so `currentYear` is a closure variable tests can pin.
-  let currentYear = new Date().getFullYear();
+  // only collects age), so `currentYear` (from `core/tax-year.js`) is a live binding tests can pin.
   function rmdStartAge(currentAge) {
     return currentYear - Math.round(currentAge) >= 1960 ? 75 : 73;
   }
@@ -6572,19 +6513,6 @@
   const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
-  // Cliff plan: the kept plan (null with the guard off), the state it was made for (JSON), the keep-rule table and the
-  // state object refreshCliffPlan() planned for; set by refreshCliffPlan (below afterTaxEndValueUS). Declared early so a
-  // projection at load never meets them uninitialized.
-  let cliffPlan = null,
-    cliffPlanKey = null,
-    cliffPlanReport = null,
-    cliffPlanState = null,
-    // What else the kept plan was made under (refreshCliffPlan keeps it while all of these are unchanged), and whether
-    // cliffPlan / cliffPlanReport hold a computed plan (false after a test hook set the plan by hand).
-    cliffPlanYear = null,
-    cliffPlanOverrides = null,
-    cliffPlanComputed = false,
-    cliffPlanComputes = 0; // computeCliffPlan calls from refreshCliffPlan (tests)
   const cliffPlanCache = new Map(), // JSON of a swapped-in state -> its plan (planForState)
     CLIFF_PLAN_CACHE_MAX = 16;
   function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
@@ -6788,7 +6716,6 @@
   // its "not found" branch and return the top bracket, the opposite of
   // what 0 is supposed to mean), so it's checked before bracketCeilingReal
   // is ever called.
-  let rothBracketOverrideByAge = null;
   function solveRothConversion(profile, maxAvailable, yearIndex, ageKey) {
     if (maxAvailable <= 0) return 0;
     // Transient optimizer-search override takes priority (set only for the
@@ -6798,8 +6725,8 @@
     // keyed by Partner A's age, so both engines (simulate() and
     // simulateHistorical()) pass the age. Falls through to the flat bracket.
     const bracketPct =
-      rothBracketOverrideByAge && rothBracketOverrideByAge.has(ageKey)
-        ? rothBracketOverrideByAge.get(ageKey)
+      optimizerState.rothBracketByAge && optimizerState.rothBracketByAge.has(ageKey)
+        ? optimizerState.rothBracketByAge.get(ageKey)
         : state.appliedRothSchedule && Object.prototype.hasOwnProperty.call(state.appliedRothSchedule, ageKey)
           ? state.appliedRothSchedule[ageKey]
           : state.rothConvBracket;
@@ -6847,7 +6774,7 @@
     return lo;
   }
   // Per-year withdrawal-mix override for the multi-lever optimizer — same
-  // idiom as rothBracketOverrideByAge above. null in normal operation.
+  // idiom as optimizerState.rothBracketByAge above. null in normal operation.
   // Map<Partner-A age, candidate-id-or-0>. Unlike the Roth ladder (which
   // creates NEW discretionary income you choose to generate) or the old
   // gain-harvesting lever it replaces the working half of (removed after
@@ -6860,12 +6787,6 @@
   // "no override this year" — falls through to state.smoothWithdrawals'
   // simple proportional-by-balance rule, then the plain taxable-first
   // default, unchanged.
-  let withdrawalMixOverrideByAge = null;
-  // Last completed optimizeMultiLever() run shown in the result card —
-  // { opt, options, savings } or null before the first run this session.
-  // Read by applyMultiLeverSchedule() so "Apply" writes exactly what the
-  // table is currently showing, not a freshly re-run search.
-  let lastMultiLeverRun = null;
   // Candidate withdrawal splits the per-year optimizer searches, as
   // [taxable, traditional, roth] fractions of that year's spending need
   // (always summing to 1). 'balanced' is resolved dynamically from that
@@ -8469,8 +8390,6 @@
   function irmaaAppealKind(ev, t, s) {
     return s === t - 1 ? ev[t - 1] : ev[t] !== 0 ? ev[t] : ev[t - 1];
   }
-  // E3, test-only (plan review round 2, S1): how many times healthcareCost priced an in-year appeal candidate.
-  let irmaaInYearCalls = 0;
 
   // Healthcare and long-term-care cost for the year.
   //  - Pre-65 premium (state.healthcare): only for partners on the individual
@@ -8590,7 +8509,7 @@
       if (w !== 0) {
         inYearA = true;
         usesMagiEstimate = true;
-        irmaaInYearCalls++;
+        testHooks.irmaaInYearCalls++;
         let best = ia;
         if (w === 2) {
           const s = year - 1,
@@ -8610,7 +8529,7 @@
       if (w !== 0) {
         inYearB = true;
         usesMagiEstimate = true;
-        irmaaInYearCalls++;
+        testHooks.irmaaInYearCalls++;
         let best = ib;
         if (w === 2) {
           const s = year - 1,
@@ -9383,13 +9302,11 @@
   // E1e (spec 6.6): the last resort. When the household's own money cannot meet the need, the inherited accounts are drawn: Roth rows first
   // (cash only), then traditional rows, oldest receipt first. A traditional draw is taxed exactly like a scheduled draw x larger: on the
   // owner's post-remap return, the state's inherited treatment, MAGI, never penalized. The profile fields (inhExtraS, and under a decedent
-  // state inhExclS) stay at the realized values for the rest of the pass, so every later taxFor sees the draw. Counter (tests): calls that
-  // get past the null gate.
-  let inhTakeCount = 0;
+  // state inhExclS) stay at the realized values for the rest of the pass, so every later taxFor sees the draw.
   function takeInherited(wd) {
     const inh = wd.inh;
     if (inh === null) return;
-    inhTakeCount++;
+    testHooks.inhTakeCount++;
     if (!(wd.need > 0)) return;
     const { bal, profile } = wd;
     for (let i = 0; i < inh.n && wd.need > 0; i++) {
@@ -9532,8 +9449,8 @@
   function drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver }) {
     const { bal } = wd;
     const mixCandidate =
-      withdrawalMixOverrideByAge && withdrawalMixOverrideByAge.has(age)
-        ? withdrawalMixOverrideByAge.get(age)
+      optimizerState.withdrawalMixByAge && optimizerState.withdrawalMixByAge.has(age)
+        ? optimizerState.withdrawalMixByAge.get(age)
         : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
           ? state.appliedMixSchedule[age]
           : 0;
@@ -9895,11 +9812,6 @@
   }
   const INH_OUT = { drawA: 0, drawB: 0, rothPayout: 0, any: false };
   const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false, collapse: false };
-  // Test-only: add x to ledger slot `slot`'s scheduled draw in projection year `year` (the identity tests), and read the step counter.
-  let testInhForce = null;
-  // Test-only: switch off the need-without-the-draw step (the exact-restore test) and count its evaluations.
-  let testInhNoNeedAdj = false;
-  let inhNoDrawCalls = 0;
   // This year's scheduled draws and payouts, from the balances at the start of the year (known before the MAGI iteration, so
   // per-year constants like the RMD). Never opens a row (inheritedApply does). drawA/drawB are on PRE-remap slots: the slot of the
   // row's current heir, the other partner once the heir is dead. ctx = { year, stockReturn, deadA, deadB }.
@@ -10306,10 +10218,10 @@
         INH_CTX.collapse = singlePerson || isSurvivorPeriod;
         INH_CTX.year = year; INH_CTX.stockReturn = stockReturn; INH_CTX.deadA = deceasedIsA && year >= deathYear; INH_CTX.deadB = deceasedIsB && year >= deathYear;
         inheritedYear(inh, INH_CTX, INH_OUT);
-        if (testInhForce !== null && testInhForce.year === year) {
-          inh.draw[testInhForce.slot] += testInhForce.x;
-          if (inh.slot[testInhForce.slot] === 0) INH_OUT.drawA += testInhForce.x;
-          else INH_OUT.drawB += testInhForce.x;
+        if (testHooks.testInhForce !== null && testHooks.testInhForce.year === year) {
+          inh.draw[testHooks.testInhForce.slot] += testHooks.testInhForce.x;
+          if (inh.slot[testHooks.testInhForce.slot] === 0) INH_OUT.drawA += testHooks.testInhForce.x;
+          else INH_OUT.drawB += testHooks.testInhForce.x;
         }
         inhDrawA = INH_OUT.drawA; inhDrawB = INH_OUT.drawB; inhDraw = inhDrawA + inhDrawB; inhRothPayout = INH_OUT.rothPayout;
       }
@@ -10797,8 +10709,8 @@
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // E1e decisions 15, 16 (spec 6.7): the need as if the inheritance were not there: the scheduled draw net of its own tax and of
         // the premium credit it costs this year. One taxFor and one healthcareCost per pass, only in a draw year.
-        if (inhDraw > 0 && !testInhNoNeedAdj) {
-          inhNoDrawCalls++;
+        if (inhDraw > 0 && !testHooks.testInhNoNeedAdj) {
+          testHooks.inhNoDrawCalls++;
           const oA = profile.otherA, oB = profile.otherB, iA = profile.inheritedA, iB = profile.inheritedB,
             on = profile.inhOn, eA = profile.inhExclA, eB = profile.inhExclB, med = profile.medicalExpense;
           // the premium at the pass's MAGI less the draw (each return less its own share in a two-return year)
@@ -11474,7 +11386,7 @@
   function computeCliffPlan() {
     if (!state.cliffGuardEnabled) return { plan: null, report: null };
     const prevFactors = histTaxFactors;
-    histTaxFactors = null;
+    assignHistTaxFactors(null);
     try {
       const run = (planMode, plan) =>
         runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan });
@@ -11504,31 +11416,31 @@
         report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
       };
     } finally {
-      histTaxFactors = prevFactors;
+      assignHistTaxFactors(prevFactors);
     }
   }
   // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
   // only when the inputs change: same state JSON, tax year and optimizer overrides keep the plan already computed.
   function refreshCliffPlan() {
     const key = JSON.stringify(state);
-    cliffPlanState = state;
-    if (cliffPlanComputed && key === cliffPlanKey && cliffPlanYear === currentYear && cliffPlanOverrides && cliffPlanOverrides[0] === rothBracketOverrideByAge && cliffPlanOverrides[1] === withdrawalMixOverrideByAge) return;
-    cliffPlanKey = key;
-    cliffPlanYear = currentYear;
-    cliffPlanOverrides = [rothBracketOverrideByAge, withdrawalMixOverrideByAge];
-    ({ plan: cliffPlan, report: cliffPlanReport } = computeCliffPlan());
-    cliffPlanComputed = true;
-    cliffPlanComputes++;
+    cliffPlanStore.forState = state;
+    if (cliffPlanStore.computed && key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.overrides && cliffPlanStore.overrides[0] === optimizerState.rothBracketByAge && cliffPlanStore.overrides[1] === optimizerState.withdrawalMixByAge) return;
+    cliffPlanStore.key = key;
+    cliffPlanStore.year = currentYear;
+    cliffPlanStore.overrides = [optimizerState.rothBracketByAge, optimizerState.withdrawalMixByAge];
+    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan());
+    cliffPlanStore.computed = true;
+    cliffPlanStore.computes++;
   }
   // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
   // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
   // gets the plan of its own inputs under the current tax year, cached by the year and their JSON (refreshCliffPlan keys on
   // the year too). The state-replacement sites are in shared regions and are not edited: this is the whole stale-plan rule.
   function planForState() {
-    if (state === cliffPlanState && cliffPlanYear === currentYear) return cliffPlan;
+    if (state === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     if (!state.cliffGuardEnabled) return null;
     const key = JSON.stringify(state);
-    if (key === cliffPlanKey && cliffPlanYear === currentYear) return cliffPlan;
+    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     const cacheKey = currentYear + '|' + key;
     if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
     const plan = computeCliffPlan().plan;
@@ -11551,11 +11463,11 @@
   // sidebar, since no historical series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const prevTaxFactors = histTaxFactors;
-    histTaxFactors = [];
+    assignHistTaxFactors([]);
     try {
       return runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA, retireAgeB });
     } finally {
-      histTaxFactors = prevTaxFactors;
+      assignHistTaxFactors(prevTaxFactors);
     }
   }
 
@@ -11720,7 +11632,7 @@
       planLine.style.margin = '12px 0 0';
       document.querySelector('#moreResultsCard > summary').after(planLine);
     }
-    planLine.textContent = cliffPlanSummary(cliffPlan, cliffPlanReport);
+    planLine.textContent = cliffPlanSummary(cliffPlanStore.plan, cliffPlanStore.report);
     renderPlanHeadline(selected);
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);
@@ -12518,7 +12430,7 @@
   // explicitly asked it to search over:
   //   - Roth conversion ladder: per-year bracket-fill target (as before).
   //   - Optimized withdrawal mix: per-year taxable/traditional/Roth split
-  //     (see withdrawalMixOverrideByAge/WITHDRAWAL_MIX_CANDIDATES above).
+  //     (see optimizerState.withdrawalMixByAge/WITHDRAWAL_MIX_CANDIDATES above).
   //     Unlike the Roth ladder (creates new discretionary income) this is
   //     about how to fund a spending need that's already mandatory that
   //     year, so it doesn't share the Roth ladder's MAGI-room gating —
@@ -12544,10 +12456,6 @@
   const ROTH_PER_YEAR_CANDIDATES = [0, 10, 12, 22, 24, 32, 35];
   const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
   const ROTH_PER_YEAR_MAX_PASSES = 5;
-  const ROTH_PER_YEAR_EVAL_BUDGET = 8000; // simulate() calls, hard cap for the whole run (shared across every lever/smooth-branch in one call)
-  // The budget optimizeMultiLever reads; only the test hook __test_setOptimizerBudget changes it (tests/solver_gap.js
-  // runs a slow reference with a larger budget).
-  let rothPerYearEvalBudget = ROTH_PER_YEAR_EVAL_BUDGET;
   // Total real-dollar tax + healthcare (income/payroll tax AND IRMAA
   // surcharge/net ACA premium) across the full projection — deliberately
   // wider than the flat optimizer's tax-only score above, since a
@@ -12579,8 +12487,8 @@
     const savedEnabled = state.rothConvEnabled,
       savedBracket = state.rothConvBracket,
       savedSmooth = state.smoothWithdrawals,
-      savedRothOverride = rothBracketOverrideByAge,
-      savedMixOverride = withdrawalMixOverrideByAge;
+      savedRothOverride = optimizerState.rothBracketByAge,
+      savedMixOverride = optimizerState.withdrawalMixByAge;
     if (includeRoth) state.rothConvEnabled = true;
     // Guardrail reference: the plan as it's actually configured right
     // now (selected), not a recomputed baseline — same reference point
@@ -12593,8 +12501,8 @@
     let evalCount = 0;
     let budgetExhausted = false;
     function evaluate(rothMap, mixMap) {
-      rothBracketOverrideByAge = includeRoth ? rothMap : null;
-      withdrawalMixOverrideByAge = includeMix ? mixMap : null;
+      optimizerState.rothBracketByAge = includeRoth ? rothMap : null;
+      optimizerState.withdrawalMixByAge = includeMix ? mixMap : null;
       const sim = simulate();
       evalCount++;
       return { cost: rothScheduleCost(sim), depletedAge: sim.depletedAge };
@@ -12626,7 +12534,7 @@
           let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
           for (const candidate of candidates) {
             if (candidate === currentCandidate) continue;
-            if (evalCount >= rothPerYearEvalBudget) {
+            if (evalCount >= optimizerState.rothPerYearEvalBudget) {
               budgetExhausted = true;
               break;
             }
@@ -12701,8 +12609,8 @@
     state.rothConvEnabled = savedEnabled;
     state.rothConvBracket = savedBracket;
     state.smoothWithdrawals = savedSmooth;
-    rothBracketOverrideByAge = savedRothOverride;
-    withdrawalMixOverrideByAge = savedMixOverride;
+    optimizerState.rothBracketByAge = savedRothOverride;
+    optimizerState.withdrawalMixByAge = savedMixOverride;
 
     return {
       ...best,
@@ -13105,9 +13013,9 @@
     // read each year's actual conversionAmount for display — opt itself
     // only carries the schedule (bracket targets) and aggregate cost, not
     // the per-row dollar detail.
-    rothBracketOverrideByAge = opt.schedule;
+    optimizerState.rothBracketByAge = opt.schedule;
     const detail = simulate();
-    rothBracketOverrideByAge = null;
+    optimizerState.rothBracketByAge = null;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
 
     const currentCost = rothScheduleCost(selected);
@@ -13176,11 +13084,11 @@
       savedSmooth = state.smoothWithdrawals;
     if (options.includeRoth) state.rothConvEnabled = true;
     if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
-    rothBracketOverrideByAge = options.includeRoth ? opt.rothSchedule : null;
-    withdrawalMixOverrideByAge = options.includeMix ? opt.mixSchedule : null;
+    optimizerState.rothBracketByAge = options.includeRoth ? opt.rothSchedule : null;
+    optimizerState.withdrawalMixByAge = options.includeMix ? opt.mixSchedule : null;
     const detail = simulate();
-    rothBracketOverrideByAge = null;
-    withdrawalMixOverrideByAge = null;
+    optimizerState.rothBracketByAge = null;
+    optimizerState.withdrawalMixByAge = null;
     state.rothConvEnabled = savedEnabled;
     state.smoothWithdrawals = savedSmooth;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
@@ -13287,7 +13195,7 @@
     // above) knows exactly what the table below is showing — the button
     // applies this run's result, not a fresh re-optimization, so what you
     // see is what you get.
-    lastMultiLeverRun = { opt, options, savings };
+    optimizerState.lastMultiLeverRun = { opt, options, savings };
     const applyBtn = document.getElementById('multiLeverApplyBtn'),
       applyNote = document.getElementById('multiLeverApplyNote');
     applyBtn.hidden = false;
@@ -13307,8 +13215,8 @@
   // lever(s) this run actually searched; a lever left unchecked this run
   // keeps whatever was applied (or not applied) before.
   function applyMultiLeverSchedule() {
-    if (!lastMultiLeverRun) return;
-    const { opt, options } = lastMultiLeverRun;
+    if (!optimizerState.lastMultiLeverRun) return;
+    const { opt, options } = optimizerState.lastMultiLeverRun;
     snapshotForUndo('Applied optimizer schedule');
     if (options.includeRoth) {
       state.rothConvEnabled = true;
@@ -13326,7 +13234,7 @@
     // inviting a redundant re-click.
     document.getElementById('multiLeverApplyBtn').hidden = true;
     document.getElementById('multiLeverApplyNote').textContent = 'Applied.';
-    lastMultiLeverRun = null;
+    optimizerState.lastMultiLeverRun = null;
     syncControls();
     syncContributionControls();
     render();
@@ -13413,7 +13321,7 @@
     shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || gapDisabled;
     shiftGapBtn.disabled = gapDisabled;
     shiftGapBtn.title = "Hold one partner's retirement date fixed and vary only the other's";
-    if (gapDisabled && chartShiftMode === 'gap') chartShiftMode = 'together';
+    if (gapDisabled && chartShiftMode === 'gap') assignChartShiftMode('together');
     updateChartShiftModeButtons();
     // The Vary: Partner A/B picker only makes sense once Gap mode is
     // actually active (and available) — hidden otherwise. Its two buttons
@@ -14224,7 +14132,7 @@
   const cloneState = (s) => JSON.parse(JSON.stringify(s));
   function computeScenarioMetrics(scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let out;
     try {
       const sim = simulate();
@@ -14246,20 +14154,20 @@
         endAssets: displayValue(end.total, end.year),
       };
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return out;
   }
   const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
   function computeOverlaySeriesFor(name, scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let rows;
     try {
       const sim = simulate();
       rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return { name, rows };
   }
@@ -14367,14 +14275,14 @@
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
     snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
-    state = normalizeState(sc.state);
+    assignState(normalizeState(sc.state));
     syncControls();
     syncContributionControls();
     render();
     saveInputs();
   }
   function deleteScenario(id) {
-    scenarios = scenarios.filter((s) => s.id !== id);
+    assignScenarios(scenarios.filter((s) => s.id !== id));
     compareIds.delete(id);
     renderScenarioList();
     renderScenarioComparison();
@@ -15721,7 +15629,7 @@
     });
   });
   function setMcPathCount(n) {
-    mcPathCount = n;
+    assignMcPathCount(n);
     [
       ['mcPaths500Btn', 500],
       ['mcPaths1000Btn', 1000],
@@ -15737,7 +15645,7 @@
   document.getElementById('mcPaths1000Btn').addEventListener('click', () => setMcPathCount(1000));
   document.getElementById('mcPaths2000Btn').addEventListener('click', () => setMcPathCount(2000));
   document.getElementById('logScaleToggle').addEventListener('change', (e) => {
-    logScale = e.target.checked;
+    assignLogScale(e.target.checked);
     render();
   });
   // Best-effort only: real browser Fullscreen (which also hides the
@@ -15767,7 +15675,7 @@
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
   function setChartExpanded(next) {
-    chartExpanded = next;
+    assignChartExpanded(next);
     document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
     document.body.classList.toggle('chart-scroll-locked', next);
     if (next) tryEnterLandscapeFullscreen();
@@ -15786,7 +15694,7 @@
     requestAnimationFrame(() => requestAnimationFrame(render));
   }
   function setChartToolbarCollapsed(next) {
-    chartToolbarCollapsed = next;
+    assignChartToolbarCollapsed(next);
     const btn = document.getElementById('chartToolbarToggleBtn');
     document.getElementById('mainChartCard').classList.toggle('chart-toolbar-collapsed', next);
     btn.textContent = next ? '⌄' : '⌃';
@@ -15823,7 +15731,7 @@
     document.getElementById('chartShiftGapBtn').setAttribute('aria-checked', chartShiftMode === 'gap');
   }
   function setChartShiftMode(next) {
-    chartShiftMode = next;
+    assignChartShiftMode(next);
     updateChartShiftModeButtons();
     render();
   }
@@ -15844,7 +15752,7 @@
     document.getElementById('chartGapPartnerBBtn').setAttribute('aria-checked', !resolvedA);
   }
   function setChartGapPartner(next) {
-    chartGapPartner = next;
+    assignChartGapPartner(next);
     updateChartGapPartnerButtons();
     render();
   }
@@ -15857,7 +15765,7 @@
   // — same fallback shape as chartShiftMode's gapDisabled handling.
   function updateChartXAxisButtons() {
     document.getElementById('chartXAxisAgeBBtn').hidden = state.singlePerson;
-    if (state.singlePerson && chartXAxisMode === 'ageB') chartXAxisMode = 'ageA';
+    if (state.singlePerson && chartXAxisMode === 'ageB') assignChartXAxisMode('ageA');
     document.getElementById('chartXAxisAgeABtn').classList.toggle('active', chartXAxisMode === 'ageA');
     document.getElementById('chartXAxisAgeABtn').setAttribute('aria-checked', chartXAxisMode === 'ageA');
     document.getElementById('chartXAxisAgeBBtn').classList.toggle('active', chartXAxisMode === 'ageB');
@@ -15866,7 +15774,7 @@
     document.getElementById('chartXAxisYearBtn').setAttribute('aria-checked', chartXAxisMode === 'year');
   }
   function setChartXAxisMode(next) {
-    chartXAxisMode = next;
+    assignChartXAxisMode(next);
     updateChartXAxisButtons();
     render();
   }
@@ -15875,10 +15783,10 @@
   document.getElementById('chartXAxisYearBtn').addEventListener('click', () => setChartXAxisMode('year'));
   // @@shared:26-setChartView begin
   function setChartView(next) {
-    chartView = next;
-    if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
+    assignChartView(next);
+    if (CHART_GROUPS[next] === 'projection') assignLastProjectionView(next);
     if (next === 'hist' || next === 'mc') {
-      logScale = true;
+      assignLogScale(true);
       document.getElementById('logScaleToggle').checked = true;
     }
     const map = {
@@ -15902,7 +15810,7 @@
     render();
   }
   function setMode(next) {
-    mode = next;
+    assignMode(next);
     document.getElementById('realBtn').classList.toggle('active', mode === 'real');
     document.getElementById('nominalBtn').classList.toggle('active', mode === 'nominal');
     document.getElementById('realBtn').setAttribute('aria-checked', mode === 'real');
@@ -15941,9 +15849,9 @@
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
-      state = undoSnapshot.state;
-      mode = undoSnapshot.mode;
-      logScale = undoSnapshot.logScale;
+      assignState(undoSnapshot.state);
+      assignMode(undoSnapshot.mode);
+      assignLogScale(undoSnapshot.logScale);
       document.getElementById('logScaleToggle').checked = logScale;
       syncControls();
       syncContributionControls();
@@ -15961,7 +15869,7 @@
     )
       return;
     snapshotForUndo('Reset to example data');
-    state = {
+    assignState({
       ...defaults,
       loans: defaults.loans.map((l) => ({ ...l })),
       spendingTiers: defaults.spendingTiers.map((t) => ({ ...t })),
@@ -15970,9 +15878,9 @@
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
       children: defaults.children.map((t) => ({ ...t })),
-    };
-    mode = 'real';
-    logScale = false;
+    });
+    assignMode('real');
+    assignLogScale(false);
     document.getElementById('logScaleToggle').checked = false;
     setMcPathCount(1000);
     syncControls();
@@ -16999,13 +16907,13 @@
   // Cliff plan in tests: a test changes state and calls a shared hook without render(), so the hooks plan for the state
   // they see (production plans in render()). Benchmarks use the raw hooks after one explicit refresh.
   const ensureTestPlan = () => {
-    if (JSON.stringify(state) !== cliffPlanKey || cliffPlanYear !== currentYear) refreshCliffPlan();
+    if (JSON.stringify(state) !== cliffPlanStore.key || cliffPlanStore.year !== currentYear) refreshCliffPlan();
   };
   window.__test_simulateRaw = simulate;
   window.__test_simulateHistoricalRaw = simulateHistorical;
   // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).
-  window.__test_setCliffPlan = (p) => { cliffPlan = p; cliffPlanKey = JSON.stringify(state); cliffPlanYear = currentYear; cliffPlanState = state; cliffPlanComputed = false; };
-  window.__test_cliffPlanComputes = () => cliffPlanComputes;
+  window.__test_setCliffPlan = (p) => { cliffPlanStore.plan = p; cliffPlanStore.key = JSON.stringify(state); cliffPlanStore.year = currentYear; cliffPlanStore.forState = state; cliffPlanStore.computed = false; };
+  window.__test_cliffPlanComputes = () => cliffPlanStore.computes;
   window.__test_simulate = (...a) => (ensureTestPlan(), simulate(...a));
   window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
   window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
@@ -17027,12 +16935,12 @@
       measure();
     } else {
       const prev = histTaxFactors;
-      histTaxFactors = [];
+      assignHistTaxFactors([]);
       try {
         sim = runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
         measure();
       } finally {
-        histTaxFactors = prev;
+        assignHistTaxFactors(prev);
       }
     }
     return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim, ...(endValue ? { value, estate } : null) };
@@ -17041,14 +16949,14 @@
   window.__test_planStats = planStats;
   window.__test_refreshCliffPlan = () => {
     refreshCliffPlan();
-    return JSON.parse(JSON.stringify({ plan: cliffPlan, report: cliffPlanReport }));
+    return JSON.parse(JSON.stringify({ plan: cliffPlanStore.plan, report: cliffPlanStore.report }));
   };
   window.__test_planCandidateBetter = planCandidateBetter;
   window.__test_cliffPlanSummary = (plan, report) => cliffPlanSummary(plan, report);
   window.__test_planForState = () => JSON.parse(JSON.stringify(planForState()));
   // Replaces state the way load / undo / reset do, without render() (the stale-plan tests).
   window.__test_replaceState = (raw) => {
-    state = normalizeState(raw);
+    assignState(normalizeState(raw));
   };
   // The scenario comparison's own row function (defined in a shared region, in scope here).
   window.__test_scenarioMetrics = (raw) => computeScenarioMetrics(raw);
@@ -17096,13 +17004,13 @@
   window.__test_optimizeMultiLever = (...a) => (ensureTestPlan(), optimizeMultiLever(...a));
   window.__test_rothScheduleCost = (...a) => (ensureTestPlan(), rothScheduleCost(...a));
   window.__test_setOptimizerBudget = (n) => {
-    rothPerYearEvalBudget = n;
+    optimizerState.rothPerYearEvalBudget = n;
   };
   window.__test_setRothOverride = (m) => {
-    rothBracketOverrideByAge = m;
+    optimizerState.rothBracketByAge = m;
   };
   window.__test_setWithdrawalMixOverride = (m) => {
-    withdrawalMixOverrideByAge = m;
+    optimizerState.withdrawalMixByAge = m;
   };
   window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
   window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
@@ -17118,11 +17026,11 @@
     const trace = [];
     if (hist) {
       const prevTaxFactors = histTaxFactors;
-      histTaxFactors = [];
+      assignHistTaxFactors([]);
       try {
         runProjection({ mode: BUCKET_MODE, source: historicalYearSource(hist), retireAgeA, retireAgeB, trace });
       } finally {
-        histTaxFactors = prevTaxFactors;
+        assignHistTaxFactors(prevTaxFactors);
       }
     } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
     return trace;
@@ -17142,11 +17050,11 @@
   };
   window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
   window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
-  window.__test_inhNoNeedAdj = (on) => { testInhNoNeedAdj = !!on; };
-  window.__test_inhForceExtra = (year, slot, x) => { testInhForce = year === null ? null : { year, slot, x }; };
-  window.__test_inhTakeCount = (reset) => { const n = inhTakeCount; if (reset) inhTakeCount = 0; return n; };
-  window.__test_inhNoDrawCalls = (reset) => { const n = inhNoDrawCalls; if (reset) inhNoDrawCalls = 0; return n; };
-  window.__test_irmaaInYearCalls = (reset) => { const n = irmaaInYearCalls; if (reset) irmaaInYearCalls = 0; return n; };
+  window.__test_inhNoNeedAdj = (on) => { testHooks.testInhNoNeedAdj = !!on; };
+  window.__test_inhForceExtra = (year, slot, x) => { testHooks.testInhForce = year === null ? null : { year, slot, x }; };
+  window.__test_inhTakeCount = (reset) => { const n = testHooks.inhTakeCount; if (reset) testHooks.inhTakeCount = 0; return n; };
+  window.__test_inhNoDrawCalls = (reset) => { const n = testHooks.inhNoDrawCalls; if (reset) testHooks.inhNoDrawCalls = 0; return n; };
+  window.__test_irmaaInYearCalls = (reset) => { const n = testHooks.irmaaInYearCalls; if (reset) testHooks.irmaaInYearCalls = 0; return n; };
   window.__test_inherited.sourcesInh = () => [SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B].map((s) => [s.inherited, s.inheritedA, s.inheritedB, s.inheritedExclA, s.inheritedExclB]);
   // Test-only: run fn with state patched, restoring it afterwards.
   window.__test_withState = (patch, fn) => {
@@ -17189,7 +17097,7 @@
   window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
   window.__test_FIELDS = FIELDS;
   window.__test_mcpAccepts = (key, v) => mcpAccepts(FIELDS.find((f) => f.key === key), v);
-  window.__test_setCurrentYear = (y) => { currentYear = y; };
+  window.__test_setCurrentYear = (y) => { assignCurrentYear(y); };
   // For tests/tax_caches.js: the compiled state rules, so a test can force the per-person inputs on for every row.
   window.__test_stateRuleFor = stateRuleFor;
   window.__test_magiStats = magiStats;
@@ -17200,11 +17108,11 @@
     else {
       ensureTestPlan();
       const prev = histTaxFactors;
-      histTaxFactors = [];
+      assignHistTaxFactors([]);
       try {
-        runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'apply', plan: cliffPlan, planTrace });
+        runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'apply', plan: cliffPlanStore.plan, planTrace });
       } finally {
-        histTaxFactors = prev;
+        assignHistTaxFactors(prev);
       }
     }
     return planTrace;
@@ -17236,7 +17144,7 @@
   window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
   window.__test_applyMultiLeverSchedule = (opt, options) => {
     ensureTestPlan();
-    lastMultiLeverRun = { opt, options, savings: 2 };
+    optimizerState.lastMultiLeverRun = { opt, options, savings: 2 };
     applyMultiLeverSchedule();
   };
   window.__test_clearAppliedMultiLeverSchedule = clearAppliedMultiLeverSchedule;

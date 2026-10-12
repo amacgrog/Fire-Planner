@@ -1,8 +1,8 @@
   function setChartView(next) {
-    chartView = next;
-    if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
+    assignChartView(next);
+    if (CHART_GROUPS[next] === 'projection') assignLastProjectionView(next);
     if (next === 'hist' || next === 'mc') {
-      logScale = true;
+      assignLogScale(true);
       document.getElementById('logScaleToggle').checked = true;
     }
     const map = {
@@ -26,7 +26,7 @@
     render();
   }
   function setMode(next) {
-    mode = next;
+    assignMode(next);
     document.getElementById('realBtn').classList.toggle('active', mode === 'real');
     document.getElementById('nominalBtn').classList.toggle('active', mode === 'nominal');
     document.getElementById('realBtn').setAttribute('aria-checked', mode === 'real');
@@ -65,9 +65,9 @@
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
-      state = undoSnapshot.state;
-      mode = undoSnapshot.mode;
-      logScale = undoSnapshot.logScale;
+      assignState(undoSnapshot.state);
+      assignMode(undoSnapshot.mode);
+      assignLogScale(undoSnapshot.logScale);
       document.getElementById('logScaleToggle').checked = logScale;
       syncControls();
       syncContributionControls();
@@ -85,7 +85,7 @@
     )
       return;
     snapshotForUndo('Reset to example data');
-    state = {
+    assignState({
       ...defaults,
       loans: defaults.loans.map((l) => ({ ...l })),
       spendingTiers: defaults.spendingTiers.map((t) => ({ ...t })),
@@ -94,9 +94,9 @@
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
       children: defaults.children.map((t) => ({ ...t })),
-    };
-    mode = 'real';
-    logScale = false;
+    });
+    assignMode('real');
+    assignLogScale(false);
     document.getElementById('logScaleToggle').checked = false;
     setMcPathCount(1000);
     syncControls();

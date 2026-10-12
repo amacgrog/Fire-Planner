@@ -1,3 +1,7 @@
+import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
+import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
+import { chartView, chartShiftMode, chartGapPartner, chartXAxisMode, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
+import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
 (() => {
   const defaults = {
     singlePerson: false,
@@ -101,26 +105,6 @@
     dismissedEstimates: [],
     dismissedUnusualAssumptions: [],
   };
-  const storageKey = 'fireCouplePlanner.canadaOffline.v1',
-    legacyStorageKey = 'fireCouplePlanner.v3',
-    // Feature-detected rather than a bare `window.localStorage` reference:
-    // the property itself can throw (not just return undefined) in some
-    // private-browsing modes, and a browser that exposes the property can
-    // still refuse to actually read/write it (e.g. Safari private mode
-    // historically allowed getItem but threw on setItem). Probing with a
-    // real set/remove up front means every later `storage?.` call site can
-    // stay a simple optional-chain without its own try/catch.
-    storage = (() => {
-      try {
-        const probeKey = '__firePlannerStorageProbe__';
-        window.localStorage.setItem(probeKey, '1');
-        window.localStorage.removeItem(probeKey);
-        return window.localStorage;
-      } catch {
-        return null;
-      }
-    })(),
-    SCENARIO_SCHEMA_VERSION = 1;
   // @@shared:01-LIST_MAX begin
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
@@ -449,52 +433,7 @@
       : [];
     return s;
   }
-  let state = normalizeState(null),
-    mode = 'real',
-    chartView = '3yr',
-    // Display-only, like chartView/mode/logScale: which partner(s)
-    // move for the ±1yr/±3yr comparison chart. 'together' shifts both
-    // partners' dates by the same amount (today's original behavior);
-    // 'gap' shifts only one partner's date, narrowing or widening the gap
-    // between the two dates. Not part of state/scenario export, and reset
-    // to 'together' on reload — see chartShiftModeRow's visibility/
-    // disabled handling in render() for why.
-    chartShiftMode = 'together',
-    // Which partner moves in 'gap' mode: null means "auto" — track
-    // whichever partner currently retires earlier, same as this
-    // feature's original behavior. 'A' or 'B' means the person explicitly
-    // picked that partner via the Vary: Partner A/B buttons, which then
-    // sticks regardless of which partner is actually earlier — full
-    // manual control, not just auto-detection.
-    chartGapPartner = null,
-    // Display-only, like chartShiftMode above: which value the chart's
-    // x-axis is labeled/scrubbed in. All three are just an affine
-    // transform of the same underlying `age` (Partner A's age) every row
-    // already carries — 'ageB' = age - ageA + state.ageB, 'year' =
-    // CURRENT_YEAR + (age - ageA) — so this never changes how rows are
-    // generated or how the chart's internal x(age) pixel-mapping works,
-    // only how tick labels and the hover-tooltip header are formatted.
-    // Not part of state/scenario export, resets to 'ageA' on reload.
-    chartXAxisMode = 'ageA',
-    logScale = false,
-    // Display-only, like the above: whether the chart card is in its
-    // CSS-overlay "expanded" (fixed, full-viewport) presentation. Not
-    // part of state/scenario export, resets to false on reload/tab
-    // switch — see setChartExpanded() for the CSS class it toggles and
-    // the best-effort real-Fullscreen/landscape-lock attempt layered on
-    // top of it for capable mobile browsers.
-    chartExpanded = false,
-    // Display-only: whether #chartToolbar (the view/x-axis/shift/path
-    // rows) is collapsed out of the way. Independent of chartExpanded —
-    // see #chartToolbarToggleBtn's CSS for exactly when it's shown/has an
-    // effect. Reset to false whenever chartExpanded turns off (in
-    // setChartExpanded()) so a stale "collapsed" state can never carry
-    // into a context where the toggle button to undo it isn't visible.
-    chartToolbarCollapsed = false,
-    mcPathCount = 1000,
-    lastProjectionView = '3yr',
-    scenarios = [],
-    compareIds = new Set();
+  assignState(normalizeState(null));
   // @@shared:02-CHART_GROUPS begin
   // Which top-level chart "view" a given chartView value belongs to — the
   // primary Projection/Historical/Monte Carlo toggle (item 9) groups the
@@ -601,10 +540,10 @@
     storage?.removeItem(legacyStorageKey);
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
     if (saved?.state) {
-      state = normalizeState(saved.state);
+      assignState(normalizeState(saved.state));
       hadSavedState = true;
     }
-    if (['real', 'nominal'].includes(saved?.mode)) mode = saved.mode;
+    if (['real', 'nominal'].includes(saved?.mode)) assignMode(saved.mode);
   } catch {}
   // Whether it's OK to actually persist `state` yet. Starts equal to
   // `hadSavedState` (a returning visitor's data is already "personalized")
@@ -1607,7 +1546,6 @@
   // own cumulative CPI, so a 1970s-style inflation sequence raises the
   // brackets along with spending instead of leaving them on a 2.5% schedule.
   // @@shared:06-histTaxFactors begin
-  let histTaxFactors = null;
   // The plan's own factor for a whole year index, remembered while state.inflation is the value it was computed
   // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
   // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.
@@ -5324,11 +5262,11 @@
   // sidebar, since no historical series is loaded for either.
   function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const prevTaxFactors = histTaxFactors;
-    histTaxFactors = [];
+    assignHistTaxFactors([]);
     try {
       return runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA, retireAgeB });
     } finally {
-      histTaxFactors = prevTaxFactors;
+      assignHistTaxFactors(prevTaxFactors);
     }
   }
 
@@ -6700,7 +6638,7 @@
     shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || gapDisabled;
     shiftGapBtn.disabled = gapDisabled;
     shiftGapBtn.title = "Hold one partner's retirement date fixed and vary only the other's";
-    if (gapDisabled && chartShiftMode === 'gap') chartShiftMode = 'together';
+    if (gapDisabled && chartShiftMode === 'gap') assignChartShiftMode('together');
     updateChartShiftModeButtons();
     // The Vary: Partner A/B picker only makes sense once Gap mode is
     // actually active (and available) — hidden otherwise. Its two buttons
@@ -7412,7 +7350,7 @@
   const cloneState = (s) => JSON.parse(JSON.stringify(s));
   function computeScenarioMetrics(scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let out;
     try {
       const sim = simulate();
@@ -7434,20 +7372,20 @@
         endAssets: displayValue(end.total, end.year),
       };
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return out;
   }
   const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
   function computeOverlaySeriesFor(name, scenarioState) {
     const backup = state;
-    state = normalizeState(scenarioState);
+    assignState(normalizeState(scenarioState));
     let rows;
     try {
       const sim = simulate();
       rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
     } finally {
-      state = backup;
+      assignState(backup);
     }
     return { name, rows };
   }
@@ -7555,14 +7493,14 @@
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
     snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
-    state = normalizeState(sc.state);
+    assignState(normalizeState(sc.state));
     syncControls();
     syncContributionControls();
     render();
     saveInputs();
   }
   function deleteScenario(id) {
-    scenarios = scenarios.filter((s) => s.id !== id);
+    assignScenarios(scenarios.filter((s) => s.id !== id));
     compareIds.delete(id);
     renderScenarioList();
     renderScenarioComparison();
@@ -8794,7 +8732,7 @@
     document.getElementById('chartShiftGapBtn').setAttribute('aria-checked', chartShiftMode === 'gap');
   }
   function setChartShiftMode(next) {
-    chartShiftMode = next;
+    assignChartShiftMode(next);
     updateChartShiftModeButtons();
     render();
   }
@@ -8815,7 +8753,7 @@
     document.getElementById('chartGapPartnerBBtn').setAttribute('aria-checked', !resolvedA);
   }
   function setChartGapPartner(next) {
-    chartGapPartner = next;
+    assignChartGapPartner(next);
     updateChartGapPartnerButtons();
     render();
   }
@@ -8827,7 +8765,7 @@
   // when they switch to single-person mode.
   function updateChartXAxisButtons() {
     document.getElementById('chartXAxisAgeBBtn').hidden = state.singlePerson;
-    if (state.singlePerson && chartXAxisMode === 'ageB') chartXAxisMode = 'ageA';
+    if (state.singlePerson && chartXAxisMode === 'ageB') assignChartXAxisMode('ageA');
     document.getElementById('chartXAxisAgeABtn').classList.toggle('active', chartXAxisMode === 'ageA');
     document.getElementById('chartXAxisAgeABtn').setAttribute('aria-checked', chartXAxisMode === 'ageA');
     document.getElementById('chartXAxisAgeBBtn').classList.toggle('active', chartXAxisMode === 'ageB');
@@ -8836,7 +8774,7 @@
     document.getElementById('chartXAxisYearBtn').setAttribute('aria-checked', chartXAxisMode === 'year');
   }
   function setChartXAxisMode(next) {
-    chartXAxisMode = next;
+    assignChartXAxisMode(next);
     updateChartXAxisButtons();
     render();
   }
@@ -8878,7 +8816,7 @@
     });
   });
   function setMcPathCount(n) {
-    mcPathCount = n;
+    assignMcPathCount(n);
     [
       ['mcPaths500Btn', 500],
       ['mcPaths1000Btn', 1000],
@@ -8894,7 +8832,7 @@
   document.getElementById('mcPaths1000Btn').addEventListener('click', () => setMcPathCount(1000));
   document.getElementById('mcPaths2000Btn').addEventListener('click', () => setMcPathCount(2000));
   document.getElementById('logScaleToggle').addEventListener('change', (e) => {
-    logScale = e.target.checked;
+    assignLogScale(e.target.checked);
     render();
   });
   // Best-effort only: real browser Fullscreen (which also hides the
@@ -8924,7 +8862,7 @@
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
   function setChartExpanded(next) {
-    chartExpanded = next;
+    assignChartExpanded(next);
     document.getElementById('mainChartCard').classList.toggle('chart-expanded', next);
     document.body.classList.toggle('chart-scroll-locked', next);
     if (next) tryEnterLandscapeFullscreen();
@@ -8943,7 +8881,7 @@
     requestAnimationFrame(() => requestAnimationFrame(render));
   }
   function setChartToolbarCollapsed(next) {
-    chartToolbarCollapsed = next;
+    assignChartToolbarCollapsed(next);
     const btn = document.getElementById('chartToolbarToggleBtn');
     document.getElementById('mainChartCard').classList.toggle('chart-toolbar-collapsed', next);
     btn.textContent = next ? '⌄' : '⌃';
@@ -8971,10 +8909,10 @@
   // @@shared:25-setMcPathCount end
   // @@shared:26-setChartView begin
   function setChartView(next) {
-    chartView = next;
-    if (CHART_GROUPS[next] === 'projection') lastProjectionView = next;
+    assignChartView(next);
+    if (CHART_GROUPS[next] === 'projection') assignLastProjectionView(next);
     if (next === 'hist' || next === 'mc') {
-      logScale = true;
+      assignLogScale(true);
       document.getElementById('logScaleToggle').checked = true;
     }
     const map = {
@@ -8998,7 +8936,7 @@
     render();
   }
   function setMode(next) {
-    mode = next;
+    assignMode(next);
     document.getElementById('realBtn').classList.toggle('active', mode === 'real');
     document.getElementById('nominalBtn').classList.toggle('active', mode === 'nominal');
     document.getElementById('realBtn').setAttribute('aria-checked', mode === 'real');
@@ -9037,9 +8975,9 @@
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
-      state = undoSnapshot.state;
-      mode = undoSnapshot.mode;
-      logScale = undoSnapshot.logScale;
+      assignState(undoSnapshot.state);
+      assignMode(undoSnapshot.mode);
+      assignLogScale(undoSnapshot.logScale);
       document.getElementById('logScaleToggle').checked = logScale;
       syncControls();
       syncContributionControls();
@@ -9057,7 +8995,7 @@
     )
       return;
     snapshotForUndo('Reset to example data');
-    state = {
+    assignState({
       ...defaults,
       loans: defaults.loans.map((l) => ({ ...l })),
       spendingTiers: defaults.spendingTiers.map((t) => ({ ...t })),
@@ -9066,9 +9004,9 @@
       extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
       lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
       children: defaults.children.map((t) => ({ ...t })),
-    };
-    mode = 'real';
-    logScale = false;
+    });
+    assignMode('real');
+    assignLogScale(false);
     document.getElementById('logScaleToggle').checked = false;
     setMcPathCount(1000);
     syncControls();

@@ -29,6 +29,8 @@ root was the source.) See `README.md` for the full user-facing feature list.
   to `src/`, and the built names never change.
 - `scripts/analyze-closure.js` — writes `docs/superpowers/inventory/closure-*.md`, the
   per-declaration dependency inventory the module split is planned from.
+- `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: `store.js` (`state`, `mode`, `scenarios`, `compareIds`), `chart-prefs.js` (the chart display preferences), `tax-factors.js` (`histTaxFactors`). `src/shared/ui/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
+- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in either `main.js`).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
@@ -642,8 +644,9 @@ Each planner is one big IIFE. Core shape:
   tornado chart; levers swept are read live from checked `data-lever`
   checkboxes (a display choice, not part of `state`/scenario export).
 - `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
-  `chartGapPartner` (declared together near `normalizeState`) are all
-  plain closure variables, not `state` fields — chart-display preferences
+  `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
+  and `store.js`; assign them through `assign<Name>`) are all
+  plain module variables, not `state` fields — chart-display preferences
   that reset on reload and never round-trip through scenario
   export/import. `chartShiftMode` ('together'/'gap') controls whether the
   ±1yr/±3yr comparison chart shifts both partners' retirement ages
@@ -700,6 +703,31 @@ shared region, so a CSS change is made once. The two `runProjection` year
 loops are deliberately not shared (see plan section 7, step 4.5): put a new
 per-year rule in a shared stage helper when it is identical in both
 countries, otherwise edit each loop. Line endings do not matter: the sync, build and analysis tools normalize CRLF to LF on read.
+
+## Shared state and country seams (stage 1 of the module split)
+
+- **Cross-module mutable state lives in modules, not in the closure.** `state`, `mode`, `scenarios` and `compareIds` are in
+  `src/shared/core/store.js`; the nine chart preferences in `chart-prefs.js`; `histTaxFactors` in `tax-factors.js`. `main.js` and
+  the shared fragments import them and read them as before. **To change one, call its `assign<Name>` function** (`assignState`,
+  `assignMode`, `assignLogScale`, ...): assigning to an import is a build error (`Cannot assign to import`). The names are
+  `assign…` because `set…` is taken by UI handlers (`setMode`, `setChartView`) that do more than assign. A new binding that
+  more than one future module will write belongs in one of these modules (or a new one next to them), not in `main.js`.
+- **US-only state** is in `src/us/core/`: `cliffPlanStore` (`.plan`, `.key`, `.report`, `.forState`, `.year`, `.overrides`,
+  `.computed`, `.computes`: the fields the "Per-year solver and the cliff plan" bullet above calls `cliffPlan`, `cliffPlanKey`,
+  `cliffPlanReport`, `cliffPlanState`, `cliffPlanYear`, `cliffPlanOverrides`, `cliffPlanComputed`, `cliffPlanComputes`),
+  `optimizerState` (`.rothBracketByAge` = the older `rothBracketOverrideByAge`, `.withdrawalMixByAge` =
+  `withdrawalMixOverrideByAge`, `.lastMultiLeverRun`, `.rothPerYearEvalBudget`), `testHooks` (the test-only counters) and
+  `currentYear` (`assignCurrentYear`).
+- **Country seams: shared code imports country code as `#country/<name>`.** `src/package.json` maps it to `src/us/<name>.js` or
+  `src/canada/<name>.js`; `scripts/build.js` passes the planner's name as the esbuild condition (a build without it fails with
+  `Could not resolve "#country/..."`), and plain Node resolves it with `--conditions=us|canada`. Both countries must provide
+  the module and export the same names; `tests/country_contract.js` checks this and only accepts named imports
+  (`import { a, b } from '#country/<name>'`). The first seam is `#country/storage-key`, used by `src/shared/ui/storage.js`.
+  To add a seam: create `src/us/<name>.js` and `src/canada/<name>.js`, import from `#country/<name>` in shared code, run
+  `node tests/country_contract.js`.
+- **Checks that guard this:** `tests/closure_names.js` fails on any name a `main.js` uses without declaring (esbuild does not
+  report that; stage 1 edits remove declarations), `npm run analyze` regenerates `docs/superpowers/inventory/` (run it at the
+  start of each later stage), and `src/**/core/` files must not touch `document`, `window`, `localStorage` or `navigator`.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
