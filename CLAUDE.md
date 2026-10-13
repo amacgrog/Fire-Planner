@@ -35,8 +35,7 @@ root was the source.) See `README.md` for the full user-facing feature list.
 - `src/shared/styles/styles.css` and `src/shared/partials/*.html` — the stylesheet and the shared HTML partials. Edit them there:
   `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
 - `scripts/plan-extraction.js` + `scripts/extract-units.js` (code in `scripts/lib/extraction-plan.js`, `extract-units.js`,
-  `marker-source.js`) — the tool that moved top-level units out of `main.js` into modules. `scripts/extractions/stage2.json` is the plan
-  it applied (every module with its unit labels and batch) and `names.json` the module-name overrides.
+  `marker-source.js`) — the tool that moved top-level units out of `main.js` into modules. `scripts/extractions/stage2.json` and `stage3.json` are the plans it applied (every module with its unit labels and batch; stage 3 also records the seam names and the mutable-binding report) and `names.json` the module-name overrides. `scripts/compare-builds.js --base DIR` compares the built planners of two trees statement by statement (run it after any change that only moves code).
 - `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js` (no browser global in any `src/**/core/` file), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` (the extraction tool and its helper, on fixture trees).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
@@ -163,7 +162,10 @@ root was the source.) See `README.md` for the full user-facing feature list.
 
 ## Architecture, per planner file
 
-Each planner is one big IIFE. Core shape:
+Each planner's `main.js` is one IIFE holding the DOM code (`render`, `syncControls`, charts, wizard, MCP wiring) and the side-effect
+statements; the tax code, the engine (`taxFor`, `runProjection`, `simulate`, the withdrawal solvers), `defaults` and (Canada) `normalizeState`
+live in modules since stages 2 and 3. The bullets below say "the function X"; find it with `grep -rn "function X" src` (and
+`docs/superpowers/inventory/stage3-region-map.md` for the old shared regions). Core shape:
 
 - `defaults` — the full default state object (every input field's default
   value, including nested arrays like `loans`, `spendingTiers`,
@@ -705,7 +707,7 @@ shared that currently differs, first remove the difference (see
 `docs/phase2-refactor-plan.md` section 7), then wrap it in a new region (add
 the markers to both files plus a `shared/` fragment). **New shared code goes in a
 module under `src/shared/`, not in a region**: regions are what is left of the old mechanism and
-shrink as units are extracted (`docs/superpowers/inventory/stage2-region-map.md` says where each
+shrink as units are extracted (`docs/superpowers/inventory/stage2-region-map.md` and `stage3-region-map.md` say where each
 old region's units went). The two `runProjection` year
 loops are deliberately not shared (see plan section 7, step 4.5): put a new
 per-year rule in a shared stage helper when it is identical in both
@@ -736,29 +738,44 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
   report that; stage 1 edits remove declarations), `npm run analyze` regenerates `docs/superpowers/inventory/` (run it at the
   start of each later stage), and `src/**/core/` files must not touch `document`, `window`, `localStorage` or `navigator`.
 
-## Modules and the extraction tool (stage 2 of the module split)
+## Modules and the extraction tool (stages 2 and 3 of the module split)
 
-- **Where code lives now.** Units are top-level statements of the planner IIFE. The first four dependency layers (the
-  leaves and the units that depend only on them) were moved out of `main.js` into modules: byte-identical shared code under
-  `src/shared/core|ui/`, country-only code under `src/<country>/core|ui/`. A module is under `core/` when none of its units uses a browser global
-  (`tests/core_purity.js` detects only `document`, `window`, `localStorage` and `navigator`, so a core module may still call methods on an
-  element passed to it, e.g. `attachMoneyPreview` in `src/shared/core/money-format.js`; moving such helpers to `ui/` is a stage 3 cleanup) and under `ui/` otherwise. Module names come from `scripts/extractions/names.json`;
-  the first unit's name or the old region's name is used where there is no override. Module files keep the two-space indentation
-  they had inside the IIFE (the tool moves text verbatim; do not reformat a module in a commit that also changes it).
-- **What stayed in `main.js` and why.** Side-effect statements (listeners, test hooks, initialisation: moving them changes
-  execution order), units that declare a `let` assigned from outside their module, and everything above layer 3 (the hubs: `render`,
-  `syncControls`, `taxFor`, `runProjection`, `FIELDS`, `defaults`, ...), because their dependencies were not modules yet. Stage 3
-  continues from the regenerated inventory (`npm run analyze`) and `node scripts/plan-extraction.js --max-layer=N`.
-- **Adding or moving code.** Put new shared code in a module under `src/shared/core|ui/` and import it (relative path); new
-  country code in `src/<country>/core|ui/`. Do not add `@@shared` regions. A name a module uses must be declared in it or imported
-  (`tests/closure_names.js` fails otherwise: esbuild does not report an undeclared identifier). Cross-module state goes through the
-  `assign…` functions described above.
+- **Where code lives now.** Units are top-level statements of the planner IIFE. Stage 2 moved the first four dependency layers, stage 3 every
+  remaining DOM-free unit that does not depend on the eight UI bindings below: byte-identical shared code under `src/shared/core|ui/`,
+  country-only code under `src/<country>/core|ui/`. A module is under `core/` when none of its units uses a browser global, calls a DOM method
+  on an element, or imports a `ui/` module (`tests/core_purity.js` enforces all three), and under `ui/` otherwise. Module names come from
+  `scripts/extractions/names.json`; the first unit's name or the old region's name is used where there is no override (a second module from the
+  same region gets a `-2` suffix). Module files keep the two-space indentation they had inside the IIFE (the tool moves text verbatim; do not
+  reformat a module in a commit that also changes it). To find a unit: `grep -rn "function taxFor" src`, or
+  `docs/superpowers/inventory/stage3-region-map.md` for an old shared region.
+- **The country seam.** Shared code that needs a country function imports it from `#country/core/seam`, a module each country has
+  (`src/us/core/seam.js`, `src/canada/core/seam.js`) that re-exports the same names: `taxFor`, `runProjection`, `defaults`, `BUCKET_STEP`,
+  `BUCKET_MODE`, `STANDARD_MODE`, `ESTIMATE_ALWAYS_IDS`, `ESTIMATE_GATED_GROUPS`, `TAXABLE_BASIS_KEY` and `housingForYear`. The tool writes
+  the facades; the list of allowed names is the manifest's `seam`. Adding a name means a country unit of that name in both planners.
+  `tests/country_contract.js` checks that both facades export the same names. The alias is resolved by the build condition (`us`/`canada`).
+- **What stayed in `main.js` and why.** Side-effect statements (listeners, test hooks, initialisation: moving them changes execution order); all
+  DOM code and what depends on it (`render`, `syncControls`, the charts, the wizard, the MCP wiring); and the eight mutable bindings that have
+  several writers or a statement writer (`theme`, `sidebarCollapsed`, `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`,
+  `undoSnapshot`, `wizardStep`). The planner lists these in its `bindings.<country>.needsDecision`; each is decided in stage 4, either by
+  combining its writers into one module with it or by giving it an `assign<Name>` state module (needed whenever a statement writes it).
+- **Mutable bindings that did move.** A `let` written by exactly one function and no statement moves into that function's module; in stage 3
+  that is `taxFactorInflation` (the memo of `taxIndexFactor`, in `src/shared/core/year-factors-2.js`). It is that function's private state. The
+  other such bindings (the timers, tooltip elements and `lastRothOptimizer`) belong to UI functions and move with them in stage 4. A module that
+  exports a `let` is read by others as a live binding; they must not assign it (esbuild: `Cannot assign to import`).
+- **Adding or moving code.** Put new shared code in a module under `src/shared/core|ui/` and import it (relative path); new country code in
+  `src/<country>/core|ui/`. Do not add `@@shared` regions. A name a module uses must be declared in it or imported (`tests/closure_names.js`
+  fails otherwise: esbuild does not report an undeclared identifier). Cross-module state goes through the `assign…` functions described above.
+  esbuild turns a module's top-level `const` and `let` into `var` when it bundles, so a use before initialization does not throw: it reads
+  `undefined`. A module-level initializer must only use modules it imports.
 - **Data blocks.** A `// NAME:begin ... // NAME:end` block (`STATE_RULES`, `MEDICAID_RULES`, `PROVINCE_RULES`, `BENEFIT_RULES`) is moved whole
-  with both markers. `scripts/gen-*-rules.js` find it in whichever file holds it (`scripts/lib/marker-source.js`) and evaluate the
-  text with `export` removed.
-- **Using the tool again.** `node scripts/plan-extraction.js > plan.json` prints a plan for the current source;
-  `node scripts/extract-units.js --manifest plan.json --batch N [--dry-run]` applies one batch and writes nothing unless every check
-  passes. After a batch: `npm run gen:states && npm run gen:provinces && npm run gen:benefits`, `npm test`.
+  with both markers. `scripts/gen-*-rules.js` find it in whichever file holds it (`scripts/lib/marker-source.js`) and evaluate the text with
+  `export` removed.
+- **Using the tool again.** `node scripts/plan-extraction.js [--core-only] [--max-layer=N] [--max-batch=N] [--seam=a,b] > plan.json` prints a
+  plan for the current source; `node scripts/extract-units.js --manifest plan.json --batch N [--dry-run]` applies one batch and writes nothing
+  unless every check passes (it stages its files and renames them into place). After a batch: `node scripts/sync-shared.js --check`,
+  `npm run build`, `node scripts/compare-builds.js --base <tree built before the batch>` and `npm test`. Where the units of a shared region and a
+  country run would import each other as whole modules, the planner gives them modules of their own and joins what it can again; about 29 of the
+  38 stage 3 modules hold one unit, and merging them by topic is follow-up work.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 

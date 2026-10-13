@@ -154,7 +154,7 @@ results.
    marks DOM-free move, at any layer: tax, per-year helpers, the engine and the hubs' logic.
    A binding with one writer moves with it; multi-writer and statement-written bindings (all UI
    state) wait for stage 4. Designed in section 14. Vitest and deleting `sync-shared.js` move
-   to after stage 4 (the last shared regions are UI code).
+   to after stage 4 (the last shared regions are UI code). DONE on branch tyler/stage3-higher-layers (the owner adds the merge date when merging).
 4. **Peel the remaining `ui/` layers.** Render, sync, charts, wizard and the MCP wiring move
    out last.
 
@@ -443,9 +443,7 @@ Designed 2026-10-12 from the state of `main.js` after stage 2.
   `infoBubbleBtn`, `reviewingFieldId`, `undoSnapshot`, `wizardStep`) and six are written by statements
   that stay in `main.js` (`theme`, `sidebarCollapsed`, `hadSavedState`, `setMobileView`,
   `reviewingFieldId`, `wizardStep`); the groups overlap.
-- A dry estimate with that rule moves about 90 US units (about 4,140 lines) and 68 Canada units
-  (about 2,080 lines). The 9 DOM-free units it leaves behind per planner all belong to the UI
-  state bindings below.
+- The estimate with that rule alone (about 90 US and 68 Canada units) ignored the units that call country code: the shared engine calls `taxFor`, `runProjection` and a few more country units. With the seam below, stage 3 moves 74 US and 52 Canada units (38 modules); the 9 DOM-free units it leaves behind per planner belong to the UI state bindings.
 
 ### Scope
 
@@ -480,8 +478,9 @@ whichever way it is wrapped. That remains the later factory and TypeScript work 
   was silently dropped (stage 2 final review, Important).
 - `#country/*` specifiers pass through verbatim and count as country code for the shared check;
   they were resolved as relative paths (same review, Important).
-- The comment attached to a unit stops at a blank line, so a trailing note about the previous unit
-  stays with it; `/* */` and JSDoc blocks above a unit travel with it.
+- A `/* */` or JSDoc block directly above a unit travels with it (the trailing-note case, a comment about the previous unit with no blank line, is cosmetic and left as it is).
+- A country seam: shared modules import the country units named in the manifest's `seam` from `#country/core/seam`, a facade each country gets (section 12's alias, with a subpath).
+- Where a shared region and a country run would import each other as whole modules, their units get modules of their own and are joined again where that closes no cycle (29 of the 38 modules still hold one unit; merging them by topic is follow-up work).
 - The layer limit becomes optional, and mutable declarers move under rule 1 above.
 - Writes are staged in a temporary directory and swapped in, and module paths must lie under the
   source root (parked stage 2 minors).
@@ -490,9 +489,7 @@ whichever way it is wrapped. That remains the later factory and TypeScript work 
 
 Same rules as section 13: shared regions become shared modules only when movable in both planners;
 a module is under `core/` when no unit uses a browser global. Helpers that call methods on an
-element passed in (`attachMoneyPreview` in `core/money-format.js`) are found by a new check
-(method calls on parameters named like elements are listed, not blocked) and moved to `ui/` by
-name override. Same-topic one-unit modules are merged by topic at the end, using the name file.
+element passed in (`attachMoneyPreview`) are DOM code: `tests/core_purity.js` fails on it in `core/`, and stage 3 moved it to `src/shared/ui/money-format.js`.
 
 ### Order and verification
 
@@ -509,3 +506,15 @@ name override. Same-topic one-unit modules are merged by topic at the end, using
 
 UI units, side-effect statements, the eight UI state bindings, Vitest, deleting `sync-shared.js`,
 the stateless engine and TypeScript.
+
+### Known limits at the end of stage 3
+
+- Seam facade cycles: `seam.js` re-exports every country module, so a shared module that imports it reaches them all. This works
+  because of the order of the import statements. The applier's cycle check and `compare-builds.js` do not see it. Follow-up: a
+  seam-aware cycle and order check, or direct imports of the seam names.
+- The eight UI bindings (`theme`, `sidebarCollapsed`, `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`,
+  `undoSnapshot`, `wizardStep`) still await a decision (stage 4).
+- 29 of the 38 modules hold a single unit; merging them by topic is follow-up work.
+- Some module names carry a `-2` suffix (a second module from the same region or topic).
+- Latent applier gaps: a namespace import (`import * as`) left in `main.js` is not handled, and the order of bare side-effect
+  imports is not preserved across a move.
