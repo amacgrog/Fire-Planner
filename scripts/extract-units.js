@@ -27,9 +27,10 @@ if (!modules.length) {
 }
 const dryRun = args.includes('--dry-run');
 try {
-  const report = applyModules(root, modules, { dryRun });
+  const report = applyModules(root, modules, { dryRun, seam: manifest.seam || [] });
   console.log(`${dryRun ? '[dry run] ' : ''}batch ${batch}: ${report.modules.length} modules; units moved: us ${report.moved.us}, canada ${report.moved.canada}`);
   if (report.deletedRegions.length) console.log(`regions removed: ${report.deletedRegions.join(', ')}`);
+  if (report.seam.us.length) console.log('seam names: ' + report.seam.us.join(', '));
   report.warnings.forEach((w) => console.log(`warning: ${w}`));
 } catch (err) {
   console.error(`extraction failed, nothing was written: ${err.message}`);

@@ -9,7 +9,11 @@
 // planners (the text must be identical) and its @@shared region fragment under shared/ is updated or deleted.
 //
 // Side-effect statements are never moved. Everything is verified before anything is written; on any problem it
-// throws and writes nothing.
+// throws and writes nothing (the files are staged next to their targets and renamed into place at the end).
+//
+// Country seam (spec section 14): a shared module may use a country unit only through the names listed in `seam`.
+// It then imports them from '#country/core/seam', and each country gets a facade, src/<country>/core/seam.js,
+// that re-exports those names from the module that holds them. Both facades must export the same names.
 const fs = require('fs');
 const path = require('path');
 const { analyze, undeclaredNames } = require('../analyze-closure');
@@ -39,12 +43,26 @@ function loadCountry(root, country) {
   units.forEach((u, i) => {
     const floor = i > 0 ? units[i - 1].endLine : 0;
     let start = u.startLine;
-    while (
-      start - 1 > floor &&
-      /^\s*\/\//.test(lines[start - 2]) &&
-      !SHARED_MARK.test(lines[start - 2]) &&
-      !DATA_END.test(lines[start - 2]) // a "// NAME:end" marker belongs to the unit above it
-    ) start--;
+    while (start - 1 > floor) {
+      const above = lines[start - 2];
+      if (/^\s*\/\//.test(above) && !SHARED_MARK.test(above) && !DATA_END.test(above)) {
+        start--; // a "// NAME:end" marker belongs to the unit above it
+        continue;
+      }
+      if (/^\s*\/\*/.test(above) && /\*\/\s*$/.test(above)) {
+        start--; // a one-line block comment
+        continue;
+      }
+      if (/\*\/\s*$/.test(above)) {
+        let k = start - 1; // line number of the closing line
+        while (k > floor && !/\/\*/.test(lines[k - 1])) k--;
+        if (k > floor && /^\s*\/\*/.test(lines[k - 1])) {
+          start = k;
+          continue;
+        }
+      }
+      break;
+    }
     let end = u.endLine;
     if (DATA_END.test(lines[end] || '')) end++; // the "// NAME:end" marker right after the unit
     chunks.set(u.label, { start, end });
@@ -80,7 +98,12 @@ function importLine(specs, source) {
   return `import { ${specs.map(specText).join(', ')} } from '${source}';`;
 }
 
-function applyModules(root, modules, { dryRun = false } = {}) {
+const SEAM_KEY = 'seam:#country/core/seam';
+const SEAM_FILE = 'core/seam.js';
+
+function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
+  const seamSet = new Set(seam);
+  const facade = { us: new Map(), canada: new Map() }; // seam name -> absolute path of the module that holds it
   const info = Object.fromEntries(COUNTRIES.map((c) => [c, loadCountry(root, c)]));
   const warnings = [];
   const files = new Map(); // absolute path -> text (null = delete)
@@ -91,6 +114,7 @@ function applyModules(root, modules, { dryRun = false } = {}) {
   for (const m of modules) {
     if (seenPaths.has(m.path)) throw new Error(`module path used twice: ${m.path}`);
     seenPaths.add(m.path);
+    if (!path.resolve(root, m.path).startsWith(path.join(root, 'src') + path.sep)) throw new Error(`${m.path}: module paths must lie under src/`);
     if (fs.existsSync(path.join(root, m.path))) throw new Error(`${m.path} already exists`);
     const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
     for (const c of countries) {
@@ -146,8 +170,16 @@ function applyModules(root, modules, { dryRun = false } = {}) {
         if (m && !target) throw new Error(`${m.path}: "${u.label}" depends on "${use.unit}", which stays in ${c}/main.js`);
         if (!target || target === m) continue;
         for (const name of use.names) exportsNeeded.get(target).add(name);
-        if (m) for (const name of use.names) addNeed(m, c, path.join(root, target.path), name, name);
-        else {
+        if (m) {
+          const viaSeam = m.owner === 'shared' && target.owner !== 'shared';
+          for (const name of use.names) {
+            if (viaSeam) {
+              if (!seamSet.has(name)) throw new Error(`${m.path}: "${u.label}" uses country code "${name}", which is not a seam name`);
+              facade[c].set(name, path.join(root, target.path));
+              addNeed(m, c, SEAM_KEY, name, name);
+            } else addNeed(m, c, path.join(root, target.path), name, name);
+          }
+        } else {
           const key = path.join(root, target.path);
           if (!mainImports[c].has(key)) mainImports[c].set(key, new Set());
           use.names.forEach((n) => mainImports[c].get(key).add(n));
@@ -156,10 +188,21 @@ function applyModules(root, modules, { dryRun = false } = {}) {
       if (m) {
         for (const local of u.importUses) {
           const imp = impByLocal.get(local);
+          if (imp.imported === '*') throw new Error(`${m.path}: "${u.label}" uses the namespace import "${local}", which is not supported`);
+          const bare = !imp.source.startsWith('.');
+          if (bare) {
+            addNeed(m, c, `bare:${imp.source}`, local, imp.imported);
+            continue;
+          }
           const abs = path.resolve(ci.mainDir, imp.source);
-          const otherCountry = COUNTRIES.find((cc) => cc !== c);
-          if (m.owner === 'shared' && (abs.startsWith(path.join(root, 'src', c) + path.sep) || abs.startsWith(path.join(root, 'src', otherCountry) + path.sep))) {
-            throw new Error(`${m.path}: "${u.label}" uses "${local}" from ${imp.source}, which is country code`);
+          const inCountry = COUNTRIES.some((cc) => abs.startsWith(path.join(root, 'src', cc) + path.sep));
+          if (m.owner === 'shared' && inCountry) {
+            if (!seamSet.has(local) || imp.imported !== local) {
+              throw new Error(`${m.path}: "${u.label}" uses "${local}" from ${imp.source}, which is country code and not a seam name`);
+            }
+            facade[c].set(local, abs);
+            addNeed(m, c, SEAM_KEY, local, local);
+            continue;
           }
           addNeed(m, c, abs, local, imp.imported);
         }
@@ -178,9 +221,12 @@ function applyModules(root, modules, { dryRun = false } = {}) {
   const edges = new Map(modules.map((m) => [m, new Set()]));
   for (const m of modules) {
     for (const c of m.owner === 'shared' ? COUNTRIES : [m.owner]) {
-      for (const target of (needs.get(m)?.[c] || new Map()).keys()) {
-        const t = modules.find((x) => path.join(root, x.path) === target);
-        if (t && t !== m) edges.get(m).add(t);
+      for (const [target, names] of needs.get(m)?.[c] || new Map()) {
+        const files = target === SEAM_KEY ? [...names.keys()].map((n) => facade[c].get(n)) : [target];
+        for (const file of files) {
+          const t = modules.find((x) => path.join(root, x.path) === file);
+          if (t && t !== m) edges.get(m).add(t);
+        }
       }
     }
   }
@@ -202,7 +248,8 @@ function applyModules(root, modules, { dryRun = false } = {}) {
     const byTarget = needs.get(m)?.[c0] || new Map();
     for (const [target, names] of [...byTarget].sort((a, b) => a[0].localeCompare(b[0]))) {
       const specs = [...names].map(([local, imported]) => ({ local, imported })).sort((a, b) => a.local.localeCompare(b.local));
-      importLines.push(importLine(specs, relImport(abs, target)));
+      const source = target === SEAM_KEY ? '#country/core/seam' : target.startsWith('bare:') ? target.slice(5) : relImport(abs, target);
+      importLines.push(importLine(specs, source));
     }
     const body = [];
     for (const label of m.units[c0]) {
@@ -246,7 +293,9 @@ function applyModules(root, modules, { dryRun = false } = {}) {
     }
     const decls = ci.model.importDecls;
     decls.forEach((d) => { for (let n = d.startLine; n <= d.endLine; n++) remove.add(n); });
-    const importBlock = [...bySource].map(([source, specs]) => importLine(specs, source));
+    const bound = new Set(ci.model.imports.map((i) => i.source));
+    const sideEffectOnly = [...new Set(decls.map((d) => d.source))].filter((src) => !bound.has(src));
+    const importBlock = [...sideEffectOnly.map((src) => `import '${src}';`), ...[...bySource].map(([source, specs]) => importLine(specs, source))];
     const insertAt = decls.length ? decls[0].startLine : 1;
     const out = [];
     ci.lines.forEach((line, i) => {
@@ -308,6 +357,34 @@ function applyModules(root, modules, { dryRun = false } = {}) {
     files.set(path.join(fragmentDir, `${name}.js`), null);
   }
 
+  // the country seam facades
+  const facadeNames = {};
+  for (const c of COUNTRIES) {
+    const seamFile = path.join(root, 'src', c, SEAM_FILE);
+    const targets = new Map(); // name -> absolute module path
+    if (fs.existsSync(seamFile)) {
+      for (const [, list, from] of readText(seamFile).matchAll(/^export \{ ([^}]+) \} from '([^']+)';$/gm)) {
+        for (const name of list.split(',').map((x) => x.trim())) targets.set(name, path.resolve(path.dirname(seamFile), from));
+      }
+    }
+    facade[c].forEach((target, name) => targets.set(name, target));
+    facadeNames[c] = [...targets.keys()].sort();
+    if (!targets.size) continue;
+    const byModule = new Map();
+    for (const [name, target] of targets) {
+      if (!byModule.has(target)) byModule.set(target, []);
+      byModule.get(target).push(name);
+    }
+    const lines = [...byModule]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([target, names]) => `export { ${names.sort().join(', ')} } from '${relImport(seamFile, target)}';`);
+    const text = `${lines.join('\n')}\n`;
+    if (!fs.existsSync(seamFile) || readText(seamFile) !== text) files.set(seamFile, text);
+  }
+  if (JSON.stringify(facadeNames.us) !== JSON.stringify(facadeNames.canada)) {
+    throw new Error(`the country seam facades differ: us exports ${facadeNames.us.join(', ')}; canada exports ${facadeNames.canada.join(', ')}`);
+  }
+
   // ---- 6. verify the result
   for (const c of COUNTRIES) {
     const text = files.get(info[c].file);
@@ -320,13 +397,20 @@ function applyModules(root, modules, { dryRun = false } = {}) {
   }
 
   if (!dryRun) {
-    for (const [file, text] of files) {
-      if (text === null) fs.rmSync(file, { force: true });
-      else {
+    const staged = [];
+    try {
+      for (const [file, text] of files) {
+        if (text === null) continue;
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, text);
+        fs.writeFileSync(`${file}.extract-tmp`, text);
+        staged.push(file);
       }
+    } catch (err) {
+      staged.forEach((file) => fs.rmSync(`${file}.extract-tmp`, { force: true }));
+      throw err;
     }
+    staged.forEach((file) => fs.renameSync(`${file}.extract-tmp`, file));
+    for (const [file, text] of files) if (text === null) fs.rmSync(file, { force: true });
   }
   return {
     modules: modules.map((m) => ({
@@ -337,6 +421,7 @@ function applyModules(root, modules, { dryRun = false } = {}) {
     })),
     moved: Object.fromEntries(COUNTRIES.map((c) => [c, moduleOf[c].size])),
     deletedRegions: [...deleted].sort(),
+    seam: facadeNames,
     warnings,
   };
 }

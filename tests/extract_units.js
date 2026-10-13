@@ -9,6 +9,7 @@ const vm = require('vm');
 const esbuild = require('esbuild');
 const { planExtraction } = require('../scripts/lib/extraction-plan');
 const { applyModules } = require('../scripts/lib/extract-units');
+const { checkCountryContract } = require('../scripts/lib/country-contract');
 
 const made = [];
 function write(root, rel, text) {
@@ -211,6 +212,94 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
 
   // a region emptied in one planner while the other still carries it
   refuse(fixture, one('src/us/core/x.js', 'us', ['twice', 'addBase']), /region helpers exists in canada\/main\.js but not in us\/main\.js/);
+
+
+  // ---- stage 3: side-effect imports, bare specifiers, namespace imports, block comments, staged writes, paths
+  const mainWith = (importLines, body, tail = '  window.__out = 1;') => [...importLines, '(() => {', ...body, tail, '})();', ''].join('\n');
+  const twoPlanners = (usImports, usBody, caImports = usImports, caBody = usBody, tail) => {
+    const r = newRoot();
+    write(r, 'src/us/main.js', mainWith(usImports, usBody, tail));
+    write(r, 'src/canada/main.js', mainWith(caImports, caBody, tail));
+    return r;
+  };
+  const leftovers = (dir) =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? leftovers(full) : e.name.endsWith('.extract-tmp') ? [full] : [];
+    });
+
+  // a bare side-effect import stays in main.js, and nothing is left from the staged writes
+  root = twoPlanners(["import './effect.js';"], ['  function one() {', '    return 1;', '  }'], ["import './effect.js';"], ['  function one() {', '    return 1;', '  }']);
+  write(root, 'src/us/effect.js', 'window.__fx = 1;\n');
+  write(root, 'src/canada/effect.js', 'window.__fx = 1;\n');
+  applyModules(root, [{ path: 'src/us/core/one.js', owner: 'us', units: { us: ['one'], canada: [] } }]);
+  assert.ok(read(root, 'src/us/main.js').startsWith("import './effect.js';\n(() => {\n"), read(root, 'src/us/main.js').split('\n').slice(0, 3).join('|'));
+  assert.deepStrictEqual(leftovers(root), []);
+
+  // a namespace import cannot be moved, and a module path outside src/ is refused
+  const nsImport = ["import * as store from '../shared/core/store.js';"];
+  const nsBody = ['  function base() {', '    return store.state.base;', '  }'];
+  refuse(() => twoPlanners(nsImport, nsBody), one('src/us/core/b.js', 'us', ['base']), /namespace import/);
+  refuse(fixture, one('lib/x.js', 'us', ['isEven']), /must lie under src/);
+
+  // block comments above a unit travel with it
+  root = twoPlanners(
+    [],
+    ['  /* one-line note */', '  function a() {', '    return 1;', '  }', '  /**', '   * the b function', '   */', '  function b() {', '    return 2;', '  }'],
+  );
+  applyModules(root, [{ path: 'src/us/core/ab.js', owner: 'us', units: { us: ['a', 'b'], canada: [] } }]);
+  assert.ok(read(root, 'src/us/core/ab.js').includes('/* one-line note */') && read(root, 'src/us/core/ab.js').includes('the b function'));
+  assert.ok(!read(root, 'src/us/main.js').includes('note */') && !read(root, 'src/us/main.js').includes('the b function'));
+
+  // ---- the country seam
+  const countryPackage = '{ "private": true, "type": "module", "imports": { "#country/*": { "us": "./us/*.js", "canada": "./canada/*.js" } } }\n';
+  const SEAM_REGION = ['  // @@shared:calls begin', '  function callTax(n) {', '    return taxFor(n) + 1;', '  }', '  // @@shared:calls end'];
+  const seamMain = (rate) => mainWith([], [...SEAM_REGION, '  function taxFor(n) {', `    return n * ${rate};`, '  }'], '  window.__out = callTax(5);');
+  const seamFixture = () => {
+    const r = newRoot();
+    write(r, 'src/package.json', countryPackage);
+    write(r, 'src/us/main.js', seamMain(2));
+    write(r, 'src/canada/main.js', seamMain(3));
+    write(r, 'shared/calls.js', SEAM_REGION.slice(1, -1).join('\n') + '\n');
+    return r;
+  };
+  const runWith = async (r, country) => {
+    const result = await esbuild.build({
+      entryPoints: [path.join(r, 'src', country, 'main.js')],
+      bundle: true,
+      write: false,
+      format: 'iife',
+      logLevel: 'silent',
+      outfile: 'out.js',
+      conditions: [country],
+    });
+    const window = {};
+    vm.runInNewContext(result.outputFiles[0].text, { window });
+    return window.__out;
+  };
+  root = seamFixture();
+  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
+  const seamPlan = planExtraction(root, { seam: ['taxFor'] });
+  assert.throws(() => applyModules(root, seamPlan.modules), /not a seam name/, 'without the seam list a shared module cannot use country code');
+  const seamReport = applyModules(root, seamPlan.modules, { seam: ['taxFor'] });
+  assert.deepStrictEqual(seamReport.seam, { us: ['taxFor'], canada: ['taxFor'] });
+  assert.strictEqual(read(root, 'src/us/core/seam.js'), "export { taxFor } from './tax-for.js';\n");
+  assert.ok(read(root, 'src/shared/core/calls.js').startsWith("import { taxFor } from '#country/core/seam';"), read(root, 'src/shared/core/calls.js'));
+  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
+  assert.deepStrictEqual(await checkCountryContract(path.join(root, 'src')), []);
+
+  // a shared region and country code that would import each other as whole modules are split, and still behave
+  const PAIR_REGION = ['  // @@shared:pair begin', '  function f(n) {', '    return g(n) + 1;', '  }', '  function h(n) {', '    return n + 1;', '  }', '  // @@shared:pair end'];
+  const pairMain = (m) => mainWith([], [...PAIR_REGION, '  function g(n) {', `    return h(n) * ${m};`, '  }', '  function k(n) {', '    return f(n) - 1;', '  }'], '  window.__out = k(5);');
+  root = newRoot();
+  write(root, 'src/package.json', countryPackage);
+  write(root, 'src/us/main.js', pairMain(2));
+  write(root, 'src/canada/main.js', pairMain(3));
+  write(root, 'shared/pair.js', PAIR_REGION.slice(1, -1).join('\n') + '\n');
+  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [12, 18]);
+  applyModules(root, planExtraction(root, { seam: ['g'] }).modules, { seam: ['g'] });
+  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [12, 18]);
+  assert.deepStrictEqual(leftovers(root), []);
 
   console.log('extract_units OK');
 })()

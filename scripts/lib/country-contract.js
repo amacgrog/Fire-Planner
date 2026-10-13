@@ -44,7 +44,7 @@ function collectSharedImports(srcRoot, problems) {
   return wanted;
 }
 
-async function exportsOf(file) {
+async function exportsOf(file, country) {
   const result = await esbuild.build({
     entryPoints: [file],
     bundle: true,
@@ -53,6 +53,7 @@ async function exportsOf(file) {
     metafile: true,
     outfile: 'country-contract-check.js', // never written (write: false)
     logLevel: 'silent',
+    conditions: [country], // a seam module's own imports may use #country themselves (through shared code)
   });
   return Object.values(result.metafile.outputs)[0].exports;
 }
@@ -68,7 +69,7 @@ async function checkCountryContract(srcRoot) {
         problems.push(`#country/${name}: src/${country}/${name}.js is missing`);
         continue;
       }
-      exportsByCountry[country] = await exportsOf(file);
+      exportsByCountry[country] = await exportsOf(file, country);
       for (const imp of [...imported].sort()) {
         if (!exportsByCountry[country].includes(imp)) {
           problems.push(`#country/${name}: src/${country}/${name}.js does not export "${imp}", which shared code imports`);
