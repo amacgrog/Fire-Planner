@@ -12,7 +12,7 @@ import { BENEFIT_RULES, PROVINCE_RULES, ontarioHealthPremium } from './core/prov
 import { OAS_RECOVERY } from './core/oas-recovery.js';
 import { BEN } from './core/benefit-helpers.js';
 import { probateFee } from './core/probate-fee.js';
-import { TAXABLE_BASIS_KEY, newWithdrawal } from './core/taxable-basis-key.js';
+import { newWithdrawal } from './core/taxable-basis-key.js';
 import { takeCash, takeHomeEquity } from '../shared/core/take-cash.js';
 import { takeRoth } from './core/take-roth.js';
 import { guardrailSpendingMultiplier, mortgageResultAges, newGuardrails, recordGuardrailWithdrawal } from '../shared/core/next-guardrail-multiplier.js';
@@ -71,6 +71,9 @@ import { normalizeState } from './core/normalize-state.js';
 import { afterTaxEstate, benefitsFor, buildTaxProfile, cppContribution, federalTaxCA, gisIncomeRoom, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, payrollTax, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solveMeltdown, solvePensionSplit, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor } from './core/federal-tax-ca.js';
 import { drawTaxable } from '../shared/core/draw-taxable.js';
 import { takeTraditional } from './core/take-traditional.js';
+import { takeTaxable } from '../shared/core/take-taxable.js';
+import { refillBondReserve } from '../shared/core/refill-bond-reserve.js';
+import { rotateIntoBondLadder } from '../shared/core/sweep-excess-cash-2.js';
 (() => {
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
@@ -673,43 +676,6 @@ import { takeTraditional } from './core/take-traditional.js';
 
 
 
-  // @@shared:09-sweepExcessCash begin
-
-  // Pre-retirement bond-ladder build: ramps linearly over the years available
-  // before retirement so the full ladderTarget is reached by rotationEndYear.
-  // Each year it moves whatever the ramp still needs into the bond reserve:
-  // traditional first, then Roth (reallocations inside a retirement account:
-  // no income, no tax, no early-withdrawal penalty), then taxable brokerage
-  // only as a last resort. The taxable move is a real sale (drawTaxable): the
-  // tax on the realized gain is paid out of the proceeds, the new bonds are
-  // bought at market (full basis), and the realized gain is returned so the
-  // caller can add it to the year's gains (tax, MAGI). `conversionAmount` is
-  // this year's ordinary income already in the profile (Roth conversion, US /
-  // meltdown, Canada), which the gain stacks on.
-  function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
-    if (year < rotationStartYear || year > rotationEndYear) return 0;
-    const windowLen = rotationEndYear - rotationStartYear + 1,
-      progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
-    let remaining = Math.max(0, ladderTarget * progress - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-    const traditionalMove = Math.min(bal.traditional, remaining);
-    bal.traditional -= traditionalMove;
-    bal.bondTraditional += traditionalMove;
-    remaining -= traditionalMove;
-    if (remaining > 0) {
-      const rothMove = Math.min(bal.roth, remaining);
-      bal.roth -= rothMove;
-      bal.bondRoth += rothMove;
-      remaining -= rothMove;
-    }
-    if (remaining <= 0) return 0;
-    const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
-    bal.taxable -= d.taken;
-    bal.taxableBasis -= d.basisTaken;
-    bal.bondTaxable += d.net;
-    bal.bondTaxableBasis += d.net;
-    return d.gain;
-  }
-  // @@shared:09-sweepExcessCash end
 
 
 
@@ -720,23 +686,6 @@ import { takeTraditional } from './core/take-traditional.js';
 
 
 
-  // @@shared:takeTaxable begin
-  // Each take*() draws up to `amount` of net cash from one bucket, updates the
-  // balances and the running totals on `wd`, and returns the NET cash raised
-  // (after any tax or penalty the draw itself triggers). The caller subtracts
-  // it from wd.need, because the strategies differ in whether a tiny overshoot
-  // is clamped at zero. `bucket` is 'taxable' | 'bondTaxable'.
-  function takeTaxable(wd, bucket, amount) {
-    const { bal } = wd;
-    const basisKey = TAXABLE_BASIS_KEY[bucket];
-    const d = drawTaxable(bal[bucket], bal[basisKey], amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
-    bal[bucket] -= d.taken;
-    bal[basisKey] -= d.basisTaken;
-    wd.taxableGainGross += d.gain;
-    wd.taxableWithdrawn += d.taken;
-    return d.net;
-  }
-  // @@shared:takeTaxable end
   // Smooth withdrawals (the only mix mode Canada has): the year's need is split
   // between taxable and RRSP/RRIF in proportion to their balances, shared by the
   // standard cascade and the bucket strategy. Returns false when smooth is off, so
@@ -830,44 +779,6 @@ import { takeTraditional } from './core/take-traditional.js';
       refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
   }
   // @@shared:BUCKET_DOWN_YEAR_ORDER end
-  // @@shared:10-refillBondReserve begin
-  // Tops the bond reserve up toward bondTarget by moving stocks into bonds: traditional first,
-  // then Roth, then taxable only as a last resort when neither has anything left to move.
-  //  - Inside a retirement account it is a reallocation, not a sale or a withdrawal: no income, no
-  //    tax, no early-withdrawal penalty (age does not restrict it).
-  //  - From taxable it is a real sale: drawTaxable sells enough stock that, after the tax on the
-  //    realized gain, the amount moved into bonds is what was asked. The gain is added to
-  //    wd.taxableGainGross, so it counts in the year's tax, MAGI (ACA, IRMAA) and the MAGI
-  //    iteration, and the tax is paid out of the proceeds; the new bonds are bought at market
-  //    (full basis). The live withdrawal mix does not plan for it (it decides before the refill).
-  // Gradual: at most `maxMove` moves into bonds per call (the engine passes one year of that
-  // year's expenses, net of lump expenses). Cash and home equity are never used. Surplus cash
-  // refills the reserve separately (routeSurplus), limited only by the surplus and the target.
-  function refillBondReserve(wd, bondTarget, { maxMove = Infinity } = {}) {
-    const { bal } = wd;
-    const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-    let remaining = Math.min(bondDeficit, maxMove);
-    if (remaining <= 0) return;
-    const fromTrad = Math.min(bal.traditional, remaining);
-    bal.traditional -= fromTrad;
-    bal.bondTraditional += fromTrad;
-    remaining -= fromTrad;
-    if (remaining > 0) {
-      const fromRoth = Math.min(bal.roth, remaining);
-      bal.roth -= fromRoth;
-      bal.bondRoth += fromRoth;
-      remaining -= fromRoth;
-    }
-    if (remaining > 0) {
-      const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
-      bal.taxable -= d.taken;
-      bal.taxableBasis -= d.basisTaken;
-      bal.bondTaxable += d.net;
-      bal.bondTaxableBasis += d.net;
-      wd.taxableGainGross += d.gain;
-    }
-  }
-  // @@shared:10-refillBondReserve end
   // ---- end withdrawal building blocks ----
 
 

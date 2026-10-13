@@ -1,3 +1,4 @@
+import { drawTaxable } from './draw-taxable.js';
 
   // Pre-retirement bond-ladder build: ramps linearly over the years available
   // before retirement so the full ladderTarget is reached by rotationEndYear.
@@ -10,7 +11,7 @@
   // caller can add it to the year's gains (tax, MAGI). `conversionAmount` is
   // this year's ordinary income already in the profile (Roth conversion, US /
   // meltdown, Canada), which the gain stacks on.
-  function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
+  export function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
     if (year < rotationStartYear || year > rotationEndYear) return 0;
     const windowLen = rotationEndYear - rotationStartYear + 1,
       progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;

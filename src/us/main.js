@@ -73,7 +73,7 @@ import { refreshMoneyPreviews } from '../shared/ui/money-format.js';
 import { decisionDeltaPhrase } from '../shared/core/decision-end-assets.js';
 import { taxableSocialSecurity } from './core/social-security-and-child-credits.js';
 import { SOLO_IN, SOLO_PLAN, STREAM_PLAN, additionalMedicareTax, allocatePlanRoom, filingStatusFor, housingForYear, requiredDistributions, retirementContributions, socialSecurityIncome, soloPlanContributions, streamPlanContributions } from './core/payroll-and-plan-limits.js';
-import { NO_PLAN, NO_PLANS, TAXABLE_BASIS_KEY, fillEligible, fillPlanOf, lineFamily, newWithdrawal, underEligible, underPlanOf, yearPlanCandidates } from './core/cliff-plan-lines.js';
+import { NO_PLAN, NO_PLANS, fillEligible, fillPlanOf, lineFamily, newWithdrawal, underEligible, underPlanOf, yearPlanCandidates } from './core/cliff-plan-lines.js';
 import { COVER_CTX, INH_CTX, INH_OUT, LUMP_OUT, STREAM_OUT, inheritedApply, inheritedClone, inheritedDraw, inheritedLedger, inheritedRestore, inheritedYear, listAmountsForYear, lumpAmountsForYear, streamAmountsForYear, streamCoverBits } from './core/income-streams-and-lumps.js';
 import { applyRothConversion, growBalances, withdrawRequiredDistributions } from './core/grow-balances.js';
 import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './ui/annotate-solver-rows.js';
@@ -91,10 +91,13 @@ import { normalizeLists } from '../shared/core/lists-and-children-2.js';
 import { taxIndexFactor } from '../shared/core/year-factors-2.js';
 import { makeProjectedExpense } from '../shared/core/bond-ladder-2.js';
 import { acaNetCost, afterTaxEndValueUS, buildTaxProfile, childCredits, conversionMagiCeiling, federalDeduction, fillTraditional, healthcareCost, irmaaMagiOf, irmaaSurcharge, irmaaTierCeiling, lambdaEstimate, longTermGainTax, magiThresholds, ordinaryTax, payrollTax, qbiDeduction, selfEmploymentTax, solveTraditionalForNet, solveTraditionalForNetFromNeed, standardDeduction, stateIncomeTax, stateRuleFor, stateRuleForYear, takeInherited, takeRoth, takeTraditional, taxFor } from './core/standard-deduction.js';
-import { drawTaxable } from '../shared/core/draw-taxable.js';
 import { releaseMagiCap } from './core/release-magi-cap.js';
 import { takePenalized } from './core/take-penalized.js';
 import { solveRothConversion } from './core/solve-roth-conversion.js';
+import { pickLiveWithdrawalOrder } from './core/pick-live-withdrawal-order.js';
+import { takeTaxable } from '../shared/core/take-taxable.js';
+import { refillBondReserve } from '../shared/core/refill-bond-reserve.js';
+import { rotateIntoBondLadder } from '../shared/core/sweep-excess-cash-2.js';
 (() => {
   FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
   // @@shared:ids begin
@@ -792,135 +795,6 @@ import { solveRothConversion } from './core/solve-roth-conversion.js';
 
 
 
-  // Live, always-cheap sibling of the multi-lever optimizer's full
-  // lifetime coordinate-ascent search above — the search is too expensive
-  // to re-run on every render (it calls simulate() thousands of times), so
-  // it stays an explicit, on-demand "Optimize" report.
-  //
-  // This went through two broken designs before landing here, both found
-  // by testing against a real uploaded scenario rather than caught in
-  // review — worth recording so neither gets reintroduced:
-  //
-  // 1. Scoring all WITHDRAWAL_MIX_CANDIDATES on "this year's own tax"
-  //    alone: a Roth withdrawal is *always* tax-free this year, so every
-  //    Roth-inclusive candidate trivially looks free and the picker drains
-  //    Roth almost immediately, with nothing left for a future year that
-  //    actually needs it. Drove lifetime cost up by ~$900k instead of down
-  //    in testing.
-  // 2. Restricting to the menu's "spread" candidates (taxTradHalf/thirds/
-  //    balanced/smoothed) to avoid (1): still worse than doing nothing,
-  //    by ~$270k. The menu's candidates are fixed PROPORTIONAL splits —
-  //    each bucket's share is sized against `need` independently, so if
-  //    one bucket's own share exceeds what it actually holds, that
-  //    shortfall does NOT roll over into the other buckets; it falls
-  //    straight through to the Roth/cash/bond/home fallback below. That's
-  //    fine for the full lifetime search above, which evaluates the
-  //    resulting multi-year depletion pattern directly and simply
-  //    wouldn't pick a candidate that stranded a large balance — but a
-  //    one-year-only picker has no way to know whether "leaving
-  //    traditional untouched this year" is a deliberate multi-year
-  //    strategy (it sometimes is, see the full search's own picks) or an
-  //    accident, so it can't safely choose from the same proportional-
-  //    split menu at all.
-  //
-  // What's actually safe for a single year to decide on its own is
-  // *order*, not proportion: which of taxable-or-traditional to draw from
-  // first, fully cascading into the other for any shortfall — exactly the
-  // shape the plain taxable-first default already uses, just choosing
-  // which bucket leads based on this year's own marginal tax rates
-  // instead of always taxable. Both orders are guaranteed to satisfy
-  // `need` out of combined taxable+traditional capacity whenever that
-  // combined capacity allows it (never stranding one while draining Roth/
-  // cash/bonds for the other), and since one of the two orders (taxable-
-  // first) is exactly what the plain default already does, picking
-  // whichever of the two costs less this year can never come out ahead of
-  // the default by choosing worse — only by choosing traditional-first
-  // when that's genuinely cheaper (e.g. a low-bracket year with little
-  // taxable gain to save, or one where taxable's own gain would blow the
-  // MAGI room traditional wouldn't). `remainingMagiRoom` (the same ACA-
-  // cliff/IRMAA-tier ceiling the Roth ladder's conversion sizing already
-  // respects) is folded into the cost so an order that would overshoot it
-  // is preferred against only when the other order overshoots it more.
-  // Roth itself is deliberately left untouched here — it's still reached
-  // exactly as it always was, as the shortfall fallback immediately below
-  // this branch, once combined taxable+traditional genuinely can't cover
-  // `need`.
-  function pickLiveWithdrawalOrder(
-    need,
-    taxableBal,
-    traditionalBal,
-    taxableBasis,
-    profile,
-    taxableGainGross,
-    traditionalGross,
-    penalizedFraction,
-    remainingMagiRoom,
-  ) {
-    function cascade(traditionalFirst) {
-      let remaining = need,
-        fromTaxable = 0,
-        taxableGain = 0,
-        taxableBasisTaken = 0,
-        fromTraditional = 0,
-        penalty = 0,
-        gainAcc = taxableGainGross,
-        tradAcc = traditionalGross;
-      function drawTax(amount) {
-        if (amount <= 0) return;
-        const d = drawTaxable(
-          taxableBal - fromTaxable,
-          taxableBasis - taxableBasisTaken,
-          amount,
-          profile,
-          gainAcc,
-          tradAcc,
-        );
-        fromTaxable += d.taken;
-        taxableGain += d.gain;
-        taxableBasisTaken += d.basisTaken;
-        gainAcc += d.gain;
-        remaining -= d.net;
-      }
-      function drawTrad(amount) {
-        if (amount <= 0) return;
-        const t = solveTraditionalForNet(
-          traditionalBal - fromTraditional,
-          amount,
-          gainAcc,
-          tradAcc,
-          profile,
-          penalizedFraction,
-        );
-        fromTraditional += t.fromTrad;
-        tradAcc += t.fromTrad;
-        penalty += t.penalty;
-        remaining -= t.tradNet;
-      }
-      if (traditionalFirst) {
-        drawTrad(remaining);
-        drawTax(remaining);
-      } else {
-        drawTax(remaining);
-        drawTrad(remaining);
-      }
-      const incrementalTax =
-        taxFor(profile, gainAcc, tradAcc) - taxFor(profile, taxableGainGross, traditionalGross) +
-        penalty;
-      const overage = Math.max(0, taxableGain + fromTraditional - remainingMagiRoom);
-      return {
-        fromTaxable,
-        taxableGain,
-        taxableBasisTaken,
-        fromTraditional,
-        penalty,
-        remainingNeed: Math.max(0, remaining),
-        cost: overage * 1e6 + incrementalTax,
-      };
-    }
-    const taxableFirst = cascade(false),
-      traditionalFirst = cascade(true);
-    return traditionalFirst.cost < taxableFirst.cost ? traditionalFirst : taxableFirst;
-  }
 
 
 
@@ -939,65 +813,11 @@ import { solveRothConversion } from './core/solve-roth-conversion.js';
 
 
 
-  // @@shared:09-sweepExcessCash begin
-
-  // Pre-retirement bond-ladder build: ramps linearly over the years available
-  // before retirement so the full ladderTarget is reached by rotationEndYear.
-  // Each year it moves whatever the ramp still needs into the bond reserve:
-  // traditional first, then Roth (reallocations inside a retirement account:
-  // no income, no tax, no early-withdrawal penalty), then taxable brokerage
-  // only as a last resort. The taxable move is a real sale (drawTaxable): the
-  // tax on the realized gain is paid out of the proceeds, the new bonds are
-  // bought at market (full basis), and the realized gain is returned so the
-  // caller can add it to the year's gains (tax, MAGI). `conversionAmount` is
-  // this year's ordinary income already in the profile (Roth conversion, US /
-  // meltdown, Canada), which the gain stacks on.
-  function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
-    if (year < rotationStartYear || year > rotationEndYear) return 0;
-    const windowLen = rotationEndYear - rotationStartYear + 1,
-      progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
-    let remaining = Math.max(0, ladderTarget * progress - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-    const traditionalMove = Math.min(bal.traditional, remaining);
-    bal.traditional -= traditionalMove;
-    bal.bondTraditional += traditionalMove;
-    remaining -= traditionalMove;
-    if (remaining > 0) {
-      const rothMove = Math.min(bal.roth, remaining);
-      bal.roth -= rothMove;
-      bal.bondRoth += rothMove;
-      remaining -= rothMove;
-    }
-    if (remaining <= 0) return 0;
-    const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
-    bal.taxable -= d.taken;
-    bal.taxableBasis -= d.basisTaken;
-    bal.bondTaxable += d.net;
-    bal.bondTaxableBasis += d.net;
-    return d.gain;
-  }
-  // @@shared:09-sweepExcessCash end
 
 
 
 
 
-  // @@shared:takeTaxable begin
-  // Each take*() draws up to `amount` of net cash from one bucket, updates the
-  // balances and the running totals on `wd`, and returns the NET cash raised
-  // (after any tax or penalty the draw itself triggers). The caller subtracts
-  // it from wd.need, because the strategies differ in whether a tiny overshoot
-  // is clamped at zero. `bucket` is 'taxable' | 'bondTaxable'.
-  function takeTaxable(wd, bucket, amount) {
-    const { bal } = wd;
-    const basisKey = TAXABLE_BASIS_KEY[bucket];
-    const d = drawTaxable(bal[bucket], bal[basisKey], amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
-    bal[bucket] -= d.taken;
-    bal[basisKey] -= d.basisTaken;
-    wd.taxableGainGross += d.gain;
-    wd.taxableWithdrawn += d.taken;
-    return d.net;
-  }
-  // @@shared:takeTaxable end
   // The mix modes that decide how a year's need is split across the stock accounts
   // (taxable / traditional / Roth), shared by the standard cascade and the bucket
   // strategy. Chosen in this order:
@@ -1191,44 +1011,6 @@ import { solveRothConversion } from './core/solve-roth-conversion.js';
     for (const step of yearReturn < 0 ? BUCKET_DOWN_PENALIZED_ORDER : BUCKET_UP_PENALIZED_ORDER) if (wd.need > 0) step(wd, opts);
     if (yearReturn >= 0) refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
   }
-  // @@shared:10-refillBondReserve begin
-  // Tops the bond reserve up toward bondTarget by moving stocks into bonds: traditional first,
-  // then Roth, then taxable only as a last resort when neither has anything left to move.
-  //  - Inside a retirement account it is a reallocation, not a sale or a withdrawal: no income, no
-  //    tax, no early-withdrawal penalty (age does not restrict it).
-  //  - From taxable it is a real sale: drawTaxable sells enough stock that, after the tax on the
-  //    realized gain, the amount moved into bonds is what was asked. The gain is added to
-  //    wd.taxableGainGross, so it counts in the year's tax, MAGI (ACA, IRMAA) and the MAGI
-  //    iteration, and the tax is paid out of the proceeds; the new bonds are bought at market
-  //    (full basis). The live withdrawal mix does not plan for it (it decides before the refill).
-  // Gradual: at most `maxMove` moves into bonds per call (the engine passes one year of that
-  // year's expenses, net of lump expenses). Cash and home equity are never used. Surplus cash
-  // refills the reserve separately (routeSurplus), limited only by the surplus and the target.
-  function refillBondReserve(wd, bondTarget, { maxMove = Infinity } = {}) {
-    const { bal } = wd;
-    const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-    let remaining = Math.min(bondDeficit, maxMove);
-    if (remaining <= 0) return;
-    const fromTrad = Math.min(bal.traditional, remaining);
-    bal.traditional -= fromTrad;
-    bal.bondTraditional += fromTrad;
-    remaining -= fromTrad;
-    if (remaining > 0) {
-      const fromRoth = Math.min(bal.roth, remaining);
-      bal.roth -= fromRoth;
-      bal.bondRoth += fromRoth;
-      remaining -= fromRoth;
-    }
-    if (remaining > 0) {
-      const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
-      bal.taxable -= d.taken;
-      bal.taxableBasis -= d.basisTaken;
-      bal.bondTaxable += d.net;
-      bal.bondTaxableBasis += d.net;
-      wd.taxableGainGross += d.gain;
-    }
-  }
-  // @@shared:10-refillBondReserve end
   // ---- end withdrawal building blocks ----
 
 

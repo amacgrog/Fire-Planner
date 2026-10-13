@@ -1,3 +1,5 @@
+import { drawTaxable } from './draw-taxable.js';
+
   // Tops the bond reserve up toward bondTarget by moving stocks into bonds: traditional first,
   // then Roth, then taxable only as a last resort when neither has anything left to move.
   //  - Inside a retirement account it is a reallocation, not a sale or a withdrawal: no income, no
@@ -10,7 +12,7 @@
   // Gradual: at most `maxMove` moves into bonds per call (the engine passes one year of that
   // year's expenses, net of lump expenses). Cash and home equity are never used. Surplus cash
   // refills the reserve separately (routeSurplus), limited only by the surplus and the target.
-  function refillBondReserve(wd, bondTarget, { maxMove = Infinity } = {}) {
+  export function refillBondReserve(wd, bondTarget, { maxMove = Infinity } = {}) {
     const { bal } = wd;
     const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
     let remaining = Math.min(bondDeficit, maxMove);
