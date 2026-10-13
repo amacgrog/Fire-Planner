@@ -1,7 +1,12 @@
+import { baseSpendingNominal, itemGrowthFactor } from './spending-and-loans.js';
+import { state } from './store.js';
+import { medicalGrowth } from './year-factors.js';
+import { housingForYear } from '#country/core/seam';
+
   // Projected total living expense for a future year in nominal dollars at the plan's
   // assumed inflation: spending + healthcare + LTC + shelter + recurring extra expenses.
   // Sizes the pre-retirement bond ladder.
-  function makeProjectedExpense({ infl, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB }) {
+  export function makeProjectedExpense({ infl, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB }) {
     return (year) => {
       const factor = Math.pow(1 + infl, year);
       const shelter = housingForYear(year, factor, schedule, futureBuy).housing;

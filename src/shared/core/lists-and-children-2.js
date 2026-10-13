@@ -1,4 +1,7 @@
-  function normalizeLists(s, raw) {
+import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX } from './lists-and-children.js';
+import { defaults } from '#country/core/seam';
+
+  export function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;

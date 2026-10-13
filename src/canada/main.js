@@ -48,8 +48,8 @@ import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
 import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 import { FIELDS } from './core/fields.js';
 import { infoBubble, markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
-import { CURRENT_YEAR, baseSpendingNominal, displayValue, fiMultiple, futureHomePurchase, itemGrowthFactor, loanSchedules, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
-import { getBondYears, medicalGrowth, taxFactorByYear } from '../shared/core/year-factors.js';
+import { CURRENT_YEAR, baseSpendingNominal, displayValue, fiMultiple, futureHomePurchase, loanSchedules, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
+import { getBondYears, medicalGrowth } from '../shared/core/year-factors.js';
 import { OAS_RECOVERY_THRESHOLD, provinceTaxTreatmentNote } from './core/oas-and-rrif.js';
 import { AGE_AMOUNT, AGE_AMOUNT_REDUCTION, AGE_AMOUNT_THRESHOLD, FEDERAL_ELIGIBLE_DTC, PENSION_INCOME_AMOUNT, investmentIncomeCA } from './core/credits-and-gross-up.js';
 import { RRIF_PENSION_AGE, gisAnnual, gisEmploymentExemption, interpKnots } from './core/gis-and-rrif.js';
@@ -71,127 +71,10 @@ import { computeSankeyFlow } from './ui/compute-sankey-flow.js';
 import { DYN } from './core/dyn.js';
 import { dynFieldHtml } from '../shared/core/dyn-field-html.js';
 import { renderDecisionCompareTable } from './core/render-decision-compare-table.js';
+import { normalizeLists } from '../shared/core/lists-and-children-2.js';
+import { taxIndexFactor } from '../shared/core/year-factors-2.js';
+import { makeProjectedExpense } from '../shared/core/bond-ladder-2.js';
 (() => {
-  // @@shared:01-LIST_MAX begin
-  function normalizeLists(s, raw) {
-    const num = (v, d, lo = -Infinity, hi = Infinity) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;
-      },
-      rows = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : []),
-      legacyLoans = !!raw && 'otherLoansEnabled' in raw,
-      legacyIncome = !!raw && 'otherIncomeEnabled' in raw;
-    let loans = rows(raw?.loans),
-      streams = rows(raw?.incomeSources),
-      lumps = rows(raw?.oneTimeIncome);
-    if (legacyLoans)
-      loans = raw.otherLoansEnabled
-        ? loans.filter((l) => [l.principal, l.balance, l.rate, l.term, l.extra].some((v) => Number(v) > 0))
-        : [];
-    if (legacyIncome) {
-      streams = raw.otherIncomeEnabled ? streams.filter((x) => x.enabled) : [];
-      lumps = raw.otherIncomeEnabled ? lumps.filter((x) => x.enabled) : [];
-    }
-    const legacyGrowth = num(s.inflation, defaults.inflation, -10, 20),
-      growthOf = (x, legacy, ownDefault) => ({
-        followGrowth: legacy && x.followGrowth === undefined ? false : x.followGrowth !== false,
-        growth: num(x.growth, ownDefault, -10, 20),
-      });
-    s.loans = loans.slice(0, LIST_MAX).map((l) => ({
-      principal: num(l.principal, 0, 0),
-      balance: num(l.balance, 0, 0),
-      rate: num(l.rate, 0, 0, 40),
-      term: num(l.term, 0, 0, 50),
-      extra: num(l.extra, 0, 0),
-    }));
-    s.incomeSources = streams.slice(0, LIST_MAX).map((x) => ({
-      amount: num(x.amount, 0, 0),
-      startAge: num(x.startAge, 65, 0, 120),
-      endAge: num(x.endAge, 75, 0, 120),
-      ...growthOf(x, legacyIncome, legacyIncome ? legacyGrowth : defaults.incomeGrowth),
-    }));
-    s.oneTimeIncome = lumps.slice(0, LIST_MAX).map((x) => ({
-      amount: num(x.amount, 0, 0),
-      age: num(x.age, 65, 0, 120),
-      flat: x.flat === true,
-    }));
-    s.extraExpenses = rows(raw?.extraExpenses)
-      .slice(0, LIST_MAX)
-      .map((x) => ({
-        amount: num(x.amount, 0, 0),
-        startAge: num(x.startAge, 65, 0, 120),
-        endAge: num(x.endAge, 75, 0, 120),
-        ...growthOf(x, false, defaults.inflation),
-      }));
-    // Spending changes: legacy saves held five fixed slots with an `enabled`
-    // flag and a single `age` (active from then on, forever, inflating with
-    // general inflation) — carry those over as open-ended changes.
-    s.spendingTiers = rows(raw?.spendingTiers)
-      .filter((x) => x.enabled === undefined || x.enabled === true)
-      .slice(0, LIST_MAX)
-      .map((x) => ({
-        amount: num(x.amount, 0, 0),
-        startAge: num(x.startAge ?? x.age, 65, 0, 120),
-        endAge: num(x.endAge, 120, 0, 120),
-        ...growthOf(x, false, defaults.inflation),
-      }));
-    s.lumpExpenses = rows(raw?.lumpExpenses)
-      .slice(0, LIST_MAX)
-      .map((x) => ({
-        amount: num(x.amount, 0, 0),
-        age: num(x.age, 65, 0, 120),
-        repeatEvery: Math.round(num(x.repeatEvery, 0, 0, 50)),
-        untilAge: num(x.untilAge, 85, 0, 120),
-        flat: x.flat === true,
-        ...growthOf(x, false, defaults.inflation),
-      }));
-    // Children (dependents): birth year (a past or future year; a planned child counts from the
-    // year of birth) and whether the child is a full-time student after 18. The year bounds are
-    // fixed, not relative to the clock, so a saved birth year never shifts when it is reloaded
-    // years later. A row without a usable year is dropped. An optional join year (E2: an adopted child)
-    // is kept only when it is a year later than the birth year; otherwise the key is left off (from
-    // birth), so a legacy row keeps its exact shape.
-    s.children = rows(raw?.children)
-      .filter(
-        (x) =>
-          (typeof x.birthYear === 'number' || (typeof x.birthYear === 'string' && x.birthYear.trim() !== '')) &&
-          Number.isFinite(Number(x.birthYear)),
-      )
-      .slice(0, LIST_MAX)
-      .map((x) => {
-        const birthYear = Math.round(num(x.birthYear, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX)),
-          row = { birthYear, student: x.student === true },
-          j = x.joinYear;
-        if ((typeof j === 'number' || (typeof j === 'string' && j.trim() !== '')) && Number.isFinite(Number(j))) {
-          const joinYear = Math.round(num(j, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX));
-          if (joinYear > birthYear) row.joinYear = joinYear;
-        }
-        return row;
-      });
-    // The old Bridge / part-time income section was folded into additional
-    // income streams: carry a saved plan's bridge income over as streams
-    // (Partner B's age window converted to Partner A's age), starting no
-    // earlier than that partner's retirement, as the old section did.
-    if (raw && raw.bridgeEnabled === true) {
-      const offsetB = (Number(s.ageA) || 0) - (Number(s.ageB) || 0),
-        migrated = [];
-      [
-        ['A', 0],
-        ['B', offsetB],
-      ].forEach(([p, off]) => {
-        if (p === 'B' && raw.singlePerson) return;
-        const amount = Number(raw['bridgeIncome' + p]) || 0,
-          start = Math.max(Number(raw['bridgeStartAge' + p]) || 0, Number(s['retireAge' + p]) || 0) + off,
-          end = (Number(raw['bridgeEndAge' + p]) || 0) + off;
-        if (amount > 0 && start <= end) migrated.push({ amount, startAge: num(start, 65, 0, 120), endAge: num(end, 75, 0, 120), followGrowth: true, growth: defaults.incomeGrowth });
-      });
-      s.incomeSources = s.incomeSources.concat(migrated).slice(0, LIST_MAX);
-    }
-    ['bridgeEnabled', 'bridgeIncomeA', 'bridgeStartAgeA', 'bridgeEndAgeA', 'bridgeIncomeB', 'bridgeStartAgeB', 'bridgeEndAgeB'].forEach((k) => delete s[k]);
-    delete s.otherLoansEnabled;
-    delete s.otherIncomeEnabled;
-  }
-  // @@shared:01-LIST_MAX end
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
@@ -804,28 +687,6 @@ import { renderDecisionCompareTable } from './core/render-decision-compare-table
   // inside simulateHistorical() (backtest and Monte Carlo) it is the path's
   // own cumulative CPI, so a 1970s-style inflation sequence raises the
   // brackets along with spending instead of leaving them on a 2.5% schedule.
-  // @@shared:06-histTaxFactors begin
-  // The plan's own factor for a whole year index, remembered while state.inflation is the value it was computed
-  // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
-  // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.
-  let taxFactorInflation = NaN;
-  function taxIndexFactor(yearIndex) {
-    if (histTaxFactors) {
-      const f = histTaxFactors[Math.floor(yearIndex)];
-      if (f !== undefined) return f;
-    }
-    if (yearIndex >= 0 && yearIndex < 256 && yearIndex === Math.floor(yearIndex)) {
-      if (state.inflation !== taxFactorInflation) {
-        taxFactorInflation = state.inflation;
-        taxFactorByYear.length = 0;
-      }
-      let v = taxFactorByYear[yearIndex];
-      if (v === undefined) v = taxFactorByYear[yearIndex] = Math.pow(1 + pct(state.inflation), yearIndex);
-      return v;
-    }
-    return Math.pow(1 + pct(state.inflation), yearIndex);
-  }
-  // @@shared:06-histTaxFactors end
 
   function federalTaxCA(income, yearIndex, extraCreditBase = 0, claimMinus = -1) {
     const factor = taxIndexFactor(yearIndex);
@@ -2117,34 +1978,6 @@ import { renderDecisionCompareTable } from './core/render-decision-compare-table
   // @@shared:10-refillBondReserve end
   // ---- end withdrawal building blocks ----
 
-  // @@shared:11-makeProjectedExpense begin
-  // Projected total living expense for a future year in nominal dollars at the plan's
-  // assumed inflation: spending + healthcare + LTC + shelter + recurring extra expenses.
-  // Sizes the pre-retirement bond ladder.
-  function makeProjectedExpense({ infl, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB }) {
-    return (year) => {
-      const factor = Math.pow(1 + infl, year);
-      const shelter = housingForYear(year, factor, schedule, futureBuy).housing;
-      const ageA = state.ageA + year,
-        ageB = state.ageB + year;
-      const healthcare = singlePerson
-        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor * medicalGrowth(year)
-        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
-          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
-      const ltc = state.ltcEnabled
-        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor * medicalGrowth(year) +
-          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor * medicalGrowth(year)
-        : 0;
-      const extraRecurring = state.extraExpenses
-        .filter((e) => ageA >= e.startAge && ageA <= e.endAge)
-        .reduce(
-          (sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, Math.pow(1 + wageGrowth, year)),
-          0,
-        );
-      return baseSpendingNominal(ageA, year, factor, factor) + healthcare + ltc + shelter + extraRecurring;
-    };
-  }
-  // @@shared:11-makeProjectedExpense end
 
   // ---- end per-year helpers ----
 
