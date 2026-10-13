@@ -13,7 +13,7 @@ import { compact, money } from '../shared/core/money-format.js';
 import { ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS } from './core/estimate-always-ids.js';
 import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
 import { SS_EARNINGS_TEST_2026, fraText, ssBeforeRetirementCase } from './core/ss-earnings-test.js';
-import { HIST, clamp, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
+import { HIST, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
 import { FILING, SENIOR_DEDUCTION_LAST_YEAR, filingRow, taxYearOf } from './core/federal-deductions.js';
 import { hasChildAtMost } from './core/medicaid-rules.js';
 import { SE_OUT } from './core/ss-wage-base.js';
@@ -90,7 +90,11 @@ import { renderDecisionCompareTable } from './core/render-decision-compare-table
 import { normalizeLists } from '../shared/core/lists-and-children-2.js';
 import { taxIndexFactor } from '../shared/core/year-factors-2.js';
 import { makeProjectedExpense } from '../shared/core/bond-ladder-2.js';
-import { acaNetCost, afterTaxEndValueUS, buildTaxProfile, childCredits, conversionMagiCeiling, federalDeduction, fillTraditional, healthcareCost, irmaaMagiOf, irmaaSurcharge, irmaaTierCeiling, lambdaEstimate, longTermGainTax, magiThresholds, ordinaryTax, payrollTax, qbiDeduction, rothDraw, selfEmploymentTax, solveRothConversionTo, solveTraditionalForNet, solveTraditionalForNetFromNeed, standardDeduction, stateIncomeTax, stateRuleFor, stateRuleForYear, takeInherited, takeRoth, takeTraditional, taxFor } from './core/standard-deduction.js';
+import { acaNetCost, afterTaxEndValueUS, buildTaxProfile, childCredits, conversionMagiCeiling, federalDeduction, fillTraditional, healthcareCost, irmaaMagiOf, irmaaSurcharge, irmaaTierCeiling, lambdaEstimate, longTermGainTax, magiThresholds, ordinaryTax, payrollTax, qbiDeduction, selfEmploymentTax, solveTraditionalForNet, solveTraditionalForNetFromNeed, standardDeduction, stateIncomeTax, stateRuleFor, stateRuleForYear, takeInherited, takeRoth, takeTraditional, taxFor } from './core/standard-deduction.js';
+import { drawTaxable } from '../shared/core/draw-taxable.js';
+import { releaseMagiCap } from './core/release-magi-cap.js';
+import { takePenalized } from './core/take-penalized.js';
+import { solveRothConversion } from './core/solve-roth-conversion.js';
 (() => {
   FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
   // @@shared:ids begin
@@ -788,62 +792,6 @@ import { acaNetCost, afterTaxEndValueUS, buildTaxProfile, childCredits, conversi
 
 
 
-  // @@shared:drawTaxable begin
-  function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
-    if (pool <= 0 || need <= 0) return { taken: 0, net: 0, gain: 0, basisTaken: 0 };
-    const gainRatio = clamp(1 - basis / pool, 0, 1),
-      basisRatio = 1 - gainRatio;
-    let lo = need,
-      hi = need * 3 + 1;
-    // The tax with nothing drawn is the same for every probe, so it is computed once.
-    const baseTax = taxFor(profile, priorGains, priorTraditionalExtra);
-    const incrementalTax = (gross) => taxFor(profile, priorGains + gross * gainRatio, priorTraditionalExtra) - baseTax;
-    // A benefit that stops in a step can leave the net at the top of the bracket below the need, and the bisection would then
-    // return the top with a short net. Widen only in that case, so every other draw is unchanged.
-    for (let w = 0; w < 12 && hi < pool && hi - incrementalTax(hi) < need; w++) {
-      lo = hi;
-      hi = Math.min(pool, hi * 2);
-    }
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2,
-        net = mid - incrementalTax(mid);
-      if (net < need) lo = mid;
-      else hi = mid;
-    }
-    const taken = Math.min(pool, hi),
-      net = taken - incrementalTax(taken);
-    return { taken, net, gain: taken * gainRatio, basisTaken: taken * basisRatio };
-  }
-  // @@shared:drawTaxable end
-  // Per-year bracket override for the multi-lever optimizer
-  // (optimizeRothLadderPerYear() below) — null in normal operation, so
-  // every existing call site keeps using the flat state.rothConvBracket
-  // exactly as before. When the optimizer is evaluating a candidate
-  // schedule, it sets this to a Map<Partner-A age, bracket-pct-or-0> for
-  // the duration of one simulate() call, then restores it to null — same
-  // mutate/simulate/restore idiom SENSITIVITY_LEVERS and
-  // computeRothOptimizer() already use. A mapped value of 0 is a
-  // distinct sentinel meaning "convert nothing this year" (not a real
-  // bracket — bracketCeilingReal(0,...) would otherwise fall through to
-  // its "not found" branch and return the top bracket, the opposite of
-  // what 0 is supposed to mean), so it's checked before bracketCeilingReal
-  // is ever called.
-  function solveRothConversion(profile, maxAvailable, yearIndex, ageKey) {
-    if (maxAvailable <= 0) return 0;
-    // Transient optimizer-search override takes priority (set only for the
-    // duration of one simulate() call, see above); next, a schedule
-    // previously written by the optimizer's "Apply this schedule" button
-    // (state.appliedRothSchedule, see defaults/normalizeState) — both are
-    // keyed by Partner A's age, so both engines (simulate() and
-    // simulateHistorical()) pass the age. Falls through to the flat bracket.
-    const bracketPct =
-      optimizerState.rothBracketByAge && optimizerState.rothBracketByAge.has(ageKey)
-        ? optimizerState.rothBracketByAge.get(ageKey)
-        : state.appliedRothSchedule && Object.prototype.hasOwnProperty.call(state.appliedRothSchedule, ageKey)
-          ? state.appliedRothSchedule[ageKey]
-          : state.rothConvBracket;
-    return solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct);
-  }
   // Live, always-cheap sibling of the multi-lever optimizer's full
   // lifetime coordinate-ascent search above — the search is too expensive
   // to re-run on every render (it calls simulate() thousands of times), so
@@ -1032,15 +980,6 @@ import { acaNetCost, afterTaxEndValueUS, buildTaxProfile, childCredits, conversi
 
 
 
-  // Lifts the cap and takes any remaining need from penalty-free traditional money (stocks, then the bond
-  // bucket): runs before penalized money and before home equity, so a target never strands money.
-  function releaseMagiCap(wd, solver) {
-    if (!wd.magiCap || wd.magiCap.off) return;
-    wd.magiCap.off = true;
-    if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
-    if (wd.need > 0 && wd.bal.bondTraditional > 0)
-      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
-  }
 
   // @@shared:takeTaxable begin
   // Each take*() draws up to `amount` of net cash from one bucket, updates the
@@ -1059,49 +998,6 @@ import { acaNetCost, afterTaxEndValueUS, buildTaxProfile, childCredits, conversi
     return d.net;
   }
   // @@shared:takeTaxable end
-  function takePenalized(wd, solverStocks) {
-    const { bal } = wd,
-      pen = tradGroup(wd, true);
-    for (let guard = 0; wd.need > 0.005 && guard < 40; guard++) {
-      const cands = [];
-      if (pen.share > 0)
-        for (const [bucket, solver] of [['traditional', solverStocks], ['bondTraditional', solveTraditionalForNetFromNeed]]) {
-          const cap = bal[bucket] * tradGroup(wd, true).share;
-          if (cap > 0)
-            cands.push({
-              probe: () => {
-                const r = solver(cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1);
-                return { gross: r.fromTrad, net: r.tradNet };
-              },
-              run: () => takeTraditional(wd, bucket, wd.need, solver, true),
-            });
-        }
-      for (const bucket of ['roth', 'bondRoth'])
-        for (let i = 0; i < 4; i++) {
-          const room = wd.accts.roth[i] * bal[bucket];
-          if (!(room > 0)) continue;
-          const caps = [0, 0, 0, 0];
-          caps[i] = room;
-          cands.push({
-            probe: () => {
-              const pool = bal.roth + bal.bondRoth,
-                d = rothDraw(wd.rothAccts, wd.accts.roth, pool, bal[bucket], wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, wd.status, caps, true);
-              return { gross: d.gross, net: d.net };
-            },
-            run: () => takeRoth(wd, bucket, wd.need, caps),
-          });
-        }
-      let best = null;
-      for (const c of cands) {
-        const pr = c.probe();
-        if (!(pr.gross > 1e-9)) continue;
-        const cost = 1 - pr.net / pr.gross;
-        if (!best || cost < best.cost - 1e-5) best = { c, cost };
-      }
-      if (!best) return;
-      wd.need = Math.max(0, wd.need - best.c.run());
-    }
-  }
   // The mix modes that decide how a year's need is split across the stock accounts
   // (taxable / traditional / Roth), shared by the standard cascade and the bucket
   // strategy. Chosen in this order:

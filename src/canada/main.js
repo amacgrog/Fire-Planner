@@ -7,7 +7,7 @@ import { defaults } from './core/defaults.js';
 import { compact, money } from '../shared/core/money-format.js';
 import { ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS } from './core/estimate-always-ids.js';
 import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
-import { HIST, clamp, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
+import { HIST, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
 import { BENEFIT_RULES, PROVINCE_RULES, ontarioHealthPremium } from './core/province-rules.js';
 import { OAS_RECOVERY } from './core/oas-recovery.js';
 import { BEN } from './core/benefit-helpers.js';
@@ -69,6 +69,8 @@ import { taxIndexFactor } from '../shared/core/year-factors-2.js';
 import { makeProjectedExpense } from '../shared/core/bond-ladder-2.js';
 import { normalizeState } from './core/normalize-state.js';
 import { afterTaxEstate, benefitsFor, buildTaxProfile, cppContribution, federalTaxCA, gisIncomeRoom, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, payrollTax, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solveMeltdown, solvePensionSplit, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor } from './core/federal-tax-ca.js';
+import { drawTaxable } from '../shared/core/draw-taxable.js';
+import { takeTraditional } from './core/take-traditional.js';
 (() => {
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
@@ -665,33 +667,6 @@ import { afterTaxEstate, benefitsFor, buildTaxProfile, cppContribution, federalT
   // own cumulative CPI, so a 1970s-style inflation sequence raises the
   // brackets along with spending instead of leaving them on a 2.5% schedule.
 
-  // @@shared:drawTaxable begin
-  function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
-    if (pool <= 0 || need <= 0) return { taken: 0, net: 0, gain: 0, basisTaken: 0 };
-    const gainRatio = clamp(1 - basis / pool, 0, 1),
-      basisRatio = 1 - gainRatio;
-    let lo = need,
-      hi = need * 3 + 1;
-    // The tax with nothing drawn is the same for every probe, so it is computed once.
-    const baseTax = taxFor(profile, priorGains, priorTraditionalExtra);
-    const incrementalTax = (gross) => taxFor(profile, priorGains + gross * gainRatio, priorTraditionalExtra) - baseTax;
-    // A benefit that stops in a step can leave the net at the top of the bracket below the need, and the bisection would then
-    // return the top with a short net. Widen only in that case, so every other draw is unchanged.
-    for (let w = 0; w < 12 && hi < pool && hi - incrementalTax(hi) < need; w++) {
-      lo = hi;
-      hi = Math.min(pool, hi * 2);
-    }
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2,
-        net = mid - incrementalTax(mid);
-      if (net < need) lo = mid;
-      else hi = mid;
-    }
-    const taken = Math.min(pool, hi),
-      net = taken - incrementalTax(taken);
-    return { taken, net, gain: taken * gainRatio, basisTaken: taken * basisRatio };
-  }
-  // @@shared:drawTaxable end
 
 
 
@@ -762,16 +737,6 @@ import { afterTaxEstate, benefitsFor, buildTaxProfile, cppContribution, federalT
     return d.net;
   }
   // @@shared:takeTaxable end
-  // RRSP/RRIF withdrawals are fully taxable income. `bucket` is 'traditional' |
-  // 'bondTraditional'; `solver` picks the bisection bracket.
-  function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
-    const { bal } = wd;
-    const { fromTrad, tradNet } = solver(bal[bucket], amount, wd.taxableGainGross, wd.traditionalGross, wd.profile);
-    bal[bucket] -= fromTrad;
-    wd.traditionalGross += fromTrad;
-    wd.traditionalWithdrawn += fromTrad;
-    return tradNet;
-  }
   // Smooth withdrawals (the only mix mode Canada has): the year's need is split
   // between taxable and RRSP/RRIF in proportion to their balances, shared by the
   // standard cascade and the bucket strategy. Returns false when smooth is off, so
