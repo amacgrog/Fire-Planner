@@ -1,26 +1,13 @@
 import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
 import { chartView, chartShiftMode, chartGapPartner, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
-import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
 import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
 import { defaults } from './core/defaults.js';
 import { compact, money } from '../shared/core/money-format.js';
-import { ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS } from './core/estimate-always-ids.js';
 import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
-import { HIST, escapeHtml, paychecksPerYear, pct } from '../shared/core/basics.js';
+import { HIST, escapeHtml, pct } from '../shared/core/basics.js';
 import { BENEFIT_RULES, PROVINCE_RULES, ontarioHealthPremium } from './core/province-rules.js';
-import { OAS_RECOVERY } from './core/oas-recovery.js';
-import { BEN } from './core/benefit-helpers.js';
 import { probateFee } from './core/probate-fee.js';
-import { newWithdrawal } from './core/taxable-basis-key.js';
-import { takeCash, takeHomeEquity } from '../shared/core/take-cash.js';
-import { takeRoth } from './core/take-roth.js';
-import { guardrailSpendingMultiplier, mortgageResultAges, newGuardrails, recordGuardrailWithdrawal } from '../shared/core/next-guardrail-multiplier.js';
-import { loanPaymentForYear } from '../shared/core/loan-payment-for-year.js';
-import { pensionIncome } from '../shared/core/pension-income.js';
-import { planBondLadder } from '../shared/core/bond-ladder.js';
-import { BUCKET_MODE, STANDARD_MODE, routeSurplus } from './core/year-modes.js';
-import { sweepExcessCash } from '../shared/core/sweep-excess-cash.js';
 import { updateChartXAxisButtons } from './ui/update-chart-xaxis-buttons.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from '../shared/ui/chart-colors.js';
 import { layoutSankeyColumn, sankeyRibbonPath } from '../shared/core/sankey-layout.js';
@@ -42,21 +29,17 @@ import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
 import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 import { FIELDS } from './core/fields.js';
 import { infoBubble, markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
-import { CURRENT_YEAR, baseSpendingNominal, displayValue, fiMultiple, futureHomePurchase, loanSchedules, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
-import { getBondYears, medicalGrowth } from '../shared/core/year-factors.js';
+import { CURRENT_YEAR, displayValue, fiMultiple, xAxisLabel } from '../shared/core/spending-and-loans.js';
+import { getBondYears } from '../shared/core/year-factors.js';
 import { provinceTaxTreatmentNote } from './core/oas-and-rrif.js';
-import { investmentIncomeCA } from './core/credits-and-gross-up.js';
 import { gisAnnual, gisEmploymentExemption, interpKnots } from './core/gis-and-rrif.js';
-import { historicalYearSource, standardYearSource } from '../shared/core/year-sources.js';
-import { bootstrapReturnSeries } from '../shared/core/monte-carlo-paths.js';
 import { cloneState, deltaAge, deltaMoney, overlayColors } from '../shared/core/scenario-helpers.js';
 import { dynTipBtn } from '../shared/core/dyn-field-helpers.js';
 import { refreshMoneyPreviews } from '../shared/ui/money-format.js';
 import { getBenefits } from './core/get-benefits.js';
 import { decisionDeltaPhrase } from '../shared/core/decision-end-assets.js';
-import { homeBuyerAmounts, listAmountsForYear, withdrawRequiredDistributions } from './core/list-amounts-and-home-buyers.js';
-import { cppAndOasIncome, housingForYear, oasAgeFactor, requiredDistributions, retirementContributions } from './core/income-and-housing-per-year.js';
-import { applyRrspMeltdown, growBalances, healthcareCost } from './core/grow-balances.js';
+import { homeBuyerAmounts } from './core/list-amounts-and-home-buyers.js';
+import { cppAndOasIncome, housingForYear, oasAgeFactor } from './core/income-and-housing-per-year.js';
 import { renderGroupSummaries } from './ui/render-group-summaries.js';
 import { renderPlanHeadline } from '../shared/ui/render-plan-headline.js';
 import { renderMonteCarloChart, renderTable } from '../shared/ui/chart-render.js';
@@ -66,15 +49,16 @@ import { DYN } from './core/dyn.js';
 import { dynFieldHtml } from '../shared/core/dyn-field-html.js';
 import { renderDecisionCompareTable } from './core/render-decision-compare-table.js';
 import { taxIndexFactor } from '../shared/core/year-factors-2.js';
-import { makeProjectedExpense } from '../shared/core/bond-ladder-2.js';
 import { normalizeState } from './core/normalize-state.js';
-import { afterTaxEstate, benefitsFor, buildTaxProfile, cppContribution, federalTaxCA, gisIncomeRoom, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, payrollTax, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solveMeltdown, solvePensionSplit, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor } from './core/federal-tax-ca.js';
+import { afterTaxEstate, benefitsFor, cppContribution, federalTaxCA, gisIncomeRoom, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solvePensionSplit, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor } from './core/federal-tax-ca.js';
 import { drawTaxable } from '../shared/core/draw-taxable.js';
-import { takeTraditional } from './core/take-traditional.js';
-import { takeTaxable } from '../shared/core/take-taxable.js';
 import { refillBondReserve } from '../shared/core/refill-bond-reserve.js';
 import { rotateIntoBondLadder } from '../shared/core/sweep-excess-cash-2.js';
-import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
+import { isEstimateCountable, unusualAssumptionImpact } from '../shared/core/estimates-and-warnings-2.js';
+import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../shared/core/monte-carlo-paths-2.js';
+import { analyzeShortfallDrivers } from './core/analyze-shortfall-drivers.js';
+import { SENSITIVITY_LEVERS } from './core/sensitivity-levers.js';
+import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
 (() => {
   // @@shared:ids begin
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
@@ -222,11 +206,6 @@ import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
   }
   // @@shared:03-hadSavedState end
   // @@shared:04-isEstimateCountable begin
-  function isEstimateCountable(id) {
-    if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
-    const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
-    return !!group && group.gate();
-  }
   // Returns the currently-counted field ids, sorted into the same order
   // they actually appear in the sidebar (top to bottom) — this is also the
   // order "Review →"/"Next →" walks them in. Deliberately NOT `ids` array
@@ -505,20 +484,6 @@ import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
     reviewingFieldId = null;
     renderEstimatedRollup(computeCountedEstimateIds());
   });
-  // Quantifies the impact of one flagged assumption by comparing the
-  // current simulation against the same simulation with just that one
-  // field nudged back to the nearer edge of its realistic range — the same
-  // mutate/simulate/restore idiom SENSITIVITY_LEVERS uses, reusing the
-  // "Explore a question" comparison helpers (decisionDeltaPhrase already
-  // handles the depleted-portfolio/depletion-age wording) rather than
-  // inventing a second delta phrasing.
-  function unusualAssumptionImpact(item, currentSim) {
-    const saved = state[item.id];
-    state[item.id] = saved < item.min ? item.min : item.max;
-    const typicalSim = simulate();
-    state[item.id] = saved;
-    return decisionDeltaPhrase(currentSim, typicalSim);
-  }
   function dismissUnusualAssumption(id) {
     if (id && !state.dismissedUnusualAssumptions.includes(id)) {
       state.dismissedUnusualAssumptions.push(id);
@@ -687,499 +652,12 @@ import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
 
 
 
-  // The standard (non-bucket) withdrawal strategy, used by simulate(). First
-  // the discretionary draw from taxable and RRSP/RRIF: with smooth withdrawals,
-  // in proportion to balances; otherwise taxable first, then RRSP. Any
-  // shortfall then falls through the TFSA, cash, the bond-reserve buckets (a
-  // protected sequence-risk reserve, tapped only after everything else) and
-  // finally home equity.
-  function withdrawStandard(wd) {
-    const { bal } = wd;
-    if (!drawSmoothStockAccounts(wd, solveTraditionalForNet)) {
-      wd.need -= takeTaxable(wd, 'taxable', wd.need);
-      if (wd.need > 0)
-        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solveTraditionalForNetFromNeed));
-    }
-    wd.need -= takeRoth(wd, 'roth', wd.need);
-    wd.need -= takeCash(wd, wd.need);
-    wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
-    if (wd.need > 0 && bal.bondTraditional > 0)
-      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
-    wd.need -= takeRoth(wd, 'bondRoth', wd.need);
-    if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
-  }
-  // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
-  // A draw that leaves a tiny overshoot is clamped to zero remaining need.
-  const BUCKET_STEP = {
-    cash: (wd) => (wd.need -= takeCash(wd, wd.need)),
-    bondTaxable: (wd) => {
-      if (wd.bal.bondTaxable > 0) wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
-    },
-    taxable: (wd) => {
-      if (wd.bal.taxable > 0) wd.need -= takeTaxable(wd, 'taxable', wd.need);
-    },
-    bondTraditional: (wd) => {
-      if (wd.bal.bondTraditional > 0)
-        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
-    },
-    traditional: (wd) => {
-      if (wd.bal.traditional > 0)
-        wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solveTraditionalForNetFromNeed));
-    },
-    bondRoth: (wd) => (wd.need -= takeRoth(wd, 'bondRoth', wd.need)),
-    roth: (wd) => (wd.need -= takeRoth(wd, 'roth', wd.need)),
-    home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
-    // The stock accounts as one grouped step: smooth withdrawals when enabled (the same
-    // code the standard cascade uses), otherwise taxable -> RRSP/RRIF -> TFSA. Cash and
-    // the bond buckets keep their own place in the order.
-    stocks: (wd) => {
-      if (!drawSmoothStockAccounts(wd, solveTraditionalForNetFromNeed)) {
-        BUCKET_STEP.taxable(wd);
-        if (wd.need > 0) BUCKET_STEP.traditional(wd);
-      }
-      if (wd.need > 0) BUCKET_STEP.roth(wd);
-    },
-  };
-  // @@shared:BUCKET_DOWN_YEAR_ORDER begin
-  const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
-  const BUCKET_UP_YEAR_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
-  // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
-  // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending
-  // comes from cash, then the bond-reserve buckets, and only then from the
-  // stock accounts (taxable, tax-deferred, tax-free) and home equity. In an up
-  // year it comes from the stock accounts first, then cash, bonds and home, and
-  // any shortfall in the bond reserve versus `bondTarget` is topped back up from
-  // the same stock-account order. The stock accounts are one grouped step whose
-  // split follows the user's mix mode (see BUCKET_STEP.stocks); `opts` carries
-  // what that step needs (age, remainingMagiRoom). A draw that leaves a tiny
-  // overshoot is clamped to zero remaining need.
-  function withdrawBucket(wd, opts) {
-    const { yearReturn, bondTarget } = opts;
-    for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd, opts);
-    if (yearReturn >= 0)
-      refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
-  }
-  // @@shared:BUCKET_DOWN_YEAR_ORDER end
   // ---- end withdrawal building blocks ----
 
 
   // ---- end per-year helpers ----
 
-  // The projection engine, one year at a time, for both the standard projection and the
-  // historical/Monte Carlo backtest. Everything that is the same lives here; the two
-  // differences are injected:
-  //  - `source` supplies each year's stock return, bond return, bond interest yield and
-  //    inflation factor (standardYearSource: constant plan assumptions; historicalYearSource:
-  //    a row of the 1928-2025 dataset or a bootstrapped path);
-  //  - `mode` selects the withdrawal strategy and the explicit capability switches below
-  //    (STANDARD_MODE / BUCKET_MODE).
-  // Called thousands of times per render (comparison lines, each Monte Carlo path, each
-  // sensitivity sweep), so it must stay cheap.
-  function runProjection({ mode, source, retireAgeA, retireAgeB }) {
-    const singlePerson = !!state.singlePerson;
-    if (singlePerson) retireAgeB = retireAgeA;
-    // Only the historical source reports a start year; it also adds cumFactor to each row.
-    const isHistorical = source.startYear !== undefined;
-    const hysa = pct(state.hysaRate),
-      wageGrowth = pct(state.incomeGrowth),
-      homeGrowth = pct(state.homeGrowth);
-    const futureBuy = state.tenure === 'rentThenBuy' ? futureHomePurchase(homeGrowth) : null;
-    const bal = {
-      taxable: state.taxable,
-      taxableBasis: state.taxable * pct(state.basisRatio),
-      bondTaxable: 0,
-      bondTaxableBasis: 0,
-      bondTraditional: 0,
-      bondRoth: 0,
-      traditional: state.traditional,
-      roth: state.roth,
-      cash: state.cash,
-      home: state.tenure === 'own' ? state.homeValue : 0,
-      mortgage: state.tenure === 'own' ? state.mortgage : 0,
-      fhsa: state.fhsa,
-    };
-    let fhsaUsedA = 0,
-      fhsaUsedB = 0;
-    const schedule = mortgageSchedule(),
-      loans = loanSchedules(),
-      rows = [],
-      magiHistory = [];
-    let depletedAge = null,
-      firstWithdrawal = 0;
-    // Guyton-Klinger guardrails (simplified, opt-in): once the first
-    // portfolio withdrawal occurs, that year's draw as a fraction of the
-    // portfolio value just before it is taken becomes the "initial
-    // withdrawal rate" baseline. In later withdrawal years, if the prior
-    // year's rate ran materially above that baseline (capital-preservation
-    // rule) or below it (prosperity rule), household discretionary spending
-    // is nudged down or up by 10% (persisting until the next trigger, capped
-    // to a 0.5x-1.5x band) — a lagged proxy, since this year's own
-    // withdrawal need can't be known before this year's spending is set.
-    const guardrails = newGuardrails();
-    // Survivor modeling (simplified, opt-in): from the chosen partner's
-    // death age onward, the household switches to single filing, the
-    // survivor keeps the greater of the two CPP benefits (a simplified
-    // survivor-benefit swap) and their own OAS (never inherited), the
-    // deceased partner's pension/LTC/healthcare share drops out, the full
-    // RRSP/RRIF balance consolidates under the survivor's own minimum-
-    // withdrawal schedule, pension income splitting disables itself (it
-    // needs two living spouses), household spending is cut to a
-    // configurable percentage, and any "other loans" balance is paid off
-    // as a lump sum in the year of death (approximating debts settled
-    // through probate before the estate passes to the survivor) — the
-    // mortgage is untouched since it's secured by jointly-titled real
-    // estate. Only meaningful once both partners are otherwise retired.
-    const deceasedIsA = state.survivorEnabled && !singlePerson && state.survivorPartner === 'A',
-      deceasedIsB = state.survivorEnabled && !singlePerson && state.survivorPartner === 'B',
-      deathYear = deceasedIsA
-        ? state.survivorDeathAge - state.ageA
-        : deceasedIsB
-          ? state.survivorDeathAge - state.ageB
-          : Infinity;
-    // A partner who dies before their retirement age stops working at death (E1b): every rule keyed on the
-    // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
-    if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
-    if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
-    const retirementYear = singlePerson
-      ? Math.max(0, retireAgeA - state.ageA)
-      : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
-    const bondYears = getBondYears();
-    // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
-    // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
-    const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
-    const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
-    const projectionYears = singlePerson
-      ? Math.max(0, state.lifeExpectancyA - state.ageA)
-      : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
-    let lastGains = 0; // the last year's realized gains, for the after-tax estate
-    for (let age = state.ageA, year = 0; year <= projectionYears; age++, year++) {
-      const { stockReturn, bondReturn, bondYield, factor, limitFactor } = source.yearInputs(year);
-      const ageB = singlePerson ? null : state.ageB + year,
-        workingA = age < retireAgeA,
-        workingB = !singlePerson && ageB < retireAgeB,
-        working = workingA || workingB,
-        isSurvivorPeriod = year >= deathYear;
-      const incomeFactor = Math.pow(1 + wageGrowth, year);
-      const wageA = workingA ? state.incomeA * incomeFactor : 0,
-        wageB = workingB ? state.incomeB * incomeFactor : 0,
-        matchA = workingA ? wageA * pct(state.matchA) : 0,
-        matchB = workingB ? wageB * pct(state.matchB) : 0,
-        employerMatch = matchA + matchB;
-      const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({ age, year, factor, incomeFactor });
-      const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
-      const wages =
-        wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
-      const { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib } =
-        retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB });
-      fhsaUsedA += fhsaContribA;
-      fhsaUsedB += fhsaContribB;
-      const { cppA, cppB, oasGrossA, oasGrossB } =
-        cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
-      const { pensionA, pensionB, pension } =
-        pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
-      const { traditionalBeforeRmd, rrifA, rrifB, rmd } = requiredDistributions({
-        traditional: bal.traditional,
-        bondTraditional: bal.bondTraditional,
-        age,
-        ageB,
-        singlePerson,
-        isSurvivorPeriod,
-        deceasedIsA,
-      });
-      const housingYear = housingForYear(year, factor, schedule, futureBuy, bal.fhsa);
-      const housing = housingYear.housing;
-      if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
-      if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
-      if (housingYear.fhsaToRoth !== null) {
-        bal.roth += housingYear.fhsaToRoth;
-        bal.fhsa = 0;
-      }
-      const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
-      // Dividends/interest earned this year on start-of-year balances, taxed
-      // now. A couple is assumed to hold the taxable account jointly, so the
-      // income splits evenly; a household that is effectively single puts it
-      // all on the surviving partner's return (the B slot when Partner A is
-      // the deceased, matching how the profile below is remapped).
-      const inv = investmentIncomeCA(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
-      // Healthcare and long-term care are worked out first: together they are the year's eligible medical expenses.
-      const { healthcare, ltc } = healthcareCost({ workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB });
-      const { aliveA, aliveB, totalA, totalB, splitA, splitB, profile } = buildTaxProfile({
-        wageA,
-        wageB,
-        rrspContribA,
-        rrspContribB,
-        fhsaContribA,
-        fhsaContribB,
-        healthPremiumA,
-        healthPremiumB,
-        pensionA,
-        pensionB,
-        rrifA,
-        rrifB,
-        extraIncome,
-        cppA,
-        cppB,
-        oasGrossA,
-        oasGrossB,
-        age,
-        ageB,
-        year,
-        singlePerson,
-        isSurvivorPeriod,
-        deceasedIsA,
-        deceasedIsB,
-        inv,
-        rentPaid: housingYear.rentPaid,
-        propertyTaxPaid: housingYear.propertyTaxPaid,
-        homeBuyer: state.tenure === 'rentThenBuy' && housingYear.homeValue !== null,
-        medical: healthcare + ltc,
-      });
-      let meltdownAmount = 0;
-      if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
-        meltdownAmount = solveMeltdown(
-          profile.otherA,
-          Math.max(0, traditionalBeforeRmd - rmd),
-          year,
-        );
-      }
-      // The OAS recovery tax is part of `tax` (taxFor charges it on each return's full income, draws
-      // included); the year's cash flow therefore starts from gross OAS.
-      const baseSpend =
-        baseSpendingNominal(age, year, factor, incomeFactor) *
-        guardrailSpendingMultiplier(guardrails, working) *
-        (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      const cppTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, year });
-      const tax = taxFor(profile, 0, meltdownAmount) + cppTax;
-      // The OAS recovery tax inside the tax just computed (taxFor leaves it in OAS_RECOVERY); each place
-      // totalTax is recomputed below refreshes it, so the row reports the recovery at the final income.
-      let oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;
-      // `tax` above only covers wages/CPP/OAS/pension/RRIF/meltdown income
-      // and is what the cash-flow waterfall below uses to size withdrawals.
-      // Once taxable-brokerage gains and RRSP withdrawals are known (after
-      // the withdrawal waterfall runs), `totalTax` is corrected to include
-      // the tax those withdrawals themselves generate; it's `tax` unchanged
-      // in a no-withdrawal (contributing) year.
-      let totalTax = tax;
-      // Same idea for income: starts as the pre-withdrawal gross income and
-      // is corrected after the waterfall to include realized RRSP
-      // withdrawals and taxable-brokerage gains.
-      let totalIncome = totalA + totalB + meltdownAmount;
-      const expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
-      const bondTarget = mode.bucketStrategy ? (expenses - lumpExpense) * bondYears : null;
-      // Cash flow after spending, tax and contributions. The two modes sum the same terms in a
-      // different order. The results differ only by rounding, but the withdrawal bisection can
-      // amplify that into visibly different numbers, so each keeps its own order until the
-      // numerics are unified deliberately.
-      const flow = mode.bucketStrategy
-        ? wages + cppA + cppB + oasGrossA + oasGrossB + pension + rmd - expenses - tax - traditionalContrib - rothContrib - fhsaContrib
-        : wages +
-          cppA +
-          cppB +
-          oasGrossA +
-          oasGrossB +
-          pension +
-          rmd -
-          baseSpend -
-          healthcare -
-          ltc -
-          housing -
-          loanPayment -
-          extraExpense -
-          lumpExpense -
-          tax -
-          traditionalContrib -
-          rothContrib -
-          fhsaContrib;
-      growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
-      withdrawRequiredDistributions(bal, rmd);
-      applyRrspMeltdown(bal, meltdownAmount);
-      bal.cash += oneTimeAmount;
-      const reserveTarget = state.cashReserve * factor;
-      sweepExcessCash(bal, reserveTarget);
-      // Ramp linearly over whatever time is actually available before
-      // retirement, so the full target is always reached by rotationEndYear
-      // (retirement itself) regardless of how large bondYears is set.
-      const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, meltdownAmount);
-      const guardrailPortfolioNow =
-        bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash + bal.fhsa;
-      const wd = newWithdrawal({ bal, profile, meltdownAmount, rmd });
-      // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
-      wd.taxableGainGross = ladderGain;
-      // The bucket strategy only steers new surplus into the bond reserve in an up year.
-      const surplusBondTarget = mode.bucketStrategy && stockReturn >= 0 ? bondTarget : null;
-      if (flow >= 0) {
-        routeSurplus(bal, {
-          flow,
-          reserveTarget,
-          bondTarget: surplusBondTarget,
-          traditionalContrib,
-          employerMatch,
-          rothContrib,
-          fhsaContrib,
-        });
-        if (ladderGain > 0) {
-          totalTax = cppTax + taxFor(profile, ladderGain, meltdownAmount);
-          oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;
-          totalIncome += ladderGain;
-        }
-      } else {
-        wd.need = -flow;
-        if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
-        recordGuardrailWithdrawal(guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
-        if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense });
-        else withdrawStandard(wd);
-        if (wd.need > 1 && !depletedAge) depletedAge = age;
-        totalTax = cppTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
-        oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;
-        totalIncome = totalA + totalB + wd.traditionalGross + wd.taxableGainGross;
-        bal.traditional += traditionalContrib + employerMatch;
-        bal.roth += rothContrib;
-        bal.fhsa += fhsaContrib;
-      }
-      // The year's income-tested benefits, at the final withdrawal. `totalTax` (and `tax` above) is net of
-      // them, so the gross tax the rows report adds them back.
-      const finalGains = flow >= 0 ? (ladderGain > 0 ? ladderGain : 0) : wd.taxableGainGross,
-        finalTrad = flow >= 0 ? meltdownAmount : wd.traditionalGross;
-      benefitsFor(profile, finalGains, finalTrad);
-      const benefitsNow = BEN.total;
-      const { traditionalWithdrawn, taxableWithdrawn } = wd;
-      bal.mortgage = Math.max(0, bal.mortgage);
-      const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
-        bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
-        investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash + bal.fhsa,
-        homeEquity =
-          state.tenure === 'own' || state.tenure === 'rentThenBuy'
-            ? Math.max(0, bal.home - bal.mortgage)
-            : 0,
-        total = investable + homeEquity - loanBalance;
-      const row = {
-        age,
-        ageB,
-        year,
-        taxable: bal.taxable,
-        bonds,
-        traditional: bal.traditional,
-        roth: bal.roth,
-        cash: bal.cash + bal.fhsa,
-        homeEquity,
-        loanBalance,
-        investable,
-        total,
-        working,
-        workingA,
-        workingB,
-        grossIncome: totalIncome,
-        expenses,
-        tax: totalTax + benefitsNow - oasRecoveryNow,
-        oasClawback: oasRecoveryNow,
-        benefits: benefitsNow,
-        benefitGis: BEN.gis,
-        benefitAllowance: BEN.allowance,
-        benefitCcb: BEN.ccb,
-        benefitCgeb: BEN.cgeb,
-        benefitProvChild: BEN.provChild,
-        benefitProvSenior: BEN.provSenior,
-        benefitProvCredit: BEN.provCredit,
-        wages,
-        ss: cppA + cppB + oasGrossA + oasGrossB - oasRecoveryNow,
-        pension,
-        rmd,
-        traditionalWithdrawn,
-        taxableWithdrawn,
-        housing,
-        healthcare,
-        ltc,
-        loanPayment,
-        extraExpense,
-        lumpExpense,
-        baseSpend,
-      };
-      // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
-      if (isHistorical) row.cumFactor = factor;
-      lastGains = wd.taxableGainGross;
-      rows.push(row);
-      source.endOfYear();
-    }
-    const result = {
-      rows,
-      depletedAge,
-      firstWithdrawal,
-      retirementYear,
-      currentExpense: projectedExpense(0),
-      retirementExpense: ladder.ladderTranches[0],
-      ladderTarget: ladder.ladderTarget,
-      ...(isHistorical ? { startYear: source.startYear } : null),
-      ...mortgageResultAges(futureBuy, schedule),
-    };
-    // The final balances, for the after-tax estate (N8): not enumerable, so the result's own fields and every snapshot stay as they were.
-    Object.defineProperty(result, 'estate', {
-      value: {
-        traditional: bal.traditional + bal.bondTraditional,
-        taxable: bal.taxable + bal.bondTaxable,
-        taxableBasis: bal.taxableBasis + bal.bondTaxableBasis,
-        roth: bal.roth + bal.bondRoth,
-        cash: bal.cash + bal.fhsa,
-        homeEquity: Math.max(0, bal.home - bal.mortgage),
-        lastGains: lastGains,
-        survivor: projectionYears >= deathYear, // the last year is the survivor's alone: all of its income is one person's
-      },
-    });
-    return result;
-  }
 
-  // @@shared:13-simulate begin
-  function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
-    return runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB });
-  }
-  // Historical S&P 500 backtest. Runs the same engine as simulate() (same income,
-  // contribution, tax, ACA, IRMAA and Roth-conversion mechanics) but drives stock returns,
-  // inflation and bond returns from the actual 1928-2025 sequence (or a bootstrapped path)
-  // and replaces the standard withdrawal cascade with a cash + bonds "bucket strategy":
-  // expenses in a market-down year are paid from cash then the bond reserve only; in an up
-  // year they are paid from taxable -> traditional -> Roth and the bond reserve is topped
-  // back up from the same order. Cash/HYSA and mortgage still use the fixed rates from the
-  // sidebar, since no historical series is loaded for either.
-  function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
-    const prevTaxFactors = histTaxFactors;
-    assignHistTaxFactors([]);
-    try {
-      return runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA, retireAgeB });
-    } finally {
-      assignHistTaxFactors(prevTaxFactors);
-    }
-  }
-
-  // Runs every historical start year with a full run of data available for
-  // the current projection length and returns each cycle's outcome plus the
-  // resulting success rate.
-  function runHistoricalCycles() {
-    const projectionYears = state.singlePerson
-      ? Math.max(0, state.lifeExpectancyA - state.ageA)
-      : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
-    const lastStart = HIST.length - 1 - projectionYears;
-    if (lastStart < 0) return { cycles: [], successRate: null, projectionYears };
-    const cycles = [];
-    for (let i = 0; i <= lastStart; i++) cycles.push(simulateHistorical((y) => HIST[i + y]));
-    const successRate = cycles.filter((c) => !c.depletedAge).length / cycles.length;
-    return { cycles, successRate, projectionYears };
-  }
-
-  function runMonteCarlo(pathCount) {
-    const projectionYears = state.singlePerson
-      ? Math.max(0, state.lifeExpectancyA - state.ageA)
-      : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
-    const length = projectionYears + 1,
-      paths = [];
-    for (let i = 0; i < pathCount; i++) {
-      const series = bootstrapReturnSeries(length);
-      paths.push(simulateHistorical((y) => series[y]));
-    }
-    const successRate = paths.filter((p) => !p.depletedAge).length / paths.length;
-    return { paths, successRate, projectionYears };
-  }
-  // @@shared:13-simulate end
 
   function render() {
     document.body.classList.toggle('single-person', !!state.singlePerson);
@@ -1310,135 +788,6 @@ import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
   // to a specific input (LTC off, healthcare premiums off) by temporarily
   // mutating state and re-running simulate(), then restoring state exactly —
   // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
-  // @@shared:14-findMinimalSpendingCut begin
-  // are reported whenever any of them helps, because they're a specific,
-  // non-obvious diagnosis. Only when none of them help does it fall back to
-  // the generic levers everyone always has (spending, retirement timing) —
-  // for those it searches for the smallest magnitude of change that actually
-  // resolves the shortfall (rather than testing one arbitrary fixed amount),
-  // so the person can judge whether the "fix" is a minor tweak or a major
-  // compromise, which is the real judgment call for someone genuinely
-  // deciding between working longer and spending less.
-  function findMinimalSpendingCut(selected) {
-    if (!(state.spending > 0)) return null;
-    const saved = state.spending;
-    let resolvedAt = null;
-    for (let cutPct = 5; cutPct <= 90; cutPct += 5) {
-      state.spending = saved * (1 - cutPct / 100);
-      const r = simulate();
-      if (!r.depletedAge) {
-        resolvedAt = { cutPct, result: r };
-        break;
-      }
-    }
-    if (resolvedAt) {
-      state.spending = saved;
-      return {
-        label: 'household spending',
-        detail: `cutting household spending by ${resolvedAt.cutPct}%`,
-        result: resolvedAt.result,
-        magnitude: resolvedAt.cutPct / 90,
-        resolved: true,
-      };
-    }
-    state.spending = saved * 0.1; // largest tested cut: 90%
-    const r90 = simulate();
-    state.spending = saved;
-    const improvement = r90.depletedAge ? r90.depletedAge - selected.depletedAge : 0;
-    if (improvement <= 0) return null;
-    return {
-      label: 'household spending',
-      detail: 'even a 90% cut to household spending',
-      result: r90,
-      improvement,
-      magnitude: 1,
-      resolved: false,
-    };
-  }
-  function findMinimalRetirementDelay(selected) {
-    const secondAge = (yrs) => (state.singlePerson ? state.retireAgeB : state.retireAgeB + yrs);
-    for (let yrs = 1; yrs <= 15; yrs++) {
-      const r = simulate(state.retireAgeA + yrs, secondAge(yrs));
-      if (!r.depletedAge) {
-        return {
-          label: 'retirement timing',
-          detail: `retiring ${yrs} year${yrs === 1 ? '' : 's'} later`,
-          result: r,
-          magnitude: yrs / 15,
-          resolved: true,
-        };
-      }
-    }
-    const r15 = simulate(state.retireAgeA + 15, secondAge(15));
-    const improvement = r15.depletedAge ? r15.depletedAge - selected.depletedAge : 0;
-    if (improvement <= 0) return null;
-    return {
-      label: 'retirement timing',
-      detail: 'even retiring 15 years later',
-      result: r15,
-      improvement,
-      magnitude: 1,
-      resolved: false,
-    };
-  }
-  // @@shared:14-findMinimalSpendingCut end
-  function analyzeShortfallDrivers(selected) {
-    if (!selected.depletedAge) return null;
-    const structuralCandidates = [];
-    if (state.ltcEnabled) {
-      structuralCandidates.push({
-        label: 'long-term care costs',
-        detail: 'modeling no long-term care costs at all',
-        run: () => {
-          const saved = state.ltcEnabled;
-          state.ltcEnabled = false;
-          const r = simulate();
-          state.ltcEnabled = saved;
-          return r;
-        },
-      });
-    }
-    if (state.healthcare > 0) {
-      structuralCandidates.push({
-        label: 'post-retirement extra health/dental insurance',
-        detail: 'zeroing out the post-retirement extra health/dental insurance cost',
-        run: () => {
-          const saved = state.healthcare;
-          state.healthcare = 0;
-          const r = simulate();
-          state.healthcare = saved;
-          return r;
-        },
-      });
-    }
-    let bestStructural = null;
-    for (const c of structuralCandidates) {
-      const r = c.run();
-      const improvement = r.depletedAge ? r.depletedAge - selected.depletedAge : 999;
-      if (improvement <= 0) continue;
-      if (!bestStructural || improvement > bestStructural.improvement) {
-        bestStructural = { label: c.label, detail: c.detail, improvement, result: r, kind: 'structural' };
-      }
-    }
-    if (bestStructural) return bestStructural;
-
-    // No single cost assumption explains it — fall back to the two levers
-    // everyone always has, and report the smaller of the two "asks".
-    const genericCandidates = [findMinimalSpendingCut(selected), findMinimalRetirementDelay(selected)].filter(
-      Boolean,
-    );
-    if (!genericCandidates.length) return null;
-    const resolved = genericCandidates.filter((c) => c.resolved);
-    const pool = resolved.length ? resolved : genericCandidates;
-    let best = pool[0];
-    for (const c of pool.slice(1)) {
-      const better = resolved.length
-        ? c.magnitude < best.magnitude
-        : (c.improvement ?? 0) > (best.improvement ?? 0);
-      if (better) best = c;
-    }
-    return { ...best, kind: 'generic' };
-  }
 
   // @@shared:15-renderPlanHeadline begin
   function renderShortfallBanner(selected) {
@@ -1462,173 +811,6 @@ import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
   }
   // @@shared:15-renderPlanHeadline end
 
-  // Real-CAGR sweep: temporarily overrides the nominal investment return with
-  // the nominal rate equivalent to the given real CAGR compounded on top of
-  // the current inflation input, then restores it. Bond/HYSA yields and
-  // retirement dates are left untouched, so this isolates sensitivity to the
-  // main portfolio return assumption alone.
-  // Sensitivity ("tornado") analysis: for each of a handful of key
-  // assumptions, sweeps it up and down by a fixed amount (mutate/simulate/
-  // restore, same pattern as simulateAtRealCagr() below) and records the
-  // resulting end-assets value, holding every other input fixed. This is a
-  // one-at-a-time sensitivity sweep, not a joint/probabilistic analysis like
-  // Monte Carlo — it answers "which single assumption matters most," not
-  // "what's the range of likely outcomes." Which levers actually run is
-  // controlled by the checkboxes in #sensLeverToggles (data-lever id ↔
-  // this array's `id`), so a lever with no visible impact on your plan (e.g.
-  // long-term care cost, if you haven't enabled LTC) can be left unchecked
-  // rather than cluttering the chart with a zero-width bar.
-  const SENSITIVITY_LEVERS = [
-    {
-      id: 'return',
-      label: 'Investment return (±2pp)',
-      run: (endValue) => {
-        const saved = state.returnRate;
-        state.returnRate = saved - 2;
-        const decrease = endValue(simulate());
-        state.returnRate = saved + 2;
-        const increase = endValue(simulate());
-        state.returnRate = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'retireAge',
-      label: 'Retirement age (±3 yrs)',
-      run: (endValue) => {
-        const decrease = endValue(
-          simulate(
-            Math.max(state.ageA, state.retireAgeA - 3),
-            Math.max(state.ageB, state.retireAgeB - 3),
-          ),
-        );
-        const increase = endValue(
-          simulate(Math.min(70, state.retireAgeA + 3), Math.min(70, state.retireAgeB + 3)),
-        );
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'spending',
-      label: 'Household spending (±10%)',
-      run: (endValue) => {
-        const saved = state.spending;
-        state.spending = saved * 0.9;
-        const decrease = endValue(simulate());
-        state.spending = saved * 1.1;
-        const increase = endValue(simulate());
-        state.spending = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'inflation',
-      label: 'Inflation (±1pp)',
-      run: (endValue) => {
-        const saved = state.inflation;
-        state.inflation = Math.max(0, saved - 1);
-        const decrease = endValue(simulate());
-        state.inflation = saved + 1;
-        const increase = endValue(simulate());
-        state.inflation = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'bondReturn',
-      label: 'Bond return (±2pp)',
-      run: (endValue) => {
-        const saved = state.bondReturn;
-        state.bondReturn = saved - 2;
-        const decrease = endValue(simulate());
-        state.bondReturn = saved + 2;
-        const increase = endValue(simulate());
-        state.bondReturn = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'hysa',
-      label: 'HYSA / cash rate (±1pp)',
-      run: (endValue) => {
-        const saved = state.hysaRate;
-        state.hysaRate = Math.max(0, saved - 1);
-        const decrease = endValue(simulate());
-        state.hysaRate = saved + 1;
-        const increase = endValue(simulate());
-        state.hysaRate = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'homeGrowth',
-      label: 'Home appreciation (±1pp)',
-      run: (endValue) => {
-        const saved = state.homeGrowth;
-        state.homeGrowth = saved - 1;
-        const decrease = endValue(simulate());
-        state.homeGrowth = saved + 1;
-        const increase = endValue(simulate());
-        state.homeGrowth = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'healthcare',
-      label: 'Healthcare premium (±20%)',
-      run: (endValue) => {
-        const saved = state.healthcare;
-        state.healthcare = saved * 0.8;
-        const decrease = endValue(simulate());
-        state.healthcare = saved * 1.2;
-        const increase = endValue(simulate());
-        state.healthcare = saved;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'ltc',
-      label: 'Long-term care cost (±20%)',
-      run: (endValue) => {
-        const savedA = state.ltcYearlyA,
-          savedB = state.ltcYearlyB;
-        state.ltcYearlyA = savedA * 0.8;
-        state.ltcYearlyB = savedB * 0.8;
-        const decrease = endValue(simulate());
-        state.ltcYearlyA = savedA * 1.2;
-        state.ltcYearlyB = savedB * 1.2;
-        const increase = endValue(simulate());
-        state.ltcYearlyA = savedA;
-        state.ltcYearlyB = savedB;
-        return { decrease, increase };
-      },
-    },
-    {
-      id: 'ss',
-      label: 'CPP + OAS (±10%)',
-      run: (endValue) => {
-        const savedCppA = state.cppMonthlyA,
-          savedCppB = state.cppMonthlyB,
-          savedOasA = state.oasMonthlyA,
-          savedOasB = state.oasMonthlyB;
-        state.cppMonthlyA = savedCppA * 0.9;
-        state.cppMonthlyB = savedCppB * 0.9;
-        state.oasMonthlyA = savedOasA * 0.9;
-        state.oasMonthlyB = savedOasB * 0.9;
-        const decrease = endValue(simulate());
-        state.cppMonthlyA = savedCppA * 1.1;
-        state.cppMonthlyB = savedCppB * 1.1;
-        state.oasMonthlyA = savedOasA * 1.1;
-        state.oasMonthlyB = savedOasB * 1.1;
-        const increase = endValue(simulate());
-        state.cppMonthlyA = savedCppA;
-        state.cppMonthlyB = savedCppB;
-        state.oasMonthlyA = savedOasA;
-        state.oasMonthlyB = savedOasB;
-        return { decrease, increase };
-      },
-    },
-  ];
   // A compact one-line preview shown right on each "Explore a question"
   // @@shared:17-renderDecisionQuestionPreviews begin
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
@@ -2243,17 +1425,6 @@ import { drawSmoothStockAccounts } from './core/draw-smooth-stock-accounts.js';
   }
   // @@shared:19-layoutSankeyColumn end
 
-  // @@shared:simulateAtRealCagr begin
-  function simulateAtRealCagr(realCagrPct) {
-    const infl = pct(state.inflation),
-      nominal = ((1 + realCagrPct / 100) * (1 + infl) - 1) * 100,
-      saved = state.returnRate;
-    state.returnRate = nominal;
-    const result = simulate();
-    state.returnRate = saved;
-    return result;
-  }
-  // @@shared:simulateAtRealCagr end
   function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
       subEl = document.getElementById('chartSub'),

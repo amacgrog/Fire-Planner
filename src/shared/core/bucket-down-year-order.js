@@ -1,3 +1,6 @@
+import { refillBondReserve } from './refill-bond-reserve.js';
+import { BUCKET_STEP } from '#country/core/seam';
+
   const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
   const BUCKET_UP_YEAR_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
@@ -10,7 +13,7 @@
   // split follows the user's mix mode (see BUCKET_STEP.stocks); `opts` carries
   // what that step needs (age, remainingMagiRoom). A draw that leaves a tiny
   // overshoot is clamped to zero remaining need.
-  function withdrawBucket(wd, opts) {
+  export function withdrawBucket(wd, opts) {
     const { yearReturn, bondTarget } = opts;
     for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd, opts);
     if (yearReturn >= 0)

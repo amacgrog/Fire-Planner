@@ -1,3 +1,6 @@
+import { simulate } from './monte-carlo-paths-2.js';
+import { state } from './store.js';
+
   // are reported whenever any of them helps, because they're a specific,
   // non-obvious diagnosis. Only when none of them help does it fall back to
   // the generic levers everyone always has (spending, retirement timing) —
@@ -6,7 +9,7 @@
   // so the person can judge whether the "fix" is a minor tweak or a major
   // compromise, which is the real judgment call for someone genuinely
   // deciding between working longer and spending less.
-  function findMinimalSpendingCut(selected) {
+  export function findMinimalSpendingCut(selected) {
     if (!(state.spending > 0)) return null;
     const saved = state.spending;
     let resolvedAt = null;
@@ -42,7 +45,7 @@
       resolved: false,
     };
   }
-  function findMinimalRetirementDelay(selected) {
+  export function findMinimalRetirementDelay(selected) {
     const secondAge = (yrs) => (state.singlePerson ? state.retireAgeB : state.retireAgeB + yrs);
     for (let yrs = 1; yrs <= 15; yrs++) {
       const r = simulate(state.retireAgeA + yrs, secondAge(yrs));

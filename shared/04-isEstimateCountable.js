@@ -1,8 +1,3 @@
-  function isEstimateCountable(id) {
-    if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
-    const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
-    return !!group && group.gate();
-  }
   // Returns the currently-counted field ids, sorted into the same order
   // they actually appear in the sidebar (top to bottom) — this is also the
   // order "Review →"/"Next →" walks them in. Deliberately NOT `ids` array
@@ -281,20 +276,6 @@
     reviewingFieldId = null;
     renderEstimatedRollup(computeCountedEstimateIds());
   });
-  // Quantifies the impact of one flagged assumption by comparing the
-  // current simulation against the same simulation with just that one
-  // field nudged back to the nearer edge of its realistic range — the same
-  // mutate/simulate/restore idiom SENSITIVITY_LEVERS uses, reusing the
-  // "Explore a question" comparison helpers (decisionDeltaPhrase already
-  // handles the depleted-portfolio/depletion-age wording) rather than
-  // inventing a second delta phrasing.
-  function unusualAssumptionImpact(item, currentSim) {
-    const saved = state[item.id];
-    state[item.id] = saved < item.min ? item.min : item.max;
-    const typicalSim = simulate();
-    state[item.id] = saved;
-    return decisionDeltaPhrase(currentSim, typicalSim);
-  }
   function dismissUnusualAssumption(id) {
     if (id && !state.dismissedUnusualAssumptions.includes(id)) {
       state.dismissedUnusualAssumptions.push(id);

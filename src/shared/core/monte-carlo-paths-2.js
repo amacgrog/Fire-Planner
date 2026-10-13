@@ -1,4 +1,11 @@
-  function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
+import { HIST } from './basics.js';
+import { bootstrapReturnSeries } from './monte-carlo-paths.js';
+import { state } from './store.js';
+import { assignHistTaxFactors, histTaxFactors } from './tax-factors.js';
+import { historicalYearSource, standardYearSource } from './year-sources.js';
+import { BUCKET_MODE, runProjection, STANDARD_MODE } from '#country/core/seam';
+
+  export function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     return runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB });
   }
   // Historical S&P 500 backtest. Runs the same engine as simulate() (same income,
@@ -9,7 +16,7 @@
   // year they are paid from taxable -> traditional -> Roth and the bond reserve is topped
   // back up from the same order. Cash/HYSA and mortgage still use the fixed rates from the
   // sidebar, since no historical series is loaded for either.
-  function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
+  export function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const prevTaxFactors = histTaxFactors;
     assignHistTaxFactors([]);
     try {
@@ -18,11 +25,10 @@
       assignHistTaxFactors(prevTaxFactors);
     }
   }
-
   // Runs every historical start year with a full run of data available for
   // the current projection length and returns each cycle's outcome plus the
   // resulting success rate.
-  function runHistoricalCycles() {
+  export function runHistoricalCycles() {
     const projectionYears = state.singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
@@ -33,8 +39,7 @@
     const successRate = cycles.filter((c) => !c.depletedAge).length / cycles.length;
     return { cycles, successRate, projectionYears };
   }
-
-  function runMonteCarlo(pathCount) {
+  export function runMonteCarlo(pathCount) {
     const projectionYears = state.singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
