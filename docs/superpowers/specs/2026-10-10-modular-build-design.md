@@ -237,9 +237,9 @@ for the docs-per-stage rule.
 
 - **Stateless engine.** Goal: `runProjection` is a pure function of explicit inputs. It
   does not read the store, does not mutate its inputs, and has no module-level mutable
-  state except documented memoization. Stage 3 adds Vitest ratchet tests for what is
+  state except documented memoization. Vitest ratchet tests (after stage 4, when Vitest arrives) pin what is
   already true: identical inputs give identical output; a deep-frozen `state` does not
-  throw; running scenario A then B equals B then A. At the start of stage 3, check
+  throw; running scenario A then B equals B then A. Before writing them, check
   whether the sensitivity and optimizer code temporarily mutates `state` and restores
   it, since those spots would need work.
 - **Precise function inputs via TypeScript.** Instead of passing `state` through the
@@ -479,7 +479,7 @@ whichever way it is wrapped. That remains the later factory and TypeScript work 
 - `#country/*` specifiers pass through verbatim and count as country code for the shared check;
   they were resolved as relative paths (same review, Important).
 - A `/* */` or JSDoc block directly above a unit travels with it (the trailing-note case, a comment about the previous unit with no blank line, is cosmetic and left as it is).
-- A country seam: shared modules import the country units named in the manifest's `seam` from `#country/core/seam`, a facade each country gets (section 12's alias, with a subpath).
+- A country seam: shared modules import each country unit named in the manifest's `seam` from its own facade, `#country/core/seam-<name>` (section 12's alias, with a subpath); each country gets one facade per name, `src/<country>/core/seam-<name>.js`. One facade per name, not one for all: a single facade re-exported every country module it named, so a shared module that imported it reached them all and each country had one large import cycle (US 15 modules, Canada 11) in which four `core/` modules could not be imported first in plain Node (final review).
 - Where a shared region and a country run would import each other as whole modules, their units get modules of their own and are joined again where that closes no cycle (29 of the 38 modules still hold one unit; merging them by topic is follow-up work).
 - The layer limit becomes optional, and mutable declarers move under rule 1 above.
 - Writes are staged in a temporary directory and swapped in, and module paths must lie under the
@@ -490,6 +490,7 @@ whichever way it is wrapped. That remains the later factory and TypeScript work 
 Same rules as section 13: shared regions become shared modules only when movable in both planners;
 a module is under `core/` when no unit uses a browser global. Helpers that call methods on an
 element passed in (`attachMoneyPreview`) are DOM code: `tests/core_purity.js` fails on it in `core/`, and stage 3 moved it to `src/shared/ui/money-format.js`.
+The seam facades are `core/` modules, one per seam name (`src/<country>/core/seam-<name>.js`).
 
 ### Order and verification
 
@@ -501,6 +502,9 @@ element passed in (`attachMoneyPreview`) are DOM code: `tests/core_purity.js` fa
 4. The built HTML is compared with the pre-stage build statement by statement (stage 2's final
    review method) before the stage is called done.
 5. Docs, a regenerated inventory and a region map for what leaves.
+6. The plain-Node import test the goals ask for (sections 1 and 10): `tests/core_import.js`, in `npm test`, imports every
+   `core/` module (the seam facades included) in a fresh Node process per module and country, so a module that works only
+   when another was imported first fails.
 
 ### Not in stage 3
 
@@ -509,9 +513,6 @@ the stateless engine and TypeScript.
 
 ### Known limits at the end of stage 3
 
-- Seam facade cycles: `seam.js` re-exports every country module, so a shared module that imports it reaches them all. This works
-  because of the order of the import statements. The applier's cycle check and `compare-builds.js` do not see it. Follow-up: a
-  seam-aware cycle and order check, or direct imports of the seam names.
 - The eight UI bindings (`theme`, `sidebarCollapsed`, `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`,
   `undoSnapshot`, `wizardStep`) still await a decision (stage 4).
 - 29 of the 38 modules hold a single unit; merging them by topic is follow-up work.

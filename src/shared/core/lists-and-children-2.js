@@ -1,5 +1,5 @@
 import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX } from './lists-and-children.js';
-import { defaults } from '#country/core/seam';
+import { defaults } from '#country/core/seam-defaults';
 
   export function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {

@@ -1,5 +1,5 @@
 import { clamp } from './basics.js';
-import { taxFor } from '#country/core/seam';
+import { taxFor } from '#country/core/seam-taxFor';
 
   export function drawTaxable(pool, basis, need, profile, priorGains = 0, priorTraditionalExtra = 0) {
     if (pool <= 0 || need <= 0) return { taken: 0, net: 0, gain: 0, basisTaken: 0 };

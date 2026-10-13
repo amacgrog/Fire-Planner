@@ -4,7 +4,7 @@
 //   node scripts/plan-extraction.js [--max-layer=N] [--max-batch=N] [--core-only] > scripts/extractions/<stage>.json
 // --max-layer: only units this many layers above a leaf or lower (default: no limit).
 // --max-batch: modules deeper than this share the last batch (default 2).
-// --seam=a,b: country units that shared modules may import through #country/core/seam (the same names in both planners).
+// --seam=a,b: country units that shared modules may import through their facades, #country/core/seam-<name> (the same names in both planners).
 // --core-only: leave every unit that touches the DOM, or depends on one, in main.js.
 // Module names can be overridden in scripts/extractions/names.json: "shared:<region>" or "<country>:<first unit label>".
 const fs = require('fs');

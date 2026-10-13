@@ -36,7 +36,7 @@ root was the source.) See `README.md` for the full user-facing feature list.
   `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
 - `scripts/plan-extraction.js` + `scripts/extract-units.js` (code in `scripts/lib/extraction-plan.js`, `extract-units.js`,
   `marker-source.js`) — the tool that moved top-level units out of `main.js` into modules. `scripts/extractions/stage2.json` and `stage3.json` are the plans it applied (every module with its unit labels and batch; stage 3 also records the seam names and the mutable-binding report) and `names.json` the module-name overrides. `scripts/compare-builds.js --base DIR` compares the built planners of two trees statement by statement (run it after any change that only moves code).
-- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js` (no browser global in any `src/**/core/` file), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` (the extraction tool and its helper, on fixture trees).
+- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js` (no browser global in any `src/**/core/` file), `tests/core_import.js` (every `core/` module imports in plain Node, one fresh process per module), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` (the extraction tool and its helper, on fixture trees).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
@@ -748,11 +748,15 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
   same region gets a `-2` suffix). Module files keep the two-space indentation they had inside the IIFE (the tool moves text verbatim; do not
   reformat a module in a commit that also changes it). To find a unit: `grep -rn "function taxFor" src`, or
   `docs/superpowers/inventory/stage3-region-map.md` for an old shared region.
-- **The country seam.** Shared code that needs a country function imports it from `#country/core/seam`, a module each country has
-  (`src/us/core/seam.js`, `src/canada/core/seam.js`) that re-exports the same names: `taxFor`, `runProjection`, `defaults`, `BUCKET_STEP`,
-  `BUCKET_MODE`, `STANDARD_MODE`, `ESTIMATE_ALWAYS_IDS`, `ESTIMATE_GATED_GROUPS`, `TAXABLE_BASIS_KEY` and `housingForYear`. The tool writes
-  the facades; the list of allowed names is the manifest's `seam`. Adding a name means a country unit of that name in both planners.
-  `tests/country_contract.js` checks that both facades export the same names. The alias is resolved by the build condition (`us`/`canada`).
+- **The country seam.** Shared code that needs a country name imports it from that name's own facade, `#country/core/seam-<name>`
+  (one import line per name), a one-line module each country has (`src/us/core/seam-<name>.js`, `src/canada/core/seam-<name>.js`:
+  `export { <name> } from './<module>.js';`). One facade per name, not one for all: a single facade reached every country module it named
+  and made one large import cycle per country, so some `core/` modules could not be imported first in plain Node. The ten facades are
+  `taxFor`, `runProjection`, `defaults`, `BUCKET_STEP`, `BUCKET_MODE`, `STANDARD_MODE`, `ESTIMATE_ALWAYS_IDS`, `ESTIMATE_GATED_GROUPS`,
+  `TAXABLE_BASIS_KEY` and `housingForYear`. The tool writes the facades; the manifest's `seam` list is the names allowed through them: eleven
+  in stage 3 (`normalizeState` is allowed but no shared module uses it yet, so it has no facade). Adding a name means a country unit of that
+  name in both planners (or an existing facade in both). `tests/country_contract.js` checks that both countries export the same names. The
+  alias is resolved by the build condition (`us`/`canada`).
 - **What stayed in `main.js` and why.** Side-effect statements (listeners, test hooks, initialisation: moving them changes execution order); all
   DOM code and what depends on it (`render`, `syncControls`, the charts, the wizard, the MCP wiring); and the eight mutable bindings that have
   several writers or a statement writer (`theme`, `sidebarCollapsed`, `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`,
@@ -766,7 +770,8 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
   `src/<country>/core|ui/`. Do not add `@@shared` regions. A name a module uses must be declared in it or imported (`tests/closure_names.js`
   fails otherwise: esbuild does not report an undeclared identifier). Cross-module state goes through the `assign…` functions described above.
   esbuild turns a module's top-level `const` and `let` into `var` when it bundles, so a use before initialization does not throw: it reads
-  `undefined`. A module-level initializer must only use modules it imports.
+  `undefined`. A module-level initializer must only use modules it imports; `tests/core_import.js` (each `core/` module imported first, in
+  plain Node) catches an order dependency.
 - **Data blocks.** A `// NAME:begin ... // NAME:end` block (`STATE_RULES`, `MEDICAID_RULES`, `PROVINCE_RULES`, `BENEFIT_RULES`) is moved whole
   with both markers. `scripts/gen-*-rules.js` find it in whichever file holds it (`scripts/lib/marker-source.js`) and evaluate the text with
   `export` removed.

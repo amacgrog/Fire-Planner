@@ -12,8 +12,10 @@
 // throws and writes nothing (the files are staged next to their targets and renamed into place at the end).
 //
 // Country seam (spec section 14): a shared module may use a country unit only through the names listed in `seam`.
-// It then imports them from '#country/core/seam', and each country gets a facade, src/<country>/core/seam.js,
-// that re-exports those names from the module that holds them. Both facades must export the same names.
+// It imports each one from its own facade, '#country/core/seam-<name>', and each country gets one facade per name,
+// src/<country>/core/seam-<name>.js, that re-exports that name from the module that holds it. One facade per name
+// (not one for all) keeps a shared module from reaching every country module the seam names, which made import
+// cycles. Both countries must have facades for the same names.
 const fs = require('fs');
 const path = require('path');
 const { analyze, undeclaredNames } = require('../analyze-closure');
@@ -98,8 +100,10 @@ function importLine(specs, source) {
   return `import { ${specs.map(specText).join(', ')} } from '${source}';`;
 }
 
-const SEAM_KEY = 'seam:#country/core/seam';
-const SEAM_FILE = 'core/seam.js';
+const SEAM_PREFIX = 'seam:'; // a need keyed `seam:<name>` is imported from that name's facade
+const seamKey = (name) => `${SEAM_PREFIX}${name}`;
+const SEAM_FACADE = /^seam-(.+)\.js$/;
+const seamFacadeFile = (root, c, name) => path.join(root, 'src', c, 'core', `seam-${name}.js`);
 
 function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
   const seamSet = new Set(seam);
@@ -176,7 +180,7 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
             if (viaSeam) {
               if (!seamSet.has(name)) throw new Error(`${m.path}: "${u.label}" uses country code "${name}", which is not a seam name`);
               facade[c].set(name, path.join(root, target.path));
-              addNeed(m, c, SEAM_KEY, name, name);
+              addNeed(m, c, seamKey(name), name, name);
             } else addNeed(m, c, path.join(root, target.path), name, name);
           }
         } else {
@@ -201,7 +205,7 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
               throw new Error(`${m.path}: "${u.label}" uses "${local}" from ${imp.source}, which is country code and not a seam name`);
             }
             facade[c].set(local, abs);
-            addNeed(m, c, SEAM_KEY, local, local);
+            addNeed(m, c, seamKey(local), local, local);
             continue;
           }
           addNeed(m, c, abs, local, imp.imported);
@@ -221,12 +225,10 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
   const edges = new Map(modules.map((m) => [m, new Set()]));
   for (const m of modules) {
     for (const c of m.owner === 'shared' ? COUNTRIES : [m.owner]) {
-      for (const [target, names] of needs.get(m)?.[c] || new Map()) {
-        const files = target === SEAM_KEY ? [...names.keys()].map((n) => facade[c].get(n)) : [target];
-        for (const file of files) {
-          const t = modules.find((x) => path.join(root, x.path) === file);
-          if (t && t !== m) edges.get(m).add(t);
-        }
+      for (const [target] of needs.get(m)?.[c] || new Map()) {
+        const file = target.startsWith(SEAM_PREFIX) ? facade[c].get(target.slice(SEAM_PREFIX.length)) : target;
+        const t = modules.find((x) => path.join(root, x.path) === file);
+        if (t && t !== m) edges.get(m).add(t);
       }
     }
   }
@@ -248,7 +250,9 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     const byTarget = needs.get(m)?.[c0] || new Map();
     for (const [target, names] of [...byTarget].sort((a, b) => a[0].localeCompare(b[0]))) {
       const specs = [...names].map(([local, imported]) => ({ local, imported })).sort((a, b) => a.local.localeCompare(b.local));
-      const source = target === SEAM_KEY ? '#country/core/seam' : target.startsWith('bare:') ? target.slice(5) : relImport(abs, target);
+      const source = target.startsWith(SEAM_PREFIX)
+        ? `#country/core/seam-${target.slice(SEAM_PREFIX.length)}`
+        : target.startsWith('bare:') ? target.slice(5) : relImport(abs, target);
       importLines.push(importLine(specs, source));
     }
     const body = [];
@@ -357,29 +361,23 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     files.set(path.join(fragmentDir, `${name}.js`), null);
   }
 
-  // the country seam facades
+  // the country seam facades: one file per name
   const facadeNames = {};
   for (const c of COUNTRIES) {
-    const seamFile = path.join(root, 'src', c, SEAM_FILE);
-    const targets = new Map(); // name -> absolute module path
-    if (fs.existsSync(seamFile)) {
-      for (const [, list, from] of readText(seamFile).matchAll(/^export \{ ([^}]+) \} from '([^']+)';$/gm)) {
-        for (const name of list.split(',').map((x) => x.trim())) targets.set(name, path.resolve(path.dirname(seamFile), from));
+    const coreDir = path.join(root, 'src', c, 'core');
+    const names = new Set(facade[c].keys());
+    if (fs.existsSync(coreDir)) {
+      for (const f of fs.readdirSync(coreDir)) {
+        const hit = SEAM_FACADE.exec(f);
+        if (hit) names.add(hit[1]);
       }
     }
-    facade[c].forEach((target, name) => targets.set(name, target));
-    facadeNames[c] = [...targets.keys()].sort();
-    if (!targets.size) continue;
-    const byModule = new Map();
-    for (const [name, target] of targets) {
-      if (!byModule.has(target)) byModule.set(target, []);
-      byModule.get(target).push(name);
+    facadeNames[c] = [...names].sort();
+    for (const [name, target] of facade[c]) {
+      const seamFile = seamFacadeFile(root, c, name);
+      const text = `export { ${name} } from '${relImport(seamFile, target)}';\n`;
+      if (!fs.existsSync(seamFile) || readText(seamFile) !== text) files.set(seamFile, text);
     }
-    const lines = [...byModule]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([target, names]) => `export { ${names.sort().join(', ')} } from '${relImport(seamFile, target)}';`);
-    const text = `${lines.join('\n')}\n`;
-    if (!fs.existsSync(seamFile) || readText(seamFile) !== text) files.set(seamFile, text);
   }
   if (JSON.stringify(facadeNames.us) !== JSON.stringify(facadeNames.canada)) {
     throw new Error(`the country seam facades differ: us exports ${facadeNames.us.join(', ')}; canada exports ${facadeNames.canada.join(', ')}`);

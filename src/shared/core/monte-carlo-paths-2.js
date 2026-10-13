@@ -3,7 +3,9 @@ import { bootstrapReturnSeries } from './monte-carlo-paths.js';
 import { state } from './store.js';
 import { assignHistTaxFactors, histTaxFactors } from './tax-factors.js';
 import { historicalYearSource, standardYearSource } from './year-sources.js';
-import { BUCKET_MODE, runProjection, STANDARD_MODE } from '#country/core/seam';
+import { BUCKET_MODE } from '#country/core/seam-BUCKET_MODE';
+import { runProjection } from '#country/core/seam-runProjection';
+import { STANDARD_MODE } from '#country/core/seam-STANDARD_MODE';
 
   export function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     return runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB });

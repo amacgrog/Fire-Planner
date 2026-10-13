@@ -107,7 +107,12 @@ function loadCountry(root, country) {
     // country code a unit reaches through an import (a module an earlier stage created), other than the allowed seam names
     importsCountryCode: (u, allowed) => u.importUses.some((n) => !allowed.has(n) && (importSource.get(n) || '').startsWith(countryDir)),
     // a unit that imports a ui/ module is ui code, whatever its own text does (the analyzer sees only main.js)
-    importsUi: (u) => u.importUses.some((n) => /[\\/]ui[\\/]/.test(importSource.get(n) || '')),
+    // (tested on the path under src/, so a checkout under a directory named ui does not count)
+    importsUi: (u) =>
+      u.importUses.some((n) => {
+        const abs = importSource.get(n);
+        return !!abs && path.relative(path.join(root, 'src'), abs).split(/[\\/]/).includes('ui');
+      }),
   };
 }
 
@@ -136,7 +141,8 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
     for (const c of COUNTRIES) {
       const u = info[c].byLabel.get(name);
       const imported = (info[c].importSource.get(name) || '').startsWith(path.join(root, 'src', c) + path.sep);
-      if ((!u || owner(c, u) === 'shared') && !imported) throw new Error(`seam name ${name} must be a country unit or a country import in ${c}/main.js`);
+      const hasFacade = fs.existsSync(path.join(root, 'src', c, 'core', `seam-${name}.js`)); // exported by an earlier run
+      if ((!u || owner(c, u) === 'shared') && !imported && !hasFacade) throw new Error(`seam name ${name} must be a country unit or a country import in ${c}/main.js`);
     }
   }
   const movable = Object.fromEntries(COUNTRIES.map((c) => [c, new Set()]));

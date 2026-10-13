@@ -1,7 +1,7 @@
 import { baseSpendingNominal, itemGrowthFactor } from './spending-and-loans.js';
 import { state } from './store.js';
 import { medicalGrowth } from './year-factors.js';
-import { housingForYear } from '#country/core/seam';
+import { housingForYear } from '#country/core/seam-housingForYear';
 
   // Projected total living expense for a future year in nominal dollars at the plan's
   // assumed inflation: spending + healthcare + LTC + shelter + recurring extra expenses.

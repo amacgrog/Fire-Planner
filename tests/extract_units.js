@@ -283,8 +283,10 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   assert.throws(() => applyModules(root, seamPlan.modules), /not a seam name/, 'without the seam list a shared module cannot use country code');
   const seamReport = applyModules(root, seamPlan.modules, { seam: ['taxFor'] });
   assert.deepStrictEqual(seamReport.seam, { us: ['taxFor'], canada: ['taxFor'] });
-  assert.strictEqual(read(root, 'src/us/core/seam.js'), "export { taxFor } from './tax-for.js';\n");
-  assert.ok(read(root, 'src/shared/core/calls.js').startsWith("import { taxFor } from '#country/core/seam';"), read(root, 'src/shared/core/calls.js'));
+  assert.strictEqual(read(root, 'src/us/core/seam-taxFor.js'), "export { taxFor } from './tax-for.js';\n");
+  assert.strictEqual(read(root, 'src/canada/core/seam-taxFor.js'), "export { taxFor } from './tax-for.js';\n");
+  assert.ok(!fs.existsSync(path.join(root, 'src/us/core/seam.js')), 'no single seam facade');
+  assert.ok(read(root, 'src/shared/core/calls.js').startsWith("import { taxFor } from '#country/core/seam-taxFor';"), read(root, 'src/shared/core/calls.js'));
   assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
   assert.deepStrictEqual(await checkCountryContract(path.join(root, 'src')), []);
 

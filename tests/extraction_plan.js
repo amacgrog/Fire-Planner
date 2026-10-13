@@ -196,6 +196,13 @@ try {
   assert.deepStrictEqual(p.seam, ['taxFor']);
   assert.ok(p.modules.some((m) => m.owner === 'shared' && m.units.us.includes('callTax')), 'the shared unit moves through the seam');
   assert.throws(() => planOf(seamUs, seamCa, { seam: ['nope'] }, seamFiles), /seam name nope/);
+  // A seam name an earlier run already exported through its facades is valid although main.js no longer has it.
+  const pureLines = ['  function pure() {', '    return 1;', '  }'];
+  const fooFacades = {
+    'src/us/core/seam-foo.js': "export { foo } from './foo.js';\n",
+    'src/canada/core/seam-foo.js': "export { foo } from './foo.js';\n",
+  };
+  assert.doesNotThrow(() => planOf(pureLines, pureLines, { seam: ['foo'] }, fooFacades));
 
   // A shared region and a country run that would import each other as whole modules are split until they do not.
   const cycUs = (n) => [

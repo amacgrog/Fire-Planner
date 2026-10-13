@@ -1,5 +1,5 @@
 import { drawTaxable } from './draw-taxable.js';
-import { TAXABLE_BASIS_KEY } from '#country/core/seam';
+import { TAXABLE_BASIS_KEY } from '#country/core/seam-TAXABLE_BASIS_KEY';
 
   // Each take*() draws up to `amount` of net cash from one bucket, updates the
   // balances and the running totals on `wd`, and returns the NET cash raised

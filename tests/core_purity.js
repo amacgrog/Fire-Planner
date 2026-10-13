@@ -3,7 +3,8 @@
 // `window` or `document` do not count. Three more rules (spec section 14):
 //  - a core file calls no DOM method on an element it is handed (a global-free helper can still be DOM code);
 //  - a core file imports nothing from a ui/ directory (core code cannot depend on DOM code);
-//  - the same holds for the '#country/...' seam: a country's seam file lives in core/ and re-exports core names only.
+//  - the same holds for the '#country/...' seam: a country's seam facades (core/seam-<name>.js) live in core/ and
+//    re-export core names only.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -44,7 +45,9 @@ for (const file of files) {
   const method = DOM_METHODS.exec(text);
   assert.ok(!method, `${rel} is under core/ but calls a DOM method (${method && method[0]}); move it to ui/`);
   for (const [, source] of text.matchAll(IMPORT_SOURCE)) {
-    const target = source.startsWith('.') ? path.resolve(path.dirname(file), source) : source;
+    // a relative import is tested on its path under src/ (a checkout under a directory named ui must not count),
+    // a '#country/...' specifier on its own text
+    const target = source.startsWith('.') ? path.relative(path.join(root, 'src'), path.resolve(path.dirname(file), source)) : source;
     const segments = target.split(/[\\/]/);
     assert.ok(!segments.includes('ui'), `${rel} is under core/ but imports ${source}, a ui/ module`);
   }
