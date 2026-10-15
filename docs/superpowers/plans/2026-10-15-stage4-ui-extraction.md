@@ -388,8 +388,10 @@ Design §5.1, §5.4.
 2. `a();` (to `x.js`), `c();` (to `y.js`), `b();` (to `x.js`): `x.js` has two runs; without `wiring` names the planner throws
    `several runs`; with `{ la: 'wireA', lb: 'wireB' }` it returns both.
 3. A declaration between two statements of the same module does not split the run.
-4. Shared region with statements `s1; s2;` in both planners; the US has a country statement between them placed in another
-   module, Canada does not: the shared module gets two runs in **both** planners' `wiring` (union boundaries).
+4. Shared statement `s1;` at the end of region `a` and `s2;` at the start of region `b` (regions `a` and `b` adjacent in Canada),
+   both listed in one shared module; in the US a country statement sits between the two regions and is placed in another
+   module: the shared module gets two runs in **both** planners' `wiring` (union boundaries). (A statement inside a shared
+   region is shared by definition, so the split must come from code between two regions.)
 5. An unlisted statement throws `has no topics entry`. A statement in `src/us/core/x.js` throws (`core`). A US statement in
    `src/shared/ui/x.js` throws. A shared statement in `src/us/ui/x.js` throws.
 6. A `main` statement `n = 1;` where `let n` is a top-level binding of `main.js` throws (`pinned statement assigns`).
@@ -442,12 +444,15 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
   - **Depth and batch:** the strongly connected components stay the unit of depth: every module of one cycle gets the
     cycle's depth and therefore the same batch (`merged` no longer merges an accepted UI cycle into one module, but its members
     share one depth entry).
-  - **Rejoining:** the rejoin loop ("Fewer, larger modules") rejects a trial only when it adds a **new** cross-owner cycle or a
-    cycle containing a `core` unit, compared with the accepted ones (today `crossOwner(trial)` is true for every trial once one
-    accepted cycle exists, so nothing would ever rejoin).
+  - **Rejoining:** the rejoin loop ("Fewer, larger modules") keeps today's count test (`cyclic(trial).length <=
+    cyclic(built).length`) and replaces only `crossOwner(trial)` with "the trial has no cross-owner cycle beyond the accepted
+    ones, and no cycle containing a `core` unit" (today `crossOwner(trial)` is true for every trial once one accepted cycle
+    exists, so nothing would ever rejoin).
   - **Topics modules:** with a topics file, modules keep their topics paths; topics modules of one owner that form a cycle are
     not merged (today they would be): they are accepted as a UI cycle when all their units are `ui`, otherwise the planner
-    throws naming the topics entries.
+    throws naming the topics entries. Every topics path is added to the planner's `used` set before any module is named, so
+    an auto-named module (a unit without a topics entry) never takes a topics path (the applier would refuse `module path used
+    twice`).
 
 **Fixture cases:**
 1. `let level = 0;` written by function `up()` and by statement `level = 5;`, both listed in `src/shared/ui/l.js`: the binding
@@ -466,10 +471,16 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
 
 - [ ] **Step 1:** Fixtures, see them fail. **Step 2:** Implement; `node tests/extraction_plan.js` OK; rerun Task 5 step 3's command into `$SCRATCH/plan-after6.json`
   and compare it with `$SCRATCH/plan-before.json` structurally (a scratch script that prints, per module path, added, removed and
-  changed fields, plus added top-level keys). Expected, and nothing else: the module holding `computeScenarioMetrics` and
-  `computeOverlaySeriesFor` (`src/shared/core/scenario-helpers-2.js` in the baseline) now has a `src/shared/ui/` path and
-  `ui: true`, the module order re-sorts accordingly (a re-sort alone is not a difference), and a top-level `seamSides` key
-  appears. This is design §5.2's fix: the baseline's US `core/seam-normalizeState.js` facade would re-export a `ui/` module. **Step 3:** Full suite (background), `exit 0`. Commit the two files: `Planner: statement writers, the split
+  changed fields, plus added top-level keys). Expected, and nothing else (a comparison keyed by path shows
+  a moved module as one removed and one changed):
+  - `src/shared/core/scenario-helpers-2.js` (`computeScenarioMetrics`, `computeOverlaySeriesFor`, batch 2) is **removed**:
+    with the side rule both units are `ui`, so the planner groups them with the other `ui` units of region `21-writeStorageNow`;
+  - `src/shared/ui/scenario-export-2.js` now holds all four units (`computeScenarioMetrics`, `computeOverlaySeriesFor`,
+    `renderOverlayChart`, `renderScenarioComparison`) and moves from batch 2 to batch 1;
+  - the module count drops from 16 to 15; the order re-sorts (a re-sort alone is not a difference);
+  - a top-level `seamSides` key appears;
+  - `bindings` is unchanged: without a topics file, `colocated` entries keep their `{ declaredIn, writer }` shape.
+   This is design §5.2's fix: the baseline's US `core/seam-normalizeState.js` facade would re-export a `ui/` module. **Step 3:** Full suite (background), `exit 0`. Commit the two files: `Planner: statement writers, the split
   rule, load-time markers, seam sides, UI cycles`.
 
 ---
@@ -489,7 +500,9 @@ Design §5.1, §5.5.
   in `main.js`.
 - **Assertion** (design §5.1): refuse a statement that contains, outside nested functions, `return`, `break`, `continue`,
   `await`, `yield`, a label, `var`, or a statement-level function or class declaration, or contains `this` or `arguments`
-  outside nested **non-arrow** functions (an arrow does not bind them, so their meaning would change inside a `function`):
+  outside nested **non-arrow** functions (an arrow does not bind them, so their meaning would change inside a `function`), or
+  contains a string or template literal that spans lines (re-indenting would change its value, and the build comparison
+  collapses whitespace, so it could not catch it):
   `statement <label> cannot move into a function body: <what>`.
 - **Split:** for each `splits` entry, write the declaration in the module as `let <name>;` (its carried comment block stays
   above it) and put the statement `<name> = <init>;` (indented like the rest of the run's body: the declaration's
@@ -509,7 +522,8 @@ Design §5.1, §5.5.
    `main.js` has `  wireX();` where `// note` was, and `import { wireX } from './ui/x.js';`.
 2. Two runs of one module interleaved with another module's statement: two functions, two calls at their own positions.
 3. A statement with `return` in an arrow inside a listener moves (nested function); a statement `for (...) { break; }` moves
-   (the `break` belongs to its own loop); a top-level `if (x) return;` is refused; `x.on('e', () => this.y);` is refused (`this` in an arrow).
+   (the `break` belongs to its own loop); a top-level `if (x) return;` is refused; `x.on('e', () => this.y);` is refused (`this` in an arrow); a statement containing a template literal over two lines is
+   refused (`multi-line literal`).
 4. A split: `let seen = flag;` becomes `let seen;` in the module and `seen = flag;` inside the run; the build of the fixture
    bundles; `compareScripts` (Task 4) of the before/after bundles is equal and ordered ok.
 5. Shared module from two planners whose statement chunks differ by one character: refused (`differs between the two planners`).
@@ -623,18 +637,18 @@ and every expected number. Nothing from the scratch worktree is committed except
   `bindings.<country>.needsDecision` is empty in both countries; every statement has a module or `main`; and the units the
   manifest does not move are exactly the statements of the topics file's `main` lists (a scratch script: all unit labels of
   each `main.js` minus the manifest's units minus the `main` labels must be empty, and no `main` label may be in a module).
+- [ ] **Step 5b: Ad-hoc baseline.** In `../fp-stage4-base` run every `test_*.js` (Task 11 step 5's loop) and record each file's
+  exit code in `stage4-expected.json` under `adhocBaseline` (step 6 compares against it).
 - [ ] **Step 6: Apply every batch in the scratch tree.** For each batch `N` in order: point the rehearsal's previous-commit
   tree at the scratch tree's `HEAD` (`git -C ../fp-stage4-rehearsal-prev checkout --detach $(git -C ../fp-stage4-rehearsal rev-parse HEAD) && (cd ../fp-stage4-rehearsal-prev && npm run build)`),
   run Task 11's steps 2-6 with `../fp-stage4-rehearsal-prev` as the base (its `git status` checks accept the untracked
   `?? scripts/extractions/` files the rehearsal keeps), commit the scratch tree, and record in
   `stage4-expected.json` under `batches[N]`: the `extract-units.js` output lines (modules, units moved, regions removed, seam
-  names, wiring functions), `closure_names` and `core_purity` counts, `ui_cycles` cycle count, `main.js` line counts, the
+  names, wiring functions), `closure_names` and `core_purity` counts, `ui_cycles` cycle count and each cycle's member paths (`cycles`; which modules form the `render` cycle), `main.js` line counts, the
   compare-builds lines (both modes, against the previous commit and against `../fp-stage4-base`), and `newDashModules`: every `-N` module path the batch creates (Task 11 step 2 adds them
   to `ALLOWED`). After the last batch, run Task 11's end-state check. If a batch or the end-state check fails, fix the topics
   file (never the tools without going back to their task) and restart.
-- [ ] **Step 7: Ad-hoc baseline.** In `../fp-stage4-base` run every `test_*.js` (Task 11 step 5's loop) and record each file's
-  exit code in `stage4-expected.json` under `adhocBaseline`; repeat in the scratch tree after the last batch and record under
-  `adhocAfter`. Any script that passes on the base and fails after is a defect: fix the topics file and restart.
+- [ ] **Step 7: Ad-hoc after.** Run the same loop in the scratch tree after the last batch and record under `adhocAfter`. Any script that passes on the base and fails after is a defect: fix the topics file and restart.
 - [ ] **Step 8: Draft regroup map** (`scripts/extractions/stage4-regroup.json`, the format of Task 12) for the scratch tree's
   final layout, following design §5.8 and this list:
   - renames of the seven `-2` core modules: `bond-ladder-2.js` -> `projected-expense.js`; `estimates-and-warnings-2.js` ->
@@ -741,7 +755,7 @@ Design §5.8.
   generated rule docs that record a changed source path (`scripts/gen-*-rules.js` print their source path) as
   `regenerate: <npm script>`.
 - **Report:** after every operation, the order in which the bundle initializes the `// load-time:` declarations (a dry
-  build to `$SCRATCH`, read in output order) compared with the order before; print each change.
+  build into a directory from `fs.mkdtempSync(path.join(os.tmpdir(), 'regroup-'))`, removed afterwards, read in output order) compared with the order before; print each change.
 
 **Fixture cases** (`tests/regroup_modules.js`, throwaway trees with a `src/package.json`, two countries and a tiny planner):
 1. Rename a shared module imported by both planners and by a facade: every specifier rewritten; the fixture builds.
@@ -768,7 +782,8 @@ Design §5.8.
 `docs/superpowers/inventory/*`.
 
 - [ ] **Step 1: Validate the map** in the implementation tree (a dry run writes nothing):
-  `node scripts/regroup-modules.js --map scripts/extractions/stage4-regroup.json --dry-run`.
+  `node scripts/regroup-modules.js --map scripts/extractions/stage4-regroup.json --dry-run`. This dry run is design §6.4's check
+  that every planned merge is still legal under the load-time guard (the tool re-runs every guard per operation).
   Fix the map until it passes; list every `-N` and misleading name still present (`find src -name '*.js'` against the map) and add
   operations for them. **STOP for the owner** with the final map and the dry-run output. Commit the approved map.
 - [ ] **Step 2: Apply** in the implementation tree: `node scripts/regroup-modules.js --map scripts/extractions/stage4-regroup.json`.
@@ -803,7 +818,9 @@ Design §5.9.
   fragment-refresh / emptied-region code and the `shared/` writes), with the `tests/extract_units.js` fixtures that build
   `@@shared` regions. Leave the region code in `scripts/lib/extraction-plan.js` and `scripts/analyze-closure.js` as is: with no
   markers in `src/` it finds no regions and does nothing (design §5.9: the plan's decision). Keep data-block handling
-  (`// NAME:begin`) everywhere.
+  (`// NAME:begin`) everywhere. The applier then refuses a manifest module with `owner: 'shared'`:
+  `no shared regions remain; write shared code in src/shared/ directly` (it could only ever be built from region units), with a
+  fixture for the refusal.
 - [ ] **Step 5:** `npm run build && node scripts/compare-builds.js --base ../fp-stage4-base --ordered` (equal, identical); full
   suite `exit 0`. Commit: `Cleanup: sync-shared.js, shared/ and the region code removed; no_markers test`.
 
@@ -836,7 +853,8 @@ the design file (status line), and, only if the owner has agreed, one line in se
 - [ ] **Step 3: CLAUDE.md.**
   - Replace the section "Shared code between the planners (marked regions)" (including its CRLF gotcha) with a short section
     "Shared code between the planners": shared code lives in `src/shared/`, identical in both planners by construction;
-    country code in `src/<country>/`; the region maps in `docs/superpowers/inventory/` say where old regions went.
+    country code in `src/<country>/`; the region maps in `docs/superpowers/inventory/` say where old regions went. The extraction
+    tool no longer makes shared modules (it refuses `owner: 'shared'`): new shared code is written in `src/shared/` directly.
   - Rewrite "Modules and the extraction tool" for stages 2-4: where code lives, `main.js` as the entry point (wiring calls,
     pinned start-up statements, boot sequence, `registerMcpTools()`, `installSharedTestHooks()`, `installTestHooks()`), the
     seam with `core/` and `ui/` facades (design §5.2), UI cycles and the load-time guard, the `// load-time:` comment, the
