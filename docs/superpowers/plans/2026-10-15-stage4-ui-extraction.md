@@ -99,8 +99,9 @@ Modified: `scripts/analyze-closure.js`, `scripts/lib/extraction-plan.js`, `scrip
 `scripts/lib/extract-units.js`, `scripts/extract-units.js`, `scripts/compare-builds.js`, `scripts/sync-shared.js` (Task 1; deleted
 in Task 14), `tests/closure_analyzer.js`, `tests/extraction_plan.js`, `tests/extract_units.js`, `tests/core_purity.js` (header
 comment), `tests/state_modules.js` (paths, Task 13), `package.json`, `src/us/main.js`, `src/canada/main.js`, `shared/*.js`
-(shrinking, then deleted), existing `src/**/ui/` modules (Task 13), `CLAUDE.md`, `README.md`, the inventory, the parent design
-(one line, owner permitting).
+(shrinking, then deleted), existing `src/**/ui/` modules (Task 13), `CLAUDE.md`, `README.md`, the inventory; the stage 4 design (status line) and the parent design's section 6 stage 4 entry
+(the `DONE` suffix; its pointer is already in place, `373375e`), Task 16; the generated rule docs (`docs/*-rules.md`) if the
+regroup tool prints `regenerate:`, Task 13.
 
 ---
 
@@ -436,9 +437,12 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
   **split** (the module's entry records `splits: [{ name, label }]`, where `label` is the stable label the assignment
   statement will have, computed from the text `<name> = <init>;`); the assignment is a writer of the binding and joins the
   declaration's module. **When runs are computed, the assignment counts as a statement standing at the declaration's
-  position**, so it joins the run of its module that it falls into or next to (with no statement of another module between),
-  and keeps that position inside the run body; only if no such run exists does it form a run of its own; otherwise the planner throws
-  `non-inert initializer of <name> needs a load-time comment or a split` (a `const`, several declarators, or a `core/` module).
+  position**, so it joins the run of its module that it falls into or follows (with no statement of another module and no
+  `main` statement between), and keeps that position inside the run body. If the assignment would start a run (no statement
+  of its module before it in that run) or form a run of its own, the planner throws `split assignment would start a run:
+  <name>` (nothing needs that case today: `hasPersonalizedData = hadSavedState;` follows statement @287 in `loadSavedState()`).
+  A non-inert initializer that cannot be split (a `const`, several declarators, or a `core/` module) throws
+  `non-inert initializer of <name> needs a load-time comment or a split`.
 - **Seam sides.** A seam name's **target** in a country is the module the plan gives that unit (for a name not moved yet, such
   as `render`, the module its topics entry or grouping assigns; for a name an earlier stage moved, its current module). For each
   seam name: if its target is a `ui/` module in either country, its facade path is
@@ -463,7 +467,8 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
 
 **Fixture cases:**
 0. Split and runs: `s;` (module M), `let x = y;` (M, split: `y` is written by a statement), `t;` (another module): one run of M,
-   `[s, x = y]`, named by `s`'s label; `x = y;` is the run's second statement.
+   `[s, x = y]`, named by `s`'s label; `x = y;` is the run's second statement. With `let x = y;` before `s;` instead, or with
+   a `main` statement between `s;` and the declaration: throws `split assignment would start a run`.
 1. `let level = 0;` written by function `up()` and by statement `level = 5;`, both listed in `src/shared/ui/l.js`: the binding
    moves; `bindings.us.needsDecision` is empty. With the statement listed in another module: `needsDecision` lists `level`.
 2. `let seen = flag;` (`flag` written by a statement) in a `ui/` module, unmarked: the module records a split for `seen`, and the
@@ -491,8 +496,9 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
   - the module count drops from 16 to 15; the order re-sorts (a re-sort alone is not a difference);
   - a top-level `seamSides` key appears;
   - `bindings` is unchanged: without a topics file, `colocated` entries keep their `{ declaredIn, writer }` shape.
-   This is design §5.2's fix: the baseline's US `core/seam-normalizeState.js` facade would re-export a `ui/` module. **Step 3:** Full suite (background), `exit 0`. Commit the two files: `Planner: statement writers, the split
-  rule, load-time markers, seam sides, UI cycles`.
+  This is design §5.2's fix: the baseline's US `core/seam-normalizeState.js` facade would re-export a `ui/` module.
+- [ ] **Step 3:** Full suite (background), `exit 0`. Commit the two files: `Planner: statement writers, the split rule,
+  load-time markers, seam sides, UI cycles`.
 
 ---
 
