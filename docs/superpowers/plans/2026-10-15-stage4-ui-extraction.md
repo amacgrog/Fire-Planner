@@ -857,7 +857,7 @@ Design §5.9.
 ### Task 16: Docs
 
 **Files:** `CLAUDE.md`, `README.md`, `docs/superpowers/inventory/*`, create `docs/superpowers/inventory/stage4-region-map.md`,
-the design file (status line), and, only if the owner has agreed, one line in section 6 of
+the design file (status line), and section 6 of
 `docs/superpowers/specs/2026-10-10-modular-build-design.md`.
 
 - [ ] **Step 1:** `npm run analyze` (inventory and module map current).
@@ -880,6 +880,7 @@ the design file (status line), and, only if the owner has agreed, one line in se
   - Update stale module paths (`year-factors-2.js`, `clamp-profit-sharing.js`, `first-run-ui.js`, ...) to the new names.
 - [ ] **Step 4: README.md** development section: the module layout, `npm run analyze` writes the module map, no `npm run sync`.
 - [ ] **Step 5:** Design status line: `Status: implemented on branch <branch> (the owner adds the merge date when merging)`.
-  Parent design section 6 (owner permitting): append to the stage 4 entry `Designed in docs/superpowers/specs/2026-10-15-stage4-ui-design.md; plan: docs/superpowers/plans/2026-10-15-stage4-ui-extraction.md.`
+  Parent design section 6: the stage 4 entry already points at this design and plan (added with the owner's agreement in
+  `373375e`); append only ` DONE on branch <branch> (the owner adds the merge date when merging).`, as stages 1-3 do.
 - [ ] **Step 6:** `grep -n "npm run sync\|check:shared\|@@shared:<name>" CLAUDE.md README.md` prints nothing; full suite `exit 0`.
   Commit `CLAUDE.md README.md docs`: `Docs: stage 4 (UI modules, wiring functions, the entry point, Adding UI code), region map, inventory`.
