@@ -1,7 +1,7 @@
 # Stage 4 design: the UI layer leaves main.js
 
 Date: 2026-10-15
-Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10) and 3 (findings 1-13) adopted, owner-approved 2026-10-15
+Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10), 3 (findings 1-13) and 4 (findings 1-7) adopted, owner-approved 2026-10-15
 Parent design: `docs/superpowers/specs/2026-10-10-modular-build-design.md` (sections 6 and 12-14). This file is the Stage 4
 design that section 6 announces in one line ("Peel the remaining `ui/` layers"); it follows the format of sections 12-14 and
 is kept in its own file so the parent design is not edited in parallel.
@@ -146,33 +146,58 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 ### 5.1 Wiring functions
 
 - A **statement** becomes movable. The topics file (section 5.4) assigns it to a module, or to `main` (it stays). A statement
-  with no entry goes with the region it sits in (that shared region's module); a country statement goes with the nearest
-  preceding **country** unit's module when that unit is a moving declaration or function. **A country statement whose nearest
-  preceding unit is in a shared region or in `main` (or that has no preceding unit) has no default: the topics file must place
-  it, or the planner fails.** Today that covers, with their homes:
+  with no entry goes with the region it sits in (that shared region's module). A country statement with no entry takes the
+  module of the nearest preceding country unit, declaration or statement, transitively (a run of country listeners follows
+  its first one). **A country statement whose nearest preceding unit is in a shared region, or is assigned or pinned to
+  `main`, or that has no preceding unit, has no default: the topics file must place it, or the planner fails.** Further:
+  - a statement whose target module does not move in this batch waits for a later batch (it is not a failure);
+  - a target that already exists (its declarations moved in an earlier batch, or a shared region's module made earlier: region
+    27's `applyTheme` and toggle listener, for example, against its listeners that call `render`) cannot be appended to (the
+    applier creates new modules only), so the planner creates `<module>-N` (covered by the `module_names` allow-list),
+    requires an explicit name for its wiring function, and the tidy batch merges it into its topic.
+  The placements are computed on the current layout, so the rehearsal lists them on the `9405d96` layout and the planner
+  re-checks them before each batch. Today the statements that need an explicit entry are, with their homes:
   - US `statement@752` (the Social Security entries pushed onto `UNUSUAL_RANGES`, right after region 04): a US warnings module
     under `src/us/ui/`, as a wiring function;
   - `DYN.children = {...}` (US @2741, Canada @2335): a children-list wiring function in each country's `ui/` dynamic-lists
     module;
   - the US wizard-checkbox listeners (@4212, right after region 27) and the `sensLeverToggles` listener (@4302): the US
     wizard and sensitivity topic modules;
-  - US `statement@96` (`FIELDS.forEach(... REVEAL_BY_ID.set ...)`), US `statement@190` and Canada `statement@70`
-    (`assignState(normalizeState(null))`): `main` (start-up).
+  - US `statement@96` (`FIELDS.forEach(... REVEAL_BY_ID.set ...)`, no preceding unit) and Canada `statement@70`
+    (`assignState(normalizeState(null))`, right after region `ids`): `main` (start-up);
+  - `makeTableWrapsFocusable();` and its `new MutationObserver(...)` (US lines 4537-4541, region 29): a wiring function
+    `wireTableFocus()` in the table-focus topic module (with `makeTableWrapsFocusable`, which the tidy batch moves out of
+    `first-run-ui.js`), called at the same position.
+  US `statement@190` (`assignState(normalizeState(null))`, after the country function `normalizeState`) would default into
+  `core/` and therefore stays in `main` by the rule below.
   The rehearsal lists every country statement in this class and reviews every default.
-- **Pinned to `main`.** Statements already in `main` after a batch (the wiring calls, the boot sequence, the three start-up
-  statements above) are pinned there: a later plan never moves a `<name>();` call into another wiring function. The planner
-  also refuses an explicit topics entry that puts a statement in a `core/` module or a country statement in a shared module.
+- **Recognising wiring calls and pinned statements.** Neither is recognised by its shape: real statements such as
+  `renderScenarioList();` and `applyTheme();` (region 27, US lines 4163 and 4168) or the boot's `syncControls();` look like
+  wiring calls. Instead, each batch's manifest records the wiring functions it created (`wiring: [{ name, module }]`), and the
+  record accumulates across batches (`scripts/extractions/stage4.json` holds every batch's list). A **wiring call** is a
+  statement `<name>();` whose `<name>` is in that record and is imported into `main.js` from a `ui/` module. A **pinned
+  statement** is one whose stable label is in the topics file's `main` entries. The planner and the applier's emptied-region
+  check read only these two sources.
+- **Pinned to `main`.** Wiring calls and pinned statements (the boot sequence, the three start-up statements above) stay in
+  `main`: a later plan never moves a wiring call into another wiring function. The planner refuses an explicit topics entry
+  that puts a statement in a `core/` module or a country statement in a shared module, and refuses a pinned statement that
+  assigns a module-level binding (it would keep its `let` in `main`; none does today: the boot calls `setMode(mode)` and
+  `@190` uses `assignState`).
 - **Wiring functions live only in `ui/` modules or `main.js`, never in `core/`.** A statement whose default would land in a
-  `core/` module stays in `main` (today the three start-up statements above).
+  `core/` module stays in `main` (today US `@190`).
 - A **run** is a maximal sequence of statements, in `main.js` order, assigned to the same module with no statement assigned
   elsewhere between them. Declarations between them do not break a run (they move to the module's top level). Each run
   becomes one exported function, `export function <name>() { ... }`, whose body is the statements' text, indented two more
-  spaces and otherwise byte-identical; `main.js` gets `<name>();` where the run's first statement stood.
+  spaces and otherwise byte-identical; `main.js` gets `<name>();` where the run's first statement stood. Each statement's
+  leading comment (the comment lines the applier carries with a unit) goes inside the body, directly above that statement, so
+  an explanation stays next to the code it explains (for example the theme comment of region 02, the test-hook header at US
+  lines 4579-4591).
 - **Shared modules split their runs the same way in both planners.** Runs are found per planner, and a shared module that
   gathers statements from several regions (for example `sidebar.js`: statement @214 in region 02 and the collapse listener
   in region 27) could be cut differently in the US and Canada, giving two module texts. The planner therefore splits a shared
-  module's statements at the union of both planners' run boundaries; where two of its functions end up adjacent in one
-  planner, that planner's `main.js` calls both, one after the other.
+  module's statements at the union of both planners' run boundaries; every wiring call stands at its own first statement's
+  position (never moved up next to another call), so two calls are adjacent in one planner only because everything between
+  them moved away, and a region's remaining text stays identical in both planners.
 - **The split rule for initializers.** A moving declaration whose initializer is not inert (section 2) and has no
   `// load-time:` comment (section 6.4) is split: the module gets the declaration without its initializer (`let x;`), and the assignment
   `x = <initializer>;` becomes a statement at the declaration's original position. The assignment is a writer of `x`, so it
@@ -278,13 +303,16 @@ is identical in both.
 
 - The import block.
 - Inside the IIFE, in today's order: the wiring calls; the boot sequence that is the plan's start-up logic and reads best in
-  one place (US lines 4528 onward: `if (hadSavedState) dismissFirstRunBanner(); syncControls(); syncContributionControls();
-  setMode(mode); syncTopbarHeight(); ...`), assigned to `main` in the topics file; then `registerMcpTools();`,
+  one place: US lines 4528-4535, `if (hadSavedState) dismissFirstRunBanner();` through `initChartHover();` (`syncControls();
+  syncContributionControls(); setMode(mode); syncTopbarHeight(); syncPanelMaxHeight(); syncKeyboardInset();`), and the
+  Canada equivalent, assigned to `main` in the topics file; then `wireTableFocus();` (section 5.1); then `registerMcpTools();`,
   `installSharedTestHooks();` and `installTestHooks();`.
 - **Regions that hold only wiring calls count as emptied.** A run's call `<name>();` stands where the run's first statement
   stood, which is often inside a shared region, and the boot statements sit inside region `29-dismissFirstRunBanner`. The
-  applier treats a region whose remaining content is wiring calls, comments and statements pinned to `main` as emptied: it
-  removes the markers and the fragment, and what remains becomes ordinary `main.js` text in each planner (identical in both,
+  applier treats a region whose remaining content is wiring calls, comments and statements pinned to `main` (recognised
+  as section 5.1 says, never by shape) as emptied: it removes the markers and the fragment, and what remains, comments that
+  belong to no statement included (they are kept, not dropped with a warning as today), becomes ordinary `main.js` text in
+  each planner (identical in both,
   checked before the markers go). So every region disappears in the batch that empties it; the cleanup batch strips any
   marker that is still there (none expected).
 - The IIFE wrapper stays (removing it re-indents the file; a one-commit follow-up).
