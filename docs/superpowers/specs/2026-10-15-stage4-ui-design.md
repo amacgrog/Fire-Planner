@@ -229,7 +229,7 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
   batch. It becomes `stmt:<first 8 hex of sha1 of the whitespace-normalised text>`, so a manifest written at rehearsal still
   names the right statements after earlier batches. No two statements share a text today; if they ever do, the suffix
   (`#2`, `#3`) is numbered within the statement's region, or within the country's statements outside regions (a shared
-  statement gets the same suffix in both planners), not across the file, so moving an earlier copy does not renumber a later one. The analyzer fails on two different texts with
+  statement gets the same suffix in both planners), not across the file, so moving an earlier copy does not renumber a later one. Two units of one file with the same label (the same text in two regions) also fail: the tools key their maps by label (plan review). The analyzer fails on two different texts with
   the same 8-hex hash. The inventory gains a line-number column instead.
 
 ### 5.2 Seam names and UI facades
