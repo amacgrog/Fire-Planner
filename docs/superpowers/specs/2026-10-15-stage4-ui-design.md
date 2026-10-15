@@ -1,7 +1,7 @@
 # Stage 4 design: the UI layer leaves main.js
 
 Date: 2026-10-15
-Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10), 3 (findings 1-13) and 4 (findings 1-7) adopted, owner-approved 2026-10-15
+Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10), 3 (findings 1-13), 4 (findings 1-7) and 5 (findings 1-8) adopted, owner-approved 2026-10-15
 Parent design: `docs/superpowers/specs/2026-10-10-modular-build-design.md` (sections 6 and 12-14). This file is the Stage 4
 design that section 6 announces in one line ("Peel the remaining `ui/` layers"); it follows the format of sections 12-14 and
 is kept in its own file so the parent design is not edited in parallel.
@@ -121,7 +121,7 @@ of section 6.4.
 | 4 | Test hooks and MCP registration | Defined in their own modules and called only from `main.js`, last, where the code runs today: `src/shared/ui/mcp-tools.js` (`registerMcpTools()`; the MCP block is shared code in region 29, so it is written once; the `mc` handle joins it in the tidy batch); `src/shared/ui/install-test-hooks.js` (`installSharedTestHooks()`, the 7 statements of region `block`) and `src/<country>/ui/install-test-hooks.js` (`installTestHooks()`), called in that order because the US hooks redefine four shared ones (`__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo`, US lines 4605-4608). Rule 3 of the parent design is reworded (section 5.7). | One file per concern; without it the US `main.js` would be about 40% test hooks. (`install-test-hooks`, not `test-hooks`: `src/us/core/test-hooks.js` already holds the engine's test counters.) |
 | 5 | `sync-shared.js` and Vitest | Deleting `sync-shared.js`, `shared/` and the `sync` / `check:shared` scripts is Stage 4's last code batch. Vitest follows Stage 4 with its own short design. | Decision 1 empties every region, so the marker system guards nothing; Vitest serves `core/`, which this stage does not touch. |
 | 6 | Module grouping and names | Stage 4's new modules are grouped by topic as they are made (a topics file, section 5.4). A tidy batch then renames every misleading or `-N` module (the 7 `-2` core modules included) and regroups the existing 29 `ui/` modules by topic with a new tool, `scripts/regroup-modules.js`. Regrouping the one-unit `core/` modules follows Stage 4. A test bans `-N` names; a generated module map lists every module. | The owner goal: a UI change starts by finding the right file. Core regrouping does not serve that goal and fits the later TypeScript work. |
-| 7 | Order | Tool changes, rehearsal, extraction batches by depth (leaf UI topics and the eight bindings; the rest of the shared UI; the country hubs and the cycle; country listeners, MCP and test hooks), the tidy batch, the cleanup batch, docs. | Each batch ends green; statements move with their module once everything they use has moved. |
+| 7 | Order | Tool changes, rehearsal, extraction batches (topic labels; the planner's depth order decides: leaf UI topics and the six bindings that do not reach `render`; the shared UI that does not reach it; the country hubs, the cycle and everything that reaches `render`; country listeners, MCP and test hooks), the tidy batch, the cleanup batch, docs. | Each batch ends green; statements move with their module once everything they use has moved. |
 | 8 | Verification | After every batch: `npm test` with unchanged snapshots, the build comparison in both modes against the previous commit, all 19 `test_*.js`, independent review per task. At the end: both comparisons against `9405d96`, `tests/bench_heavy.js` old against new. | Section 6. |
 
 Decision 1, refined under the owner goal: the country-only listeners (US 103 statements outside regions, Canada 28, minus the
@@ -145,32 +145,38 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 
 ### 5.1 Wiring functions
 
-- A **statement** becomes movable. The topics file (section 5.4) assigns it to a module, or to `main` (it stays). A statement
-  with no entry goes with the region it sits in (that shared region's module). A country statement with no entry takes the
-  module of the nearest preceding country unit, declaration or statement, transitively (a run of country listeners follows
-  its first one). **A country statement whose nearest preceding unit is in a shared region, or is assigned or pinned to
-  `main`, or that has no preceding unit, has no default: the topics file must place it, or the planner fails.** Further:
-  - a statement whose target module does not move in this batch waits for a later batch (it is not a failure);
-  - a target that already exists (its declarations moved in an earlier batch, or a shared region's module made earlier: region
-    27's `applyTheme` and toggle listener, for example, against its listeners that call `render`) cannot be appended to (the
-    applier creates new modules only), so the planner creates `<module>-N` (covered by the `module_names` allow-list),
-    requires an explicit name for its wiring function, and the tidy batch merges it into its topic.
-  The placements are computed on the current layout, so the rehearsal lists them on the `9405d96` layout and the planner
-  re-checks them before each batch. Today the statements that need an explicit entry are, with their homes:
+- A **statement** becomes movable. **Every statement's placement is an explicit entry in the topics file** (section 5.4): a
+  module, or `main` (it stays, pinned). From the rehearsal on, the planner reads only the topics file and fails on a
+  statement without an entry, so placements cannot drift as earlier batches remove units from `main.js`.
+- **Defaults are a drafting aid at the rehearsal only**, computed once on the `9405d96` layout to propose the entries:
+  - a shared statement: the module that the topics file gives the shared unit nearest before it in its region (a region can be
+    split across several topic modules; region 27 alone holds 23 units of many topics);
+  - a country statement: the module of the nearest preceding country unit, declaration or statement, transitively (a run of
+    country listeners follows its first one);
+  - no default (the rehearsal must decide): a country statement whose nearest preceding unit is in a shared region, is placed
+    in `main`, or does not exist; and any statement whose default would land in a `core/` module (wiring functions never
+    live there).
+  The rehearsal reviews every proposed entry and writes them all down. Today the statements with no default are, with their
+  homes:
   - US `statement@752` (the Social Security entries pushed onto `UNUSUAL_RANGES`, right after region 04): a US warnings module
     under `src/us/ui/`, as a wiring function;
   - `DYN.children = {...}` (US @2741, Canada @2335): a children-list wiring function in each country's `ui/` dynamic-lists
     module;
-  - the US wizard-checkbox listeners (@4212, right after region 27) and the `sensLeverToggles` listener (@4302): the US
-    wizard and sensitivity topic modules;
-  - US `statement@96` (`FIELDS.forEach(... REVEAL_BY_ID.set ...)`, no preceding unit) and Canada `statement@70`
-    (`assignState(normalizeState(null))`, right after region `ids`): `main` (start-up);
-  - `makeTableWrapsFocusable();` and its `new MutationObserver(...)` (US lines 4537-4541, region 29): a wiring function
-    `wireTableFocus()` in the table-focus topic module (with `makeTableWrapsFocusable`, which the tidy batch moves out of
-    `first-run-ui.js`), called at the same position.
-  US `statement@190` (`assignState(normalizeState(null))`, after the country function `normalizeState`) would default into
-  `core/` and therefore stays in `main` by the rule below.
-  The rehearsal lists every country statement in this class and reviews every default.
+  - the wizard-checkbox listeners (US @4212, Canada @3761, right after region 27) and the `sensLeverToggles` listener (US
+    @4302, Canada @3849, after region 28): each country's wizard and sensitivity topic modules;
+  - the first country test-hook statement (US @4600, Canada @4087, right after region `block`): the country
+    `install-test-hooks.js` (decision 4), with the hooks that follow it;
+  - US `statement@96` (`FIELDS.forEach(... REVEAL_BY_ID.set ...)`, no preceding unit), Canada `statement@70`
+    (`assignState(normalizeState(null))`, right after region `ids`) and US `statement@190` (the same statement, after
+    `normalizeState`, whose module is `src/us/ui/normalize-state.js` because it imports US `FIELDS` from a `ui/` module; its
+    default would be a wiring function there): `main` (start-up).
+  One shared statement also gets a named home: `makeTableWrapsFocusable();` and its `new MutationObserver(...)` (US lines
+  4537-4541, region 29) become `wireTableFocus()` in the shared table-focus module under `src/shared/ui/` (with
+  `makeTableWrapsFocusable`, which the tidy batch moves out of `first-run-ui.js`), called at the same position.
+- **Targets that do not move yet, or already exist.** A statement whose module does not move in this batch waits for a
+  later batch (not a failure). A module that already exists (its declarations moved in an earlier batch) cannot be appended
+  to (the applier creates new modules only), so the topics file names a `<module>-N` module for the statement (covered by the
+  `module_names` allow-list) with an explicit wiring-function name, and the tidy batch merges it into its topic.
 - **Recognising wiring calls and pinned statements.** Neither is recognised by its shape: real statements such as
   `renderScenarioList();` and `applyTheme();` (region 27, US lines 4163 and 4168) or the boot's `syncControls();` look like
   wiring calls. Instead, each batch's manifest records the wiring functions it created (`wiring: [{ name, module }]`), and the
@@ -179,12 +185,13 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
   statement** is one whose stable label is in the topics file's `main` entries. The planner and the applier's emptied-region
   check read only these two sources.
 - **Pinned to `main`.** Wiring calls and pinned statements (the boot sequence, the three start-up statements above) stay in
-  `main`: a later plan never moves a wiring call into another wiring function. The planner refuses an explicit topics entry
-  that puts a statement in a `core/` module or a country statement in a shared module, and refuses a pinned statement that
+  `main`: a later plan never moves a wiring call into another wiring function. The planner refuses a topics entry that puts a
+  statement in a `core/` module, a country statement in a shared module, or a shared statement anywhere but a shared `ui/`
+  module or `main`, and refuses a pinned statement that
   assigns a module-level binding (it would keep its `let` in `main`; none does today: the boot calls `setMode(mode)` and
   `@190` uses `assignState`).
-- **Wiring functions live only in `ui/` modules or `main.js`, never in `core/`.** A statement whose default would land in a
-  `core/` module stays in `main` (today US `@190`).
+- **Wiring functions live only in `ui/` modules, never in `core/`** (and `main.js` declares none: its statements are calls and
+  pinned statements).
 - A **run** is a maximal sequence of statements, in `main.js` order, assigned to the same module with no statement assigned
   elsewhere between them. Declarations between them do not break a run (they move to the module's top level). Each run
   becomes one exported function, `export function <name>() { ... }`, whose body is the statements' text, indented two more
@@ -221,8 +228,8 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 - **Statement labels become stable.** The analyzer labels a statement `statement@<line>` today, which shifts with every
   batch. It becomes `stmt:<first 8 hex of sha1 of the whitespace-normalised text>`, so a manifest written at rehearsal still
   names the right statements after earlier batches. No two statements share a text today; if they ever do, the suffix
-  (`#2`, `#3`) is numbered within the statement's region (a shared statement gets the same suffix in both planners), not
-  across the file, so moving an earlier copy does not renumber a later one. The analyzer fails on two different texts with
+  (`#2`, `#3`) is numbered within the statement's region, or within the country's statements outside regions (a shared
+  statement gets the same suffix in both planners), not across the file, so moving an earlier copy does not renumber a later one. The analyzer fails on two different texts with
   the same 8-hex hash. The inventory gains a line-number column instead.
 
 ### 5.2 Seam names and UI facades
@@ -264,7 +271,7 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 - `scripts/extractions/stage4-topics.json` has a `shared` section and one section per country (`us`, `canada`); each maps
   unit labels (declarations by name, statements by stable label) to module paths, and runs to wiring-function names. Country
   units with the same label in both planners (`render`, `syncControls`, identical country statement texts) are placed in
-  each country's section separately. Units not listed fall back to the planner's grouping (a region or a country run).
+  each country's section separately. Declarations not listed fall back to the planner's grouping (a region or a country run); every statement must be listed (section 5.1).
   The rehearsal writes it; it is reviewed with the manifest.
 - **Bindings.** A mutable binding is placed with its writers when all writers (functions and statements) are assigned to one
   module; it is then that module's private state, exported for reading only where another module reads it. A binding whose
@@ -304,8 +311,8 @@ is identical in both.
 - The import block.
 - Inside the IIFE, in today's order: the wiring calls; the boot sequence that is the plan's start-up logic and reads best in
   one place: US lines 4528-4535, `if (hadSavedState) dismissFirstRunBanner();` through `initChartHover();` (`syncControls();
-  syncContributionControls(); setMode(mode); syncTopbarHeight(); syncPanelMaxHeight(); syncKeyboardInset();`), and the
-  Canada equivalent, assigned to `main` in the topics file; then `wireTableFocus();` (section 5.1); then `registerMcpTools();`,
+  syncContributionControls(); setMode(mode); syncTopbarHeight(); syncPanelMaxHeight(); syncKeyboardInset();`), and Canada
+  lines 4015-4022, assigned to `main` in the topics file; then `wireTableFocus();` (section 5.1); then `registerMcpTools();`,
   `installSharedTestHooks();` and `installTestHooks();`.
 - **Regions that hold only wiring calls count as emptied.** A run's call `<name>();` stands where the run's first statement
   stood, which is often inside a shared region, and the boot statements sit inside region `29-dismissFirstRunBanner`. The
@@ -445,15 +452,25 @@ medians compared (+5% allowed; noise on this machine is about 10%). The engine d
 
 ## 7. Order
 
-1. Tool changes, each with fixture tests: movable statements and wiring functions with shared run boundaries, the split rule
+1. Tool changes, each with fixture tests (and two comment-only source edits, outside the build comparison, made through
+   `npm run sync -- --pull src/us/main.js` and `npm run sync`: the `// load-time:` comments of section 6.4, and the four
+   `@@shared` `begin` markers that split a comment block moved above the block's first line, US lines 233, 980, 3709, 4580
+   and Canada 113, 815, 3258, 4067, so no comment line is left behind in `main.js` as a fragment; a check fails on a marker
+   between two comment lines): movable statements and wiring functions with shared run boundaries, the split rule
    and unique wiring names (5.1), stable statement labels, UI facades chosen per name (5.2), UI cycles and the load-time guard
    (5.3), the topics file and binding placement (5.4), the `// load-time:` comments and their check (6.4), the ordered comparison (6.2), the new
    guards (6.1: `module_names` with its allow-list; not `no_markers`), the module map (purpose comments not yet required).
 2. Rehearsal in a scratch worktree: the manifest `scripts/extractions/stage4.json` and `stage4-topics.json`, the batch and
    module counts, the baseline of the 19 ad-hoc scripts. Committed.
-3. Extraction batches by depth (the rehearsal fixes the exact cut): A, leaf UI topics and the eight bindings; B, the rest of
-   the shared UI; C, the country hubs, the thirteen seam names and the cycle; D, the country listeners, `src/shared/ui/mcp-tools.js` and
-   the two `install-test-hooks.js` modules (`main.js` reaches its final shape; every region is gone).
+3. Extraction batches. The letters are topic labels; the planner's depth order decides what can move when, and the
+   rehearsal fixes the exact cut. The thirteen seam names are in the manifest's `seam` list from batch A on (the 48 US and 47
+   Canada units of section 2 need them). Nothing that reaches `render` can move before the cycle does (section 2: 54 of the
+   190 shared units in each planner reach it, among them the writers of `theme`, through `applyTheme`, and of
+   `setMobileView`). So: A, leaf UI topics and the six bindings whose writers do not reach `render` (`sidebarCollapsed`,
+   `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `undoSnapshot`, `wizardStep`, as far as their modules do not);
+   B, the shared UI that does not reach `render`; C, the country hubs, the cycle, `theme` and `mobile-view`, and everything
+   that reaches `render`; D, the country listeners, `src/shared/ui/mcp-tools.js` and the two `install-test-hooks.js` modules
+   (`main.js` reaches its final shape; every region is gone).
 4. Tidy: renames, merges into the existing topic modules, UI regrouping and purpose comments (5.8); the `module_names`
    allow-list is emptied and the purpose-comment check switched on.
 5. Cleanup (5.9).
