@@ -90,7 +90,8 @@ Created:
 - `scripts/regroup-modules.js` + `scripts/lib/regroup.js`: rename, merge and move modules (Task 12).
 - `tests/ui_cycles.js`, `tests/no_bare_imports.js`, `tests/module_names.js` (Task 3), `tests/compare_builds.js` (Task 4),
   `tests/regroup_modules.js` (Task 12), `tests/no_markers.js` (Task 14).
-- `scripts/extractions/stage4-topics.json`, `stage4.json`, `stage4-regroup.json`, `stage4-expected.json` (Task 10).
+- `scripts/extractions/stage4-topics.json`, `stage4.json`, `stage4-regroup.json`, `stage4-expected.json`, `stage4-reserved.json`
+  (Task 10).
 - New modules under `src/shared/ui/`, `src/us/ui/`, `src/canada/ui/`, and facades `src/<country>/ui/seam-<name>.js` (Task 11).
 - `docs/superpowers/inventory/module-map.md` (Task 9), `stage4-region-map.md` (Task 16).
 
@@ -109,7 +110,8 @@ comment), `tests/state_modules.js` (paths, Task 13), `package.json`, `src/us/mai
 
 - [ ] **Step 1: Branch and clean tree.** Run `git branch --show-current && git status --short && git log --oneline -1`.
   Expected: the implementation branch the owner named (cut from the commit holding this plan), an empty `git status`. Run
-  `echo "START=$(git rev-parse HEAD)" >> $SCRATCH/s4-notes.md`; later steps read `START` from that file.
+  `echo "START=$(git rev-parse HEAD)" >> $SCRATCH/s4-notes.md`; later steps read `START` from that file (if the session changed and the file is
+  gone, `START` is the commit before Task 1's: `git log --oneline` shows it).
 - [ ] **Step 2: Green baseline.** Run in the background: `npm test > $SCRATCH/s4-baseline.log 2>&1; echo "exit $?" >> $SCRATCH/s4-baseline.log`.
   Expected: last line `exit 0`.
 - [ ] **Step 3: The pre-stage tree.** Run:
@@ -319,7 +321,8 @@ element by element.
 2. Base `a(); b();`; head `function wireX() { a(); b(); } wireX();`: equal, ordered ok.
 3. Base `a(); b();`; head `b(); a();`: multiset equal, ordered fails at #0.
 4. Base `a(); a();`; head `function wireX() { a(); } wireX(); wireX();` (called twice): not expanded, so `new in head` reports
-   `function wireX` and two `wireX()` calls, and `missing from head` reports `a()`.
+   `function wireX` and `wireX()` (the lists hold distinct texts, so the call appears once), and `missing from head` reports
+   `a()`. The test asserts exactly these entries; do not change how `compare-builds.js` reports to make it pass.
 5. Base `let x = y; a();`; head `let x; x = y; a();`: equal, ordered ok. Head `let x; a(); x = y;`: ordered fails (the
    declaration moved after `a()`).
 6. Base `(function f() { a(); })();` inside top level; head `function wireX() { (function f() { a(); })(); } wireX();`:
@@ -368,8 +371,9 @@ Design §5.1, §5.4.
 - Refusals (each a thrown error naming the label): a statement listed in a `core/` module; a country statement in a shared
   module; a shared statement in a country module; a statement in two places; a shared declaration listed in a country module, or a country
   declaration listed in a shared module; a `main` statement that assigns a top-level
-  binding of `main.js`; a module with more than one run whose runs are not all named in `wiring` (one run may use the default
-  `wire<PascalModuleName>`, for example `src/shared/ui/theme.js` -> `wireTheme`); a wiring name that equals any top-level
+  binding of `main.js`; a module with more than one run whose runs are not all named in `wiring` (only a module with exactly
+  one run may use the default `wire<PascalModuleName>`, for example `src/shared/ui/theme.js` -> `wireTheme`; with several runs,
+  every run must be named); a wiring name that equals any top-level
   declaration name in `src/shared/` or that country's `src/<country>/` (tool modules included), or in the base bundle names
   passed as `options.reservedNames`; two modules (or two runs) with the same wiring name; a topics module path that already
   exists on disk (extraction creates new modules only; design §5.4).
@@ -386,7 +390,7 @@ Design §5.1, §5.4.
 **Fixture cases** (`tests/extraction_plan.js`, built with its existing `fixture()` / `write()` helpers, plus a `topics` option):
 1. Two country statements `a();` `b();` listed in `src/us/ui/x.js` (one run): the module has `wiring: [{ name: 'wireX', statements: { us: [la, lb] } }]`.
 2. `a();` (to `x.js`), `c();` (to `y.js`), `b();` (to `x.js`): `x.js` has two runs; without `wiring` names the planner throws
-   `several runs`; with `{ la: 'wireA', lb: 'wireB' }` it returns both.
+   `several runs`; with only `{ la: 'wireA' }` it also throws; with `{ la: 'wireA', lb: 'wireB' }` it returns both.
 3. A declaration between two statements of the same module does not split the run.
 4. Shared statement `s1;` at the end of region `a` and `s2;` at the start of region `b` (regions `a` and `b` adjacent in Canada),
    both listed in one shared module; in the US a country statement sits between the two regions and is placed in another
@@ -431,7 +435,9 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
   `loadTimeMarker` says marked, it moves as is; otherwise, if it is a `let` with one declarator in a `ui/` module, it is
   **split** (the module's entry records `splits: [{ name, label }]`, where `label` is the stable label the assignment
   statement will have, computed from the text `<name> = <init>;`); the assignment is a writer of the binding and joins the
-  declaration's module, as its own run unless it falls inside a run of that module; otherwise the planner throws
+  declaration's module. **When runs are computed, the assignment counts as a statement standing at the declaration's
+  position**, so it joins the run of its module that it falls into or next to (with no statement of another module between),
+  and keeps that position inside the run body; only if no such run exists does it form a run of its own; otherwise the planner throws
   `non-inert initializer of <name> needs a load-time comment or a split` (a `const`, several declarators, or a `core/` module).
 - **Seam sides.** A seam name's **target** in a country is the module the plan gives that unit (for a name not moved yet, such
   as `render`, the module its topics entry or grouping assigns; for a name an earlier stage moved, its current module). For each
@@ -439,7 +445,8 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
   `ui/seam-<name>.js` in both (`seamSides: { name: 'ui' | 'core' }` in the manifest). A unit that uses a seam name whose side is
   `ui` is `ui` in both planners (extend `uiUnit`). `importsCountryCode` accepts the new names.
 - **UI cycles.** When a strongly connected set of nodes spans owners and every unit in it is `ui`, the planner keeps the
-  per-unit modules (the existing `fine` split) and does **not** throw; it records the cycle in `uiCycles: [[paths]]`. A cycle
+  per-unit modules (the existing `fine` split) and does **not** throw; it records the cycle in `uiCycles: [[paths]]`. `uiCycles` (top level) and `splits` (per module)
+  are left out when empty, like `topics`. A cycle
   with a `core` unit still throws as today. Concretely, in `extraction-plan.js`:
   - **Depth and batch:** the strongly connected components stay the unit of depth: every module of one cycle gets the
     cycle's depth and therefore the same batch (`merged` no longer merges an accepted UI cycle into one module, but its members
@@ -455,6 +462,8 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
     twice`).
 
 **Fixture cases:**
+0. Split and runs: `s;` (module M), `let x = y;` (M, split: `y` is written by a statement), `t;` (another module): one run of M,
+   `[s, x = y]`, named by `s`'s label; `x = y;` is the run's second statement.
 1. `let level = 0;` written by function `up()` and by statement `level = 5;`, both listed in `src/shared/ui/l.js`: the binding
    moves; `bindings.us.needsDecision` is empty. With the statement listed in another module: `needsDecision` lists `level`.
 2. `let seen = flag;` (`flag` written by a statement) in a `ui/` module, unmarked: the module records a split for `seen`, and the
@@ -469,14 +478,16 @@ Design §5.1 (split rule), §5.2, §5.3, §5.4 (bindings), §6.4.
    their paths, one batch.
 6. The same cycle with one `core` unit: throws `module cycle across owners`.
 
-- [ ] **Step 1:** Fixtures, see them fail. **Step 2:** Implement; `node tests/extraction_plan.js` OK; rerun Task 5 step 3's command into `$SCRATCH/plan-after6.json`
-  and compare it with `$SCRATCH/plan-before.json` structurally (a scratch script that prints, per module path, added, removed and
+- [ ] **Step 0:** Before any edit, rerun Task 5 step 0's command into `$SCRATCH/plan-before6.json` (the scratchpad may be a
+  new session's; it must equal Task 5's `plan-before.json` if that file still exists).
+- [ ] **Step 1:** Fixtures, see them fail. **Step 2:** Implement; `node tests/extraction_plan.js` OK; rerun the command into `$SCRATCH/plan-after6.json`
+  and compare it with `$SCRATCH/plan-before6.json` structurally (a scratch script that prints, per module path, added, removed and
   changed fields, plus added top-level keys). Expected, and nothing else (a comparison keyed by path shows
   a moved module as one removed and one changed):
-  - `src/shared/core/scenario-helpers-2.js` (`computeScenarioMetrics`, `computeOverlaySeriesFor`, batch 2) is **removed**:
+  - `src/shared/core/scenario-helpers-2.js` (`computeScenarioMetrics`, `computeOverlaySeriesFor`, batch 1) is **removed**:
     with the side rule both units are `ui`, so the planner groups them with the other `ui` units of region `21-writeStorageNow`;
   - `src/shared/ui/scenario-export-2.js` now holds all four units (`computeScenarioMetrics`, `computeOverlaySeriesFor`,
-    `renderOverlayChart`, `renderScenarioComparison`) and moves from batch 2 to batch 1;
+    `renderOverlayChart`, `renderScenarioComparison`) and moves from batch 2 to batch 1 (`depth` 2 -> 1);
   - the module count drops from 16 to 15; the order re-sorts (a re-sort alone is not a difference);
   - a top-level `seamSides` key appears;
   - `bindings` is unchanged: without a topics file, `colocated` entries keep their `{ declaredIn, writer }` shape.
@@ -495,7 +506,8 @@ Design §5.1, §5.5.
 - For each module of the batch with `wiring`: cut each statement's chunk (the statement plus its carried comment lines, as
   `loadCountry` computes chunks today) out of `main.js`; write, in the module after its declarations, one
   `export function <name>() {` ... `}` per run whose body is the chunks in order, each line indented two more spaces
-  (comment lines included, so each statement's comment stays directly above it); insert `<name>();` into `main.js` at the line
+  (comment lines included, so each statement's comment stays directly above it; blank lines stay empty, with no trailing
+  spaces); insert `<name>();` into `main.js` at the line
   where the run's first statement's chunk started (with that chunk's indentation), and add `<name>` to the module's import line
   in `main.js`.
 - **Assertion** (design §5.1): refuse a statement that contains, outside nested functions, `return`, `break`, `continue`,
@@ -524,7 +536,8 @@ Design §5.1, §5.5.
 3. A statement with `return` in an arrow inside a listener moves (nested function); a statement `for (...) { break; }` moves
    (the `break` belongs to its own loop); a top-level `if (x) return;` is refused; `x.on('e', () => this.y);` is refused (`this` in an arrow); a statement containing a template literal over two lines is
    refused (`multi-line literal`).
-4. A split: `let seen = flag;` becomes `let seen;` in the module and `seen = flag;` inside the run; the build of the fixture
+4. A split: `let seen = flag;` becomes `let seen;` in the module and `seen = flag;` inside the run, at the declaration's
+   position among the run's statements; the build of the fixture
    bundles; `compareScripts` (Task 4) of the before/after bundles is equal and ordered ok.
 5. Shared module from two planners whose statement chunks differ by one character: refused (`differs between the two planners`).
 
@@ -605,8 +618,10 @@ and every expected number. Nothing from the scratch worktree is committed except
   and `git worktree add --detach ../fp-stage4-rehearsal-prev HEAD && (cd ../fp-stage4-rehearsal-prev && npm ci)`. Record
   `REHEARSAL_START=$(git -C ../fp-stage4-rehearsal rev-parse HEAD)` in `$SCRATCH/s4-notes.md`. Work in `../fp-stage4-rehearsal`
   until step 9; never use the implementation's `../fp-stage4-prev` here. **Restart** (whenever a later step says so): 
-  `git -C ../fp-stage4-rehearsal reset --hard <REHEARSAL_START>` (this discards applied batches but keeps untracked files: keep
-  the topics file and notes in `$SCRATCH` and copy them in again), then go back to step 5.
+  `git -C ../fp-stage4-rehearsal reset --hard <REHEARSAL_START> && git -C ../fp-stage4-rehearsal clean -fd -- src` (the reset
+  discards committed batches; the clean removes the new, untracked modules of a batch that failed before its commit; it is
+  limited to `src` so the untracked topics file in `scripts/extractions/` stays), delete the `batches` entries of
+  `stage4-expected.json` (keep `adhocBaseline`), then go back to step 5.
 - [ ] **Step 2: Reserved names.** Write `$SCRATCH/reserved.js` that reads `../fp-stage4-base/dist/Planner_US.html` and
   `Planner_Canada.html`, parses each inline script (as `compare-builds.js` does) and writes the sorted union of every declared
   top-level and nested function and variable name to `scripts/extractions/stage4-reserved.json`.
@@ -713,7 +728,7 @@ For each batch `N` listed in `scripts/extractions/stage4-expected.json`, in orde
   `git status` before the commit lists only `src/`, `shared/`, `docs/superpowers/inventory/` and `tests/module_names.js`.
 
 After the last batch, check the end state (design §1, §5.6): `main.js` of each planner holds, inside the IIFE, only wiring calls,
-the three pinned start-up statements, the boot sequence, `wireTableFocus();`, `registerMcpTools();`, `installSharedTestHooks();`,
+the pinned start-up statements (US: `@96` and `@190`; Canada: `@70`), the boot sequence, `wireTableFocus();`, `registerMcpTools();`, `installSharedTestHooks();`,
 `installTestHooks();` (in today's order); `grep -c '@@shared' src/us/main.js src/canada/main.js` prints 0 for both;
 the regenerated `docs/superpowers/inventory/closure-us.md` and `closure-canada.md` summaries report 0 functions, 0 const, 0
 let, 0 var and 0 classes (only side-effect statements remain), and the topics file's `main` lists plus the wiring calls
@@ -804,8 +819,7 @@ Design §5.8.
 ### Task 14: Cleanup: the marker system goes
 
 **Files:** Delete `scripts/sync-shared.js`, `shared/`; create `tests/no_markers.js`; modify `package.json`,
-`scripts/lib/extract-units.js`, `scripts/analyze-closure.js`, `tests/extract_units.js`, `tests/extraction_plan.js`,
-`tests/closure_analyzer.js`, `src/us/main.js` / `src/canada/main.js` only if a marker remains.
+`scripts/lib/extract-units.js`, `tests/extract_units.js`, `src/us/main.js` / `src/canada/main.js` only if a marker remains.
 
 Design §5.9.
 
