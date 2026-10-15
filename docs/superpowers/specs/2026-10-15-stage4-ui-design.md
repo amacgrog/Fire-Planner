@@ -1,7 +1,7 @@
 # Stage 4 design: the UI layer leaves main.js
 
 Date: 2026-10-15
-Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10), 3 (findings 1-13), 4 (findings 1-7) and 5 (findings 1-8) adopted, owner-approved 2026-10-15
+Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10), 3 (findings 1-13), 4 (findings 1-7), 5 (findings 1-8) and 6 (findings 1-8) adopted, owner-approved 2026-10-15
 Parent design: `docs/superpowers/specs/2026-10-10-modular-build-design.md` (sections 6 and 12-14). This file is the Stage 4
 design that section 6 announces in one line ("Peel the remaining `ui/` layers"); it follows the format of sections 12-14 and
 is kept in its own file so the parent design is not edited in parallel.
@@ -116,7 +116,7 @@ of section 6.4.
 | # | Decision | Choice | Reason |
 |---|---|---|---|
 | 1 | Side-effect statements | Each contiguous run of statements that goes to one module becomes an exported **wiring function** in that module; `main.js` calls it at the run's position. No bare side-effect imports. | Order is kept by construction; the shared statements leave their regions, so the regions and `sync-shared.js` can go. Moving statements as module top-level code would run them in import order (the tool's known gap). |
-| 2 | The cross-owner `render` cycle | Allow import cycles between `ui/` modules when a guard proves nothing in them runs across the cycle while modules load (every top-level initializer of a module in a cycle is inert; section 5.3). | Native ESM hoists function declarations across a cycle and the esbuild bundle is one scope, so it is safe; the bundle does not change. A late-binding hub (`assignRender`) would add a mutable binding, an indirection on every call and a silent no-op if anything ran early. |
+| 2 | The cross-owner `render` cycle | Allow import cycles between `ui/` modules when a guard proves nothing in them runs across the cycle while modules load (every top-level initializer of a module in a cycle is inert, or marked `// load-time:` and reads nothing from the cycle; section 5.3). | Native ESM hoists function declarations across a cycle and the esbuild bundle is one scope, so it is safe; the bundle does not change. A late-binding hub (`assignRender`) would add a mutable binding, an indirection on every call and a silent no-op if anything ran early. |
 | 3 | The eight UI bindings | Each moves into one shared UI module with all its writers, the statements that write it included (inside that module's wiring functions). Related units join the module by topic. No `assign<Name>` modules. | Stage 3's rule 1 extended to statements; no statement text changes; each binding is private to the module that owns it. |
 | 4 | Test hooks and MCP registration | Defined in their own modules and called only from `main.js`, last, where the code runs today: `src/shared/ui/mcp-tools.js` (`registerMcpTools()`; the MCP block is shared code in region 29, so it is written once; the `mc` handle joins it in the tidy batch); `src/shared/ui/install-test-hooks.js` (`installSharedTestHooks()`, the 7 statements of region `block`) and `src/<country>/ui/install-test-hooks.js` (`installTestHooks()`), called in that order because the US hooks redefine four shared ones (`__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo`, US lines 4605-4608). Rule 3 of the parent design is reworded (section 5.7). | One file per concern; without it the US `main.js` would be about 40% test hooks. (`install-test-hooks`, not `test-hooks`: `src/us/core/test-hooks.js` already holds the engine's test counters.) |
 | 5 | `sync-shared.js` and Vitest | Deleting `sync-shared.js`, `shared/` and the `sync` / `check:shared` scripts is Stage 4's last code batch. Vitest follows Stage 4 with its own short design. | Decision 1 empties every region, so the marker system guards nothing; Vitest serves `core/`, which this stage does not touch. |
@@ -130,8 +130,8 @@ country test hooks) leave `main.js` too, into their topic modules' wiring functi
 ## 4. Target shape
 
 ```
-src/<country>/main.js        imports; IIFE: wiring calls in start-up order, the boot sequence, registerMcpTools(),
-                             installSharedTestHooks(), installTestHooks()
+src/<country>/main.js        imports; IIFE: wiring calls in start-up order, the pinned start-up statements (US @96, @190;
+                             Canada @70), the boot sequence, registerMcpTools(), installSharedTestHooks(), installTestHooks()
 src/shared/ui/<topic>.js     shared UI by topic: theme, sidebar, saved-plan load, info bubble, estimate review, undo, wizard,
                              mobile view, dynamic lists, scenarios, chart controls, Sankey, tornado, plan headline,
                              mcp-tools, install-test-hooks (shared hooks), ...
@@ -242,7 +242,10 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
   `src/<country>/ui/seam-<name>.js`, imported as `#country/ui/seam-<name>`. The side is chosen per name, not per country:
   **a name's facade is under `ui/` in both countries if either country's target is a `ui/` module** (`FIELDS` is in
   `src/us/ui/clamp-profit-sharing.js` but `src/canada/core/fields.js`; both facades go to `ui/`), because shared code imports
-  one specifier for both countries. Names that are `core/` in both countries keep `core/` facades: `DYN`,
+  one specifier for both countries. A unit that uses a seam name whose facade is under `ui/` is itself `ui` in both planners
+  (the planner's side rule, `uiUnit = u.ui || importsUi`, does not see a seam name as a `ui/` import today; for example
+  `computeScenarioMetrics` and `computeOverlaySeriesFor` in region 21 use `normalizeState`, whose US module is
+  `src/us/ui/normalize-state.js`). Names that are `core/` in both countries keep `core/` facades: `DYN`,
   `SENSITIVITY_LEVERS`, `analyzeShortfallDrivers`, `renderDecisionCompareTable`, `mcpSchemaFor`, `mcpAccepts`. A facade under `ui/` that re-exports a `core/` module is allowed (`ui/` may import
   `core/`). The header comment of `tests/core_purity.js`, which says facades live in `core/`, is updated. `src/package.json`'s
   pattern (`"#country/*"`) already resolves any subpath, and `tests/country_contract.js` already checks every `#country/...`
@@ -277,23 +280,27 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
   module; it is then that module's private state, exported for reading only where another module reads it. A binding whose
   writers would span modules is still reported in `bindings.<country>.needsDecision` and blocks its dependents (none of the
   eight does, by construction of the topics file).
-- The eight, by module (names indicative):
+- The eight, by module (names indicative; the batch each can move in is in section 7, step 3):
 
   | module (shared `ui/`) | binding | with |
   |---|---|---|
-  | `theme.js` | `theme` | `applyTheme`, `wireThemeToggle()` (the toggle listener) |
+  | `theme.js` (batch C) | `theme` | `applyTheme`, `wireThemeToggle()` (the toggle listener; `applyTheme` calls `render`) |
   | `sidebar.js` | `sidebarCollapsed` | `setSidebarCollapsed`, `loadSidebarPreference()` (statement @214), the collapse-button listener |
   | `saved-plan.js` | `hadSavedState`, `hasPersonalizedData` | `loadSavedState()` (statement @287 and the split assignment `hasPersonalizedData = hadSavedState;`, called where they run today, before `syncControls`), `dismissFirstRunBanner` (the other writer of `hasPersonalizedData`) |
   | `info-bubble.js` | `infoBubbleBtn` | `infoBubbleAnchor`, `openInfoBubble`, `closeInfoBubble`, `placeInfoBubble`, `wireInfoBubble()` (three document listeners) |
-  | `estimate-review.js` | `reviewingFieldId` | `jumpToEstimateField`, `renderEstimatedRollup`, `syncReviewNav`, `advanceReview`, `wireEstimateReview()` |
-  | `mobile-view.js` | `setMobileView` | `export let setMobileView = () => {};` and `wireMobileTabs()` (the block that assigns it; until it runs, calls do nothing, as today) |
-  | `undo.js` | `undoSnapshot` | `snapshotForUndo`, `showUndoToast`, `hideUndoToast`, `wireUndoButton()` |
-  | `wizard.js` | `wizardStep` | `renderWizardStep`, `wireWizard()` (open, next, back, close) |
+  | `estimate-review.js` (batch C) | `reviewingFieldId` | `jumpToEstimateField` (calls `setMobileView`), `renderEstimatedRollup`, `syncReviewNav`, `advanceReview`, `wireEstimateReview()` (the review buttons and close listener; they reach `render`) |
+  | `mobile-view.js` (batch C) | `setMobileView` | `export let setMobileView = () => {};` and `wireMobileTabs()` (the block that assigns it; until it runs, calls do nothing, as today) |
+  | `undo.js` | `undoSnapshot` | `snapshotForUndo`, `showUndoToast`, `hideUndoToast` (batch A); `wireUndoButton()` (the undo listener, US @3665, reaches `render`) moves in batch C to an `undo-N.js` module that the tidy batch merges into `undo.js` |
+  | `wizard.js` | `wizardStep` | `renderWizardStep` and `wireWizard()` (open, next, back; batch A); the close listener (US @4271, calls `setMobileView`) moves in batch C to a `wizard-N.js` module, with its own wiring function, merged by the tidy batch |
 
 - The single-writer bindings that stage 3 left for this stage (`activeCategory`, `infoBubbleAnchor`,
   `previousUnusualIds` / `unusualToastArmed` / `unusualToastTimer`, `sankeyTooltipEl`, `lastChart`, `chartTooltipEl`,
   `saveDebounceTimer`, `undoToastTimer`, the plan-status timers, Canada's `lastRothOptimizer`) move with their writer, as in
-  stage 3. `hasPersonalizedData` gains a second writer through the split rule and is placed as the table says.
+  stage 3. `chartTooltipEl` needs a marker edit first: it is the last line of region 20 (US line 2190, Canada 1784) and its only
+  writer, `initChartHover` (US 2192, Canada 1786, identical text), sits just below the end marker, and the planner moves a
+  binding with its writer only when both have the same owner. The tool-changes batch moves region 20's end marker below
+  `initChartHover` in both planners; `chartTooltipEl`, `clearChartHover` and `initChartHover` then move together into a
+  shared chart-hover `ui/` module, and the boot imports `initChartHover` from it. `hasPersonalizedData` gains a second writer through the split rule and is placed as the table says.
 - **Extraction creates new modules only.** The applier refuses a path that exists (`extract-units.js`, "already exists"),
   and several topics already have a module (`src/shared/ui/wizard-overlay.js`, `estimates-and-warnings.js`,
   `topbar-and-undo.js`, ...). The batches create new topic modules; the tidy batch (section 5.8) merges them with the
@@ -309,7 +316,8 @@ is identical in both.
 ### 5.6 What main.js keeps
 
 - The import block.
-- Inside the IIFE, in today's order: the wiring calls; the boot sequence that is the plan's start-up logic and reads best in
+- Inside the IIFE, in today's order: the wiring calls; the pinned start-up statements (US `statement@96` and `@190`,
+  Canada `@70`, section 5.1); the boot sequence that is the plan's start-up logic and reads best in
   one place: US lines 4528-4535, `if (hadSavedState) dismissFirstRunBanner();` through `initChartHover();` (`syncControls();
   syncContributionControls(); setMode(mode); syncTopbarHeight(); syncPanelMaxHeight(); syncKeyboardInset();`), and Canada
   lines 4015-4022, assigned to `main` in the topics file; then `wireTableFocus();` (section 5.1); then `registerMcpTools();`,
@@ -361,7 +369,8 @@ module and `syncTopbarHeight` to the layout module, out of `topbar-and-undo.js`;
 `markUnusualFields` to the warnings module, out of `ui/estimates-and-warnings.js`); the new topic modules of the batches
 merge with the existing modules of the same topic, and the existing `ui/` modules join their topics (for example the three
 `update-chart-*-buttons` modules join the chart controls). The same batch, after all moves and merges, writes a purpose comment at the top of every
-module that has none (about 68 of 183 today; comments are outside the statement comparison). The rename list is part of
+`ui/` module (by the definition above nearly every module lacks one today; comments are outside the statement comparison).
+`core/` modules get theirs with the core regrouping after Stage 4; the module map shows "(no purpose comment)" for them. The rename list is part of
 the plan, reviewed before it runs.
 
 ### 5.9 Cleanup
@@ -390,8 +399,8 @@ because the tools and their fixtures may still name the marker).
 - `tests/no_markers.js` (section 5.9, added in the cleanup batch).
 - The module map (`docs/superpowers/inventory/module-map.md`: per module, its path, side, exports and a one-line purpose
   taken from its purpose comment, line 1, section 5.8) is written by `npm run analyze` from the tool-changes batch on, and checked for
-  staleness in `npm test` (`--check`, like the `gen-*-rules` scripts). The purpose-comment requirement (a module without a
-  leading purpose comment fails) is switched on in the tidy batch, which writes the missing comments; from then on every new
+  staleness in `npm test` (`--check`, like the `gen-*-rules` scripts). The purpose-comment requirement (a `ui/` module without a
+  purpose comment fails; `core/` modules are exempt until the core regrouping) is switched on in the tidy batch, which writes the missing comments; from then on every new
   module says what it is for.
 - Fixture tests for every tool change (`tests/extraction_plan.js`, `tests/extract_units.js`, a new `tests/regroup_modules.js`,
   `tests/compare_builds.js` for the ordered mode).
@@ -452,12 +461,20 @@ medians compared (+5% allowed; noise on this machine is about 10%). The engine d
 
 ## 7. Order
 
-1. Tool changes, each with fixture tests (and two comment-only source edits, outside the build comparison, made through
-   `npm run sync -- --pull src/us/main.js` and `npm run sync`: the `// load-time:` comments of section 6.4, and the four
-   `@@shared` `begin` markers that split a comment block moved above the block's first line, US lines 233, 980, 3709, 4580
-   and Canada 113, 815, 3258, 4067, so no comment line is left behind in `main.js` as a fragment; a check fails on a marker
-   between two comment lines): movable statements and wiring functions with shared run boundaries, the split rule
-   and unique wiring names (5.1), stable statement labels, UI facades chosen per name (5.2), UI cycles and the load-time guard
+1. Tool changes, each with fixture tests, and three comment-only source edits, outside the build comparison:
+   - the `// load-time:` comments of section 6.4 (inside regions: made in the US planner, then `npm run sync -- --pull
+     src/us/main.js` and `npm run sync`);
+   - the four `@@shared` `begin` markers that split a comment block move above the block's first line (US lines 233, 980,
+     3709, 4580; Canada 113, 815, 3258, 4067), so no comment line is left behind in `main.js` as a fragment;
+   - region 20's end marker moves below `initChartHover` (section 5.4).
+   Marker moves are made **by hand, as the same edit in both planners** (a `--pull` from one planner would copy the line into
+   the fragment and `sync` would then duplicate it in the other planner, unflagged), then `npm run sync -- --pull
+   src/us/main.js` and `npm run check:shared`. `scripts/sync-shared.js --check` gains a check that fails on a marker between
+   two comment lines; it retires with the script in the cleanup batch.
+   The tool changes: movable statements and wiring functions with shared run boundaries, the split rule
+   and unique wiring names (5.1), stable statement labels, UI facades chosen per name (5.2) and the planner rule that a unit using a seam name whose facade is under `ui/` is `ui` in
+   both planners (so `computeScenarioMetrics` and `computeOverlaySeriesFor`, which use `normalizeState`, never put a `ui/`
+   import into `core/`), UI cycles and the load-time guard
    (5.3), the topics file and binding placement (5.4), the `// load-time:` comments and their check (6.4), the ordered comparison (6.2), the new
    guards (6.1: `module_names` with its allow-list; not `no_markers`), the module map (purpose comments not yet required).
 2. Rehearsal in a scratch worktree: the manifest `scripts/extractions/stage4.json` and `stage4-topics.json`, the batch and
@@ -466,10 +483,12 @@ medians compared (+5% allowed; noise on this machine is about 10%). The engine d
    rehearsal fixes the exact cut. The thirteen seam names are in the manifest's `seam` list from batch A on (the 48 US and 47
    Canada units of section 2 need them). Nothing that reaches `render` can move before the cycle does (section 2: 54 of the
    190 shared units in each planner reach it, among them the writers of `theme`, through `applyTheme`, and of
-   `setMobileView`). So: A, leaf UI topics and the six bindings whose writers do not reach `render` (`sidebarCollapsed`,
-   `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `undoSnapshot`, `wizardStep`, as far as their modules do not);
-   B, the shared UI that does not reach `render`; C, the country hubs, the cycle, `theme` and `mobile-view`, and everything
-   that reaches `render`; D, the country listeners, `src/shared/ui/mcp-tools.js` and the two `install-test-hooks.js` modules
+   `setMobileView`). The test is "depends, directly or transitively, on `render`, `theme` or `setMobileView`" (the last two move with the cycle).
+   So: A, leaf UI topics, `sidebarCollapsed`, `hadSavedState` and `infoBubbleBtn`, and `undoSnapshot` and `wizardStep` with
+   their writer functions only (their listeners that reach batch-C code wait, section 5.4); B, the shared UI that depends on
+   none of the three; C, the country hubs, the cycle, `theme`, `mobile-view`, `reviewingFieldId` (its writer
+   `jumpToEstimateField` calls `setMobileView`), the undo, review and wizard-close listeners (to `-N` modules), and
+   everything else that depends on the three; D, the country listeners, `src/shared/ui/mcp-tools.js` and the two `install-test-hooks.js` modules
    (`main.js` reaches its final shape; every region is gone).
 4. Tidy: renames, merges into the existing topic modules, UI regrouping and purpose comments (5.8); the `module_names`
    allow-list is emptied and the purpose-comment check switched on.
@@ -507,7 +526,7 @@ Vitest (its own short design after Stage 4); regrouping the one-unit `core/` mod
 ## 10. Known limits at the end of Stage 4
 
 - `core/` still has many one-unit modules (follow-up, with the same regroup tool), and about 33 non-inert `core/`
-  initializers carry no `// load-time:` comment (the rule covers `ui/` only).
+  initializers carry no `// load-time:` comment (the rule covers `ui/` only), and `core/` modules have no purpose comment yet.
 - `main.js` keeps its IIFE wrapper.
 - The load-time guard is static: it proves that nothing in a UI cycle runs code while modules load (inert initializers
   only), not that a wiring function never runs before another one it depends on; the ordered comparison covers that for this stage, review covers it afterwards.
