@@ -1,7 +1,7 @@
 # Stage 4 design: the UI layer leaves main.js
 
 Date: 2026-10-15
-Status: draft; review rounds 1 (findings 1-14) and 2 (findings 1-10) adopted, owner-approved 2026-10-15
+Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10) and 3 (findings 1-13) adopted, owner-approved 2026-10-15
 Parent design: `docs/superpowers/specs/2026-10-10-modular-build-design.md` (sections 6 and 12-14). This file is the Stage 4
 design that section 6 announces in one line ("Peel the remaining `ui/` layers"); it follows the format of sections 12-14 and
 is kept in its own file so the parent design is not edited in parallel.
@@ -18,8 +18,8 @@ decision below is judged against this goal as well as against "no behavior chang
 
 ### Success criteria
 
-- `main.js` (both planners) holds no declaration: only the import block and, inside the IIFE, calls to wiring functions and
-  the short boot sequence (section 5.6).
+- `main.js` (both planners) holds no declaration: only the import block and, inside the IIFE, calls to wiring functions, the
+  start-up statements pinned to `main` (US `statement@96` and `@190`, Canada `@70`) and the short boot sequence (section 5.6).
 - No `@@shared` marker in `src/`, no `shared/` directory, no `scripts/sync-shared.js`; `npm test` no longer runs `--check`.
 - The built planners compare equal to the pre-stage build (`9405d96`) statement by statement, both as a multiset (stage 3
   method) and, for the side-effect statements, in order (section 6.2).
@@ -98,7 +98,7 @@ of the declarations left have initializers that are not inert:
 
 - `ids` and `MCP_FIELDS` filter `FIELDS`, an imported constant; `theme` reads `window.matchMedia`; `previousUnusualIds` is
   `new Set()`. They do not depend on anything that runs before them in `main.js`, so running them at load time is safe
-  (the allow-list of section 6.4).
+  (they get the `// load-time:` comment of section 6.4).
 - `let hasPersonalizedData = hadSavedState;` (US line 307, Canada 187) reads the binding the saved-plan load (statement
   @287 / @167) sets just before it. Run at load time it would always be `false`; today the boot's
   `if (hadSavedState) dismissFirstRunBanner()` sets it to `true` and the 250 ms save debounce hides the difference, but a
@@ -125,7 +125,7 @@ of section 6.4.
 | 8 | Verification | After every batch: `npm test` with unchanged snapshots, the build comparison in both modes against the previous commit, all 19 `test_*.js`, independent review per task. At the end: both comparisons against `9405d96`, `tests/bench_heavy.js` old against new. | Section 6. |
 
 Decision 1, refined under the owner goal: the country-only listeners (US 103 statements outside regions, Canada 28, minus the
-hooks and MCP) leave `main.js` too, into their topic modules' wiring functions, so a listener is found next to the code it drives.
+country test hooks) leave `main.js` too, into their topic modules' wiring functions, so a listener is found next to the code it drives.
 
 ## 4. Target shape
 
@@ -147,12 +147,23 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 
 - A **statement** becomes movable. The topics file (section 5.4) assigns it to a module, or to `main` (it stays). A statement
   with no entry goes with the region it sits in (that shared region's module); a country statement goes with the nearest
-  preceding **country** unit's module, never a shared module (US `statement@752`, the Social Security entries pushed onto
-  `UNUSUAL_RANGES`, and the wizard-checkbox listeners at US line 4216 follow shared regions); with no preceding country unit,
-  the following one; otherwise `main`. The rehearsal reviews every default.
+  preceding **country** unit's module when that unit is a moving declaration or function. **A country statement whose nearest
+  preceding unit is in a shared region or in `main` (or that has no preceding unit) has no default: the topics file must place
+  it, or the planner fails.** Today that covers, with their homes:
+  - US `statement@752` (the Social Security entries pushed onto `UNUSUAL_RANGES`, right after region 04): a US warnings module
+    under `src/us/ui/`, as a wiring function;
+  - `DYN.children = {...}` (US @2741, Canada @2335): a children-list wiring function in each country's `ui/` dynamic-lists
+    module;
+  - the US wizard-checkbox listeners (@4212, right after region 27) and the `sensLeverToggles` listener (@4302): the US
+    wizard and sensitivity topic modules;
+  - US `statement@96` (`FIELDS.forEach(... REVEAL_BY_ID.set ...)`), US `statement@190` and Canada `statement@70`
+    (`assignState(normalizeState(null))`): `main` (start-up).
+  The rehearsal lists every country statement in this class and reviews every default.
+- **Pinned to `main`.** Statements already in `main` after a batch (the wiring calls, the boot sequence, the three start-up
+  statements above) are pinned there: a later plan never moves a `<name>();` call into another wiring function. The planner
+  also refuses an explicit topics entry that puts a statement in a `core/` module or a country statement in a shared module.
 - **Wiring functions live only in `ui/` modules or `main.js`, never in `core/`.** A statement whose default would land in a
-  `core/` module stays in `main`: today `statement@96` (`FIELDS.forEach(... REVEAL_BY_ID.set ...)`) and `statement@190`
-  (`assignState(normalizeState(null))`), which are start-up in any case.
+  `core/` module stays in `main` (today the three start-up statements above).
 - A **run** is a maximal sequence of statements, in `main.js` order, assigned to the same module with no statement assigned
   elsewhere between them. Declarations between them do not break a run (they move to the module's top level). Each run
   becomes one exported function, `export function <name>() { ... }`, whose body is the statements' text, indented two more
@@ -162,17 +173,20 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
   in region 27) could be cut differently in the US and Canada, giving two module texts. The planner therefore splits a shared
   module's statements at the union of both planners' run boundaries; where two of its functions end up adjacent in one
   planner, that planner's `main.js` calls both, one after the other.
-- **The split rule for initializers.** A moving declaration whose initializer is not inert (section 2) and is not on the
-  allow-list of section 6.4 is split: the module gets the declaration without its initializer (`let x;`), and the assignment
+- **The split rule for initializers.** A moving declaration whose initializer is not inert (section 2) and has no
+  `// load-time:` comment (section 6.4) is split: the module gets the declaration without its initializer (`let x;`), and the assignment
   `x = <initializer>;` becomes a statement at the declaration's original position. The assignment is a writer of `x`, so it
   always goes to the declaration's module (an assignment to an import is a build error), in the run it falls into when that
   run belongs to the same module, otherwise as a run of its own. The value is then computed at the same point of start-up as today. Today this applies to
-  `hasPersonalizedData` only (it joins `loadSavedState()`). The planner refuses to split a `const` (none needs it) and a
-  declaration with several declarators that are not all split.
+  `hasPersonalizedData` only (it joins `loadSavedState()`). The comment block above the declaration stays with the
+  declaration (for `hasPersonalizedData`, US lines 296-306). The planner refuses to split a `const` (none needs it), a
+  declaration with several declarators that are not all split, and a declaration whose module is under `core/` (its
+  assignment would need a wiring function there).
 - Names come from the topics file (`wire<Topic>`, for example `wireThemeToggle`, `wireInfoBubble`, `loadSavedState`). A
   module with one run may use the default `wire<ModuleName>`; a module with several runs must name each, or the planner fails.
-  A wiring-function name must be unique across every top-level declaration in `src/` and in the base bundle (the planner
-  checks it), so esbuild never renames a function to resolve a clash and the comparison's "a name the base lacks" test
+  A wiring-function name must be unique within one bundle: across every top-level declaration of `src/shared/` and one
+  country's `src/<country>/`, and of that country's base bundle (the previous commit, and `9405d96` for the end-of-stage
+  comparison). The planner checks it per country, so esbuild never renames a function to resolve a clash and the comparison's "a name the base lacks" test
   (section 6.2) stays reliable: the shared and country test-hook installers, for example, are `installSharedTestHooks` and
   `installTestHooks`.
 - The applier keeps a cheap assertion that every moved statement can live inside a function body unchanged (no top-level
@@ -190,12 +204,14 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 
 - The thirteen names of section 2 join the seam (with `normalizeState`).
 - Stage 3's facades are `core/` modules (`src/<country>/core/seam-<name>.js`). A facade for a UI name (`render`,
-  `syncControls`, `DECISION_QUESTIONS`, `FIELDS`, `DYN`, `computeSankeyFlow`, `renderDecisionCompareTable`, ...) would make
+  `syncControls`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS`, ...; the
+  rehearsal fixes the list from the analyzer) would make
   a `core/` module import a `ui/` one, which `tests/core_purity.js` forbids. Such a facade lives under `ui/`:
   `src/<country>/ui/seam-<name>.js`, imported as `#country/ui/seam-<name>`. The side is chosen per name, not per country:
   **a name's facade is under `ui/` in both countries if either country's target is a `ui/` module** (`FIELDS` is in
   `src/us/ui/clamp-profit-sharing.js` but `src/canada/core/fields.js`; both facades go to `ui/`), because shared code imports
-  one specifier for both countries. A facade under `ui/` that re-exports a `core/` module is allowed (`ui/` may import
+  one specifier for both countries. Names that are `core/` in both countries keep `core/` facades: `DYN`,
+  `SENSITIVITY_LEVERS`, `analyzeShortfallDrivers`, `renderDecisionCompareTable`, `mcpSchemaFor`, `mcpAccepts`. A facade under `ui/` that re-exports a `core/` module is allowed (`ui/` may import
   `core/`). The header comment of `tests/core_purity.js`, which says facades live in `core/`, is updated. `src/package.json`'s
   pattern (`"#country/*"`) already resolves any subpath, and `tests/country_contract.js` already checks every `#country/...`
   import whatever its directory, so neither changes.
@@ -262,12 +278,15 @@ is identical in both.
 
 - The import block.
 - Inside the IIFE, in today's order: the wiring calls; the boot sequence that is the plan's start-up logic and reads best in
-  one place (US lines 4526 onward: `if (hadSavedState) dismissFirstRunBanner(); syncControls(); syncContributionControls();
+  one place (US lines 4528 onward: `if (hadSavedState) dismissFirstRunBanner(); syncControls(); syncContributionControls();
   setMode(mode); syncTopbarHeight(); ...`), assigned to `main` in the topics file; then `registerMcpTools();`,
   `installSharedTestHooks();` and `installTestHooks();`.
-- The boot statements sit inside shared region `29-dismissFirstRunBanner`. Once everything else has left, they are the only
-  content of that region in both planners; the cleanup batch (section 5.9) removes the markers around them and the region's
-  fragment, and they become ordinary `main.js` statements in each planner (a dozen lines, identical in both).
+- **Regions that hold only wiring calls count as emptied.** A run's call `<name>();` stands where the run's first statement
+  stood, which is often inside a shared region, and the boot statements sit inside region `29-dismissFirstRunBanner`. The
+  applier treats a region whose remaining content is wiring calls, comments and statements pinned to `main` as emptied: it
+  removes the markers and the fragment, and what remains becomes ordinary `main.js` text in each planner (identical in both,
+  checked before the markers go). So every region disappears in the batch that empties it; the cleanup batch strips any
+  marker that is still there (none expected).
 - The IIFE wrapper stays (removing it re-indents the file; a one-commit follow-up).
 
 ### 5.7 Rule 3 of the parent design, reworded
@@ -282,16 +301,22 @@ The parent design keeps its wording as history; CLAUDE.md states the new rule.
 
 `scripts/regroup-modules.js --map <file> [--dry-run]` takes a list of renames (`old path -> new path`), merges (`[paths] ->
 new path`) and moves (`move <name> from <path> -> <path>`: one top-level declaration, with its comments, moved verbatim into
-another module, new or existing; exports and imports rewritten everywhere), rewrites every import in `src/` (relative paths and seam facades), refuses a merge that creates a `core/` cycle or
-a UI cycle that fails the load-time guard, refuses a name clash, and stages its writes like the extraction tool. A merge
+another module, new or existing; exports and imports rewritten everywhere), rewrites every import in `src/` (relative paths and seam facades), refuses a name clash, and stages its writes like the extraction tool. **After every
+operation (rename, merge or move) it re-runs, on the result, every structural guard:** `core/` purity
+(`tests/core_purity.js`'s rules), no import cycle that touches `core/`, the UI cycle guard of section 5.3, the initializer
+check of section 6.4 and the facade-side rule of section 5.2 (a move that changes which side a seam name's target is on
+moves its facades too, or is refused); it refuses the operation if one fails. It refuses to move a mutable binding without
+all its writers (an assignment to an import is a build error), and a declaration that uses UI code into `core/`. A merge
 concatenates module bodies in dependency order and merges their import lines; it does not change a statement. Inside an
 import cycle there is no dependency order, so a merge of cycle members keeps the order of the map and is allowed only when
-every member passes the load-time guard (all initializers inert), which makes the order irrelevant; after any merge the tool
-re-runs the initializer check of section 6.4 and the cycle guard. Outside `src/` it also rewrites the paths that name modules:
+every member passes the load-time guard of section 5.3 (inert initializers, or marked ones that read nothing from the
+cycle), which makes the order irrelevant. Outside `src/` it also rewrites the paths that name modules:
 `tests/state_modules.js` (which loads modules by path) and the module paths in CLAUDE.md, and it lists the generated rule
 docs whose recorded source path changed (`scripts/gen-*-rules.js` print it), which the batch then regenerates with
-`npm run gen:states` / `gen:provinces` / `gen:benefits`. Fixture tests cover a rename, a merge, a move, a facade rewrite, a path
-outside `src/`, a refused cycle and a refused clash. After every operation the tool also reports any change in the order in
+`npm run gen:states` / `gen:provinces` / `gen:benefits`. A module's **purpose comment** is line 1 of the file: a `//` line that does not start with `load-time:`, followed by a blank
+line (so it never joins the comment block of the first unit). `move` and merge drop the purpose comments of their source
+modules; the target keeps its own. Fixture tests cover a rename, a merge, a move, a facade rewrite, a path outside `src/`, a
+refused cycle, a refused clash, a refused move of a binding without its writers and a refused move into `core/`. After every operation the tool also reports any change in the order in
 which the `// load-time:` initializers run in the bundle (module order changes with a merge); the batch reviews the report.
 
 Applied once, after the extraction batches: every `-N` module and every module named after an unrelated unit gets a topic
@@ -300,13 +325,14 @@ name (`FIELDS` gets `src/us/ui/fields.js`); modules that hold two topics are spl
 module and `syncTopbarHeight` to the layout module, out of `topbar-and-undo.js`; `infoBubble` to `info-bubble.js` and
 `markUnusualFields` to the warnings module, out of `ui/estimates-and-warnings.js`); the new topic modules of the batches
 merge with the existing modules of the same topic, and the existing `ui/` modules join their topics (for example the three
-`update-chart-*-buttons` modules join the chart controls). The same batch writes a one-line purpose comment at the top of
-every module that has none (about 68 of 183 today; comments are outside the statement comparison). The rename list is part of
+`update-chart-*-buttons` modules join the chart controls). The same batch, after all moves and merges, writes a purpose comment at the top of every
+module that has none (about 68 of 183 today; comments are outside the statement comparison). The rename list is part of
 the plan, reviewed before it runs.
 
 ### 5.9 Cleanup
 
-Strip the `@@shared` markers that remain (region 29 around the boot statements, section 5.6) and delete their fragments;
+Strip any `@@shared` markers that remain (every remaining region; none is expected after section 5.6's rule) and delete
+their fragments;
 delete `scripts/sync-shared.js` and `shared/`; remove every caller of the region checker: the `node scripts/sync-shared.js
 --check` step inside the `test` script, the `sync` and `check:shared` scripts in `package.json`, and the CLAUDE.md passages that
 tell people to run `npm run sync` or `--pull`; keep `scripts/lib/marker-source.js`, which finds the `// NAME:begin` data blocks
@@ -328,7 +354,7 @@ because the tools and their fixtures may still name the marker).
   empty list is then required.
 - `tests/no_markers.js` (section 5.9, added in the cleanup batch).
 - The module map (`docs/superpowers/inventory/module-map.md`: per module, its path, side, exports and a one-line purpose
-  taken from its first comment line) is written by `npm run analyze` from the tool-changes batch on, and checked for
+  taken from its purpose comment, line 1, section 5.8) is written by `npm run analyze` from the tool-changes batch on, and checked for
   staleness in `npm test` (`--check`, like the `gen-*-rules` scripts). The purpose-comment requirement (a module without a
   leading purpose comment fails) is switched on in the tidy batch, which writes the missing comments; from then on every new
   module says what it is for.
@@ -365,13 +391,20 @@ listed and must not get worse), and an independent review of each task.
 
 ### 6.4 Initializers that move earlier
 
-A non-inert top-level initializer (section 2's definition: a plain reference to another name is not inert) is allowed to
-run at load only when the line directly above it is a comment `// load-time: <reason>`, and the reason says why it reads
-nothing that a statement or another function writes. The comment lives at the declaration, so it moves with the unit (the
+A non-inert top-level initializer (section 2's definition: a plain reference to another name is not inert) in a `ui/` module, or
+moving out of `main.js`, is allowed to run at load only when the contiguous comment block directly above it starts with
+`// load-time: <reason>` (a reason may continue on the following comment lines), and the reason says why it reads nothing
+that a statement or another function writes. The rule covers `ui/` modules only: about 33 non-inert initializers in `core/`
+modules (for example `src/shared/core/spending-and-loans.js:194`, `src/us/core/new-state-sources.js:17`,
+`src/canada/core/ramq-cap.js:13`) are pure data built at load and are left unmarked; core regrouping (after Stage 4)
+decides whether to mark them. The comment lives at the declaration, so it moves with the unit (the
 tool carries the comments above a unit) and stays where a person editing the module sees it. The planner, the regroup tool
 and `tests/ui_cycles.js` all read this one marker; there is no separate allow-list. The tool-changes batch adds the comment to
 the ten safe initializers of section 2 (`ids`, `MCP_FIELDS`, `theme`, `previousUnusualIds` in each `main.js`, and the six in
-`ui/` modules); these are comment-only edits, outside the build comparison. Every other non-inert initializer of a moving
+`ui/` modules); these are comment-only edits, outside the build comparison. Those in `main.js` sit in shared regions (`ids`, 02, 04), so
+the step edits a planner and runs `npm run sync -- --pull src/us/main.js` then `npm run sync`, and `npm run check:shared`
+must pass. Where a comment block already sits above a declaration (`storage.js:7-13`), the `// load-time:` line becomes its
+first line. Every other non-inert initializer of a moving
 declaration is split (section 5.1; today `hasPersonalizedData`); the planner fails on one that is neither marked nor
 splittable, and `tests/ui_cycles.js` fails on an unmarked one in a cycle. The rehearsal records which modules end up in the
 `render` cycle and checks that every merge planned for the tidy batch is still legal under the guard.
@@ -386,13 +419,13 @@ medians compared (+5% allowed; noise on this machine is about 10%). The engine d
 
 1. Tool changes, each with fixture tests: movable statements and wiring functions with shared run boundaries, the split rule
    and unique wiring names (5.1), stable statement labels, UI facades chosen per name (5.2), UI cycles and the load-time guard
-   (5.3), the topics file and binding placement (5.4), the initializer allow-list (6.4), the ordered comparison (6.2), the new
+   (5.3), the topics file and binding placement (5.4), the `// load-time:` comments and their check (6.4), the ordered comparison (6.2), the new
    guards (6.1: `module_names` with its allow-list; not `no_markers`), the module map (purpose comments not yet required).
 2. Rehearsal in a scratch worktree: the manifest `scripts/extractions/stage4.json` and `stage4-topics.json`, the batch and
    module counts, the baseline of the 19 ad-hoc scripts. Committed.
 3. Extraction batches by depth (the rehearsal fixes the exact cut): A, leaf UI topics and the eight bindings; B, the rest of
    the shared UI; C, the country hubs, the thirteen seam names and the cycle; D, the country listeners, `src/shared/ui/mcp-tools.js` and
-   the two `install-test-hooks.js` modules (`main.js` reaches its final shape, apart from region 29's markers).
+   the two `install-test-hooks.js` modules (`main.js` reaches its final shape; every region is gone).
 4. Tidy: renames, merges into the existing topic modules, UI regrouping and purpose comments (5.8); the `module_names`
    allow-list is emptied and the purpose-comment check switched on.
 5. Cleanup (5.9).
@@ -414,11 +447,12 @@ Vitest (its own short design after Stage 4); regrouping the one-unit `core/` mod
   where it should run.
 - UI state: a module-level `let`, assigned only in its module; another module that must write it calls an `assign<Name>`
   function the module exports. Reading it elsewhere is a live import.
-- A new topic: a new module under `src/shared/ui/` (both planners) or `src/<country>/ui/`, with a one-line purpose comment
-  first (the module map reads it).
+- A new topic: a new module under `src/shared/ui/` (both planners) or `src/<country>/ui/`, whose line 1 is a one-line purpose
+  comment followed by a blank line (the module map reads it).
 - Shared UI code that needs a country UI name imports it from `#country/ui/seam-<name>`.
-- A module-level initializer that computes something (anything but literals, functions, arrows, classes, and object or array
-  literals of those) runs when the module loads. It needs a `// load-time: <reason>` comment directly above it saying why it
+- In a `ui/` module, a module-level initializer that computes something (anything but literals, functions, arrows, classes,
+  and object or array literals of those) runs when the module loads. It needs a comment block directly above it that starts
+  with `// load-time: <reason>`, saying why it
   reads nothing a statement or another function writes; otherwise compute it inside a wiring function. In a module that is
   part of an import cycle, a marked initializer must also read nothing from the cycle (`tests/ui_cycles.js` checks both).
 - The guards: `tests/closure_names.js` (undeclared names), `tests/ui_cycles.js`, `tests/no_bare_imports.js`,
@@ -427,7 +461,8 @@ Vitest (its own short design after Stage 4); regrouping the one-unit `core/` mod
 
 ## 10. Known limits at the end of Stage 4
 
-- `core/` still has many one-unit modules (follow-up, with the same regroup tool).
+- `core/` still has many one-unit modules (follow-up, with the same regroup tool), and about 33 non-inert `core/`
+  initializers carry no `// load-time:` comment (the rule covers `ui/` only).
 - `main.js` keeps its IIFE wrapper.
 - The load-time guard is static: it proves that nothing in a UI cycle runs code while modules load (inert initializers
   only), not that a wiring function never runs before another one it depends on; the ordered comparison covers that for this stage, review covers it afterwards.
