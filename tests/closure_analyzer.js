@@ -1,6 +1,6 @@
 // Unit tests for scripts/analyze-closure.js (plain Node, no browser).
 const assert = require('assert');
-const { analyze, render } = require('../scripts/analyze-closure');
+const { analyze, render, undeclaredNames, domGlobalsUsed } = require('../scripts/analyze-closure');
 
 const FIXTURE = `(() => {
   let counter = 0;
@@ -93,5 +93,34 @@ const withImport = analyze(`import { shared } from './shared.js';
 `);
 assert.deepStrictEqual(withImport.unknownGlobals.map((g) => g.name), ['missing']);
 assert.deepStrictEqual(withImport.units.find((u) => u.label === 'use').deps, []);
+
+// Import bindings: which unit uses which, the import list and the declarations' line ranges.
+const imp = analyze(`import { a, b as c } from './x.js';
+(() => {
+  const u = a + c;
+  function v() {
+    return 1;
+  }
+})();
+`);
+assert.deepStrictEqual(imp.imports, [
+  { local: 'a', imported: 'a', source: './x.js' },
+  { local: 'c', imported: 'b', source: './x.js' },
+]);
+assert.deepStrictEqual(imp.units.find((u) => u.label === 'u').importUses, ['a', 'c']);
+assert.deepStrictEqual(imp.units.find((u) => u.label === 'v').importUses, []);
+assert.deepStrictEqual(imp.importDecls, [{ startLine: 1, endLine: 1, source: './x.js' }]);
+
+// undeclaredNames works on any module, not only an IIFE file; browser globals and imports are not "undeclared".
+assert.deepStrictEqual(
+  undeclaredNames("import { a } from './x.js';\nexport const f = () => a + missing + document.title;\n").map((x) => x.name),
+  ['missing'],
+);
+
+// domGlobalsUsed counts free uses only (a parameter called `document` and a comment are not uses).
+assert.deepStrictEqual(
+  domGlobalsUsed('const f = (document) => document.title;\nexport const g = () => window.x + localStorage.y; // document\n').map((x) => x.name),
+  ['window', 'localStorage'],
+);
 
 console.log('closure_analyzer OK');

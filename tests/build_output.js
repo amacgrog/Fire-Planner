@@ -21,9 +21,16 @@ assert.ok(fs.existsSync(path.join(dist, 'index.html')), 'index.html is missing f
 // esbuild escapes non-ASCII characters to \uXXXX unless charset is utf8. The planners carry
 // characters such as "—", "✕" and "→" in strings and markup; the build must keep them literal.
 const escapeCount = (text) => (text.match(/\\u[0-9a-fA-F]{4}/g) || []).length;
+// Everything the planner can bundle: its own files and the shared ones (the code lives in modules, not only main.js).
+const jsText = (dir) =>
+  fs.readdirSync(dir, { withFileTypes: true }).map((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return jsText(full);
+    return entry.name.endsWith('.js') ? fs.readFileSync(full, 'utf8') : '';
+  }).join('\n');
 for (const [dir, name] of [['us', 'Planner_US.html'], ['canada', 'Planner_Canada.html']]) {
   const built = fs.readFileSync(path.join(dist, name), 'utf8');
-  const source = fs.readFileSync(path.join(__dirname, '..', 'src', dir, 'main.js'), 'utf8');
+  const source = `${jsText(path.join(__dirname, '..', 'src', dir))}\n${jsText(path.join(__dirname, '..', 'src', 'shared'))}`;
   assert.ok(
     escapeCount(built) <= escapeCount(source),
     `${name}: the build introduced \\u escapes (set charset: 'utf8')`,

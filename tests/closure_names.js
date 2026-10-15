@@ -1,19 +1,29 @@
-// Both planner sources must reference only declared names and assign no implicit global.
-// esbuild does not report an undeclared identifier (it fails at runtime), so this is the guard
-// for edits that remove a declaration (stage 1 moves many bindings out of the closure).
+// Every source file under src/ must reference only names it declares or imports (or built-ins and browser
+// globals). esbuild does not report an undeclared identifier (it fails at runtime), so this is the guard for
+// edits that move or remove declarations, which the module split does constantly.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { analyze } = require('../scripts/analyze-closure');
+const { undeclaredNames } = require('../scripts/analyze-closure');
 
-for (const dir of ['us', 'canada']) {
-  const file = path.join(__dirname, '..', 'src', dir, 'main.js');
-  const model = analyze(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
-  assert.deepStrictEqual(
-    model.unknownGlobals.map((g) => `${g.name} (line ${g.line})`),
-    [],
-    `src/${dir}/main.js references names that are not declared anywhere`,
-  );
-  assert.deepStrictEqual(model.implicitGlobalWrites, [], `src/${dir}/main.js assigns an implicit global`);
+const srcDir = path.join(__dirname, '..', 'src');
+function jsFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return jsFiles(full);
+    return entry.name.endsWith('.js') ? [full] : [];
+  });
 }
-console.log('closure_names OK');
+
+const files = jsFiles(srcDir);
+assert.ok(files.length >= 3, 'expected to find the source files');
+for (const file of files) {
+  const rel = path.relative(path.join(__dirname, '..'), file).split(path.sep).join('/');
+  const bad = undeclaredNames(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
+  assert.deepStrictEqual(
+    bad.map((b) => `${b.name} (line ${b.line})`),
+    [],
+    `${rel} references names that are not declared or imported`,
+  );
+}
+console.log(`closure_names OK (${files.length} files)`);

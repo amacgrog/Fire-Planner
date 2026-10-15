@@ -42,13 +42,24 @@ async function bundleJs(entry, country) {
   return result.outputFiles[0].text;
 }
 
+// The shared HTML partials (src/shared/partials/<name>.html), keyed by name.
+function readPartials() {
+  const dir = path.join(root, 'src', 'shared', 'partials');
+  return Object.fromEntries(
+    fs.readdirSync(dir).filter((f) => f.endsWith('.html')).map((f) => [f.replace(/\.html$/, ''), read(path.join(dir, f))]),
+  );
+}
+
 async function buildAll() {
   fs.mkdirSync(outDir, { recursive: true });
+  const css = read(path.join(root, 'src', 'shared', 'styles', 'styles.css'));
+  const partials = readPartials();
   for (const { dir, file } of PLANNERS) {
     const src = path.join(root, 'src', dir);
     const html = assembleHtml({
       shell: read(path.join(src, 'index.html')),
-      css: read(path.join(src, 'styles.css')),
+      css,
+      partials,
       js: await bundleJs(path.join(src, 'main.js'), dir),
     });
     fs.writeFileSync(path.join(outDir, file), html);

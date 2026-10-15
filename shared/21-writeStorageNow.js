@@ -26,13 +26,6 @@
   }
   window.addEventListener('pagehide', writeStorageNow);
 
-  // Scenarios: named snapshots of the full input state, kept in memory for
-  // this tab and optionally exported to a JSON file for safekeeping. Every
-  // load path (boot, Load, and file import) runs through normalizeState(),
-  // so a scenario saved by an older or newer version of this tool still
-  // loads correctly — missing fields fall back to today's defaults, and
-  // unrecognized old fields are simply dropped.
-  const cloneState = (s) => JSON.parse(JSON.stringify(s));
   function computeScenarioMetrics(scenarioState) {
     const backup = state;
     assignState(normalizeState(scenarioState));
@@ -61,7 +54,6 @@
     }
     return out;
   }
-  const overlayColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0e9f9a', '#db2777'];
   function computeOverlaySeriesFor(name, scenarioState) {
     const backup = state;
     assignState(normalizeState(scenarioState));
@@ -190,38 +182,6 @@
     renderScenarioList();
     renderScenarioComparison();
   }
-  function downloadJson(filename, dataObj) {
-    const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' }),
-      url = URL.createObjectURL(blob),
-      link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-  function exportScenario(id) {
-    const sc = scenarios.find((s) => s.id === id);
-    if (!sc) return;
-    downloadJson(
-      `fire-planner-scenario-${(sc.name || 'scenario').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.json`,
-      {
-        firePlannerScenario: true,
-        schemaVersion: SCENARIO_SCHEMA_VERSION,
-        name: sc.name,
-        savedAt: sc.savedAt,
-        state: sc.state,
-      },
-    );
-  }
-  function exportAllScenarios() {
-    downloadJson('fire-planner-scenarios.json', {
-      firePlannerScenarioList: true,
-      schemaVersion: SCENARIO_SCHEMA_VERSION,
-      scenarios: scenarios.map((sc) => ({ name: sc.name, savedAt: sc.savedAt, state: sc.state })),
-    });
-  }
   function importScenarioFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
@@ -293,18 +253,6 @@
           deleteScenario(id);
       }),
     );
-  }
-  // Higher is better for every metric in this table (more money, longer-lasting
-  // portfolio), so a single up=green/down=red convention works for all of them.
-  function deltaMoney(diff) {
-    if (!diff || Math.abs(diff) < 1) return '';
-    const cls = diff > 0 ? 'up' : 'down';
-    return `<span class="delta ${cls}">${diff > 0 ? '+' : ''}${money(diff)}</span>`;
-  }
-  function deltaAge(diff) {
-    if (!diff) return '';
-    const cls = diff > 0 ? 'up' : 'down';
-    return `<span class="delta ${cls}">${diff > 0 ? '+' : ''}${Math.round(diff)}y</span>`;
   }
   function renderScenarioComparison() {
     const compareCard = document.getElementById('scenarioCompareCard'),

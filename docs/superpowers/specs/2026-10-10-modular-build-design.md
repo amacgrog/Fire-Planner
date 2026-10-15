@@ -142,11 +142,21 @@ results.
    (`docs/superpowers/inventory/`; done in stage 0's plan). Then each cross-module mutable
    binding gets a home in a country-agnostic module, and shared code reaches
    country-specific functions through build-time import aliases. Designed in section 12; plan: docs/superpowers/plans/2026-10-12-stage1-foundations.md. DONE on branch tyler/stage1-foundations (the owner adds the merge date when merging).
-2. **Shared fragments become modules**, in the inventory's leaf-first order, retiring the
-   markers region by region; delete `sync-shared.js` with the last one.
-3. **Peel `core/`.** Tax, per-year helpers, engine, `normalizeState`, `defaults`, rules
-   data and the historical dataset. Add Vitest, the purity scan and first unit tests.
-4. **Peel `ui/`.** Render, sync, charts, wizard and the MCP wiring move out last.
+2. **Dependency-ordered peel, the first four layers.** Amended 2026-10-12: moving whole
+   shared regions leaf-first stalls after 11 of 43 regions, because the shared code calls
+   country hubs (`render`, `syncControls`, `taxFor`, `runProjection`, ...) that are still in
+   `main.js`. The closure is instead dismantled by dependency layer (23 layers in the US
+   planner, 24 in Canada), shared and country code together, with an analyzer-driven tool.
+   This stage builds the tool, turns the stylesheet and HTML partials into build-time
+   includes, and extracts layers 0-3 (about two thirds of the code). Designed in section 13; plan: docs/superpowers/plans/2026-10-12-stage2-extraction.md. DONE on branch tyler/stage2-fragments (the owner adds the merge date when merging).
+3. **Peel every DOM-free unit.** Amended 2026-10-12: the layer limit was never the obstacle,
+   mutable bindings were (`taxFactorInflation` alone blocks 104 US units). All units the analyzer
+   marks DOM-free move, at any layer: tax, per-year helpers, the engine and the hubs' logic.
+   A binding with one writer moves with it; multi-writer and statement-written bindings (all UI
+   state) wait for stage 4. Designed in section 14. Vitest and deleting `sync-shared.js` move
+   to after stage 4 (the last shared regions are UI code). DONE on branch tyler/stage3-higher-layers (the owner adds the merge date when merging).
+4. **Peel the remaining `ui/` layers.** Render, sync, charts, wizard and the MCP wiring move
+   out last.
 
 Stages 1-4 are each expected to split into several smaller steps, each leaving the
 suite green.
@@ -227,9 +237,9 @@ for the docs-per-stage rule.
 
 - **Stateless engine.** Goal: `runProjection` is a pure function of explicit inputs. It
   does not read the store, does not mutate its inputs, and has no module-level mutable
-  state except documented memoization. Stage 3 adds Vitest ratchet tests for what is
+  state except documented memoization. Vitest ratchet tests (after stage 4, when Vitest arrives) pin what is
   already true: identical inputs give identical output; a deep-frozen `state` does not
-  throw; running scenario A then B equals B then A. At the start of stage 3, check
+  throw; running scenario A then B equals B then A. Before writing them, check
   whether the sensitivity and optimizer code temporarily mutates `state` and restores
   it, since those spots would need work.
 - **Precise function inputs via TypeScript.** Instead of passing `state` through the
@@ -320,3 +330,192 @@ Each step leaves `npm test` green and `tests/snapshots/` untouched; each task is
 
 Moving any shared fragment into a module (stage 2), Vitest, the `core/` purity check,
 TypeScript.
+
+## 13. Stage 2 design: the extraction tool and the first four layers
+
+Decided 2026-10-12 from the stage 1 inventory.
+
+### What the data showed
+
+- Moving whole shared regions leaf-first is not enough: only 11 of 43 regions (42 of 303
+  shared units) have all their dependencies available as modules. The rest are blocked by
+  country-specific hubs still in `main.js`: `render`, `syncControls`, `defaults`, `normalizeState`,
+  `FIELDS`, `taxFor`, `runProjection`, `STANDARD_MODE` / `BUCKET_MODE` / `BUCKET_STEP`,
+  `housingForYear`, `DYN`, `DECISION_QUESTIONS`, `SENSITIVITY_LEVERS` and a few more.
+- At the level of units the graph is a clean layering. A unit's layer is its longest chain of
+  dependencies down to a leaf (leaf = layer 0). The US planner has 693 units in 23 layers and
+  Canada 443 units in 24; layers 0-3 hold 463 US units (67%, about 10,000 of 17,152 source
+  lines) and 284 Canada units (64%). The layers above hold the hubs and the engine. The only
+  cycles are four small ones in the US planner (2-4 units) and three in Canada.
+- Grouped by contiguous runs, the layer 0-3 units form 62 candidate modules (US) and 51
+  (Canada), with two module-level cycles per planner that merge into one module each.
+  Amended after the prototype: splitting every group into a `core` and a `ui` part, keeping data blocks whole and letting
+  side-effect statements sit inside a run gives 115 modules in three batches (66, 25, 24); 308 US and 160 Canada units move.
+
+### The extraction tool
+
+`scripts/extract-units.js` is analyzer-driven and moves the units named in a manifest (module
+path, owner `shared` or one country, unit labels) into a new module:
+
+- Cuts each unit's text, with the contiguous comment lines directly above it, out of
+  `src/<country>/main.js`. For a shared unit it cuts from both planners and from the
+  `shared/<region>.js` fragment, after checking that the text is identical in all three
+  (modulo line endings).
+- Writes the module, adding `export` only to names used outside it, and adds the imports the
+  module needs and the imports `main.js` (and other modules) now need, computed from the
+  analyzer's reference data (`uses`), not from text search.
+- Updates the fragment and the markers: a region that is only partly moved keeps its markers
+  around what remains; an empty region and its fragment are deleted. `sync-shared.js` keeps
+  working until the last region leaves.
+- Refuses what it cannot do safely and reports why: a side-effect statement, a `let`
+  that is assigned from outside the module, a text mismatch between the two planners.
+- Verifies afterwards: the multiset of moved unit texts equals the original (apart from
+  `export`), no unknown names in `main.js` or any module, and the build works.
+
+It has unit tests against fixture trees, and a `--dry-run` mode that prints the plan.
+
+A manifest generator turns the analyzer's output into manifests: it computes the movable
+set as a fixpoint (a unit moves only if everything it depends on has moved or is an
+import), so units that depend on a unit that stays behind also stay.
+
+### What moves and where
+
+- **Stays in `main.js` for now:** the side-effect statements (listeners, test hooks, init:
+  94 in the US planner among layers 0-3), because moving them changes execution order, and
+  units that declare a `let` assigned from outside their module (they need setters; later).
+  Units that depend on a unit that stays behind also stay, so the real target is the
+  generator's fixpoint, somewhat below the layer totals.
+- **Where modules go:** units from a shared region go to `src/shared/`; country-only code to
+  `src/<country>/`. A module is placed under `core/` when none of its units touch the DOM (the
+  analyzer's `ui` flag) and under `ui/` otherwise; a region with mixed units goes to `ui/` for now
+  and is split in stages 3-4. Shared modules are named after their region (minus the number
+  prefix); country modules after their first unit or section.
+- **Cycles:** modules that import each other are merged. A cycle that crosses the
+  shared/country boundary stays in `main.js` until a later layer.
+
+### Build-time includes for the stylesheet and the HTML partials
+
+- The two country `styles.css` files are identical; they become `src/shared/styles/styles.css`,
+  read directly by the build.
+- Each shared HTML partial (`shared/html-*.html`) becomes `src/shared/partials/<name>.html`,
+  included from `index.html` with `<!-- @@include name -->`, which `assembleHtml` expands.
+  `sync-shared.js` then handles JS regions only.
+
+### Guards added in this stage
+
+- `tests/closure_names.js` covers every `src/**/*.js` file, so a forgotten import fails the
+  test (a stage 1 residual risk).
+- A `core/` purity test: no `document`, `window`, `localStorage` or `navigator` in any
+  `src/**/core/` file after stripping comments (the Vitest-era scan of section 10, in a
+  plain-Node form now that `core/` directories exist).
+- Every batch ends with the full suite, unchanged snapshots and an independent review.
+
+### Order and verification
+
+1. The tool, the manifest generator and their tests.
+2. The CSS and HTML partials as build-time includes.
+3. Extraction batches in dependency order (layer 0, layer 1, layers 2-3), each applied from a
+   generated manifest.
+4. Docs and a regenerated inventory.
+
+### Not in stage 2
+
+Layers 4 and up (the hubs, the engine, render and sync), moving side-effect statements,
+setters for cross-module `let` bindings, Vitest, TypeScript.
+
+## 14. Stage 3 design: every DOM-free unit leaves main.js
+
+Designed 2026-10-12 from the state of `main.js` after stage 2.
+
+### What the data showed
+
+- After stage 2 the planner finds 4 movable units, whatever the layer limit. The layer limit was
+  never the obstacle: 24 mutable top-level bindings were. `taxFactorInflation` alone blocks 104
+  of the 155 blocked US units (66 in Canada), because `taxIndexFactor` is under `taxFor`, the
+  engine and most of the tax chain. The other mutables are UI state (timers, tooltip elements,
+  the undo snapshot, the wizard step) and block the render and sync code.
+- No remaining unit depends on a side-effect statement, so the statements can stay in `main.js`.
+- What is left in `main.js`: 180 units that are not statements in the US planner (99 DOM-free
+  by the analyzer's `ui` flag, about 4,160 lines) and 153 in Canada (77, about 2,090 lines),
+  plus 205 (US) and 130 (Canada) side-effect statements of about 1,490 and 1,180 lines.
+- Of the 24 US bindings (25 in Canada, which adds `lastRothOptimizer`), 16 (17) are written by
+  exactly one function and no statement. Eight are not: five have several writers (`sidebarCollapsed`,
+  `infoBubbleBtn`, `reviewingFieldId`, `undoSnapshot`, `wizardStep`) and six are written by statements
+  that stay in `main.js` (`theme`, `sidebarCollapsed`, `hadSavedState`, `setMobileView`,
+  `reviewingFieldId`, `wizardStep`); the groups overlap.
+- The estimate with that rule alone (about 90 US and 68 Canada units) ignored the units that call country code: the shared engine calls `taxFor`, `runProjection` and a few more country units. With the seam below, stage 3 moves 74 US and 52 Canada units (38 modules); the 9 DOM-free units it leaves behind per planner belong to the UI state bindings.
+
+### Scope
+
+All units the analyzer marks DOM-free (`ui: false`) move, at any layer. The layer limit is gone;
+batches are by module depth, as in stage 2. Units that touch the DOM, side-effect statements,
+Vitest, and deleting `sync-shared.js` are not in this stage: the last shared regions are UI code,
+so `sync-shared.js` outlives stage 3.
+
+### Mutable bindings
+
+The planner classifies every mutable binding by who writes it:
+
+1. **One writer function, no statement writer** (16 US, 17 Canada, among them `taxFactorInflation`,
+   `lastRothOptimizer`, the timers and tooltip elements): the declaration moves into the same
+   module as its writer. It is that function's private state, so nothing unrelated is grouped.
+   Readers in other modules import it as a live binding.
+2. **Several writers, or any statement writer** (the same 8 in both planners: `theme`, `sidebarCollapsed`,
+   `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`, `undoSnapshot`,
+   `wizardStep`): the planner does not move the declaration, refuses everything that depends on
+   it, and reports the binding by name with its writers. All eight are UI state, so in stage 3 they
+   stay put. Each is decided later, binding by binding: either its writer functions are combined
+   into one module with it (for example `infoBubbleBtn` with `openInfoBubble` and
+   `closeInfoBubble`), or it gets a `assign<Name>` state module as in stage 1 (needed whenever a
+   statement in `main.js` writes it).
+
+Making a binding "state" does not make the engine stateless: a module-level `let` is hidden state
+whichever way it is wrapped. That remains the later factory and TypeScript work (section 11).
+
+### Tool changes, made first and tested with fixtures
+
+- A bare side-effect import (`import './x.js'`) in `main.js` is refused or carried through; it
+  was silently dropped (stage 2 final review, Important).
+- `#country/*` specifiers pass through verbatim and count as country code for the shared check;
+  they were resolved as relative paths (same review, Important).
+- A `/* */` or JSDoc block directly above a unit travels with it (the trailing-note case, a comment about the previous unit with no blank line, is cosmetic and left as it is).
+- A country seam: shared modules import each country unit named in the manifest's `seam` from its own facade, `#country/core/seam-<name>` (section 12's alias, with a subpath); each country gets one facade per name, `src/<country>/core/seam-<name>.js`. One facade per name, not one for all: a single facade re-exported every country module it named, so a shared module that imported it reached them all and each country had one large import cycle (US 15 modules, Canada 11) in which four `core/` modules could not be imported first in plain Node (final review).
+- Where a shared region and a country run would import each other as whole modules, their units get modules of their own and are joined again where that closes no cycle (29 of the 38 modules still hold one unit; merging them by topic is follow-up work).
+- The layer limit becomes optional, and mutable declarers move under rule 1 above.
+- Writes are staged in a temporary directory and swapped in, and module paths must lie under the
+  source root (parked stage 2 minors).
+
+### Placement
+
+Same rules as section 13: shared regions become shared modules only when movable in both planners;
+a module is under `core/` when no unit uses a browser global. Helpers that call methods on an
+element passed in (`attachMoneyPreview`) are DOM code: `tests/core_purity.js` fails on it in `core/`, and stage 3 moved it to `src/shared/ui/money-format.js`.
+The seam facades are `core/` modules, one per seam name (`src/<country>/core/seam-<name>.js`).
+
+### Order and verification
+
+1. Tool changes with fixtures.
+2. A rehearsal in a scratch worktree produces the manifest (module and batch counts are fixed by
+   it, as in stage 2), committed as `scripts/extractions/stage3.json`.
+3. Batches by depth, each ending with the full suite, unchanged snapshots and an independent
+   review.
+4. The built HTML is compared with the pre-stage build statement by statement (stage 2's final
+   review method) before the stage is called done.
+5. Docs, a regenerated inventory and a region map for what leaves.
+6. The plain-Node import test the goals ask for (sections 1 and 10): `tests/core_import.js`, in `npm test`, imports every
+   `core/` module (the seam facades included) in a fresh Node process per module and country, so a module that works only
+   when another was imported first fails.
+
+### Not in stage 3
+
+UI units, side-effect statements, the eight UI state bindings, Vitest, deleting `sync-shared.js`,
+the stateless engine and TypeScript.
+
+### Known limits at the end of stage 3
+
+- The eight UI bindings (`theme`, `sidebarCollapsed`, `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`,
+  `undoSnapshot`, `wizardStep`) still await a decision (stage 4).
+- 29 of the 38 modules hold a single unit; merging them by topic is follow-up work.
+- Some module names carry a `-2` suffix (a second module from the same region or topic).
+- Latent applier gaps: a namespace import (`import * as`) left in `main.js` is not handled, and the order of bare side-effect
+  imports is not preserved across a move.

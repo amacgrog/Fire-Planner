@@ -1,0 +1,2096 @@
+{
+  "modules": [
+    {
+      "path": "src/canada/core/benefit-helpers.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "countKids",
+          "familyCreditCA",
+          "bandValue",
+          "BEN_NO_EXIT",
+          "BEN"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/defaults.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "defaults"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/ei-mie.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "EI_MIE, CPP_ENHANCED_RATE, EMPLOYMENT_AMOUNT, QC_WORKERS_DEDUCTION_MAX, QC_WORKERS_DEDUCTION_RATE",
+          "PAY"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/estimate-always-ids.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "ESTIMATE_ALWAYS_IDS",
+          "ESTIMATE_GATED_GROUPS"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/fed-medical-threshold.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "FED_MEDICAL_THRESHOLD"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/federal-bracket-ceiling-ca.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "federalBracketCeilingCA"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/federal-tax-constants.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "progressiveTax",
+          "FED_CREDIT_RATE, FED_BPA_MIN, FED_BPA_ENHANCED, FED_BPA_PHASE_START, FED_BPA_PHASE_END",
+          "FED_CAPS, FED_RATES"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/mcp-schema-for.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "mcpSchemaFor",
+          "mcpAccepts"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/oas-recovery.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "OAS_RECOVERY"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/probate-fee.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "probateFee"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/prov-tax.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "PROV_TAX"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/province-rules.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "PROVINCE_RULES",
+          "BENEFIT_RULES",
+          "PROVINCE_COMPILED",
+          "compileProvince",
+          "currentProvince",
+          "scaledProgressiveTax",
+          "ontarioHealthPremium"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/ramq-cap.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "RAMQ_CAP"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/take-roth.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "takeRoth"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/taxable-basis-key.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "TAXABLE_BASIS_KEY",
+          "newWithdrawal"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/year-modes.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "routeSurplus",
+          "STANDARD_MODE",
+          "BUCKET_MODE"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/ui/update-chart-gap-partner-buttons.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "updateChartGapPartnerButtons"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/ui/update-chart-shift-mode-buttons.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "updateChartShiftModeButtons"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/ui/update-chart-xaxis-buttons.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "updateChartXAxisButtons"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/basics.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "05-pct"
+      ],
+      "units": {
+        "us": [
+          "pct",
+          "escapeHtml",
+          "HIST",
+          "clamp",
+          "paychecksPerYear"
+        ],
+        "canada": [
+          "pct",
+          "escapeHtml",
+          "HIST",
+          "clamp",
+          "paychecksPerYear"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/bond-ladder.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "11-makeProjectedExpense"
+      ],
+      "units": {
+        "us": [
+          "planBondLadder"
+        ],
+        "canada": [
+          "planBondLadder"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/chart-groups.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "02-CHART_GROUPS"
+      ],
+      "units": {
+        "us": [
+          "CHART_GROUPS"
+        ],
+        "canada": [
+          "CHART_GROUPS"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/chart-hover.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "20-renderTable"
+      ],
+      "units": {
+        "us": [
+          "chartHoverEnabled"
+        ],
+        "canada": [
+          "chartHoverEnabled"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/estimates-and-warnings.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "04-isEstimateCountable"
+      ],
+      "units": {
+        "us": [
+          "UNUSUAL_RANGES",
+          "computeUnusualAssumptions"
+        ],
+        "canada": [
+          "UNUSUAL_RANGES",
+          "computeUnusualAssumptions"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/field-wiring.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "ids"
+      ],
+      "units": {
+        "us": [
+          "isDomWired"
+        ],
+        "canada": [
+          "isDomWired"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/lists-and-children.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "01-LIST_MAX"
+      ],
+      "units": {
+        "us": [
+          "LIST_MAX",
+          "CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX",
+          "NO_DEPENDENTS",
+          "dependentsInYear",
+          "qualifyingChildCount",
+          "clampRetireAgeA",
+          "clampRetireAgeB"
+        ],
+        "canada": [
+          "LIST_MAX",
+          "CHILD_BIRTH_YEAR_MIN, CHILD_BIRTH_YEAR_MAX",
+          "NO_DEPENDENTS",
+          "dependentsInYear",
+          "qualifyingChildCount",
+          "clampRetireAgeA",
+          "clampRetireAgeB"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/loan-payment-for-year.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "loanPaymentForYear"
+      ],
+      "units": {
+        "us": [
+          "loanPaymentForYear"
+        ],
+        "canada": [
+          "loanPaymentForYear"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/money-format.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "03-hadSavedState"
+      ],
+      "units": {
+        "us": [
+          "money",
+          "compact",
+          "attachMoneyPreview"
+        ],
+        "canada": [
+          "money",
+          "compact",
+          "attachMoneyPreview"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/next-guardrail-multiplier.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "nextGuardrailMultiplier"
+      ],
+      "units": {
+        "us": [
+          "nextGuardrailMultiplier",
+          "newGuardrails",
+          "guardrailSpendingMultiplier",
+          "recordGuardrailWithdrawal",
+          "mortgageResultAges"
+        ],
+        "canada": [
+          "nextGuardrailMultiplier",
+          "newGuardrails",
+          "guardrailSpendingMultiplier",
+          "recordGuardrailWithdrawal",
+          "mortgageResultAges"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/pension-income.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "08-pensionIncome"
+      ],
+      "units": {
+        "us": [
+          "pensionIncome"
+        ],
+        "canada": [
+          "pensionIncome"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/sankey-hues.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "SANKEY_HUES"
+      ],
+      "units": {
+        "us": [
+          "SANKEY_HUES",
+          "sankeyHue"
+        ],
+        "canada": [
+          "SANKEY_HUES",
+          "sankeyHue"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/sankey-layout.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "19-layoutSankeyColumn"
+      ],
+      "units": {
+        "us": [
+          "layoutSankeyColumn",
+          "sankeyRibbonPath"
+        ],
+        "canada": [
+          "layoutSankeyColumn",
+          "sankeyRibbonPath"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/simulate-at-real-cagr.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "simulateAtRealCagr"
+      ],
+      "units": {
+        "us": [
+          "cagrColors"
+        ],
+        "canada": [
+          "cagrColors"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/sweep-excess-cash.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "09-sweepExcessCash"
+      ],
+      "units": {
+        "us": [
+          "sweepExcessCash"
+        ],
+        "canada": [
+          "sweepExcessCash"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/take-cash.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "takeCash"
+      ],
+      "units": {
+        "us": [
+          "takeCash",
+          "takeHomeEquity"
+        ],
+        "canada": [
+          "takeCash",
+          "takeHomeEquity"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/chart-colors.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "07-mortgagePayment"
+      ],
+      "units": {
+        "us": [
+          "isDarkTheme",
+          "chartAxisColor",
+          "chartGridColor",
+          "chartZeroLineColor"
+        ],
+        "canada": [
+          "isDarkTheme",
+          "chartAxisColor",
+          "chartGridColor",
+          "chartZeroLineColor"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/dyn-field-html.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "23-dynFieldHtml"
+      ],
+      "units": {
+        "us": [
+          "syncFieldOut"
+        ],
+        "canada": [
+          "syncFieldOut"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/field-wiring.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "ids"
+      ],
+      "units": {
+        "us": [
+          "syncFieldDom"
+        ],
+        "canada": [
+          "syncFieldDom"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/first-run-ui.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "29-dismissFirstRunBanner"
+      ],
+      "units": {
+        "us": [
+          "makeTableWrapsFocusable",
+          "mc"
+        ],
+        "canada": [
+          "makeTableWrapsFocusable",
+          "mc"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/landscape-fullscreen.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "25-setMcPathCount"
+      ],
+      "units": {
+        "us": [
+          "tryEnterLandscapeFullscreen",
+          "tryExitLandscapeFullscreen"
+        ],
+        "canada": [
+          "tryEnterLandscapeFullscreen",
+          "tryExitLandscapeFullscreen"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/scenario-export.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "21-writeStorageNow"
+      ],
+      "units": {
+        "us": [
+          "downloadJson",
+          "exportScenario",
+          "exportAllScenarios"
+        ],
+        "canada": [
+          "downloadJson",
+          "exportScenario",
+          "exportAllScenarios"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/sync-keyboard-inset.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "27-syncKeyboardInset"
+      ],
+      "units": {
+        "us": [
+          "syncKeyboardInset",
+          "syncPanelMaxHeight"
+        ],
+        "canada": [
+          "syncKeyboardInset",
+          "syncPanelMaxHeight"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/sync-plan-status-offsets.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "syncPlanStatusOffsets"
+      ],
+      "units": {
+        "us": [
+          "syncPlanStatusOffsets"
+        ],
+        "canada": [
+          "syncPlanStatusOffsets"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/topbar-and-undo.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "26-setChartView"
+      ],
+      "units": {
+        "us": [
+          "undoToastBtnEl",
+          "syncTopbarHeight"
+        ],
+        "canada": [
+          "undoToastBtnEl",
+          "syncTopbarHeight"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/wizard-overlay.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [
+        "28-wizardOverlay"
+      ],
+      "units": {
+        "us": [
+          "wizardOverlay",
+          "wizardSteps"
+        ],
+        "canada": [
+          "wizardOverlay",
+          "wizardSteps"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/after-tax-value.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "afterTaxValue",
+          "magiCapLeft"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/cliff-plan-summary.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "cliffPlanSummary",
+          "APPEAL_EVENT"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/defaults.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "defaults"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/estimate-always-ids.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "ESTIMATE_ALWAYS_IDS",
+          "ESTIMATE_GATED_GROUPS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/federal-deductions.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "SENIOR_DEDUCTION_LAST_YEAR",
+          "SENIOR_DEDUCTION_AMOUNT",
+          "SENIOR_DEDUCTION_PHASE_RATE",
+          "SALT_CAP_BY_YEAR",
+          "SALT_CAP_LAST_YEAR",
+          "SALT_CAP_FLOOR",
+          "SALT_PHASE_RATE",
+          "SALT_PHASE_START_2025",
+          "MORTGAGE_DEBT_LIMIT",
+          "taxYearOf",
+          "FILING",
+          "filingRow",
+          "filingKey",
+          "STD_DEDUCTION",
+          "STD_EXTRA_65",
+          "SENIOR_PHASE_START",
+          "NIIT_THRESHOLD",
+          "GAIN_BANDS",
+          "SS_BASE",
+          "ORDINARY_BRACKETS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/irmaa-appeal-table.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "irmaaAppealTable",
+          "irmaaAppealWindow",
+          "irmaaAppealKind"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/irmaa-tiers.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "IRMAA_TIERS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/mcp-schema-for.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "mcpSchemaFor",
+          "mcpAccepts"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/medicaid-rules.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "MEDICAID_RULES",
+          "medicaidLimitCache",
+          "medicaidLimit",
+          "hasChildAtMost"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/normalize-lists.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "normalizeUsStreams",
+          "normalizeUsLumps",
+          "clampLifeExpectancyA",
+          "clampLifeExpectancyB",
+          "REVEAL_BY_ID",
+          "revealHidden"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/plan-candidate-better.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "planCandidateBetter"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/se-health.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "SE_HEALTH",
+          "seHealthDeduction"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/solver-lambda-mult.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "SOLVER_LAMBDA_MULT, REACH_GROSS_UP, LAMBDA_MAX, TAU_GAIN_MAX",
+          "NO_THRESHOLDS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/ss-earnings-test.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "SS_EARNINGS_TEST_2026",
+          "fullRetirementAgeMonths",
+          "ssBeforeRetirementCase",
+          "fraText"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/ss-wage-base.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "SS_WAGE_BASE",
+          "SE_OUT"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/trad-group.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "tradGroup",
+          "hasPenalizedMoney",
+          "rothFreeCaps"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/year-modes.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "routeSurplus",
+          "STANDARD_MODE",
+          "BUCKET_MODE"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/render-multi-lever-applied-status.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderMultiLeverAppliedStatus"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/update-chart-gap-partner-buttons.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "updateChartGapPartnerButtons"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/update-chart-shift-mode-buttons.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "updateChartShiftModeButtons"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/update-chart-xaxis-buttons.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "updateChartXAxisButtons"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/credits-and-gross-up.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "DIVIDEND_GROSS_UP, FEDERAL_ELIGIBLE_DTC",
+          "investmentIncomeCA",
+          "AGE_AMOUNT, AGE_AMOUNT_THRESHOLD, AGE_AMOUNT_REDUCTION, PENSION_INCOME_AMOUNT"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/fields.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "clampLifeExpectancyA",
+          "clampLifeExpectancyB",
+          "FIELDS"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/get-benefits.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "getBenefits"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/gis-and-rrif.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "RRIF_PENSION_AGE",
+          "interpKnots",
+          "gisAnnual",
+          "gisEmploymentExemption"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/oas-and-rrif.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "provinceTaxTreatmentNote",
+          "rrifMinPct",
+          "OAS_RECOVERY_THRESHOLD"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/dyn-field-helpers.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [
+        "22-exportCsv"
+      ],
+      "units": {
+        "us": [
+          "dynTipBtn",
+          "dynLabel",
+          "DYN_GROWTH_FIELDS"
+        ],
+        "canada": [
+          "dynTipBtn",
+          "dynLabel",
+          "DYN_GROWTH_FIELDS"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/monte-carlo-paths.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [
+        "13-simulate"
+      ],
+      "units": {
+        "us": [
+          "MC_BLOCK_SIZE",
+          "bootstrapReturnSeries"
+        ],
+        "canada": [
+          "MC_BLOCK_SIZE",
+          "bootstrapReturnSeries"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/scenario-helpers.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [
+        "21-writeStorageNow"
+      ],
+      "units": {
+        "us": [
+          "cloneState",
+          "overlayColors",
+          "deltaMoney",
+          "deltaAge"
+        ],
+        "canada": [
+          "cloneState",
+          "overlayColors",
+          "deltaMoney",
+          "deltaAge"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/spending-and-loans.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [
+        "07-mortgagePayment"
+      ],
+      "units": {
+        "us": [
+          "mortgagePayment",
+          "baseSpendingNominal",
+          "fiMultiple",
+          "itemGrowthFactor",
+          "lumpExpenseHits",
+          "loanSchedules",
+          "buildDeferredMortgage",
+          "futureHomePurchase",
+          "mortgageSchedule",
+          "displayValue",
+          "CURRENT_YEAR",
+          "xAxisLabel"
+        ],
+        "canada": [
+          "mortgagePayment",
+          "baseSpendingNominal",
+          "fiMultiple",
+          "itemGrowthFactor",
+          "lumpExpenseHits",
+          "loanSchedules",
+          "buildDeferredMortgage",
+          "futureHomePurchase",
+          "mortgageSchedule",
+          "displayValue",
+          "CURRENT_YEAR",
+          "xAxisLabel"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/year-factors.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [
+        "06-histTaxFactors"
+      ],
+      "units": {
+        "us": [
+          "taxFactorByYear",
+          "medicalGrowth",
+          "getBondYears"
+        ],
+        "canada": [
+          "taxFactorByYear",
+          "medicalGrowth",
+          "getBondYears"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/year-sources.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [
+        "12-standardYearSource"
+      ],
+      "units": {
+        "us": [
+          "standardYearSource",
+          "historicalYearSource"
+        ],
+        "canada": [
+          "standardYearSource",
+          "historicalYearSource"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/estimates-and-warnings.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [
+        "04-isEstimateCountable"
+      ],
+      "units": {
+        "us": [
+          "infoBubble",
+          "markUnusualFields"
+        ],
+        "canada": [
+          "infoBubble",
+          "markUnusualFields"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/money-format.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [
+        "03-hadSavedState"
+      ],
+      "units": {
+        "us": [
+          "refreshMoneyPreviews"
+        ],
+        "canada": [
+          "refreshMoneyPreviews"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/aca-and-magi-iteration.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "acaExpectedPct",
+          "acaEligibility",
+          "acaHouseholdSize",
+          "MAGI_ITER_MAX, MAGI_ITER_TOL",
+          "magiStats",
+          "planStats",
+          "cliffPlanCache, CLIFF_PLAN_CACHE_MAX"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/free-traditional.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "freeTraditional"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/irmaa-lookback.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "returnStatusA",
+          "irmaaSsOf",
+          "irmaaLookbackMagi",
+          "returnMagis",
+          "irmaaLookbackSplit",
+          "irmaaLookbackFiling",
+          "bracketCeilingReal"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/itemized-deduction.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "seniorDeduction",
+          "saltCap",
+          "MEDICAL_FLOOR_PCT",
+          "itemizedDeduction"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/lambda-profile.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "LAMBDA_PROFILE"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/magi-for-irmaa-line.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "magiForIrmaaLine",
+          "taxableSsOnRow"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/mortgage-interest-share.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "mortgageInterestShare"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/new-state-sources.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "newStateSources",
+          "SOURCES_JOINT, SOURCES_SINGLE, SOURCES_A, SOURCES_B",
+          "QBI_LIMITS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/niit-and-rmd.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "niitTax",
+          "rmdStartAge",
+          "rmdDivisor",
+          "singleLifeDivisor",
+          "SINGLE_LIFE_TABLE",
+          "singleLifeFactor",
+          "investmentIncome"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/state-rules.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "STATE_RULES",
+          "stateRuleCache",
+          "SS_EXEMPT, SS_TAXED, SS_SUBTRACTION, SS_AGI_TESTED",
+          "SCHEDULE_FAMILIES",
+          "SS_TIERED, SS_SHARE, SS_PHASE",
+          "NO_BASE_YEARS",
+          "NO_AGES",
+          "compileRetirement",
+          "INH_ORDINARY, INH_EXEMPT, INH_HEIR, INH_HEIR_ANY, INH_DECEDENT",
+          "INH_CODE",
+          "compileRow",
+          "compileStateRule",
+          "graduatedTax",
+          "countAtLeast",
+          "countQualifyingChildren",
+          "stateStepValue",
+          "stateRetirementExclusion",
+          "stateFederalTaxAllowance",
+          "statePhasedDeduction",
+          "stateBenefitRecapture",
+          "stateCreditAmount",
+          "STATE_TAX_NOT_MODELED_NOTE",
+          "STATE_TIP_COMMON",
+          "stateTaxTipText"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "WITHDRAWAL_MIX_CANDIDATES",
+          "withdrawalMixWeights",
+          "rothAccountsNew",
+          "rothAccountsSeason",
+          "rothAccountsClone",
+          "rothAccountsRestore",
+          "rothAccountsContribute",
+          "rothAccountsConvert",
+          "rothSlotSplit",
+          "rothSlotApply",
+          "SLOT_KINDS",
+          "accountStatuses",
+          "ALL_FREE",
+          "ACCOUNT_SLOTS",
+          "ROTH_BASIS_ASSUMED_PCT",
+          "openingAccounts",
+          "sumSlots",
+          "retirementTotal",
+          "accountsNew",
+          "openingRothBasisSlots",
+          "accountsClone",
+          "accountsRestore",
+          "accountBalances",
+          "accountsSetFromDollars",
+          "accountsContribute",
+          "accountsOwnerShareA",
+          "accountsDraw",
+          "accountsDrawSlots",
+          "accountsDrawGroup",
+          "accountsConvert",
+          "rule55Applies",
+          "penaltyStatus",
+          "incomeRoom"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/clamp-profit-sharing.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "clampProfitSharing",
+          "FIELDS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/dyn.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "DYN"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/grow-balances.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "growBalances",
+          "applyRrspMeltdown",
+          "healthcareCost"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/income-and-housing-per-year.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "retirementContributions",
+          "oasAgeFactor",
+          "cppAndOasIncome",
+          "requiredDistributions",
+          "housingForYear"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/list-amounts-and-home-buyers.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "HOME_BUYERS_AMOUNT",
+          "homeBuyerAmounts",
+          "listAmountsForYear",
+          "withdrawRequiredDistributions"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/ui/compute-sankey-flow.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "computeSankeyFlow"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/ui/render-group-summaries.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "renderGroupSummaries"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/decision-end-assets.js",
+      "owner": "shared",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [
+        "16-decisionEndAssets"
+      ],
+      "units": {
+        "us": [
+          "decisionEndAssets",
+          "decisionDepletionLabel",
+          "decisionDeltaPhrase"
+        ],
+        "canada": [
+          "decisionEndAssets",
+          "decisionDepletionLabel",
+          "decisionDeltaPhrase"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/dyn-field-html.js",
+      "owner": "shared",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [
+        "23-dynFieldHtml"
+      ],
+      "units": {
+        "us": [
+          "dynFieldHtml"
+        ],
+        "canada": [
+          "dynFieldHtml"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/chart-render.js",
+      "owner": "shared",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [
+        "20-renderTable"
+      ],
+      "units": {
+        "us": [
+          "renderTable",
+          "renderMonteCarloChart"
+        ],
+        "canada": [
+          "renderTable",
+          "renderMonteCarloChart"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/ui/render-plan-headline.js",
+      "owner": "shared",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [
+        "15-renderPlanHeadline"
+      ],
+      "units": {
+        "us": [
+          "renderPlanHeadline"
+        ],
+        "canada": [
+          "renderPlanHeadline"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/cliff-plan-lines.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "NO_PLAN",
+          "NO_PLANS",
+          "lineFamily",
+          "underEligible",
+          "fillEligible",
+          "underPlanOf",
+          "fillPlanOf",
+          "yearPlanCandidates",
+          "TAXABLE_BASIS_KEY",
+          "newWithdrawal"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/dyn.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "DYN"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/grow-balances.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "growBalances",
+          "withdrawRequiredDistributions",
+          "applyRothConversion"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/income-streams-and-lumps.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "STREAM_OUT",
+          "streamAmountsForYear",
+          "LUMP_OUT",
+          "lumpAmountsForYear",
+          "inheritedDraw",
+          "inheritedLedger",
+          "INH_OUT",
+          "INH_CTX",
+          "inheritedYear",
+          "inheritedApply",
+          "inheritedClone",
+          "inheritedRestore",
+          "STREAM_CTX",
+          "listAmountsForYear",
+          "streamCoverBits",
+          "COVER_CTX"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/payroll-and-plan-limits.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "additionalMedicareTax",
+          "PLAN_LIMITS",
+          "allocatePlanRoom",
+          "STREAM_PLAN, STREAM_REQ, STREAM_GOT, NO_STREAM_LIST, STREAM_ROOMS, STREAM_LIMITS",
+          "streamPlanContributions",
+          "SOLO_PLAN, NO_SOLO, SOLO_P, SOLO_GOT, SOLO_IN",
+          "soloPlanContributions",
+          "PLAN_REQ, PLAN_GOT",
+          "retirementContributions",
+          "socialSecurityIncome",
+          "SEPP_SLOTS",
+          "seppElections",
+          "requiredDistributions",
+          "housingForYear",
+          "filingStatusFor"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/roth-per-year.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "ROTH_PER_YEAR_CANDIDATES",
+          "ROTH_PER_YEAR_MAX_WINDOW",
+          "ROTH_PER_YEAR_MAX_PASSES",
+          "rothScheduleCost"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/social-security-and-child-credits.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "taxableSocialSecurity",
+          "CTC_PER_CHILD, CTC_REFUNDABLE_CAP, CTC_MAX_AGE, ODC_PER_DEPENDENT, CTC_PHASE_START, CTC_PHASE_STEP, CTC_PHASE_PER_STEP, ACTC_EARNED_FLOOR, ACTC_RATE",
+          "NO_CHILD_CREDIT"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/annotate-solver-rows.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "annotateSolverRows",
+          "annotateInheritedRows",
+          "annotateAppealRows"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/compute-sankey-flow.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "computeSankeyFlow"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/state-tax-treatment-note.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stateTaxTreatmentNote"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/render-decision-compare-table.js",
+      "owner": "canada",
+      "depth": 3,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "renderDecisionCompareTable"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/compact-decision-delta.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 2,
+      "ui": false,
+      "regions": [
+        "compactDecisionDelta"
+      ],
+      "units": {
+        "us": [
+          "compactDecisionDelta"
+        ],
+        "canada": [
+          "compactDecisionDelta"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/render-decision-compare-table.js",
+      "owner": "us",
+      "depth": 3,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderDecisionCompareTable"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/ui/render-group-summaries.js",
+      "owner": "us",
+      "depth": 3,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderGroupSummaries"
+        ],
+        "canada": []
+      }
+    }
+  ],
+  "stats": {
+    "us": {
+      "units": 693,
+      "candidates": 349,
+      "movable": 308
+    },
+    "canada": {
+      "units": 443,
+      "candidates": 208,
+      "movable": 160
+    }
+  }
+}

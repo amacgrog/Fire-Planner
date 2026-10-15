@@ -1,0 +1,957 @@
+{
+  "modules": [
+    {
+      "path": "src/shared/core/bond-ladder-2.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "11-makeProjectedExpense"
+      ],
+      "units": {
+        "us": [
+          "makeProjectedExpense"
+        ],
+        "canada": [
+          "makeProjectedExpense"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/lists-and-children-2.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "01-LIST_MAX"
+      ],
+      "units": {
+        "us": [
+          "normalizeLists"
+        ],
+        "canada": [
+          "normalizeLists"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/year-factors-2.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": false,
+      "regions": [
+        "06-histTaxFactors"
+      ],
+      "units": {
+        "us": [
+          "taxFactorInflation",
+          "taxIndexFactor"
+        ],
+        "canada": [
+          "taxFactorInflation",
+          "taxIndexFactor"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/federal-tax-ca.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "federalTaxCA",
+          "quebecPoolAmount",
+          "provincialTaxCA",
+          "oasClawback",
+          "ageAndPensionCreditBase",
+          "personTaxCA",
+          "incomeTaxCA",
+          "taxFor",
+          "benefitsFor",
+          "gisIncomeRoom",
+          "solveMeltdown",
+          "solvePensionSplit",
+          "cppContribution",
+          "medicalClaimToB",
+          "careAtHomeCredit",
+          "afterTaxEstate",
+          "quebecHsf",
+          "quebecRamq",
+          "lowIncomeFamilyReduction",
+          "payrollItems",
+          "buildTaxProfile",
+          "payrollTax",
+          "solveTraditionalForNet",
+          "solveTraditionalForNetFromNeed"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/normalize-state.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "normalizeState"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/standard-deduction.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "standardDeduction",
+          "federalDeduction",
+          "ordinaryTax",
+          "stateRuleFor",
+          "stateRuleForYear",
+          "stateIncomeTax",
+          "longTermGainTax",
+          "childCredits",
+          "federalLiabilityForState",
+          "qbiDeduction",
+          "taxFor",
+          "fplForHousehold",
+          "acaNetCost",
+          "irmaaTiers",
+          "irmaaSurcharge",
+          "irmaaTierCeiling",
+          "irmaaMagiOf",
+          "irmaaRoomFor",
+          "solveRothConversionTo",
+          "rothDraw",
+          "solveTraditionalForNet",
+          "selfEmploymentTax",
+          "wageFica",
+          "buildTaxProfile",
+          "healthcareCost",
+          "conversionMagiCeiling",
+          "payrollTax",
+          "magiThresholds",
+          "lambdaEstimate",
+          "fillTraditional",
+          "takeTraditional",
+          "takeRoth",
+          "takeInherited",
+          "solveTraditionalForNetFromNeed",
+          "afterTaxEndValueUS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/take-traditional.js",
+      "owner": "canada",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "takeTraditional"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/draw-taxable.js",
+      "owner": "shared",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [
+        "drawTaxable"
+      ],
+      "units": {
+        "us": [
+          "drawTaxable"
+        ],
+        "canada": [
+          "drawTaxable"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/release-magi-cap.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "releaseMagiCap"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/solve-roth-conversion.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "solveRothConversion"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/take-penalized.js",
+      "owner": "us",
+      "depth": 2,
+      "batch": 2,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "takePenalized"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/shared/core/refill-bond-reserve.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": false,
+      "regions": [
+        "10-refillBondReserve"
+      ],
+      "units": {
+        "us": [
+          "refillBondReserve"
+        ],
+        "canada": [
+          "refillBondReserve"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/sweep-excess-cash-2.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": false,
+      "regions": [
+        "09-sweepExcessCash"
+      ],
+      "units": {
+        "us": [
+          "rotateIntoBondLadder"
+        ],
+        "canada": [
+          "rotateIntoBondLadder"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/take-taxable.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": false,
+      "regions": [
+        "takeTaxable"
+      ],
+      "units": {
+        "us": [
+          "takeTaxable"
+        ],
+        "canada": [
+          "takeTaxable"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/pick-live-withdrawal-order.js",
+      "owner": "us",
+      "depth": 3,
+      "batch": 3,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "pickLiveWithdrawalOrder"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/draw-smooth-stock-accounts.js",
+      "owner": "canada",
+      "depth": 4,
+      "batch": 4,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "drawSmoothStockAccounts"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/draw-mixed-stock-accounts.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "drawMixedStockAccounts"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/bucket-step.js",
+      "owner": "canada",
+      "depth": 5,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "BUCKET_STEP"
+        ]
+      }
+    },
+    {
+      "path": "src/canada/core/withdraw-standard.js",
+      "owner": "canada",
+      "depth": 5,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "withdrawStandard"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/bucket-step.js",
+      "owner": "us",
+      "depth": 5,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "BUCKET_STEP"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/withdraw-standard.js",
+      "owner": "us",
+      "depth": 5,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "withdrawStandard"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/shared/core/bucket-down-year-order.js",
+      "owner": "shared",
+      "depth": 6,
+      "batch": 5,
+      "ui": false,
+      "regions": [
+        "BUCKET_DOWN_YEAR_ORDER"
+      ],
+      "units": {
+        "us": [
+          "BUCKET_DOWN_YEAR_ORDER",
+          "BUCKET_UP_YEAR_ORDER",
+          "withdrawBucket"
+        ],
+        "canada": [
+          "BUCKET_DOWN_YEAR_ORDER",
+          "BUCKET_UP_YEAR_ORDER",
+          "withdrawBucket"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/bucket-down-penalized-order.js",
+      "owner": "us",
+      "depth": 6,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "BUCKET_DOWN_PENALIZED_ORDER"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/bucket-up-penalized-order.js",
+      "owner": "us",
+      "depth": 6,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "BUCKET_UP_PENALIZED_ORDER"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/run-projection.js",
+      "owner": "canada",
+      "depth": 7,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "runProjection"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/withdraw-bucket-penalty-aware.js",
+      "owner": "us",
+      "depth": 7,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "withdrawBucketPenaltyAware"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/run-projection.js",
+      "owner": "us",
+      "depth": 8,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "runProjection",
+          "computeCliffPlan",
+          "planForState"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/shared/core/monte-carlo-paths-2.js",
+      "owner": "shared",
+      "depth": 9,
+      "batch": 5,
+      "ui": false,
+      "regions": [
+        "13-simulate"
+      ],
+      "units": {
+        "us": [
+          "simulate",
+          "simulateHistorical",
+          "runHistoricalCycles",
+          "runMonteCarlo"
+        ],
+        "canada": [
+          "simulate",
+          "simulateHistorical",
+          "runHistoricalCycles",
+          "runMonteCarlo"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/refresh-cliff-plan.js",
+      "owner": "us",
+      "depth": 9,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "refreshCliffPlan"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/sensitivity-levers.js",
+      "owner": "canada",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "SENSITIVITY_LEVERS"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/estimates-and-warnings-2.js",
+      "owner": "shared",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [
+        "04-isEstimateCountable"
+      ],
+      "units": {
+        "us": [
+          "isEstimateCountable",
+          "unusualAssumptionImpact"
+        ],
+        "canada": [
+          "isEstimateCountable",
+          "unusualAssumptionImpact"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/find-minimal-spending-cut.js",
+      "owner": "shared",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [
+        "14-findMinimalSpendingCut"
+      ],
+      "units": {
+        "us": [
+          "findMinimalSpendingCut",
+          "findMinimalRetirementDelay"
+        ],
+        "canada": [
+          "findMinimalSpendingCut",
+          "findMinimalRetirementDelay"
+        ]
+      }
+    },
+    {
+      "path": "src/shared/core/simulate-at-real-cagr-2.js",
+      "owner": "shared",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [
+        "simulateAtRealCagr"
+      ],
+      "units": {
+        "us": [
+          "simulateAtRealCagr"
+        ],
+        "canada": [
+          "simulateAtRealCagr"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/ensure-test-plan.js",
+      "owner": "us",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "ensureTestPlan"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/optimize-multi-lever.js",
+      "owner": "us",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "optimizeMultiLever",
+          "optimizeRothLadderPerYear"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/us/core/sensitivity-levers.js",
+      "owner": "us",
+      "depth": 10,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "SENSITIVITY_LEVERS"
+        ],
+        "canada": []
+      }
+    },
+    {
+      "path": "src/canada/core/analyze-shortfall-drivers.js",
+      "owner": "canada",
+      "depth": 11,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "analyzeShortfallDrivers"
+        ]
+      }
+    },
+    {
+      "path": "src/us/core/analyze-shortfall-drivers.js",
+      "owner": "us",
+      "depth": 11,
+      "batch": 5,
+      "ui": false,
+      "regions": [],
+      "units": {
+        "us": [
+          "analyzeShortfallDrivers"
+        ],
+        "canada": []
+      }
+    }
+  ],
+  "seam": [
+    "taxFor",
+    "BUCKET_STEP",
+    "runProjection",
+    "normalizeState",
+    "defaults",
+    "ESTIMATE_ALWAYS_IDS",
+    "ESTIMATE_GATED_GROUPS",
+    "TAXABLE_BASIS_KEY",
+    "housingForYear",
+    "STANDARD_MODE",
+    "BUCKET_MODE"
+  ],
+  "bindings": {
+    "us": {
+      "colocated": [
+        {
+          "declaredIn": "activeCategory",
+          "writer": "setActiveCategory"
+        },
+        {
+          "declaredIn": "hasPersonalizedData",
+          "writer": "dismissFirstRunBanner"
+        },
+        {
+          "declaredIn": "infoBubbleAnchor",
+          "writer": "openInfoBubble"
+        },
+        {
+          "declaredIn": "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "writer": "syncUnusualToast"
+        },
+        {
+          "declaredIn": "taxFactorInflation",
+          "writer": "taxIndexFactor"
+        },
+        {
+          "declaredIn": "sankeyTooltipEl",
+          "writer": "ensureSankeyTooltip"
+        },
+        {
+          "declaredIn": "lastChart",
+          "writer": "renderChart"
+        },
+        {
+          "declaredIn": "chartTooltipEl",
+          "writer": "initChartHover"
+        },
+        {
+          "declaredIn": "saveDebounceTimer",
+          "writer": "saveInputs"
+        },
+        {
+          "declaredIn": "undoToastTimer",
+          "writer": "showUndoToast"
+        },
+        {
+          "declaredIn": "planStatusHistTimer, planStatusHistRate",
+          "writer": "schedulePlanStatusHistRate"
+        },
+        {
+          "declaredIn": "planStatusLastText, planStatusUpdatedTimer",
+          "writer": "renderPlanStatusBar"
+        }
+      ],
+      "needsDecision": [
+        {
+          "names": [
+            "theme"
+          ],
+          "declaredIn": "theme",
+          "writers": [
+            "statement@8484"
+          ]
+        },
+        {
+          "names": [
+            "sidebarCollapsed"
+          ],
+          "declaredIn": "sidebarCollapsed",
+          "writers": [
+            "setSidebarCollapsed",
+            "statement@331"
+          ]
+        },
+        {
+          "names": [
+            "hadSavedState"
+          ],
+          "declaredIn": "hadSavedState",
+          "writers": [
+            "statement@404"
+          ]
+        },
+        {
+          "names": [
+            "infoBubbleBtn"
+          ],
+          "declaredIn": "infoBubbleBtn",
+          "writers": [
+            "closeInfoBubble",
+            "openInfoBubble"
+          ]
+        },
+        {
+          "names": [
+            "reviewingFieldId"
+          ],
+          "declaredIn": "reviewingFieldId",
+          "writers": [
+            "jumpToEstimateField",
+            "renderEstimatedRollup",
+            "statement@725"
+          ]
+        },
+        {
+          "names": [
+            "setMobileView"
+          ],
+          "declaredIn": "setMobileView",
+          "writers": [
+            "statement@8785"
+          ]
+        },
+        {
+          "names": [
+            "undoSnapshot"
+          ],
+          "declaredIn": "undoSnapshot",
+          "writers": [
+            "hideUndoToast",
+            "snapshotForUndo"
+          ]
+        },
+        {
+          "names": [
+            "wizardStep"
+          ],
+          "declaredIn": "wizardStep",
+          "writers": [
+            "statement@8578",
+            "statement@8583",
+            "statement@8587"
+          ]
+        }
+      ]
+    },
+    "canada": {
+      "colocated": [
+        {
+          "declaredIn": "activeCategory",
+          "writer": "setActiveCategory"
+        },
+        {
+          "declaredIn": "hasPersonalizedData",
+          "writer": "dismissFirstRunBanner"
+        },
+        {
+          "declaredIn": "infoBubbleAnchor",
+          "writer": "openInfoBubble"
+        },
+        {
+          "declaredIn": "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "writer": "syncUnusualToast"
+        },
+        {
+          "declaredIn": "taxFactorInflation",
+          "writer": "taxIndexFactor"
+        },
+        {
+          "declaredIn": "lastRothOptimizer",
+          "writer": "computeRothOptimizer"
+        },
+        {
+          "declaredIn": "sankeyTooltipEl",
+          "writer": "ensureSankeyTooltip"
+        },
+        {
+          "declaredIn": "lastChart",
+          "writer": "renderChart"
+        },
+        {
+          "declaredIn": "chartTooltipEl",
+          "writer": "initChartHover"
+        },
+        {
+          "declaredIn": "saveDebounceTimer",
+          "writer": "saveInputs"
+        },
+        {
+          "declaredIn": "undoToastTimer",
+          "writer": "showUndoToast"
+        },
+        {
+          "declaredIn": "planStatusHistTimer, planStatusHistRate",
+          "writer": "schedulePlanStatusHistRate"
+        },
+        {
+          "declaredIn": "planStatusLastText, planStatusUpdatedTimer",
+          "writer": "renderPlanStatusBar"
+        }
+      ],
+      "needsDecision": [
+        {
+          "names": [
+            "theme"
+          ],
+          "declaredIn": "theme",
+          "writers": [
+            "statement@5925"
+          ]
+        },
+        {
+          "names": [
+            "sidebarCollapsed"
+          ],
+          "declaredIn": "sidebarCollapsed",
+          "writers": [
+            "setSidebarCollapsed",
+            "statement@244"
+          ]
+        },
+        {
+          "names": [
+            "hadSavedState"
+          ],
+          "declaredIn": "hadSavedState",
+          "writers": [
+            "statement@317"
+          ]
+        },
+        {
+          "names": [
+            "infoBubbleBtn"
+          ],
+          "declaredIn": "infoBubbleBtn",
+          "writers": [
+            "closeInfoBubble",
+            "openInfoBubble"
+          ]
+        },
+        {
+          "names": [
+            "reviewingFieldId"
+          ],
+          "declaredIn": "reviewingFieldId",
+          "writers": [
+            "jumpToEstimateField",
+            "renderEstimatedRollup",
+            "statement@638"
+          ]
+        },
+        {
+          "names": [
+            "setMobileView"
+          ],
+          "declaredIn": "setMobileView",
+          "writers": [
+            "statement@6164"
+          ]
+        },
+        {
+          "names": [
+            "undoSnapshot"
+          ],
+          "declaredIn": "undoSnapshot",
+          "writers": [
+            "hideUndoToast",
+            "snapshotForUndo"
+          ]
+        },
+        {
+          "names": [
+            "wizardStep"
+          ],
+          "declaredIn": "wizardStep",
+          "writers": [
+            "statement@6017",
+            "statement@6022",
+            "statement@6026"
+          ]
+        }
+      ]
+    }
+  },
+  "stats": {
+    "us": {
+      "units": 385,
+      "candidates": 88,
+      "movable": 74
+    },
+    "canada": {
+      "units": 283,
+      "candidates": 69,
+      "movable": 52
+    }
+  }
+}

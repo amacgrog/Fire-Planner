@@ -25,8 +25,9 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-// Each planner is split into a markup shell, a stylesheet and a script; markers live in all three.
-const KINDS = ['index.html', 'styles.css', 'main.js'];
+// Only the planner scripts carry shared regions now: the stylesheet and the HTML partials are build-time
+// includes (src/shared/styles, src/shared/partials), and shared script code is moving into modules.
+const KINDS = ['main.js'];
 const PLANNERS = ['us', 'canada'].flatMap((dir) => KINDS.map((kind) => `src/${dir}/${kind}`));
 const SHARED_DIR = path.join(root, 'shared');
 const MARK = /^\s*(?:\/\/|\/\*|<!--) @@shared:(\S+) (begin|end)(?: \*\/| -->)?\s*$/;
