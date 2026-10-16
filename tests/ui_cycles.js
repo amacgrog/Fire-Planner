@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const espree = require('espree');
 const { isInert, loadTimeMarker, checkLoadTime } = require('../scripts/lib/load-time');
 const { buildGraph, cycles } = require('../scripts/lib/module-graph');
 
@@ -22,7 +23,6 @@ function tree(files) {
   return root;
 }
 function exprOf(src) {
-  const espree = require('espree');
   return espree.parse('(' + src + ');', { ecmaVersion: 2022, sourceType: 'module' }).body[0].expression;
 }
 
@@ -40,12 +40,18 @@ function checkTree(root, country) {
     if (!f.split('/').includes('ui')) continue;
     const code = fs.readFileSync(path.join(root, f), 'utf8');
     const c = inCycle.get(f);
+    let found;
     let partners;
     if (c) {
       partners = new Set();
       for (const [local, target] of graph.importsOf.get(f)) if (c.includes(target)) partners.add(local);
     }
-    for (const p of checkLoadTime(code, c ? { cyclePartners: partners } : {})) {
+    try {
+      found = checkLoadTime(code, c ? { cyclePartners: partners } : {});
+    } catch (e) {
+      throw new Error(`${f}: ${e.message}`);
+    }
+    for (const p of found) {
       problems.push(`${country}: ${f}:${p.line} ${p.name} ${p.why}`);
     }
   }
@@ -56,7 +62,7 @@ function checkTree(root, country) {
 for (const src of ['1', "'a'", '`x`', '() => {}', 'function () {}', '{ a: 1, b: [2, 3] }', '-1', 'class {}']) {
   assert.strictEqual(isInert(exprOf(src)), true, `inert: ${src}`);
 }
-for (const src of ['x', '`${x}`', 'f()', 'new Set()', 'a.b', '{ ...a }', '{ [k]: 1 }', 'class { static x = f(); }', 'class { static { f(); } }', '[...a]', '[1, , 2]']) {
+for (const src of ['x', '`${x}`', 'f()', 'new Set()', 'a.b', '{ ...a }', '{ [k]: 1 }', 'class { static x = f(); }', 'class { static { f(); } }', '[...a]', '[1, , 2]', 'class extends B {}', 'class { [f()] = 1; }', 'class { static [g]() {} }', 'class extends mix(B) {}']) {
   assert.strictEqual(isInert(exprOf(src)), false, `not inert: ${src}`);
 }
 assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
@@ -89,11 +95,36 @@ assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
   assert.deepStrictEqual(why('export const s = new Set();\n'), ['not inert and not marked']);
   assert.deepStrictEqual(why('const x = 1;\nconst s = new Set();\n'), ['not inert and not marked']);
   assert.strictEqual(checkLoadTime('const x = 1;\nconst s = new Set();\n')[0].line, 2);
-  assert.deepStrictEqual(why('const m = class { static x = f(); };\n').slice(0, 1), ['class static']);
+  assert.deepStrictEqual(why('const m = class { static x = f(); };\n'), ['class static']);
+
+  // class heritage and computed keys run at load time
+  const P = { cyclePartners: new Set(['B']) };
+  assert.deepStrictEqual(why('class A extends B {}\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why('// load-time: extends\nclass A extends B {}\n', P), ['reads the cycle']);
+  assert.deepStrictEqual(why('// load-time: extends\nclass A extends B {}\n'), []);
+  assert.deepStrictEqual(why('export class A extends B {}\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why('class A { [f()] = 1; }\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why('class A { static [g()]() {} }\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why("class A { ['k']() {} }\n"), []);
+  assert.deepStrictEqual(why('const C = class extends mix(B) {};\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why('// load-time: mixes\nconst C = class extends mix(B) {};\n', P), ['reads the cycle']);
+  assert.deepStrictEqual(why('// load-time: mixes\nconst C = class extends mix(B) {};\n'), []);
+
+  // referencedNames, through the cycle check: a member property is not a reference, a shorthand property is, and a
+  // shadowing parameter still counts (deliberately conservative)
+  const R = { cyclePartners: new Set(['render']) };
+  assert.deepStrictEqual(why('// load-time: m\nconst v = o.render;\n', R), []);
+  assert.deepStrictEqual(why('// load-time: m\nconst v = { render: 1 };\n', R), []);
+  assert.deepStrictEqual(why('// load-time: m\nconst v = { render };\n', R), ['reads the cycle']);
+  assert.deepStrictEqual(why('// load-time: m\nconst v = [1].map((render) => render);\n', R), ['reads the cycle']);
+  assert.deepStrictEqual(why('// load-time: m\nconst v = o[render];\n', R), ['reads the cycle']);
+
+  // a parse error is thrown (the callers add the file name)
+  assert.throws(() => checkLoadTime('let = ;'));
 }
 
 // 4. buildGraph / cycles, with a facade
-{
+try {
   const root = tree({
     'src/shared/ui/a.js': "import { r } from '#country/ui/seam-r';\nexport function a() { return r(); }\n",
     'src/us/ui/seam-r.js': "export { r } from './r.js';\n",
@@ -138,8 +169,33 @@ assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
   assert.deepStrictEqual(t4.cycles, [['src/shared/ui/s.js']]);
   assert.strictEqual(t4.problems.length, 1);
   assert.ok(/u\.js:1 a not inert/.test(t4.problems[0]), t4.problems[0]);
+
+  // a facade chain, a renamed re-export and a cycle of three files
+  const root5 = tree({
+    'src/shared/ui/a.js': "import { go } from '#country/ui/seam-go';\nexport function a() { return go; }\n",
+    'src/us/ui/seam-go.js': "export { go } from './seam-go2.js';\n",
+    'src/us/ui/seam-go2.js': "export { run as go } from './b.js';\n",
+    'src/us/ui/b.js': "import { c } from './c.js';\nexport function run() { return c; }\nexport function other() {}\n",
+    'src/us/ui/c.js': "import { a } from '../../shared/ui/a.js';\nexport function c() { return a; }\n",
+  });
+  const g5 = buildGraph(root5, 'us');
+  assert.deepStrictEqual(cycles(g5), [['src/shared/ui/a.js', 'src/us/ui/b.js', 'src/us/ui/c.js']], 'three files, facades are not members');
+  assert.strictEqual(g5.importsOf.get('src/shared/ui/a.js').get('go'), 'src/us/ui/b.js', 'chain and rename resolve to the holder');
+  assert.deepStrictEqual([...g5.edges.get('src/shared/ui/a.js')], ['src/us/ui/b.js']);
+
+  // an unresolved relative or #country import throws naming importer and specifier; a bare package is skipped
+  const root6 = tree({ 'src/us/ui/x.js': "import { q } from './missing.js';\nexport const k = q;\n" });
+  assert.throws(() => buildGraph(root6, 'us'), /src\/us\/ui\/x\.js.*\.\/missing\.js/);
+  const root7 = tree({ 'src/us/ui/x.js': "import { q } from '#country/ui/nope';\nexport const k = q;\n" });
+  assert.throws(() => buildGraph(root7, 'us'), /src\/us\/ui\/x\.js.*#country\/ui\/nope/);
+  const root8 = tree({ 'src/us/ui/x.js': "import { q } from 'some-package';\nexport const k = q;\n" });
+  assert.deepStrictEqual(cycles(buildGraph(root8, 'us')), []);
+  const root9 = tree({ 'src/us/ui/bad.js': 'let = ;\n' });
+  assert.throws(() => buildGraph(root9, 'us'), /src\/us\/ui\/bad\.js/);
+
+} finally {
+  for (const r of made) fs.rmSync(r, { recursive: true, force: true });
 }
-for (const r of made) fs.rmSync(r, { recursive: true, force: true });
 
 // 5. The real tree
 const root = path.join(__dirname, '..');

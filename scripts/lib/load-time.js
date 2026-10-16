@@ -17,7 +17,11 @@ function isInert(node) {
     case 'TemplateLiteral':
       return node.expressions.length === 0;
     case 'ClassExpression':
-      return !node.body.body.some((m) => m.type === 'StaticBlock' || (m.static && m.type === 'PropertyDefinition'));
+      // a heritage that is not inert, a computed key and a static field or block all run when the class is evaluated
+      return (
+        isInert(node.superClass) &&
+        !node.body.body.some((m) => m.type === 'StaticBlock' || m.computed || (m.static && m.type === 'PropertyDefinition'))
+      );
     case 'UnaryExpression':
       return isInert(node.argument);
     case 'ObjectExpression':
@@ -41,6 +45,8 @@ function loadTimeMarker(lines, declStartLine) {
 }
 
 // Names referenced anywhere in a node (identifier references; a non-computed member property or key is not one).
+// Deliberately conservative: a name is matched wherever it appears, so a parameter or local that shadows a cycle
+// partner's name still counts as a reference.
 function referencedNames(node, out) {
   if (!node || typeof node.type !== 'string') return out;
   if (node.type === 'Identifier') {
@@ -64,13 +70,21 @@ function checkLoadTime(code, opts) {
   const lines = code.split(/\r?\n/);
   const problems = [];
 
+  // Reports static fields and blocks; returns how many problems it added.
   function checkClass(cls, name) {
+    const before = problems.length;
     for (const m of cls.body.body) {
       if (m.type === 'StaticBlock') problems.push({ line: m.loc.start.line, name, why: 'class static' });
       else if (m.type === 'PropertyDefinition' && m.static && !isInert(m.value)) {
         problems.push({ line: m.loc.start.line, name, why: 'class static' });
       }
     }
+    return problems.length - before;
+  }
+  // A class declaration's heritage and computed keys are load-time expressions of the statement.
+  function checkClassHead(cls, name, stmtLine) {
+    if (cls.superClass) checkInit(cls.superClass, name, stmtLine, stmtLine);
+    for (const m of cls.body.body) if (m.computed) checkInit(m.key, name, stmtLine, stmtLine);
   }
   function checkInit(init, name, declLine, stmtLine) {
     if (isInert(init)) return;
@@ -96,16 +110,19 @@ function checkLoadTime(code, opts) {
         const name = decl.id.type === 'Identifier' ? decl.id.name : '(pattern)';
         // a destructuring pattern evaluates its initializer at load time
         const init = decl.id.type === 'Identifier' ? decl.init : decl.init || { type: 'Identifier' };
-        if (init && init.type === 'ClassExpression') checkClass(init, name);
+        // a class expression already reported by checkClass is not reported again as an initializer
+        if (init && init.type === 'ClassExpression' && checkClass(init, name) > 0) continue;
         checkInit(init, name, decl.loc.start.line, stmtLine);
       }
     } else if (d.type === 'ClassDeclaration') {
-      checkClass(d, d.id ? d.id.name : 'default');
+      const cname = d.id ? d.id.name : 'default';
+      checkClass(d, cname);
+      checkClassHead(d, cname, stmtLine);
     } else if (d.type === 'FunctionDeclaration') {
       // inert
     } else {
       // export default <expression>
-      if (d.type === 'ClassExpression') checkClass(d, 'default');
+      if (d.type === 'ClassExpression' && checkClass(d, 'default') > 0) return;
       checkInit(d, 'default', d.loc.start.line, stmtLine);
     }
   }

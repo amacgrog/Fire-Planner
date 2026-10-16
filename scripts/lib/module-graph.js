@@ -28,15 +28,21 @@ function buildGraph(root, country) {
     let target = null;
     if (spec.startsWith('.')) target = path.resolve(path.dirname(path.join(root, fromFile)), spec);
     else if (spec.startsWith('#country/')) target = path.join(srcDir, country, spec.slice('#country/'.length) + '.js');
-    else return null;
+    else return null; // a bare package specifier is not part of the graph
     const r = rel(target);
-    return fileSet.has(r) ? r : null;
+    if (!fileSet.has(r)) throw new Error(`${fromFile}: unresolved import '${spec}' (expected ${r})`);
+    return r;
   }
 
   // Parse each file once: its imports (specifier, source) and re-exports.
   const parsed = new Map();
   for (const f of files) {
-    const ast = espree.parse(fs.readFileSync(path.join(root, f), 'utf8'), { ecmaVersion: ECMA, sourceType: 'module' });
+    let ast;
+    try {
+      ast = espree.parse(fs.readFileSync(path.join(root, f), 'utf8'), { ecmaVersion: ECMA, sourceType: 'module' });
+    } catch (e) {
+      throw new Error(`${f}: ${e.message}`);
+    }
     const imports = []; // { source, imported, local } ; imported null = side effect, '*' = namespace/default
     const reexports = []; // { source, imported, exported }
     let facade = ast.body.length > 0;
