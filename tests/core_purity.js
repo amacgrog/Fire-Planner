@@ -3,8 +3,9 @@
 // `window` or `document` do not count. Three more rules (spec section 14):
 //  - a core file calls no DOM method on an element it is handed (a global-free helper can still be DOM code);
 //  - a core file imports nothing from a ui/ directory (core code cannot depend on DOM code);
-//  - the same holds for the '#country/...' seam: a country's seam facades (core/seam-<name>.js) live in core/ and
-//    re-export core names only.
+//  - the same holds for the '#country/...' seam: a country's seam facades live in core/ (core/seam-<name>.js,
+//    re-exporting core names) or, for a name whose module is ui in either country, in ui/ (ui/seam-<name>.js; stage 4
+//    design section 5.2).
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');

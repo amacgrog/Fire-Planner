@@ -1,0 +1,157 @@
+// Import cycles in src/ may exist only among ui/ modules, and every ui/ module must pass the load-time guard
+// (stage 4 design sections 5.2, 5.3 and 6.4). Fixture trees run first (they test scripts/lib/load-time.js and
+// scripts/lib/module-graph.js), then the real tree.
+const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { isInert, loadTimeMarker, checkLoadTime } = require('../scripts/lib/load-time');
+const { buildGraph, cycles } = require('../scripts/lib/module-graph');
+
+const made = [];
+function write(root, rel, text) {
+  const full = path.join(root, rel);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, text);
+}
+function tree(files) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ui-cycles-'));
+  made.push(root);
+  write(root, 'src/package.json', '{ "private": true, "type": "module" }\n');
+  for (const [rel, text] of Object.entries(files)) write(root, rel, text);
+  return root;
+}
+function exprOf(src) {
+  const espree = require('espree');
+  return espree.parse('(' + src + ');', { ecmaVersion: 2022, sourceType: 'module' }).body[0].expression;
+}
+
+// The check that runs over a tree: returns problem strings.
+function checkTree(root, country) {
+  const graph = buildGraph(root, country);
+  const cyc = cycles(graph);
+  const problems = [];
+  const inCycle = new Map();
+  for (const c of cyc) {
+    for (const f of c) inCycle.set(f, c);
+    for (const f of c) if (!f.split('/').includes('ui')) problems.push(`${country}: cycle member outside ui/: ${f} (${c.join(' <-> ')})`);
+  }
+  for (const f of graph.files) {
+    if (!f.split('/').includes('ui')) continue;
+    const code = fs.readFileSync(path.join(root, f), 'utf8');
+    const c = inCycle.get(f);
+    let partners;
+    if (c) {
+      partners = new Set();
+      for (const [local, target] of graph.importsOf.get(f)) if (c.includes(target)) partners.add(local);
+    }
+    for (const p of checkLoadTime(code, c ? { cyclePartners: partners } : {})) {
+      problems.push(`${country}: ${f}:${p.line} ${p.name} ${p.why}`);
+    }
+  }
+  return { problems, cycles: cyc };
+}
+
+// 1. isInert
+for (const src of ['1', "'a'", '`x`', '() => {}', 'function () {}', '{ a: 1, b: [2, 3] }', '-1', 'class {}']) {
+  assert.strictEqual(isInert(exprOf(src)), true, `inert: ${src}`);
+}
+for (const src of ['x', '`${x}`', 'f()', 'new Set()', 'a.b', '{ ...a }', '{ [k]: 1 }', 'class { static x = f(); }', 'class { static { f(); } }', '[...a]', '[1, , 2]']) {
+  assert.strictEqual(isInert(exprOf(src)), false, `not inert: ${src}`);
+}
+assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
+
+// 2. loadTimeMarker
+{
+  const a = ['// load-time: reason', '// more', '// even more', 'let a = f();'];
+  assert.deepStrictEqual(loadTimeMarker(a, 4), { marked: true, reason: 'reason' });
+  const b = ['// load-time: reason', '// more', '// even more', '', 'let a = f();'];
+  assert.strictEqual(loadTimeMarker(b, 5).marked, false, 'a blank line breaks the block');
+  const c = ['// other', '// load-time: x', 'let a = f();'];
+  assert.strictEqual(loadTimeMarker(c, 3).marked, false, 'the block must start with the marker');
+  const d = ['  // load-time: indented', '  let a = f();'];
+  assert.strictEqual(loadTimeMarker(d, 2).marked, true, 'indentation is allowed');
+  assert.strictEqual(loadTimeMarker(['let a = f();'], 1).marked, false);
+}
+
+// 3. checkLoadTime
+{
+  const why = (code, o) => checkLoadTime(code, o).map((p) => p.why);
+  assert.deepStrictEqual(why('let a = f();\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why('// load-time: reads nothing\nlet a = f();\n'), []);
+  assert.deepStrictEqual(why('document.body.append(x);\n'), ['top-level statement']);
+  assert.deepStrictEqual(why('// load-time: calls a partner\nconst b = partnerFn();\n', { cyclePartners: new Set(['partnerFn']) }), ['reads the cycle']);
+  assert.deepStrictEqual(why('// load-time: fine\nconst b = partnerFn();\n', { cyclePartners: new Set(['other']) }), []);
+  assert.deepStrictEqual(why('class C { static x = f(); }\n'), ['class static']);
+  assert.deepStrictEqual(why('class C { static { f(); } }\n'), ['class static']);
+  assert.deepStrictEqual(why('class D { m() { f(); } }\n'), []);
+  assert.deepStrictEqual(why("import { x } from './x.js';\nexport { x };\nexport const k = 1;\nexport function g() { return x; }\n"), []);
+  assert.deepStrictEqual(why('export const s = new Set();\n'), ['not inert and not marked']);
+  assert.deepStrictEqual(why('const x = 1;\nconst s = new Set();\n'), ['not inert and not marked']);
+  assert.strictEqual(checkLoadTime('const x = 1;\nconst s = new Set();\n')[0].line, 2);
+  assert.deepStrictEqual(why('const m = class { static x = f(); };\n').slice(0, 1), ['class static']);
+}
+
+// 4. buildGraph / cycles, with a facade
+{
+  const root = tree({
+    'src/shared/ui/a.js': "import { r } from '#country/ui/seam-r';\nexport function a() { return r(); }\n",
+    'src/us/ui/seam-r.js': "export { r } from './r.js';\n",
+    'src/us/ui/r.js': "import { a } from '../../shared/ui/a.js';\nexport function r() { return a; }\n",
+    'src/canada/ui/seam-r.js': "export { r } from './r.js';\n",
+    'src/canada/ui/r.js': 'export function r() { return 1; }\n',
+  });
+  const us = buildGraph(root, 'us');
+  assert.deepStrictEqual(cycles(us), [['src/shared/ui/a.js', 'src/us/ui/r.js']], 'one cycle {a, r}, the facade is not a member');
+  assert.ok(!us.files.some((f) => f.startsWith('src/canada/')), 'the other country is excluded');
+  assert.strictEqual(us.importsOf.get('src/shared/ui/a.js').get('r'), 'src/us/ui/r.js', 'importsOf resolves through the facade');
+  assert.deepStrictEqual([...us.edges.get('src/shared/ui/a.js')], ['src/us/ui/r.js']);
+  assert.deepStrictEqual(cycles(buildGraph(root, 'canada')), [], 'no cycle for canada');
+  assert.deepStrictEqual(checkTree(root, 'us').problems, [], 'a cycle of inert ui modules passes');
+
+  // a marked initializer that reads a cycle partner (through the facade) fails
+  const root2 = tree({
+    'src/shared/ui/a.js': "import { r } from '#country/ui/seam-r';\n// load-time: reads r\nconst v = r();\nexport function a() { return v; }\n",
+    'src/us/ui/seam-r.js': "export { r } from './r.js';\n",
+    'src/us/ui/r.js': "import { a } from '../../shared/ui/a.js';\nexport function r() { return a; }\n",
+  });
+  const t2 = checkTree(root2, 'us');
+  assert.strictEqual(t2.problems.length, 1);
+  assert.ok(/reads the cycle/.test(t2.problems[0]), t2.problems[0]);
+
+  // a cycle through a core/ file is reported with that file
+  const root3 = tree({
+    'src/shared/ui/a.js': "import { c } from '../core/c.js';\nexport function a() { return c; }\n",
+    'src/shared/core/c.js': "import { a } from '../ui/a.js';\nexport function c() { return a; }\n",
+  });
+  const t3 = checkTree(root3, 'us');
+  assert.deepStrictEqual(t3.cycles, [['src/shared/core/c.js', 'src/shared/ui/a.js']]);
+  assert.strictEqual(t3.problems.length, 1);
+  assert.ok(/outside ui\/: src\/shared\/core\/c\.js/.test(t3.problems[0]), t3.problems[0]);
+
+  // a self-import is a cycle; an unmarked initializer in a ui module outside any cycle fails
+  const root4 = tree({
+    'src/shared/ui/s.js': "import { s } from './s.js';\nexport function f() { return s; }\n",
+    'src/us/ui/u.js': 'let a = f();\n',
+  });
+  const t4 = checkTree(root4, 'us');
+  assert.deepStrictEqual(t4.cycles, [['src/shared/ui/s.js']]);
+  assert.strictEqual(t4.problems.length, 1);
+  assert.ok(/u\.js:1 a not inert/.test(t4.problems[0]), t4.problems[0]);
+}
+for (const r of made) fs.rmSync(r, { recursive: true, force: true });
+
+// 5. The real tree
+const root = path.join(__dirname, '..');
+let total = 0;
+let failures = [];
+for (const country of ['us', 'canada']) {
+  const t = checkTree(root, country);
+  total += t.cycles.length;
+  failures = failures.concat(t.problems);
+}
+if (failures.length) {
+  console.error(failures.join('\n'));
+  process.exit(1);
+}
+console.log(`ui_cycles OK (${total} cycles)`);
