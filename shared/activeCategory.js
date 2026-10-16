@@ -1,3 +1,4 @@
+  // Category rail: filters .category-fields down to a single category's
   // groups at a time — available at every width (originally desktop-only;
   // the rail was hidden outright on mobile via CSS and filtering itself
   // was gated behind an `isDesktop` check below, both removed since a

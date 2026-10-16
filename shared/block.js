@@ -1,3 +1,4 @@
+  // Test-only exports for test_roth_optimizer_per_year.js — specifically
   // the brute-force-cross-check test, which needs to independently drive
   // the per-year override and re-score arbitrary candidate schedules to
   // verify optimizeRothLadderPerYear() actually finds the true global

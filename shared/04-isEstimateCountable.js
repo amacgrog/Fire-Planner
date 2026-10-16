@@ -345,6 +345,7 @@
     clearTimeout(note._hideTimer);
     note._hideTimer = setTimeout(() => note.classList.remove('show'), 3000);
   });
+  // load-time: an empty Set; reads nothing.
   // Tracks which flagged ids were already showing as of the *previous*
   // render, purely in memory (not persisted — a fresh page load always
   // starts from a clean slate). `unusualToastArmed` skips the very first

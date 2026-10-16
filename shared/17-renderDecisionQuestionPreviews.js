@@ -1,3 +1,4 @@
+  // A compact one-line preview shown right on each "Explore a question"
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
   // ones (sensitivity, returns) don't compare two scenarios, they just hand
   // off to an existing card, so there's nothing to preview. Gated by

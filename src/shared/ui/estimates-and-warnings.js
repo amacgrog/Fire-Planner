@@ -1,5 +1,6 @@
 import { UNUSUAL_RANGES } from '../core/estimates-and-warnings.js';
 
+  // load-time: creates the bubble element; reads nothing a statement writes.
   // ---- Info bubbles: the small "i" buttons next to field labels -----------
   // Short descriptors live in each field's <small>; anything longer lives in
   // the button's data-tip and opens in this one shared, fixed-position bubble

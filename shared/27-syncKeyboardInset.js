@@ -1,3 +1,4 @@
+  // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
   // Checking/unchecking a sidebar checkbox (or changing a <select> like
   // tenure/k401Type) can add or remove other fields elsewhere in the panel
   // -- singlePerson hides/shows every data-partner-b field across several

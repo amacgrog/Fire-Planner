@@ -1,3 +1,4 @@
+  // load-time: reads window.matchMedia; reads nothing a statement writes.
   // Theme isn't part of state or scenarios (it's a display preference, not
   // a financial input) and, unlike state/mode below, is deliberately not
   // persisted — it just starts from the OS/browser preference each time the

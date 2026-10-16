@@ -16,4 +16,5 @@
       }
     });
   }
+  // load-time: reads document.modelContext; reads nothing a statement writes.
   export const mc = document.modelContext;

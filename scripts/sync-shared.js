@@ -84,6 +84,18 @@ for (const kind of KINDS) {
   }
 }
 
+// A marker line with a comment line directly above and below it splits one comment block in two (a comment line is
+// a // line that is not itself a marker). Keep the marker above or below the whole block.
+const isCommentLine = (line) => line !== undefined && /^\s*\/\//.test(line) && !MARK.test(line);
+for (const p of loaded) {
+  p.lines.forEach((line, i) => {
+    const m = MARK.exec(line);
+    if (m && isCommentLine(p.lines[i - 1]) && isCommentLine(p.lines[i + 1])) {
+      problems.push(`marker between comments: ${p.file}:${i + 1} (${m[1]})`);
+    }
+  });
+}
+
 if (pullFile) {
   const src = loaded.find((p) => p.file === pullFile);
   fs.mkdirSync(SHARED_DIR, { recursive: true });

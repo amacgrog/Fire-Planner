@@ -61,14 +61,17 @@ import { SENSITIVITY_LEVERS } from './core/sensitivity-levers.js';
 import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
 (() => {
   // @@shared:ids begin
+  // load-time: filters FIELDS, an imported constant; reads nothing a statement writes.
   const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
+  // load-time: filters FIELDS, an imported constant; reads nothing a statement writes.
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
   // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
   // @@shared:ids end
   assignState(normalizeState(null));
   // @@shared:02-CHART_GROUPS begin
+  // load-time: reads window.matchMedia; reads nothing a statement writes.
   // Theme isn't part of state or scenarios (it's a display preference, not
   // a financial input) and, unlike state/mode below, is deliberately not
   // persisted — it just starts from the OS/browser preference each time the
@@ -109,8 +112,8 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
     } catch {}
   }
   // @@shared:02-CHART_GROUPS end
-  // Category rail: filters .category-fields down to a single category's
   // @@shared:activeCategory begin
+  // Category rail: filters .category-fields down to a single category's
   // groups at a time — available at every width (originally desktop-only;
   // the rail was hidden outright on mobile via CSS and filtering itself
   // was gated behind an `isDesktop` check below, both removed since a
@@ -553,6 +556,7 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
     clearTimeout(note._hideTimer);
     note._hideTimer = setTimeout(() => note.classList.remove('show'), 3000);
   });
+  // load-time: an empty Set; reads nothing.
   // Tracks which flagged ids were already showing as of the *previous*
   // render, purely in memory (not persisted — a fresh page load always
   // starts from a clean slate). `unusualToastArmed` skips the very first
@@ -811,8 +815,8 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
   }
   // @@shared:15-renderPlanHeadline end
 
-  // A compact one-line preview shown right on each "Explore a question"
   // @@shared:17-renderDecisionQuestionPreviews begin
+  // A compact one-line preview shown right on each "Explore a question"
   // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
   // ones (sensitivity, returns) don't compare two scenarios, they just hand
   // off to an existing card, so there's nothing to preview. Gated by
@@ -1782,7 +1786,6 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
   }
   let chartTooltipEl = null;
-  // @@shared:20-renderTable end
   function initChartHover() {
     const wrap = document.querySelector('.chart-wrap'),
       canvas = document.getElementById('chart');
@@ -1910,6 +1913,7 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
     canvas.addEventListener('mouseleave', clearChartHover);
     canvas.addEventListener('touchend', clearChartHover);
   }
+  // @@shared:20-renderTable end
 
   // @@shared:21-writeStorageNow begin
   // Autosaves `state`/`mode` to this browser's localStorage (never sent
@@ -3254,8 +3258,8 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
     setChartView('3yr');
   });
   // @@shared:26-setChartView end
-  // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
   // @@shared:27-syncKeyboardInset begin
+  // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
   // Checking/unchecking a sidebar checkbox (or changing a <select> like
   // tenure/k401Type) can add or remove other fields elsewhere in the panel
   // -- singlePerson hides/shows every data-partner-b field across several
@@ -4063,8 +4067,8 @@ import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
     });
   }
   // @@shared:29-dismissFirstRunBanner end
-  // Test-only exports for test_roth_optimizer_per_year.js — specifically
   // @@shared:block begin
+  // Test-only exports for test_roth_optimizer_per_year.js — specifically
   // the brute-force-cross-check test, which needs to independently drive
   // the per-year override and re-score arbitrary candidate schedules to
   // verify optimizeRothLadderPerYear() actually finds the true global
