@@ -410,7 +410,10 @@ Design §5.1, §5.4.
 - [ ] **Step 0: Regression baseline (before any edit).** Run
   `node scripts/plan-extraction.js --seam=taxFor,BUCKET_STEP,runProjection,normalizeState,defaults,ESTIMATE_ALWAYS_IDS,ESTIMATE_GATED_GROUPS,TAXABLE_BASIS_KEY,housingForYear,STANDARD_MODE,BUCKET_MODE > $SCRATCH/plan-before.json`
   and `node -e "const p=require(process.argv[1]);console.log(JSON.stringify(p.stats),p.modules.length)" $SCRATCH/plan-before.json`.
-  Expected: `{"us":{"units":311,"candidates":98,"movable":26},"canada":{"units":231,"candidates":93,"movable":25}} 16`.
+  Expected: `{"us":{"units":311,"candidates":98,"movable":29},"canada":{"units":231,"candidates":93,"movable":28}} 16`.
+  (Corrected during implementation: the plan first said 26 / 25, measured on `9405d96`. Task 1 step 3 moves region 20's end
+  marker below `initChartHover`, which makes `initChartHover`, `chartTooltipEl` and `clearChartHover` shared and movable:
+  +3 per planner. Later steps compare against the file this step writes, so nothing else changes.)
 - [ ] **Step 1:** Write the fixtures; run `node tests/extraction_plan.js`; expected: fail.
 - [ ] **Step 2:** Implement; `node tests/extraction_plan.js` prints `extraction_plan OK`.
 - [ ] **Step 3:** Regression: rerun step 0's command into `$SCRATCH/plan-after.json` and
