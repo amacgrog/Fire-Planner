@@ -6,7 +6,7 @@
 // and, for each module, cuts its units (with the contiguous comment lines directly above each one, and a
 // following `// NAME:end` data marker) out of main.js, writes the module with `export` on the names used elsewhere
 // and the imports it needs, and adds to main.js the imports it now needs. A shared module is cut from both
-// planners (the text must be identical) and its @@shared region fragment under shared/ is updated or deleted.
+// planners (the text must be identical).
 //
 // Side-effect statements move only inside a wiring function (below). Everything is verified before anything is written; on any problem it
 // throws and writes nothing (the files are staged next to their targets and renamed into place at the end).
@@ -29,10 +29,8 @@
 //   as '#country/<side>/seam-<name>'; both countries must have the same facades in core/ and in ui/.
 // - A module import cycle is accepted only when every module in it is under a ui/ directory and passes the load-time guard
 //   (checkLoadTime, with the names it imports from its cycle partners); otherwise it is refused.
-// - A shared region whose remaining lines are blank lines, comments, wiring calls (`<name>();`, <name> in `wiringRecord`
-//   ([{ name, module }], every batch up to this one) and imported into main.js from a ui/ module) and statements whose label is
-//   in `pinned` (the topics file's `main` lists) is emptied: its markers and fragment go, its lines stay in main.js. Shape
-//   alone never counts. Its remaining text must be identical in both planners (checked before the markers go).
+// - Task 14: the @@shared region system is gone (no markers remain in src/). A manifest module with `owner: 'shared'` is
+//   refused; the options `wiringRecord` and `pinned` are still accepted and ignored.
 const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
@@ -229,8 +227,6 @@ function cyclePath(comp, edges) {
 function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}, wiringRecord = [], pinned = [] } = {}) {
   const seamSet = new Set(seam);
   const sideOf = (name) => (seamSides[name] === 'ui' ? 'ui' : 'core');
-  const recordNames = new Set(wiringRecord.map((w) => w.name));
-  const pinnedSet = new Set(pinned);
   const facade = { us: new Map(), canada: new Map() }; // seam name -> absolute path of the module that holds it
   const info = Object.fromEntries(COUNTRIES.map((c) => [c, loadCountry(root, c)]));
   const warnings = [];
@@ -245,6 +241,7 @@ function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}
   const splitDecl = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()])); // declaration label -> its splitParts
   const wiringNames = new Set();
   for (const m of modules) {
+    if (m.owner === 'shared') throw new Error(`${m.path}: no shared regions remain; write shared code in src/shared/ directly`);
     if (seenPaths.has(m.path)) throw new Error(`module path used twice: ${m.path}`);
     seenPaths.add(m.path);
     if (!path.resolve(root, m.path).startsWith(path.join(root, 'src') + path.sep)) throw new Error(`${m.path}: module paths must lie under src/`);
@@ -311,7 +308,6 @@ function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}
         const u = info[c].byLabel.get(label);
         if (!u) throw new Error(`${m.path}: ${c} has no unit "${label}"`);
         if (moduleOf[c].has(label)) throw new Error(`${c}: unit "${label}" is in two modules`);
-        if (m.owner === 'shared' && u.regionKind !== 'shared') throw new Error(`${m.path}: "${label}" is not in a shared region`);
         moduleOf[c].set(label, m);
       }
     }
@@ -567,7 +563,7 @@ function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}
     }
   }
 
-  // ---- 5. rewrite main.js (and the shared fragments)
+  // ---- 5. rewrite main.js
   for (const c of COUNTRIES) {
     const ci = info[c];
     const remove = new Set();
@@ -611,105 +607,6 @@ function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}
       if (!remove.has(n)) out.push(line);
     });
     files.set(ci.file, out.join('\n'));
-  }
-
-  // fragments: drop regions that lost every unit, refresh the others from the US planner
-  const mainText = Object.fromEntries(COUNTRIES.map((c) => [c, files.get(info[c].file)]));
-  const regionsOf = (text) => {
-    const lines = text.split('\n');
-    const regions = [];
-    let open = null;
-    lines.forEach((line, i) => {
-      const m = SHARED_MARK.exec(line);
-      if (!m) return;
-      if (m[2] === 'begin') open = { name: m[1], begin: i, contentStart: i + 1 };
-      else if (open) { regions.push({ ...open, end: i }); open = null; }
-    });
-    return { lines, regions };
-  };
-  const fragmentDir = path.join(root, 'shared');
-  const deleted = new Set();
-  // Which regions of a planner's new main.js are emptied: every statement in it a wiring call or pinned, no declaration,
-  // and every other line blank or a comment (design section 5.6).
-  const emptiable = (c, text, lines, regions) => {
-    const model = analyze(text);
-    const nodeAt = iifeNodes(text);
-    const fromUi = new Set();
-    for (const imp of model.imports) {
-      const spec = imp.source;
-      const ui = spec.startsWith('#country/ui/') || (spec.startsWith('.') && isUiPath(path.relative(root, path.resolve(info[c].mainDir, spec))));
-      if (ui && imp.imported === imp.local) fromUi.add(imp.local);
-    }
-    const isWiringCall = (u) => {
-      const node = nodeAt.get(u.startLine);
-      const call = node && node.type === 'ExpressionStatement' ? node.expression : null;
-      if (!call || call.type !== 'CallExpression' || call.optional || call.arguments.length || call.callee.type !== 'Identifier') return false;
-      const name = call.callee.name;
-      return text.slice(node.range[0], node.range[1]) === `${name}();` && recordNames.has(name) && fromUi.has(name);
-    };
-    const out = new Set();
-    for (const r of regions) {
-      // lines are 0-based here; units are 1-based: the content is lines r.contentStart .. r.end - 1
-      const inside = model.units.filter((u) => u.startLine - 1 >= r.contentStart && u.startLine - 1 < r.end);
-      if (!inside.every((u) => u.kind === 'statement' && (pinnedSet.has(u.label) || isWiringCall(u)))) continue;
-      const covered = new Set();
-      inside.forEach((u) => { for (let n = u.startLine - 1; n < u.endLine; n++) covered.add(n); });
-      let inBlock = false;
-      let ok = true;
-      for (let i = r.contentStart; i < r.end && ok; i++) {
-        if (covered.has(i)) continue;
-        const l = lines[i];
-        if (inBlock) inBlock = !/\*\//.test(l);
-        else if (/^\s*\/\*/.test(l)) inBlock = !/\*\/\s*$/.test(l);
-        else ok = l.trim() === '' || /^\s*\/\//.test(l);
-      }
-      if (ok && !inBlock) out.add(r.name);
-    }
-    return out;
-  };
-  const parsedMain = Object.fromEntries(COUNTRIES.map((c) => [c, regionsOf(mainText[c])]));
-  const emptied = Object.fromEntries(COUNTRIES.map((c) => [c, emptiable(c, mainText[c], parsedMain[c].lines, parsedMain[c].regions)]));
-  // the text that stays must read the same in both planners, checked before any marker is removed
-  for (const name of emptied.us) {
-    if (!emptied.canada.has(name)) continue; // emptied in one planner only: refused below
-    const contentOf = (c) => {
-      const r = parsedMain[c].regions.find((x) => x.name === name);
-      return parsedMain[c].lines.slice(r.contentStart, r.end).join('\n');
-    };
-    if (contentOf('us') !== contentOf('canada')) {
-      throw new Error(`region ${name}: the text left after the move differs between the two planners, so it cannot be emptied`);
-    }
-  }
-  for (const c of COUNTRIES) {
-    const { lines, regions } = parsedMain[c];
-    const removeLine = new Set();
-    for (const r of regions) {
-      if (!emptied[c].has(r.name)) continue;
-      removeLine.add(r.begin); // only the markers go: what is left stays in main.js
-      removeLine.add(r.end);
-      deleted.add(r.name);
-    }
-    files.set(info[c].file, lines.filter((_, i) => !removeLine.has(i)).join('\n'));
-  }
-  const us = regionsOf(files.get(info.us.file));
-  const ca = regionsOf(files.get(info.canada.file));
-  for (const r of us.regions) {
-    const content = us.lines.slice(r.contentStart, r.end).join('\n');
-    const other = ca.regions.find((x) => x.name === r.name);
-    if (!other) throw new Error(`region ${r.name} exists in us/main.js but not in canada/main.js`);
-    if (ca.lines.slice(other.contentStart, other.end).join('\n') !== content) throw new Error(`region ${r.name} differs between the planners after the move`);
-    const frag = path.join(fragmentDir, `${r.name}.js`);
-    const newText = content + '\n';
-    if (!fs.existsSync(frag) || readText(frag) !== newText) files.set(frag, newText);
-  }
-  for (const r of ca.regions) {
-    if (!us.regions.some((x) => x.name === r.name)) throw new Error(`region ${r.name} exists in canada/main.js but not in us/main.js`);
-  }
-  for (const name of deleted) {
-    if (us.regions.some((r) => r.name === name) || ca.regions.some((r) => r.name === name)) {
-      throw new Error(`region ${name} was emptied in only one planner`);
-    }
-    files.set(path.join(fragmentDir, `${name}.js`), null);
   }
 
   // the country seam facades: one file per name, under core/ or ui/ by the name's side (design section 5.2)
@@ -783,7 +680,6 @@ function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}
     moved: Object.fromEntries(COUNTRIES.map((c) => [c, moduleOf[c].size])),
     // the runs actually written (a manifest entry with no statements writes nothing)
     wiring: modules.flatMap((m) => [...new Set(COUNTRIES.flatMap((c) => (runsOf.get(m)[c] || []).map((r) => r.name)))].map((name) => ({ name, module: m.path }))),
-    deletedRegions: [...deleted].sort(),
     seam: facadeNames,
     warnings,
   };

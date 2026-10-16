@@ -1,5 +1,5 @@
 // Tests for scripts/lib/extract-units.js (plain Node, fixture trees in tmp).
-// The fixtures are miniatures of the real layout: two planners, one shared region, some country code. After every
+// The fixtures are miniatures of the real layout: two planners, some use of a shared store, some country code. After every
 // extraction the planners are bundled the way the build does and must produce what they produced before.
 const assert = require('assert');
 const fs = require('fs');
@@ -30,13 +30,11 @@ const newRoot = () => {
 };
 
 const SHARED_REGION = [
-  '  // @@shared:helpers begin',
   '  // doubles a number',
   '  const twice = (n) => n * 2;',
   '  function addBase(n) {',
   '    return n + state.base;',
   '  }',
-  '  // @@shared:helpers end',
 ];
 const mainText = (rate, extra) =>
   [
@@ -72,7 +70,6 @@ function fixture() {
   const root = newRoot();
   write(root, 'src/us/main.js', mainText('0.1', US_EXTRA));
   write(root, 'src/canada/main.js', mainText('0.2', []));
-  write(root, 'shared/helpers.js', SHARED_REGION.slice(1, -1).join('\n') + '\n');
   return root;
 }
 
@@ -120,18 +117,20 @@ async function run(root, country) {
 const both = async (root) => ({ us: await run(root, 'us'), canada: await run(root, 'canada') });
 
 (async () => {
-  // ---- applying a plan keeps the programs' behavior and writes the expected files
+  // ---- applying modules keeps the programs' behavior and writes the expected files
   let root = fixture();
   const before = await both(root);
-  const plan = planExtraction(root, { maxLayer: 3 });
-  const report = applyModules(root, plan.modules);
-  assert.deepStrictEqual(report.deletedRegions, ['helpers']);
+  const MODS = [
+    { path: 'src/us/core/helpers.js', owner: 'us', units: { us: ['twice', 'addBase'], canada: [] } },
+    { path: 'src/us/core/rate.js', owner: 'us', units: { us: ['rate', 'tax'], canada: [] } },
+  ];
+  const report = applyModules(root, MODS);
   assert.deepStrictEqual(report.warnings, []);
-  assert.deepStrictEqual(report.moved, { us: 6, canada: 4 });
+  assert.deepStrictEqual(report.moved, { us: 4, canada: 0 });
   assert.strictEqual(
-    read(root, 'src/shared/core/helpers.js'),
+    read(root, 'src/us/core/helpers.js'),
     [
-      "import { state } from './store.js';",
+      "import { state } from '../../shared/core/store.js';",
       '',
       '  // doubles a number',
       '  export const twice = (n) => n * 2;',
@@ -144,7 +143,7 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   assert.strictEqual(
     read(root, 'src/us/core/rate.js'),
     [
-      "import { addBase, twice } from '../../shared/core/helpers.js';",
+      "import { addBase, twice } from './helpers.js';",
       '',
       '  // the country rate',
       '  const rate = 0.1;',
@@ -157,15 +156,13 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   const usMain = read(root, 'src/us/main.js');
   assert.ok(usMain.startsWith("import { tax } from './core/rate.js';\n(() => {"), usMain.split('\n').slice(0, 3).join('|'));
   assert.ok(usMain.includes('let counter = 0;') && usMain.includes('function bump()'), 'units that stay are untouched');
-  assert.ok(!usMain.includes('@@shared:helpers'), 'the emptied region is gone from main.js');
-  assert.ok(!fs.existsSync(path.join(root, 'shared/helpers.js')), 'and its fragment');
   assert.deepStrictEqual(await both(root), before);
 
   // ---- a dry run writes nothing
   root = fixture();
-  const dry = applyModules(root, planExtraction(root, { maxLayer: 3 }).modules, { dryRun: true });
-  assert.strictEqual(dry.modules.length, 4);
-  assert.ok(!fs.existsSync(path.join(root, 'src/shared/core/helpers.js')) && fs.existsSync(path.join(root, 'shared/helpers.js')));
+  const dry = applyModules(root, MODS, { dryRun: true });
+  assert.strictEqual(dry.modules.length, 2);
+  assert.ok(!fs.existsSync(path.join(root, 'src/us/core/helpers.js')));
 
   // ---- a data block travels with both of its markers
   root = dataFixture();
@@ -188,8 +185,8 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   refuse(fixture, one('src/us/core/x.js', 'us', [statementLabel(fixture())]), /side-effect statement/);
   refuse(fixture, one('src/us/core/x.js', 'us', ['counter']), /assigned outside its module/);
   refuse(fixture, one('src/us/core/x.js', 'us', ['tax']), /depends on "(rate|twice|addBase)", which stays/);
-  refuse(fixture, one('src/shared/core/h.js', 'shared', ['twice'], ['addBase']), /shared unit lists differ/);
-  refuse(fixture, one('src/shared/core/store.js', 'shared', ['twice'], ['twice']), /already exists/);
+  // Task 14: no shared regions remain, so a manifest module with owner 'shared' is refused
+  refuse(fixture, one('src/shared/core/h.js', 'shared', ['twice'], ['twice']), /src\/shared\/core\/h\.js: no shared regions remain; write shared code in src\/shared\/ directly/);
   refuse(fixture, one('src/us/core/x.js', 'us', ['nope']), /has no unit "nope"/);
   refuse(
     fixture,
@@ -200,15 +197,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     /module import cycle/,
   );
   refuse(
-    () => {
-      const r = fixture();
-      write(r, 'src/canada/main.js', read(r, 'src/canada/main.js').replace('n * 2', 'n * 3'));
-      return r;
-    },
-    one('src/shared/core/h.js', 'shared', ['twice'], ['twice']),
-    /differs between the two planners/,
-  );
-  refuse(
     dataFixture,
     [
       { path: 'src/us/core/a.js', owner: 'us', units: { us: ['A'], canada: [] } },
@@ -216,9 +204,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     ],
     /data block RULES is split/,
   );
-
-  // a region emptied in one planner while the other still carries it
-  refuse(fixture, one('src/us/core/x.js', 'us', ['twice', 'addBase']), /region helpers exists in canada\/main\.js but not in us\/main\.js/);
 
 
   // ---- stage 3: side-effect imports, bare specifiers, namespace imports, block comments, staged writes, paths
@@ -257,58 +242,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   applyModules(root, [{ path: 'src/us/core/ab.js', owner: 'us', units: { us: ['a', 'b'], canada: [] } }]);
   assert.ok(read(root, 'src/us/core/ab.js').includes('/* one-line note */') && read(root, 'src/us/core/ab.js').includes('the b function'));
   assert.ok(!read(root, 'src/us/main.js').includes('note */') && !read(root, 'src/us/main.js').includes('the b function'));
-
-  // ---- the country seam
-  const countryPackage = '{ "private": true, "type": "module", "imports": { "#country/*": { "us": "./us/*.js", "canada": "./canada/*.js" } } }\n';
-  const SEAM_REGION = ['  // @@shared:calls begin', '  function callTax(n) {', '    return taxFor(n) + 1;', '  }', '  // @@shared:calls end'];
-  const seamMain = (rate) => mainWith([], [...SEAM_REGION, '  function taxFor(n) {', `    return n * ${rate};`, '  }'], '  window.__out = callTax(5);');
-  const seamFixture = () => {
-    const r = newRoot();
-    write(r, 'src/package.json', countryPackage);
-    write(r, 'src/us/main.js', seamMain(2));
-    write(r, 'src/canada/main.js', seamMain(3));
-    write(r, 'shared/calls.js', SEAM_REGION.slice(1, -1).join('\n') + '\n');
-    return r;
-  };
-  const runWith = async (r, country) => {
-    const result = await esbuild.build({
-      entryPoints: [path.join(r, 'src', country, 'main.js')],
-      bundle: true,
-      write: false,
-      format: 'iife',
-      logLevel: 'silent',
-      outfile: 'out.js',
-      conditions: [country],
-    });
-    const window = {};
-    vm.runInNewContext(result.outputFiles[0].text, { window });
-    return window.__out;
-  };
-  root = seamFixture();
-  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
-  const seamPlan = planExtraction(root, { seam: ['taxFor'] });
-  assert.throws(() => applyModules(root, seamPlan.modules), /not a seam name/, 'without the seam list a shared module cannot use country code');
-  const seamReport = applyModules(root, seamPlan.modules, { seam: ['taxFor'] });
-  assert.deepStrictEqual(seamReport.seam, { us: ['taxFor'], canada: ['taxFor'] });
-  assert.strictEqual(read(root, 'src/us/core/seam-taxFor.js'), "export { taxFor } from './tax-for.js';\n");
-  assert.strictEqual(read(root, 'src/canada/core/seam-taxFor.js'), "export { taxFor } from './tax-for.js';\n");
-  assert.ok(!fs.existsSync(path.join(root, 'src/us/core/seam.js')), 'no single seam facade');
-  assert.ok(read(root, 'src/shared/core/calls.js').startsWith("import { taxFor } from '#country/core/seam-taxFor';"), read(root, 'src/shared/core/calls.js'));
-  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
-  assert.deepStrictEqual(await checkCountryContract(path.join(root, 'src')), []);
-
-  // a shared region and country code that would import each other as whole modules are split, and still behave
-  const PAIR_REGION = ['  // @@shared:pair begin', '  function f(n) {', '    return g(n) + 1;', '  }', '  function h(n) {', '    return n + 1;', '  }', '  // @@shared:pair end'];
-  const pairMain = (m) => mainWith([], [...PAIR_REGION, '  function g(n) {', `    return h(n) * ${m};`, '  }', '  function k(n) {', '    return f(n) - 1;', '  }'], '  window.__out = k(5);');
-  root = newRoot();
-  write(root, 'src/package.json', countryPackage);
-  write(root, 'src/us/main.js', pairMain(2));
-  write(root, 'src/canada/main.js', pairMain(3));
-  write(root, 'shared/pair.js', PAIR_REGION.slice(1, -1).join('\n') + '\n');
-  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [12, 18]);
-  applyModules(root, planExtraction(root, { seam: ['g'] }).modules, { seam: ['g'] });
-  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [12, 18]);
-  assert.deepStrictEqual(leftovers(root), []);
 
   // ---- stage 4 (Task 7): wiring functions, comment placement, the split, the wiring record
   const LIB = [
@@ -492,32 +425,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   }
   assert.strictEqual(await run(root, 'us'), '2,3');
 
-  // 5. a shared module: the same text from both planners (and refused when a statement chunk differs by one character)
-  const SH = (stmt) => ['  // @@shared:wire begin', '  // shared note', stmt, '  // @@shared:wire end'];
-  const shRoot = (caStmt = "  on('e', () => 'z');") => {
-    const r = wireRoot(SH("  on('e', () => 'z');"), SH(caStmt));
-    write(r, 'shared/wire.js', "  // shared note\n  on('e', () => 'z');\n");
-    return r;
-  };
-  const LS = L("on('e', () => 'z');");
-  root = shRoot();
-  wireBefore = await both(root);
-  wireReport = applyModules(root, [wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]])]);
-  assert.strictEqual(read(root, 'src/shared/ui/w.js'), ["import { on } from '../lib.js';", '', '  export function wireW() {', '    // shared note', "    on('e', () => 'z');", '  }', ''].join('\n'));
-  for (const c of COUNTRIES_T) {
-    assert.ok(read(root, `src/${c}/main.js`).includes("import { wireW } from '../shared/ui/w.js';\n"), c);
-    assert.ok(read(root, `src/${c}/main.js`).includes('  // @@shared:wire begin\n  wireW();\n  // @@shared:wire end'), c);
-  }
-  assert.strictEqual(read(root, 'shared/wire.js'), '  wireW();\n');
-  assert.deepStrictEqual(wireReport.wiring, [{ name: 'wireW', module: 'src/shared/ui/w.js' }]);
-  assert.deepStrictEqual(await both(root), wireBefore);
-  refuse(() => shRoot("  on('e',  () => 'z');"), [wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]])], /differs between the two planners/);
-  refuse(
-    shRoot,
-    [{ ...wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]]), wiring: [{ name: 'wireW', statements: { us: [LS], canada: [] } }] }],
-    /wiring of src\/shared\/ui\/w\.js differs between the two planners/,
-  );
-
   // ---- Task 7 fix round 1
   // run validation: source order (a split counts at its declaration's line) and nothing else in between
   const runErr = /run wireX \(stmt:/;
@@ -571,23 +478,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   splitRefuse('  let seen = (out.length);', /split seen does not end with ";" right after its initializer/);
   // a run that starts with a split assignment
   refuse(() => wireRoot(['  let seen = out.length;', '  a();', '  b();']), splitMods([SPL, L('a();'), L('b();')]), /starts with the split assignment of seen/);
-  // a split in a shared module: one text from both planners
-  const SPLIT_REGION = ['  // @@shared:sp begin', '  a();', '  // seen at load', '  let seen = out.length;', '  b();', '  // @@shared:sp end'];
-  const SEEN_TAIL = "  window.__out = out.join('') + seen;";
-  root = wireRoot(SPLIT_REGION, SPLIT_REGION, { usTail: SEEN_TAIL, caTail: SEEN_TAIL });
-  write(root, 'shared/sp.js', SPLIT_REGION.slice(1, -1).join('\n') + '\n');
-  wireBefore = await both(root);
-  wireReport = applyModules(root, [
-    wmod('src/shared/ui/sp.js', 'shared', [L('a();'), 'seen', L('b();')], [['wireSp', [L('a();'), SPL, L('b();')]]], { splits: [{ name: 'seen', label: SPL }] }),
-  ]);
-  assert.strictEqual(
-    read(root, 'src/shared/ui/sp.js'),
-    ["import { a, b, out } from '../lib.js';", '', '  // seen at load', '  export let seen;', '  export function wireSp() {', '    a();', '    seen = out.length;', '    b();', '  }', ''].join('\n'),
-  );
-  assert.deepStrictEqual(wireReport.wiring, [{ name: 'wireSp', module: 'src/shared/ui/sp.js' }]);
-  assert.deepStrictEqual(await both(root), wireBefore);
-  assert.deepStrictEqual(wireBefore, { us: 'ab1', canada: 'ab1' });
-
   // break and continue: a nested switch's break moves; with no loop or switch of the statement's own they are refused
   const sw = ['  switch (out.length) {', '    case 0:', '      a();', '      break;', '    default:', '      b();', '  }'];
   root = wireRoot(sw);
@@ -601,58 +491,7 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   assert.strictEqual(functionBodyProblem(inner('while (x) { switch (y) { case 1: break; } }')), null);
   assert.strictEqual(functionBodyProblem(inner('while (x) { for (;;) { continue; } }')), null);
 
-  // ---- stage 4 (Task 8): UI facades, UI cycles under the load-time guard, regions emptied down to wiring calls
-  // 1. a shared module using seam name R with side ui: one facade per country under ui/, imported as #country/ui/seam-R
-  const R_REGION = ['  // @@shared:calls begin', '  function callR(n) {', '    return R(n) + 1;', '  }', '  // @@shared:calls end'];
-  const rMain = (rate) => mainWith([], [...R_REGION, '  function R(n) {', `    return n * ${rate};`, '  }'], '  window.__out = callR(5);');
-  const rFixture = () => {
-    const r = newRoot();
-    write(r, 'src/package.json', countryPackage);
-    write(r, 'src/us/main.js', rMain(2));
-    write(r, 'src/canada/main.js', rMain(3));
-    write(r, 'shared/calls.js', R_REGION.slice(1, -1).join('\n') + '\n');
-    return r;
-  };
-  const R_MODULES = [
-    { path: 'src/us/ui/r.js', owner: 'us', units: { us: ['R'], canada: [] } },
-    { path: 'src/canada/ui/r.js', owner: 'canada', units: { us: [], canada: ['R'] } },
-    { path: 'src/shared/ui/calls.js', owner: 'shared', units: { us: ['callR'], canada: ['callR'] } },
-  ];
-  const R_OPTS = { seam: ['R'], seamSides: { R: 'ui' } };
-  root = rFixture();
-  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
-  const rReport = applyModules(root, R_MODULES, R_OPTS);
-  for (const c of COUNTRIES_T) {
-    assert.strictEqual(read(root, `src/${c}/ui/seam-R.js`), "export { R } from './r.js';\n", c);
-    assert.ok(!fs.existsSync(path.join(root, `src/${c}/core/seam-R.js`)), `${c}: no core facade for a ui name`);
-  }
-  assert.ok(read(root, 'src/shared/ui/calls.js').startsWith("import { R } from '#country/ui/seam-R';\n"), read(root, 'src/shared/ui/calls.js'));
-  assert.deepStrictEqual(rReport.seam, { us: ['R'], canada: ['R'] });
-  assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [11, 16]);
-  assert.deepStrictEqual(await checkCountryContract(path.join(root, 'src')), []);
-  // the facade-equality check covers ui/ too: a ui facade in one country only is refused
-  refuse(
-    () => {
-      const r = rFixture();
-      write(r, 'src/us/ui/seam-Q.js', "export { Q } from './q.js';\n");
-      return r;
-    },
-    R_MODULES,
-    /the country seam facades differ/,
-    R_OPTS,
-  );
-  // a name with a facade on the other side already is refused (one facade per name)
-  refuse(
-    () => {
-      const r = rFixture();
-      for (const c of COUNTRIES_T) write(r, `src/${c}/core/seam-R.js`, "export { R } from './r.js';\n");
-      return r;
-    },
-    R_MODULES,
-    /seam name R: its facade goes under ui\/ but src\/us\/core\/seam-R\.js exists/,
-    R_OPTS,
-  );
-
+  // ---- stage 4 (Task 8): UI facades, UI cycles under the load-time guard
   // 2. two ui/ modules importing each other: accepted when every initializer is inert, refused (with the guard's problem) otherwise
   const EVEN_ODD = ['  function isEven(n) {', '    return n === 0 ? true : isOdd(n - 1);', '  }', '  function isOdd(n) {', '    return n === 0 ? false : isEven(n - 1);', '  }'];
   const cycleRoot = (extra = []) => {
@@ -691,75 +530,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   // a cycle with a module outside ui/ still throws as before, whatever its initializers
   refuse(cycleRoot, evenOdd('ui', 'core'), /module import cycle: .*not every module of the cycle is under ui\//);
   refuse(cycleRoot, evenOdd('core', 'core'), /module import cycle/);
-
-  // 3-5. emptied regions: what is left is blank lines, comments, recorded wiring calls and pinned statements
-  const WR = (tail) => ['  // @@shared:wr begin', '  a();', ...tail, '  // @@shared:wr end'];
-  const wrRoot = (usTail, caTail = usTail, extra = []) => {
-    const r = wireRoot([...WR(usTail), ...extra], [...WR(caTail), ...extra]);
-    write(r, 'shared/wr.js', WR(usTail).slice(1, -1).join('\n') + '\n');
-    return r;
-  };
-  const WR_MODULES = [wmod('src/shared/ui/wr.js', 'shared', [L('a();')], [['wireR', [L('a();')]]])];
-  const REC = [{ name: 'wireR', module: 'src/shared/ui/wr.js' }];
-  const regionKept = (r, rep, content) => {
-    for (const c of COUNTRIES_T) {
-      assert.ok(read(r, `src/${c}/main.js`).includes(['  // @@shared:wr begin', ...content, '  // @@shared:wr end'].join('\n')), `${c}:\n${read(r, `src/${c}/main.js`)}`);
-    }
-    assert.strictEqual(read(r, 'shared/wr.js'), content.join('\n') + '\n');
-    assert.deepStrictEqual(rep.deletedRegions, []);
-  };
-  const regionEmptied = (r, rep, content) => {
-    for (const c of COUNTRIES_T) {
-      const text = read(r, `src/${c}/main.js`);
-      assert.ok(!text.includes('@@shared:wr'), `${c}: the markers are gone`);
-      assert.ok(text.includes(['(() => {', ...content, OUT_TAIL, '})();'].join('\n')), `${c}:\n${text}`);
-    }
-    assert.ok(!fs.existsSync(path.join(r, 'shared/wr.js')), 'the fragment is deleted');
-    assert.deepStrictEqual(rep.deletedRegions, ['wr']);
-    assert.deepStrictEqual(rep.warnings, []);
-  };
-
-  // 3. a recorded wiring call and a comment: emptied, the comment kept in main.js
-  root = wrRoot(['  // trailing note']);
-  wireBefore = await both(root);
-  regionEmptied(root, applyModules(root, WR_MODULES, { wiringRecord: REC }), ['  wireR();', '  // trailing note']);
-  assert.deepStrictEqual(await both(root), wireBefore);
-  // ... the same call is not a wiring call without the record (shape alone never counts)
-  root = wrRoot(['  // trailing note']);
-  regionKept(root, applyModules(root, WR_MODULES), ['  wireR();', '  // trailing note']);
-  // a blank line is kept too
-  root = wrRoot(['', '  // after a blank']);
-  regionEmptied(root, applyModules(root, WR_MODULES, { wiringRecord: REC }), ['  wireR();', '', '  // after a blank']);
-
-  // 4. a real statement that looks like a wiring call: not emptied
-  const RENDER_LIST = ['  function renderList() {', "    out.push('r');", '  }'];
-  root = wrRoot(['  renderList();'], undefined, RENDER_LIST);
-  wireBefore = await both(root);
-  regionKept(root, applyModules(root, WR_MODULES, { wiringRecord: REC }), ['  wireR();', '  renderList();']);
-  assert.deepStrictEqual(await both(root), wireBefore);
-  // ... in the record but not imported into main.js: not a wiring call
-  root = wrRoot(['  renderList();'], undefined, RENDER_LIST);
-  regionKept(root, applyModules(root, WR_MODULES, { wiringRecord: [...REC, { name: 'renderList', module: 'src/shared/ui/wr.js' }] }), ['  wireR();', '  renderList();']);
-  // ... in the record and imported, but not from a ui/ module: not a wiring call
-  root = wrRoot(['  c();']);
-  regionKept(root, applyModules(root, WR_MODULES, { wiringRecord: [...REC, { name: 'c', module: 'src/shared/lib.js' }] }), ['  wireR();', '  c();']);
-
-  // 5. a statement pinned to main: emptied, the statement stays in main.js
-  root = wrRoot(['  b();']);
-  wireBefore = await both(root);
-  regionEmptied(root, applyModules(root, WR_MODULES, { wiringRecord: REC, pinned: [L('b();')] }), ['  wireR();', '  b();']);
-  assert.deepStrictEqual(await both(root), wireBefore);
-  // ... not pinned: kept
-  root = wrRoot(['  b();']);
-  regionKept(root, applyModules(root, WR_MODULES, { wiringRecord: REC }), ['  wireR();', '  b();']);
-
-  // a region whose remaining text differs between the planners is refused before any marker is removed
-  refuse(
-    () => wrRoot(['  // us note'], ['  // canada note']),
-    WR_MODULES,
-    /region wr: the text left after the move differs between the two planners, so it cannot be emptied/,
-    { wiringRecord: REC },
-  );
 
   console.log('extract_units OK');
 })()
