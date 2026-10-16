@@ -1,6 +1,6 @@
 import { defaults } from './defaults.js';
 import { FIELDS } from './fields.js';
-import { normalizeLists } from '../../shared/core/lists-and-children-2.js';
+import { normalizeLists } from '../../shared/core/list-normalization.js';
 
   export function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };

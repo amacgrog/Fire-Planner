@@ -1,7 +1,14 @@
-import { logScale } from '../core/chart-prefs.js';
-import { mode, state } from '../core/store.js';
+// The undo snapshot and undo button
 
-  export let undoSnapshot = null;
+import { logScale, assignLogScale } from '../core/chart-prefs.js';
+import { mode, state, assignMode, assignState } from '../core/store.js';
+import { saveInputs } from './autosave.js';
+import { setMode } from './chart-view-mode.js';
+import { syncContributionControls } from './sync-contribution-controls.js';
+import { render } from '#country/ui/seam-render';
+import { syncControls } from '#country/ui/seam-syncControls';
+
+  let undoSnapshot = null;
   let undoToastTimer = null;
   export function snapshotForUndo(label) {
     undoSnapshot = {
@@ -21,9 +28,28 @@ import { mode, state } from '../core/store.js';
     clearTimeout(undoToastTimer);
     undoToastTimer = setTimeout(() => hideUndoToast(), 10000);
   }
-  export function hideUndoToast() {
+  function hideUndoToast() {
     const toast = document.getElementById('undoToast');
     if (toast) toast.hidden = true;
     clearTimeout(undoToastTimer);
     undoSnapshot = null;
+  }
+  // load-time: looks up a static element; reads nothing a statement writes.
+  const undoToastBtnEl = document.getElementById('undoToastBtn');
+  export function wireUndoButton() {
+    if (undoToastBtnEl) {
+      undoToastBtnEl.addEventListener('click', () => {
+        if (!undoSnapshot) return;
+        assignState(undoSnapshot.state);
+        assignMode(undoSnapshot.mode);
+        assignLogScale(undoSnapshot.logScale);
+        document.getElementById('logScaleToggle').checked = logScale;
+        syncControls();
+        syncContributionControls();
+        setMode(mode);
+        render();
+        saveInputs();
+        hideUndoToast();
+      });
+    }
   }

@@ -1,3 +1,5 @@
+// Renders and wires the decision-question cards
+
 import { escapeHtml } from '../core/basics.js';
 import { compactDecisionDelta } from '../core/compact-decision-delta.js';
 import { switchToDashboardTab } from './mobile-view.js';

@@ -1,3 +1,5 @@
+// The "What's driving this" banner shown when the plan runs out
+
 import { state } from '../core/store.js';
 import { analyzeShortfallDrivers } from '#country/core/seam-analyzeShortfallDrivers';
 

@@ -1,4 +1,6 @@
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+// Wires the sensitivity lever checkboxes
+
+import { simulate } from '../../shared/core/simulate.js';
 import { renderTornadoChart } from '../../shared/ui/tornado.js';
 
   export function wireSensitivityLevers() {

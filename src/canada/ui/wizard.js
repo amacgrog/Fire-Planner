@@ -1,3 +1,5 @@
+// Wires the first-run wizard checkboxes to the sidebar
+
   export function wireWizardCheckboxes() {
     // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
     // fields needed to get any projection running at all (single/partnered,

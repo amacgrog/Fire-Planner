@@ -1,3 +1,5 @@
+// The storage wrapper and the scenario schema version
+
 import { storageKey } from '#country/storage-key';
 
 export { storageKey };

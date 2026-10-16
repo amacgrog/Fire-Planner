@@ -1,3 +1,5 @@
+// Wires the reset button
+
 import { assignLogScale } from '../core/chart-prefs.js';
 import { assignMode, assignState } from '../core/store.js';
 import { setMcPathCount } from './chart-toolbar.js';

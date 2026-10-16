@@ -1,4 +1,4 @@
-import { infoBubble } from './estimates-and-warnings.js';
+// The shared info bubble opened by the info buttons
 
   let infoBubbleBtn = null;
   let infoBubbleAnchor = { top: 0, left: 0 };
@@ -74,3 +74,13 @@ import { infoBubble } from './estimates-and-warnings.js';
     );
     window.addEventListener('resize', () => closeInfoBubble(false));
   }
+  // load-time: creates the bubble element; reads nothing a statement writes.
+  // ---- Info bubbles: the small "i" buttons next to field labels -----------
+  // Short descriptors live in each field's <small>; anything longer lives in
+  // the button's data-tip and opens in this one shared, fixed-position bubble
+  // (fixed + appended to <body> so the sidebar's scroll container can't clip
+  // it). Click/tap or Enter/Space opens it; click elsewhere, Escape, scroll,
+  // or resize closes it. The buttons sit inside the field's <label for=...>,
+  // so the delegated handler must preventDefault() — otherwise the browser's
+  // label activation would focus/toggle the very control the label points at.
+  const infoBubble = document.createElement('div');

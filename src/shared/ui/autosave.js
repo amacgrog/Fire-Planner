@@ -1,3 +1,5 @@
+// Saves inputs to local storage as they change
+
 import { mode, state } from '../core/store.js';
 import { hasPersonalizedData } from './saved-plan.js';
 import { storage, storageKey } from './storage.js';

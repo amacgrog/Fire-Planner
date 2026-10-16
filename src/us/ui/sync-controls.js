@@ -1,11 +1,12 @@
+// Pushes state into the sidebar controls (the non-contribution fields)
+
 import { isDomWired } from '../../shared/core/field-wiring.js';
 import { state } from '../../shared/core/store.js';
-import { syncFieldOut } from '../../shared/ui/dyn-field-html.js';
+import { syncFieldOut, syncFieldDom } from '../../shared/ui/field-dom-sync.js';
 import { dynApplyVisibility, renderLoanFields } from '../../shared/ui/dynamic-lists.js';
-import { syncFieldDom } from '../../shared/ui/field-wiring.js';
 import { refreshMoneyPreviews } from '../../shared/ui/money-format.js';
 import { revealHidden } from '../core/normalize-lists.js';
-import { FIELDS } from './clamp-profit-sharing.js';
+import { FIELDS } from './fields.js';
 
   export function syncControls() {
     FIELDS.forEach((field) => {

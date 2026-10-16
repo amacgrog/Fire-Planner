@@ -1,7 +1,9 @@
-import { normalizeLists } from '../../shared/core/lists-and-children-2.js';
+// Cleans a raw or saved state into a valid one (normalizeState)
+
+import { normalizeLists } from '../../shared/core/list-normalization.js';
 import { defaults } from '../core/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../core/normalize-lists.js';
-import { FIELDS } from './clamp-profit-sharing.js';
+import { FIELDS } from './fields.js';
 
   export function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };

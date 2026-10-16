@@ -1,3 +1,5 @@
+// The estimated-fields rollup and guided review
+
 import { activeCategory, setActiveCategory } from './category-rail.js';
 import { computeCountedEstimateIds, dismissEstimateField } from './estimate-badges.js';
 import { setMobileView } from './mobile-view.js';

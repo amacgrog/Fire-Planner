@@ -1,3 +1,5 @@
+// The FIELDS registry: every sidebar control that maps onto a state key
+
 import { clampRetireAgeA, clampRetireAgeB } from '../../shared/core/lists-and-children.js';
 import { money } from '../../shared/core/money-format.js';
 import { state } from '../../shared/core/store.js';

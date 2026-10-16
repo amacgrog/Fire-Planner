@@ -1,3 +1,5 @@
+// Test hooks this planner exposes on window
+
 import { afterTaxEstate, benefitsFor, cppContribution, federalTaxCA, gisIncomeRoom, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solvePensionSplit, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor } from '../core/federal-tax-ca.js';
 import { FIELDS } from '../core/fields.js';
 import { getBenefits } from '../core/get-benefits.js';
@@ -11,7 +13,7 @@ import { drawTaxable } from '../../shared/core/draw-taxable.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
 import { displayValue } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
-import { taxIndexFactor } from '../../shared/core/year-factors-2.js';
+import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
 
   export function installTestHooks() {
     window.__test_getState = () => state;

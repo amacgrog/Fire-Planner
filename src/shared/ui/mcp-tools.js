@@ -1,6 +1,7 @@
+// Registers the MCP tools (read_fire_projection and update_fire_assumptions)
+
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
-import { mc } from './first-run-ui.js';
 import { syncContributionControls } from './sync-contribution-controls.js';
 import { FIELDS } from '#country/ui/seam-FIELDS';
 import { mcpAccepts } from '#country/core/seam-mcpAccepts';
@@ -49,3 +50,5 @@ import { syncControls } from '#country/ui/seam-syncControls';
       });
     }
   }
+  // load-time: reads document.modelContext; reads nothing a statement writes.
+  const mc = document.modelContext;

@@ -1,6 +1,8 @@
+// Loading a saved plan and the first-run banner
+
 import { assignMode, assignState } from '../core/store.js';
 import { legacyStorageKey, storage, storageKey } from './storage.js';
-import { syncPanelMaxHeight } from './sync-keyboard-inset.js';
+import { syncPanelMaxHeight } from './layout-metrics.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 
   // Whether a real, previously-saved plan was found in this browser at

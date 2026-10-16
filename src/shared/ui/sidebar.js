@@ -1,3 +1,5 @@
+// The collapsible sidebar and its saved preference
+
   // Collapsible inputs panel (desktop). A pure layout preference, so it
   // gets its own localStorage key rather than riding along with the
   // gated autosave blob (see writeStorageNow() — it no-ops until

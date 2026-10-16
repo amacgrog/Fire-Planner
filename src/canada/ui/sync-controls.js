@@ -1,9 +1,10 @@
+// Pushes state into the sidebar controls (the non-contribution fields)
+
 import { FIELDS } from '../core/fields.js';
 import { isDomWired } from '../../shared/core/field-wiring.js';
 import { state } from '../../shared/core/store.js';
-import { syncFieldOut } from '../../shared/ui/dyn-field-html.js';
+import { syncFieldOut, syncFieldDom } from '../../shared/ui/field-dom-sync.js';
 import { renderLoanFields } from '../../shared/ui/dynamic-lists.js';
-import { syncFieldDom } from '../../shared/ui/field-wiring.js';
 import { refreshMoneyPreviews } from '../../shared/ui/money-format.js';
 
   export function syncControls() {

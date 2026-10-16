@@ -1,10 +1,11 @@
+// The plan status bar: renders and wires it
+
 import { compact } from '../core/money-format.js';
-import { runHistoricalCycles, simulate } from '../core/monte-carlo-paths-2.js';
+import { runHistoricalCycles, simulate } from '../core/simulate.js';
 import { displayValue } from '../core/spending-and-loans.js';
 import { state } from '../core/store.js';
 import { setMobileView } from './mobile-view.js';
-import { syncPanelMaxHeight } from './sync-keyboard-inset.js';
-import { syncPlanStatusOffsets } from './sync-plan-status-offsets.js';
+import { syncPanelMaxHeight, syncPlanStatusOffsets } from './layout-metrics.js';
 
   // Everything the status bar shows (retirement age, investable assets at
   // retirement, whether the plan depletes) is already computed by every

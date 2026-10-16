@@ -1,14 +1,16 @@
+// The render() function: redraws every result from the current state
+
 import { provinceTaxTreatmentNote } from '../core/oas-and-rrif.js';
 import { renderChartView } from './chart-view.js';
 import { renderGroupSummaries } from './render-group-summaries.js';
 import { annotateRothOptimizer } from './roth-optimizer.js';
-import { updateChartXAxisButtons } from './update-chart-xaxis-buttons.js';
+import { updateChartXAxisButtons } from './chart-controls.js';
 import { compact } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { displayValue, fiMultiple } from '../../shared/core/spending-and-loans.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';
-import { renderTable } from '../../shared/ui/chart-render.js';
+import { renderTable } from '../../shared/ui/projection-table.js';
 import { renderDecisionQuestionPreviews } from '../../shared/ui/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../shared/ui/estimate-badges.js';
 import { renderEstimatedRollup } from '../../shared/ui/estimate-review.js';

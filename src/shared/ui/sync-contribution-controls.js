@@ -1,8 +1,9 @@
+// Pushes state into the contribution controls
+
 import { isDomWired } from '../core/field-wiring.js';
 import { state } from '../core/store.js';
-import { syncFieldOut } from './dyn-field-html.js';
+import { syncFieldOut, syncFieldDom } from './field-dom-sync.js';
 import { renderChildFields, renderExtraExpenseFields, renderIncomeSourceFields, renderLumpExpenseFields, renderOneTimeIncomeFields, renderSpendingTierFields } from './dynamic-lists.js';
-import { syncFieldDom } from './field-wiring.js';
 import { FIELDS } from '#country/ui/seam-FIELDS';
 
   export function syncContributionControls() {

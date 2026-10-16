@@ -1,1 +1,1 @@
-export { FIELDS } from './clamp-profit-sharing.js';
+export { FIELDS } from './fields.js';

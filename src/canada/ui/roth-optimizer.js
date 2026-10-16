@@ -1,6 +1,8 @@
+// Computes and annotates the Roth and RRSP optimizer results
+
 import { afterTaxEstate } from '../core/federal-tax-ca.js';
 import { money } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { displayValue } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
 

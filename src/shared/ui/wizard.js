@@ -1,5 +1,13 @@
-import { wizardOverlay, wizardSteps } from './wizard-overlay.js';
+// The first-run wizard: steps, dismiss and close
 
+import { setMobileView } from './mobile-view.js';
+
+  // load-time: looks up a static element; reads nothing a statement writes.
+  const wizardOverlay = document.getElementById('wizardOverlay');
+  // load-time: looks up a static element; reads nothing a statement writes.
+  // Steps are the [data-wizard-step] panels in document order; each carries its own
+  // data-title and data-note (the "Step i of N" prefix is added here).
+  const wizardSteps = Array.from(document.querySelectorAll('#wizardModal [data-wizard-step]'));
   let wizardStep = 1;
   function renderWizardStep() {
     wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
@@ -58,5 +66,15 @@ import { wizardOverlay, wizardSteps } from './wizard-overlay.js';
     // governs) — does exactly what Escape/outside-click already do.
     document.getElementById('wizardXBtn').addEventListener('click', () => {
       wizardOverlay.classList.remove('open');
+    });
+  }
+  export function wireWizardClose() {
+    document.getElementById('wizardCloseBtn').addEventListener('click', () => {
+      wizardOverlay.classList.remove('open');
+      // "What's visible after the wizard is done" should be the plan itself,
+      // not the input form they just finished with — on mobile, that means
+      // landing on the Dashboard tab (harmless to call on desktop too, where
+      // setMobileView has no visible effect; see the CSS note above).
+      setMobileView('dashboard');
     });
   }

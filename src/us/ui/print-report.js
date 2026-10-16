@@ -1,6 +1,8 @@
+// Builds the printable report
+
 import { escapeHtml } from '../../shared/core/basics.js';
 import { money } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { displayValue, fiMultiple } from '../../shared/core/spending-and-loans.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';

@@ -1,3 +1,5 @@
+// The light and dark theme toggle
+
 import { render } from '#country/ui/seam-render';
 
   // load-time: reads window.matchMedia; reads nothing a statement writes.

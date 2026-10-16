@@ -1,6 +1,5 @@
 import { mode, assignState } from '../shared/core/store.js';
-import { syncTopbarHeight } from '../shared/ui/topbar-and-undo.js';
-import { syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/sync-keyboard-inset.js';
+import { syncTopbarHeight, syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/layout-metrics.js';
 import { normalizeState } from './core/normalize-state.js';
 import { wireCategoryRail } from '../shared/ui/category-rail.js';
 import { addChildrenList } from './ui/dynamic-lists.js';
@@ -10,7 +9,7 @@ import { wireInputGestures } from '../shared/ui/input-gestures.js';
 import { installSharedTestHooks } from '../shared/ui/install-test-hooks.js';
 import { loadSidebarPreference, wireSidebarCollapse } from '../shared/ui/sidebar.js';
 import { wireTableFocus } from '../shared/ui/table-focus.js';
-import { wireWizard, wireWizardDismiss } from '../shared/ui/wizard.js';
+import { wireWizard, wireWizardDismiss, wireWizardClose } from '../shared/ui/wizard.js';
 import { syncContributionControls } from '../shared/ui/sync-contribution-controls.js';
 import { syncControls } from './ui/sync-controls.js';
 import { dismissFirstRunBanner, hadSavedState, loadSavedState, wireFirstRunBanner } from '../shared/ui/saved-plan.js';
@@ -38,12 +37,11 @@ import { wireFieldListeners } from '../shared/ui/field-listeners.js';
 import { wireFieldSearch } from '../shared/ui/field-search.js';
 import { wireHeadlineTiles } from '../shared/ui/headline-tiles.js';
 import { wireHousingButtons } from '../shared/ui/housing-buttons.js';
-import { wireLayoutListeners } from '../shared/ui/layout.js';
+import { wireLayoutListeners } from '../shared/ui/layout-listeners.js';
 import { registerMcpTools } from '../shared/ui/mcp-tools.js';
 import { wireScenarios } from '../shared/ui/scenarios.js';
 import { wireThemeToggle } from '../shared/ui/theme.js';
-import { wireUndoButton } from '../shared/ui/undo-2.js';
-import { wireWizardClose } from '../shared/ui/wizard-2.js';
+import { wireUndoButton } from '../shared/ui/undo.js';
 import { wireResetButton } from '../shared/ui/reset-plan.js';
 (() => {
   assignState(normalizeState(null));
@@ -54,50 +52,6 @@ import { wireResetButton } from '../shared/ui/reset-plan.js';
 
   wireEstimateReview();
   wireUnusualWarnings();
-  // Tax-parameter indexing. Brackets, credits, the OAS clawback threshold and
-  // CPP contribution limits all index by this factor. In the deterministic
-  // projection it is the steady state.inflation compounded by yearIndex;
-  // inside simulateHistorical() (backtest and Monte Carlo) it is the path's
-  // own cumulative CPI, so a 1970s-style inflation sequence raises the
-  // brackets along with spending instead of leaving them on a 2.5% schedule.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // ---- end withdrawal building blocks ----
-
-
-  // ---- end per-year helpers ----
-
-
-
-
-  // "What's driving this" shortfall analysis: when the selected projection
-  // shows a depletion age, first tests "structural" single-lever changes tied
-  // to a specific input (LTC off, healthcare premiums off) by temporarily
-  // mutating state and re-running simulate(), then restoring state exactly —
-  // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
-
-
-
-
-
-
-
-
 
   wireAutosave();
 

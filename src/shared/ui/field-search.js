@@ -1,3 +1,5 @@
+// The sidebar field search
+
 import { escapeHtml } from '../core/basics.js';
 import { activeCategory, setActiveCategory } from './category-rail.js';
 import { setMobileView } from './mobile-view.js';

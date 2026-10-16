@@ -1,3 +1,5 @@
+// The chart toolbar: dollar mode dropdown and Monte Carlo path count
+
 import { assignChartExpanded, assignChartToolbarCollapsed, assignLogScale, assignMcPathCount, chartExpanded, chartToolbarCollapsed } from '../core/chart-prefs.js';
 import { tryEnterLandscapeFullscreen, tryExitLandscapeFullscreen } from './landscape-fullscreen.js';
 import { render } from '#country/ui/seam-render';

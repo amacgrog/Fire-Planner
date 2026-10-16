@@ -1,5 +1,5 @@
 import { decisionDeltaPhrase } from './decision-end-assets.js';
-import { simulate } from './monte-carlo-paths-2.js';
+import { simulate } from './simulate.js';
 import { state } from './store.js';
 import { ESTIMATE_ALWAYS_IDS } from '#country/core/seam-ESTIMATE_ALWAYS_IDS';
 import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS';

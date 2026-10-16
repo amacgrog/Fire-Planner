@@ -1,3 +1,5 @@
+// Input gestures: keeps the sidebar steady on reflow and the plan status bar and tab switcher behavior
+
   export function wireInputGestures() {
     // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
     // Checking/unchecking a sidebar checkbox (or changing a <select> like

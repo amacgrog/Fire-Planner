@@ -1,14 +1,15 @@
+// Draws the selected chart view (the projection and its comparison lines)
+
 import { pct } from '../../shared/core/basics.js';
 import { assignChartShiftMode, chartGapPartner, chartShiftMode, chartView, mcPathCount } from '../../shared/core/chart-prefs.js';
-import { runHistoricalCycles, runMonteCarlo, simulate } from '../../shared/core/monte-carlo-paths-2.js';
-import { simulateAtRealCagr } from '../../shared/core/simulate-at-real-cagr-2.js';
-import { cagrColors } from '../../shared/core/simulate-at-real-cagr.js';
+import { runHistoricalCycles, runMonteCarlo, simulate } from '../../shared/core/simulate.js';
+import { simulateAtRealCagr } from '../../shared/core/simulate-at-real-cagr.js';
+import { cagrColors } from '../../shared/core/cagr-colors.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';
-import { renderMonteCarloChart } from '../../shared/ui/chart-render.js';
+import { renderMonteCarloChart } from '../../shared/ui/monte-carlo-chart.js';
 import { renderChart } from '../../shared/ui/projection-chart.js';
-import { updateChartGapPartnerButtons } from './update-chart-gap-partner-buttons.js';
-import { updateChartShiftModeButtons } from './update-chart-shift-mode-buttons.js';
+import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './chart-controls.js';
 
   export function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),

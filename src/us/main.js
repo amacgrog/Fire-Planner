@@ -1,8 +1,7 @@
 import { mode, assignState } from '../shared/core/store.js';
 import { REVEAL_BY_ID } from './core/normalize-lists.js';
-import { syncTopbarHeight } from '../shared/ui/topbar-and-undo.js';
-import { syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/sync-keyboard-inset.js';
-import { FIELDS } from './ui/clamp-profit-sharing.js';
+import { syncTopbarHeight, syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/layout-metrics.js';
+import { FIELDS } from './ui/fields.js';
 import { normalizeState } from './ui/normalize-state.js';
 import { wireCategoryRail } from '../shared/ui/category-rail.js';
 import { wireInfoBubble } from '../shared/ui/info-bubble.js';
@@ -10,7 +9,7 @@ import { wireInputGestures } from '../shared/ui/input-gestures.js';
 import { installSharedTestHooks } from '../shared/ui/install-test-hooks.js';
 import { loadSidebarPreference, wireSidebarCollapse } from '../shared/ui/sidebar.js';
 import { wireTableFocus } from '../shared/ui/table-focus.js';
-import { wireWizard, wireWizardDismiss } from '../shared/ui/wizard.js';
+import { wireWizard, wireWizardDismiss, wireWizardClose } from '../shared/ui/wizard.js';
 import { addChildrenList } from './ui/dynamic-lists.js';
 import { addSocialSecurityWarnings } from './ui/unusual-warnings.js';
 import { wireWizardCheckboxes } from './ui/wizard.js';
@@ -37,12 +36,11 @@ import { wireFieldListeners } from '../shared/ui/field-listeners.js';
 import { wireFieldSearch } from '../shared/ui/field-search.js';
 import { wireHeadlineTiles } from '../shared/ui/headline-tiles.js';
 import { wireHousingButtons } from '../shared/ui/housing-buttons.js';
-import { wireLayoutListeners } from '../shared/ui/layout.js';
+import { wireLayoutListeners } from '../shared/ui/layout-listeners.js';
 import { registerMcpTools } from '../shared/ui/mcp-tools.js';
 import { wireScenarios } from '../shared/ui/scenarios.js';
 import { wireThemeToggle } from '../shared/ui/theme.js';
-import { wireUndoButton } from '../shared/ui/undo-2.js';
-import { wireWizardClose } from '../shared/ui/wizard-2.js';
+import { wireUndoButton } from '../shared/ui/undo.js';
 import { wireChartShiftButtons, wireChartViewButtons } from './ui/chart-controls.js';
 import { wireContributionButtons } from './ui/contribution-buttons.js';
 import { wireFilingStatusButtons } from './ui/filing-status-buttons.js';
@@ -61,72 +59,6 @@ import { installTestHooks } from './ui/install-test-hooks.js';
   wireEstimateReview();
   wireUnusualWarnings();
   addSocialSecurityWarnings();
-  // Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
-  // FICA wage base all index by this factor. In the deterministic projection
-  // it is the steady state.inflation compounded by yearIndex; inside
-  // simulateHistorical() (backtest and Monte Carlo) it is the path's own
-  // cumulative CPI, so a 1970s-style inflation sequence raises the brackets
-  // along with spending instead of leaving them on a 2.5% schedule.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // ---- end withdrawal building blocks ----
-
-
-
-
-  // ---- end per-year helpers ----
-
-
-
-
-
-
-  // Real-CAGR sweep: temporarily overrides the nominal investment return with
-  // the nominal rate equivalent to the given real CAGR compounded on top of
-  // the current inflation input, then restores it. Bond/HYSA yields and
-  // retirement dates are left untouched, so this isolates sensitivity to the
-  // main portfolio return assumption alone.
-  // "What's driving this" shortfall analysis: when the selected projection
-  // shows a depletion age, first tests "structural" single-lever changes tied
-  // to a specific input (LTC off, healthcare premiums off) by temporarily
-  // mutating state and re-running simulate(), then restoring state exactly —
-  // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
-
-
-
-
-
-
-
-
-
-
-
-
 
   wireAutosave();
 

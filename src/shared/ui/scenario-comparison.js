@@ -1,6 +1,8 @@
+// Scenario metrics and the side-by-side comparison
+
 import { escapeHtml } from '../core/basics.js';
 import { compact, money } from '../core/money-format.js';
-import { simulate } from '../core/monte-carlo-paths-2.js';
+import { simulate } from '../core/simulate.js';
 import { deltaAge, deltaMoney, overlayColors } from '../core/scenario-helpers.js';
 import { displayValue } from '../core/spending-and-loans.js';
 import { assignState, compareIds, scenarios, state } from '../core/store.js';

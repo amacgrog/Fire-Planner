@@ -6,17 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const ALLOWED = [
-  'src/shared/core/bond-ladder-2.js',
-  'src/shared/core/estimates-and-warnings-2.js',
-  'src/shared/core/lists-and-children-2.js',
-  'src/shared/core/monte-carlo-paths-2.js',
-  'src/shared/core/simulate-at-real-cagr-2.js',
-  'src/shared/core/sweep-excess-cash-2.js',
-  'src/shared/core/year-factors-2.js',
-  'src/shared/ui/undo-2.js',
-  'src/shared/ui/wizard-2.js',
-];
+const ALLOWED = [];
 
 function allJs(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {

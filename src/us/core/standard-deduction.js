@@ -1,7 +1,7 @@
 import { pct } from '../../shared/core/basics.js';
 import { dependentsInYear, NO_DEPENDENTS, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
 import { state } from '../../shared/core/store.js';
-import { taxIndexFactor } from '../../shared/core/year-factors-2.js';
+import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
 import { medicalGrowth } from '../../shared/core/year-factors.js';
 import { acaExpectedPct, acaHouseholdSize } from './aca-and-magi-iteration.js';
 import { magiCapLeft } from './after-tax-value.js';

@@ -763,7 +763,7 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
   `undoSnapshot`, `wizardStep`). The planner lists these in its `bindings.<country>.needsDecision`; each is decided in stage 4, either by
   combining its writers into one module with it or by giving it an `assign<Name>` state module (needed whenever a statement writes it).
 - **Mutable bindings that did move.** A `let` written by exactly one function and no statement moves into that function's module; in stage 3
-  that is `taxFactorInflation` (the memo of `taxIndexFactor`, in `src/shared/core/year-factors-2.js`). It is that function's private state. The
+  that is `taxFactorInflation` (the memo of `taxIndexFactor`, in `src/shared/core/tax-index-factor.js`). It is that function's private state. The
   other such bindings (the timers, tooltip elements and `lastRothOptimizer`) belong to UI functions and move with them in stage 4. A module that
   exports a `let` is read by others as a live binding; they must not assign it (esbuild: `Cannot assign to import`).
 - **Adding or moving code.** Put new shared code in a module under `src/shared/core|ui/` and import it (relative path); new country code in

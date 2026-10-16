@@ -1,3 +1,5 @@
+// Wiring for the filing status buttons
+
 import { state } from '../../shared/core/store.js';
 import { saveInputs } from '../../shared/ui/autosave.js';
 import { render } from './render.js';

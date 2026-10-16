@@ -1,3 +1,5 @@
+// Draws the main projection chart
+
 import { logScale } from '../core/chart-prefs.js';
 import { compact } from '../core/money-format.js';
 import { displayValue, xAxisLabel } from '../core/spending-and-loans.js';

@@ -1,3 +1,5 @@
+// Wiring for the housing tenure buttons
+
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { render } from '#country/ui/seam-render';

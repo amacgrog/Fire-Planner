@@ -1,3 +1,5 @@
+// Enter and leave landscape fullscreen on phones
+
   // Best-effort only: real browser Fullscreen (which also hides the
   // mobile address bar) plus a landscape orientation lock, attempted
   // together since Chrome/Android requires the page to already be in

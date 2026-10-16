@@ -1,3 +1,5 @@
+// Works out the cash-flow Sankey flows for one year
+
 import { sankeyHue } from '../../shared/core/sankey-hues.js';
 import { displayValue } from '../../shared/core/spending-and-loans.js';
 import { isDarkTheme } from '../../shared/ui/chart-colors.js';

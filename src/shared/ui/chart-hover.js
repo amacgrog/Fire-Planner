@@ -1,3 +1,5 @@
+// Hover tooltips on the charts
+
 import { chartHoverEnabled } from '../core/chart-hover.js';
 import { chartView } from '../core/chart-prefs.js';
 import { money } from '../core/money-format.js';

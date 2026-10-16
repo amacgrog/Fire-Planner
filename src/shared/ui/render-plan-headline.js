@@ -1,3 +1,5 @@
+// The plan headline sentence on the dashboard
+
 import { compact } from '../core/money-format.js';
 import { displayValue } from '../core/spending-and-loans.js';
 import { mode, state } from '../core/store.js';

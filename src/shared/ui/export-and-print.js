@@ -1,4 +1,6 @@
-import { simulate } from '../core/monte-carlo-paths-2.js';
+// Wires the export and print buttons
+
+import { simulate } from '../core/simulate.js';
 import { state } from '../core/store.js';
 import { buildPrintReport } from '#country/ui/seam-buildPrintReport';
 

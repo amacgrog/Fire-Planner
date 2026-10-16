@@ -1,3 +1,5 @@
+// Controls and wiring for the Roth and RRSP optimizer card
+
 import { render } from './render.js';
 
   export function wireRothOptimizerControls() {

@@ -1,5 +1,7 @@
+// The mobile Inputs and Dashboard tab switching
+
 import { hadSavedState } from './saved-plan.js';
-import { syncPlanStatusOffsets } from './sync-plan-status-offsets.js';
+import { syncPlanStatusOffsets } from './layout-metrics.js';
 import { render } from '#country/ui/seam-render';
 
   // Assigned by the mobile-tab setup further down; declared here (rather

@@ -1,7 +1,9 @@
+// Input listeners for the registered sidebar fields
+
 import { isDomWired } from '../core/field-wiring.js';
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
-import { syncFieldOut } from './dyn-field-html.js';
+import { syncFieldOut } from './field-dom-sync.js';
 import { syncContributionControls } from './sync-contribution-controls.js';
 import { FIELDS } from '#country/ui/seam-FIELDS';
 import { render } from '#country/ui/seam-render';

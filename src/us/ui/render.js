@@ -1,9 +1,11 @@
+// The render() function: redraws every result from the current state
+
 import { compact } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { displayValue, fiMultiple } from '../../shared/core/spending-and-loans.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';
-import { renderTable } from '../../shared/ui/chart-render.js';
+import { renderTable } from '../../shared/ui/projection-table.js';
 import { renderDecisionQuestionPreviews } from '../../shared/ui/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../shared/ui/estimate-badges.js';
 import { renderEstimatedRollup } from '../../shared/ui/estimate-review.js';
@@ -20,12 +22,12 @@ import { cliffPlanSummary } from '../core/cliff-plan-summary.js';
 import { refreshCliffPlan } from '../core/refresh-cliff-plan.js';
 import { STATE_TAX_NOT_MODELED_NOTE, stateTaxTipText } from '../core/state-rules.js';
 import { retirementTotal } from '../core/withdrawal-mix-and-roth-accounts.js';
-import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './annotate-solver-rows.js';
+import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './table-annotations.js';
 import { renderChartView } from './chart-view.js';
 import { renderGroupSummaries } from './render-group-summaries.js';
-import { renderMultiLeverAppliedStatus } from './render-multi-lever-applied-status.js';
+import { renderMultiLeverAppliedStatus } from './roth-optimizer.js';
 import { stateTaxTreatmentNote } from './state-tax-treatment-note.js';
-import { updateChartXAxisButtons } from './update-chart-xaxis-buttons.js';
+import { updateChartXAxisButtons } from './chart-controls.js';
 
   export function render() {
     // The cliff plan for this state, before anything projects (every run below applies it).

@@ -1,5 +1,7 @@
+// Computes and renders the Roth optimizer, per-year and multi-lever results
+
 import { money } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { displayValue } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimize-multi-lever.js';
@@ -246,4 +248,30 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../core/roth-per-yea
       applyBtn.disabled = true;
       applyNote.textContent = "Nothing to apply — your current settings already match what was found.";
     }
+  }
+  // Always-visible summary of whatever's currently applied — shown whether
+  // or not the card is expanded/has just been run, so a schedule applied in
+  // an earlier session isn't silently invisible the next time this page
+  // loads (it's otherwise undiscoverable: it doesn't show up as a checked
+  // box anywhere, only as a change in the numbers).
+  export function renderMultiLeverAppliedStatus() {
+    const el = document.getElementById('multiLeverAppliedStatus');
+    const rothAges = state.appliedRothSchedule ? Object.keys(state.appliedRothSchedule) : [],
+      mixAges = state.appliedMixSchedule ? Object.keys(state.appliedMixSchedule) : [];
+    if (!rothAges.length && !mixAges.length) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    const parts = [];
+    if (rothAges.length)
+      parts.push(
+        `a per-year Roth conversion schedule (ages ${Math.min(...rothAges)}–${Math.max(...rothAges)}) <button type="button" class="link-btn" data-clear-applied="roth">clear</button>`,
+      );
+    if (mixAges.length)
+      parts.push(
+        `a per-year withdrawal mix (ages ${Math.min(...mixAges)}–${Math.max(...mixAges)}) <button type="button" class="link-btn" data-clear-applied="mix">clear</button>`,
+      );
+    el.hidden = false;
+    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the optimizer below: ${parts.join(' and ')}.</div>`;
   }

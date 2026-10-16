@@ -1,3 +1,5 @@
+// Adds solver, inherited-account and IRMAA-appeal notes to the projection table rows
+
 import { money } from '../../shared/core/money-format.js';
 import { displayValue } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';

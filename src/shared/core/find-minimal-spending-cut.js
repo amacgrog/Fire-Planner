@@ -1,4 +1,4 @@
-import { simulate } from './monte-carlo-paths-2.js';
+import { simulate } from './simulate.js';
 import { state } from './store.js';
 
   // are reported whenever any of them helps, because they're a specific,

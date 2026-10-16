@@ -1,8 +1,9 @@
-import { unusualAssumptionImpact } from '../core/estimates-and-warnings-2.js';
+// The unusual-assumption warnings
+
+import { unusualAssumptionImpact } from '../core/estimate-checks.js';
 import { computeUnusualAssumptions, UNUSUAL_RANGES } from '../core/estimates-and-warnings.js';
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
-import { markUnusualFields } from './estimates-and-warnings.js';
 import { setMobileView, switchToDashboardTab } from './mobile-view.js';
 import { render } from '#country/ui/seam-render';
 
@@ -151,5 +152,19 @@ import { render } from '#country/ui/seam-render';
     document.getElementById('unusualToastClose')?.addEventListener('click', () => {
       document.getElementById('unusualToast').hidden = true;
       clearTimeout(unusualToastTimer);
+    });
+  }
+  // Live, passive per-field marker (red border + underlined label) for
+  // whichever UNUSUAL_RANGES fields are currently out of range — updates on
+  // every render(), same cadence as markDefaultFields()'s amber dot, so it's
+  // accurate even for the very last field someone edits and never navigates
+  // away from (nothing here waits for a blur). This is deliberately silent
+  // — no toast, no popup — just a quiet visual cue at the point of entry.
+  function markUnusualFields(flaggedIds) {
+    UNUSUAL_RANGES.forEach((r) => {
+      const el = document.getElementById(r.id);
+      if (!el) return;
+      const fieldEl = el.closest('.field, .range-field');
+      if (fieldEl) fieldEl.classList.toggle('unusual-value', flaggedIds.has(r.id));
     });
   }

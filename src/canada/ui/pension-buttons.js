@@ -1,3 +1,5 @@
+// Wiring for the pension coverage buttons
+
 import { render } from './render.js';
 import { syncControls } from './sync-controls.js';
 import { state } from '../../shared/core/store.js';

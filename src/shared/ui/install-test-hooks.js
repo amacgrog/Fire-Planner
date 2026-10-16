@@ -1,7 +1,9 @@
+// Test hooks shared by both planners, exposed on window
+
 import { HIST } from '../core/basics.js';
-import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../core/monte-carlo-paths-2.js';
+import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../core/simulate.js';
 import { refillBondReserve } from '../core/refill-bond-reserve.js';
-import { rotateIntoBondLadder } from '../core/sweep-excess-cash-2.js';
+import { rotateIntoBondLadder } from '../core/bond-ladder-rotation.js';
 
   export function installSharedTestHooks() {
     // Test-only exports for test_roth_optimizer_per_year.js — specifically

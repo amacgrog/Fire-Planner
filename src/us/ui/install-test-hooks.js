@@ -1,10 +1,12 @@
+// Test hooks this planner exposes on window (US engine and plan hooks)
+
 import { HIST } from '../../shared/core/basics.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
-import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/monte-carlo-paths-2.js';
+import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/simulate.js';
 import { mortgageSchedule } from '../../shared/core/spending-and-loans.js';
 import { assignState, state } from '../../shared/core/store.js';
 import { assignHistTaxFactors, histTaxFactors } from '../../shared/core/tax-factors.js';
-import { taxIndexFactor } from '../../shared/core/year-factors-2.js';
+import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/scenario-comparison.js';
 import { acaHouseholdSize, magiStats, planStats } from '../core/aca-and-magi-iteration.js';
@@ -43,7 +45,7 @@ import { testHooks } from '../core/test-hooks.js';
 import { withdrawStandard } from '../core/withdraw-standard.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvert, accountsDraw, accountsNew, accountsRestore, accountStatuses, incomeRoom, penaltyStatus, rothAccountsNew, rothSlotSplit, rule55Applies, WITHDRAWAL_MIX_CANDIDATES, withdrawalMixWeights } from '../core/withdrawal-mix-and-roth-accounts.js';
 import { BUCKET_MODE, STANDARD_MODE } from '../core/year-modes.js';
-import { FIELDS } from './clamp-profit-sharing.js';
+import { FIELDS } from './fields.js';
 import { normalizeState } from './normalize-state.js';
 import { applyMultiLeverSchedule, clearAppliedMultiLeverSchedule } from './roth-optimizer-controls.js';
 import { syncControls } from './sync-controls.js';

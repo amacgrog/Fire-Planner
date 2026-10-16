@@ -1,3 +1,5 @@
+// The disclaimer link
+
 import { switchToDashboardTab } from './mobile-view.js';
 
   export function wireDisclaimerLink() {

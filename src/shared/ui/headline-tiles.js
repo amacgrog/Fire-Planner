@@ -1,3 +1,5 @@
+// The dashboard headline tiles and their safe-withdrawal-rate boxes
+
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { render } from '#country/ui/seam-render';

@@ -1,3 +1,5 @@
+// Renders the add-as-you-go lists (loans, income, expenses, tiers)
+
 import { escapeHtml } from '../core/basics.js';
 import { dynTipBtn } from '../core/dyn-field-helpers.js';
 import { dynFieldHtml } from '../core/dyn-field-html.js';

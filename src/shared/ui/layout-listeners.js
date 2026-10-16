@@ -1,6 +1,7 @@
+// Layout listeners: sidebar transition re-render, resize and viewport handlers
+
 import { activeCategory, setActiveCategory } from './category-rail.js';
-import { syncKeyboardInset, syncPanelMaxHeight } from './sync-keyboard-inset.js';
-import { syncTopbarHeight } from './topbar-and-undo.js';
+import { syncKeyboardInset, syncPanelMaxHeight, syncTopbarHeight } from './layout-metrics.js';
 import { render } from '#country/ui/seam-render';
 
   export function wireLayoutListeners() {
