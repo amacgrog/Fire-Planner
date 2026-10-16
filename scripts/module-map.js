@@ -2,9 +2,11 @@
 // Writes docs/superpowers/inventory/module-map.md: one table per directory under src/, one row per module
 // (path, exports, purpose). Seam facades (seam-*.js) are listed as one row per directory.
 //
-//   node scripts/module-map.js                   write the file
-//   node scripts/module-map.js --check           exit 1 if the file is stale (run by `npm test`)
-//   node scripts/module-map.js --require-purpose also exit 1 if a ui/ module (not a seam facade) has no purpose comment
+//   node scripts/module-map.js                   write the file (only with no flag)
+//   node scripts/module-map.js --check           exit 1 if the file is stale; writes nothing
+//   node scripts/module-map.js --require-purpose exit 1 if a ui/ module (not a seam facade) has no purpose comment;
+//                                                writes nothing (`npm test` runs `--check --require-purpose`)
+//   --root DIR                                   run on another tree (default: this repository; tests/module_map.js)
 //
 // A module's purpose is line 1 when it is a `//` comment that does not start with `// load-time:` and line 2 is blank.
 // Line endings are ignored when comparing (the working tree is CRLF).
@@ -12,7 +14,14 @@ const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
 
-const root = path.join(__dirname, '..');
+const argv = process.argv.slice(2);
+const rootAt = argv.indexOf('--root');
+if (rootAt >= 0 && (rootAt + 1 >= argv.length || argv[rootAt + 1].startsWith('--'))) {
+  console.error('module-map.js: --root needs a directory');
+  process.exit(2);
+}
+const root = rootAt >= 0 ? path.resolve(argv[rootAt + 1]) : path.join(__dirname, '..');
+const args = rootAt >= 0 ? argv.filter((_, i) => i !== rootAt && i !== rootAt + 1) : argv;
 const SRC = path.join(root, 'src');
 const OUT = path.join(root, 'docs', 'superpowers', 'inventory', 'module-map.md');
 const NO_PURPOSE = '(no purpose comment)';
@@ -111,8 +120,7 @@ function build() {
   return { text: lines.join('\n'), offenders, moduleRows, seamRows };
 }
 
-const args = process.argv.slice(2);
-const bad = args.filter((a) => a !== '--check' && a !== '--require-purpose');
+const bad =args.filter((a) => a !== '--check' && a !== '--require-purpose');
 if (bad.length) {
   console.error(`module-map.js: unknown argument ${bad.map((a) => `'${a}'`).join(', ')}; expected --check and/or --require-purpose`);
   process.exit(2);
@@ -125,7 +133,7 @@ if (args.includes('--check')) {
     console.error('module-map.md is stale; run npm run analyze');
     failed = true;
   }
-} else {
+} else if (!args.length) {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, text);
   console.log(`module-map.md: ${moduleRows} module rows, ${seamRows} facade rows`);

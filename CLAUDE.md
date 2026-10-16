@@ -54,9 +54,12 @@ holds it. See `README.md` for the full user-facing feature list.
   trees statement by statement (run it after any change that only moves code; see "Modules, the entry point and the tools").
 - `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract, code in
   `scripts/lib/country-contract.js`), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js`
-  (no browser global, DOM method call or `ui/` import in any `src/**/core/` file; facades on the right side),
+  (no browser global, DOM method call or `ui/` import in any `src/**/core/` file; it reads only `core/` files),
   `tests/core_import.js` (every `core/` module imports in plain Node, one fresh process per module), `tests/ui_cycles.js` (import
-  cycles only among `ui/` modules, and every `ui/` module passes the load-time guard), `tests/no_bare_imports.js` (no
+  cycles only among `ui/` modules: a cycle with a member outside `ui/` fails; and every `ui/` module passes the load-time guard),
+  `tests/main_entry.js` (each `main.js` is imports plus one IIFE of calls and if statements), `tests/doc_paths.js` (every
+  module path under `src/` named in this file and in `docs/superpowers/inventory/*.md` exists), `tests/module_map.js` (the module-map
+  script's write and check modes, on fixture trees), `tests/no_bare_imports.js` (no
   `import './x.js';` in `src/`), `tests/module_names.js` (no module file name ending in `-<digits>.js`), `tests/no_markers.js`
   (no `@@shared` marker anywhere in `src/`), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` /
   `tests/regroup_modules.js` / `tests/compare_builds.js` (the extraction tool, its helper, the regroup tool and the build
@@ -773,7 +776,9 @@ nothing needs converting by hand.
 - **Where code lives.** Stage 2 moved the first four dependency layers out of the planner IIFE, stage 3 every remaining DOM-free unit,
   stage 4 the UI layer and every side-effect statement (design `docs/superpowers/specs/2026-10-15-stage4-ui-design.md`). Shared code is under
   `src/shared/core|ui/`, country code under `src/<country>/core|ui/`. A module is under `core/` when none of its units uses a browser global,
-  calls a DOM method on an element, or imports a `ui/` module (`tests/core_purity.js` enforces all three), and under `ui/` otherwise. `ui/`
+  calls a DOM method on an element, or imports a `ui/` module, and under `ui/` otherwise. `tests/core_purity.js` checks only that
+  `core/` files reference no DOM (browser globals, DOM method calls) and import nothing from `ui/`; it does not check that a
+  module under `ui/` needs to be there. `ui/`
   modules are named and grouped by topic (`theme.js`, `sidebar.js`, `wizard.js`, `info-bubble.js`, `undo.js`, `mobile-view.js`,
   `scenarios.js`, `chart-controls.js`, `mcp-tools.js`, `src/us/ui/fields.js` for `FIELDS`, ...); many `core/` modules still hold one unit
   (regrouping them is follow-up work). No module name ends in `-<digits>` (`tests/module_names.js`). Module files keep the two-space
@@ -797,7 +802,9 @@ nothing needs converting by hand.
   one-line module each country has (`export { render } from './render.js';`): `src/<country>/core/seam-<name>.js`, imported as
   `#country/core/seam-<name>`, or `src/<country>/ui/seam-<name>.js`, imported as `#country/ui/seam-<name>`. A name's facade
   is under `ui/` in both countries if either country's module for it is under `ui/` (shared code imports one specifier for both countries),
-  else under `core/`; `tests/core_purity.js` checks the side. There are 24 seam names (`scripts/extractions/stage4.json`, `seam`): under
+  else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
+  DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
+  name; the regroup tool moves facades by this rule. There are 24 seam names (`scripts/extractions/stage4.json`, `seam`): under
   `ui/` `render`, `syncControls`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
   `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `SENSITIVITY_LEVERS`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
@@ -809,7 +816,9 @@ nothing needs converting by hand.
   `mobile-view.js`, `plan-status-bar.js`, `sankey.js`, `tornado.js` and `unusual-warnings.js`, plus that country's `ui/chart-controls.js`,
   `ui/chart-view.js`, `ui/decision-questions.js` and `ui/render.js`, allowed because every one passes the load-time guard below. It
   started with the chain country `render` -> decision questions -> `setChartView` -> `render` (an example, not the whole cycle).
-  `core/` stays acyclic (`tests/core_import.js`). esbuild turns a module's top-level `const` and `let` into `var` and bundles
+  `core/` stays acyclic: `tests/ui_cycles.js` refuses any import cycle with a member outside `ui/` (`tests/core_import.js`
+  imports each `core/` module alone in a fresh process, which catches a load-order failure across a cycle, but does not
+  refuse a cycle as such). esbuild turns a module's top-level `const` and `let` into `var` and bundles
   in dependency order, so a read across a cycle while modules load would give a silent `undefined` (native ESM: a TDZ error). The guard
   (`scripts/lib/load-time.js`, run by `tests/ui_cycles.js` on every `ui/` module, by the applier on a cycle it would create and by the
   regroup tool after every operation): a `ui/` module holds no top-level statement other than declarations (its statements are in
@@ -840,7 +849,9 @@ nothing needs converting by hand.
 - **The regroup tool.** `node scripts/regroup-modules.js --map <file> [--dry-run]` applies a map of renames (`{ "rename": old, "to": new }`),
   merges (`{ "merge": [paths], "to": path }`) and moves of one top-level declaration with its comments (`{ "move": name, "from": path, "to":
   path }`), in order; `--dry-run` prints what it would do and writes nothing. It rewrites every import in `src/` (relative paths and seam
-  facades), the exact module paths in `tests/state_modules.js` and in this file, and reports a generated rule doc whose source path changed
+  facades), the exact module paths in `tests/state_modules.js`, in this file and in the region maps
+  (`docs/superpowers/inventory/stage{2,3,4}-region-map.md`), and counts the names `tests/state_modules.js` reads from a module
+  as importers before it removes an export (`tests/doc_paths.js` checks every module path under `src/` in these docs exists), and reports a generated rule doc whose source path changed
   (`regenerate: npm run gen:...`). After every operation it re-runs the structural guards (facade side, `core/` purity, no cycle touching
   `core/`, the load-time guard, no undeclared name, no initializer reading a later declaration) and bundles both planners to report any
   change in the order the `// load-time:` initializers run; it refuses a name clash, a mutable binding moved without all its writers and
@@ -874,7 +885,7 @@ nothing needs converting by hand.
 - **Test hooks and MCP tools:** in `src/<country>/ui/install-test-hooks.js` / `src/shared/ui/install-test-hooks.js` and
   `src/shared/ui/mcp-tools.js` (rule 3 above), never in `core/`.
 - **The guards:** `tests/closure_names.js` (undeclared names), `tests/ui_cycles.js`, `tests/no_bare_imports.js`, `tests/module_names.js`,
-  the module-map check, all in `npm test`. The ordered build comparison is for refactors only; a feature changes the statements on purpose.
+  `tests/main_entry.js`, `tests/doc_paths.js`, the module-map check, all in `npm test`. The ordered build comparison is for refactors only; a feature changes the statements on purpose.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 

@@ -124,7 +124,6 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     { path: 'src/us/core/rate.js', owner: 'us', units: { us: ['rate', 'tax'], canada: [] } },
   ];
   const report = applyModules(root, MODS);
-  assert.deepStrictEqual(report.warnings, []);
   assert.deepStrictEqual(report.moved, { us: 4, canada: 0 });
   assert.strictEqual(
     read(root, 'src/us/core/helpers.js'),
@@ -548,6 +547,24 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   // a cycle with a module outside ui/ still throws as before, whatever its initializers
   refuse(cycleRoot, evenOdd('ui', 'core'), /module import cycle: .*not every module of the cycle is under ui\//);
   refuse(cycleRoot, evenOdd('core', 'core'), /module import cycle/);
+
+  // the command line: a missing --batch is a usage error, not batch 0 (an empty manifest, so nothing could be applied)
+  {
+    const { spawnSync } = require('child_process');
+    const cli = path.join(__dirname, '..', 'scripts', 'extract-units.js');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extract-units-cli-'));
+    made.push(dir);
+    const manifest = path.join(dir, 'plan.json');
+    fs.writeFileSync(manifest, JSON.stringify({ modules: [] }));
+    for (const args of [['--manifest', manifest, '--dry-run'], ['--manifest', manifest, '--batch'], ['--manifest', manifest, '--batch', 'x'], ['--batch', '0']]) {
+      const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
+      assert.strictEqual(r.status, 2, `exit 2 for ${args.join(' ')}: ${r.stderr}`);
+      assert.ok(/^usage: node scripts\/extract-units\.js/.test(r.stderr), `usage for ${args.join(' ')}: ${r.stderr}`);
+    }
+    const r = spawnSync(process.execPath, [cli, '--manifest', manifest, '--batch', '0', '--dry-run'], { encoding: 'utf8' });
+    assert.strictEqual(r.status, 2);
+    assert.ok(/no modules in batch 0/.test(r.stderr), r.stderr);
+  }
 
   console.log('extract_units OK');
 })()

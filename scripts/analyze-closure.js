@@ -21,6 +21,10 @@ const DOM_GLOBALS = new Set([
   'CustomEvent', 'Event', 'FileReader', 'Image', 'XMLSerializer', 'DOMParser', 'MutationObserver',
   'ResizeObserver', 'IntersectionObserver', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'Element', 'Node', 'self', 'top',
 ]);
+// A DOM method called on an element (core/ code calls none: tests/core_purity.js and scripts/lib/regroup.js read this).
+const DOM_METHODS = /\.(addEventListener|removeEventListener|setSelectionRange|appendChild|removeChild|setAttribute|removeAttribute|querySelector|querySelectorAll|classList|innerHTML|textContent|getBoundingClientRect)\b/;
+// Code without its comments, for the DOM_METHODS and import-source text checks (a `//` after `:` is kept, for URLs).
+const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 // Names every JS host has (Math, Object, setTimeout, ...); anything else that is free is "unknown".
 const KNOWN_GLOBALS = new Set(Object.getOwnPropertyNames(globalThis));
 
@@ -372,7 +376,7 @@ function domGlobalsUsed(code) {
     .map((ref) => ({ name: ref.identifier.name, line: ref.identifier.loc.start.line }));
 }
 
-module.exports = { analyze, render, undeclaredNames, domGlobalsUsed, statementLabel, __setLabelHash };
+module.exports = { analyze, render, undeclaredNames, domGlobalsUsed, statementLabel, __setLabelHash, DOM_GLOBALS, DOM_METHODS, stripComments };
 
 if (require.main === module) {
   const root = path.join(__dirname, '..');

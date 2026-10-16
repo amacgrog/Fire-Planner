@@ -793,6 +793,27 @@ try {
     assert.deepStrictEqual(modOf(p7, 'src/us/ui/paint-2.js').units.us, ['paint']);
   }
 
+  // 8. The command line: an unknown or space-separated argument exits 2 before any planning; an error is one line, no
+  // stack trace.
+  {
+    const { spawnSync } = require('child_process');
+    const cli = path.join(__dirname, '..', 'scripts', 'plan-extraction.js');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-cli-'));
+    made.push(dir);
+    const topicsFile = path.join(dir, 'topics.json');
+    fs.writeFileSync(topicsFile, '{}');
+    for (const args of [['--topics', topicsFile], ['--bogus'], ['extra'], ['--max-layer'], ['--max-batch=x'], ['--core-only=1']]) {
+      const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
+      assert.strictEqual(r.status, 2, `exit 2 for ${args.join(' ')} (stderr: ${r.stderr.slice(0, 200)})`);
+      assert.strictEqual(r.stdout, '', `no plan printed for ${args.join(' ')}`);
+      assert.ok(/usage: node scripts\/plan-extraction\.js/.test(r.stderr), r.stderr);
+    }
+    const missing = spawnSync(process.execPath, [cli, `--topics=${path.join(dir, 'missing.json')}`], { encoding: 'utf8' });
+    assert.strictEqual(missing.status, 1, missing.stderr);
+    assert.ok(/^plan-extraction failed: .*missing\.json/.test(missing.stderr), missing.stderr);
+    assert.ok(!/\n\s+at /.test(missing.stderr), `no stack trace: ${missing.stderr}`);
+  }
+
   console.log('extraction_plan OK');
 } finally {
   made.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true }));

@@ -219,8 +219,7 @@ function cyclePath(comp, edges) {
 
 function applyModules(root, modules, { dryRun = false, seamSides = {} } = {}) {
   const info = Object.fromEntries(COUNTRIES.map((c) => [c, loadCountry(root, c)]));
-  const warnings = [];
-  const files = new Map(); // absolute path -> text (null = delete)
+  const files = new Map(); // absolute path -> text
 
   // ---- 1. which module takes which unit, per country
   const moduleOf = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()]));
@@ -593,7 +592,6 @@ function applyModules(root, modules, { dryRun = false, seamSides = {} } = {}) {
     const staged = [];
     try {
       for (const [file, text] of files) {
-        if (text === null) continue;
         fs.mkdirSync(path.dirname(file), { recursive: true });
         fs.writeFileSync(`${file}.extract-tmp`, text);
         staged.push(file);
@@ -603,7 +601,6 @@ function applyModules(root, modules, { dryRun = false, seamSides = {} } = {}) {
       throw err;
     }
     staged.forEach((file) => fs.renameSync(`${file}.extract-tmp`, file));
-    for (const [file, text] of files) if (text === null) fs.rmSync(file, { force: true });
   }
   return {
     modules: modules.map((m) => ({
@@ -616,7 +613,6 @@ function applyModules(root, modules, { dryRun = false, seamSides = {} } = {}) {
     // the runs actually written (a manifest entry with no statements writes nothing)
     wiring: modules.flatMap((m) => [...new Set(COUNTRIES.flatMap((c) => (runsOf.get(m)[c] || []).map((r) => r.name)))].map((name) => ({ name, module: m.path }))),
     seam: facadeNames,
-    warnings,
   };
 }
 

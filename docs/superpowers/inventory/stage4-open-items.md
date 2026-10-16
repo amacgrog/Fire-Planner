@@ -41,6 +41,8 @@ behavior a later change could trip over (each is also listed in section 10 of `d
 - T12 | scripts/lib/regroup.js | The writer check covers `let`/`var` only (reassigning a function or class binding is not checked). | esbuild's assign-to-import error catches it in reachable code.
 - T12 | scripts/lib/load-time.js | The cycle rule is conservative: any module-level name in a marked initializer of a cycle module (even through a shadowing parameter) is flagged. | Refuses rather than accepts.
 - T12fix1 | scripts/lib/regroup.js, scripts/analyze-closure.js, scripts/lib/extract-units.js | `DATA_MARK` is `^\s*// ([A-Z][A-Z_]*):(begin|end)\s*$`: a data-block name with a digit or hyphen (`E1_RULES`) would not be recognised. | No such name exists; widen all three together.
+- T17 (prerequisite for the core regroup) | tests/ui_cycles.js, scripts/lib/regroup.js, scripts/lib/extract-units.js, scripts/module-map.js | Each has its own test of what a ui/ path is (`split('/').includes('ui')`, `isUi` on the directory segments, `isUiPath` = `^src/[^/]+/ui/`, `/(^|\/)ui$/` on the directory), and nothing refuses a module outside both core/ and ui/ (other than `src/<country>/main.js` and `src/<country>/storage-key.js`). | One shared definition of a ui/ path, plus that refusal, before the core regroup moves many modules.
+- T17 (prerequisite for the core regroup) | src/us/core/standard-deduction.js, src/canada/core/taxable-basis-key.js | Misleading module names: the US `taxFor` and its neighbours live in `standard-deduction.js`, and the Canada `newWithdrawal` in `taxable-basis-key.js` (each module is named after its first unit). | Rename or split them in the core regroup, before more code is placed by topic.
 
 ## Tidiness
 

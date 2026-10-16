@@ -10,34 +10,53 @@
 // --reserved=<file>: a JSON array of names a wiring function may not take (the base bundles' top-level names).
 // --draft-topics: print a draft topics file (design section 5.1 defaults) instead of a plan.
 // Module names can be overridden in scripts/extractions/names.json: "shared:<region>" or "<country>:<first unit label>".
+// Values take the `--flag=value` form only; any other argument (a space-separated value, an unknown flag) exits 2 with the
+// usage line, and an error while planning is printed as one line (no stack trace), exit 1.
 const fs = require('fs');
 const path = require('path');
 const { planExtraction, draftTopics } = require('./lib/extraction-plan');
 
-const root = path.join(__dirname, '..');
-const namesFile = path.join(root, 'scripts', 'extractions', 'names.json');
-const names = fs.existsSync(namesFile) ? JSON.parse(fs.readFileSync(namesFile, 'utf8')) : {};
-const number = (flag) => {
-  const arg = process.argv.find((a) => a.startsWith(`${flag}=`));
-  return arg ? Number(arg.split('=')[1]) : undefined;
+const USAGE = 'usage: node scripts/plan-extraction.js [--core-only] [--draft-topics] [--max-layer=N] [--max-batch=N] [--seam=a,b] [--topics=FILE] [--reserved=FILE]';
+const SWITCHES = new Set(['--core-only', '--draft-topics']);
+const NUMBERS = new Set(['--max-layer', '--max-batch']);
+const VALUES = new Set(['--seam', '--topics', '--reserved']);
+const usage = (msg) => {
+  console.error(`${msg}\n${USAGE}`);
+  process.exit(2);
 };
-const text = (flag) => {
-  const arg = process.argv.find((a) => a.startsWith(`${flag}=`));
-  return arg ? arg.slice(flag.length + 1) : undefined;
-};
-const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
-const options = { names, coreOnly: process.argv.includes('--core-only') };
-const seamArg = process.argv.find((a) => a.startsWith('--seam='));
-if (seamArg) options.seam = seamArg.split('=')[1].split(',');
-if (number('--max-layer') !== undefined) options.maxLayer = number('--max-layer');
-if (number('--max-batch') !== undefined) options.maxBatch = number('--max-batch');
-if (text('--reserved')) options.reservedNames = readJson(text('--reserved'));
-let out;
-if (process.argv.includes('--draft-topics')) out = draftTopics(root, options);
-else {
-  if (text('--topics')) options.topics = readJson(text('--topics'));
-  out = planExtraction(root, options);
-  // repo-relative with forward slashes, so the manifest is the same on every machine
-  if (text('--topics')) out.topics = path.relative(root, path.resolve(text('--topics'))).split(path.sep).join('/');
+const flags = new Map(); // flag -> value (true for a switch)
+for (const a of process.argv.slice(2)) {
+  const eq = a.indexOf('=');
+  const flag = eq < 0 ? a : a.slice(0, eq);
+  const val = eq < 0 ? null : a.slice(eq + 1);
+  if (SWITCHES.has(flag) && val === null) flags.set(flag, true);
+  else if (NUMBERS.has(flag) && val !== null && /^\d+$/.test(val)) flags.set(flag, Number(val));
+  else if (VALUES.has(flag) && val) flags.set(flag, val);
+  else if (SWITCHES.has(flag) || NUMBERS.has(flag) || VALUES.has(flag)) usage(`bad value for ${flag}: ${a}`);
+  else usage(a.startsWith('--') ? `unknown flag ${a}` : `unexpected argument ${a}`);
 }
-process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+
+try {
+  const root = path.join(__dirname, '..');
+  const namesFile = path.join(root, 'scripts', 'extractions', 'names.json');
+  const names = fs.existsSync(namesFile) ? JSON.parse(fs.readFileSync(namesFile, 'utf8')) : {};
+  const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+  const options = { names, coreOnly: flags.has('--core-only') };
+  if (flags.has('--seam')) options.seam = flags.get('--seam').split(',');
+  if (flags.has('--max-layer')) options.maxLayer = flags.get('--max-layer');
+  if (flags.has('--max-batch')) options.maxBatch = flags.get('--max-batch');
+  if (flags.has('--reserved')) options.reservedNames = readJson(flags.get('--reserved'));
+  let out;
+  if (flags.has('--draft-topics')) out = draftTopics(root, options);
+  else {
+    const topics = flags.get('--topics');
+    if (topics) options.topics = readJson(topics);
+    out = planExtraction(root, options);
+    // repo-relative with forward slashes, so the manifest is the same on every machine
+    if (topics) out.topics = path.relative(root, path.resolve(topics)).split(path.sep).join('/');
+  }
+  process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+} catch (err) {
+  console.error(`plan-extraction failed: ${err.message}`);
+  process.exit(1);
+}

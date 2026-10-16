@@ -270,8 +270,9 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 - The graph the guard uses resolves `#country/...` with each condition (`us`, `canada`) and treats a facade's
   `export { x } from '...'` as a pass-through edge to the module it re-exports.
 - The same guard runs in `npm test` as `tests/ui_cycles.js` over the whole `src/` graph: every import cycle must consist of
-  `ui/` modules only (seam facades included) and pass the load-time guard. `core/` stays acyclic (`tests/core_import.js`
-  keeps its job).
+  `ui/` modules only (seam facades included) and pass the load-time guard. `core/` stays acyclic because `tests/ui_cycles.js`
+  refuses any cycle with a member outside `ui/` (`tests/core_import.js` keeps its job: each `core/` module imports alone in
+  plain Node, which catches a load-order failure but does not refuse a cycle as such).
 
 ### 5.4 The topics file and the eight bindings
 
@@ -533,8 +534,8 @@ Vitest (its own short design after Stage 4); regrouping the one-unit `core/` mod
 - `core/` still has many one-unit modules (follow-up, with the same regroup tool), and about 33 non-inert `core/`
   initializers carry no `// load-time:` comment (the rule covers `ui/` only), and `core/` modules have no purpose comment yet.
 - `main.js` keeps its IIFE wrapper.
-- The load-time guard is static: it proves that nothing in a UI cycle runs code while modules load (inert initializers
-  only), not that a wiring function never runs before another one it depends on; the ordered comparison covers that for this stage, review covers it afterwards.
+- The load-time guard is static: it proves that nothing in a UI cycle runs code while modules load (inert, or marked
+  and global-only), not that a wiring function never runs before another one it depends on; the ordered comparison covers that for this stage, review covers it afterwards.
 - The ordered comparison leaves declarations out, so the order in which `// load-time:` initializers run is not compared;
   the regroup tool reports changes to it (section 5.8). Harmless today: none of them depends on another. (Open items: T4 ruling.)
 - Real browser ESM is not exercised (only the esbuild bundle); the cycle guard is what keeps a later Vite dev server possible.

@@ -471,6 +471,39 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
     assert.ok(/nothing was written/.test(refused.stderr) && /op 0 \(rename .*\): src\/shared\/ui\/helper\.js does not exist/.test(refused.stderr), refused.stderr);
   }
 
+  // ---- 13. outside src/: the region maps follow a rename; a name tests/state_modules.js reads keeps its export
+  {
+    const maps = ['stage2', 'stage3', 'stage4'].map((s) => `docs/superpowers/inventory/${s}-region-map.md`);
+    const root = tree(Object.fromEntries(maps.map((m) => [m, '| helpers | `src/shared/ui/helper.js` (all units) |\n'])));
+    const report = regroup(root, [{ rename: 'src/shared/ui/helper.js', to: 'src/shared/ui/doubling.js' }], {});
+    for (const m of maps) {
+      assert.strictEqual(read(root, m), '| helpers | `src/shared/ui/doubling.js` (all units) |\n', `${m} rewritten`);
+      assert.ok(report.lines.includes(`  paths rewritten in ${m}`), report.lines.join('\n'));
+    }
+  }
+  {
+    const pair = {
+      'src/shared/core/s1.js': 'export const s1 = 1;\n',
+      'src/shared/core/s2.js': "import { s1 } from './s1.js';\n\nexport function s2() {\n  return s1;\n}\n",
+    };
+    // a destructured load and a member read: both count as importers of s1
+    for (const reader of ["const { s1 } = await load('src/shared/core/s1.js');\n", "const m = await load('src/shared/core/s1.js');\nassert.strictEqual(m.s1, 1);\n"]) {
+      const root = tree({ ...pair, 'tests/state_modules.js': reader });
+      regroup(root, [{ merge: ['src/shared/core/s1.js', 'src/shared/core/s2.js'], to: 'src/shared/core/s12.js' }], {});
+      assert.ok(/^export const s1 = 1;$/m.test(read(root, 'src/shared/core/s12.js')), `merge keeps the export tests/state_modules.js reads (${reader.trim()})`);
+      assert.ok(read(root, 'tests/state_modules.js').includes("load('src/shared/core/s12.js')"), 'and its path follows');
+    }
+    // a name read from another module of the merge does not count
+    const other = tree({ ...pair, 'tests/state_modules.js': "const { s2 } = await load('src/shared/core/s2.js');\n" });
+    regroup(other, [{ merge: ['src/shared/core/s1.js', 'src/shared/core/s2.js'], to: 'src/shared/core/s12.js' }], {});
+    assert.ok(/^const s1 = 1;$/m.test(read(other, 'src/shared/core/s12.js')), 'an export only the merge used is dropped');
+    // a move: the export stays, and the report says tests/state_modules.js still names the old module
+    const moved = tree({ ...pair, 'src/shared/core/s1.js': 'export const s1 = 1;\nexport const s0 = 0;\n', 'tests/state_modules.js': "const { s1 } = await load('src/shared/core/s1.js');\n" });
+    const report = regroup(moved, [{ move: 's1', from: 'src/shared/core/s1.js', to: 'src/shared/core/s2.js' }], {});
+    assert.ok(/^export const s1 = 1;$/m.test(read(moved, 'src/shared/core/s2.js')), 'a move keeps the export tests/state_modules.js reads');
+    assert.ok(report.lines.includes('note: tests/state_modules.js reads s1 from src/shared/core/s1.js, which op 0 moved to src/shared/core/s2.js'), report.lines.join('\n'));
+  }
+
   const leaked = tmpRegroupDirs();
   assert.deepStrictEqual(leaked, [], 'no regroup-* temp directory is left behind');
   console.log('regroup_modules OK');

@@ -14,7 +14,9 @@ const value = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 const manifestFile = value('--manifest');
-const batch = Number(value('--batch'));
+// a missing --batch (null; undefined when it is the last argument) is a usage error, not batch 0
+const batchArg = value('--batch');
+const batch = batchArg === null || batchArg === undefined || !/^\d+$/.test(batchArg) ? NaN : Number(batchArg);
 if (!manifestFile || Number.isNaN(batch)) {
   console.error('usage: node scripts/extract-units.js --manifest <file> --batch <n> [--dry-run]');
   process.exit(2);
@@ -33,7 +35,6 @@ try {
   console.log(`${dryRun ? '[dry run] ' : ''}batch ${batch}: ${report.modules.length} modules; units moved: us ${report.moved.us}, canada ${report.moved.canada}`);
   if (report.seam.us.length) console.log('seam names: ' + report.seam.us.join(', '));
   if (report.wiring.length) console.log('wiring functions: ' + report.wiring.map((w) => w.name).join(', '));
-  report.warnings.forEach((w) => console.log(`warning: ${w}`));
 } catch (err) {
   console.error(`extraction failed, nothing was written: ${err.message}`);
   process.exit(1);

@@ -33,9 +33,11 @@
 // `// load-time:` declarations initialize; every change against the order before the operation is reported.
 // Any failure refuses the whole map: an Error `op <i> (<operation>): <problem>`, and nothing is written.
 //
-// Outside src/: exact module path strings in tests/state_modules.js and CLAUDE.md follow every rename and merge, and
-// a generated rule doc (scripts/gen-*-rules.js, which record the path of the module holding their data block) whose
-// source path changed is reported as `regenerate: npm run <script>`.
+// Outside src/: exact module path strings in tests/state_modules.js, CLAUDE.md and the region maps
+// (docs/superpowers/inventory/stage{2,3,4}-region-map.md) follow every rename and merge; a name tests/state_modules.js
+// reads from a module counts as an importer of it before an export is removed (a move that leaves the test reading the
+// old module is reported as a note); and a generated rule doc (scripts/gen-*-rules.js, which record the path of the
+// module holding their data block) whose source path changed is reported as `regenerate: npm run <script>`.
 //
 // Writes are staged (`<file>.regroup-tmp`, renamed into place at the end), like scripts/lib/extract-units.js.
 const fs = require('fs');
@@ -43,30 +45,28 @@ const os = require('os');
 const path = require('path');
 const espree = require('espree');
 const eslintScope = require('eslint-scope');
-const { undeclaredNames, domGlobalsUsed } = require('../analyze-closure');
+const { undeclaredNames, domGlobalsUsed, DOM_GLOBALS, DOM_METHODS, stripComments } = require('../analyze-closure');
 const { checkLoadTime, loadTimeMarker, isInert, referencedNames } = require('./load-time');
 const { buildGraph, cycles } = require('./module-graph');
 
 const ECMA = 2022;
 const COUNTRIES = ['us', 'canada'];
-const OUTSIDE = ['tests/state_modules.js', 'CLAUDE.md'];
+const STATE_MODULES = 'tests/state_modules.js';
+const OUTSIDE = [
+  STATE_MODULES,
+  'CLAUDE.md',
+  'docs/superpowers/inventory/stage2-region-map.md',
+  'docs/superpowers/inventory/stage3-region-map.md',
+  'docs/superpowers/inventory/stage4-region-map.md',
+];
 // a data-block marker line, `// NAME:begin` or `// NAME:end` (the form scripts/analyze-closure.js, scripts/lib/extract-units.js
 // and scripts/lib/marker-source.js read; the generators evaluate what lies between the two)
 const DATA_MARK = /^\s*\/\/ ([A-Z][A-Z_]*):(begin|end)\s*$/;
-const DOM_METHODS = /\.(addEventListener|removeEventListener|setSelectionRange|appendChild|removeChild|setAttribute|removeAttribute|querySelector|querySelectorAll|classList|innerHTML|textContent|getBoundingClientRect)\b/;
 const IMPORT_SOURCE = /(?:from|import)\s*['"]([^'"]+)['"]/g;
 const SEAM_FILE = /^src\/(us|canada)\/(core|ui)\/seam-([^/]+)\.js$/;
-const DOM_GLOBALS = new Set([
-  'document', 'window', 'localStorage', 'sessionStorage', 'navigator', 'requestAnimationFrame',
-  'cancelAnimationFrame', 'alert', 'confirm', 'prompt', 'getComputedStyle', 'matchMedia', 'history',
-  'location', 'innerWidth', 'innerHeight', 'devicePixelRatio', 'scrollTo', 'screen', 'visualViewport',
-  'CustomEvent', 'Event', 'FileReader', 'Image', 'XMLSerializer', 'DOMParser', 'MutationObserver',
-  'ResizeObserver', 'IntersectionObserver', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'Element', 'Node', 'self', 'top',
-]);
 
 const pp = path.posix;
 const readText = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const segments = (rel) => rel.split('/');
 const isUi = (rel) => segments(rel).slice(1, -1).includes('ui');
 const isCore = (rel) => segments(rel).slice(1, -1).includes('core');
@@ -458,6 +458,49 @@ function markedNames(text, rel) {
   return out;
 }
 
+// The names tests/state_modules.js reads from each module it loads: `const { a } = await load('<path>')`, or
+// `const m = await load('<path>')` and then `m.a`. Map path -> Set of names. They count as importers before an export is
+// removed (a merge or a move would otherwise drop an export the test reads).
+function stateModuleReads(text) {
+  const out = new Map();
+  if (text === undefined) return out;
+  let ast;
+  try {
+    ast = espree.parse(text, { ecmaVersion: ECMA, sourceType: 'module' });
+  } catch (e) {
+    refuse(`${STATE_MODULES}: ${e.message}`);
+  }
+  const add = (p, n) => {
+    if (!out.has(p)) out.set(p, new Set());
+    out.get(p).add(n);
+  };
+  const loadPath = (init) => {
+    const n = init && init.type === 'AwaitExpression' ? init.argument : init;
+    if (!n || n.type !== 'CallExpression' || n.callee.type !== 'Identifier' || n.callee.name !== 'load' || n.arguments.length !== 1) return null;
+    const a = n.arguments[0];
+    return a.type === 'Literal' && typeof a.value === 'string' ? a.value : null;
+  };
+  const loaded = new Map(); // variable -> path
+  const members = []; // [variable, property]
+  const visit = (node) => {
+    if (!node || typeof node.type !== 'string') return;
+    if (node.type === 'VariableDeclarator') {
+      const p = loadPath(node.init);
+      if (p && node.id.type === 'Identifier') loaded.set(node.id.name, p);
+      else if (p && node.id.type === 'ObjectPattern') for (const prop of node.id.properties) if (prop.type === 'Property' && !prop.computed) add(p, specName(prop.key));
+    }
+    if (node.type === 'MemberExpression' && !node.computed && node.object.type === 'Identifier') members.push([node.object.name, node.property.name]);
+    for (const k of Object.keys(node)) {
+      const v = node[k];
+      if (Array.isArray(v)) v.forEach(visit);
+      else if (v && typeof v.type === 'string') visit(v);
+    }
+  };
+  visit(ast);
+  for (const [v, prop] of members) if (loaded.has(v)) add(loaded.get(v), prop);
+  return out;
+}
+
 function genScripts(root) {
   const dir = path.join(root, 'scripts');
   if (!fs.existsSync(dir)) return [];
@@ -500,6 +543,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
   const lines = [];
   const tempDirs = [];
   const deletedBy = new Map(); // rel -> op index
+  const stateNotes = []; // a moved name tests/state_modules.js still reads from its old module
   let graphs = null;
   let order = null;
 
@@ -815,6 +859,8 @@ function regroup(root, operations, { dryRun = false } = {}) {
     for (const { file, st } of importersOf(memberSet, memberSet)) {
       for (const s of specsOf(st) || [{ imported: '*' }]) external.add(st.type === 'ImportDeclaration' ? s.imported : s.local || '*');
     }
+    const testReads = stateModuleReads(outside.get(STATE_MODULES));
+    for (const m of members) for (const n of testReads.get(m) || []) external.add(n);
     // the bodies and imports
     const imports = new Map(); // key -> [{ kind, imported, local }]
     const bound = new Map(); // local -> key|imported
@@ -1009,6 +1055,11 @@ function regroup(root, operations, { dryRun = false } = {}) {
       }
       staged.set(file, text);
     }
+    // tests/state_modules.js reading the name from `from` counts as another importer (its path is not rewritten: reported)
+    if ((stateModuleReads(outside.get(STATE_MODULES)).get(from) || new Set()).has(name)) {
+      othersNeed = true;
+      stateNotes.push(`note: ${STATE_MODULES} reads ${name} from ${from}, which op ${i} moved to ${to}`);
+    }
     // `export` as uses require: kept or added when another file imports it, removed when only `to` did
     staged.set(to, toText);
     if (othersNeed) staged.set(to, setExport(staged.get(to), to, name, true));
@@ -1145,6 +1196,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
   }
 
   // outside src/: generated docs and stale mentions
+  lines.push(...stateNotes);
   gens.forEach((g, k) => {
     const now = markerSource(g);
     if (now !== genBefore[k]) lines.push(`regenerate: ${g.npm}`);
