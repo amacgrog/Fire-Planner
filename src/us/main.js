@@ -1,4 +1,4 @@
-import { storageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
+import { SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
 import { logScale, chartExpanded, chartToolbarCollapsed, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
 import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
@@ -98,12 +98,13 @@ import { addSocialSecurityWarnings } from './ui/unusual-warnings.js';
 import { wireWizardCheckboxes } from './ui/wizard.js';
 import { syncContributionControls } from '../shared/ui/sync-contribution-controls.js';
 import { syncControls } from './ui/sync-controls.js';
-import { dismissFirstRunBanner, hadSavedState, hasPersonalizedData, loadSavedState, wireFirstRunBanner } from '../shared/ui/saved-plan.js';
+import { dismissFirstRunBanner, hadSavedState, loadSavedState, wireFirstRunBanner } from '../shared/ui/saved-plan.js';
 import { renderChartView } from './ui/chart-view.js';
 import { renderRothOptimizer } from '../shared/ui/roth-optimizer-card.js';
 import { computeScenarioMetrics, renderScenarioComparison } from '../shared/ui/scenario-comparison.js';
 import { initChartHover } from '../shared/ui/chart-hover.js';
 import { wireExportButtons } from '../shared/ui/export-and-print.js';
+import { saveInputs, wireAutosave } from '../shared/ui/autosave.js';
 (() => {
   FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
   // @@shared:ids begin
@@ -1282,33 +1283,7 @@ import { wireExportButtons } from '../shared/ui/export-and-print.js';
 
 
   // @@shared:21-writeStorageNow begin
-  // Autosaves `state`/`mode` to this browser's localStorage (never sent
-  // anywhere — see the README's privacy note) so a reload or a later visit
-  // comes back to real numbers instead of the generic example data.
-  // Debounced (250ms idle) since saveInputs() is called on nearly every
-  // keystroke via the `ids` input listener; `writeStorageNow()` is also
-  // flushed unconditionally on `pagehide` so the very last edit before a
-  // tab close/reload is never lost to a pending debounce timer.
-  function writeStorageNow() {
-    const statusEl = document.getElementById('saveStatus');
-    if (!hasPersonalizedData) return;
-    if (!storage) {
-      if (statusEl) statusEl.textContent = 'Not autosaved — storage unavailable';
-      return;
-    }
-    try {
-      storage.setItem(storageKey, JSON.stringify({ state, mode }));
-      if (statusEl) statusEl.textContent = 'Plan autosaved in this browser';
-    } catch {
-      if (statusEl) statusEl.textContent = 'Not autosaved — storage full or unavailable';
-    }
-  }
-  let saveDebounceTimer = null;
-  function saveInputs() {
-    clearTimeout(saveDebounceTimer);
-    saveDebounceTimer = setTimeout(writeStorageNow, 250);
-  }
-  window.addEventListener('pagehide', writeStorageNow);
+  wireAutosave();
 
   function saveScenario() {
     const nameInput = document.getElementById('scenarioName'),
