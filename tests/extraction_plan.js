@@ -562,12 +562,179 @@ try {
     );
   }
   {
-    // Two topics modules whose declarations call each other would have to merge: refused.
+    // Two topics modules whose declarations call each other, with a core unit in the cycle: refused (Task 6 accepts the all-ui case, below).
     const { root: r } = topicRoot(['  function f(n) {', '    return g(n);', '  }', '  function g(n) {', '    return f(n);', '  }'], NONE);
     assert.throws(
       () => planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/a.js': { units: ['f'] }, 'src/us/ui/b.js': { units: ['g'] } } } }) }),
       /topics modules .* import each other/,
     );
+  }
+
+  // ---- Task 6: statement writers, the split rule, load-time markers, seam sides, UI cycles
+  const { statementLabel } = require('../scripts/analyze-closure');
+
+  // 0. The split assignment stands at the declaration's position and joins the run of its module.
+  {
+    const lines0 = ['  let y = 0;', '  y = 1;', '  let x = y;', LOG('t')];
+    const { root: r, L } = topicRoot(lines0, NONE);
+    const s = L.us['y = 1;'];
+    const t = L.us[logs('t')];
+    const split = statementLabel('x = y;');
+    const p0 = planExtraction(r, {
+      topics: topicsOf({ us: { modules: { 'src/us/ui/m.js': { units: [s, 'x'], wiring: { [s]: 'loadM' } }, 'src/us/ui/n.js': { units: [t] } } } }),
+    });
+    const m = modOf(p0, 'src/us/ui/m.js');
+    assert.deepStrictEqual(m.units.us, ['y', s, 'x'], 'the binding y moves with its statement writer');
+    assert.deepStrictEqual(m.wiring, [{ name: 'loadM', statements: { us: [s, split] } }], 'one run [s, x = y], named by s');
+    assert.deepStrictEqual(m.splits, [{ name: 'x', label: split }]);
+    assert.ok(!('splits' in modOf(p0, 'src/us/ui/n.js')), 'an empty splits list is left out');
+    assert.deepStrictEqual(p0.bindings.us.colocated, [{ declaredIn: 'y', module: 'src/us/ui/m.js' }]);
+    assert.deepStrictEqual(p0.bindings.us.needsDecision, []);
+    // The declaration before s: the assignment would start the run.
+    {
+      const { root: r2, L: L2 } = topicRoot(['  let y = 0;', '  let x = y;', '  y = 1;', LOG('t')], NONE);
+      const s2 = L2.us['y = 1;'];
+      assert.throws(
+        () => planExtraction(r2, { topics: topicsOf({ us: { modules: { 'src/us/ui/m.js': { units: [s2, 'x'] }, 'src/us/ui/n.js': { units: [L2.us[logs('t')]] } } } }) }),
+        /split assignment would start a run: x/,
+      );
+    }
+    // A main statement between s and the declaration: the same.
+    {
+      const { root: r3, L: L3 } = topicRoot(['  let y = 0;', '  y = 1;', LOG('m'), '  let x = y;', LOG('t')], NONE);
+      const s3 = L3.us['y = 1;'];
+      assert.throws(
+        () =>
+          planExtraction(r3, {
+            topics: topicsOf({
+              us: { modules: { 'src/us/ui/m.js': { units: [s3, 'x'] }, 'src/us/ui/n.js': { units: [L3.us[logs('t')]] } }, main: [L3.us[logs('m')]] },
+            }),
+          }),
+        /split assignment would start a run: x/,
+      );
+    }
+  }
+
+  // 1. A binding written by a function and a statement moves when both go to one module.
+  {
+    const region = ['  // @@shared:lv begin', '  let level = 0;', '  function up() {', '    level++;', '  }', '  level = 5;', '  // @@shared:lv end'];
+    const { root: r, L } = topicRoot(region, region);
+    const ls = L.us['level = 5;'];
+    assert.strictEqual(L.canada['level = 5;'], ls);
+    const p1 = planExtraction(r, { topics: topicsOf({ shared: { modules: { 'src/shared/ui/l.js': { units: ['up', ls] } } } }) });
+    assert.deepStrictEqual(modOf(p1, 'src/shared/ui/l.js').units, { us: ['level', 'up', ls], canada: ['level', 'up', ls] });
+    assert.deepStrictEqual(p1.bindings.us.needsDecision, []);
+    assert.deepStrictEqual(p1.bindings.canada.needsDecision, []);
+    assert.deepStrictEqual(p1.bindings.us.colocated, [{ declaredIn: 'level', module: 'src/shared/ui/l.js' }]);
+    // The statement in another module: the writers span modules, so the binding needs a decision.
+    const p1b = planExtraction(r, {
+      topics: topicsOf({ shared: { modules: { 'src/shared/ui/l.js': { units: ['up'] }, 'src/shared/ui/m.js': { units: [ls] } } } }),
+    });
+    assert.deepStrictEqual(p1b.bindings.us.needsDecision.map((b) => b.names), [['level']]);
+    assert.ok(!JSON.stringify(p1b.modules).includes('"level"'), 'a binding that needs a decision stays');
+  }
+
+  // 2. A non-inert `let` in a ui/ module is split, unless a load-time comment marks it.
+  {
+    const { root: r, L } = topicRoot(['  let flag = 0;', '  flag = 1;', '  let seen = flag;'], NONE);
+    const lf = L.us['flag = 1;'];
+    const p2 = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [lf, 'seen'] } } } }) });
+    const x = modOf(p2, 'src/us/ui/x.js');
+    assert.deepStrictEqual(x.splits, [{ name: 'seen', label: statementLabel('seen = flag;') }]);
+    assert.deepStrictEqual(x.wiring, [{ name: 'wireX', statements: { us: [lf, statementLabel('seen = flag;')] } }]);
+    const marked = topicRoot(['  let flag = 0;', '  flag = 1;', '  // load-time: x', '  let seen = flag;'], NONE);
+    const lf2 = marked.L.us['flag = 1;'];
+    const p2b = planExtraction(marked.root, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [lf2, 'seen'] } } } }) });
+    const x2 = modOf(p2b, 'src/us/ui/x.js');
+    assert.ok(!('splits' in x2), 'a marked initializer moves as is');
+    assert.deepStrictEqual(x2.wiring, [{ name: 'wireX', statements: { us: [lf2] } }]);
+  }
+
+  // 3. A non-inert initializer that cannot be split throws.
+  {
+    const fLines = ['  function f() {', '    return 1;', '  }'];
+    const { root: r } = topicRoot([...fLines, '  const k = f();'], NONE);
+    const at = (p) => topicsOf({ us: { modules: { [p]: { units: ['f', 'k'] } } } });
+    assert.throws(() => planExtraction(r, { topics: at('src/us/ui/k.js') }), /non-inert initializer of k needs a load-time comment or a split/);
+    assert.throws(() => planExtraction(r, { topics: at('src/us/core/k.js') }), /non-inert initializer of k needs a load-time comment or a split/);
+    const two = topicRoot([...fLines, '  let a = f(), b = 2;'], NONE);
+    assert.throws(
+      () => planExtraction(two.root, { topics: topicsOf({ us: { modules: { 'src/us/ui/k.js': { units: ['f', 'a, b'] } } } }) }),
+      /non-inert initializer of a needs a load-time comment or a split/,
+    );
+    const ok = topicRoot([...fLines, '  // load-time: f reads nothing', '  const k = f();'], NONE);
+    assert.doesNotThrow(() => planExtraction(ok.root, { topics: at('src/us/ui/k.js') }));
+    const okCore = planExtraction(ok.root, { topics: at('src/us/core/k.js') });
+    assert.deepStrictEqual(modOf(okCore, 'src/us/core/k.js').units.us, ['f', 'k']);
+  }
+
+  // 4. Seam sides: a name whose target is ui/ in either country has a ui facade, and a shared unit using it is ui.
+  {
+    const region = ['  // @@shared:user begin', '  function useR() {', '    return R() + 1;', '  }', '  // @@shared:user end'];
+    const usLines = ["import { helperUi } from './ui/thing.js';", ...region, '  function R() {', '    return helperUi();', '  }'];
+    const caLines = [...region, '  function R() {', '    return 1;', '  }'];
+    const p4 = planOf(usLines, caLines, { seam: ['R'] }, { 'src/us/ui/thing.js': 'export const helperUi = () => 2;\n' });
+    assert.deepStrictEqual(p4.seamSides, { R: 'ui' });
+    const user = p4.modules.find((m) => m.owner === 'shared' && m.units.us.includes('useR'));
+    assert.ok(user && user.path.startsWith('src/shared/ui/') && user.ui, 'the shared unit using a ui seam name is ui in both planners');
+    // Names that are core in both countries keep core facades.
+    assert.deepStrictEqual(planOf(seamUs, seamCa, { seam: ['taxFor'] }, seamFiles).seamSides, { taxFor: 'core' });
+    assert.deepStrictEqual(planOf(pureLines, pureLines, { seam: ['foo'] }, fooFacades).seamSides, { foo: 'core' });
+    // A name an earlier run exported through ui facades.
+    const uiFacades = {
+      'src/us/ui/seam-foo.js': "export { foo } from './foo.js';\n",
+      'src/canada/ui/seam-foo.js': "export { foo } from './foo.js';\n",
+    };
+    assert.deepStrictEqual(planOf(pureLines, pureLines, { seam: ['foo'] }, uiFacades).seamSides, { foo: 'ui' });
+  }
+
+  // 5. The design section 2 cycle in miniature: accepted, recorded, one batch.
+  const viewCycle = (withCore) => [
+    '  // @@shared:view begin',
+    '  function setView(v) {',
+    '    document.body.dataset.v = v;',
+    '    render();',
+    '  }',
+    '  // @@shared:view end',
+    '  const Q = { go: () => setView(1) };',
+    ...(withCore ? ['  const T = { q: Q };'] : []),
+    '  function render() {',
+    `    document.title = String(${withCore ? 'T.q' : 'Q'}.go);`,
+    '  }',
+  ];
+  {
+    const p5 = planOf(viewCycle(false), viewCycle(false), { seam: ['render'] });
+    assert.strictEqual(p5.seamSides.render, 'ui');
+    assert.strictEqual(p5.uiCycles.length, 1, 'one accepted cycle');
+    const cyc = p5.uiCycles[0];
+    assert.ok(cyc.length >= 2 && cyc.every((q) => modOf(p5, q)), 'the cycle names planned modules');
+    assert.ok(cyc.some((q) => modOf(p5, q).owner === 'shared') && cyc.some((q) => modOf(p5, q).owner === 'us'));
+    assert.strictEqual(new Set(cyc.map((q) => modOf(p5, q).batch)).size, 1, 'every module of the cycle has the same batch');
+    assert.strictEqual(new Set(cyc.map((q) => modOf(p5, q).depth)).size, 1, 'and the same depth');
+    assert.deepStrictEqual(countryUnits(p5, 'us').sort(), ['Q', 'render']);
+    // No accepted cycle, no splits: the keys are left out.
+    assert.ok(!('uiCycles' in plan) && plan.modules.every((m) => !('splits' in m)));
+    // Two topics modules of one country that import each other, all ui: both keep their paths, one batch.
+    const { root: r } = topicRoot(
+      ['  function f(n) {', '    document.title = n;', '    return g(n);', '  }', '  function g(n) {', '    document.title = n;', '    return f(n);', '  }'],
+      NONE,
+    );
+    const p5b = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/a.js': { units: ['f'] }, 'src/us/ui/b.js': { units: ['g'] } } } }) });
+    assert.deepStrictEqual(modOf(p5b, 'src/us/ui/a.js').units.us, ['f']);
+    assert.deepStrictEqual(modOf(p5b, 'src/us/ui/b.js').units.us, ['g']);
+    assert.strictEqual(modOf(p5b, 'src/us/ui/a.js').batch, modOf(p5b, 'src/us/ui/b.js').batch);
+    assert.deepStrictEqual(p5b.uiCycles, [['src/us/ui/a.js', 'src/us/ui/b.js']]);
+  }
+
+  // 6. The same cycle with one core unit (T, a plain object) still throws.
+  assert.throws(() => planOf(viewCycle(true), viewCycle(true), { seam: ['render'] }), /module cycle across owners/);
+
+  // 7. An auto-named module never takes a topics path.
+  {
+    const { root: r, L } = topicRoot(['  function paint() {', "    document.title = 'x';", '  }', LOG('a')], NONE);
+    const p7 = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/paint.js': { units: [L.us[logs('a')]] } } } }) });
+    assert.deepStrictEqual(modOf(p7, 'src/us/ui/paint.js').units.us, [L.us[logs('a')]]);
+    assert.deepStrictEqual(modOf(p7, 'src/us/ui/paint-2.js').units.us, ['paint']);
   }
 
   console.log('extraction_plan OK');

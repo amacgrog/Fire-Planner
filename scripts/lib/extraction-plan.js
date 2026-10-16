@@ -20,10 +20,17 @@
 // Stage 4 (design sections 5.1, 5.4): with `topics` (the parsed stage4-topics.json) side-effect statements become movable too.
 // Every statement must have an entry (a module, or a `main` list that pins it); a listed declaration goes to its module; each
 // module gains `wiring` (its runs and their function names). draftTopics() proposes the entries from the design defaults.
+// With topics, a binding with statement writers (or several writers) moves when every writer is listed in one module
+// (`colocated` gets { declaredIn, module }); a moving declaration whose initializer is not inert needs a `// load-time:`
+// comment or is split (`let x;` plus the statement `x = <init>;` at its position, recorded in the module's `splits`).
+// `seamSides` says which seam facades live under ui/ (either country's target is a ui/ module); a shared unit that uses
+// such a name is ui. A cycle across owners (or between topics modules) whose units are all ui is accepted and listed in
+// `uiCycles` (its modules stay separate and share one depth); one with a core unit throws. Empty `splits` / `uiCycles` are left out.
 const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
-const { analyze } = require('../analyze-closure');
+const { analyze, statementLabel } = require('../analyze-closure');
+const { isInert, loadTimeMarker } = require('./load-time');
 
 const COUNTRIES = ['us', 'canada'];
 
@@ -81,34 +88,32 @@ function loadCountry(root, country) {
     }
     depthOfComp.set(i, d);
   });
-  // mutable bindings, grouped by the unit that declares them
-  const bindings = new Map();
+  // mutable bindings, grouped by the unit that declares them (placed by planCore, which knows the topics file)
+  const bindingGroups = new Map();
   for (const m of model.mutables) {
-    if (!bindings.has(m.declaredIn)) bindings.set(m.declaredIn, { declaredIn: m.declaredIn, names: [], writerSets: [] });
-    const b = bindings.get(m.declaredIn);
+    if (!bindingGroups.has(m.declaredIn)) bindingGroups.set(m.declaredIn, { declaredIn: m.declaredIn, names: [], writerSets: [] });
+    const b = bindingGroups.get(m.declaredIn);
     b.names.push(m.name);
     b.writerSets.push([...m.writers].sort());
   }
-  const colocated = new Map(); // declaring unit -> its single writer function
-  const needsDecision = [];
-  for (const b of bindings.values()) {
-    const first = b.writerSets[0];
-    const same = b.writerSets.every((w) => w.length === first.length && w.every((x, i) => x === first[i]));
-    const writer = same && first.length === 1 && byLabel.get(first[0]).kind !== 'statement' ? first[0] : null;
-    if (writer) colocated.set(b.declaredIn, writer);
-    else needsDecision.push({ names: b.names, declaredIn: b.declaredIn, writers: [...new Set(b.writerSets.flat())].sort() });
-  }
-  const blockedBindings = new Set(needsDecision.map((b) => b.declaredIn));
+  // the IIFE's top-level statements by start line (the initializers the load-time rule reads)
+  const ast = espree.parse(code, { ecmaVersion: 2022, sourceType: 'module', range: true, loc: true });
+  const iife = ast.body
+    .filter((n) => n.type === 'ExpressionStatement' && n.expression.type === 'CallExpression')
+    .map((n) => n.expression.callee)
+    .find((f) => /^(Arrow)?FunctionExpression$/.test(f.type) && f.body.type === 'BlockStatement');
+  const nodeAt = new Map(iife.body.body.map((n) => [n.loc.start.line, n]));
   const importSource = new Map(model.imports.map((i) => [i.local, path.resolve(root, 'src', country, i.source)]));
   const countryDir = path.join(root, 'src', country) + path.sep;
   return {
     model,
     byLabel,
+    code,
+    lines: code.split('\n'),
+    nodeAt,
+    bindingGroups,
     depth: (label) => depthOfComp.get(compOf.get(label)),
-    blockedBindings,
     importSource,
-    colocated,
-    needsDecision,
     // country code a unit reaches through an import (a module an earlier stage created), other than the allowed seam names
     importsCountryCode: (u, allowed) => u.importUses.some((n) => !allowed.has(n) && (importSource.get(n) || '').startsWith(countryDir)),
     // a unit that imports a ui/ module is ui code, whatever its own text does (the analyzer sees only main.js)
@@ -172,19 +177,25 @@ function topLevelNames(dir, skip, out) {
   }
 }
 
-function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, seam = [], names = {}, topics = null, reservedNames = [], draft = false } = {}) {
+function planCore(root, options = {}) {
+  const { maxLayer = Infinity, maxBatch = 2, coreOnly = false, seam = [], names = {}, topics = null, reservedNames = [], draft = false } = options;
   const seamNames = new Set(seam);
   const info = Object.fromEntries(COUNTRIES.map((c) => [c, loadCountry(root, c)]));
   const owner = (c, u) => (u.regionKind === 'shared' ? 'shared' : c);
-  const uiUnit = (c, u) => u.ui || info[c].importsUi(u);
+  // Seam names whose facade is under ui/ (design section 5.2). A shared unit that uses one is ui in both planners.
+  let uiSeam = new Set();
+  const usesUiSeam = (u) => u.regionKind === 'shared' && (u.deps.some((d) => uiSeam.has(d)) || u.importUses.some((n) => uiSeam.has(n)));
+  const uiUnit = (c, u) => u.ui || info[c].importsUi(u) || usesUiSeam(u);
   const isUi = (c, u) =>
     owner(c, u) === 'shared' ? COUNTRIES.some((cc) => uiUnit(cc, info[cc].byLabel.get(u.label) || u)) : uiUnit(c, u);
+  const pathSide = (p) => (p.split('/').includes('ui') ? 'ui' : 'core'); // p: a repo-relative path under src/
 
   for (const name of seamNames) {
     for (const c of COUNTRIES) {
       const u = info[c].byLabel.get(name);
       const imported = (info[c].importSource.get(name) || '').startsWith(path.join(root, 'src', c) + path.sep);
-      const hasFacade = fs.existsSync(path.join(root, 'src', c, 'core', `seam-${name}.js`)); // exported by an earlier run
+      // exported by an earlier run
+      const hasFacade = ['core', 'ui'].some((side) => fs.existsSync(path.join(root, 'src', c, side, `seam-${name}.js`)));
       if ((!u || owner(c, u) === 'shared') && !imported && !hasFacade) throw new Error(`seam name ${name} must be a country unit or a country import in ${c}/main.js`);
     }
   }
@@ -252,6 +263,72 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
     }
   }
 
+  // Mutable bindings (design section 5.4). One writer function and no statement writer: the declaration moves with that
+  // function (stage 3). Otherwise (several writers, or a statement writer), with a topics file: when every writer is listed
+  // in one and the same module, the declaration goes there too; anything else needs a decision and blocks its dependents.
+  const sectionOf = (p) => (p.startsWith('src/shared/') ? 'shared' : p.split('/')[1]);
+  for (const c of COUNTRIES) {
+    const I = info[c];
+    I.colocated = []; // { declaredIn, writer } or { declaredIn, module }, in declaration order
+    I.writersOf = new Map(); // declaring unit -> its writers (the declaration and its writers move only together)
+    I.needsDecision = [];
+    for (const b of I.bindingGroups.values()) {
+      const all = [...new Set(b.writerSets.flat())].sort();
+      const first = b.writerSets[0];
+      const same = b.writerSets.every((w) => w.length === first.length && w.every((x, i) => x === first[i]));
+      const writer = same && first.length === 1 && I.byLabel.get(first[0]).kind !== 'statement' ? first[0] : null;
+      const declPlace = topicPlace[c].get(b.declaredIn);
+      let entry = null;
+      if (writer) {
+        const writerPlace = topicPlace[c].get(writer);
+        if (!(declPlace && writerPlace && declPlace !== writerPlace)) entry = { declaredIn: b.declaredIn, writer };
+      } else if (topics && !draft) {
+        const places = new Set(all.map((w) => topicPlace[c].get(w)));
+        const p = places.size === 1 ? [...places][0] : undefined;
+        const declOwner = owner(c, I.byLabel.get(b.declaredIn));
+        if (p && p !== MAIN && (!declPlace || declPlace === p) && sectionOf(p) === declOwner) {
+          entry = { declaredIn: b.declaredIn, module: p };
+          if (!declPlace) topicPlace[c].set(b.declaredIn, p);
+        }
+      }
+      if (entry) {
+        I.colocated.push(entry);
+        I.writersOf.set(b.declaredIn, all);
+      } else I.needsDecision.push({ names: b.names, declaredIn: b.declaredIn, writers: all });
+    }
+    I.blockedBindings = new Set(I.needsDecision.map((b) => b.declaredIn));
+  }
+
+  const dataSideUi = new Map(); // "country:block" -> true when any unit of the block is ui (data blocks are country code)
+  for (const c of COUNTRIES) {
+    for (const u of info[c].model.units) if (u.regionKind === 'data' && uiUnit(c, u)) dataSideUi.set(`${c}:${u.region}`, true);
+  }
+  const sideOf = (c, u) => ((u.regionKind === 'data' ? dataSideUi.get(`${c}:${u.region}`) : isUi(c, u)) ? 'ui' : 'core');
+
+  // Seam sides (design section 5.2): a name's target is the module the plan gives it in each country (its topics entry, or
+  // the side its grouping gives it; for a name an earlier stage moved, its current module). The facade is under ui/ in both
+  // countries when either target is. The guess below is checked against the finished plan (see the end of planCore).
+  const targetSides = (moduleOf) =>
+    Object.fromEntries(
+      [...seamNames].map((name) => {
+        const side = COUNTRIES.map((c) => {
+          const u = info[c].byLabel.get(name);
+          if (u && owner(c, u) !== 'shared') {
+            const planned = moduleOf && moduleOf(c, name);
+            if (planned) return pathSide(planned);
+            const tp = topicPlace[c].get(name);
+            return tp && tp !== MAIN ? pathSide(tp) : sideOf(c, u);
+          }
+          const abs = info[c].importSource.get(name);
+          if (abs) return pathSide(path.relative(root, abs).split(path.sep).join('/'));
+          return fs.existsSync(path.join(root, 'src', c, 'ui', `seam-${name}.js`)) ? 'ui' : 'core';
+        });
+        return [name, side.includes('ui') ? 'ui' : 'core'];
+      }),
+    );
+  const seamSides = options._seamSides || targetSides(null);
+  uiSeam = new Set(Object.keys(seamSides).filter((n) => seamSides[n] === 'ui'));
+
   const movable = Object.fromEntries(COUNTRIES.map((c) => [c, new Set()]));
   const candidates = {};
   for (const c of COUNTRIES) {
@@ -271,12 +348,15 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
     }
     candidates[c] = movable[c].size;
   }
-  // a colocated declaration and its writer function are partners: each is movable only with the other
+  // a colocated declaration and all its writers are partners: each is movable only with all the others
   const partnerOf = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()]));
   for (const c of COUNTRIES) {
-    for (const [declarer, writer] of info[c].colocated) {
-      partnerOf[c].set(declarer, writer);
-      partnerOf[c].set(writer, declarer);
+    for (const [declarer, writers] of info[c].writersOf) {
+      const group = [declarer, ...writers];
+      for (const g of group) {
+        if (!partnerOf[c].has(g)) partnerOf[c].set(g, new Set());
+        group.forEach((x) => x !== g && partnerOf[c].get(g).add(x));
+      }
     }
   }
   for (let changed = !draft; changed; ) {
@@ -285,8 +365,8 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
       for (const label of [...movable[c]]) {
         const u = info[c].byLabel.get(label);
         let ok = u.deps.every((d) => movable[c].has(d));
-        const partner = partnerOf[c].get(label);
-        if (ok && partner) ok = movable[c].has(partner) && owner(c, info[c].byLabel.get(partner)) === owner(c, u);
+        const partners = partnerOf[c].get(label);
+        if (ok && partners) ok = [...partners].every((x) => movable[c].has(x) && owner(c, info[c].byLabel.get(x)) === owner(c, u));
         if (ok && owner(c, u) === 'shared') {
           ok =
             u.deps.every((d) => owner(c, info[c].byLabel.get(d)) === 'shared' || seamNames.has(d)) &&
@@ -319,10 +399,6 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
       }
     }
   }
-  const dataSideUi = new Map(); // "country:block" -> true when any unit of the block is ui
-  for (const c of COUNTRIES) {
-    for (const u of info[c].model.units) if (u.regionKind === 'data' && uiUnit(c, u)) dataSideUi.set(`${c}:${u.region}`, true);
-  }
 
   // Group into module nodes, then into the module graph. A country run or a shared region can pull units of different
   // layers into one node and so close a cycle between a shared and a country module; the units of such nodes get
@@ -339,7 +415,7 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
     let run = null;
     for (const u of units) {
       const isMovable = movable[c].has(u.label);
-      const side = (u.regionKind === 'data' ? dataSideUi.get(`${c}:${u.region}`) : isUi(c, u)) ? 'ui' : 'core';
+      const side = sideOf(c, u);
       const topicPath = isMovable ? topicPlace[c].get(u.label) : undefined;
       if (topicPath && topicPath !== MAIN) {
         // listed in the topics file: the module it names, whatever the region or run would give
@@ -398,26 +474,48 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
     }
   }
   for (const c of COUNTRIES) {
-    for (const [declarer, writer] of info[c].colocated) {
+    for (const [declarer, writers] of info[c].writersOf) {
       const a = nodeOf[c].get(declarer);
-      const b = nodeOf[c].get(writer);
-      if (a && b && a !== b) edges[index.get(a)].add(index.get(b));
+      for (const writer of writers) {
+        const b = nodeOf[c].get(writer);
+        if (a && b && a !== b) edges[index.get(a)].add(index.get(b));
+      }
     }
   }
   return { nodes, nodeOf, edges, index, comps: stronglyConnected(nodes.length, edges) };
   };
+  // UI cycles (design section 5.3): a cycle across owners whose every unit is ui is accepted (its units keep the modules
+  // of their own the `fine` split gives them); one with a core unit throws.
+  const nodeAllUi = (n) => COUNTRIES.every((c) => n.units[c].every((l) => sideOf(c, info[c].byLabel.get(l)) === 'ui'));
+  const compAllUi = (b, comp) => comp.every((v) => nodeAllUi(b.nodes[v]));
+  const isCrossOwner = (b, comp) => new Set(comp.map((v) => b.nodes[v].owner)).size > 1;
+  const compKey = (b, comp) =>
+    comp
+      .flatMap((v) => COUNTRIES.flatMap((c) => b.nodes[v].units[c].map((l) => `${c}:${l}`)))
+      .sort()
+      .join('\n');
   let built = graphOf(build());
+  const acceptedTry = new Set();
   for (;;) {
-    const bad = built.comps.find((comp) => new Set(comp.map((v) => built.nodes[v].owner)).size > 1);
+    const bad = built.comps.find((comp) => isCrossOwner(built, comp) && !acceptedTry.has(compKey(built, comp)));
     if (!bad) break;
     const before = fine.size;
     for (const v of bad) for (const c of COUNTRIES) built.nodes[v].units[c].forEach((l) => fine.add(l));
-    if (fine.size === before) throw new Error(`module cycle across owners between units: ${bad.map((v) => built.nodes[v].units.us.concat(built.nodes[v].units.canada).slice(0, 4).join(',')).join(' ; ')}`);
+    if (fine.size === before) {
+      if (compAllUi(built, bad)) {
+        acceptedTry.add(compKey(built, bad));
+        continue;
+      }
+      throw new Error(`module cycle across owners between units: ${bad.map((v) => built.nodes[v].units.us.concat(built.nodes[v].units.canada).slice(0, 4).join(',')).join(' ; ')}`);
+    }
     built = graphOf(build());
   }
+  const accepted = new Set(built.comps.filter((comp) => isCrossOwner(built, comp)).map((comp) => compKey(built, comp)));
   // Fewer, larger modules: nodes that came from one region or one run are joined again when that closes no new cycle.
   const cyclic = (b) => b.comps.filter((comp) => comp.length > 1);
-  const crossOwner = (b) => cyclic(b).some((comp) => new Set(comp.map((v) => b.nodes[v].owner)).size > 1);
+  // a cycle across owners other than the accepted ones, or one that contains a core unit
+  const crossOwnerBeyondAccepted = (b) =>
+    cyclic(b).some((comp) => isCrossOwner(b, comp) && (!accepted.has(compKey(b, comp)) || !compAllUi(b, comp)));
   {
     const groups = new Map();
     for (const n of built.nodes) {
@@ -431,7 +529,7 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
         COUNTRIES.forEach((c) => keep.units[c].push(...n.units[c]));
         const nodeOf = Object.fromEntries(COUNTRIES.map((c) => [c, new Map([...built.nodeOf[c]].map(([l, x]) => [l, x === n ? keep : x]))]));
         const trial = graphOf({ nodes: built.nodes.filter((x) => x !== n), nodeOf });
-        if (!crossOwner(trial) && cyclic(trial).length <= cyclic(built).length) built = trial;
+        if (!crossOwnerBeyondAccepted(trial) && cyclic(trial).length <= cyclic(built).length) built = trial;
         else COUNTRIES.forEach((c) => (keep.units[c] = saved[c]));
       }
     }
@@ -439,28 +537,48 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
   const { nodes, nodeOf, edges, index, comps } = built;
   const compId = new Map();
   comps.forEach((comp, i) => comp.forEach((v) => compId.set(v, i)));
-  const merged = comps.map((comp) => {
+  // One module per strongly connected set of nodes, except an accepted UI cycle (across owners, or between topics modules),
+  // whose nodes stay modules of their own; the set is still the unit of depth, so they share one depth and one batch.
+  const merged = []; // { comp, owner, topicPath, regions, units }
+  const uiCycleMembers = []; // per accepted cycle: indices into merged
+  comps.forEach((comp, ci) => {
     const members = comp.map((v) => nodes[v]);
     const owners = new Set(members.map((m) => m.owner));
-    if (owners.size > 1) throw new Error('module cycle across owners');
-    const unitsOf = (c) =>
-      members
-        .flatMap((m) => m.units[c])
-        .sort((a, b) => info[c].byLabel.get(a).startLine - info[c].byLabel.get(b).startLine);
     const topicPaths = [...new Set(members.map((m) => m.topicPath).filter(Boolean))];
-    if (topicPaths.length > 1) throw new Error(`topics modules ${topicPaths.join(' and ')} import each other (a cycle between modules the topics file names)`);
-    return { owner: members[0].owner, topicPath: topicPaths[0] || null, regions: members.map((m) => m.region).filter(Boolean), units: { us: unitsOf('us'), canada: unitsOf('canada') } };
+    const sortUnits = (c, list) => list.sort((a, b) => info[c].byLabel.get(a).startLine - info[c].byLabel.get(b).startLine);
+    if (owners.size > 1 || topicPaths.length > 1) {
+      if (!compAllUi(built, comp)) {
+        if (owners.size > 1) throw new Error('module cycle across owners');
+        throw new Error(`topics modules ${topicPaths.join(' and ')} import each other (a cycle between modules the topics file names, with a core unit in it)`);
+      }
+      const list = [];
+      for (const m of members) {
+        list.push(merged.length);
+        merged.push({
+          comp: ci,
+          owner: m.owner,
+          topicPath: m.topicPath || null,
+          regions: m.region ? [m.region] : [],
+          units: { us: sortUnits('us', [...m.units.us]), canada: sortUnits('canada', [...m.units.canada]) },
+        });
+      }
+      uiCycleMembers.push(list);
+      return;
+    }
+    const unitsOf = (c) => sortUnits(c, members.flatMap((m) => m.units[c]));
+    merged.push({ comp: ci, owner: members[0].owner, topicPath: topicPaths[0] || null, regions: members.map((m) => m.region).filter(Boolean), units: { us: unitsOf('us'), canada: unitsOf('canada') } });
   });
-  const mergedEdges = merged.map(() => new Set());
-  edges.forEach((targets, v) => targets.forEach((w) => { if (compId.get(v) !== compId.get(w)) mergedEdges[compId.get(v)].add(compId.get(w)); }));
+  const compEdges = comps.map(() => new Set());
+  edges.forEach((targets, v) => targets.forEach((w) => { if (compId.get(v) !== compId.get(w)) compEdges[compId.get(v)].add(compId.get(w)); }));
 
-  // Depth of each merged module (comps are already dependencies-first).
-  const depth = merged.map(() => 0);
-  merged.forEach((m, i) => mergedEdges[i].forEach((w) => { depth[i] = Math.max(depth[i], depth[w] + 1); }));
+  // Depth of each strongly connected set (comps are already dependencies-first).
+  const compDepth = comps.map(() => 0);
+  comps.forEach((_, i) => compEdges[i].forEach((w) => { compDepth[i] = Math.max(compDepth[i], compDepth[w] + 1); }));
+  const depth = merged.map((m) => compDepth[m.comp]);
 
   // Names and paths.
   const used = new Set(existingModules(root)); // a new module never takes the path of one an earlier stage made
-  topicMods.forEach((_, p) => used.add(p));
+  topicMods.forEach((_, p) => used.add(p)); // nor a path the topics file names
   const modules = merged.map((m, i) => {
     const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
     if (m.topicPath) {
@@ -479,26 +597,63 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
     used.add(p);
     return { path: p, owner: m.owner, depth: depth[i], batch: Math.min(depth[i], maxBatch), ui, regions: m.regions, units: m.units };
   });
+  const uiCycles = uiCycleMembers.map((list) => list.map((i) => modules[i].path).sort()).sort((a, b) => a[0].localeCompare(b[0]));
+
+  // The seam sides were a guess from the grouping; a merge can put a seam name in a module of the other side. Plan again
+  // with the sides the plan gives (they settle at once: a side changes only which shared units are ui).
+  const moduleOf = (c, label) => {
+    const m = modules.find((x) => (x.owner === c || x.owner === 'shared') && x.units[c].includes(label));
+    return m ? m.path : null;
+  };
+  const actualSides = targetSides(moduleOf);
+  if (JSON.stringify(actualSides) !== JSON.stringify(seamSides)) {
+    if ((options._seamRound || 0) >= 3) throw new Error(`seam sides do not settle: ${JSON.stringify(actualSides)}`);
+    return planCore(root, { ...options, _seamSides: actualSides, _seamRound: (options._seamRound || 0) + 1 });
+  }
+
   modules.sort((a, b) => a.batch - b.batch || a.depth - b.depth || a.path.localeCompare(b.path));
 
-  if (topics && !draft) addWiring();
+  // Initializers that run at load (design sections 5.1 and 6.4): marked ones move as is, a one-declarator `let` in a ui/
+  // module is split into `let x;` plus the statement `x = <init>;` at the declaration's position, anything else throws.
+  const splitsAt = Object.fromEntries(COUNTRIES.map((c) => [c, []])); // { label, name, line, path }
+  if (topics && !draft) {
+    for (const m of modules) {
+      const splits = [];
+      for (const c of m.owner === 'shared' ? COUNTRIES : [m.owner]) {
+        const I = info[c];
+        for (const label of m.units[c]) {
+          const u = I.byLabel.get(label);
+          if (u.kind !== 'let' && u.kind !== 'const' && u.kind !== 'var') continue;
+          const node = I.nodeAt.get(u.startLine);
+          const hot = node.declarations.filter((d) => d.id.type !== 'Identifier' || !isInert(d.init));
+          if (!hot.length || loadTimeMarker(I.lines, u.startLine).marked) continue;
+          const name = hot[0].id.type === 'Identifier' ? hot[0].id.name : u.names[0];
+          const d = node.declarations[0];
+          if (node.kind !== 'let' || node.declarations.length !== 1 || d.id.type !== 'Identifier' || pathSide(m.path) !== 'ui') {
+            throw new Error(`non-inert initializer of ${name} needs a load-time comment or a split (${c} line ${u.startLine}, ${m.path})`);
+          }
+          const splitLabel = statementLabel(`${name} = ${I.code.slice(d.init.range[0], d.init.range[1])};`);
+          splitsAt[c].push({ label: splitLabel, name, line: u.startLine, path: m.path });
+          const known = splits.find((s) => s.name === name);
+          if (!known) splits.push({ name, label: splitLabel });
+          else if (known.label !== splitLabel) throw new Error(`shared module ${m.path} splits ${name} differently in the two planners`);
+        }
+      }
+      if (splits.length) m.splits = splits;
+    }
+    addWiring();
+  }
 
   const total = (c) => info[c].model.units.length;
   const moved = (c) => modules.filter((m) => m.owner === 'shared' || m.owner === c).reduce((s, m) => s + m.units[c].length, 0);
   const plan = {
     modules,
     seam: [...seamNames],
-    bindings: Object.fromEntries(
-      COUNTRIES.map((c) => [
-        c,
-        {
-          colocated: [...info[c].colocated].map(([declaredIn, writer]) => ({ declaredIn, writer })),
-          needsDecision: info[c].needsDecision,
-        },
-      ]),
-    ),
+    seamSides,
+    bindings: Object.fromEntries(COUNTRIES.map((c) => [c, { colocated: info[c].colocated, needsDecision: info[c].needsDecision }])),
     stats: Object.fromEntries(COUNTRIES.map((c) => [c, { units: total(c), candidates: candidates[c], movable: moved(c) }])),
   };
+  if (uiCycles.length) plan.uiCycles = uiCycles;
   return { plan, info };
 
   // Runs and wiring functions of every topics module (design section 5.1).
@@ -510,24 +665,38 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
       topLevelNames(path.join(root, 'src', c), path.join(root, 'src', c, 'main.js'), taken[c]);
     }
     const byName = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()])); // wiring name -> module path
+    // every statement, plus each split assignment standing at its declaration's position
+    const orderedOf = Object.fromEntries(
+      COUNTRIES.map((c) => [
+        c,
+        [
+          ...info[c].model.units.filter((u) => u.kind === 'statement').map((u) => ({ label: u.label, line: u.startLine, split: null })),
+          ...splitsAt[c].map((s) => ({ label: s.label, line: s.line, split: s.name })),
+        ].sort((a, b) => a.line - b.line),
+      ]),
+    );
     for (const m of modules) {
-      const tm = topicMods.get(m.path);
+      const tm = topicMods.get(m.path) || (m.splits ? { labels: [], wiring: {} } : null);
       if (!tm) continue;
       const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
       for (const key of Object.keys(tm.wiring)) {
         if (!tm.labels.includes(key)) throw new Error(`wiring key ${key} is not a statement listed in ${m.path}`);
       }
       // A run is a maximal sequence of this module's statements with no other statement between (declarations do not break it).
+      // A split assignment joins the run of its module that it falls into or follows; it never starts one.
       const runsOf = Object.fromEntries(COUNTRIES.map((c) => [c, []]));
       for (const c of countries) {
         const mine = new Set(m.units[c]);
+        const mySplits = new Set(splitsAt[c].filter((s) => s.path === m.path).map((s) => s.label));
         let cur = null;
-        const ordered = info[c].model.units.filter((u) => u.kind === 'statement').sort((a, b) => a.startLine - b.startLine);
-        for (const u of ordered) {
-          if (mine.has(u.label)) {
-            if (!cur) runsOf[c].push((cur = []));
+        for (const u of orderedOf[c]) {
+          if (u.split !== null ? mySplits.has(u.label) : mine.has(u.label)) {
+            if (!cur) {
+              if (u.split !== null) throw new Error(`split assignment would start a run: ${u.split} (${c}, ${m.path})`);
+              runsOf[c].push((cur = []));
+            }
             cur.push(u.label);
-          } else cur = null; // another module's statement, a pinned one, or one that waits
+          } else cur = null; // another module's statement or split, a pinned one, or one that waits
         }
       }
       let runs;
