@@ -1,0 +1,2668 @@
+{
+  "modules": [
+    {
+      "path": "src/canada/ui/dynamic-lists.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "stmt:491836e3"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "addChildrenList",
+          "statements": {
+            "canada": [
+              "stmt:491836e3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/print-report.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "buildPrintReport"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/canada/ui/roth-optimizer.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "computeRothOptimizer",
+          "lastRothOptimizer",
+          "annotateRothOptimizer"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/canada/ui/wizard.js",
+      "owner": "canada",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "stmt:fef803d2"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireWizardCheckboxes",
+          "statements": {
+            "canada": [
+              "stmt:fef803d2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/category-rail.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "activeCategory",
+          "setActiveCategory",
+          "stmt:b46fa54c"
+        ],
+        "canada": [
+          "activeCategory",
+          "setActiveCategory",
+          "stmt:b46fa54c"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireCategoryRail",
+          "statements": {
+            "us": [
+              "stmt:b46fa54c"
+            ],
+            "canada": [
+              "stmt:b46fa54c"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/dynamic-lists.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderDynList",
+          "dynApplyVisibility",
+          "renderLoanFields",
+          "renderIncomeSourceFields",
+          "renderOneTimeIncomeFields",
+          "renderExtraExpenseFields",
+          "renderLumpExpenseFields",
+          "renderSpendingTierFields",
+          "renderChildFields"
+        ],
+        "canada": [
+          "renderDynList",
+          "dynApplyVisibility",
+          "renderLoanFields",
+          "renderIncomeSourceFields",
+          "renderOneTimeIncomeFields",
+          "renderExtraExpenseFields",
+          "renderLumpExpenseFields",
+          "renderSpendingTierFields",
+          "renderChildFields"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/field-ids.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "ids"
+        ],
+        "canada": [
+          "ids"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/info-bubble.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:f29b8c41",
+          "stmt:0d1fbbea",
+          "stmt:82999b8d",
+          "stmt:50d0dd0d",
+          "stmt:6f5a3286",
+          "infoBubbleBtn",
+          "infoBubbleAnchor",
+          "closeInfoBubble",
+          "placeInfoBubble",
+          "openInfoBubble",
+          "stmt:ece2821c",
+          "stmt:9bd78c8f",
+          "stmt:d36c5812",
+          "stmt:1ffd6ea2"
+        ],
+        "canada": [
+          "stmt:f29b8c41",
+          "stmt:0d1fbbea",
+          "stmt:82999b8d",
+          "stmt:50d0dd0d",
+          "stmt:6f5a3286",
+          "infoBubbleBtn",
+          "infoBubbleAnchor",
+          "closeInfoBubble",
+          "placeInfoBubble",
+          "openInfoBubble",
+          "stmt:ece2821c",
+          "stmt:9bd78c8f",
+          "stmt:d36c5812",
+          "stmt:1ffd6ea2"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireInfoBubble",
+          "statements": {
+            "us": [
+              "stmt:f29b8c41",
+              "stmt:0d1fbbea",
+              "stmt:82999b8d",
+              "stmt:50d0dd0d",
+              "stmt:6f5a3286",
+              "stmt:ece2821c",
+              "stmt:9bd78c8f",
+              "stmt:d36c5812",
+              "stmt:1ffd6ea2"
+            ],
+            "canada": [
+              "stmt:f29b8c41",
+              "stmt:0d1fbbea",
+              "stmt:82999b8d",
+              "stmt:50d0dd0d",
+              "stmt:6f5a3286",
+              "stmt:ece2821c",
+              "stmt:9bd78c8f",
+              "stmt:d36c5812",
+              "stmt:1ffd6ea2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/input-gestures.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:eb8b1f13",
+          "stmt:6b9981f3",
+          "stmt:ffe4cb8f"
+        ],
+        "canada": [
+          "stmt:eb8b1f13",
+          "stmt:6b9981f3",
+          "stmt:ffe4cb8f"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireInputGestures",
+          "statements": {
+            "us": [
+              "stmt:eb8b1f13",
+              "stmt:6b9981f3",
+              "stmt:ffe4cb8f"
+            ],
+            "canada": [
+              "stmt:eb8b1f13",
+              "stmt:6b9981f3",
+              "stmt:ffe4cb8f"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/install-test-hooks.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:a1bd5ffc",
+          "stmt:053db3f9",
+          "stmt:fcae182b",
+          "stmt:daf9d250",
+          "stmt:20dd1179",
+          "stmt:dce5024c",
+          "stmt:b19b8f31"
+        ],
+        "canada": [
+          "stmt:a1bd5ffc",
+          "stmt:053db3f9",
+          "stmt:fcae182b",
+          "stmt:daf9d250",
+          "stmt:20dd1179",
+          "stmt:dce5024c",
+          "stmt:b19b8f31"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "installSharedTestHooks",
+          "statements": {
+            "us": [
+              "stmt:a1bd5ffc",
+              "stmt:053db3f9",
+              "stmt:fcae182b",
+              "stmt:daf9d250",
+              "stmt:20dd1179",
+              "stmt:dce5024c",
+              "stmt:b19b8f31"
+            ],
+            "canada": [
+              "stmt:a1bd5ffc",
+              "stmt:053db3f9",
+              "stmt:fcae182b",
+              "stmt:daf9d250",
+              "stmt:20dd1179",
+              "stmt:dce5024c",
+              "stmt:b19b8f31"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/projection-chart.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderChart",
+          "lastChart"
+        ],
+        "canada": [
+          "renderChart",
+          "lastChart"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/shortfall-banner.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderShortfallBanner"
+        ],
+        "canada": [
+          "renderShortfallBanner"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/sidebar.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "sidebarCollapsed",
+          "stmt:e4d81a0c",
+          "setSidebarCollapsed",
+          "stmt:0c525b9a",
+          "stmt:670a32f3"
+        ],
+        "canada": [
+          "sidebarCollapsed",
+          "stmt:e4d81a0c",
+          "setSidebarCollapsed",
+          "stmt:0c525b9a",
+          "stmt:670a32f3"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "loadSidebarPreference",
+          "statements": {
+            "us": [
+              "stmt:e4d81a0c"
+            ],
+            "canada": [
+              "stmt:e4d81a0c"
+            ]
+          }
+        },
+        {
+          "name": "wireSidebarCollapse",
+          "statements": {
+            "us": [
+              "stmt:0c525b9a",
+              "stmt:670a32f3"
+            ],
+            "canada": [
+              "stmt:0c525b9a",
+              "stmt:670a32f3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/table-focus.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:a28e4868",
+          "stmt:b19e4cc9"
+        ],
+        "canada": [
+          "stmt:a28e4868",
+          "stmt:b19e4cc9"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireTableFocus",
+          "statements": {
+            "us": [
+              "stmt:a28e4868",
+              "stmt:b19e4cc9"
+            ],
+            "canada": [
+              "stmt:a28e4868",
+              "stmt:b19e4cc9"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/undo.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "undoSnapshot",
+          "undoToastTimer",
+          "snapshotForUndo",
+          "showUndoToast",
+          "hideUndoToast"
+        ],
+        "canada": [
+          "undoSnapshot",
+          "undoToastTimer",
+          "snapshotForUndo",
+          "showUndoToast",
+          "hideUndoToast"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/wizard.js",
+      "owner": "shared",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:82494c05",
+          "wizardStep",
+          "renderWizardStep",
+          "stmt:12faae60",
+          "stmt:4e313ae7",
+          "stmt:c034c6a7",
+          "stmt:0e937b68",
+          "stmt:cb1ab4a3",
+          "stmt:6b01df13"
+        ],
+        "canada": [
+          "stmt:82494c05",
+          "wizardStep",
+          "renderWizardStep",
+          "stmt:12faae60",
+          "stmt:4e313ae7",
+          "stmt:c034c6a7",
+          "stmt:0e937b68",
+          "stmt:cb1ab4a3",
+          "stmt:6b01df13"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireWizard",
+          "statements": {
+            "us": [
+              "stmt:82494c05",
+              "stmt:12faae60",
+              "stmt:4e313ae7",
+              "stmt:c034c6a7"
+            ],
+            "canada": [
+              "stmt:82494c05",
+              "stmt:12faae60",
+              "stmt:4e313ae7",
+              "stmt:c034c6a7"
+            ]
+          }
+        },
+        {
+          "name": "wireWizardDismiss",
+          "statements": {
+            "us": [
+              "stmt:0e937b68",
+              "stmt:cb1ab4a3",
+              "stmt:6b01df13"
+            ],
+            "canada": [
+              "stmt:0e937b68",
+              "stmt:cb1ab4a3",
+              "stmt:6b01df13"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/dynamic-lists.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:24c99554"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "addChildrenList",
+          "statements": {
+            "us": [
+              "stmt:24c99554"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/normalize-state.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "normalizeState"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/us/ui/print-report.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "buildPrintReport"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/us/ui/roth-optimizer.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "computeRothOptimizer",
+          "renderRothPerYearOptimizer",
+          "renderMultiLeverOptimizer"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/us/ui/unusual-warnings.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:721acc88"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "addSocialSecurityWarnings",
+          "statements": {
+            "us": [
+              "stmt:721acc88"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/wizard.js",
+      "owner": "us",
+      "depth": 0,
+      "batch": 0,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:b4a84ff9"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wireWizardCheckboxes",
+          "statements": {
+            "us": [
+              "stmt:b4a84ff9"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/chart-view.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "renderChartView"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/canada/ui/install-test-hooks.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "stmt:454259ce",
+          "stmt:0b9844cc",
+          "stmt:0be78090",
+          "stmt:095cec87"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "installTestHooks",
+          "statements": {
+            "canada": [
+              "stmt:454259ce",
+              "stmt:0b9844cc",
+              "stmt:0be78090",
+              "stmt:095cec87"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/sync-controls.js",
+      "owner": "canada",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "syncControls"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/chart-hover.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "clearChartHover",
+          "chartTooltipEl",
+          "initChartHover"
+        ],
+        "canada": [
+          "clearChartHover",
+          "chartTooltipEl",
+          "initChartHover"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/export-and-print.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "exportCsv",
+          "stmt:c978c929",
+          "stmt:7be89fd8"
+        ],
+        "canada": [
+          "exportCsv",
+          "stmt:c978c929",
+          "stmt:7be89fd8"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireExportButtons",
+          "statements": {
+            "us": [
+              "stmt:c978c929",
+              "stmt:7be89fd8"
+            ],
+            "canada": [
+              "stmt:c978c929",
+              "stmt:7be89fd8"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/roth-optimizer-card.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderRothOptimizer"
+        ],
+        "canada": [
+          "renderRothOptimizer"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/saved-plan.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "hadSavedState",
+          "stmt:a22a18f3",
+          "hasPersonalizedData",
+          "dismissFirstRunBanner",
+          "stmt:0fc198b5",
+          "stmt:7d31c470",
+          "stmt:7b959602",
+          "stmt:6150af16"
+        ],
+        "canada": [
+          "hadSavedState",
+          "stmt:a22a18f3",
+          "hasPersonalizedData",
+          "dismissFirstRunBanner",
+          "stmt:0fc198b5",
+          "stmt:7d31c470",
+          "stmt:7b959602",
+          "stmt:6150af16"
+        ]
+      },
+      "splits": [
+        {
+          "name": "hasPersonalizedData",
+          "label": "stmt:f91c6144"
+        }
+      ],
+      "wiring": [
+        {
+          "name": "loadSavedState",
+          "statements": {
+            "us": [
+              "stmt:a22a18f3",
+              "stmt:f91c6144"
+            ],
+            "canada": [
+              "stmt:a22a18f3",
+              "stmt:f91c6144"
+            ]
+          }
+        },
+        {
+          "name": "wireFirstRunBanner",
+          "statements": {
+            "us": [
+              "stmt:0fc198b5",
+              "stmt:7d31c470",
+              "stmt:7b959602",
+              "stmt:6150af16"
+            ],
+            "canada": [
+              "stmt:0fc198b5",
+              "stmt:7d31c470",
+              "stmt:7b959602",
+              "stmt:6150af16"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/scenario-comparison.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "computeScenarioMetrics",
+          "computeOverlaySeriesFor",
+          "renderOverlayChart",
+          "renderScenarioComparison"
+        ],
+        "canada": [
+          "computeScenarioMetrics",
+          "computeOverlaySeriesFor",
+          "renderOverlayChart",
+          "renderScenarioComparison"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/sync-contribution-controls.js",
+      "owner": "shared",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "syncContributionControls"
+        ],
+        "canada": [
+          "syncContributionControls"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/us/ui/chart-view.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderChartView"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/us/ui/sync-controls.js",
+      "owner": "us",
+      "depth": 1,
+      "batch": 1,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "syncControls"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/autosave.js",
+      "owner": "shared",
+      "depth": 2,
+      "batch": 2,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "writeStorageNow",
+          "saveDebounceTimer",
+          "saveInputs",
+          "stmt:6d47ee11"
+        ],
+        "canada": [
+          "writeStorageNow",
+          "saveDebounceTimer",
+          "saveInputs",
+          "stmt:6d47ee11"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireAutosave",
+          "statements": {
+            "us": [
+              "stmt:6d47ee11"
+            ],
+            "canada": [
+              "stmt:6d47ee11"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/decision-questions.js",
+      "owner": "canada",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "DECISION_QUESTIONS"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/canada/ui/render.js",
+      "owner": "canada",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "render"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/chart-view-mode.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "setChartView",
+          "setMode"
+        ],
+        "canada": [
+          "setChartView",
+          "setMode"
+        ]
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/shared/ui/decision-questions.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "renderDecisionQuestionPreviews",
+          "stmt:64e31d5f",
+          "renderDecisionQuestionAnswer",
+          "stmt:7c115e0f"
+        ],
+        "canada": [
+          "renderDecisionQuestionPreviews",
+          "stmt:64e31d5f",
+          "renderDecisionQuestionAnswer",
+          "stmt:7c115e0f"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireDecisionCard",
+          "statements": {
+            "us": [
+              "stmt:64e31d5f"
+            ],
+            "canada": [
+              "stmt:64e31d5f"
+            ]
+          }
+        },
+        {
+          "name": "wireDecisionQuestions",
+          "statements": {
+            "us": [
+              "stmt:7c115e0f"
+            ],
+            "canada": [
+              "stmt:7c115e0f"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/estimate-badges.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "markDefaultFields",
+          "computeCountedEstimateIds",
+          "dismissEstimateField",
+          "stmt:7ed35fd9",
+          "renderEstimateBadges"
+        ],
+        "canada": [
+          "markDefaultFields",
+          "computeCountedEstimateIds",
+          "dismissEstimateField",
+          "stmt:7ed35fd9",
+          "renderEstimateBadges"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireEstimateBadges",
+          "statements": {
+            "us": [
+              "stmt:7ed35fd9"
+            ],
+            "canada": [
+              "stmt:7ed35fd9"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/estimate-review.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "reviewingFieldId",
+          "jumpToEstimateField",
+          "renderEstimatedRollup",
+          "syncReviewNav",
+          "advanceReview",
+          "stmt:dc63e483",
+          "stmt:c4634d74",
+          "stmt:da22fecf"
+        ],
+        "canada": [
+          "reviewingFieldId",
+          "jumpToEstimateField",
+          "renderEstimatedRollup",
+          "syncReviewNav",
+          "advanceReview",
+          "stmt:dc63e483",
+          "stmt:c4634d74",
+          "stmt:da22fecf"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireEstimateReview",
+          "statements": {
+            "us": [
+              "stmt:dc63e483",
+              "stmt:c4634d74",
+              "stmt:da22fecf"
+            ],
+            "canada": [
+              "stmt:dc63e483",
+              "stmt:c4634d74",
+              "stmt:da22fecf"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/mobile-view.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "setMobileView",
+          "switchToDashboardTab",
+          "stmt:a906efa4",
+          "stmt:07bec804"
+        ],
+        "canada": [
+          "setMobileView",
+          "switchToDashboardTab",
+          "stmt:a906efa4",
+          "stmt:07bec804"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireMobileTabs",
+          "statements": {
+            "us": [
+              "stmt:a906efa4",
+              "stmt:07bec804"
+            ],
+            "canada": [
+              "stmt:a906efa4",
+              "stmt:07bec804"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/plan-status-bar.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "planStatusHistTimer, planStatusHistRate",
+          "schedulePlanStatusHistRate",
+          "planStatusLastText, planStatusUpdatedTimer",
+          "renderPlanStatusBar",
+          "stmt:d2ff0cf2",
+          "stmt:3979fb1e"
+        ],
+        "canada": [
+          "planStatusHistTimer, planStatusHistRate",
+          "schedulePlanStatusHistRate",
+          "planStatusLastText, planStatusUpdatedTimer",
+          "renderPlanStatusBar",
+          "stmt:d2ff0cf2",
+          "stmt:3979fb1e"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wirePlanStatusBar",
+          "statements": {
+            "us": [
+              "stmt:d2ff0cf2",
+              "stmt:3979fb1e"
+            ],
+            "canada": [
+              "stmt:d2ff0cf2",
+              "stmt:3979fb1e"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/sankey.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "sankeyTooltipEl",
+          "ensureSankeyTooltip",
+          "showSankeyTooltip",
+          "hideSankeyTooltip",
+          "renderSankey",
+          "stmt:aca7ddd7",
+          "stmt:618999f7"
+        ],
+        "canada": [
+          "sankeyTooltipEl",
+          "ensureSankeyTooltip",
+          "showSankeyTooltip",
+          "hideSankeyTooltip",
+          "renderSankey",
+          "stmt:aca7ddd7",
+          "stmt:618999f7"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireSankeyCard",
+          "statements": {
+            "us": [
+              "stmt:aca7ddd7"
+            ],
+            "canada": [
+              "stmt:aca7ddd7"
+            ]
+          }
+        },
+        {
+          "name": "wireSankeyAge",
+          "statements": {
+            "us": [
+              "stmt:618999f7"
+            ],
+            "canada": [
+              "stmt:618999f7"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/tornado.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "computeSensitivity",
+          "renderTornadoChart",
+          "stmt:17c09264"
+        ],
+        "canada": [
+          "computeSensitivity",
+          "renderTornadoChart",
+          "stmt:17c09264"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireSensitivityCard",
+          "statements": {
+            "us": [
+              "stmt:17c09264"
+            ],
+            "canada": [
+              "stmt:17c09264"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/unusual-warnings.js",
+      "owner": "shared",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "dismissUnusualAssumption",
+          "jumpToUnusualField",
+          "stmt:3cd37832",
+          "stmt:518fdd5d",
+          "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "syncUnusualToast",
+          "stmt:37c2b3a5",
+          "stmt:8758cbb8",
+          "renderUnusualAssumptions"
+        ],
+        "canada": [
+          "dismissUnusualAssumption",
+          "jumpToUnusualField",
+          "stmt:3cd37832",
+          "stmt:518fdd5d",
+          "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "syncUnusualToast",
+          "stmt:37c2b3a5",
+          "stmt:8758cbb8",
+          "renderUnusualAssumptions"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireUnusualWarnings",
+          "statements": {
+            "us": [
+              "stmt:3cd37832",
+              "stmt:518fdd5d",
+              "stmt:37c2b3a5",
+              "stmt:8758cbb8"
+            ],
+            "canada": [
+              "stmt:3cd37832",
+              "stmt:518fdd5d",
+              "stmt:37c2b3a5",
+              "stmt:8758cbb8"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/decision-questions.js",
+      "owner": "us",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "DECISION_QUESTIONS"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/us/ui/render.js",
+      "owner": "us",
+      "depth": 3,
+      "batch": 3,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "render"
+        ],
+        "canada": []
+      },
+      "wiring": []
+    },
+    {
+      "path": "src/canada/ui/chart-controls.js",
+      "owner": "canada",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "stmt:8144118f",
+          "stmt:fdf7b496",
+          "stmt:c82de244",
+          "stmt:ef7989f1",
+          "stmt:9e50fa0f",
+          "stmt:89a13e1b",
+          "stmt:58898986",
+          "stmt:bfdebec9",
+          "setChartShiftMode",
+          "stmt:ebf969a1",
+          "stmt:e9c2631d",
+          "setChartGapPartner",
+          "stmt:da95b313",
+          "stmt:3c3e7447",
+          "setChartXAxisMode",
+          "stmt:ed83cf61",
+          "stmt:c8831c23",
+          "stmt:dc4c372a"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireChartControls",
+          "statements": {
+            "canada": [
+              "stmt:8144118f",
+              "stmt:fdf7b496",
+              "stmt:c82de244",
+              "stmt:ef7989f1",
+              "stmt:9e50fa0f",
+              "stmt:89a13e1b",
+              "stmt:58898986",
+              "stmt:bfdebec9",
+              "stmt:ebf969a1",
+              "stmt:e9c2631d",
+              "stmt:da95b313",
+              "stmt:3c3e7447",
+              "stmt:ed83cf61",
+              "stmt:c8831c23",
+              "stmt:dc4c372a"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/pension-buttons.js",
+      "owner": "canada",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "setPensionCoverage",
+          "stmt:b4826e35",
+          "stmt:2ebb40ba",
+          "stmt:88eac69f",
+          "stmt:362aa903"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wirePensionButtons",
+          "statements": {
+            "canada": [
+              "stmt:b4826e35",
+              "stmt:2ebb40ba",
+              "stmt:88eac69f",
+              "stmt:362aa903"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/roth-optimizer-controls.js",
+      "owner": "canada",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "stmt:297a2232"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireRothOptimizerControls",
+          "statements": {
+            "canada": [
+              "stmt:297a2232"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/canada/ui/sensitivity.js",
+      "owner": "canada",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [],
+        "canada": [
+          "stmt:11d15c29"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireSensitivityLevers",
+          "statements": {
+            "canada": [
+              "stmt:11d15c29"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/chart-toolbar.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:f97b196b",
+          "setMcPathCount",
+          "stmt:791cc66d",
+          "stmt:f8da018d",
+          "stmt:c95a0767",
+          "stmt:4d7ec53a",
+          "setChartExpanded",
+          "setChartToolbarCollapsed",
+          "stmt:c1a62dc3",
+          "stmt:bd60c1be",
+          "stmt:06e58074",
+          "stmt:6739f124",
+          "stmt:6d3bc523"
+        ],
+        "canada": [
+          "stmt:f97b196b",
+          "setMcPathCount",
+          "stmt:791cc66d",
+          "stmt:f8da018d",
+          "stmt:c95a0767",
+          "stmt:4d7ec53a",
+          "setChartExpanded",
+          "setChartToolbarCollapsed",
+          "stmt:c1a62dc3",
+          "stmt:bd60c1be",
+          "stmt:06e58074",
+          "stmt:6739f124",
+          "stmt:6d3bc523"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireDollarModeDropdown",
+          "statements": {
+            "us": [
+              "stmt:f97b196b"
+            ],
+            "canada": [
+              "stmt:f97b196b"
+            ]
+          }
+        },
+        {
+          "name": "wireChartToolbar",
+          "statements": {
+            "us": [
+              "stmt:791cc66d",
+              "stmt:f8da018d",
+              "stmt:c95a0767",
+              "stmt:4d7ec53a",
+              "stmt:c1a62dc3",
+              "stmt:bd60c1be",
+              "stmt:06e58074",
+              "stmt:6739f124",
+              "stmt:6d3bc523"
+            ],
+            "canada": [
+              "stmt:791cc66d",
+              "stmt:f8da018d",
+              "stmt:c95a0767",
+              "stmt:4d7ec53a",
+              "stmt:c1a62dc3",
+              "stmt:bd60c1be",
+              "stmt:06e58074",
+              "stmt:6739f124",
+              "stmt:6d3bc523"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/disclaimer-link.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:0978cfcd"
+        ],
+        "canada": [
+          "stmt:0978cfcd"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireDisclaimerLink",
+          "statements": {
+            "us": [
+              "stmt:0978cfcd"
+            ],
+            "canada": [
+              "stmt:0978cfcd"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/dynamic-list-editing.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:41be9744"
+        ],
+        "canada": [
+          "stmt:41be9744"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireDynamicListEditing",
+          "statements": {
+            "us": [
+              "stmt:41be9744"
+            ],
+            "canada": [
+              "stmt:41be9744"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/field-listeners.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "syncFns",
+          "stmt:e6fe3e6d",
+          "stmt:49b4b99a"
+        ],
+        "canada": [
+          "syncFns",
+          "stmt:e6fe3e6d",
+          "stmt:49b4b99a"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireFieldListeners",
+          "statements": {
+            "us": [
+              "stmt:e6fe3e6d",
+              "stmt:49b4b99a"
+            ],
+            "canada": [
+              "stmt:e6fe3e6d",
+              "stmt:49b4b99a"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/field-search.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:9c3bcb13"
+        ],
+        "canada": [
+          "stmt:9c3bcb13"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireFieldSearch",
+          "statements": {
+            "us": [
+              "stmt:9c3bcb13"
+            ],
+            "canada": [
+              "stmt:9c3bcb13"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/headline-tiles.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:0860a43c",
+          "stmt:67ef6d77"
+        ],
+        "canada": [
+          "stmt:0860a43c",
+          "stmt:67ef6d77"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireHeadlineTiles",
+          "statements": {
+            "us": [
+              "stmt:0860a43c",
+              "stmt:67ef6d77"
+            ],
+            "canada": [
+              "stmt:0860a43c",
+              "stmt:67ef6d77"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/housing-buttons.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:1c3b3310",
+          "stmt:3b93620b",
+          "stmt:32ff8063",
+          "stmt:f7b14a2f",
+          "stmt:53504c23",
+          "setTenure"
+        ],
+        "canada": [
+          "stmt:1c3b3310",
+          "stmt:3b93620b",
+          "stmt:32ff8063",
+          "stmt:f7b14a2f",
+          "stmt:53504c23",
+          "setTenure"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireHousingButtons",
+          "statements": {
+            "us": [
+              "stmt:1c3b3310",
+              "stmt:3b93620b",
+              "stmt:32ff8063",
+              "stmt:f7b14a2f",
+              "stmt:53504c23"
+            ],
+            "canada": [
+              "stmt:1c3b3310",
+              "stmt:3b93620b",
+              "stmt:32ff8063",
+              "stmt:f7b14a2f",
+              "stmt:53504c23"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/layout.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:b62caa94",
+          "stmt:7becaef0",
+          "stmt:4db7616e"
+        ],
+        "canada": [
+          "stmt:b62caa94",
+          "stmt:7becaef0",
+          "stmt:4db7616e"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireLayoutListeners",
+          "statements": {
+            "us": [
+              "stmt:b62caa94",
+              "stmt:7becaef0",
+              "stmt:4db7616e"
+            ],
+            "canada": [
+              "stmt:b62caa94",
+              "stmt:7becaef0",
+              "stmt:4db7616e"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/mcp-tools.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "MCP_FIELDS",
+          "stmt:530d38a0"
+        ],
+        "canada": [
+          "MCP_FIELDS",
+          "stmt:530d38a0"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "registerMcpTools",
+          "statements": {
+            "us": [
+              "stmt:530d38a0"
+            ],
+            "canada": [
+              "stmt:530d38a0"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/scenarios.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "saveScenario",
+          "loadScenario",
+          "deleteScenario",
+          "importScenarioFile",
+          "renderScenarioList",
+          "stmt:9d753410",
+          "stmt:8c2bdfa0",
+          "stmt:e52b15a0",
+          "stmt:deec9439",
+          "stmt:3f79d15e",
+          "stmt:bb15c1b7"
+        ],
+        "canada": [
+          "saveScenario",
+          "loadScenario",
+          "deleteScenario",
+          "importScenarioFile",
+          "renderScenarioList",
+          "stmt:9d753410",
+          "stmt:8c2bdfa0",
+          "stmt:e52b15a0",
+          "stmt:deec9439",
+          "stmt:3f79d15e",
+          "stmt:bb15c1b7"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireScenarios",
+          "statements": {
+            "us": [
+              "stmt:9d753410",
+              "stmt:8c2bdfa0",
+              "stmt:e52b15a0",
+              "stmt:deec9439",
+              "stmt:3f79d15e",
+              "stmt:bb15c1b7"
+            ],
+            "canada": [
+              "stmt:9d753410",
+              "stmt:8c2bdfa0",
+              "stmt:e52b15a0",
+              "stmt:deec9439",
+              "stmt:3f79d15e",
+              "stmt:bb15c1b7"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/theme.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "theme",
+          "applyTheme",
+          "stmt:30e74446",
+          "stmt:e534b8b6"
+        ],
+        "canada": [
+          "theme",
+          "applyTheme",
+          "stmt:30e74446",
+          "stmt:e534b8b6"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireThemeToggle",
+          "statements": {
+            "us": [
+              "stmt:30e74446",
+              "stmt:e534b8b6"
+            ],
+            "canada": [
+              "stmt:30e74446",
+              "stmt:e534b8b6"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/undo-2.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:2d5ca9c7"
+        ],
+        "canada": [
+          "stmt:2d5ca9c7"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireUndoButton",
+          "statements": {
+            "us": [
+              "stmt:2d5ca9c7"
+            ],
+            "canada": [
+              "stmt:2d5ca9c7"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/wizard-2.js",
+      "owner": "shared",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:9c729de8"
+        ],
+        "canada": [
+          "stmt:9c729de8"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireWizardClose",
+          "statements": {
+            "us": [
+              "stmt:9c729de8"
+            ],
+            "canada": [
+              "stmt:9c729de8"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/chart-controls.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:8144118f",
+          "stmt:fdf7b496",
+          "stmt:c82de244",
+          "stmt:ef7989f1",
+          "stmt:9e50fa0f",
+          "stmt:89a13e1b",
+          "stmt:58898986",
+          "stmt:bfdebec9",
+          "setChartShiftMode",
+          "stmt:ebf969a1",
+          "stmt:e9c2631d",
+          "setChartGapPartner",
+          "stmt:da95b313",
+          "stmt:3c3e7447",
+          "setChartXAxisMode",
+          "stmt:ed83cf61",
+          "stmt:c8831c23",
+          "stmt:dc4c372a"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wireChartViewButtons",
+          "statements": {
+            "us": [
+              "stmt:8144118f",
+              "stmt:fdf7b496",
+              "stmt:c82de244",
+              "stmt:ef7989f1",
+              "stmt:9e50fa0f",
+              "stmt:89a13e1b",
+              "stmt:58898986",
+              "stmt:bfdebec9"
+            ]
+          }
+        },
+        {
+          "name": "wireChartShiftButtons",
+          "statements": {
+            "us": [
+              "stmt:ebf969a1",
+              "stmt:e9c2631d",
+              "stmt:da95b313",
+              "stmt:3c3e7447",
+              "stmt:ed83cf61",
+              "stmt:c8831c23",
+              "stmt:dc4c372a"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/contribution-buttons.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "setContributionType",
+          "stmt:273ddea2",
+          "stmt:0081ee3a",
+          "stmt:a5c7ed2b",
+          "stmt:d7edf4a4",
+          "stmt:f3866685"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wireContributionButtons",
+          "statements": {
+            "us": [
+              "stmt:273ddea2",
+              "stmt:0081ee3a",
+              "stmt:a5c7ed2b",
+              "stmt:d7edf4a4",
+              "stmt:f3866685"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/filing-status-buttons.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "setFilingStatus",
+          "stmt:fce29653",
+          "stmt:b60268b4"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wireFilingStatusButtons",
+          "statements": {
+            "us": [
+              "stmt:fce29653",
+              "stmt:b60268b4"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/pension-buttons.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "setPensionCoverage",
+          "stmt:b4826e35",
+          "stmt:2ebb40ba",
+          "stmt:88eac69f",
+          "stmt:362aa903"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wirePensionButtons",
+          "statements": {
+            "us": [
+              "stmt:b4826e35",
+              "stmt:2ebb40ba",
+              "stmt:88eac69f",
+              "stmt:362aa903"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/roth-optimizer-controls.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "applyMultiLeverSchedule",
+          "clearAppliedMultiLeverSchedule",
+          "stmt:297a2232",
+          "stmt:c648dab8",
+          "stmt:69c410cf",
+          "stmt:dca3b504",
+          "stmt:b4f28a34"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wireRothOptimizerControls",
+          "statements": {
+            "us": [
+              "stmt:297a2232",
+              "stmt:c648dab8",
+              "stmt:69c410cf",
+              "stmt:dca3b504",
+              "stmt:b4f28a34"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/sensitivity.js",
+      "owner": "us",
+      "depth": 4,
+      "batch": 4,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:11d15c29"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "wireSensitivityLevers",
+          "statements": {
+            "us": [
+              "stmt:11d15c29"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ui/reset-plan.js",
+      "owner": "shared",
+      "depth": 5,
+      "batch": 5,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:00c49302"
+        ],
+        "canada": [
+          "stmt:00c49302"
+        ]
+      },
+      "wiring": [
+        {
+          "name": "wireResetButton",
+          "statements": {
+            "us": [
+              "stmt:00c49302"
+            ],
+            "canada": [
+              "stmt:00c49302"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/us/ui/install-test-hooks.js",
+      "owner": "us",
+      "depth": 5,
+      "batch": 5,
+      "ui": true,
+      "regions": [],
+      "units": {
+        "us": [
+          "stmt:6a34ba70",
+          "stmt:ac908951",
+          "stmt:4223f44b",
+          "stmt:8ae574e2",
+          "stmt:9c1138fc",
+          "stmt:45b6764b",
+          "stmt:160e0e15",
+          "stmt:270d8b3c",
+          "stmt:acab060c",
+          "stmt:fb7213a1",
+          "stmt:5211d9ea",
+          "stmt:7a4c7d75",
+          "stmt:c303e356",
+          "stmt:bcd6d0d5",
+          "stmt:639d6528",
+          "stmt:249dd77d",
+          "stmt:59f7e2d4",
+          "stmt:d95504eb",
+          "stmt:9144fa5b",
+          "stmt:39cb50e1",
+          "stmt:0665573a",
+          "stmt:55289fe2",
+          "stmt:398c49df",
+          "stmt:08d02eb2",
+          "stmt:4cf32d83",
+          "stmt:982c5e19",
+          "stmt:88bf2a87",
+          "stmt:e7f43719",
+          "stmt:328eb0c6",
+          "stmt:454259ce",
+          "stmt:bce3aac4",
+          "stmt:0186bfd6",
+          "stmt:5ed0d72e",
+          "stmt:46e79395",
+          "stmt:aa57f387",
+          "stmt:d131252c",
+          "stmt:f991dd17",
+          "stmt:d3decb64",
+          "stmt:6ef83361",
+          "stmt:3d8d5cac",
+          "stmt:40099b53",
+          "stmt:def96216",
+          "stmt:f2713156",
+          "stmt:b1fe375f",
+          "stmt:f5c932c6",
+          "stmt:869e9974",
+          "stmt:6b8341cf",
+          "stmt:3fa5b99f",
+          "stmt:d5aa9917",
+          "stmt:ab1a330d",
+          "stmt:c5544f6b",
+          "stmt:38635f20",
+          "stmt:fc391c76",
+          "stmt:362b1551",
+          "stmt:57b01c9f",
+          "stmt:0be78090",
+          "stmt:7998cb9f",
+          "stmt:6b9ff439",
+          "stmt:59a3c1b9",
+          "stmt:555a3a13",
+          "stmt:eb3d25cb",
+          "stmt:cb9b8c89",
+          "stmt:7d988400",
+          "stmt:63d4220d",
+          "stmt:d14b40c4",
+          "stmt:091207e2"
+        ],
+        "canada": []
+      },
+      "wiring": [
+        {
+          "name": "installTestHooks",
+          "statements": {
+            "us": [
+              "stmt:6a34ba70",
+              "stmt:ac908951",
+              "stmt:4223f44b",
+              "stmt:8ae574e2",
+              "stmt:9c1138fc",
+              "stmt:45b6764b",
+              "stmt:160e0e15",
+              "stmt:270d8b3c",
+              "stmt:acab060c",
+              "stmt:fb7213a1",
+              "stmt:5211d9ea",
+              "stmt:7a4c7d75",
+              "stmt:c303e356",
+              "stmt:bcd6d0d5",
+              "stmt:639d6528",
+              "stmt:249dd77d",
+              "stmt:59f7e2d4",
+              "stmt:d95504eb",
+              "stmt:9144fa5b",
+              "stmt:39cb50e1",
+              "stmt:0665573a",
+              "stmt:55289fe2",
+              "stmt:398c49df",
+              "stmt:08d02eb2",
+              "stmt:4cf32d83",
+              "stmt:982c5e19",
+              "stmt:88bf2a87",
+              "stmt:e7f43719",
+              "stmt:328eb0c6",
+              "stmt:454259ce",
+              "stmt:bce3aac4",
+              "stmt:0186bfd6",
+              "stmt:5ed0d72e",
+              "stmt:46e79395",
+              "stmt:aa57f387",
+              "stmt:d131252c",
+              "stmt:f991dd17",
+              "stmt:d3decb64",
+              "stmt:6ef83361",
+              "stmt:3d8d5cac",
+              "stmt:40099b53",
+              "stmt:def96216",
+              "stmt:f2713156",
+              "stmt:b1fe375f",
+              "stmt:f5c932c6",
+              "stmt:869e9974",
+              "stmt:6b8341cf",
+              "stmt:3fa5b99f",
+              "stmt:d5aa9917",
+              "stmt:ab1a330d",
+              "stmt:c5544f6b",
+              "stmt:38635f20",
+              "stmt:fc391c76",
+              "stmt:362b1551",
+              "stmt:57b01c9f",
+              "stmt:0be78090",
+              "stmt:7998cb9f",
+              "stmt:6b9ff439",
+              "stmt:59a3c1b9",
+              "stmt:555a3a13",
+              "stmt:eb3d25cb",
+              "stmt:cb9b8c89",
+              "stmt:7d988400",
+              "stmt:63d4220d",
+              "stmt:d14b40c4",
+              "stmt:091207e2"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "seam": [
+    "taxFor",
+    "BUCKET_STEP",
+    "runProjection",
+    "normalizeState",
+    "defaults",
+    "ESTIMATE_ALWAYS_IDS",
+    "ESTIMATE_GATED_GROUPS",
+    "TAXABLE_BASIS_KEY",
+    "housingForYear",
+    "STANDARD_MODE",
+    "BUCKET_MODE",
+    "render",
+    "syncControls",
+    "DECISION_QUESTIONS",
+    "computeRothOptimizer",
+    "FIELDS",
+    "DYN",
+    "SENSITIVITY_LEVERS",
+    "computeSankeyFlow",
+    "analyzeShortfallDrivers",
+    "renderDecisionCompareTable",
+    "buildPrintReport",
+    "mcpSchemaFor",
+    "mcpAccepts"
+  ],
+  "seamSides": {
+    "taxFor": "core",
+    "BUCKET_STEP": "core",
+    "runProjection": "core",
+    "normalizeState": "ui",
+    "defaults": "core",
+    "ESTIMATE_ALWAYS_IDS": "core",
+    "ESTIMATE_GATED_GROUPS": "core",
+    "TAXABLE_BASIS_KEY": "core",
+    "housingForYear": "core",
+    "STANDARD_MODE": "core",
+    "BUCKET_MODE": "core",
+    "render": "ui",
+    "syncControls": "ui",
+    "DECISION_QUESTIONS": "ui",
+    "computeRothOptimizer": "ui",
+    "FIELDS": "ui",
+    "DYN": "core",
+    "SENSITIVITY_LEVERS": "core",
+    "computeSankeyFlow": "ui",
+    "analyzeShortfallDrivers": "core",
+    "renderDecisionCompareTable": "core",
+    "buildPrintReport": "ui",
+    "mcpSchemaFor": "core",
+    "mcpAccepts": "core"
+  },
+  "bindings": {
+    "us": {
+      "colocated": [
+        {
+          "declaredIn": "theme",
+          "module": "src/shared/ui/theme.js"
+        },
+        {
+          "declaredIn": "sidebarCollapsed",
+          "module": "src/shared/ui/sidebar.js"
+        },
+        {
+          "declaredIn": "activeCategory",
+          "writer": "setActiveCategory"
+        },
+        {
+          "declaredIn": "hadSavedState",
+          "module": "src/shared/ui/saved-plan.js"
+        },
+        {
+          "declaredIn": "hasPersonalizedData",
+          "writer": "dismissFirstRunBanner"
+        },
+        {
+          "declaredIn": "infoBubbleBtn",
+          "module": "src/shared/ui/info-bubble.js"
+        },
+        {
+          "declaredIn": "infoBubbleAnchor",
+          "writer": "openInfoBubble"
+        },
+        {
+          "declaredIn": "reviewingFieldId",
+          "module": "src/shared/ui/estimate-review.js"
+        },
+        {
+          "declaredIn": "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "writer": "syncUnusualToast"
+        },
+        {
+          "declaredIn": "setMobileView",
+          "module": "src/shared/ui/mobile-view.js"
+        },
+        {
+          "declaredIn": "sankeyTooltipEl",
+          "writer": "ensureSankeyTooltip"
+        },
+        {
+          "declaredIn": "lastChart",
+          "writer": "renderChart"
+        },
+        {
+          "declaredIn": "chartTooltipEl",
+          "writer": "initChartHover"
+        },
+        {
+          "declaredIn": "saveDebounceTimer",
+          "writer": "saveInputs"
+        },
+        {
+          "declaredIn": "undoSnapshot",
+          "module": "src/shared/ui/undo.js"
+        },
+        {
+          "declaredIn": "undoToastTimer",
+          "writer": "showUndoToast"
+        },
+        {
+          "declaredIn": "planStatusHistTimer, planStatusHistRate",
+          "writer": "schedulePlanStatusHistRate"
+        },
+        {
+          "declaredIn": "planStatusLastText, planStatusUpdatedTimer",
+          "writer": "renderPlanStatusBar"
+        },
+        {
+          "declaredIn": "wizardStep",
+          "module": "src/shared/ui/wizard.js"
+        }
+      ],
+      "needsDecision": []
+    },
+    "canada": {
+      "colocated": [
+        {
+          "declaredIn": "theme",
+          "module": "src/shared/ui/theme.js"
+        },
+        {
+          "declaredIn": "sidebarCollapsed",
+          "module": "src/shared/ui/sidebar.js"
+        },
+        {
+          "declaredIn": "activeCategory",
+          "writer": "setActiveCategory"
+        },
+        {
+          "declaredIn": "hadSavedState",
+          "module": "src/shared/ui/saved-plan.js"
+        },
+        {
+          "declaredIn": "hasPersonalizedData",
+          "writer": "dismissFirstRunBanner"
+        },
+        {
+          "declaredIn": "infoBubbleBtn",
+          "module": "src/shared/ui/info-bubble.js"
+        },
+        {
+          "declaredIn": "infoBubbleAnchor",
+          "writer": "openInfoBubble"
+        },
+        {
+          "declaredIn": "reviewingFieldId",
+          "module": "src/shared/ui/estimate-review.js"
+        },
+        {
+          "declaredIn": "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "writer": "syncUnusualToast"
+        },
+        {
+          "declaredIn": "setMobileView",
+          "module": "src/shared/ui/mobile-view.js"
+        },
+        {
+          "declaredIn": "lastRothOptimizer",
+          "writer": "computeRothOptimizer"
+        },
+        {
+          "declaredIn": "sankeyTooltipEl",
+          "writer": "ensureSankeyTooltip"
+        },
+        {
+          "declaredIn": "lastChart",
+          "writer": "renderChart"
+        },
+        {
+          "declaredIn": "chartTooltipEl",
+          "writer": "initChartHover"
+        },
+        {
+          "declaredIn": "saveDebounceTimer",
+          "writer": "saveInputs"
+        },
+        {
+          "declaredIn": "undoSnapshot",
+          "module": "src/shared/ui/undo.js"
+        },
+        {
+          "declaredIn": "undoToastTimer",
+          "writer": "showUndoToast"
+        },
+        {
+          "declaredIn": "planStatusHistTimer, planStatusHistRate",
+          "writer": "schedulePlanStatusHistRate"
+        },
+        {
+          "declaredIn": "planStatusLastText, planStatusUpdatedTimer",
+          "writer": "renderPlanStatusBar"
+        },
+        {
+          "declaredIn": "wizardStep",
+          "module": "src/shared/ui/wizard.js"
+        }
+      ],
+      "needsDecision": []
+    }
+  },
+  "stats": {
+    "us": {
+      "units": 311,
+      "candidates": 301,
+      "movable": 301
+    },
+    "canada": {
+      "units": 231,
+      "candidates": 222,
+      "movable": 222
+    }
+  },
+  "uiCycles": [
+    [
+      "src/canada/ui/decision-questions.js",
+      "src/canada/ui/render.js",
+      "src/shared/ui/chart-view-mode.js",
+      "src/shared/ui/decision-questions.js",
+      "src/shared/ui/estimate-badges.js",
+      "src/shared/ui/estimate-review.js",
+      "src/shared/ui/mobile-view.js",
+      "src/shared/ui/plan-status-bar.js",
+      "src/shared/ui/sankey.js",
+      "src/shared/ui/tornado.js",
+      "src/shared/ui/unusual-warnings.js",
+      "src/us/ui/decision-questions.js",
+      "src/us/ui/render.js"
+    ]
+  ],
+  "topics": "scripts/extractions/stage4-topics.json"
+}

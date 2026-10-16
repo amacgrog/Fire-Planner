@@ -1,0 +1,813 @@
+{
+  "shared": {
+    "modules": {
+      "src/shared/ui/field-ids.js": {
+        "units": [
+          "ids"
+        ]
+      },
+      "src/shared/ui/field-listeners.js": {
+        "units": [
+          "syncFns",
+          "stmt:e6fe3e6d",
+          "stmt:49b4b99a"
+        ],
+        "wiring": {
+          "stmt:e6fe3e6d": "wireFieldListeners"
+        }
+      },
+      "src/shared/ui/theme.js": {
+        "units": [
+          "theme",
+          "applyTheme",
+          "stmt:30e74446",
+          "stmt:e534b8b6"
+        ],
+        "wiring": {
+          "stmt:30e74446": "wireThemeToggle"
+        }
+      },
+      "src/shared/ui/sidebar.js": {
+        "units": [
+          "sidebarCollapsed",
+          "stmt:e4d81a0c",
+          "setSidebarCollapsed",
+          "stmt:0c525b9a",
+          "stmt:670a32f3"
+        ],
+        "wiring": {
+          "stmt:e4d81a0c": "loadSidebarPreference",
+          "stmt:0c525b9a": "wireSidebarCollapse"
+        }
+      },
+      "src/shared/ui/category-rail.js": {
+        "units": [
+          "activeCategory",
+          "setActiveCategory",
+          "stmt:b46fa54c"
+        ],
+        "wiring": {
+          "stmt:b46fa54c": "wireCategoryRail"
+        }
+      },
+      "src/shared/ui/saved-plan.js": {
+        "units": [
+          "hadSavedState",
+          "stmt:a22a18f3",
+          "hasPersonalizedData",
+          "dismissFirstRunBanner",
+          "stmt:0fc198b5",
+          "stmt:7d31c470",
+          "stmt:7b959602",
+          "stmt:6150af16"
+        ],
+        "wiring": {
+          "stmt:a22a18f3": "loadSavedState",
+          "stmt:0fc198b5": "wireFirstRunBanner"
+        }
+      },
+      "src/shared/ui/estimate-badges.js": {
+        "units": [
+          "markDefaultFields",
+          "computeCountedEstimateIds",
+          "dismissEstimateField",
+          "stmt:7ed35fd9",
+          "renderEstimateBadges"
+        ],
+        "wiring": {
+          "stmt:7ed35fd9": "wireEstimateBadges"
+        }
+      },
+      "src/shared/ui/info-bubble.js": {
+        "units": [
+          "stmt:f29b8c41",
+          "stmt:0d1fbbea",
+          "stmt:82999b8d",
+          "stmt:50d0dd0d",
+          "stmt:6f5a3286",
+          "infoBubbleBtn",
+          "infoBubbleAnchor",
+          "closeInfoBubble",
+          "placeInfoBubble",
+          "openInfoBubble",
+          "stmt:ece2821c",
+          "stmt:9bd78c8f",
+          "stmt:d36c5812",
+          "stmt:1ffd6ea2"
+        ],
+        "wiring": {
+          "stmt:f29b8c41": "wireInfoBubble"
+        }
+      },
+      "src/shared/ui/estimate-review.js": {
+        "units": [
+          "reviewingFieldId",
+          "jumpToEstimateField",
+          "renderEstimatedRollup",
+          "syncReviewNav",
+          "advanceReview",
+          "stmt:dc63e483",
+          "stmt:c4634d74",
+          "stmt:da22fecf"
+        ],
+        "wiring": {
+          "stmt:dc63e483": "wireEstimateReview"
+        }
+      },
+      "src/shared/ui/unusual-warnings.js": {
+        "units": [
+          "dismissUnusualAssumption",
+          "jumpToUnusualField",
+          "stmt:3cd37832",
+          "stmt:518fdd5d",
+          "previousUnusualIds, unusualToastArmed, unusualToastTimer",
+          "syncUnusualToast",
+          "stmt:37c2b3a5",
+          "stmt:8758cbb8",
+          "renderUnusualAssumptions"
+        ],
+        "wiring": {
+          "stmt:3cd37832": "wireUnusualWarnings"
+        }
+      },
+      "src/shared/ui/shortfall-banner.js": {
+        "units": [
+          "renderShortfallBanner"
+        ]
+      },
+      "src/shared/ui/decision-questions.js": {
+        "units": [
+          "renderDecisionQuestionPreviews",
+          "stmt:64e31d5f",
+          "renderDecisionQuestionAnswer",
+          "stmt:7c115e0f"
+        ],
+        "wiring": {
+          "stmt:64e31d5f": "wireDecisionCard",
+          "stmt:7c115e0f": "wireDecisionQuestions"
+        }
+      },
+      "src/shared/ui/mobile-view.js": {
+        "units": [
+          "setMobileView",
+          "switchToDashboardTab",
+          "stmt:a906efa4",
+          "stmt:07bec804"
+        ],
+        "wiring": {
+          "stmt:a906efa4": "wireMobileTabs"
+        }
+      },
+      "src/shared/ui/tornado.js": {
+        "units": [
+          "computeSensitivity",
+          "renderTornadoChart",
+          "stmt:17c09264"
+        ],
+        "wiring": {
+          "stmt:17c09264": "wireSensitivityCard"
+        }
+      },
+      "src/shared/ui/sankey.js": {
+        "units": [
+          "sankeyTooltipEl",
+          "ensureSankeyTooltip",
+          "showSankeyTooltip",
+          "hideSankeyTooltip",
+          "renderSankey",
+          "stmt:aca7ddd7",
+          "stmt:618999f7"
+        ],
+        "wiring": {
+          "stmt:aca7ddd7": "wireSankeyCard",
+          "stmt:618999f7": "wireSankeyAge"
+        }
+      },
+      "src/shared/ui/roth-optimizer-card.js": {
+        "units": [
+          "renderRothOptimizer"
+        ]
+      },
+      "src/shared/ui/projection-chart.js": {
+        "units": [
+          "renderChart",
+          "lastChart"
+        ]
+      },
+      "src/shared/ui/chart-hover.js": {
+        "units": [
+          "clearChartHover",
+          "chartTooltipEl",
+          "initChartHover"
+        ]
+      },
+      "src/shared/ui/autosave.js": {
+        "units": [
+          "writeStorageNow",
+          "saveDebounceTimer",
+          "saveInputs",
+          "stmt:6d47ee11"
+        ],
+        "wiring": {
+          "stmt:6d47ee11": "wireAutosave"
+        }
+      },
+      "src/shared/ui/scenario-comparison.js": {
+        "units": [
+          "computeScenarioMetrics",
+          "computeOverlaySeriesFor",
+          "renderOverlayChart",
+          "renderScenarioComparison"
+        ]
+      },
+      "src/shared/ui/scenarios.js": {
+        "units": [
+          "saveScenario",
+          "loadScenario",
+          "deleteScenario",
+          "importScenarioFile",
+          "renderScenarioList",
+          "stmt:9d753410",
+          "stmt:8c2bdfa0",
+          "stmt:e52b15a0",
+          "stmt:deec9439",
+          "stmt:3f79d15e",
+          "stmt:bb15c1b7"
+        ],
+        "wiring": {
+          "stmt:9d753410": "wireScenarios"
+        }
+      },
+      "src/shared/ui/export-and-print.js": {
+        "units": [
+          "exportCsv",
+          "stmt:c978c929",
+          "stmt:7be89fd8"
+        ],
+        "wiring": {
+          "stmt:c978c929": "wireExportButtons"
+        }
+      },
+      "src/shared/ui/dynamic-lists.js": {
+        "units": [
+          "renderDynList",
+          "dynApplyVisibility",
+          "renderLoanFields",
+          "renderIncomeSourceFields",
+          "renderOneTimeIncomeFields",
+          "renderExtraExpenseFields",
+          "renderLumpExpenseFields",
+          "renderSpendingTierFields",
+          "renderChildFields"
+        ]
+      },
+      "src/shared/ui/dynamic-list-editing.js": {
+        "units": [
+          "stmt:41be9744"
+        ],
+        "wiring": {
+          "stmt:41be9744": "wireDynamicListEditing"
+        }
+      },
+      "src/shared/ui/housing-buttons.js": {
+        "units": [
+          "stmt:1c3b3310",
+          "stmt:3b93620b",
+          "stmt:32ff8063",
+          "stmt:f7b14a2f",
+          "stmt:53504c23",
+          "setTenure"
+        ],
+        "wiring": {
+          "stmt:1c3b3310": "wireHousingButtons"
+        }
+      },
+      "src/shared/ui/field-search.js": {
+        "units": [
+          "stmt:9c3bcb13"
+        ],
+        "wiring": {
+          "stmt:9c3bcb13": "wireFieldSearch"
+        }
+      },
+      "src/shared/ui/sync-contribution-controls.js": {
+        "units": [
+          "syncContributionControls"
+        ]
+      },
+      "src/shared/ui/headline-tiles.js": {
+        "units": [
+          "stmt:0860a43c",
+          "stmt:67ef6d77"
+        ],
+        "wiring": {
+          "stmt:0860a43c": "wireHeadlineTiles"
+        }
+      },
+      "src/shared/ui/chart-toolbar.js": {
+        "units": [
+          "stmt:f97b196b",
+          "setMcPathCount",
+          "stmt:791cc66d",
+          "stmt:f8da018d",
+          "stmt:c95a0767",
+          "stmt:4d7ec53a",
+          "setChartExpanded",
+          "setChartToolbarCollapsed",
+          "stmt:c1a62dc3",
+          "stmt:bd60c1be",
+          "stmt:06e58074",
+          "stmt:6739f124",
+          "stmt:6d3bc523"
+        ],
+        "wiring": {
+          "stmt:f97b196b": "wireDollarModeDropdown",
+          "stmt:791cc66d": "wireChartToolbar"
+        }
+      },
+      "src/shared/ui/disclaimer-link.js": {
+        "units": [
+          "stmt:0978cfcd"
+        ],
+        "wiring": {
+          "stmt:0978cfcd": "wireDisclaimerLink"
+        }
+      },
+      "src/shared/ui/chart-view-mode.js": {
+        "units": [
+          "setChartView",
+          "setMode"
+        ]
+      },
+      "src/shared/ui/undo.js": {
+        "units": [
+          "undoSnapshot",
+          "undoToastTimer",
+          "snapshotForUndo",
+          "showUndoToast",
+          "hideUndoToast"
+        ]
+      },
+      "src/shared/ui/undo-2.js": {
+        "units": [
+          "stmt:2d5ca9c7"
+        ],
+        "wiring": {
+          "stmt:2d5ca9c7": "wireUndoButton"
+        }
+      },
+      "src/shared/ui/reset-plan.js": {
+        "units": [
+          "stmt:00c49302"
+        ],
+        "wiring": {
+          "stmt:00c49302": "wireResetButton"
+        }
+      },
+      "src/shared/ui/input-gestures.js": {
+        "units": [
+          "stmt:eb8b1f13",
+          "stmt:6b9981f3",
+          "stmt:ffe4cb8f"
+        ],
+        "wiring": {
+          "stmt:eb8b1f13": "wireInputGestures"
+        }
+      },
+      "src/shared/ui/plan-status-bar.js": {
+        "units": [
+          "planStatusHistTimer, planStatusHistRate",
+          "schedulePlanStatusHistRate",
+          "planStatusLastText, planStatusUpdatedTimer",
+          "renderPlanStatusBar",
+          "stmt:d2ff0cf2",
+          "stmt:3979fb1e"
+        ],
+        "wiring": {
+          "stmt:d2ff0cf2": "wirePlanStatusBar"
+        }
+      },
+      "src/shared/ui/layout.js": {
+        "units": [
+          "stmt:b62caa94",
+          "stmt:7becaef0",
+          "stmt:4db7616e"
+        ],
+        "wiring": {
+          "stmt:b62caa94": "wireLayoutListeners"
+        }
+      },
+      "src/shared/ui/wizard.js": {
+        "units": [
+          "stmt:82494c05",
+          "wizardStep",
+          "renderWizardStep",
+          "stmt:12faae60",
+          "stmt:4e313ae7",
+          "stmt:c034c6a7",
+          "stmt:0e937b68",
+          "stmt:cb1ab4a3",
+          "stmt:6b01df13"
+        ],
+        "wiring": {
+          "stmt:82494c05": "wireWizard",
+          "stmt:0e937b68": "wireWizardDismiss"
+        }
+      },
+      "src/shared/ui/wizard-2.js": {
+        "units": [
+          "stmt:9c729de8"
+        ],
+        "wiring": {
+          "stmt:9c729de8": "wireWizardClose"
+        }
+      },
+      "src/shared/ui/table-focus.js": {
+        "units": [
+          "stmt:a28e4868",
+          "stmt:b19e4cc9"
+        ],
+        "wiring": {
+          "stmt:a28e4868": "wireTableFocus"
+        }
+      },
+      "src/shared/ui/mcp-tools.js": {
+        "units": [
+          "MCP_FIELDS",
+          "stmt:530d38a0"
+        ],
+        "wiring": {
+          "stmt:530d38a0": "registerMcpTools"
+        }
+      },
+      "src/shared/ui/install-test-hooks.js": {
+        "units": [
+          "stmt:a1bd5ffc",
+          "stmt:053db3f9",
+          "stmt:fcae182b",
+          "stmt:daf9d250",
+          "stmt:20dd1179",
+          "stmt:dce5024c",
+          "stmt:b19b8f31"
+        ],
+        "wiring": {
+          "stmt:a1bd5ffc": "installSharedTestHooks"
+        }
+      }
+    },
+    "main": [
+      "stmt:2912509a",
+      "stmt:67c6f223",
+      "stmt:ed55a0f0",
+      "stmt:3ad8fc30",
+      "stmt:3c2ed7fe",
+      "stmt:45eba93c",
+      "stmt:f1d3141e",
+      "stmt:3fead47b"
+    ]
+  },
+  "us": {
+    "modules": {
+      "src/us/ui/normalize-state.js": {
+        "units": [
+          "normalizeState"
+        ]
+      },
+      "src/us/ui/unusual-warnings.js": {
+        "units": [
+          "stmt:721acc88"
+        ],
+        "wiring": {
+          "stmt:721acc88": "addSocialSecurityWarnings"
+        }
+      },
+      "src/us/ui/render.js": {
+        "units": [
+          "render"
+        ]
+      },
+      "src/us/ui/decision-questions.js": {
+        "units": [
+          "DECISION_QUESTIONS"
+        ]
+      },
+      "src/us/ui/roth-optimizer.js": {
+        "units": [
+          "computeRothOptimizer",
+          "renderRothPerYearOptimizer",
+          "renderMultiLeverOptimizer"
+        ]
+      },
+      "src/us/ui/chart-view.js": {
+        "units": [
+          "renderChartView"
+        ]
+      },
+      "src/us/ui/print-report.js": {
+        "units": [
+          "buildPrintReport"
+        ]
+      },
+      "src/us/ui/dynamic-lists.js": {
+        "units": [
+          "stmt:24c99554"
+        ],
+        "wiring": {
+          "stmt:24c99554": "addChildrenList"
+        }
+      },
+      "src/us/ui/sync-controls.js": {
+        "units": [
+          "syncControls"
+        ]
+      },
+      "src/us/ui/contribution-buttons.js": {
+        "units": [
+          "setContributionType",
+          "stmt:273ddea2",
+          "stmt:0081ee3a",
+          "stmt:a5c7ed2b",
+          "stmt:d7edf4a4",
+          "stmt:f3866685"
+        ],
+        "wiring": {
+          "stmt:273ddea2": "wireContributionButtons"
+        }
+      },
+      "src/us/ui/pension-buttons.js": {
+        "units": [
+          "setPensionCoverage",
+          "stmt:b4826e35",
+          "stmt:2ebb40ba",
+          "stmt:88eac69f",
+          "stmt:362aa903"
+        ],
+        "wiring": {
+          "stmt:b4826e35": "wirePensionButtons"
+        }
+      },
+      "src/us/ui/filing-status-buttons.js": {
+        "units": [
+          "setFilingStatus",
+          "stmt:fce29653",
+          "stmt:b60268b4"
+        ],
+        "wiring": {
+          "stmt:fce29653": "wireFilingStatusButtons"
+        }
+      },
+      "src/us/ui/chart-controls.js": {
+        "units": [
+          "stmt:8144118f",
+          "stmt:fdf7b496",
+          "stmt:c82de244",
+          "stmt:ef7989f1",
+          "stmt:9e50fa0f",
+          "stmt:89a13e1b",
+          "stmt:58898986",
+          "stmt:bfdebec9",
+          "setChartShiftMode",
+          "stmt:ebf969a1",
+          "stmt:e9c2631d",
+          "setChartGapPartner",
+          "stmt:da95b313",
+          "stmt:3c3e7447",
+          "setChartXAxisMode",
+          "stmt:ed83cf61",
+          "stmt:c8831c23",
+          "stmt:dc4c372a"
+        ],
+        "wiring": {
+          "stmt:8144118f": "wireChartViewButtons",
+          "stmt:ebf969a1": "wireChartShiftButtons"
+        }
+      },
+      "src/us/ui/wizard.js": {
+        "units": [
+          "stmt:b4a84ff9"
+        ],
+        "wiring": {
+          "stmt:b4a84ff9": "wireWizardCheckboxes"
+        }
+      },
+      "src/us/ui/sensitivity.js": {
+        "units": [
+          "stmt:11d15c29"
+        ],
+        "wiring": {
+          "stmt:11d15c29": "wireSensitivityLevers"
+        }
+      },
+      "src/us/ui/roth-optimizer-controls.js": {
+        "units": [
+          "stmt:297a2232",
+          "stmt:c648dab8",
+          "stmt:69c410cf",
+          "stmt:dca3b504",
+          "stmt:b4f28a34",
+          "applyMultiLeverSchedule",
+          "clearAppliedMultiLeverSchedule"
+        ],
+        "wiring": {
+          "stmt:297a2232": "wireRothOptimizerControls"
+        }
+      },
+      "src/us/ui/install-test-hooks.js": {
+        "units": [
+          "stmt:6a34ba70",
+          "stmt:ac908951",
+          "stmt:4223f44b",
+          "stmt:8ae574e2",
+          "stmt:9c1138fc",
+          "stmt:45b6764b",
+          "stmt:160e0e15",
+          "stmt:270d8b3c",
+          "stmt:acab060c",
+          "stmt:fb7213a1",
+          "stmt:5211d9ea",
+          "stmt:7a4c7d75",
+          "stmt:c303e356",
+          "stmt:bcd6d0d5",
+          "stmt:639d6528",
+          "stmt:249dd77d",
+          "stmt:59f7e2d4",
+          "stmt:d95504eb",
+          "stmt:9144fa5b",
+          "stmt:39cb50e1",
+          "stmt:0665573a",
+          "stmt:55289fe2",
+          "stmt:398c49df",
+          "stmt:08d02eb2",
+          "stmt:4cf32d83",
+          "stmt:982c5e19",
+          "stmt:88bf2a87",
+          "stmt:e7f43719",
+          "stmt:328eb0c6",
+          "stmt:454259ce",
+          "stmt:bce3aac4",
+          "stmt:0186bfd6",
+          "stmt:5ed0d72e",
+          "stmt:46e79395",
+          "stmt:aa57f387",
+          "stmt:d131252c",
+          "stmt:f991dd17",
+          "stmt:d3decb64",
+          "stmt:6ef83361",
+          "stmt:3d8d5cac",
+          "stmt:40099b53",
+          "stmt:def96216",
+          "stmt:f2713156",
+          "stmt:b1fe375f",
+          "stmt:f5c932c6",
+          "stmt:869e9974",
+          "stmt:6b8341cf",
+          "stmt:3fa5b99f",
+          "stmt:d5aa9917",
+          "stmt:ab1a330d",
+          "stmt:c5544f6b",
+          "stmt:38635f20",
+          "stmt:fc391c76",
+          "stmt:362b1551",
+          "stmt:57b01c9f",
+          "stmt:0be78090",
+          "stmt:7998cb9f",
+          "stmt:6b9ff439",
+          "stmt:59a3c1b9",
+          "stmt:555a3a13",
+          "stmt:eb3d25cb",
+          "stmt:cb9b8c89",
+          "stmt:7d988400",
+          "stmt:63d4220d",
+          "stmt:d14b40c4",
+          "stmt:091207e2"
+        ],
+        "wiring": {
+          "stmt:6a34ba70": "installTestHooks"
+        }
+      }
+    },
+    "main": [
+      "stmt:93758141",
+      "stmt:2361cfc2"
+    ]
+  },
+  "canada": {
+    "modules": {
+      "src/canada/ui/render.js": {
+        "units": [
+          "render"
+        ]
+      },
+      "src/canada/ui/decision-questions.js": {
+        "units": [
+          "DECISION_QUESTIONS"
+        ]
+      },
+      "src/canada/ui/roth-optimizer.js": {
+        "units": [
+          "computeRothOptimizer",
+          "lastRothOptimizer",
+          "annotateRothOptimizer"
+        ]
+      },
+      "src/canada/ui/chart-view.js": {
+        "units": [
+          "renderChartView"
+        ]
+      },
+      "src/canada/ui/print-report.js": {
+        "units": [
+          "buildPrintReport"
+        ]
+      },
+      "src/canada/ui/dynamic-lists.js": {
+        "units": [
+          "stmt:491836e3"
+        ],
+        "wiring": {
+          "stmt:491836e3": "addChildrenList"
+        }
+      },
+      "src/canada/ui/sync-controls.js": {
+        "units": [
+          "syncControls"
+        ]
+      },
+      "src/canada/ui/pension-buttons.js": {
+        "units": [
+          "setPensionCoverage",
+          "stmt:b4826e35",
+          "stmt:2ebb40ba",
+          "stmt:88eac69f",
+          "stmt:362aa903"
+        ],
+        "wiring": {
+          "stmt:b4826e35": "wirePensionButtons"
+        }
+      },
+      "src/canada/ui/chart-controls.js": {
+        "units": [
+          "stmt:8144118f",
+          "stmt:fdf7b496",
+          "stmt:c82de244",
+          "stmt:ef7989f1",
+          "stmt:9e50fa0f",
+          "stmt:89a13e1b",
+          "stmt:58898986",
+          "stmt:bfdebec9",
+          "setChartShiftMode",
+          "stmt:ebf969a1",
+          "stmt:e9c2631d",
+          "setChartGapPartner",
+          "stmt:da95b313",
+          "stmt:3c3e7447",
+          "setChartXAxisMode",
+          "stmt:ed83cf61",
+          "stmt:c8831c23",
+          "stmt:dc4c372a"
+        ],
+        "wiring": {
+          "stmt:8144118f": "wireChartControls"
+        }
+      },
+      "src/canada/ui/wizard.js": {
+        "units": [
+          "stmt:fef803d2"
+        ],
+        "wiring": {
+          "stmt:fef803d2": "wireWizardCheckboxes"
+        }
+      },
+      "src/canada/ui/sensitivity.js": {
+        "units": [
+          "stmt:11d15c29"
+        ],
+        "wiring": {
+          "stmt:11d15c29": "wireSensitivityLevers"
+        }
+      },
+      "src/canada/ui/roth-optimizer-controls.js": {
+        "units": [
+          "stmt:297a2232"
+        ],
+        "wiring": {
+          "stmt:297a2232": "wireRothOptimizerControls"
+        }
+      },
+      "src/canada/ui/install-test-hooks.js": {
+        "units": [
+          "stmt:454259ce",
+          "stmt:0b9844cc",
+          "stmt:0be78090",
+          "stmt:095cec87"
+        ],
+        "wiring": {
+          "stmt:454259ce": "installTestHooks"
+        }
+      }
+    },
+    "main": [
+      "stmt:2361cfc2"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "operations": [
+    { "rename": "src/shared/core/bond-ladder-2.js", "to": "src/shared/core/projected-expense.js" },
+    { "rename": "src/shared/core/estimates-and-warnings-2.js", "to": "src/shared/core/estimate-checks.js" },
+    { "rename": "src/shared/core/lists-and-children-2.js", "to": "src/shared/core/list-normalization.js" },
+    { "rename": "src/shared/core/monte-carlo-paths-2.js", "to": "src/shared/core/simulate.js" },
+    { "rename": "src/shared/core/simulate-at-real-cagr.js", "to": "src/shared/core/cagr-colors.js" },
+    { "rename": "src/shared/core/simulate-at-real-cagr-2.js", "to": "src/shared/core/simulate-at-real-cagr.js" },
+    { "rename": "src/shared/core/sweep-excess-cash-2.js", "to": "src/shared/core/bond-ladder-rotation.js" },
+    { "rename": "src/shared/core/year-factors-2.js", "to": "src/shared/core/tax-index-factor.js" },
+    { "rename": "src/us/ui/clamp-profit-sharing.js", "to": "src/us/ui/fields.js" },
+    { "move": "mc", "from": "src/shared/ui/first-run-ui.js", "to": "src/shared/ui/mcp-tools.js" },
+    { "move": "makeTableWrapsFocusable", "from": "src/shared/ui/first-run-ui.js", "to": "src/shared/ui/table-focus.js" },
+    { "move": "undoToastBtnEl", "from": "src/shared/ui/topbar-and-undo.js", "to": "src/shared/ui/undo.js" },
+    { "merge": ["src/shared/ui/sync-keyboard-inset.js", "src/shared/ui/sync-plan-status-offsets.js"], "to": "src/shared/ui/layout-metrics.js" },
+    { "move": "syncTopbarHeight", "from": "src/shared/ui/topbar-and-undo.js", "to": "src/shared/ui/layout-metrics.js" },
+    { "move": "infoBubble", "from": "src/shared/ui/estimates-and-warnings.js", "to": "src/shared/ui/info-bubble.js" },
+    { "move": "markUnusualFields", "from": "src/shared/ui/estimates-and-warnings.js", "to": "src/shared/ui/unusual-warnings.js" },
+    { "merge": ["src/shared/ui/undo.js", "src/shared/ui/undo-2.js"], "to": "src/shared/ui/undo.js" },
+    { "merge": ["src/shared/ui/wizard-overlay.js", "src/shared/ui/wizard.js", "src/shared/ui/wizard-2.js"], "to": "src/shared/ui/wizard.js" },
+    { "merge": ["src/us/ui/update-chart-shift-mode-buttons.js", "src/us/ui/update-chart-gap-partner-buttons.js", "src/us/ui/update-chart-xaxis-buttons.js", "src/us/ui/chart-controls.js"], "to": "src/us/ui/chart-controls.js" },
+    { "merge": ["src/canada/ui/update-chart-shift-mode-buttons.js", "src/canada/ui/update-chart-gap-partner-buttons.js", "src/canada/ui/update-chart-xaxis-buttons.js", "src/canada/ui/chart-controls.js"], "to": "src/canada/ui/chart-controls.js" },
+    { "merge": ["src/shared/ui/dyn-field-html.js", "src/shared/ui/field-wiring.js"], "to": "src/shared/ui/field-dom-sync.js" },
+    { "move": "renderTable", "from": "src/shared/ui/chart-render.js", "to": "src/shared/ui/projection-table.js" },
+    { "rename": "src/shared/ui/chart-render.js", "to": "src/shared/ui/monte-carlo-chart.js" },
+    { "rename": "src/us/ui/annotate-solver-rows.js", "to": "src/us/ui/table-annotations.js" },
+    { "merge": ["src/us/ui/roth-optimizer.js", "src/us/ui/render-multi-lever-applied-status.js"], "to": "src/us/ui/roth-optimizer.js" }
+  ]
+}
