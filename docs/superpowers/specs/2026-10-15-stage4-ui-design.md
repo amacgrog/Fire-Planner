@@ -1,7 +1,7 @@
 # Stage 4 design: the UI layer leaves main.js
 
 Date: 2026-10-15
-Status: draft; review rounds 1 (findings 1-14), 2 (findings 1-10), 3 (findings 1-13), 4 (findings 1-7), 5 (findings 1-8) and 6 (findings 1-8) adopted, owner-approved 2026-10-15
+Status: implemented on branch claude/stage4-ui-impl (the owner adds the merge date when merging)
 Parent design: `docs/superpowers/specs/2026-10-10-modular-build-design.md` (sections 6 and 12-14). This file is the Stage 4
 design that section 6 announces in one line ("Peel the remaining `ui/` layers"); it follows the format of sections 12-14 and
 is kept in its own file so the parent design is not edited in parallel.
@@ -536,6 +536,37 @@ Vitest (its own short design after Stage 4); regrouping the one-unit `core/` mod
 - The load-time guard is static: it proves that nothing in a UI cycle runs code while modules load (inert initializers
   only), not that a wiring function never runs before another one it depends on; the ordered comparison covers that for this stage, review covers it afterwards.
 - The ordered comparison leaves declarations out, so the order in which `// load-time:` initializers run is not compared;
-  the regroup tool reports changes to it (section 5.8). Harmless today: none of them depends on another.
+  the regroup tool reports changes to it (section 5.8). Harmless today: none of them depends on another. (Open items: T4 ruling.)
 - Real browser ESM is not exercised (only the esbuild bundle); the cycle guard is what keeps a later Vite dev server possible.
-- The namespace-import gap of the applier (`import * as`) stays; nothing uses it.
+- The namespace-import gap of the applier (`import * as`) stays; nothing uses it. The regroup tool has the same gap (`import * as`
+  and `export *` are not tracked by a merge or a move; open items: T12).
+
+Found during the implementation (one line each; the task, file and reason are in
+`docs/superpowers/inventory/stage4-open-items.md`, section "Limits"):
+
+- Statement labels: a repeated text gets `#N` within one scope; the same label in two scopes, or a hash collision, throws (T2).
+- The load-time guard counts a class `extends` expression, computed key, static field or static block as load time, and reports
+  a `"use strict"` directive as a top-level statement (T3).
+- The module graph throws on an unresolved import; `facadeTargets` caches results computed with a non-empty `seen` set, latent for
+  cyclic facade chains (T3).
+- The build comparison expands wiring functions to a fixed point; `ALLOWED_DROPS` matches by substring (T4).
+- The planner: an existing topics module's statement labels and wiring entries are not verified; unknown topics keys are ignored;
+  a topics file can split a data block; `--draft-topics` ignores `--topics` (T5).
+- The planner's load-time / split rule runs only with a topics file; the seam-side rule is not transitive; `bindings.colocated`
+  keeps a split's writer; the seam-side recompute is untested (T6).
+- Without a topics file the cross-owner cycle test is per unit; with one, an unlisted plain `let` in a cross-owner ui cycle still
+  throws (T10fixB).
+- The applier: the wiring-name clash check ignores free globals; whitespace-only lines keep trailing spaces;
+  `functionBodyProblem` passes a statement whose node it cannot find; the unit-count check is unreachable from fixtures (T7).
+- The module map: a BOM, a `///` line or a `/* */` line 1 is not read as a purpose comment (T9).
+- `compare-builds.js --ordered` counts against the previous commit are not comparable between batches; only counts against the
+  pre-stage base are (T10).
+- `hasPersonalizedData` (`src/shared/ui/saved-plan.js`) is `undefined` until `loadSavedState()` runs (the split rule; T11b1).
+- In the bundle `let` becomes `var`, so a wrong module order in a cycle gives a silent `undefined`, not a TDZ error; safety rests on
+  `tests/ui_cycles.js` (T11b3).
+- Outside cycles, load-time safety rests on esbuild putting dependencies first, and a marker's reason is not machine-checked
+  (`MCP_FIELDS` and `ids` read `FIELDS`; T11b4).
+- The regroup tool writes LF only, can leave a partial application if a rename fails midway, does not see through hoisted functions
+  in its in-file TDZ check, and checks writers of `let` / `var` only (T12).
+- The cycle rule flags any module-level name in a marked initializer of a cycle module, even through a shadowing parameter (T12).
+- `DATA_MARK` recognises data-block names of capitals and underscores only, in three tools (T12fix1).

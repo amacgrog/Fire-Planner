@@ -157,7 +157,7 @@ results.
    to after stage 4 (the last shared regions are UI code). DONE on branch tyler/stage3-higher-layers (the owner adds the merge date when merging).
 4. **Peel the remaining `ui/` layers.** Render, sync, charts, wizard and the MCP wiring move
    out last. Designed in `docs/superpowers/specs/2026-10-15-stage4-ui-design.md`; plan:
-   `docs/superpowers/plans/2026-10-15-stage4-ui-extraction.md`.
+   `docs/superpowers/plans/2026-10-15-stage4-ui-extraction.md`. DONE on branch claude/stage4-ui-impl (the owner adds the merge date when merging).
 
 Stages 1-4 are each expected to split into several smaller steps, each leaving the
 suite green.
