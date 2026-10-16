@@ -744,7 +744,8 @@ account for every one of them.
 
 ### Task 12: The regroup tool
 
-**Files:** Create `scripts/regroup-modules.js`, `scripts/lib/regroup.js`, `tests/regroup_modules.js`; modify `package.json`.
+**Files:** Create `scripts/regroup-modules.js`, `scripts/lib/regroup.js`, `tests/regroup_modules.js`; modify `package.json`,
+`scripts/lib/load-time.js` and `tests/ui_cycles.js` (the cycle-guard rule below; owner decision 2026-10-16).
 
 Design §5.8.
 
@@ -762,7 +763,9 @@ Design §5.8.
 - **Merge:** concatenate the source bodies (imports merged and deduplicated; relative specifiers recomputed for the target's
   directory) in dependency order among the sources; when the sources are in one import cycle, keep the map's order, allowed
   only if every source passes `checkLoadTime` with its cycle partners. Drop the sources' purpose comments; the target (if it
-  exists) keeps its own. Rewrite every import of the sources to the target.
+  exists) keeps its own. Rewrite every import of the sources to the target. **An existing target may be listed among its own
+  sources** (owner decision 2026-10-16): its position in the list sets the order of its body among the others; the target's
+  own body is never duplicated; a target that is not listed keeps its body first.
 - **Move:** cut one top-level declaration (with its contiguous comment block) from `from` and append it to `to` (created if
   missing); add or remove `export` as uses require; rewrite imports in every file that used it; refuse when the name is a
   mutable binding and any of its writers stays behind; refuse a move into `core/` of a declaration that uses a browser global,
@@ -772,6 +775,13 @@ Design §5.8.
   facade's side must match its target's side as in Task 6; a move or rename that changes a seam target's side moves the
   facades in both countries), `closure_names`' undeclared-name check on every touched file. Any failure: refuse with the
   operation's index and the problem.
+- **Load-time guard inside import cycles (owner decision 2026-10-16; closes the Task 10 fix B finding; modifies
+  `scripts/lib/load-time.js`).** In a module that is part of an import cycle, a marked (`// load-time:`) initializer may
+  reference only browser globals and literals: no function or binding declared in its own module and no import. (The existing
+  `cyclePartners` check only saw direct reads of a partner's names; a marked initializer that called a local function which
+  read a partner's binding passed.) Outside a cycle the marker rule is unchanged. The cycle membership comes from
+  `module-graph.js` (`cycles`), as in `tests/ui_cycles.js`, which applies the rule to every cycle module; the applier's cycle
+  check (Task 8) and the regroup tool's UI-cycle guard use the same function. Re-run `tests/ui_cycles.js` on the tree.
 - **Outside `src/`:** rewrite module paths in `tests/state_modules.js` and in `CLAUDE.md` (exact path strings); print the
   generated rule docs that record a changed source path (`scripts/gen-*-rules.js` print their source path) as
   `regenerate: <npm script>`.
@@ -789,10 +799,19 @@ Design §5.8.
    `core/`.
 6. Purpose comments: merging two modules with purpose comments into a new target keeps neither (the target gets none); into an
    existing target keeps the target's.
+7. A rename onto a path freed by an earlier operation in the same map (`a -> tmp`, then `b -> a`): applied; the same pair in the
+   other order is refused. The target-exists check reads the staged state, not the disk.
+8. An existing merge target listed among its own sources (`merge: [x, target, y], to: target`): one file, `x`'s body, the
+   target's own body, `y`'s body in that order, none duplicated; the same merge with the target not listed keeps the target's
+   body first.
+9. Cycle guard (`tests/ui_cycles.js` and `tests/regroup_modules.js`): a marked initializer calling a function declared in its own
+   module: refused when the module is in a cycle, allowed outside a cycle; a marked `document.getElementById('x')`: allowed in
+   a cycle; a marked initializer reading an import in a cycle: refused; a literal or a browser global alone: allowed in a cycle.
 
 - [ ] **Step 1:** Fixtures fail. **Step 2:** Implement; `node tests/regroup_modules.js` prints `regroup_modules OK`.
-  **Step 3:** Add it to `test` after `node tests/compare_builds.js` (JSON-aware edit). Full suite, `exit 0`. Commit the four
-  files: `Regroup tool: rename, merge and move modules with every structural guard re-run`.
+  **Step 3:** Add it to `test` after `node tests/compare_builds.js` (JSON-aware edit). Run `node tests/ui_cycles.js` on the tree
+  (it must still print its OK line with the stricter cycle rule; the render cycle's modules hold only inert initializers).
+  Full suite, `exit 0`. Commit the files: `Regroup tool: rename, merge and move modules with every structural guard re-run; marked initializers in import cycles may use only globals and literals`.
 
 ---
 
@@ -810,6 +829,13 @@ Design §5.8.
 - [ ] **Step 2: Apply** in the implementation tree: `node scripts/regroup-modules.js --map scripts/extractions/stage4-regroup.json`.
   Run every `regenerate:` script it printed. Review the load-time order report: no line may involve two declarations of
   which one reads the other (report any).
+- [ ] **Step 2b: Orphan comments in `main.js`** (owner decision 2026-10-16; after the regroup operations, before the purpose
+  comments). After the batches, each `main.js` still holds comments and long blank runs that describe code now in modules
+  (US about lines 64-130: "Tax-parameter indexing", "end withdrawal building blocks", "end per-year helpers", "Real-CAGR sweep",
+  "What's driving this"; Canada about 57-92). A comment that explains code now in a module moves into that module directly above
+  that code; section headers and fragments that describe nothing any more are deleted; a run of blank lines collapses to one.
+  Comments and whitespace only: both comparisons of step 5 must pass unchanged, and `main.js` still holds exactly the pinned
+  start-up statements, the boot sequence and the wiring calls.
 - [ ] **Step 3: Purpose comments.** For every `ui/` module (`find src -path '*/ui/*.js' ! -name 'seam-*'`), add line 1 `// <one
   line: what the module holds, by topic>` and line 2 blank, unless it already has one. Comments only.
 - [ ] **Step 4: Switch on the checks.** `tests/module_names.js`: empty `ALLOWED`. `package.json` `test`: `node scripts/module-map.js --check`
