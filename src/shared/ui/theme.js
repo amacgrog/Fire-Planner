@@ -1,3 +1,5 @@
+import { render } from '#country/ui/seam-render';
+
   // load-time: reads window.matchMedia; reads nothing a statement writes.
   // Theme isn't part of state or scenarios (it's a display preference, not
   // a financial input) and, unlike state/mode below, is deliberately not
@@ -15,4 +17,10 @@
     if (btn) btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
     render();
   }
-  loadSidebarPreference();
+  export function wireThemeToggle() {
+    document.getElementById('themeToggleBtn').addEventListener('click', () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      applyTheme();
+    });
+    applyTheme();
+  }

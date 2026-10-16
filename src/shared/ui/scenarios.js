@@ -1,4 +1,16 @@
-  wireAutosave();
+import { escapeHtml } from '../core/basics.js';
+import { cloneState } from '../core/scenario-helpers.js';
+import { assignScenarios, assignState, compareIds, scenarios, state } from '../core/store.js';
+import { saveInputs } from './autosave.js';
+import { dismissFirstRunBanner } from './saved-plan.js';
+import { renderScenarioComparison } from './scenario-comparison.js';
+import { exportAllScenarios, exportScenario } from './scenario-export.js';
+import { SCENARIO_SCHEMA_VERSION } from './storage.js';
+import { syncContributionControls } from './sync-contribution-controls.js';
+import { snapshotForUndo } from './undo.js';
+import { normalizeState } from '#country/ui/seam-normalizeState';
+import { render } from '#country/ui/seam-render';
+import { syncControls } from '#country/ui/seam-syncControls';
 
   function saveScenario() {
     const nameInput = document.getElementById('scenarioName'),
@@ -101,4 +113,26 @@
           deleteScenario(id);
       }),
     );
+  }
+  export function wireScenarios() {
+    document.getElementById('saveScenarioBtn').addEventListener('click', saveScenario);
+    document.getElementById('scenarioName').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveScenario();
+      }
+    });
+    document
+      .getElementById('importScenarioBtn')
+      .addEventListener('click', () => document.getElementById('importScenarioInput').click());
+    document.getElementById('importScenarioInput').addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) {
+        importScenarioFile(f);
+        dismissFirstRunBanner();
+      }
+      e.target.value = '';
+    });
+    document.getElementById('exportAllScenariosBtn').addEventListener('click', exportAllScenarios);
+    renderScenarioList();
   }

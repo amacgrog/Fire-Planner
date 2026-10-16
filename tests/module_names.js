@@ -14,6 +14,8 @@ const ALLOWED = [
   'src/shared/core/simulate-at-real-cagr-2.js',
   'src/shared/core/sweep-excess-cash-2.js',
   'src/shared/core/year-factors-2.js',
+  'src/shared/ui/undo-2.js',
+  'src/shared/ui/wizard-2.js',
 ];
 
 function allJs(dir) {

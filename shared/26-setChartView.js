@@ -1,18 +1,4 @@
-  if (undoToastBtnEl) {
-    undoToastBtnEl.addEventListener('click', () => {
-      if (!undoSnapshot) return;
-      assignState(undoSnapshot.state);
-      assignMode(undoSnapshot.mode);
-      assignLogScale(undoSnapshot.logScale);
-      document.getElementById('logScaleToggle').checked = logScale;
-      syncControls();
-      syncContributionControls();
-      setMode(mode);
-      render();
-      saveInputs();
-      hideUndoToast();
-    });
-  }
+  wireUndoButton();
   document.getElementById('resetBtn').addEventListener('click', () => {
     if (
       !confirm(
