@@ -47,12 +47,12 @@ function checkTree(root, country) {
       for (const [local, target] of graph.importsOf.get(f)) if (c.includes(target)) partners.add(local);
     }
     try {
-      found = checkLoadTime(code, c ? { cyclePartners: partners } : {});
+      found = checkLoadTime(code, c ? { cyclePartners: partners, inCycle: true } : {});
     } catch (e) {
       throw new Error(`${f}: ${e.message}`);
     }
     for (const p of found) {
-      problems.push(`${country}: ${f}:${p.line} ${p.name} ${p.why}`);
+      problems.push(`${country}: ${f}:${p.line} ${p.name} ${p.why}${p.ref ? ` (${p.ref})` : ''}`);
     }
   }
   return { problems, cycles: cyc };
@@ -135,6 +135,33 @@ assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
 
   // a parse error is thrown (the callers add the file name)
   assert.throws(() => checkLoadTime('let = ;'));
+
+  // In a module that is part of an import cycle (inCycle; passing cyclePartners implies it), a marked initializer may
+  // reference global names only (browser globals, ES built-ins) and literals: never a name its own module declares or
+  // imports. Outside a cycle the marker rule is unchanged.
+  const C = { inCycle: true };
+  const local = '// load-time: calls a local helper\nconst v = helper();\nfunction helper() { return 1; }\n';
+  assert.deepStrictEqual(why(local, C), ['reads its module in a cycle'], 'a local function, in a cycle');
+  assert.strictEqual(checkLoadTime(local, C)[0].ref, 'helper');
+  assert.deepStrictEqual(why(local), [], 'a local function, outside a cycle');
+  assert.deepStrictEqual(why(local, { cyclePartners: new Set() }), ['reads its module in a cycle'], 'cyclePartners implies inCycle');
+  assert.deepStrictEqual(why(local, { cyclePartners: new Set(), inCycle: false }), [], 'inCycle: false overrides');
+  assert.deepStrictEqual(why("// load-time: a static element\nconst el = document.getElementById('x');\n", C), [], 'document, in a cycle');
+  assert.deepStrictEqual(why('// load-time: an empty Set\nconst s = new Set();\n', C), [], 'new Set(), in a cycle');
+  assert.deepStrictEqual(why('// load-time: built-in\nconst m = Math.max(1, 2);\n', C), [], 'Math.max, in a cycle');
+  assert.deepStrictEqual(why('// load-time: built-in\nconst o = Object.keys({});\n', C), [], 'Object.keys, in a cycle');
+  assert.deepStrictEqual(why('const one = 1;\n// load-time: a global\nconst w = window;\n', C), [], 'a literal or a browser global alone');
+  const imported = "import { k } from './k.js';\n// load-time: reads an import\nconst v = k + 1;\n";
+  assert.deepStrictEqual(why(imported, C), ['reads its module in a cycle'], 'an import, in a cycle');
+  assert.strictEqual(checkLoadTime(imported, C)[0].ref, 'k');
+  assert.deepStrictEqual(why(imported), [], 'an import, outside a cycle');
+  assert.deepStrictEqual(why('const base = 1;\n// load-time: a binding\nconst v = [base];\n', C), ['reads its module in a cycle'], 'a binding of the module');
+  assert.deepStrictEqual(why('class B {}\n// load-time: a class\nclass A extends B {}\n', C), ['reads its module in a cycle'], 'class heritage');
+  assert.deepStrictEqual(why("import d from './d.js';\n// load-time: default import\nconst v = d();\n", C), ['reads its module in a cycle'], 'a default import binding');
+  assert.deepStrictEqual(why('const [a1, b1] = [1, 2];\n// load-time: pattern\nconst v = a1 + 1;\n', C), ['reads its module in a cycle'], 'a name bound by a pattern');
+  assert.deepStrictEqual(why('// load-time: own name only\nconst v = [1].map((x) => x * 2);\n', C), [], 'a parameter that is not a module name');
+  // the partner check keeps its message
+  assert.deepStrictEqual(why("import { p } from './p.js';\n// load-time: x\nconst v = p();\n", { cyclePartners: new Set(['p']) }), ['reads the cycle']);
 }
 
 // 4. buildGraph / cycles, with a facade
@@ -163,6 +190,20 @@ try {
   const t2 = checkTree(root2, 'us');
   assert.strictEqual(t2.problems.length, 1);
   assert.ok(/reads the cycle/.test(t2.problems[0]), t2.problems[0]);
+
+  // a marked initializer that calls a local function which reads a partner (the Task 10 fix B finding): refused in a
+  // cycle; the same module outside a cycle passes
+  const root2b = tree({
+    'src/shared/ui/a.js': "import { r } from '#country/ui/seam-r';\n// load-time: calls a local helper\nconst v = helper();\nfunction helper() { return r; }\nexport function a() { return v; }\n",
+    'src/us/ui/seam-r.js': "export { r } from './r.js';\n",
+    'src/us/ui/r.js': "import { a } from '../../shared/ui/a.js';\nexport function r() { return a; }\n",
+    'src/canada/ui/seam-r.js': "export { r } from './r.js';\n",
+    'src/canada/ui/r.js': 'export function r() { return 1; }\n',
+  });
+  const t2b = checkTree(root2b, 'us');
+  assert.strictEqual(t2b.problems.length, 1, t2b.problems.join('\n'));
+  assert.ok(/a\.js:3 v reads its module in a cycle \(helper\)/.test(t2b.problems[0]), t2b.problems[0]);
+  assert.deepStrictEqual(checkTree(root2b, 'canada').problems, [], 'no cycle in canada: allowed');
 
   // a cycle through a core/ file is reported with that file
   const root3 = tree({

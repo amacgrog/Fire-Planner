@@ -682,6 +682,12 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     evenOdd('ui', 'ui', ['k']),
     /module import cycle: .*load-time guard: src\/us\/ui\/b\.js line \d+: k: reads the cycle/,
   );
+  // in a cycle a marked initializer may use only globals and literals: a call of a function of its own module is refused
+  refuse(
+    () => cycleRoot(['  function helperK() {', '    return 1;', '  }', '  // load-time: calls a local helper', '  const k = helperK();']),
+    evenOdd('ui', 'ui', ['helperK', 'k']),
+    /module import cycle: .*load-time guard: src\/us\/ui\/b\.js line \d+: k: reads its module in a cycle \(helperK\)/,
+  );
   // a cycle with a module outside ui/ still throws as before, whatever its initializers
   refuse(cycleRoot, evenOdd('ui', 'core'), /module import cycle: .*not every module of the cycle is under ui\//);
   refuse(cycleRoot, evenOdd('core', 'core'), /module import cycle/);

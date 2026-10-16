@@ -558,8 +558,9 @@ function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}
       for (const m of comp) {
         const cyclePartners = new Set();
         for (const [t, locals] of importedFrom.get(m)) if (t !== m && comp.includes(t)) locals.forEach((n) => cyclePartners.add(n));
-        for (const p of checkLoadTime(files.get(path.join(root, m.path)), { cyclePartners })) {
-          problems.push(`${m.path} line ${p.line}: ${p.name ? `${p.name}: ` : ''}${p.why}`);
+        // inCycle: a marked initializer of a cycle member may use only globals and literals (scripts/lib/load-time.js)
+        for (const p of checkLoadTime(files.get(path.join(root, m.path)), { cyclePartners, inCycle: true })) {
+          problems.push(`${m.path} line ${p.line}: ${p.name ? `${p.name}: ` : ''}${p.why}${p.ref ? ` (${p.ref})` : ''}`);
         }
       }
       if (problems.length) throw new Error(`${where}; load-time guard: ${problems.join('; ')}`);

@@ -2,7 +2,7 @@
 // A top-level initializer that is not inert runs when the module loads, so in an import cycle it could read a binding
 // that is still in its temporal dead zone. The guard accepts only inert initializers, or ones marked by a
 // `// load-time: <reason>` comment block directly above the declaration, and (inside a cycle) rejects a marked one that
-// reads a name bound to a module of the same cycle.
+// references anything but global names and literals (see checkLoadTime).
 const espree = require('espree');
 
 const ECMA = 2022;
@@ -68,11 +68,46 @@ function referencedNames(node, out) {
   return out;
 }
 
+// The names a module binds at its top level: declarations (functions, classes, variables, including names bound by a
+// destructuring pattern) and import bindings.
+function patternNames(node, out) {
+  if (!node) return out;
+  if (node.type === 'Identifier') out.add(node.name);
+  else if (node.type === 'ObjectPattern') node.properties.forEach((p) => patternNames(p.type === 'RestElement' ? p.argument : p.value, out));
+  else if (node.type === 'ArrayPattern') node.elements.forEach((e) => patternNames(e, out));
+  else if (node.type === 'RestElement') patternNames(node.argument, out);
+  else if (node.type === 'AssignmentPattern') patternNames(node.left, out);
+  return out;
+}
+function moduleNames(ast) {
+  const out = new Set();
+  for (const st of ast.body) {
+    if (st.type === 'ImportDeclaration') {
+      st.specifiers.forEach((sp) => out.add(sp.local.name));
+      continue;
+    }
+    const d = st.type === 'ExportNamedDeclaration' || st.type === 'ExportDefaultDeclaration' ? st.declaration : st;
+    if (!d) continue;
+    if ((d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration') && d.id) out.add(d.id.name);
+    else if (d.type === 'VariableDeclaration') d.declarations.forEach((x) => patternNames(x.id, out));
+  }
+  return out;
+}
+
+// opts.cyclePartners: the local names this module imports from the other modules of its import cycle (a marked
+// initializer that reads one is reported as 'reads the cycle').
+// opts.inCycle: the module is part of an import cycle (default: true when cyclePartners is given). Then a marked
+// initializer may reference global names only (browser globals and ES built-ins such as Set, Map, Object, Math) and
+// literals: a name declared in its own module or imported is reported as 'reads its module in a cycle' (`ref` names it).
+// A reference check of partner names alone is not transitive (a marked call of a local function that reads a partner
+// passed it), hence the stricter rule. Outside a cycle the marker alone is enough.
 function checkLoadTime(code, opts) {
   const partners = opts && opts.cyclePartners;
+  const inCycle = opts && opts.inCycle !== undefined ? !!opts.inCycle : !!partners;
   const ast = espree.parse(code, { ecmaVersion: ECMA, sourceType: 'module', range: true, loc: true });
   const lines = code.split(/\r?\n/);
   const problems = [];
+  const own = inCycle ? moduleNames(ast) : null;
 
   // Reports static fields and blocks; returns how many problems it added.
   function checkClass(cls, name) {
@@ -98,12 +133,20 @@ function checkLoadTime(code, opts) {
       problems.push({ line: declLine, name, why: 'not inert and not marked' });
       return;
     }
-    if (partners && partners.size) {
+    if ((partners && partners.size) || own) {
       const used = referencedNames(init, new Set());
-      for (const p of partners) {
+      for (const p of partners || []) {
         if (used.has(p)) {
           problems.push({ line: declLine, name, why: 'reads the cycle' });
           return;
+        }
+      }
+      if (own) {
+        for (const u of used) {
+          if (own.has(u)) {
+            problems.push({ line: declLine, name, why: 'reads its module in a cycle', ref: u });
+            return;
+          }
         }
       }
     }
@@ -152,4 +195,4 @@ function checkLoadTime(code, opts) {
   return problems;
 }
 
-module.exports = { isInert, loadTimeMarker, checkLoadTime };
+module.exports = { isInert, loadTimeMarker, checkLoadTime, referencedNames, moduleNames };
