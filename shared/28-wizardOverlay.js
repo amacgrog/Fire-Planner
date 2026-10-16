@@ -8,9 +8,4 @@
     setMobileView('dashboard');
   });
   wireWizardDismiss();
-  // The tornado chart is only computed while expanded (it's a handful of
-  // extra simulate() calls, cheap but pointless work while collapsed), so
-  // opening it needs its own trigger since no input necessarily changed.
-  document.getElementById('sensitivityCard').addEventListener('toggle', (e) => {
-    if (e.target.open) render();
-  });
+  wireSensitivityCard();

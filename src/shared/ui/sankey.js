@@ -1,3 +1,10 @@
+import { compact, money } from '../core/money-format.js';
+import { simulate } from '../core/monte-carlo-paths-2.js';
+import { layoutSankeyColumn, sankeyRibbonPath } from '../core/sankey-layout.js';
+import { isDarkTheme } from './chart-colors.js';
+import { computeSankeyFlow } from '#country/ui/seam-computeSankeyFlow';
+import { render } from '#country/ui/seam-render';
+
   let sankeyTooltipEl = null;
   function ensureSankeyTooltip() {
     if (sankeyTooltipEl && document.body.contains(sankeyTooltipEl)) return sankeyTooltipEl;
@@ -37,7 +44,7 @@
   function hideSankeyTooltip() {
     if (sankeyTooltipEl) sankeyTooltipEl.style.display = 'none';
   }
-  function renderSankey(selected) {
+  export function renderSankey(selected) {
     const svg = document.getElementById('sankeySvg'),
       wrap = svg.closest('.chart-wrap'),
       rows = selected.rows,
@@ -227,4 +234,14 @@
     };
     drawNodes(leftNodes, 'left');
     drawNodes(rightNodes, 'right');
+  }
+  export function wireSankeyCard() {
+    document.getElementById('sankeyCard').addEventListener('toggle', (e) => {
+      if (e.target.open) render();
+    });
+  }
+  export function wireSankeyAge() {
+    document.getElementById('sankeyAge').addEventListener('input', () => {
+      if (document.getElementById('sankeyCard').open) renderSankey(simulate());
+    });
   }
