@@ -4,7 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { planExtraction, kebab } = require('../scripts/lib/extraction-plan');
+const { planExtraction, draftTopics, kebab } = require('../scripts/lib/extraction-plan');
 
 const made = [];
 function write(root, rel, text) {
@@ -226,6 +226,286 @@ try {
   const sharedModules = p.modules.filter((m) => m.owner === 'shared');
   assert.deepStrictEqual(sharedModules.map((m) => m.units.us).sort(), [['f'], ['h']], 'f and h are in modules of their own');
   assert.deepStrictEqual(countryUnits(p, 'us').sort(), ['g', 'k']);
+
+  // ---- stage 4: the topics file (statements, runs, wiring functions, draft mode)
+  const { analyze } = require('../scripts/analyze-closure');
+  const wrapLines = (lines) =>
+    [...lines.filter((l) => l.startsWith('import ')), '(() => {', ...lines.filter((l) => !l.startsWith('import ')), '})();', ''].join('\n');
+  // A fixture root plus the stable label of every statement (by its one-line text) in each planner.
+  const topicRoot = (usLines, caLines, files = {}) => {
+    const r = fs.mkdtempSync(path.join(os.tmpdir(), 'extraction-plan-'));
+    made.push(r);
+    write(r, 'src/package.json', '{ "private": true, "type": "module" }\n');
+    write(r, 'src/us/main.js', wrapLines(usLines));
+    write(r, 'src/canada/main.js', wrapLines(caLines));
+    for (const [rel, text] of Object.entries(files)) write(r, rel, text);
+    const L = {};
+    for (const c of ['us', 'canada']) {
+      const code = fs.readFileSync(path.join(r, 'src', c, 'main.js'), 'utf8');
+      const lines = code.split('\n');
+      L[c] = {};
+      for (const u of analyze(code).units) if (u.kind === 'statement') L[c][lines[u.startLine - 1].trim()] = u.label;
+    }
+    return { root: r, L };
+  };
+  const topicsOf = ({ shared = {}, us = {}, canada = {} } = {}) => ({
+    shared: { modules: {}, main: [], ...shared },
+    us: { modules: {}, main: [], ...us },
+    canada: { modules: {}, main: [], ...canada },
+  });
+  const modOf = (plan, p) => plan.modules.find((m) => m.path === p);
+  const LOG = (s) => `  window.log('${s}');`;
+  const logs = (s) => `window.log('${s}');`;
+
+  // 1. Two country statements listed in one module are one run, with the default wiring name.
+  {
+    const { root: r, L } = topicRoot([LOG('a'), LOG('b')], NONE);
+    const la = L.us[logs('a')];
+    const lb = L.us[logs('b')];
+    const plan1 = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [la, lb] } } } }) });
+    const x = modOf(plan1, 'src/us/ui/x.js');
+    assert.deepStrictEqual(x.units.us, [la, lb]);
+    assert.deepStrictEqual(x.wiring, [{ name: 'wireX', statements: { us: [la, lb] } }]);
+    assert.strictEqual(x.owner, 'us');
+    assert.ok(x.ui, 'a module under ui/ is a ui module');
+    // Without topics the statements stay and no module has a wiring key; the manifest has no topics key.
+    const plain = planExtraction(r, {});
+    assert.ok(plain.modules.every((m) => !('wiring' in m)) && !('topics' in plain));
+    assert.ok(!JSON.stringify(plain.modules).includes('stmt:'), 'statements stay without topics');
+    // Names with a hyphen become PascalCase; a one-run module may use the default name.
+    const hy = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/is-even.js': { units: [la, lb] } } } }) });
+    assert.strictEqual(modOf(hy, 'src/us/ui/is-even.js').wiring[0].name, 'wireIsEven');
+  }
+
+  // 2. A module with two runs needs both runs named.
+  {
+    const { root: r, L } = topicRoot([LOG('a'), LOG('c'), LOG('b')], NONE);
+    const [la, lc, lb] = ['a', 'c', 'b'].map((s) => L.us[logs(s)]);
+    const t = (wiring) =>
+      topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [la, lb], ...(wiring ? { wiring } : {}) }, 'src/us/ui/y.js': { units: [lc] } } } });
+    assert.throws(() => planExtraction(r, { topics: t() }), /several runs/);
+    assert.throws(() => planExtraction(r, { topics: t({ [la]: 'wireA' }) }), /several runs/);
+    const two = planExtraction(r, { topics: t({ [la]: 'wireA', [lb]: 'wireB' }) });
+    assert.deepStrictEqual(modOf(two, 'src/us/ui/x.js').wiring, [
+      { name: 'wireA', statements: { us: [la] } },
+      { name: 'wireB', statements: { us: [lb] } },
+    ]);
+    assert.deepStrictEqual(modOf(two, 'src/us/ui/y.js').wiring, [{ name: 'wireY', statements: { us: [lc] } }]);
+    // A wiring key that is no statement of the module is a mistake.
+    assert.throws(() => planExtraction(r, { topics: t({ [la]: 'wireA', [lb]: 'wireB', [lc]: 'wireC' }) }), /wiring key/);
+  }
+
+  // 3. A declaration between two statements of one module does not split the run.
+  {
+    const { root: r, L } = topicRoot([LOG('a'), '  function mid() {', '    return 1;', '  }', LOG('b')], NONE);
+    const [la, lb] = ['a', 'b'].map((s) => L.us[logs(s)]);
+    const p3 = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [la, lb] } } } }) });
+    assert.deepStrictEqual(modOf(p3, 'src/us/ui/x.js').wiring, [{ name: 'wireX', statements: { us: [la, lb] } }]);
+    assert.ok(modOf(p3, 'src/us/core/mid.js'), 'the declaration keeps its own grouping');
+  }
+
+  // 4. A shared module's runs split at the union of both planners' boundaries.
+  const sharedFix = (withBetween) => [
+    '  // @@shared:a begin',
+    '  function fa() {',
+    '    return 1;',
+    '  }',
+    LOG('s1'),
+    '  // @@shared:a end',
+    ...(withBetween ? [LOG('c')] : []),
+    '  // @@shared:b begin',
+    LOG('s2'),
+    '  function fb() {',
+    '    return 2;',
+    '  }',
+    '  // @@shared:b end',
+  ];
+  {
+    const { root: r, L } = topicRoot(sharedFix(true), sharedFix(false));
+    const [s1, s2] = ['s1', 's2'].map((s) => L.us[logs(s)]);
+    assert.strictEqual(L.canada[logs('s1')], s1, 'a shared statement has one label in both planners');
+    const lc = L.us[logs('c')];
+    const t = (wiring) =>
+      topicsOf({
+        shared: { modules: { 'src/shared/ui/m.js': { units: [s1, s2], ...(wiring ? { wiring } : {}) } } },
+        us: { modules: { 'src/us/ui/c.js': { units: [lc] } } },
+      });
+    assert.throws(() => planExtraction(r, { topics: t() }), /several runs/);
+    const p4 = planExtraction(r, { topics: t({ [s1]: 'wireS1', [s2]: 'wireS2' }) });
+    assert.deepStrictEqual(modOf(p4, 'src/shared/ui/m.js').wiring, [
+      { name: 'wireS1', statements: { us: [s1], canada: [s1] } },
+      { name: 'wireS2', statements: { us: [s2], canada: [s2] } },
+    ]);
+    // Without the US-only statement between them the two are one run in both planners, and the default name applies.
+    const same = topicRoot(sharedFix(false), sharedFix(false));
+    const [t1, t2] = ['s1', 's2'].map((s) => same.L.us[logs(s)]);
+    const p4b = planExtraction(same.root, { topics: topicsOf({ shared: { modules: { 'src/shared/ui/theme.js': { units: [t1, t2] } } } }) });
+    assert.deepStrictEqual(modOf(p4b, 'src/shared/ui/theme.js').wiring, [{ name: 'wireTheme', statements: { us: [t1, t2], canada: [t1, t2] } }]);
+    assert.strictEqual(modOf(p4b, 'src/shared/ui/theme.js').owner, 'shared');
+  }
+
+  // 5. Refusals.
+  {
+    const { root: r, L } = topicRoot([...sharedFix(true), '  function g() {', '    return 3;', '  }'], sharedFix(false).concat(['  function g() {', '    return 3;', '  }']));
+    const [s1, s2] = ['s1', 's2'].map((s) => L.us[logs(s)]);
+    const lc = L.us[logs('c')];
+    const full = (extra = {}) =>
+      topicsOf({
+        shared: { modules: { 'src/shared/ui/m.js': { units: [s1, s2], wiring: { [s1]: 'wireS1', [s2]: 'wireS2' } } } },
+        us: { modules: { 'src/us/ui/c.js': { units: [lc] } } },
+        ...extra,
+      });
+    assert.doesNotThrow(() => planExtraction(r, { topics: full() }));
+    // unlisted statement
+    const unlisted = topicsOf({ shared: { modules: { 'src/shared/ui/m.js': { units: [s1, s2] } } } });
+    assert.throws(() => planExtraction(r, { topics: unlisted }), new RegExp(`statement ${lc} \\(us line \\d+\\) has no topics entry`));
+    assert.throws(() => planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/c.js': { units: [lc] } } } }) }), /has no topics entry/);
+    // core
+    assert.throws(
+      () => planExtraction(r, { topics: full({ us: { modules: { 'src/us/core/c.js': { units: [lc] } } } }) }),
+      /core/,
+    );
+    // a country statement in a shared module
+    assert.throws(
+      () => planExtraction(r, { topics: topicsOf({ shared: { modules: { 'src/shared/ui/m.js': { units: [s1, s2, lc] } } } }) }),
+      /country statement/,
+    );
+    // a shared statement in a country module
+    assert.throws(
+      () =>
+        planExtraction(r, {
+          topics: topicsOf({
+            shared: { modules: { 'src/shared/ui/m.js': { units: [s2] } } },
+            us: { modules: { 'src/us/ui/c.js': { units: [lc, s1] } } },
+          }),
+        }),
+      /shared statement/,
+    );
+    // a shared declaration in a country module, a country declaration in a shared module
+    assert.throws(
+      () => planExtraction(r, { topics: full({ us: { modules: { 'src/us/ui/c.js': { units: [lc, 'fa'] } } } }) }),
+      /shared declaration/,
+    );
+    assert.throws(
+      () => planExtraction(r, { topics: topicsOf({ shared: { modules: { 'src/shared/ui/m.js': { units: [s1, s2, 'g'] } } }, us: { modules: { 'src/us/ui/c.js': { units: [lc] } } } }) }),
+      /country declaration/,
+    );
+    // a statement in two places
+    assert.throws(
+      () => planExtraction(r, { topics: full({ us: { modules: { 'src/us/ui/c.js': { units: [lc] } }, main: [lc] } }) }),
+      /more than once/,
+    );
+    // a statement of main is not a failure, and a module outside its owner's directory is
+    assert.doesNotThrow(() => planExtraction(r, { topics: full({ us: { modules: {}, main: [lc] } }) }));
+    assert.throws(() => planExtraction(r, { topics: full({ us: { modules: { 'src/canada/ui/c.js': { units: [lc] } } } }) }), /outside/);
+    // an unknown label
+    assert.throws(() => planExtraction(r, { topics: full({ us: { modules: { 'src/us/ui/c.js': { units: [lc, 'nothing'] } } } }) }), /unknown unit nothing/);
+  }
+
+  // 6. A pinned statement may not assign a top-level binding of main.js.
+  {
+    const { root: r, L } = topicRoot(['  let n = 0;', '  n = 1;', LOG('a')], NONE);
+    const ln = L.us['n = 1;'];
+    const la = L.us[logs('a')];
+    assert.throws(
+      () => planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [la] } }, main: [ln] } }) }),
+      /pinned statement assigns/,
+    );
+    // The same statement listed in a module is not pinned.
+    assert.doesNotThrow(() => planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [la, ln] } } } }) }));
+  }
+
+  // 7. Wiring names: clashes with declarations, with each other, with the reserved list; a topics path that exists.
+  {
+    const files = {
+      'src/shared/core/names.js': 'export function wireX() {}\n',
+      'src/canada/core/z.js': 'export const wireZ = 1;\n',
+      'src/us/ui/taken.js': 'export const x = 1;\n',
+    };
+    const { root: r, L } = topicRoot([LOG('a'), LOG('b'), '  function wireM() {', '    return 1;', '  }'], [LOG('a'), LOG('b')], files);
+    const [la, lb] = ['a', 'b'].map((s) => L.us[logs(s)]);
+    const mod = (p, units, wiring) => ({ [p]: { units, ...(wiring ? { wiring } : {}) } });
+    const ca = [L.canada[logs('a')], L.canada[logs('b')]];
+    const caMod = (p = 'src/canada/ui/k.js', wiring = { [ca[0]]: 'wireK' }) => ({ modules: mod(p, ca, wiring) });
+    const one = (p, wiring) => topicsOf({ us: { modules: mod(p, [la, lb], wiring) }, canada: caMod() });
+    // the default name clashes with a shared declaration
+    assert.throws(() => planExtraction(r, { topics: one('src/us/ui/x.js') }), /wiring name clash/);
+    assert.doesNotThrow(() => planExtraction(r, { topics: one('src/us/ui/x.js', { [la]: 'wireOk' }) }));
+    // the clash with a unit that is still in main.js, and with the reserved names
+    assert.throws(() => planExtraction(r, { topics: one('src/us/ui/q.js', { [la]: 'wireM' }) }), /wiring name clash/);
+    assert.throws(() => planExtraction(r, { topics: one('src/us/ui/q.js', { [la]: 'wireOk' }), reservedNames: ['wireOk'] }), /wiring name clash/);
+    // another country's tool module does not count; this country's does
+    assert.doesNotThrow(() => planExtraction(r, { topics: one('src/us/ui/z.js') }));
+    const caOnly = topicsOf({ us: { modules: mod('src/us/ui/q.js', [la, lb], { [la]: 'wireOk' }) }, canada: caMod('src/canada/ui/z.js', {}) });
+    assert.throws(() => planExtraction(r, { topics: caOnly }), /wiring name clash/);
+    // two modules with one name, two runs with one name
+    assert.throws(
+      () =>
+        planExtraction(r, {
+          topics: topicsOf({ us: { modules: { ...mod('src/us/ui/p.js', [la], { [la]: 'wireOk' }), ...mod('src/us/ui/q.js', [lb], { [lb]: 'wireOk' }) } }, canada: caMod() }),
+        }),
+      /wiring name clash/,
+    );
+    const { root: r2, L: L2 } = topicRoot([LOG('a'), LOG('c'), LOG('b'), LOG('d')], NONE);
+    const [a2, c2, b2, d2] = ['a', 'c', 'b', 'd'].map((s) => L2.us[logs(s)]);
+    assert.throws(
+      () =>
+        planExtraction(r2, {
+          topics: topicsOf({
+            us: { modules: { 'src/us/ui/x.js': { units: [a2, b2], wiring: { [a2]: 'wireOk', [b2]: 'wireOk' } }, 'src/us/ui/y.js': { units: [c2, d2] } } },
+          }),
+        }),
+      /wiring name clash/,
+    );
+    // a topics path that exists on disk
+    assert.throws(() => planExtraction(r, { topics: one('src/us/ui/taken.js', { [la]: 'wireOk' }) }), /already exists/);
+  }
+
+  // 8. Movability: a statement waits for what it depends on, moves after what it depends on, and a listed declaration goes where it is listed.
+  {
+    const { root: r, L } = topicRoot(
+      ['  let lvl = 0;', '  function up() {', '    lvl++;', '  }', '  function down() {', '    lvl--;', '  }', '  function f() {', '    return 1;', '  }', '  window.log(lvl);', '  f();'],
+      NONE,
+    );
+    const lstuck = L.us['window.log(lvl);'];
+    const lf = L.us['f();'];
+    const p8 = planExtraction(r, {
+      topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: ['f', lf, lstuck] } } } }),
+    });
+    const x = modOf(p8, 'src/us/ui/x.js');
+    assert.deepStrictEqual(x.units.us, ['f', lf], 'the declaration goes where it is listed; the blocked statement waits');
+    assert.deepStrictEqual(x.wiring, [{ name: 'wireX', statements: { us: [lf] } }]);
+    // A statement that calls a declaration grouped elsewhere comes in a later batch than it.
+    const p8b = planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/x.js': { units: [lf] } }, main: [lstuck] } }) });
+    assert.ok(modOf(p8b, 'src/us/ui/x.js').batch > modOf(p8b, 'src/us/core/f.js').batch);
+  }
+
+  // 9. Draft mode (fixtures only): defaults from the design, computed as if every declaration moved.
+  {
+    const body = (extra) => [
+      '  function paint() {',
+      "    document.title = 'x';",
+      '  }',
+      LOG('p'),
+      '  // @@shared:a begin',
+      '  function fa() {',
+      "    document.title = 'y';",
+      '  }',
+      LOG('s1'),
+      '  // @@shared:a end',
+      ...extra,
+    ];
+    const usLines = body([LOG('q'), '  function pure() {', '    return 1;', '  }', LOG('r')]);
+    const { root: r, L } = topicRoot(usLines, body([]));
+    const draft = draftTopics(r, {});
+    const [lp, ls1, lq, lr] = ['p', 's1', 'q', 'r'].map((s) => L.us[logs(s)]);
+    assert.deepStrictEqual(draft.us.modules['src/us/ui/paint.js'].units, [lp], 'after a country function: its module');
+    assert.deepStrictEqual(draft.shared.modules['src/shared/ui/a.js'].units, [ls1], 'a shared statement: the module of the unit before it');
+    assert.deepStrictEqual(draft.us.modules.TODO.units, [lq, lr], 'after a shared region, or landing in core/: TODO');
+    assert.deepStrictEqual(Object.keys(draft.canada.modules), ['src/canada/ui/paint.js']);
+    assert.deepStrictEqual(draft.canada.modules['src/canada/ui/paint.js'].units, [L.canada[logs('p')]]);
+    assert.deepStrictEqual(draft.us.main, []);
+  }
 
   console.log('extraction_plan OK');
 } finally {

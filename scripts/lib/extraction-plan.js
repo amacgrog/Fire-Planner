@@ -16,8 +16,13 @@
 // planners, depends only on shared units, and imports nothing from a country directory. Movable units are grouped
 // into modules (a shared region = one module; a run of consecutive country-only units = one module); modules that
 // import each other are merged, and the module graph is layered into batches by depth.
+//
+// Stage 4 (design sections 5.1, 5.4): with `topics` (the parsed stage4-topics.json) side-effect statements become movable too.
+// Every statement must have an entry (a module, or a `main` list that pins it); a listed declaration goes to its module; each
+// module gains `wiring` (its runs and their function names). draftTopics() proposes the entries from the design defaults.
 const fs = require('fs');
 const path = require('path');
+const espree = require('espree');
 const { analyze } = require('../analyze-closure');
 
 const COUNTRIES = ['us', 'canada'];
@@ -129,7 +134,43 @@ function existingModules(root) {
   return out;
 }
 
-function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, seam = [], names = {} } = {}) {
+const MAIN = '<main>'; // the placement of a statement pinned in main.js
+const IDENT = /^[A-Za-z_$][\w$]*$/;
+const pascal = (file) => kebab(path.basename(file, '.js')).split('-').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+
+function patternNames(p, out) {
+  if (!p) return;
+  if (p.type === 'Identifier') out.push(p.name);
+  else if (p.type === 'ObjectPattern') p.properties.forEach((q) => patternNames(q.type === 'RestElement' ? q.argument : q.value, out));
+  else if (p.type === 'ArrayPattern') p.elements.forEach((q) => patternNames(q, out));
+  else if (p.type === 'AssignmentPattern') patternNames(p.left, out);
+  else if (p.type === 'RestElement') patternNames(p.argument, out);
+}
+
+// Top-level declaration names of every .js file under a directory (functions, classes, consts, lets).
+function topLevelNames(dir, skip, out) {
+  if (!fs.existsSync(dir)) return;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) topLevelNames(full, skip, out);
+    else if (e.name.endsWith('.js') && full !== skip) {
+      const ast = espree.parse(fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n'), { ecmaVersion: 'latest', sourceType: 'module' });
+      for (const node of ast.body) {
+        const d = node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration' ? node.declaration : node;
+        if (!d) continue;
+        if (d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration') {
+          if (d.id) out.add(d.id.name);
+        } else if (d.type === 'VariableDeclaration') {
+          const names = [];
+          d.declarations.forEach((x) => patternNames(x.id, names));
+          names.forEach((n) => out.add(n));
+        }
+      }
+    }
+  }
+}
+
+function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, seam = [], names = {}, topics = null, reservedNames = [], draft = false } = {}) {
   const seamNames = new Set(seam);
   const info = Object.fromEntries(COUNTRIES.map((c) => [c, loadCountry(root, c)]));
   const owner = (c, u) => (u.regionKind === 'shared' ? 'shared' : c);
@@ -145,11 +186,69 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
       if ((!u || owner(c, u) === 'shared') && !imported && !hasFacade) throw new Error(`seam name ${name} must be a country unit or a country import in ${c}/main.js`);
     }
   }
+  // The topics file: where each listed unit goes (a module path, or MAIN for a pinned statement).
+  const topicPlace = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()]));
+  const topicMods = new Map(); // module path -> { section, labels, wiring }
+  if (topics && !draft) {
+    for (const section of ['shared', ...COUNTRIES]) {
+      const sec = topics[section] || {};
+      const secCountries = section === 'shared' ? COUNTRIES : [section];
+      const place = (label, where, moduleExists) => {
+        const found = secCountries.map((c) => info[c].byLabel.get(label));
+        if (found.every((u) => !u)) {
+          if (moduleExists) return 0; // moved by an earlier batch
+          throw new Error(`unknown unit ${label} in the ${section} section of the topics file`);
+        }
+        secCountries.forEach((c, i) => {
+          const u = found[i];
+          if (!u) throw new Error(`unit ${label} (${section} section) does not exist in ${c}/main.js`);
+          const kind = u.kind === 'statement' ? 'statement' : 'declaration';
+          const sharedUnit = owner(c, u) === 'shared';
+          if (section === 'shared' && !sharedUnit) throw new Error(`country ${kind} ${label} (${c} line ${u.startLine}) is listed in the shared section (${where})`);
+          if (section !== 'shared' && sharedUnit) throw new Error(`shared ${kind} ${label} (${c} line ${u.startLine}) is listed in the ${c} section (${where})`);
+          if (where === MAIN && kind !== 'statement') throw new Error(`declaration ${label} cannot be listed in main`);
+          if (where !== MAIN && kind === 'statement' && /\/core\//.test(where)) throw new Error(`statement ${label} (${c} line ${u.startLine}) is listed in the core module ${where}: wiring functions live in ui/`);
+          if (topicPlace[c].has(label)) throw new Error(`unit ${label} (${c}) is listed more than once in the topics file`);
+          topicPlace[c].set(label, where);
+        });
+        return 1;
+      };
+      for (const [p, mod] of Object.entries(sec.modules || {})) {
+        const dir = section === 'shared' ? 'src/shared/' : `src/${section}/`;
+        if (!p.startsWith(dir) || !p.endsWith('.js')) throw new Error(`topics module ${p} is outside ${dir}`);
+        if (topicMods.has(p)) throw new Error(`topics module ${p} is listed twice`);
+        const exists = fs.existsSync(path.join(root, p));
+        const labels = mod.units || [];
+        let present = 0;
+        for (const label of labels) present += place(label, p, exists);
+        if (exists && present) throw new Error(`topics module ${p} already exists: extraction creates new modules only`);
+        topicMods.set(p, { section, labels, wiring: mod.wiring || {} });
+      }
+      for (const label of sec.main || []) place(label, MAIN, false);
+    }
+    for (const c of COUNTRIES) {
+      for (const u of info[c].model.units) {
+        if (u.kind === 'statement' && !topicPlace[c].has(u.label)) throw new Error(`statement ${u.label} (${c} line ${u.startLine}) has no topics entry`);
+      }
+      for (const m of info[c].model.mutables) {
+        const w = m.writers.find((l) => topicPlace[c].get(l) === MAIN);
+        if (w) throw new Error(`pinned statement assigns a top-level binding of main.js: ${w} (${c}) writes ${m.name}`);
+      }
+    }
+  }
+
   const movable = Object.fromEntries(COUNTRIES.map((c) => [c, new Set()]));
   const candidates = {};
   for (const c of COUNTRIES) {
     for (const u of info[c].model.units) {
-      if (u.kind === 'statement') continue;
+      if (u.kind === 'statement') {
+        const where = topicPlace[c].get(u.label);
+        if (!where || where === MAIN) continue;
+      }
+      if (draft) {
+        movable[c].add(u.label); // the draft groups every declaration as if it were movable
+        continue;
+      }
       if (info[c].depth(u.label) > maxLayer) continue;
       if (info[c].blockedBindings.has(u.label)) continue;
       if (coreOnly && uiUnit(c, u)) continue;
@@ -165,7 +264,7 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
       partnerOf[c].set(writer, declarer);
     }
   }
-  for (let changed = true; changed; ) {
+  for (let changed = !draft; changed; ) {
     changed = false;
     for (const c of COUNTRIES) {
       for (const label of [...movable[c]]) {
@@ -188,7 +287,7 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
   }
 
   // A data block (// NAME:begin ... // NAME:end, read by scripts/gen-*-rules.js) moves whole or not at all.
-  for (let changed = true; changed; ) {
+  for (let changed = !draft; changed; ) {
     changed = false;
     for (const c of COUNTRIES) {
       const blocks = new Map();
@@ -218,6 +317,7 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
   const nodes = []; // { owner, region?, units: { us: [], canada: [] } }
   const nodeOf = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()]));
   const sharedByKey = new Map();
+  const topicNodes = new Map();
   let runSeq = 0;
   for (const c of COUNTRIES) {
     const units = [...info[c].model.units].sort((a, b) => a.startLine - b.startLine);
@@ -225,7 +325,18 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
     for (const u of units) {
       const isMovable = movable[c].has(u.label);
       const side = (u.regionKind === 'data' ? dataSideUi.get(`${c}:${u.region}`) : isUi(c, u)) ? 'ui' : 'core';
-      if (isMovable && owner(c, u) === 'shared') {
+      const topicPath = isMovable ? topicPlace[c].get(u.label) : undefined;
+      if (topicPath && topicPath !== MAIN) {
+        // listed in the topics file: the module it names, whatever the region or run would give
+        let node = topicNodes.get(topicPath);
+        if (!node) {
+          node = { owner: topicMods.get(topicPath).section, group: `topic:${topicPath}`, topicPath, units: { us: [], canada: [] } };
+          topicNodes.set(topicPath, node);
+          nodes.push(node);
+        }
+        node.units[c].push(u.label);
+        nodeOf[c].set(u.label, node);
+      } else if (isMovable && owner(c, u) === 'shared') {
         const key = fine.has(u.label) ? `${u.region}|${side}|${u.label}` : `${u.region}|${side}`;
         let node = sharedByKey.get(key);
         if (!node) {
@@ -321,7 +432,9 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
       members
         .flatMap((m) => m.units[c])
         .sort((a, b) => info[c].byLabel.get(a).startLine - info[c].byLabel.get(b).startLine);
-    return { owner: members[0].owner, regions: members.map((m) => m.region).filter(Boolean), units: { us: unitsOf('us'), canada: unitsOf('canada') } };
+    const topicPaths = [...new Set(members.map((m) => m.topicPath).filter(Boolean))];
+    if (topicPaths.length > 1) throw new Error(`topics modules ${topicPaths.join(' and ')} import each other (a cycle between modules the topics file names)`);
+    return { owner: members[0].owner, topicPath: topicPaths[0] || null, regions: members.map((m) => m.region).filter(Boolean), units: { us: unitsOf('us'), canada: unitsOf('canada') } };
   });
   const mergedEdges = merged.map(() => new Set());
   edges.forEach((targets, v) => targets.forEach((w) => { if (compId.get(v) !== compId.get(w)) mergedEdges[compId.get(v)].add(compId.get(w)); }));
@@ -332,8 +445,12 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
 
   // Names and paths.
   const used = new Set(existingModules(root)); // a new module never takes the path of one an earlier stage made
+  topicMods.forEach((_, p) => used.add(p));
   const modules = merged.map((m, i) => {
     const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
+    if (m.topicPath) {
+      return { path: m.topicPath, owner: m.owner, depth: depth[i], batch: Math.min(depth[i], maxBatch), ui: m.topicPath.split('/').includes('ui'), regions: m.regions, units: m.units };
+    }
     const ui = countries.some((c) => m.units[c].some((l) => uiUnit(c, info[c].byLabel.get(l))));
     const first = m.owner === 'shared' ? null : info[m.owner].byLabel.get(m.units[m.owner][0]);
     const side = ui ? 'ui' : 'core';
@@ -349,9 +466,11 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
   });
   modules.sort((a, b) => a.batch - b.batch || a.depth - b.depth || a.path.localeCompare(b.path));
 
+  if (topics && !draft) addWiring();
+
   const total = (c) => info[c].model.units.length;
   const moved = (c) => modules.filter((m) => m.owner === 'shared' || m.owner === c).reduce((s, m) => s + m.units[c].length, 0);
-  return {
+  const plan = {
     modules,
     seam: [...seamNames],
     bindings: Object.fromEntries(
@@ -365,6 +484,114 @@ function planExtraction(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = fa
     ),
     stats: Object.fromEntries(COUNTRIES.map((c) => [c, { units: total(c), candidates: candidates[c], movable: moved(c) }])),
   };
+  return { plan, info };
+
+  // Runs and wiring functions of every topics module (design section 5.1).
+  function addWiring() {
+    const taken = Object.fromEntries(COUNTRIES.map((c) => [c, new Set(reservedNames)]));
+    for (const c of COUNTRIES) {
+      for (const u of info[c].model.units) if (u.kind !== 'statement') u.names.forEach((n) => taken[c].add(n));
+      topLevelNames(path.join(root, 'src', 'shared'), null, taken[c]);
+      topLevelNames(path.join(root, 'src', c), path.join(root, 'src', c, 'main.js'), taken[c]);
+    }
+    const byName = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()])); // wiring name -> module path
+    for (const m of modules) {
+      const tm = topicMods.get(m.path);
+      if (!tm) continue;
+      const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
+      for (const key of Object.keys(tm.wiring)) {
+        if (!tm.labels.includes(key)) throw new Error(`wiring key ${key} is not a statement listed in ${m.path}`);
+      }
+      // A run is a maximal sequence of this module's statements with no other statement between (declarations do not break it).
+      const runsOf = Object.fromEntries(COUNTRIES.map((c) => [c, []]));
+      for (const c of countries) {
+        const mine = new Set(m.units[c]);
+        let cur = null;
+        const ordered = info[c].model.units.filter((u) => u.kind === 'statement').sort((a, b) => a.startLine - b.startLine);
+        for (const u of ordered) {
+          if (mine.has(u.label)) {
+            if (!cur) runsOf[c].push((cur = []));
+            cur.push(u.label);
+          } else cur = null; // another module's statement, a pinned one, or one that waits
+        }
+      }
+      let runs;
+      if (m.owner === 'shared') {
+        const flat = runsOf.us.flat();
+        if (JSON.stringify(flat) !== JSON.stringify(runsOf.canada.flat())) throw new Error(`shared module ${m.path} gathers different statements in the two planners`);
+        const cutAfter = new Set();
+        for (const c of COUNTRIES) runsOf[c].forEach((r) => cutAfter.add(r[r.length - 1])); // the union of both planners' boundaries
+        runs = [];
+        let cur = null;
+        for (const l of flat) {
+          if (!cur) runs.push((cur = []));
+          cur.push(l);
+          if (cutAfter.has(l)) cur = null;
+        }
+      } else runs = runsOf[m.owner];
+      m.wiring = runs.map((r) => {
+        let name = tm.wiring[r[0]];
+        if (!name) {
+          if (runs.length > 1) throw new Error(`module ${m.path} has several runs, so every run needs a name in wiring (the run starting at ${r[0]} has none)`);
+          name = `wire${pascal(m.path)}`;
+        }
+        if (!IDENT.test(name)) throw new Error(`wiring name ${name} (${m.path}) is not an identifier`);
+        for (const c of countries) {
+          if (taken[c].has(name)) throw new Error(`wiring name clash: ${name} (${m.path}) is already declared in ${c}'s bundle`);
+          if (byName[c].has(name)) throw new Error(`wiring name clash: ${name} is used by ${byName[c].get(name)} and ${m.path}`);
+          byName[c].set(name, m.path);
+        }
+        return { name, statements: m.owner === 'shared' ? { us: r, canada: r } : { [m.owner]: r } };
+      });
+    }
+    modules.forEach((m) => {
+      if (!m.wiring) m.wiring = [];
+    });
+  }
 }
 
-module.exports = { planExtraction, kebab };
+function planExtraction(root, options = {}) {
+  return planCore(root, options).plan;
+}
+
+// A draft topics file (design section 5.1 defaults), computed after grouping every declaration as if it were movable.
+// "TODO" collects the statements with no default: after a shared region, with no unit before them, or landing in core/.
+function draftTopics(root, options = {}) {
+  const { plan, info } = planCore(root, { ...options, topics: null, draft: true });
+  const pathOf = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()]));
+  for (const m of plan.modules) {
+    for (const c of m.owner === 'shared' ? COUNTRIES : [m.owner]) m.units[c].forEach((l) => pathOf[c].set(l, m.path));
+  }
+  const out = { shared: { modules: {}, main: [] }, us: { modules: {}, main: [] }, canada: { modules: {}, main: [] } };
+  // Lists the statement under its default module ('TODO' when there is none or it is a core/ module); returns the default or null.
+  const put = (section, p, label) => {
+    const where = !p || p.split('/').includes('core') ? 'TODO' : p;
+    (out[section].modules[where] = out[section].modules[where] || { units: [] }).units.push(label);
+    return where === 'TODO' ? null : where;
+  };
+  for (const c of COUNTRIES) {
+    const units = [...info[c].model.units].sort((a, b) => a.startLine - b.startLine);
+    const home = new Map(); // statement label -> its default module, or null
+    const homeOf = (u) => (u.kind === 'statement' ? home.get(u.label) : pathOf[c].get(u.label));
+    units.forEach((u, i) => {
+      if (u.kind !== 'statement') return;
+      const sharedStmt = u.regionKind === 'shared';
+      if (sharedStmt && c !== 'us') return; // a shared statement is listed once, from the US file
+      let prev = units[i - 1];
+      if (sharedStmt) {
+        prev = null;
+        for (let j = i - 1; j >= 0; j--) {
+          if (units[j].regionKind === 'shared' && units[j].region === u.region) {
+            prev = units[j];
+            break;
+          }
+        }
+      }
+      const p = prev && (sharedStmt || prev.regionKind !== 'shared') ? homeOf(prev) || null : null;
+      home.set(u.label, put(sharedStmt ? 'shared' : c, p, u.label));
+    });
+  }
+  return out;
+}
+
+module.exports = { planExtraction, draftTopics, kebab };
