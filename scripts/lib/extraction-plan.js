@@ -148,25 +148,27 @@ function patternNames(p, out) {
 }
 
 // Top-level declaration names of every .js file under a directory (functions, classes, consts, lets).
+function fileNames(full, out) {
+  const ast = espree.parse(fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n'), { ecmaVersion: 'latest', sourceType: 'module' });
+  for (const node of ast.body) {
+    const d = node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration' ? node.declaration : node;
+    if (!d) continue;
+    if (d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration') {
+      if (d.id) out.add(d.id.name);
+    } else if (d.type === 'VariableDeclaration') {
+      const names = [];
+      d.declarations.forEach((x) => patternNames(x.id, names));
+      names.forEach((n) => out.add(n));
+    }
+  }
+}
+
 function topLevelNames(dir, skip, out) {
   if (!fs.existsSync(dir)) return;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, e.name);
     if (e.isDirectory()) topLevelNames(full, skip, out);
-    else if (e.name.endsWith('.js') && full !== skip) {
-      const ast = espree.parse(fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n'), { ecmaVersion: 'latest', sourceType: 'module' });
-      for (const node of ast.body) {
-        const d = node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration' ? node.declaration : node;
-        if (!d) continue;
-        if (d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration') {
-          if (d.id) out.add(d.id.name);
-        } else if (d.type === 'VariableDeclaration') {
-          const names = [];
-          d.declarations.forEach((x) => patternNames(x.id, names));
-          names.forEach((n) => out.add(n));
-        }
-      }
-    }
+    else if (e.name.endsWith('.js') && full !== skip) fileNames(full, out);
   }
 }
 
@@ -196,7 +198,15 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
       const place = (label, where, moduleExists) => {
         const found = secCountries.map((c) => info[c].byLabel.get(label));
         if (found.every((u) => !u)) {
-          if (moduleExists) return 0; // moved by an earlier batch
+          if (moduleExists) {
+            // moved by an earlier batch: a statement cannot be verified any more, a declaration must be a name in the module's file
+            if (!label.startsWith('stmt:')) {
+              const have = new Set();
+              fileNames(path.join(root, where), have);
+              if (!label.split(', ').every((n) => have.has(n))) throw new Error(`declaration ${label} is not a top-level name of the existing module ${where}`);
+            }
+            return 0;
+          }
           throw new Error(`unknown unit ${label} in the ${section} section of the topics file`);
         }
         secCountries.forEach((c, i) => {
@@ -220,8 +230,13 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
         const exists = fs.existsSync(path.join(root, p));
         const labels = mod.units || [];
         let present = 0;
-        for (const label of labels) present += place(label, p, exists);
-        if (exists && present) throw new Error(`topics module ${p} already exists: extraction creates new modules only`);
+        let firstPresent = null;
+        for (const label of labels) {
+          const n = place(label, p, exists);
+          present += n;
+          if (n && firstPresent === null) firstPresent = label;
+        }
+        if (exists && present) throw new Error(`topics module ${p} already exists, but unit ${firstPresent} is still in main.js: extraction creates new modules only`);
         topicMods.set(p, { section, labels, wiring: mod.wiring || {} });
       }
       for (const label of sec.main || []) place(label, MAIN, false);
@@ -529,6 +544,18 @@ function planCore(root, { maxLayer = Infinity, maxBatch = 2, coreOnly = false, s
           if (cutAfter.has(l)) cur = null;
         }
       } else runs = runsOf[m.owner];
+      // every wiring key must name the first statement of one of the runs, or the chosen name would be dropped silently
+      const firsts = new Set(runs.map((r) => r[0]));
+      for (const key of Object.keys(tm.wiring)) {
+        if (firsts.has(key)) continue;
+        const stmt = countries.map((c) => info[c].byLabel.get(key)).find((u) => u && u.kind === 'statement');
+        const why = !stmt
+          ? 'names a declaration, not a statement'
+          : runs.some((r) => r.includes(key))
+            ? 'is not the first statement of a run'
+            : 'waits (it does not move in this batch, so it starts no run)';
+        throw new Error(`wiring key ${key} in ${m.path} ${why}`);
+      }
       m.wiring = runs.map((r) => {
         let name = tm.wiring[r[0]];
         if (!name) {
