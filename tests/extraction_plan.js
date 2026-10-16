@@ -562,10 +562,11 @@ try {
     );
   }
   {
-    // Two topics modules whose declarations call each other, with a core unit in the cycle: refused (Task 6 accepts the all-ui case, below).
+    // Two topics modules whose declarations call each other, one of them under core/: refused (the topics paths decide,
+    // design 5.3; Task 6 accepts the case where both are ui/ modules, below).
     const { root: r } = topicRoot(['  function f(n) {', '    return g(n);', '  }', '  function g(n) {', '    return f(n);', '  }'], NONE);
     assert.throws(
-      () => planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/a.js': { units: ['f'] }, 'src/us/ui/b.js': { units: ['g'] } } } }) }),
+      () => planExtraction(r, { topics: topicsOf({ us: { modules: { 'src/us/ui/a.js': { units: ['f'] }, 'src/us/core/b.js': { units: ['g'] } } } }) }),
       /topics modules .* import each other/,
     );
   }
@@ -728,6 +729,61 @@ try {
 
   // 6. The same cycle with one core unit (T, a plain object) still throws.
   assert.throws(() => planOf(viewCycle(true), viewCycle(true), { seam: ['render'] }), /module cycle across owners/);
+
+  // 6b. Fix B (design 5.3): with a topics file the cycle condition is on modules, not units. A module of the cycle that holds
+  // a plain `let` (inert initializer, not a ui unit) is accepted when its topics path is under ui/, and throws under core/.
+  {
+    const usView = [
+      '  // @@shared:view begin',
+      '  function setView(v) {',
+      '    document.body.dataset.v = v;',
+      '    render();',
+      '  }',
+      '  // @@shared:view end',
+      '  let mode = 0;',
+      '  const Q = { go: () => { mode = 1; return setView(1); } };',
+      '  function render() {',
+      '    document.title = String(Q.go);',
+      '  }',
+    ];
+    const { root: r } = topicRoot(usView, viewCycle(false));
+    const topics = (qPath) =>
+      topicsOf({ us: { modules: { [qPath]: { units: ['mode', 'Q'] }, 'src/us/ui/render.js': { units: ['render'] } } } });
+    const p6 = planExtraction(r, { topics: topics('src/us/ui/q.js'), seam: ['render'] });
+    assert.deepStrictEqual(modOf(p6, 'src/us/ui/q.js').units.us, ['mode', 'Q'], 'the let stays in its ui/ topics module');
+    assert.deepStrictEqual(p6.bindings.us.needsDecision, []);
+    assert.strictEqual(p6.uiCycles.length, 1, 'one accepted cycle');
+    const cyc6 = p6.uiCycles[0];
+    assert.ok(cyc6.includes('src/us/ui/q.js') && cyc6.includes('src/us/ui/render.js'), 'the cycle names both topics modules');
+    assert.ok(cyc6.some((q) => modOf(p6, q).owner === 'shared'), 'and the shared module');
+    assert.strictEqual(new Set(cyc6.map((q) => modOf(p6, q).batch)).size, 1, 'every module of the cycle has the same batch');
+    // The same topics file with the let's module under core/: throws.
+    assert.throws(() => planExtraction(r, { topics: topics('src/us/core/q.js'), seam: ['render'] }), /module cycle across owners/);
+  }
+  {
+    // Two topics modules of one country that import each other, one holding a plain `let`: both ui/ accepted, core/ throws.
+    const { root: r } = topicRoot(
+      [
+        '  function f(n) {',
+        '    document.title = n;',
+        '    return g(n);',
+        '  }',
+        '  let count = 0;',
+        '  function g(n) {',
+        '    count++;',
+        '    return f(n);',
+        '  }',
+      ],
+      NONE,
+    );
+    const topics = (bPath) => topicsOf({ us: { modules: { 'src/us/ui/a.js': { units: ['f'] }, [bPath]: { units: ['count', 'g'] } } } });
+    const p6c = planExtraction(r, { topics: topics('src/us/ui/b.js') });
+    assert.deepStrictEqual(modOf(p6c, 'src/us/ui/a.js').units.us, ['f']);
+    assert.deepStrictEqual(modOf(p6c, 'src/us/ui/b.js').units.us, ['count', 'g']);
+    assert.strictEqual(modOf(p6c, 'src/us/ui/a.js').batch, modOf(p6c, 'src/us/ui/b.js').batch);
+    assert.deepStrictEqual(p6c.uiCycles, [['src/us/ui/a.js', 'src/us/ui/b.js']]);
+    assert.throws(() => planExtraction(r, { topics: topics('src/us/core/b.js') }), /topics modules src\/us\/ui\/a\.js and src\/us\/core\/b\.js import each other|topics modules src\/us\/core\/b\.js and src\/us\/ui\/a\.js import each other/);
+  }
 
   // 7. An auto-named module never takes a topics path.
   {

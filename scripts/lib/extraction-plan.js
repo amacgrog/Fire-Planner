@@ -24,8 +24,9 @@
 // (`colocated` gets { declaredIn, module }); a moving declaration whose initializer is not inert needs a `// load-time:`
 // comment or is split (`let x;` plus the statement `x = <init>;` at its position, recorded in the module's `splits`).
 // `seamSides` says which seam facades live under ui/ (either country's target is a ui/ module); a shared unit that uses
-// such a name is ui. A cycle across owners (or between topics modules) whose units are all ui is accepted and listed in
-// `uiCycles` (its modules stay separate and share one depth); one with a core unit throws. Empty `splits` / `uiCycles` are left out.
+// such a name is ui. A cycle across owners (or between topics modules) whose modules all have ui/ paths (a topics module:
+// its topics path) is accepted and listed in `uiCycles` (its modules stay separate and share one depth); one with a core/
+// module throws. Empty `splits` / `uiCycles` are left out.
 const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
@@ -484,10 +485,13 @@ function planCore(root, options = {}) {
   }
   return { nodes, nodeOf, edges, index, comps: stronglyConnected(nodes.length, edges) };
   };
-  // UI cycles (design section 5.3): a cycle across owners whose every unit is ui is accepted (its units keep the modules
-  // of their own the `fine` split gives them); one with a core unit throws.
+  // UI cycles (design section 5.3): a cycle across owners (or between topics modules) whose every MODULE has a ui/ path is
+  // accepted (its nodes keep the modules of their own the `fine` split gives them); one with a core/ module throws. A topics
+  // node's side is its topics path (a plain `let` the topics file places in a ui/ module does not make it core); any other
+  // node's units all share one side (nodes are grouped by side), which is the side its module path gets.
   const nodeAllUi = (n) => COUNTRIES.every((c) => n.units[c].every((l) => sideOf(c, info[c].byLabel.get(l)) === 'ui'));
-  const compAllUi = (b, comp) => comp.every((v) => nodeAllUi(b.nodes[v]));
+  const nodeUiModule = (n) => (n.topicPath ? pathSide(n.topicPath) === 'ui' : nodeAllUi(n));
+  const compAllUi = (b, comp) => comp.every((v) => nodeUiModule(b.nodes[v]));
   const isCrossOwner = (b, comp) => new Set(comp.map((v) => b.nodes[v].owner)).size > 1;
   const compKey = (b, comp) =>
     comp
@@ -513,7 +517,7 @@ function planCore(root, options = {}) {
   const accepted = new Set(built.comps.filter((comp) => isCrossOwner(built, comp)).map((comp) => compKey(built, comp)));
   // Fewer, larger modules: nodes that came from one region or one run are joined again when that closes no new cycle.
   const cyclic = (b) => b.comps.filter((comp) => comp.length > 1);
-  // a cycle across owners other than the accepted ones, or one that contains a core unit
+  // a cycle across owners other than the accepted ones, or one that contains a core/ module (the same module condition)
   const crossOwnerBeyondAccepted = (b) =>
     cyclic(b).some((comp) => isCrossOwner(b, comp) && (!accepted.has(compKey(b, comp)) || !compAllUi(b, comp)));
   {
@@ -549,7 +553,7 @@ function planCore(root, options = {}) {
     if (owners.size > 1 || topicPaths.length > 1) {
       if (!compAllUi(built, comp)) {
         if (owners.size > 1) throw new Error('module cycle across owners');
-        throw new Error(`topics modules ${topicPaths.join(' and ')} import each other (a cycle between modules the topics file names, with a core unit in it)`);
+        throw new Error(`topics modules ${topicPaths.join(' and ')} import each other (a cycle between modules the topics file names, with a core/ module in it)`);
       }
       const list = [];
       for (const m of members) {
