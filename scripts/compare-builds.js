@@ -9,6 +9,9 @@
 // and a `let x; ... x = <expr>;` pair whose base declaration is `x = <expr>` becomes one `var x = <expr>` at the assignment.
 // With --ordered it also requires the statements that are not declarations (plus the declarations of those split names)
 // to appear in the same order on both sides.
+// KNOWN, ACCEPTED LIMIT: declarations other than the split-matched names are not part of the ordered subsequence, so the
+// order of their initializers is not checked here (`var a = f(); g();` and `g(); var a = f();` both pass). The load-time
+// guard in scripts/lib/load-time.js covers the ui modules.
 // esbuild may drop a declaration that is unused; list such names in ALLOWED_DROPS below with the reason.
 const fs = require('fs');
 const path = require('path');
@@ -106,6 +109,7 @@ function expandWiring(items, ast, code, baseNames) {
     for (let i = 0; i < items.length; i++) {
       const fn = items[i].node;
       if (fn.type !== 'FunctionDeclaration' || !fn.id || baseNames.has(fn.id.name)) continue;
+      if (fn.async || fn.generator || fn.params.length !== 0) continue;
       const name = fn.id.name;
       const calls = [];
       items.forEach((it, j) => { if (callName(it) === name) calls.push(j); });
