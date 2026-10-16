@@ -24,6 +24,7 @@
     { "move": "renderTable", "from": "src/shared/ui/chart-render.js", "to": "src/shared/ui/projection-table.js" },
     { "rename": "src/shared/ui/chart-render.js", "to": "src/shared/ui/monte-carlo-chart.js" },
     { "rename": "src/us/ui/annotate-solver-rows.js", "to": "src/us/ui/table-annotations.js" },
-    { "merge": ["src/us/ui/roth-optimizer.js", "src/us/ui/render-multi-lever-applied-status.js"], "to": "src/us/ui/roth-optimizer.js" }
+    { "merge": ["src/us/ui/roth-optimizer.js", "src/us/ui/render-multi-lever-applied-status.js"], "to": "src/us/ui/roth-optimizer.js" },
+    { "rename": "src/shared/ui/layout.js", "to": "src/shared/ui/layout-listeners.js" }
   ]
 }
