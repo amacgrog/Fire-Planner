@@ -8,7 +8,8 @@ const path = require('path');
 const vm = require('vm');
 const esbuild = require('esbuild');
 const { planExtraction } = require('../scripts/lib/extraction-plan');
-const { applyModules } = require('../scripts/lib/extract-units');
+const { applyModules, functionBodyProblem } = require('../scripts/lib/extract-units');
+const espree = require('espree');
 const { statementLabel: labelOf } = require('../scripts/analyze-closure');
 const { checkCountryContract } = require('../scripts/lib/country-contract');
 const { compareScripts } = require('../scripts/compare-builds');
@@ -516,6 +517,89 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     [{ ...wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]]), wiring: [{ name: 'wireW', statements: { us: [LS], canada: [] } }] }],
     /wiring of src\/shared\/ui\/w\.js differs between the two planners/,
   );
+
+  // ---- Task 7 fix round 1
+  // run validation: source order (a split counts at its declaration's line) and nothing else in between
+  const runErr = /run wireX \(stmt:/;
+  refuse(() => wireRoot(['  a();', '  b();']), [wmod('src/us/ui/x.js', 'us', [L('a();'), L('b();')], [['wireX', [L('b();'), L('a();')]]])], runErr);
+  refuse(() => wireRoot(['  a();', '  b();', '  c();']), [wmod('src/us/ui/x.js', 'us', [L('a();'), L('c();')], [['wireX', [L('a();'), L('c();')]]])], runErr);
+  refuse(
+    () => wireRoot(['  a();', '  b();', '  c();']),
+    [wmod('src/us/ui/x.js', 'us', [L('a();'), L('c();')], [['wireX', [L('a();'), L('c();')]]]), wmod('src/us/ui/y.js', 'us', [L('b();')], [['wireY', [L('b();')]]])],
+    runErr,
+  );
+  const SPL = L('seen = out.length;');
+  const splitMods = (order, decl = 'seen') => [
+    wmod('src/us/ui/x.js', 'us', [L('a();'), decl, L('b();')], [['wireX', order]], { splits: [{ name: 'seen', label: SPL }] }),
+  ];
+  refuse(() => wireRoot(['  a();', '  let seen = out.length;', '  b();']), splitMods([L('a();'), L('b();'), SPL]), runErr);
+  // a declaration between two statements of a run is fine (it stays in main.js here)
+  root = wireRoot(['  a();', '  const k = 1;', '  b();']);
+  wireBefore = await both(root);
+  applyModules(root, [wmod('src/us/ui/x.js', 'us', [L('a();'), L('b();')], [['wireX', [L('a();'), L('b();')]]])]);
+  assert.ok(read(root, 'src/us/main.js').includes(['  wireX();', '  const k = 1;', OUT_TAIL].join('\n')), read(root, 'src/us/main.js'));
+  assert.deepStrictEqual(await both(root), wireBefore);
+
+  // a wiring name that clashes with a top-level name of main.js or of the module
+  refuse(
+    () => wireRoot(['  const wireX = () => b();', '  a();']),
+    [wmod('src/us/ui/x.js', 'us', [L('a();')], [['wireX', [L('a();')]]])],
+    /src\/us\/ui\/x\.js: wiring function wireX clashes with a top-level name of us\/main\.js/,
+  );
+  refuse(
+    () => wireRoot(['  function wireX() {}', '  a();']),
+    [wmod('src/us/ui/x.js', 'us', ['wireX', L('a();')], [['wireX', [L('a();')]]])],
+    /src\/us\/ui\/x\.js: wiring function wireX clashes with a top-level name of the module/,
+  );
+  refuse(
+    () => wireRoot(['  a();']),
+    [wmod('src/us/ui/x.js', 'us', [L('a();')], [['a', [L('a();')]]])],
+    /src\/us\/ui\/x\.js: wiring function a clashes with a top-level name of the module/,
+  );
+
+  // the wiring record lists the runs written, not the manifest's entries
+  root = wireRoot(['  a();']);
+  wireReport = applyModules(root, [wmod('src/us/ui/x.js', 'us', [L('a();')], [['wireX', [L('a();')]], ['wireEmpty', []]])]);
+  assert.deepStrictEqual(wireReport.wiring, [{ name: 'wireX', module: 'src/us/ui/x.js' }]);
+
+  // every split refusal
+  const splitRefuse = (declLine, pattern, decl = 'seen') => refuse(() => wireRoot(['  a();', declLine, '  b();']), splitMods([L('a();'), SPL, L('b();')], decl), pattern);
+  splitRefuse('  let seen = out.length; // why', /split seen shares its lines with other text/);
+  splitRefuse('  let seen = out.length, z = 1;', /split seen is not a one-name/, 'seen, z'); // the analyzer's label for two declarators
+  splitRefuse('  const seen = out.length;', /split seen has no `let` declaration/);
+  splitRefuse('  let seen;', /split seen is not a one-name/);
+  splitRefuse('  let seen = (out.length);', /split seen does not end with ";" right after its initializer/);
+  // a run that starts with a split assignment
+  refuse(() => wireRoot(['  let seen = out.length;', '  a();', '  b();']), splitMods([SPL, L('a();'), L('b();')]), /starts with the split assignment of seen/);
+  // a split in a shared module: one text from both planners
+  const SPLIT_REGION = ['  // @@shared:sp begin', '  a();', '  // seen at load', '  let seen = out.length;', '  b();', '  // @@shared:sp end'];
+  const SEEN_TAIL = "  window.__out = out.join('') + seen;";
+  root = wireRoot(SPLIT_REGION, SPLIT_REGION, { usTail: SEEN_TAIL, caTail: SEEN_TAIL });
+  write(root, 'shared/sp.js', SPLIT_REGION.slice(1, -1).join('\n') + '\n');
+  wireBefore = await both(root);
+  wireReport = applyModules(root, [
+    wmod('src/shared/ui/sp.js', 'shared', [L('a();'), 'seen', L('b();')], [['wireSp', [L('a();'), SPL, L('b();')]]], { splits: [{ name: 'seen', label: SPL }] }),
+  ]);
+  assert.strictEqual(
+    read(root, 'src/shared/ui/sp.js'),
+    ["import { a, b, out } from '../lib.js';", '', '  // seen at load', '  export let seen;', '  export function wireSp() {', '    a();', '    seen = out.length;', '    b();', '  }', ''].join('\n'),
+  );
+  assert.deepStrictEqual(wireReport.wiring, [{ name: 'wireSp', module: 'src/shared/ui/sp.js' }]);
+  assert.deepStrictEqual(await both(root), wireBefore);
+  assert.deepStrictEqual(wireBefore, { us: 'ab1', canada: 'ab1' });
+
+  // break and continue: a nested switch's break moves; with no loop or switch of the statement's own they are refused
+  const sw = ['  switch (out.length) {', '    case 0:', '      a();', '      break;', '    default:', '      b();', '  }'];
+  root = wireRoot(sw);
+  wireBefore = await both(root);
+  applyModules(root, [wmod('src/us/ui/x.js', 'us', [L(sw)], [['wireX', [L(sw)]]])]);
+  assert.deepStrictEqual(await both(root), wireBefore);
+  // A top-level break or continue of the IIFE does not parse, so the checker is driven directly on a statement inside a loop.
+  const inner = (code) => espree.parse(code, { ecmaVersion: 2022, sourceType: 'module', range: true, loc: true }).body[0].body.body[0];
+  assert.strictEqual(functionBodyProblem(inner('while (x) { if (y) break; }')), 'break');
+  assert.strictEqual(functionBodyProblem(inner('while (x) { switch (y) { case 1: continue; } }')), 'continue');
+  assert.strictEqual(functionBodyProblem(inner('while (x) { switch (y) { case 1: break; } }')), null);
+  assert.strictEqual(functionBodyProblem(inner('while (x) { for (;;) { continue; } }')), null);
 
   console.log('extract_units OK');
 })()

@@ -154,7 +154,7 @@ function splitParts(info, u, name, where) {
   const indent = info.text.slice(lineStart, node.range[0]);
   const tail = info.text.slice(node.range[1], lineEnd < 0 ? info.text.length : lineEnd);
   if (indent.trim() !== '' || tail.trim() !== '') throw new Error(`${where}: split ${name} shares its lines with other text`);
-  if (info.text.slice(d.init.range[1], node.range[1]).trim() !== ';') throw new Error(`${where}: split ${name} does not end with ";"`);
+  if (info.text.slice(d.init.range[1], node.range[1]).trim() !== ';') throw new Error(`${where}: split ${name} does not end with ";" right after its initializer (no ASI, no parentheses around it)`);
   const assign = `${name} = ${info.text.slice(d.init.range[0], d.init.range[1])};`.split('\n');
   const assignLines = assign.map((l, i) => (i === 0 ? `${indent}  ${l}` : indentTwo(l)));
   const { start, end } = info.chunks.get(u.label);
@@ -282,6 +282,28 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
       }
     }
   }
+
+  // A run must be what the planner makes (design section 5.1), whatever the manifest says: its statements in source order
+  // (a split assignment counts at its declaration's line), and no other statement (one staying in main.js, or another
+  // module's, or another split assignment) between its first and last line. Declarations in between are fine.
+  for (const c of COUNTRIES) {
+    for (const m of modules) {
+      for (const run of runsOf.get(m)[c] || []) {
+        const splitsHere = splitOf.get(m)[c];
+        const where = `${m.path}: run ${run.name} (${run.labels.join(', ')})`;
+        const lines = run.labels.map((l) => (splitsHere.has(l) ? splitsHere.get(l).decl.startLine : info[c].byLabel.get(l).startLine));
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i] <= lines[i - 1]) throw new Error(`${where} is not in source order in ${c}/main.js (${run.labels[i]} stands before ${run.labels[i - 1]})`);
+        }
+        const own = new Set(run.labels);
+        run.labels.forEach((l) => splitsHere.has(l) && own.add(splitsHere.get(l).decl.label));
+        const between = info[c].units.find(
+          (u) => u.startLine > lines[0] && u.startLine < lines[lines.length - 1] && !own.has(u.label) && (u.kind === 'statement' || splitDecl[c].has(u.label)),
+        );
+        if (between) throw new Error(`${where}: the statement ${between.label} (${c}/main.js line ${between.startLine}) stands between its statements`);
+      }
+    }
+  }
   for (const c of COUNTRIES) {
     const declarers = new Set(info[c].model.mutables.map((x) => x.declaredIn));
     const writers = new Map(info[c].model.mutables.map((x) => [x.declaredIn, x.writers]));
@@ -359,6 +381,24 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
           }
           addNeed(m, c, abs, local, imp.imported);
         }
+      }
+    }
+  }
+  // a wiring name must not clash with a top-level name of main.js (what stays, its imports, what it now imports) or of the
+  // module (its declarations and imports)
+  for (const m of modules) {
+    for (const c of COUNTRIES) {
+      const runs = runsOf.get(m)[c] || [];
+      if (!runs.length) continue;
+      const mainNames = new Set(info[c].model.imports.map((i) => i.local));
+      info[c].units.filter((u) => !moduleOf[c].has(u.label)).forEach((u) => u.names.forEach((n) => mainNames.add(n)));
+      mainImports[c].forEach((names) => names.forEach((n) => mainNames.add(n)));
+      const moduleNames = new Set();
+      m.units[c].forEach((l) => info[c].byLabel.get(l).names.forEach((n) => moduleNames.add(n)));
+      (needs.get(m)?.[c] || new Map()).forEach((names) => names.forEach((_, local) => moduleNames.add(local)));
+      for (const run of runs) {
+        if (moduleNames.has(run.name)) throw new Error(`${m.path}: wiring function ${run.name} clashes with a top-level name of the module`);
+        if (mainNames.has(run.name)) throw new Error(`${m.path}: wiring function ${run.name} clashes with a top-level name of ${c}/main.js`);
       }
     }
   }
@@ -608,11 +648,12 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
       exports: [...exportsNeeded.get(m)].sort(),
     })),
     moved: Object.fromEntries(COUNTRIES.map((c) => [c, moduleOf[c].size])),
-    wiring: modules.flatMap((m) => (m.wiring || []).map((w) => ({ name: w.name, module: m.path }))),
+    // the runs actually written (a manifest entry with no statements writes nothing)
+    wiring: modules.flatMap((m) => [...new Set(COUNTRIES.flatMap((c) => (runsOf.get(m)[c] || []).map((r) => r.name)))].map((name) => ({ name, module: m.path }))),
     deletedRegions: [...deleted].sort(),
     seam: facadeNames,
     warnings,
   };
 }
 
-module.exports = { applyModules };
+module.exports = { applyModules, functionBodyProblem }; // functionBodyProblem: for tests (top-level break does not parse)
