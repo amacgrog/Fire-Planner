@@ -283,8 +283,8 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   const L = (lines) => labelOf(Array.isArray(lines) ? lines.join('\n') : lines);
   // a module with wiring runs: wiring is [[name, [labels]], ...]
   const wmod = (p, owner, units, wiring, extra = {}) => {
-    const per = (v) => (owner === 'shared' ? { us: v, canada: v } : { us: owner === 'us' ? v : [], canada: owner === 'canada' ? v : [] });
-    const stmts = (v) => (owner === 'shared' ? { us: v, canada: v } : { [owner]: v });
+    const per = (v) => ({ us: owner === 'us' ? v : [], canada: owner === 'canada' ? v : [] });
+    const stmts = (v) => ({ [owner]: v });
     return { path: p, owner, units: per(units), wiring: wiring.map(([name, s]) => ({ name, statements: stmts(s) })), ...extra };
   };
   const COUNTRIES_T = ['us', 'canada'];
