@@ -1,11 +1,16 @@
-
+import { chartHoverEnabled } from '../core/chart-hover.js';
+import { chartView } from '../core/chart-prefs.js';
+import { money } from '../core/money-format.js';
+import { CURRENT_YEAR } from '../core/spending-and-loans.js';
+import { state } from '../core/store.js';
+import { lastChart, renderChart } from './projection-chart.js';
 
   function clearChartHover() {
     if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
   }
   let chartTooltipEl = null;
-  function initChartHover() {
+  export function initChartHover() {
     const wrap = document.querySelector('.chart-wrap'),
       canvas = document.getElementById('chart');
     if (!wrap || !canvas) return;

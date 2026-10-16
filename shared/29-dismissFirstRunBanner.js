@@ -11,41 +11,7 @@
   document.getElementById('sankeyAge').addEventListener('input', () => {
     if (document.getElementById('sankeyCard').open) renderSankey(simulate());
   });
-  // First-run banner: the dashboard renders with fully-formed generic
-  // default numbers from the moment the page loads, which reads to a
-  // brand-new visitor as someone else's finished plan rather than an
-  // invitation to enter their own. This banner names that explicitly and
-  // points at the two real entry points (the wizard, or importing an
-  // exported scenario) rather than leaving the person to notice the
-  // sidebar on their own. It dismisses itself the moment its purpose is
-  // served — a real edit anywhere in the sidebar, the wizard being opened
-  // (intent is clear the moment they click), or a scenario actually
-  // imported — rather than needing to be closed by hand. For a *returning*
-  // visitor whose real plan was loaded back from this browser's storage at
-  // boot, it's skipped entirely (see `hadSavedState` above) rather than
-  // needing to be dismissed again on every visit.
-  function dismissFirstRunBanner() {
-    document.getElementById('firstRunBanner').hidden = true;
-    hasPersonalizedData = true;
-    syncPanelMaxHeight();
-  }
-  document.querySelector('.panel').addEventListener(
-    'input',
-    () => dismissFirstRunBanner(),
-    { once: true, capture: true },
-  );
-  document.querySelector('.panel').addEventListener(
-    'change',
-    () => dismissFirstRunBanner(),
-    { once: true, capture: true },
-  );
-  document.getElementById('firstRunGetStartedBtn').addEventListener('click', () => {
-    dismissFirstRunBanner();
-    document.getElementById('wizardBtn').click();
-  });
-  document.getElementById('firstRunImportBtn').addEventListener('click', () => {
-    document.getElementById('importScenarioInput').click();
-  });
+  wireFirstRunBanner();
   // "Explore a question" menu: each button either renders a compare-type
   // answer (a takeaway sentence + a small table, built from
   // DECISION_QUESTIONS' run()) or opens an existing card in place (an

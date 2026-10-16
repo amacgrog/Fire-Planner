@@ -1,3 +1,7 @@
+import { simulate } from '../core/monte-carlo-paths-2.js';
+import { state } from '../core/store.js';
+import { buildPrintReport } from '#country/ui/seam-buildPrintReport';
+
   function exportCsv() {
     const sim = simulate(),
       columns = [
@@ -38,4 +42,11 @@
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  }
+  export function wireExportButtons() {
+    document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+    document.getElementById('printReportBtn').addEventListener('click', () => {
+      buildPrintReport();
+      window.print();
+    });
   }

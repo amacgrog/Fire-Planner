@@ -41,11 +41,7 @@
     render();
     saveInputs();
   });
-  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-  document.getElementById('printReportBtn').addEventListener('click', () => {
-    buildPrintReport();
-    window.print();
-  });
+  wireExportButtons();
   // Sidebar field search: highlights every field whose label matches the
   // query and force-opens whichever <details> group(s) contain it (walking
   // up through nested details, e.g. the "Spending changes" sub-group inside
@@ -372,17 +368,6 @@
       hideResults();
     });
   })();
-  function syncContributionControls() {
-    FIELDS.filter((field) => field.outSync === 'contrib').forEach(syncFieldOut);
-    FIELDS.filter((field) => isDomWired(field) && field.sync === 'contrib').forEach(syncFieldDom);
-    document.getElementById('survivorGroup').hidden = !!state.singlePerson;
-    renderSpendingTierFields();
-    renderIncomeSourceFields();
-    renderOneTimeIncomeFields();
-    renderExtraExpenseFields();
-    renderLumpExpenseFields();
-    renderChildFields();
-  }
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the
   // sidebar eats a variable share of the viewport).

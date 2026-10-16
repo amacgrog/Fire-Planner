@@ -1,6 +1,6 @@
-import { storageKey, legacyStorageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
+import { storageKey, storage, SCENARIO_SCHEMA_VERSION } from '../shared/ui/storage.js';
 import { state, mode, scenarios, compareIds, assignState, assignMode, assignScenarios } from '../shared/core/store.js';
-import { chartView, chartShiftMode, chartGapPartner, logScale, chartExpanded, chartToolbarCollapsed, mcPathCount, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
+import { logScale, chartExpanded, chartToolbarCollapsed, lastProjectionView, assignChartView, assignChartShiftMode, assignChartGapPartner, assignChartXAxisMode, assignLogScale, assignChartExpanded, assignChartToolbarCollapsed, assignMcPathCount, assignLastProjectionView } from '../shared/core/chart-prefs.js';
 import { histTaxFactors, assignHistTaxFactors } from '../shared/core/tax-factors.js';
 import { currentYear, assignCurrentYear } from './core/tax-year.js';
 import { cliffPlanStore } from './core/cliff-plan-store.js';
@@ -8,10 +8,10 @@ import { optimizerState } from './core/optimizer-state.js';
 import { testHooks } from './core/test-hooks.js';
 import { LIST_MAX, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
 import { defaults } from './core/defaults.js';
-import { REVEAL_BY_ID, revealHidden } from './core/normalize-lists.js';
+import { REVEAL_BY_ID } from './core/normalize-lists.js';
 import { compact, money } from '../shared/core/money-format.js';
 import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
-import { HIST, escapeHtml, pct } from '../shared/core/basics.js';
+import { HIST, escapeHtml } from '../shared/core/basics.js';
 import { FILING, SENIOR_DEDUCTION_LAST_YEAR } from './core/federal-deductions.js';
 import { hasChildAtMost } from './core/medicaid-rules.js';
 import { SE_OUT } from './core/ss-wage-base.js';
@@ -22,15 +22,12 @@ import { planCandidateBetter } from './core/plan-candidate-better.js';
 import { cliffPlanSummary } from './core/cliff-plan-summary.js';
 import { renderMultiLeverAppliedStatus } from './ui/render-multi-lever-applied-status.js';
 import { updateChartXAxisButtons } from './ui/update-chart-xaxis-buttons.js';
-import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from '../shared/ui/chart-colors.js';
+import { chartAxisColor, chartZeroLineColor, isDarkTheme } from '../shared/ui/chart-colors.js';
 import { layoutSankeyColumn, sankeyRibbonPath } from '../shared/core/sankey-layout.js';
-import { cagrColors } from '../shared/core/simulate-at-real-cagr.js';
 import { updateChartGapPartnerButtons } from './ui/update-chart-gap-partner-buttons.js';
 import { updateChartShiftModeButtons } from './ui/update-chart-shift-mode-buttons.js';
-import { chartHoverEnabled } from '../shared/core/chart-hover.js';
 import { exportAllScenarios, exportScenario } from '../shared/ui/scenario-export.js';
 import { isDomWired } from '../shared/core/field-wiring.js';
-import { syncFieldDom } from '../shared/ui/field-wiring.js';
 import { syncFieldOut } from '../shared/ui/dyn-field-html.js';
 import { tryEnterLandscapeFullscreen, tryExitLandscapeFullscreen } from '../shared/ui/landscape-fullscreen.js';
 import { CHART_GROUPS } from '../shared/core/chart-groups.js';
@@ -42,7 +39,7 @@ import { mc } from '../shared/ui/first-run-ui.js';
 import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 import { FIELDS } from './ui/clamp-profit-sharing.js';
 import { markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
-import { CURRENT_YEAR, displayValue, fiMultiple, mortgageSchedule } from '../shared/core/spending-and-loans.js';
+import { displayValue, fiMultiple, mortgageSchedule } from '../shared/core/spending-and-loans.js';
 import { WITHDRAWAL_MIX_CANDIDATES, accountBalances, accountStatuses, accountsClone, accountsContribute, accountsConvert, accountsDraw, accountsNew, accountsRestore, incomeRoom, penaltyStatus, retirementTotal, rothAccountsNew, rothSlotSplit, rule55Applies, withdrawalMixWeights } from './core/withdrawal-mix-and-roth-accounts.js';
 import { getBondYears } from '../shared/core/year-factors.js';
 import { itemizedDeduction, saltCap, seniorDeduction } from './core/itemized-deduction.js';
@@ -55,8 +52,7 @@ import { acaHouseholdSize, magiStats, planStats } from './core/aca-and-magi-iter
 import { mortgageInterestShare } from './core/mortgage-interest-share.js';
 import { freeTraditional } from './core/free-traditional.js';
 import { historicalYearSource, standardYearSource } from '../shared/core/year-sources.js';
-import { cloneState, deltaAge, deltaMoney, overlayColors } from '../shared/core/scenario-helpers.js';
-import { refreshMoneyPreviews } from '../shared/ui/money-format.js';
+import { cloneState } from '../shared/core/scenario-helpers.js';
 import { decisionDeltaPhrase } from '../shared/core/decision-end-assets.js';
 import { taxableSocialSecurity } from './core/social-security-and-child-credits.js';
 import { SOLO_IN, SOLO_PLAN, STREAM_PLAN, additionalMedicareTax, allocatePlanRoom, filingStatusFor, retirementContributions, soloPlanContributions, streamPlanContributions } from './core/payroll-and-plan-limits.js';
@@ -65,7 +61,7 @@ import { LUMP_OUT, STREAM_OUT, inheritedDraw, inheritedLedger, lumpAmountsForYea
 import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './ui/annotate-solver-rows.js';
 import { renderGroupSummaries } from './ui/render-group-summaries.js';
 import { renderPlanHeadline } from '../shared/ui/render-plan-headline.js';
-import { renderMonteCarloChart, renderTable } from '../shared/ui/chart-render.js';
+import { renderTable } from '../shared/ui/chart-render.js';
 import { stateTaxTreatmentNote } from './ui/state-tax-treatment-note.js';
 import { compactDecisionDelta } from '../shared/core/compact-decision-delta.js';
 import { ROTH_PER_YEAR_CANDIDATES, rothScheduleCost } from './core/roth-per-year.js';
@@ -81,7 +77,6 @@ import { refreshCliffPlan } from './core/refresh-cliff-plan.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../shared/core/monte-carlo-paths-2.js';
 import { SENSITIVITY_LEVERS } from './core/sensitivity-levers.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from './core/optimize-multi-lever.js';
-import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
 import { ensureTestPlan } from './core/ensure-test-plan.js';
 import { planForState, runProjection } from './core/run-projection.js';
 import { withdrawStandard } from './core/withdraw-standard.js';
@@ -89,11 +84,9 @@ import { normalizeState } from './ui/normalize-state.js';
 import { ids } from '../shared/ui/field-ids.js';
 import { activeCategory, setActiveCategory, wireCategoryRail } from '../shared/ui/category-rail.js';
 import { renderShortfallBanner } from '../shared/ui/shortfall-banner.js';
-import { computeRothOptimizer, renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './ui/roth-optimizer.js';
+import { renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './ui/roth-optimizer.js';
 import { hideUndoToast, snapshotForUndo, undoSnapshot } from '../shared/ui/undo.js';
-import { lastChart, renderChart } from '../shared/ui/projection-chart.js';
-import { dynApplyVisibility, renderChildFields, renderDynList, renderExtraExpenseFields, renderIncomeSourceFields, renderLoanFields, renderLumpExpenseFields, renderOneTimeIncomeFields, renderSpendingTierFields } from '../shared/ui/dynamic-lists.js';
-import { buildPrintReport } from './ui/print-report.js';
+import { dynApplyVisibility, renderDynList } from '../shared/ui/dynamic-lists.js';
 import { wireInfoBubble } from '../shared/ui/info-bubble.js';
 import { wireInputGestures } from '../shared/ui/input-gestures.js';
 import { installSharedTestHooks } from '../shared/ui/install-test-hooks.js';
@@ -103,6 +96,14 @@ import { wireWizard, wireWizardDismiss } from '../shared/ui/wizard.js';
 import { addChildrenList } from './ui/dynamic-lists.js';
 import { addSocialSecurityWarnings } from './ui/unusual-warnings.js';
 import { wireWizardCheckboxes } from './ui/wizard.js';
+import { syncContributionControls } from '../shared/ui/sync-contribution-controls.js';
+import { syncControls } from './ui/sync-controls.js';
+import { dismissFirstRunBanner, hadSavedState, hasPersonalizedData, loadSavedState, wireFirstRunBanner } from '../shared/ui/saved-plan.js';
+import { renderChartView } from './ui/chart-view.js';
+import { renderRothOptimizer } from '../shared/ui/roth-optimizer-card.js';
+import { computeScenarioMetrics, renderScenarioComparison } from '../shared/ui/scenario-comparison.js';
+import { initChartHover } from '../shared/ui/chart-hover.js';
+import { wireExportButtons } from '../shared/ui/export-and-print.js';
 (() => {
   FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
   // @@shared:ids begin
@@ -134,32 +135,7 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
   loadSidebarPreference();
   // @@shared:02-CHART_GROUPS end
   // @@shared:03-hadSavedState begin
-  // Whether a real, previously-saved plan was found in this browser at
-  // boot — used below to skip showing the first-run banner (there's
-  // nothing "first-run" about a returning visitor whose numbers just
-  // loaded back in).
-  let hadSavedState = false;
-  try {
-    storage?.removeItem(legacyStorageKey);
-    const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
-    if (saved?.state) {
-      assignState(normalizeState(saved.state));
-      hadSavedState = true;
-    }
-    if (['real', 'nominal'].includes(saved?.mode)) assignMode(saved.mode);
-  } catch {}
-  // Whether it's OK to actually persist `state` yet. Starts equal to
-  // `hadSavedState` (a returning visitor's data is already "personalized")
-  // and flips to true the moment `dismissFirstRunBanner()` runs for real —
-  // i.e. the same signals that mean this isn't the generic example data
-  // anymore (a real sidebar edit, opening the wizard, or importing a
-  // scenario). Without this guard, `setMode(mode)` at boot would call
-  // `saveInputs()` unconditionally, silently writing the untouched generic
-  // example data to storage within a couple hundred milliseconds of every
-  // first visit — which would then make the *next* reload look like a
-  // returning visitor with "real" data, hiding the first-run banner for
-  // someone who never actually entered anything.
-  let hasPersonalizedData = hadSavedState;
+  loadSavedState();
   // The first-run banner flags the whole page as generic example data once,
   // but gives no lasting per-field cue once dismissed. This puts a small
   // amber marker (dot + "still the example value" tooltip) in front of the
@@ -1255,30 +1231,6 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
     drawNodes(leftNodes, 'left');
     drawNodes(rightNodes, 'right');
   }
-  function renderRothOptimizer(selected) {
-    const card = document.getElementById('rothOptimizerCard'),
-      summaryEl = document.getElementById('rothOptimizerSummary'),
-      rowsEl = document.getElementById('rothOptimizerRows');
-    const { results, best, currentBracket } = computeRothOptimizer(selected);
-    const current = results.find((r) => r.bracket === currentBracket);
-    const lastsLabel = (r) =>
-      r.depletedAge
-        ? `Age ${r.depletedAge}`
-        : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
-    if (best.bracket === currentBracket) {
-      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target is already the lifetime-tax-minimizing choice among the available options here.`;
-    } else {
-      const savings = current.lifetimeTax - best.lifetimeTax;
-      summaryEl.innerHTML = `Recommended: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(savings)}</b> less lifetime tax (income + payroll, today's dollars) over the projection, without shortening how long the portfolio lasts.`;
-    }
-    rowsEl.innerHTML = results
-      .map(
-        (r) =>
-          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
-      )
-      .join('');
-    card.hidden = false;
-  }
   // @@shared:19-layoutSankeyColumn end
   // Writes a finished optimizeMultiLever() run's schedule(s) into state so
   // simulate() (the main projection, not just this card's own re-simulation
@@ -1321,399 +1273,13 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
     saveInputs();
   }
 
-  function renderChartView(selected) {
-    const titleEl = document.getElementById('chartTitle'),
-      subEl = document.getElementById('chartSub'),
-      legend = document.getElementById('chartLegend'),
-      noteEl = document.getElementById('chartViewNote'),
-      canvas = document.getElementById('chart'),
-      histCard = document.getElementById('histSuccessCard'),
-      mcCard = document.getElementById('mcSuccessCard');
-    histCard.hidden = chartView !== 'hist';
-    mcCard.hidden = chartView !== 'mc';
-    document.getElementById('mcPathCountRow').hidden = chartView !== 'mc';
-    // The Both/Gap shift-mode switch only applies to the ±1yr/±3yr
-    // comparison itself (not CAGR/Historical/Monte Carlo), and the whole
-    // switch is meaningless — not just "Gap" — for a single-person plan or
-    // when both partners already share the same retirement year: with
-    // nothing to narrow/widen, "Both together" would be the only real
-    // choice anyway, which is identical to not having a switch at all. So
-    // the entire row hides rather than showing a permanently-disabled Gap
-    // button — re-checked on every render (not just on a chart-view
-    // change) so it reacts live to sliders/toggles.
-    const shiftModeRow = document.getElementById('chartShiftModeRow'),
-      shiftGapBtn = document.getElementById('chartShiftGapBtn'),
-      gapDisabled = state.singlePerson || state.retireAgeA === state.retireAgeB;
-    shiftModeRow.hidden = (chartView !== '1yr' && chartView !== '3yr') || gapDisabled;
-    shiftGapBtn.disabled = gapDisabled;
-    shiftGapBtn.title = "Hold one partner's retirement date fixed and vary only the other's";
-    if (gapDisabled && chartShiftMode === 'gap') assignChartShiftMode('together');
-    updateChartShiftModeButtons();
-    // The Vary: Partner A/B picker only makes sense once Gap mode is
-    // actually active (and available) — hidden otherwise. Its two buttons
-    // always show a determinate choice: chartGapPartner if the person
-    // explicitly picked one, or the auto-detected earlier partner if not.
-    document.getElementById('chartGapPartnerRow').hidden = !(chartShiftMode === 'gap' && !gapDisabled);
-    updateChartGapPartnerButtons();
-    if (chartView === 'mc') {
-      const mc = runMonteCarlo(mcPathCount);
-      const rate = document.getElementById('mcSuccessRate'),
-        sub = document.getElementById('mcSuccessSub');
-      rate.textContent = `${(mc.successRate * 100).toFixed(0)}%`;
-      rate.className =
-        mc.successRate === 1 ? 'positive' : mc.successRate < 0.9 ? 'negative' : 'warning';
-      sub.textContent = `Portfolio survived to the end of the projection in ${mc.paths.filter((p) => !p.depletedAge).length} of ${mc.paths.length} simulated paths, each built from randomly shuffled 5-year blocks of actual 1928–2025 market history.`;
-      titleEl.textContent = `Monte Carlo: ${mc.paths.length.toLocaleString()} simulated paths`;
-      subEl.textContent =
-        'Shaded bands show total assets by age across all simulated paths: the darker band is where the middle 50% of paths landed (25th–75th percentile), the lighter band is the middle 80% (10th–90th percentile). The line is the median (50th percentile) path. Narrower bands with even fewer paths (500) can look artificially tight — 1,000–2,000 gives a smoother read.';
-      legend.innerHTML = `<span><i class="swatch" style="background:#2563eb"></i><span>Median</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.4)"></i><span>25th–75th pct. (middle 50%)</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.2)"></i><span>10th–90th pct. (middle 80%)</span></span>`;
-      noteEl.textContent = `Each path stitches together random 5-year blocks of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond reserve sized to ${getBondYears()} years of expenses, same withdrawal order as the historical backtest.`;
-      canvas.setAttribute(
-        'aria-label',
-        `Projected total assets by age across ${mc.paths.length} Monte Carlo simulated paths`,
-      );
-      renderMonteCarloChart(mc);
-      return;
-    }
-    if (chartView === 'hist') {
-      const { cycles, successRate, projectionYears } = runHistoricalCycles();
-      const rate = document.getElementById('histSuccessRate'),
-        sub = document.getElementById('histSuccessSub');
-      if (!cycles.length) {
-        rate.textContent = '—';
-        rate.className = '';
-        sub.textContent = `Not enough of the 1928–2025 record (98 years) to cover a ${projectionYears}-year projection.`;
-        titleEl.textContent = 'Historical S&P 500 backtest';
-        subEl.textContent = '';
-        legend.innerHTML = '';
-        noteEl.textContent = '';
-        return;
-      }
-      rate.textContent = `${(successRate * 100).toFixed(0)}%`;
-      rate.className = successRate === 1 ? 'positive' : successRate < 0.9 ? 'negative' : 'warning';
-      sub.textContent = `Portfolio survived to the end of the projection in ${cycles.filter((c) => !c.depletedAge).length} of ${cycles.length} historical starting years (${cycles[0].startYear}–${cycles.at(-1).startYear}). Those windows overlap heavily (only about ${Math.max(1, Math.floor(98 / Math.max(1, projectionYears)))} are fully independent), so treat the rate as approximate.`;
-      titleEl.textContent = 'Total assets across every historical starting year';
-      subEl.textContent = `Same inputs, replayed starting from each calendar year 1928–2025 that has a full ${projectionYears}-year run of actual S&P 500 returns, inflation, and bond returns available.`;
-      legend.innerHTML = `<span><i class="swatch" style="background:#0e9f9a"></i><span>Survived</span></span><span><i class="swatch" style="background:#dc2626"></i><span>Depleted</span></span>`;
-      // Naming every failing starting year in this note text (an earlier
-      // version of this feature did) doesn't scale — a rougher scenario
-      // can fail dozens of starting years, and a long comma-separated list
-      // crowds the note area under the chart for little benefit when
-      // hovering any line already identifies it directly. So this just
-      // points at hover instead of listing years; the success-rate sub-line
-      // above already gives the count.
-      noteEl.textContent = `Bond reserve sized to ${getBondYears()} years of expenses: down years draw cash then bonds only; up years pay from taxable→traditional→Roth and refill the bond reserve the same way. Bond/HYSA/mortgage rates stay at your entered values — only stock growth and inflation follow history. Hover over any line to see its starting year, outcome, and value at that age.`;
-      canvas.setAttribute(
-        'aria-label',
-        `Projected total assets by age across ${cycles.length} historical starting years`,
-      );
-      const series = cycles.map((c) => ({ sim: c, color: c.depletedAge ? '#dc2626' : '#0e9f9a' }));
-      renderChart(series, (r) => (mode === 'real' ? r.total / r.cumFactor : r.total));
-      return;
-    }
-    if (chartView === 'cagr') {
-      titleEl.textContent = 'Total assets across real investment returns';
-      // Comparison rates are 0-7% real in whole-percent steps, but with your
-      // actual entered assumption (rounded to the nearest tenth) swapped in
-      // for real, exactly, rather than snapped to the nearest whole percent
-      // and mislabeled "(current)" — e.g. a 4.5% real assumption used to
-      // round down and display as an inexact "4% (current)". Whichever
-      // whole-percent point sits closest to that exact value is dropped so
-      // the sweep doesn't show two near-duplicate points right next to each
-      // other (ties favor dropping the lower one, so 4.5% drops 4% and
-      // keeps 5%).
-      const currentReal = Math.round(((1 + pct(state.returnRate)) / (1 + pct(state.inflation)) - 1) * 1000) / 10;
-      const baseInts = [0, 1, 2, 3, 4, 5, 6, 7];
-      let closestInt = baseInts[0],
-        bestDist = Infinity;
-      for (const n of baseInts) {
-        const d = Math.abs(n - currentReal);
-        if (d < bestDist - 1e-9) {
-          bestDist = d;
-          closestInt = n;
-        }
-      }
-      // Colors are assigned by rank (lowest real return = red, highest = teal)
-      // via ratesAsc/colorFor, independent of the order `rates` is finally
-      // displayed/sorted in below — so reversing the display order doesn't
-      // flip the color scale's meaning.
-      const ratesAsc = baseInts.filter((n) => n !== closestInt).concat([currentReal]).sort((a, b) => a - b);
-      const colorFor = new Map(ratesAsc.map((r, i) => [r, cagrColors[i]]));
-      // Displayed top-to-bottom from the highest real return (7%) down to the
-      // lowest (0%), so the legend/line order matches "better plan at top."
-      const rates = ratesAsc.slice().sort((a, b) => b - a);
-      const fmtRate = (r) => (Number.isInteger(r) ? `${r}%` : `${r.toFixed(1)}%`);
-      // In "Future dollars" (nominal) display mode, the % labels shown are
-      // the nominal growth rate (real rate + inflation compounded) so they
-      // line up with what's actually driving the nominal-dollar lines on the
-      // chart — the underlying simulateAtRealCagr(r) call and simulated
-      // lines are unchanged either way; only the displayed label converts.
-      const toNominal = (r) => ((1 + r / 100) * (1 + pct(state.inflation)) - 1) * 100;
-      const fmtDisplayRate = (r) => fmtRate(mode === 'nominal' ? toNominal(r) : r);
-      subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} real assumption included exactly.`;
-      const series = rates.map((r) => ({
-        sim: simulateAtRealCagr(r),
-        color: colorFor.get(r),
-        highlight: r === currentReal,
-        label: `${fmtDisplayRate(r)}${r === currentReal ? ' (current)' : ''}`,
-      }));
-      legend.innerHTML = series
-        .map(
-          (s, i) =>
-            `<span><i class="swatch" style="background:${s.color}"></i><span>${fmtDisplayRate(rates[i])}${rates[i] === currentReal ? ' (current)' : ''}</span></span>`,
-        )
-        .join('');
-      noteEl.textContent =
-        mode === 'nominal'
-          ? `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. Percentages shown are nominal (real return + ${state.inflation}% inflation) to match the future-dollar values on this chart.`
-          : `Bond, HYSA, and mortgage rates stay at their entered values; only portfolio growth varies. ${state.inflation}% inflation applied on top of each real rate.`;
-      canvas.setAttribute(
-        'aria-label',
-        `Projected total assets by age across a sweep of real investment returns, including your current ${fmtRate(currentReal)} real assumption`,
-      );
-      renderChart(series);
-    } else {
-      const yrs = chartView === '1yr' ? 1 : 3,
-        label = `${yrs} yr${yrs > 1 ? 's' : ''}`;
-      // 'gap' mode only makes sense with two partners on different dates;
-      // chartShiftModeRow's own visibility/disabled state (set in render())
-      // already prevents picking 'gap' in those cases, but this guards
-      // against a stale chartShiftMode value if singlePerson or the dates
-      // are toggled/edited after 'gap' was already selected.
-      const gapMode =
-        chartShiftMode === 'gap' && !state.singlePerson && state.retireAgeA !== state.retireAgeB;
-      let early, late, earlyLabel, lateLabel, ariaSuffix, note;
-      if (gapMode) {
-        // Which partner moves: an explicit pick (chartGapPartner) sticks
-        // regardless of who's actually earlier; with no explicit pick yet,
-        // default to auto-tracking whichever partner currently retires
-        // earlier (this feature's original behavior).
-        const movingIsA = chartGapPartner
-          ? chartGapPartner === 'A'
-          : state.retireAgeA < state.retireAgeB;
-        const movingAge = movingIsA ? state.retireAgeA : state.retireAgeB,
-          movingFloor = movingIsA ? state.ageA : state.ageB,
-          fixedAge = movingIsA ? state.retireAgeB : state.retireAgeA;
-        // sign > 0: moving partner currently retires before the fixed
-        // partner, so moving "closer" means retiring later (age goes up).
-        // sign < 0: moving partner currently retires after the fixed
-        // partner (only reachable via an explicit pick against the grain,
-        // e.g. deliberately varying the later-retiring partner instead),
-        // so "closer" means retiring earlier (age goes down) instead.
-        const sign = movingAge <= fixedAge ? 1 : -1;
-        // "Closer" clamps at the fixed partner's own date, so the gap can
-        // close to zero but never overshoots into flipping who's earlier.
-        // "Farther" floors/caps at the moving partner's current age / 70,
-        // same bounds the "Both" branch below already uses.
-        const closerAge =
-            sign > 0 ? Math.min(fixedAge, movingAge + yrs) : Math.max(fixedAge, movingAge - yrs),
-          fartherAge =
-            sign > 0 ? Math.max(movingFloor, movingAge - yrs) : Math.min(70, movingAge + yrs);
-        early = simulate(movingIsA ? closerAge : state.retireAgeA, movingIsA ? state.retireAgeB : closerAge);
-        late = simulate(movingIsA ? fartherAge : state.retireAgeA, movingIsA ? state.retireAgeB : fartherAge);
-        // Actual years moved, not the requested ±1/±3 — when the two
-        // partners are already closer together than that (e.g. 1 year
-        // apart on the ±3yr view), "Closer" clamps at the fixed partner's
-        // own date well short of a full 3-year move, so the label needs to
-        // say "1 yr" there, not a "3 yrs" that never actually happened.
-        const closerYrs = Math.round(Math.abs(closerAge - movingAge)),
-          fartherYrs = Math.round(Math.abs(fartherAge - movingAge));
-        // Labels name the moving partner and their resulting age directly
-        // (e.g. "Partner A → 48") rather than just "Closer"/"Farther" on
-        // their own — a real user read the bare adjectives as "both
-        // partners move toward/away from each other," when only the named
-        // partner's date ever changes; the other partner's date (spelled
-        // out in `note` below) never appears in the legend/tooltip at all
-        // otherwise, so there was nothing there to contradict that reading.
-        const movingLabel = movingIsA ? 'Partner A' : 'Partner B',
-          fixedLabel = movingIsA ? 'Partner B' : 'Partner A',
-          autoNote = chartGapPartner ? '' : ' (currently the earlier of the two)';
-        earlyLabel = `${movingLabel} → ${closerAge} (closer)`;
-        lateLabel = `${movingLabel} → ${fartherAge} (farther)`;
-        ariaSuffix = `for ${movingLabel} retiring up to ${label} earlier or later, while ${fixedLabel} stays fixed at retirement age ${fixedAge}`;
-        note = `Only ${movingLabel}'s date moves${autoNote}; ${fixedLabel}'s stays fixed at retirement age ${fixedAge}.`;
-        if (closerYrs < yrs)
-          note += ` "Closer" stops at ${closerYrs} yr${closerYrs === 1 ? '' : 's'} here since that's as far as it can move before reaching ${fixedLabel}'s date.`;
-      } else {
-        early = simulate(
-          Math.max(state.ageA, state.retireAgeA - yrs),
-          Math.max(state.ageB, state.retireAgeB - yrs),
-        );
-        late = simulate(Math.min(70, state.retireAgeA + yrs), Math.min(70, state.retireAgeB + yrs));
-        earlyLabel = `Both −${label}`;
-        lateLabel = `Both +${label}`;
-        ariaSuffix = `${label} apart`;
-        note = state.singlePerson
-          ? ''
-          : `Both partners' dates move together, by the same amount.${
-              gapDisabled ? '' : ' Switch to "Fix one partner" above to instead hold one partner\'s date and vary only the other\'s.'
-            }`;
-      }
-      titleEl.textContent = 'Total assets across retirement dates';
-      subEl.textContent =
-        'Investments + cash + home equity, after projected spending and estimated federal and state income tax.';
-      // Legend, hover-tooltip line order, and canvas draw order all follow
-      // the same top-to-bottom convention as the CAGR sweep: the "+N"/
-      // "Farther" line (later retirement — generally the higher line, more
-      // compounding time before withdrawals start) listed first, "Selected"
-      // in the middle, and the "-N"/"Closer" line (earlier retirement,
-      // generally the lower line) listed last — so the order on screen
-      // reads top-to-bottom the same way the lines themselves typically
-      // stack, rather than the reverse.
-      legend.innerHTML = `<span><i class="swatch late"></i><span>${lateLabel}</span></span><span><i class="swatch"></i><span>Selected dates</span></span><span><i class="swatch early"></i><span>${earlyLabel}</span></span>`;
-      noteEl.textContent = note;
-      canvas.setAttribute(
-        'aria-label',
-        `Projected total assets by age for three retirement dates, ${ariaSuffix}`,
-      );
-      renderChart([
-        { sim: late, color: '#0e9f9a', label: lateLabel },
-        { sim: selected, color: '#2563eb', highlight: true, label: 'Selected' },
-        { sim: early, color: '#d97706', label: earlyLabel },
-      ]);
-    }
-  }
 
 
 
 
 
-  // @@shared:20-renderTable begin
 
 
-  function clearChartHover() {
-    if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
-    if (chartTooltipEl) chartTooltipEl.style.display = 'none';
-  }
-  let chartTooltipEl = null;
-  function initChartHover() {
-    const wrap = document.querySelector('.chart-wrap'),
-      canvas = document.getElementById('chart');
-    if (!wrap || !canvas) return;
-    chartTooltipEl = document.createElement('div');
-    chartTooltipEl.id = 'chartTooltip';
-    chartTooltipEl.style.cssText =
-      'position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.55;white-space:nowrap;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)';
-    wrap.appendChild(chartTooltipEl);
-    const handleMove = (e) => {
-      if (!chartHoverEnabled() || !lastChart) return;
-      const rect = canvas.getBoundingClientRect(),
-        clientX = e.touches ? e.touches[0].clientX : e.clientX,
-        clientY = e.touches ? e.touches[0].clientY : e.clientY,
-        mx = clientX - rect.left,
-        my = clientY - rect.top;
-      const { series, valueFn, x, y, p, w, h, maxAge } = lastChart;
-      if (mx < p.l || mx > w - p.r || my < p.t || my > h - p.b) {
-        clearChartHover();
-        return;
-      }
-      const age = Math.round(state.ageA + ((mx - p.l) / (w - p.l - p.r)) * (maxAge - state.ageA));
-      renderChart(series, valueFn);
-      const ctx = canvas.getContext('2d'),
-        rx = x(age);
-      ctx.save();
-      ctx.setLineDash([3, 3]);
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(rx, p.t);
-      ctx.lineTo(rx, h - p.b);
-      ctx.stroke();
-      ctx.restore();
-      let tooltipHTML;
-      if (chartView === 'hist') {
-        // The historical backtest can draw 30-70+ overlapping lines (one
-        // per starting year), so showing every series' value at this age
-        // (like the 3yr/1yr/cagr tooltip below) would be an unreadable
-        // wall of text. Instead, identify the single line closest to the
-        // mouse *vertically* at this age — the same "nearest curve" hover
-        // convention used by most multi-line chart libraries — highlight
-        // just that line, and name its starting year so a red (depleted)
-        // line can actually be identified rather than just seen.
-        let nearest = null,
-          nearestDist = Infinity;
-        series.forEach((s) => {
-          const rows = s.sim.rows;
-          let r = rows.find((rr) => rr.age === age);
-          if (!r) r = rows.reduce((a, b) => (Math.abs(b.age - age) < Math.abs(a.age - age) ? b : a));
-          if (!r) return;
-          const val = valueFn(r),
-            py = y(val),
-            dist = Math.abs(py - my);
-          if (dist < nearestDist) nearestDist = dist, (nearest = { s, val, py });
-        });
-        if (!nearest) {
-          clearChartHover();
-          return;
-        }
-        // Redraw the nearest line bold and on top of the others so it's
-        // clear which one the tooltip is describing, then mark its point.
-        ctx.beginPath();
-        nearest.s.sim.rows.forEach((r, i) => {
-          const px = x(r.age),
-            py = y(valueFn(r));
-          i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-        });
-        ctx.strokeStyle = nearest.s.color;
-        ctx.lineWidth = 3.5;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.fillStyle = nearest.s.color;
-        ctx.arc(rx, nearest.py, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        const depletedAge = nearest.s.sim.depletedAge,
-          status = depletedAge ? `Depleted at age ${depletedAge}` : 'Survived the full projection';
-        tooltipHTML = `<b>Started ${nearest.s.sim.startYear}</b><br><span style="color:${nearest.s.color}">●</span> ${status}<br>Age ${age}: ${money(nearest.val)}`;
-      } else {
-        const lines = [];
-        series.forEach((s) => {
-          const rows = s.sim.rows;
-          let r = rows.find((rr) => rr.age === age);
-          if (!r) r = rows.reduce((a, b) => (Math.abs(b.age - age) < Math.abs(a.age - age) ? b : a));
-          if (!r) return;
-          const val = valueFn(r),
-            py = y(val);
-          ctx.beginPath();
-          ctx.fillStyle = s.color;
-          ctx.arc(rx, py, 4, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          lines.push(
-            `<span style="color:${s.color}">●</span> ${s.label ? s.label + ': ' : ''}${money(val)}`,
-          );
-        });
-        // Header always shows year + both partners' ages regardless of
-        // which one is currently on the x-axis (chartXAxisMode) — a real
-        // user specifically wanted the ages/year they *aren't* scrubbing by
-        // visible too, rather than having to mentally convert from
-        // whichever one is on the axis.
-        const calYear = CURRENT_YEAR + (age - state.ageA),
-          ageBVal = Math.round(age - state.ageA + state.ageB),
-          header = state.singlePerson
-            ? `${calYear} · Age ${age}`
-            : `${calYear} · Partner A: ${age} · Partner B: ${ageBVal}`;
-        tooltipHTML = `<b>${header}</b><br>${lines.join('<br>')}`;
-      }
-      chartTooltipEl.innerHTML = tooltipHTML;
-      let left = mx + 14,
-        top = my - 12;
-      if (left + 170 > w) left = mx - 184;
-      if (left < 0) left = 4;
-      chartTooltipEl.style.left = left + 'px';
-      chartTooltipEl.style.top = Math.max(0, top) + 'px';
-      chartTooltipEl.style.display = 'block';
-    };
-    canvas.addEventListener('mousemove', handleMove);
-    canvas.addEventListener('touchmove', handleMove, { passive: true });
-    canvas.addEventListener('mouseleave', clearChartHover);
-    canvas.addEventListener('touchend', clearChartHover);
-  }
-  // @@shared:20-renderTable end
 
   // @@shared:21-writeStorageNow begin
   // Autosaves `state`/`mode` to this browser's localStorage (never sent
@@ -1744,132 +1310,6 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
   }
   window.addEventListener('pagehide', writeStorageNow);
 
-  function computeScenarioMetrics(scenarioState) {
-    const backup = state;
-    assignState(normalizeState(scenarioState));
-    let out;
-    try {
-      const sim = simulate();
-      const retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
-        end = sim.rows.at(-1);
-      out = {
-        retireLabel: state.singlePerson
-          ? `Age ${state.retireAgeA}`
-          : `A ${state.retireAgeA} / B ${state.retireAgeB}`,
-        investableAtRetirement: displayValue(retirement.investable, retirement.year),
-        netWorthAtRetirement: displayValue(retirement.total, retirement.year),
-        lastsTo: sim.depletedAge
-          ? `Age ${sim.depletedAge}`
-          : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`,
-        lastsToAge:
-          sim.depletedAge ||
-          Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB),
-        depleted: !!sim.depletedAge,
-        endAssets: displayValue(end.total, end.year),
-      };
-    } finally {
-      assignState(backup);
-    }
-    return out;
-  }
-  function computeOverlaySeriesFor(name, scenarioState) {
-    const backup = state;
-    assignState(normalizeState(scenarioState));
-    let rows;
-    try {
-      const sim = simulate();
-      rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
-    } finally {
-      assignState(backup);
-    }
-    return { name, rows };
-  }
-  function renderOverlayChart(active) {
-    const card = document.getElementById('overlayCard'),
-      canvas = document.getElementById('overlayChart'),
-      legend = document.getElementById('overlayLegend');
-    if (!active.length) {
-      card.hidden = true;
-      return;
-    }
-    card.hidden = false;
-    const series = [
-      computeOverlaySeriesFor('Current (live inputs)', state),
-      ...active.map((sc) => computeOverlaySeriesFor(sc.name, sc.state)),
-    ];
-    legend.innerHTML = series
-      .map(
-        (s, i) =>
-          `<span><i class="swatch" style="background:${overlayColors[i % overlayColors.length]}"></i><span>${escapeHtml(s.name)}</span></span>`,
-      )
-      .join('');
-    const rect = canvas.getBoundingClientRect(),
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(600, rect.width * dpr);
-    canvas.height = Math.max(300, rect.height * dpr);
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    const w = canvas.width / dpr,
-      h = canvas.height / dpr,
-      p = { l: 66, r: 18, t: 16, b: 40 };
-    const minAge = Math.min(...series.map((s) => s.rows[0].age)),
-      maxAge = Math.max(...series.map((s) => s.rows.at(-1).age)),
-      ageSpan = maxAge - minAge || 1;
-    const all = series.flatMap((s) => s.rows.map((r) => r.value));
-    let min = Math.min(0, ...all),
-      max = Math.max(1, ...all);
-    if (min < 0) min *= 1.1;
-    max *= 1.08;
-    const x = (age) => p.l + ((age - minAge) / ageSpan) * (w - p.l - p.r),
-      y = (v) => p.t + ((max - v) / (max - min || 1)) * (h - p.t - p.b);
-    ctx.clearRect(0, 0, w, h);
-    ctx.font = '12px Inter,system-ui';
-    ctx.fillStyle = chartAxisColor();
-    ctx.strokeStyle = chartGridColor();
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i++) {
-      const val = min + (max - min) * (i / 5),
-        yy = y(val);
-      ctx.beginPath();
-      ctx.moveTo(p.l, yy);
-      ctx.lineTo(w - p.r, yy);
-      ctx.stroke();
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(compact(val), p.l - 9, yy);
-    }
-    // Deliberately NOT run through xAxisLabel(): each overlaid scenario
-    // was simulated under its own saved `state` (computeOverlaySeriesFor
-    // swaps `state` in and restores it after), so these ages aren't all
-    // relative to the live state.ageA the way a single chart's rows are
-    // — converting to calendar year or Partner B's age here would silently
-    // mix each scenario's own timeline with the currently-live one's.
-    Array.from({ length: 7 }, (_, i) => Math.round(minAge + ageSpan * (i / 6)))
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .forEach((age) => {
-        ctx.fillStyle = chartAxisColor();
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(age, x(age), h - p.b + 10);
-      });
-    const zero = y(0);
-    ctx.strokeStyle = chartZeroLineColor();
-    ctx.beginPath();
-    ctx.moveTo(p.l, zero);
-    ctx.lineTo(w - p.r, zero);
-    ctx.stroke();
-    series.forEach((s, i) => {
-      ctx.beginPath();
-      s.rows.forEach((r, ri) => {
-        const px = x(r.age),
-          py = y(r.value);
-        ri ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-      });
-      ctx.strokeStyle = overlayColors[i % overlayColors.length];
-      ctx.lineWidth = i === 0 ? 3 : 2;
-      ctx.stroke();
-    });
-  }
   function saveScenario() {
     const nameInput = document.getElementById('scenarioName'),
       name = (nameInput.value || '').trim() || `Scenario ${scenarios.length + 1}`;
@@ -1972,72 +1412,7 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
       }),
     );
   }
-  function renderScenarioComparison() {
-    const compareCard = document.getElementById('scenarioCompareCard'),
-      compareRows = document.getElementById('scenarioCompareRows');
-    const active = scenarios.filter((sc) => compareIds.has(sc.id));
-    compareCard.hidden = active.length === 0;
-    renderOverlayChart(active);
-    if (!active.length) {
-      compareRows.innerHTML = '';
-      return;
-    }
-    const current = computeScenarioMetrics(state);
-    const rows = [
-      { name: 'Current (live inputs)', ...current, isCurrent: true },
-      ...active.map((sc) => ({ name: sc.name, ...computeScenarioMetrics(sc.state) })),
-    ];
-    compareRows.innerHTML = rows
-      .map(
-        (r) =>
-          `<tr><td><b>${escapeHtml(r.name)}</b></td><td>${r.retireLabel}</td><td>${money(r.investableAtRetirement)}${r.isCurrent ? '' : deltaMoney(r.investableAtRetirement - current.investableAtRetirement)}</td><td>${money(r.netWorthAtRetirement)}${r.isCurrent ? '' : deltaMoney(r.netWorthAtRetirement - current.netWorthAtRetirement)}</td><td><span class="table-status ${r.depleted ? 'fail' : ''}">${r.lastsTo}</span>${r.isCurrent ? '' : deltaAge(r.lastsToAge - current.lastsToAge)}</td><td>${money(r.endAssets)}${r.isCurrent ? '' : deltaMoney(r.endAssets - current.endAssets)}</td></tr>`,
-      )
-      .join('');
-  }
   // @@shared:21-writeStorageNow end
-  // @@shared:22-exportCsv begin
-  function exportCsv() {
-    const sim = simulate(),
-      columns = [
-        ['yearIndex', 'Year index'],
-        ['age', 'Partner A age'],
-        ['ageB', 'Partner B age'],
-        ['working', 'Any partner working'],
-        ['workingA', 'Partner A working'],
-        ['workingB', 'Partner B working'],
-        ['taxable', 'Taxable brokerage'],
-        ['bonds', 'Bonds'],
-        ['traditional', 'Traditional retirement'],
-        ['roth', 'Roth retirement'],
-        ['cash', 'Cash / HYSA'],
-        ['homeEquity', 'Home equity'],
-        ['loanBalance', 'Loan balances'],
-        ['investable', 'Investable assets'],
-        ['total', 'Net assets'],
-      ],
-      csv = [columns.map(([, label]) => label).join(',')]
-        .concat(
-          sim.rows.map((row) =>
-            columns
-              .map(([key]) => {
-                const value = key === 'ageB' && state.singlePerson ? '' : row[key];
-                return typeof value === 'string' ? `"${value.replaceAll('"', '""')}"` : value;
-              })
-              .join(','),
-          ),
-        )
-        .join('\n'),
-      blob = new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-      url = URL.createObjectURL(blob),
-      link = document.createElement('a');
-    link.href = url;
-    link.download = 'fire-planner-annual-projection.csv';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-  // @@shared:22-exportCsv end
   addChildrenList();
   // @@shared:23-dynFieldHtml begin
   Object.keys(DYN).forEach((name) => {
@@ -2092,118 +1467,6 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
     });
   });
   // @@shared:23-dynFieldHtml end
-  function syncControls() {
-    FIELDS.forEach((field) => {
-      if (field.type !== 'number') return;
-      const id = field.key,
-        el = document.getElementById(id);
-      // Skip writing .value to whatever field is currently focused, if the
-      // numeric value hasn't actually changed. syncControls() runs on every
-      // edit to a field with clamping side effects (retireAgeA, extraPrincipal,
-      // etc. — see the input listener below), which on mobile can include a
-      // slider drag while a *different* text field is still focused (e.g. the
-      // on-screen keyboard was dismissed via the Android back button, which
-      // hides the keyboard without blurring the field). Programmatically
-      // setting .value on a focused input — even to the same string — can
-      // make some mobile browsers re-show the keyboard for it, so a slider
-      // drag elsewhere was reopening the number pad on a field the user had
-      // already backed out of. Comparing against the current numeric value
-      // (stripping the money field's "$"/commas) keeps this a no-op guard
-      // only — a field whose value genuinely needs updating still gets it.
-      const currentNumeric = Number(String(el.value).replace(/[^0-9.-]/g, '')) || 0;
-      if (!(el === document.activeElement && currentNumeric === state[id])) el.value = state[id];
-      if (field.out && field.outSync === 'controls') syncFieldOut(field);
-    });
-    FIELDS.filter((field) => isDomWired(field) && field.sync === 'controls').forEach(syncFieldDom);
-    renderLoanFields();
-    // Partner B's elements hide in single-person mode, and otherwise only when their own registry reveal
-    // hides them (the 72(t) first-payment fields while their box is unchecked).
-    document
-      .querySelectorAll('[data-partner-b]')
-      .forEach((el) => (el.hidden = !!state.singlePerson || revealHidden(el.id)));
-    // E1c: the main job's match and premium fields hide for a self-employed partner.
-    for (const id of ['matchAField', 'healthPremiumAField']) document.getElementById(id).hidden = revealHidden(id);
-    // Rule of 55 needs retirement at 55 or later and does nothing from 60 (no penalty left to avoid).
-    for (const p of ['A', 'B']) {
-      const r = state['retireAge' + p],
-        box = document.getElementById('ruleOf55' + p),
-        note = document.getElementById('ruleOf55' + p + 'Note');
-      box.disabled = r < 55 || r >= 60;
-      note.textContent =
-        r < 55 ? `Needs retirement at 55 or later (now ${r})` : r >= 60 ? 'No penalty to avoid: retires at 60 or later' : `No 10% penalty on Partner ${p}'s 401(k) withdrawals from 55 to 59½`;
-    }
-    document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
-    document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
-    document.getElementById('ageBHead').hidden = !!state.singlePerson;
-    document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
-    dynApplyVisibility('incomeSources');
-    [
-      ['ownBtn', 'own'],
-      ['rentBtn', 'rent'],
-      ['buyLaterBtn', 'rentThenBuy'],
-    ].forEach(([id, value]) => {
-      const active = state.tenure === value;
-      document.getElementById(id).classList.toggle('active', active);
-      document.getElementById(id).setAttribute('aria-checked', active);
-    });
-    document.getElementById('homeValueFields').hidden = state.tenure === 'rent';
-    document.getElementById('ownerFields').hidden = state.tenure !== 'own';
-    document.getElementById('renterFieldsShared').hidden = state.tenure === 'own';
-    document.getElementById('buyLaterFields').hidden = state.tenure !== 'rentThenBuy';
-    // The "pay off my mortgage?" decision question only makes sense with an
-    // actual current mortgage to accelerate — hide it for rent/rentThenBuy
-    // rather than showing a comparison that isn't really answerable yet.
-    document.querySelector('[data-question="mortgagePayoff"]').hidden = state.tenure !== 'own';
-    document.getElementById('homeValueLabel').textContent =
-      state.tenure === 'rentThenBuy' ? 'Home value if bought today' : 'Real estate value';
-    document.getElementById('maintenanceHint').textContent =
-      state.tenure === 'rentThenBuy' ? 'Applies once you buy' : 'Applies once you own';
-    document.getElementById('propertyTaxHint').textContent =
-      state.tenure === 'rentThenBuy'
-        ? 'Applies once you buy; keeps applying after the mortgage is paid off'
-        : 'Applies once you own; keeps applying after the mortgage is paid off';
-    document.getElementById('homeInsuranceHint').textContent =
-      state.tenure === 'rentThenBuy'
-        ? 'Applies once you buy; keeps applying after the mortgage is paid off'
-        : 'Applies once you own; keeps applying after the mortgage is paid off';
-    document.querySelectorAll('.swr-input').forEach((el) => {
-      if (document.activeElement !== el) el.value = String(state.fiWithdrawalRate);
-    });
-    document.querySelectorAll('[data-wizard-mirror]').forEach((el) => {
-      el.value = state[el.dataset.wizardMirror];
-    });
-    [
-      ['buyMortgageBtn', false],
-      ['buyCashBtn', true],
-    ].forEach(([id, value]) => {
-      const active = state.buyCash === value;
-      document.getElementById(id).classList.toggle('active', active);
-      document.getElementById(id).setAttribute('aria-checked', active);
-    });
-    document.getElementById('buyMortgageFields').hidden = !!state.buyCash;
-    [
-      ['incomeKindAWagesBtn', 'wages', 'incomeKindA'],
-      ['incomeKindASelfBtn', 'self', 'incomeKindA'],
-      ['incomeKindBWagesBtn', 'wages', 'incomeKindB'],
-      ['incomeKindBSelfBtn', 'self', 'incomeKindB'],
-      ['k401TraditionalBtn', 'traditional', 'k401Type'],
-      ['k401RothBtn', 'roth', 'k401Type'],
-      ['iraTraditionalBtn', 'traditional', 'iraType'],
-      ['iraRothBtn', 'roth', 'iraType'],
-      ['pensionNoneBtn', 'none', 'pensionCoverage'],
-      ['pensionABtn', 'a', 'pensionCoverage'],
-      ['pensionBBtn', 'b', 'pensionCoverage'],
-      ['pensionBothBtn', 'both', 'pensionCoverage'],
-      ['mfjBtn', 'mfj', 'filingStatus'],
-      ['singleBtn', 'single', 'filingStatus'],
-    ].forEach(([id, value, key]) => {
-      const el = document.getElementById(id),
-        selected = state[key] === value;
-      el.classList.toggle('active', selected);
-      el.setAttribute('aria-checked', selected);
-    });
-    refreshMoneyPreviews();
-  }
   // @@shared:24-syncContributionControls begin
   FIELDS.filter((field) => field.type === 'number').forEach((field) => {
     const id = field.key;
@@ -2248,11 +1511,7 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
     render();
     saveInputs();
   });
-  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-  document.getElementById('printReportBtn').addEventListener('click', () => {
-    buildPrintReport();
-    window.print();
-  });
+  wireExportButtons();
   // Sidebar field search: highlights every field whose label matches the
   // query and force-opens whichever <details> group(s) contain it (walking
   // up through nested details, e.g. the "Spending changes" sub-group inside
@@ -2579,17 +1838,6 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
       hideResults();
     });
   })();
-  function syncContributionControls() {
-    FIELDS.filter((field) => field.outSync === 'contrib').forEach(syncFieldOut);
-    FIELDS.filter((field) => isDomWired(field) && field.sync === 'contrib').forEach(syncFieldDom);
-    document.getElementById('survivorGroup').hidden = !!state.singlePerson;
-    renderSpendingTierFields();
-    renderIncomeSourceFields();
-    renderOneTimeIncomeFields();
-    renderExtraExpenseFields();
-    renderLumpExpenseFields();
-    renderChildFields();
-  }
   // Stack the four headline tiles 2x2 as soon as they would get cramped (a
   // width-based check on the tiles' own row, not the window, because the
   // sidebar eats a variable share of the viewport).
@@ -3159,41 +2407,7 @@ import { wireWizardCheckboxes } from './ui/wizard.js';
   document.getElementById('sankeyAge').addEventListener('input', () => {
     if (document.getElementById('sankeyCard').open) renderSankey(simulate());
   });
-  // First-run banner: the dashboard renders with fully-formed generic
-  // default numbers from the moment the page loads, which reads to a
-  // brand-new visitor as someone else's finished plan rather than an
-  // invitation to enter their own. This banner names that explicitly and
-  // points at the two real entry points (the wizard, or importing an
-  // exported scenario) rather than leaving the person to notice the
-  // sidebar on their own. It dismisses itself the moment its purpose is
-  // served — a real edit anywhere in the sidebar, the wizard being opened
-  // (intent is clear the moment they click), or a scenario actually
-  // imported — rather than needing to be closed by hand. For a *returning*
-  // visitor whose real plan was loaded back from this browser's storage at
-  // boot, it's skipped entirely (see `hadSavedState` above) rather than
-  // needing to be dismissed again on every visit.
-  function dismissFirstRunBanner() {
-    document.getElementById('firstRunBanner').hidden = true;
-    hasPersonalizedData = true;
-    syncPanelMaxHeight();
-  }
-  document.querySelector('.panel').addEventListener(
-    'input',
-    () => dismissFirstRunBanner(),
-    { once: true, capture: true },
-  );
-  document.querySelector('.panel').addEventListener(
-    'change',
-    () => dismissFirstRunBanner(),
-    { once: true, capture: true },
-  );
-  document.getElementById('firstRunGetStartedBtn').addEventListener('click', () => {
-    dismissFirstRunBanner();
-    document.getElementById('wizardBtn').click();
-  });
-  document.getElementById('firstRunImportBtn').addEventListener('click', () => {
-    document.getElementById('importScenarioInput').click();
-  });
+  wireFirstRunBanner();
   // "Explore a question" menu: each button either renders a compare-type
   // answer (a takeaway sentence + a small table, built from
   // DECISION_QUESTIONS' run()) or opens an existing card in place (an
