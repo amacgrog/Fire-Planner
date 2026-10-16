@@ -38,7 +38,7 @@ function patternNames(p, out) {
   else if (p.type === 'AssignmentPattern') patternNames(p.left, out);
 }
 
-function exportsOf(code, file) {
+function exportsOf(code) {
   const ast = espree.parse(code, { ecmaVersion: 2022, sourceType: 'module' });
   const names = [];
   for (const n of ast.body) {
@@ -74,7 +74,7 @@ function build() {
     const code = fs.readFileSync(path.join(root, rel), 'utf8');
     let names;
     try {
-      names = exportsOf(code, rel);
+      names = exportsOf(code);
     } catch (e) {
       throw new Error(`${rel}: ${e.message}`);
     }
@@ -112,6 +112,11 @@ function build() {
 }
 
 const args = process.argv.slice(2);
+const bad = args.filter((a) => a !== '--check' && a !== '--require-purpose');
+if (bad.length) {
+  console.error(`module-map.js: unknown argument ${bad.map((a) => `'${a}'`).join(', ')}; expected --check and/or --require-purpose`);
+  process.exit(2);
+}
 const { text, offenders, moduleRows, seamRows } = build();
 let failed = false;
 if (args.includes('--check')) {
