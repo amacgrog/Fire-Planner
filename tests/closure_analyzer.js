@@ -1,6 +1,6 @@
 // Unit tests for scripts/analyze-closure.js (plain Node, no browser).
 const assert = require('assert');
-const { analyze, render, undeclaredNames, domGlobalsUsed } = require('../scripts/analyze-closure');
+const { analyze, render, undeclaredNames, domGlobalsUsed, __setLabelHash } = require('../scripts/analyze-closure');
 
 const FIXTURE = `(() => {
   let counter = 0;
@@ -122,5 +122,40 @@ assert.deepStrictEqual(
   domGlobalsUsed('const f = (document) => document.title;\nexport const g = () => window.x + localStorage.y; // document\n').map((x) => x.name),
   ['window', 'localStorage'],
 );
+
+// Stable statement labels: stmt:<8 hex of sha1 of the whitespace-normalized text>.
+{
+  const labels = (src) => analyze(src).units.filter((u) => u.kind === 'statement').map((u) => u.label);
+  const base = labels("(() => {\n  window.a = 1;\n  window.b = 2;\n})();\n");
+  assert.strictEqual(base.length, 2);
+  for (const l of base) assert.ok(/^stmt:[0-9a-f]{8}$/.test(l), `label format: ${l}`);
+  assert.notStrictEqual(base[0], base[1]);
+  assert.deepStrictEqual(labels("(() => {\n  window.a   =  1;\n  window.b = 2;\n})();\n"), base, 'an extra space');
+  assert.deepStrictEqual(labels("(() => {\n  window.a =\n      1;\n  window.b = 2;\n})();\n"), base, 'whitespace inside a statement');
+  assert.deepStrictEqual(labels("(() => {\n  window.a = 1;\r\n  window.b = 2;\n})();\n"), base, 'a CRLF inside the source');
+  assert.deepStrictEqual(labels("(() => {\n  const x = 1;\n  function f() {}\n  window.a = 1;\n  window.b = 2;\n})();\n"), base, 'a unit added above');
+
+  // Duplicates: scoped suffixes.
+  const dupSame = labels("(() => {\n  // @@shared:a begin\n  window.z = 1;\n  window.z = 1;\n  // @@shared:a end\n})();\n");
+  assert.ok(/^stmt:[0-9a-f]{8}$/.test(dupSame[0]));
+  assert.deepStrictEqual(dupSame, [dupSame[0], `${dupSame[0]}#2`]);
+  const dupOutside = labels("(() => {\n  window.z = 1;\n  window.z = 1;\n})();\n");
+  assert.deepStrictEqual(dupOutside, [dupSame[0], `${dupSame[0]}#2`], 'the label depends on the text only');
+  assert.throws(
+    () => analyze("(() => {\n  // @@shared:a begin\n  window.z = 1;\n  // @@shared:a end\n  // @@shared:b begin\n  window.z = 1;\n  // @@shared:b end\n})();\n"),
+    /duplicate statement label: stmt:[0-9a-f]{8} at lines 3 and 6/,
+  );
+
+  // A hash collision between two different texts.
+  const restore = __setLabelHash(() => 'deadbeef');
+  try {
+    assert.throws(() => analyze("(() => {\n  window.a = 1;\n  window.b = 2;\n})();\n"), /statement label collision: stmt:deadbeef at lines 2 and 3/);
+  } finally { restore(); }
+  assert.strictEqual(labels("(() => {\n  window.a = 1;\n})();\n").length, 1);
+
+  // The inventory shows statement writers with their line.
+  const w = analyze("(() => {\n  let m = 0;\n  window.w = (m = 1);\n})();\n");
+  assert.ok(/\| `m` \| 2 \| - \| stmt:[0-9a-f]{8} \(line 3\) \|/.test(render(w, 'x')), 'written-by column');
+}
 
 console.log('closure_analyzer OK');

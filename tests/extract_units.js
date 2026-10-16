@@ -9,6 +9,7 @@ const vm = require('vm');
 const esbuild = require('esbuild');
 const { planExtraction } = require('../scripts/lib/extraction-plan');
 const { applyModules } = require('../scripts/lib/extract-units');
+const { statementLabel: labelOf } = require('../scripts/analyze-closure');
 const { checkCountryContract } = require('../scripts/lib/country-contract');
 
 const made = [];
@@ -176,7 +177,7 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     assert.throws(() => applyModules(r, modules), pattern);
     assert.deepStrictEqual([read(r, 'src/us/main.js'), read(r, 'src/canada/main.js')], snapshot, 'nothing is written on a refusal');
   };
-  const statementLabel = (r) => `statement@${read(r, 'src/us/main.js').split('\n').findIndex((l) => l.includes('window.__out')) + 1}`;
+  const statementLabel = (r) => labelOf(read(r, 'src/us/main.js').split('\n').find((l) => l.includes('window.__out')));
   const one = (p, owner, us, canada = []) => [{ path: p, owner, units: { us, canada } }];
   refuse(fixture, one('src/us/core/x.js', 'us', [statementLabel(fixture())]), /side-effect statement/);
   refuse(fixture, one('src/us/core/x.js', 'us', ['counter']), /assigned outside its module/);

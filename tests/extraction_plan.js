@@ -87,7 +87,7 @@ try {
   // A binding with two writers (`counter`, written by bump and reset) and its writers stay, and so does a side-effect statement.
   const planned = JSON.stringify(plan.modules);
   assert.ok(!planned.includes('counter') && !planned.includes('bump') && !planned.includes('reset'), 'a shared mutable binding and its writers must stay');
-  assert.ok(!planned.includes('__out') && !planned.includes('statement@'), 'a side-effect statement must stay');
+  assert.ok(!planned.includes('__out') && !planned.includes('stmt:'), 'a side-effect statement must stay');
   // Names can be overridden.
   const renamed = planExtraction(root, { maxLayer: 3, names: { 'shared:helpers': 'math', 'us:rate': 'us-rate' } });
   assert.ok(renamed.modules.some((m) => m.path === 'src/shared/core/math.js'));
@@ -148,7 +148,7 @@ try {
   );
   assert.deepStrictEqual(countryUnits(p, 'us'), ['pure']);
   assert.deepStrictEqual(
-    p.bindings.us.needsDecision.map((b) => ({ names: b.names, writers: b.writers.map((w) => (w.startsWith('statement@') ? 'statement' : w)) })),
+    p.bindings.us.needsDecision.map((b) => ({ names: b.names, writers: b.writers.map((w) => (w.startsWith('stmt:') ? 'statement' : w)) })),
     [
       { names: ['level'], writers: ['down', 'up'] },
       { names: ['mode'], writers: ['statement'] },
