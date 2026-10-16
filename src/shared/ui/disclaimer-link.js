@@ -1,4 +1,4 @@
-// The disclaimer link
+// Disclaimer link: opens the methodology card on the Dashboard tab, scrolls to it and flashes the limitations callout
 
 import { switchToDashboardTab } from './mobile-view.js';
 

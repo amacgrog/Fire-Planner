@@ -1,7 +1,6 @@
-// Input gestures: keeps the sidebar steady on reflow and the plan status bar and tab switcher behavior
+// Input gestures: keeps the sidebar steady when a checkbox or select adds or removes fields, blurs a focused text field when a slider drag starts, and separates touch slider drags from page scrolling
 
   export function wireInputGestures() {
-    // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
     // Checking/unchecking a sidebar checkbox (or changing a <select> like
     // tenure/k401Type) can add or remove other fields elsewhere in the panel
     // -- singlePerson hides/shows every data-partner-b field across several

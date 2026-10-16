@@ -6,7 +6,7 @@ import { state } from '../../shared/core/store.js';
   // shows a depletion age, first tests "structural" single-lever changes tied
   // to a specific input (LTC off, healthcare premiums off) by temporarily
   // mutating state and re-running simulate(), then restoring state exactly —
-  // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
+  // same mutate/simulate/restore pattern as simulateAtRealCagr().
   export function analyzeShortfallDrivers(selected) {
     if (!selected.depletedAge) return null;
     const structuralCandidates = [];
