@@ -9,7 +9,7 @@
   // should reset to a known-good "All" on every fresh load rather than
   // possibly strand a returning visitor on a narrow filter they've
   // forgotten about.
-  let activeCategory = 'all';
+  export let activeCategory = 'all';
   // `scrollToRail`: only the rail's own click handler (below) passes this —
   // jumpToEstimateField()/the search-result jump/the resize-reapply
   // listener all call setActiveCategory() too (resetting to 'all' so a
@@ -17,7 +17,7 @@
   // group), and each of those already has its own scroll target right
   // after, so scrolling to the rail first would just add a visible
   // double-scroll in front of the scroll they actually wanted.
-  function setActiveCategory(cat, { scrollToRail = false } = {}) {
+  export function setActiveCategory(cat, { scrollToRail = false } = {}) {
     activeCategory = cat;
     const rail = document.getElementById('categoryRail');
     if (rail) {
@@ -44,4 +44,10 @@
       const panel = document.querySelector('.panel');
       if (panel) panel.scrollTop = 0;
     }
+  }
+  export function wireCategoryRail() {
+    document.getElementById('categoryRail')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-cat]');
+      if (btn) setActiveCategory(btn.dataset.cat, { scrollToRail: true });
+    });
   }

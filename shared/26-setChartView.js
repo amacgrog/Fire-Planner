@@ -35,32 +35,6 @@
     render();
     saveInputs();
   }
-  let undoSnapshot = null;
-  let undoToastTimer = null;
-  function snapshotForUndo(label) {
-    undoSnapshot = {
-      label,
-      state: JSON.parse(JSON.stringify(state)),
-      mode,
-      logScale,
-    };
-    showUndoToast(label);
-  }
-  function showUndoToast(label) {
-    const toast = document.getElementById('undoToast');
-    const text = document.getElementById('undoToastText');
-    if (!toast || !text) return;
-    text.textContent = `${label}. `;
-    toast.hidden = false;
-    clearTimeout(undoToastTimer);
-    undoToastTimer = setTimeout(() => hideUndoToast(), 10000);
-  }
-  function hideUndoToast() {
-    const toast = document.getElementById('undoToast');
-    if (toast) toast.hidden = true;
-    clearTimeout(undoToastTimer);
-    undoSnapshot = null;
-  }
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;

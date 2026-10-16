@@ -6,12 +6,11 @@ import { currentYear, assignCurrentYear } from './core/tax-year.js';
 import { cliffPlanStore } from './core/cliff-plan-store.js';
 import { optimizerState } from './core/optimizer-state.js';
 import { testHooks } from './core/test-hooks.js';
-import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN, LIST_MAX, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
+import { LIST_MAX, dependentsInYear, qualifyingChildCount } from '../shared/core/lists-and-children.js';
 import { defaults } from './core/defaults.js';
-import { REVEAL_BY_ID, normalizeUsLumps, normalizeUsStreams, revealHidden } from './core/normalize-lists.js';
+import { REVEAL_BY_ID, revealHidden } from './core/normalize-lists.js';
 import { compact, money } from '../shared/core/money-format.js';
 import { UNUSUAL_RANGES, computeUnusualAssumptions } from '../shared/core/estimates-and-warnings.js';
-import { SS_EARNINGS_TEST_2026, fraText, ssBeforeRetirementCase } from './core/ss-earnings-test.js';
 import { HIST, escapeHtml, pct } from '../shared/core/basics.js';
 import { FILING, SENIOR_DEDUCTION_LAST_YEAR } from './core/federal-deductions.js';
 import { hasChildAtMost } from './core/medicaid-rules.js';
@@ -38,12 +37,12 @@ import { CHART_GROUPS } from '../shared/core/chart-groups.js';
 import { syncTopbarHeight, undoToastBtnEl } from '../shared/ui/topbar-and-undo.js';
 import { syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/sync-keyboard-inset.js';
 import { syncPlanStatusOffsets } from '../shared/ui/sync-plan-status-offsets.js';
-import { wizardOverlay, wizardSteps } from '../shared/ui/wizard-overlay.js';
-import { makeTableWrapsFocusable, mc } from '../shared/ui/first-run-ui.js';
+import { wizardOverlay } from '../shared/ui/wizard-overlay.js';
+import { mc } from '../shared/ui/first-run-ui.js';
 import { mcpAccepts, mcpSchemaFor } from './core/mcp-schema-for.js';
 import { FIELDS } from './ui/clamp-profit-sharing.js';
-import { infoBubble, markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
-import { CURRENT_YEAR, displayValue, fiMultiple, mortgageSchedule, xAxisLabel } from '../shared/core/spending-and-loans.js';
+import { markUnusualFields } from '../shared/ui/estimates-and-warnings.js';
+import { CURRENT_YEAR, displayValue, fiMultiple, mortgageSchedule } from '../shared/core/spending-and-loans.js';
 import { WITHDRAWAL_MIX_CANDIDATES, accountBalances, accountStatuses, accountsClone, accountsContribute, accountsConvert, accountsDraw, accountsNew, accountsRestore, incomeRoom, penaltyStatus, retirementTotal, rothAccountsNew, rothSlotSplit, rule55Applies, withdrawalMixWeights } from './core/withdrawal-mix-and-roth-accounts.js';
 import { getBondYears } from '../shared/core/year-factors.js';
 import { itemizedDeduction, saltCap, seniorDeduction } from './core/itemized-deduction.js';
@@ -57,7 +56,6 @@ import { mortgageInterestShare } from './core/mortgage-interest-share.js';
 import { freeTraditional } from './core/free-traditional.js';
 import { historicalYearSource, standardYearSource } from '../shared/core/year-sources.js';
 import { cloneState, deltaAge, deltaMoney, overlayColors } from '../shared/core/scenario-helpers.js';
-import { dynTipBtn } from '../shared/core/dyn-field-helpers.js';
 import { refreshMoneyPreviews } from '../shared/ui/money-format.js';
 import { decisionDeltaPhrase } from '../shared/core/decision-end-assets.js';
 import { taxableSocialSecurity } from './core/social-security-and-child-credits.js';
@@ -70,125 +68,50 @@ import { renderPlanHeadline } from '../shared/ui/render-plan-headline.js';
 import { renderMonteCarloChart, renderTable } from '../shared/ui/chart-render.js';
 import { stateTaxTreatmentNote } from './ui/state-tax-treatment-note.js';
 import { compactDecisionDelta } from '../shared/core/compact-decision-delta.js';
-import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from './core/roth-per-year.js';
+import { ROTH_PER_YEAR_CANDIDATES, rothScheduleCost } from './core/roth-per-year.js';
 import { computeSankeyFlow } from './ui/compute-sankey-flow.js';
 import { DYN } from './core/dyn.js';
-import { dynFieldHtml } from '../shared/core/dyn-field-html.js';
 import { renderDecisionCompareTable } from './core/render-decision-compare-table.js';
-import { normalizeLists } from '../shared/core/lists-and-children-2.js';
 import { taxIndexFactor } from '../shared/core/year-factors-2.js';
 import { acaNetCost, afterTaxEndValueUS, childCredits, federalDeduction, fillTraditional, irmaaMagiOf, irmaaSurcharge, irmaaTierCeiling, lambdaEstimate, longTermGainTax, magiThresholds, ordinaryTax, payrollTax, qbiDeduction, selfEmploymentTax, solveTraditionalForNet, standardDeduction, stateIncomeTax, stateRuleFor, takeTraditional, taxFor } from './core/standard-deduction.js';
 import { releaseMagiCap } from './core/release-magi-cap.js';
 import { pickLiveWithdrawalOrder } from './core/pick-live-withdrawal-order.js';
-import { refillBondReserve } from '../shared/core/refill-bond-reserve.js';
-import { rotateIntoBondLadder } from '../shared/core/sweep-excess-cash-2.js';
 import { isEstimateCountable, unusualAssumptionImpact } from '../shared/core/estimates-and-warnings-2.js';
 import { refreshCliffPlan } from './core/refresh-cliff-plan.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../shared/core/monte-carlo-paths-2.js';
-import { analyzeShortfallDrivers } from './core/analyze-shortfall-drivers.js';
 import { SENSITIVITY_LEVERS } from './core/sensitivity-levers.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from './core/optimize-multi-lever.js';
 import { simulateAtRealCagr } from '../shared/core/simulate-at-real-cagr-2.js';
 import { ensureTestPlan } from './core/ensure-test-plan.js';
 import { planForState, runProjection } from './core/run-projection.js';
 import { withdrawStandard } from './core/withdraw-standard.js';
+import { normalizeState } from './ui/normalize-state.js';
+import { ids } from '../shared/ui/field-ids.js';
+import { activeCategory, setActiveCategory, wireCategoryRail } from '../shared/ui/category-rail.js';
+import { renderShortfallBanner } from '../shared/ui/shortfall-banner.js';
+import { computeRothOptimizer, renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './ui/roth-optimizer.js';
+import { hideUndoToast, snapshotForUndo, undoSnapshot } from '../shared/ui/undo.js';
+import { lastChart, renderChart } from '../shared/ui/projection-chart.js';
+import { dynApplyVisibility, renderChildFields, renderDynList, renderExtraExpenseFields, renderIncomeSourceFields, renderLoanFields, renderLumpExpenseFields, renderOneTimeIncomeFields, renderSpendingTierFields } from '../shared/ui/dynamic-lists.js';
+import { buildPrintReport } from './ui/print-report.js';
+import { wireInfoBubble } from '../shared/ui/info-bubble.js';
+import { wireInputGestures } from '../shared/ui/input-gestures.js';
+import { installSharedTestHooks } from '../shared/ui/install-test-hooks.js';
+import { loadSidebarPreference, wireSidebarCollapse } from '../shared/ui/sidebar.js';
+import { wireTableFocus } from '../shared/ui/table-focus.js';
+import { wireWizard, wireWizardDismiss } from '../shared/ui/wizard.js';
+import { addChildrenList } from './ui/dynamic-lists.js';
+import { addSocialSecurityWarnings } from './ui/unusual-warnings.js';
+import { wireWizardCheckboxes } from './ui/wizard.js';
 (() => {
   FIELDS.forEach((f) => (f.reveals || []).forEach((r) => REVEAL_BY_ID.set(r.id, r.hidden)));
   // @@shared:ids begin
-  // load-time: filters FIELDS, an imported constant; reads nothing a statement writes.
-  const ids = FIELDS.filter((field) => field.type === 'number').map((field) => field.key);
   const syncFns = { controls: () => syncControls(), contrib: () => syncContributionControls() };
   // load-time: filters FIELDS, an imported constant; reads nothing a statement writes.
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
   // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
   // @@shared:ids end
-  function normalizeState(raw) {
-    const s = { ...defaults, ...(raw || {}) };
-    FIELDS.forEach((field) => {
-      if (field.fallback !== undefined && !field.values.includes(s[field.key])) s[field.key] = field.fallback;
-      if (field.trueUnlessFalse) s[field.key] = s[field.key] !== false;
-    });
-    s.retireAgeA = Math.max(s.ageA, Number(s.retireAgeA ?? s.retireAge ?? s.ageA));
-    s.retireAgeB = Math.max(s.ageB, Number(s.retireAgeB ?? s.retireAge ?? s.ageB));
-    s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
-    s.lifeExpectancyB = Math.min(110, Math.max(s.lifeExpectancyB, s.ageB + 1));
-    s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
-    // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
-    for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));
-    normalizeLists(s, raw);
-    normalizeUsStreams(s, raw);
-    normalizeUsLumps(s, raw);
-    s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
-    s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
-      ? raw.dismissedUnusualAssumptions
-      : [];
-    // appliedRothSchedule/appliedMixSchedule (see defaults above): plain
-    // {age: value} objects written by the optimizer's "Apply this
-    // schedule" button. Validated defensively — a hand-edited or stale
-    // export could otherwise carry a bogus value straight into
-    // simulate()'s withdrawal math. The allowed-value lists are duplicated
-    // here rather than referencing ROTH_PER_YEAR_CANDIDATES/
-    // WITHDRAWAL_MIX_CANDIDATES (declared later in the file) because
-    // normalizeState() runs before those consts exist — keep both lists in
-    // sync if the candidate menus ever change.
-    {
-      const sanitizeSchedule = (obj, allowedValues) => {
-        if (!obj || typeof obj !== 'object') return null;
-        const out = {};
-        let any = false;
-        for (const key of Object.keys(obj)) {
-          const age = Number(key);
-          if (!Number.isFinite(age) || age < 0 || age > 120) continue;
-          const val = obj[key];
-          if (!allowedValues.includes(val)) continue;
-          out[age] = val;
-          any = true;
-        }
-        return any ? out : null;
-      };
-      s.appliedRothSchedule = sanitizeSchedule(s.appliedRothSchedule, [0, 10, 12, 22, 24, 32, 35]);
-      s.appliedMixSchedule = sanitizeSchedule(s.appliedMixSchedule, [
-        0,
-        'taxable',
-        'traditional',
-        'roth',
-        'balanced',
-        'smoothed',
-        'taxTradHalf',
-        'thirds',
-      ]);
-    }
-    // Retirement accounts (see the defaults): balances and Roth IRA basis are non-negative
-    // dollars, the Roth 401(k) basis is 0-100 percent. The pooled fields of older saves
-    // (traditional, roth, traditionalSharePctA, rothBasisPct) are retired and not migrated
-    // (owner decision, Batch 3A): they are deleted here because the spread above carries
-    // unknown keys through, and an old save opens with empty retirement accounts.
-    ['traditional', 'roth', 'traditionalSharePctA', 'rothBasisPct'].forEach((k) => delete s[k]);
-    ['A', 'B'].forEach((p) => {
-      ['tradIra', 'trad401k', 'rothIra', 'roth401k', 'rothIraBasis'].forEach((k) => {
-        const v = Number(s[k + p]);
-        s[k + p] = Number.isFinite(v) ? Math.max(0, v) : defaults[k + p];
-      });
-      const pctV = Number(s['roth401kBasisPct' + p]);
-      s['roth401kBasisPct' + p] = Number.isFinite(pctV) ? Math.min(100, Math.max(0, pctV)) : defaults['roth401kBasisPct' + p];
-    });
-    // Rule of 55 was one household checkbox before it became a per-partner election: a ticked old box
-    // ticks both partners (the engine already required each partner's own retirement age of 55 or more,
-    // so the numbers do not move). Deleted because the spread above carries unknown keys through.
-    if (raw && raw.ruleOf55Enabled === true && raw.ruleOf55A === undefined && raw.ruleOf55B === undefined) s.ruleOf55A = s.ruleOf55B = true;
-    delete s.ruleOf55Enabled;
-    // 72(t) SEPP is elected per account (sepp72tIra/K401 A/B, with a first-payment age; 0 means at the
-    // owner's retirement age). The household-wide flags of older saves (sepp72tEnabled, and its A/B
-    // split) are retired and not migrated (owner decision, Batch 3B): deleted here because the spread
-    // above carries unknown keys through.
-    ['sepp72tEnabled', 'sepp72tEnabledA', 'sepp72tEnabledB'].forEach((k) => delete s[k]);
-    ['sepp72tIraAgeA', 'sepp72tK401AgeA', 'sepp72tIraAgeB', 'sepp72tK401AgeB'].forEach((k) => {
-      const v = Number(s[k]);
-      s[k] = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : defaults[k];
-    });
-    return s;
-  }
   assignState(normalizeState(null));
   // @@shared:02-CHART_GROUPS begin
   // load-time: reads window.matchMedia; reads nothing a statement writes.
@@ -208,79 +131,8 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     if (btn) btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
     render();
   }
-  // Collapsible inputs panel (desktop). A pure layout preference, so it
-  // gets its own localStorage key rather than riding along with the
-  // gated autosave blob (see writeStorageNow() — it no-ops until
-  // hasPersonalizedData is true, and a layout choice should persist even
-  // before that). Starts collapsed=false unless a prior choice is found.
-  let sidebarCollapsed = false;
-  try {
-    sidebarCollapsed = localStorage.getItem('fireCouplePlanner.sidebarCollapsed.v1') === '1';
-  } catch {}
-  function setSidebarCollapsed(next) {
-    sidebarCollapsed = next;
-    document.getElementById('workspace').classList.toggle('sidebar-collapsed', next);
-    const btn = document.getElementById('sidebarCollapseBtn');
-    if (btn) {
-      btn.textContent = next ? '»' : '«';
-      btn.setAttribute('aria-label', next ? 'Expand inputs panel' : 'Collapse inputs panel');
-      btn.title = next ? 'Expand inputs panel' : 'Collapse inputs panel';
-      btn.setAttribute('aria-expanded', String(!next));
-    }
-    try {
-      localStorage.setItem('fireCouplePlanner.sidebarCollapsed.v1', next ? '1' : '0');
-    } catch {}
-  }
+  loadSidebarPreference();
   // @@shared:02-CHART_GROUPS end
-  // @@shared:activeCategory begin
-  // Category rail: filters .category-fields down to a single category's
-  // groups at a time — available at every width (originally desktop-only;
-  // the rail was hidden outright on mobile via CSS and filtering itself
-  // was gated behind an `isDesktop` check below, both removed since a
-  // category filter is at least as useful on a long, single-column mobile
-  // inputs list as it is on desktop). Not persisted to localStorage on
-  // purpose: unlike sidebarCollapsed (a standing layout choice), a
-  // category filter is a transient "where am I looking right now" and
-  // should reset to a known-good "All" on every fresh load rather than
-  // possibly strand a returning visitor on a narrow filter they've
-  // forgotten about.
-  let activeCategory = 'all';
-  // `scrollToRail`: only the rail's own click handler (below) passes this —
-  // jumpToEstimateField()/the search-result jump/the resize-reapply
-  // listener all call setActiveCategory() too (resetting to 'all' so a
-  // field outside the current filter isn't left sitting in a display:none
-  // group), and each of those already has its own scroll target right
-  // after, so scrolling to the rail first would just add a visible
-  // double-scroll in front of the scroll they actually wanted.
-  function setActiveCategory(cat, { scrollToRail = false } = {}) {
-    activeCategory = cat;
-    const rail = document.getElementById('categoryRail');
-    if (rail) {
-      rail.querySelectorAll('button').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.cat === cat);
-      });
-    }
-    document.querySelectorAll('#categoryFields > details.group').forEach(group => {
-      const show = cat === 'all' || group.dataset.cat === cat;
-      group.style.display = show ? '' : 'none';
-    });
-    const isMobile = window.innerWidth <= 820;
-    if (isMobile) {
-      // .panel is part of normal page flow on mobile (no independent
-      // scrollTop to reset — see the max-width:820px media query), and
-      // the rail itself isn't sticky, so a tap after scrolling partway
-      // down a long filtered list would otherwise leave the rail
-      // off-screen with no way back to it except scrolling up by hand.
-      // scroll-margin-top on .category-rail (set from --mobile-sticky-h +
-      // --field-search-h, see syncPlanStatusOffsets()) lands it just below
-      // the sticky status bar/tabs/search stack rather than underneath it.
-      if (scrollToRail) rail?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      const panel = document.querySelector('.panel');
-      if (panel) panel.scrollTop = 0;
-    }
-  }
-  // @@shared:activeCategory end
   // @@shared:03-hadSavedState begin
   // Whether a real, previously-saved plan was found in this browser at
   // boot — used below to skip showing the first-run banner (there's
@@ -415,78 +267,7 @@ import { withdrawStandard } from './core/withdraw-standard.js';
       }
     });
   }
-  infoBubble.id = 'infoBubble';
-  infoBubble.className = 'info-bubble';
-  infoBubble.setAttribute('role', 'tooltip');
-  infoBubble.hidden = true;
-  document.body.appendChild(infoBubble);
-  let infoBubbleBtn = null;
-  let infoBubbleAnchor = { top: 0, left: 0 };
-  function closeInfoBubble(returnFocus) {
-    if (!infoBubbleBtn) return;
-    const btn = infoBubbleBtn;
-    infoBubbleBtn = null;
-    infoBubble.hidden = true;
-    btn.setAttribute('aria-expanded', 'false');
-    btn.removeAttribute('aria-describedby');
-    if (returnFocus && btn.isConnected) btn.focus();
-  }
-  function placeInfoBubble() {
-    if (!infoBubbleBtn || !infoBubbleBtn.isConnected) {
-      closeInfoBubble(false);
-      return;
-    }
-    const r = infoBubbleBtn.getBoundingClientRect(),
-      vw = document.documentElement.clientWidth,
-      vh = window.innerHeight,
-      bw = infoBubble.offsetWidth,
-      bh = infoBubble.offsetHeight,
-      gap = 8,
-      margin = 12;
-    const left = Math.min(Math.max(margin, r.left + r.width / 2 - bw / 2), Math.max(margin, vw - bw - margin));
-    let top = r.bottom + gap;
-    if (top + bh > vh - margin && r.top - gap - bh >= margin) top = r.top - gap - bh;
-    infoBubble.style.left = left + 'px';
-    infoBubble.style.top = Math.max(margin, top) + 'px';
-  }
-  function openInfoBubble(btn) {
-    closeInfoBubble(false);
-    infoBubble.textContent = btn.dataset.tip || '';
-    infoBubble.hidden = false;
-    infoBubbleBtn = btn;
-    btn.setAttribute('aria-expanded', 'true');
-    btn.setAttribute('aria-describedby', 'infoBubble');
-    placeInfoBubble();
-    const ar = btn.getBoundingClientRect();
-    infoBubbleAnchor = { top: ar.top, left: ar.left };
-  }
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest ? e.target.closest('.info-tip') : null;
-    if (btn) {
-      e.preventDefault();
-      if (infoBubbleBtn === btn) closeInfoBubble(false);
-      else openInfoBubble(btn);
-      return;
-    }
-    if (infoBubbleBtn && !infoBubble.contains(e.target)) closeInfoBubble(false);
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && infoBubbleBtn) closeInfoBubble(true);
-  });
-  // Close on scroll only once the button has actually moved — a browser can
-  // fire a stray scroll event right after a tap (focus/scroll-into-view) that
-  // shouldn't dismiss the bubble that tap just opened.
-  document.addEventListener(
-    'scroll',
-    (e) => {
-      if (!infoBubbleBtn || infoBubble.contains(e.target)) return;
-      const r = infoBubbleBtn.getBoundingClientRect();
-      if (!infoBubbleBtn.isConnected || Math.abs(r.top - infoBubbleAnchor.top) > 4 || Math.abs(r.left - infoBubbleAnchor.left) > 4)
-        closeInfoBubble(false);
-    },
-    true,
-  );
-  window.addEventListener('resize', () => closeInfoBubble(false));
+  wireInfoBubble();
 
   // "Review →"/"Next →": which field id is currently the guided-review
   // target, so render() can tell when it stops being counted (edited away
@@ -753,18 +534,7 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     syncUnusualToast(flagged);
   }
   // @@shared:04-isEstimateCountable end
-  ['A', 'B'].forEach((p) =>
-    UNUSUAL_RANGES.push({
-      id: 'ssStartAge' + p,
-      label: 'Partner ' + p + ' Social Security starts while working',
-      check: () => !!ssBeforeRetirementCase(p),
-      message: () => {
-        const c = ssBeforeRetirementCase(p);
-        if (!c) return '';
-        return 'the benefit starts at ' + c.start + ', before retirement at ' + c.retire + ' and before full retirement age (' + fraText(c.fra) + '). Social Security would withhold $1 of benefit for every $2 of wages over $' + SS_EARNINGS_TEST_2026.lower.toLocaleString('en-US') + ' (2026 figure; $1 for every $3 over $' + SS_EARNINGS_TEST_2026.higher.toLocaleString('en-US') + ' in the year full retirement age is reached) until that age; the planner does not model the earnings test, so it pays the full benefit while wages continue. The months withheld come back as a higher monthly benefit from full retirement age.';
-      },
-    }),
-  );
+  addSocialSecurityWarnings();
   // Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
   // FICA wage base all index by this factor. In the deterministic projection
   // it is the steady state.inflation compounded by yearIndex; inside
@@ -958,27 +728,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
   // mutating state and re-running simulate(), then restoring state exactly —
   // same mutate/simulate/restore pattern as simulateAtRealCagr(). These
 
-  // @@shared:15-renderPlanHeadline begin
-  function renderShortfallBanner(selected) {
-    const banner = document.getElementById('shortfallBanner');
-    const driver = analyzeShortfallDrivers(selected);
-    if (!driver) {
-      banner.hidden = true;
-      banner.innerHTML = '';
-      return;
-    }
-    const newLasts = driver.result.depletedAge
-      ? `age ${driver.result.depletedAge}`
-      : `the end of the projection (age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+), not depleted`;
-    banner.hidden = false;
-    const intro = `<b>What's driving this:</b> the plan is projected to run out of money at age ${selected.depletedAge}. `;
-    const body =
-      driver.kind === 'structural'
-        ? `Of the levers tested, <b>${driver.label}</b> has the biggest single effect — with ${driver.detail}, the portfolio instead lasts to ${newLasts}. This isn't necessarily the only fix or the right one for you; it's just the single change (among a few common ones) that moved the needle most.`
-        : `No single cost or income assumption tested here explains it — this looks like a general balance-of-spending-vs-savings shortfall rather than one specific driver. The smallest change (of the two generic levers everyone has) that ${driver.resolved ? 'fully resolves it' : 'helps most'}: <b>${driver.detail}</b>, which brings the portfolio to ${newLasts}.`;
-    banner.innerHTML = intro + body;
-  }
-  // @@shared:15-renderPlanHeadline end
 
   // @@shared:17-renderDecisionQuestionPreviews begin
   // A compact one-line preview shown right on each "Explore a question"
@@ -1275,36 +1024,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
   }
   // @@shared:renderTornadoChart end
 
-  function computeRothOptimizer(selected) {
-    const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
-      Number(o.value),
-    );
-    const savedEnabled = state.rothConvEnabled,
-      savedBracket = state.rothConvBracket;
-    const results = candidates.map((bracket) => {
-      state.rothConvEnabled = true;
-      state.rothConvBracket = bracket;
-      const sim = simulate();
-      const end = sim.rows.at(-1);
-      return {
-        bracket,
-        endAssets: displayValue(end.total, end.year),
-        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax, r.year), 0),
-        depletedAge: sim.depletedAge,
-      };
-    });
-    state.rothConvEnabled = savedEnabled;
-    state.rothConvBracket = savedBracket;
-    // "Not worse" = doesn't deplete when the current plan doesn't, and doesn't
-    // deplete earlier when it does — a lifetime-tax-minimizing bracket that
-    // shortens the portfolio's life isn't actually an improvement.
-    const notWorse = results.filter((r) =>
-      selected.depletedAge ? !r.depletedAge || r.depletedAge >= selected.depletedAge : !r.depletedAge,
-    );
-    const pool = notWorse.length ? notWorse : results;
-    const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
-    return { results, best, currentBracket: savedBracket };
-  }
   // @@shared:19-layoutSankeyColumn begin
   let sankeyTooltipEl = null;
   function ensureSankeyTooltip() {
@@ -1561,217 +1280,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     card.hidden = false;
   }
   // @@shared:19-layoutSankeyColumn end
-  // On-demand only (button click, not auto-run on card expand like the
-  // flat optimizer above) — this is the heavier multi-second computation,
-  // so it shouldn't fire every time the card is opened or a sibling field
-  // changes.
-  function renderRothPerYearOptimizer(selected) {
-    const resultEl = document.getElementById('rothPerYearResult'),
-      summaryEl = document.getElementById('rothPerYearSummary'),
-      rowsEl = document.getElementById('rothPerYearRows');
-    const opt = optimizeRothLadderPerYear(selected);
-    if (opt.activeYears.length === 0) {
-      resultEl.hidden = true;
-      return;
-    }
-    // Re-simulate once more with the winning schedule active, purely to
-    // read each year's actual conversionAmount for display — opt itself
-    // only carries the schedule (bracket targets) and aggregate cost, not
-    // the per-row dollar detail.
-    optimizerState.rothBracketByAge = opt.schedule;
-    const detail = simulate();
-    optimizerState.rothBracketByAge = null;
-    const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
-
-    const currentCost = rothScheduleCost(selected);
-    const savings = currentCost - opt.cost;
-    const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
-    let notes = '';
-    if (opt.truncated) {
-      notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
-    }
-    if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far, which may not be fully optimized.';
-    }
-    if (savings > 1) {
-      summaryEl.innerHTML = `Recommended: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current flat setting, without shortening how long the portfolio lasts.${notes}`;
-    } else {
-      summaryEl.innerHTML = `Your current flat <b>${state.rothConvBracket}%</b> setting is already at least as good as varying the target by year here.${notes}`;
-    }
-    rowsEl.innerHTML = opt.activeYears
-      .map((age) => {
-        const row = rowsByAge.get(age);
-        const amount = row ? displayValue(row.conversionAmount, row.year) : 0;
-        const candidate = opt.schedule.get(age);
-        // A candidate can tie at $0 with every other candidate once that
-        // year's traditional balance/conversion room is already
-        // exhausted (e.g. a prior year converted aggressively) — showing
-        // a specific bracket target next to $0 would read as a
-        // meaningful choice when coordinate ascent just kept whichever
-        // tied candidate it happened to land on.
-        const label = amount < 1 ? '—' : targetLabel(candidate);
-        return `<tr><td>${age}</td><td>${label}</td><td>${money(amount)}</td></tr>`;
-      })
-      .join('');
-    resultEl.hidden = false;
-  }
-  // Generalized sibling of renderRothPerYearOptimizer above — same
-  // on-demand-only pattern, but drives optimizeMultiLever() with whichever
-  // of the 3 levers (Roth/mix/smooth) the checkboxes have turned on, and
-  // builds its results table's columns dynamically around just those.
-  function renderMultiLeverOptimizer(selected, options) {
-    const resultEl = document.getElementById('multiLeverResult'),
-      summaryEl = document.getElementById('multiLeverSummary'),
-      headEl = document.getElementById('multiLeverHead'),
-      rowsEl = document.getElementById('multiLeverRows'),
-      tableWrap = rowsEl.closest('.table-wrap');
-    const opt = optimizeMultiLever(selected, options);
-    const hasPerYear = options.includeRoth || options.includeMix;
-    if (hasPerYear && opt.activeYears.length === 0) {
-      resultEl.hidden = true;
-      document.getElementById('multiLeverApplyBtn').hidden = true;
-      document.getElementById('multiLeverApplyNote').textContent = '';
-      return;
-    }
-    // Re-simulate once more with the winning schedule(s)/setting active,
-    // purely to read each year's actual dollar amounts for display — opt
-    // itself only carries the schedules/flag and aggregate cost.
-    // optimizeMultiLever() restores state.rothConvEnabled to whatever it
-    // was before running (so a search doesn't leave the ladder toggled on
-    // if it started off), same as the flat/per-year Roth optimizers
-    // above — so when the ladder was off and includeRoth is checked, it
-    // must be forced back on here too, or solveRothConversion's own
-    // `state.rothConvEnabled && age-in-window` gate (see simulate()) skips
-    // every year regardless of the override map, and every row would
-    // silently show $0/no conversion despite a real non-zero schedule
-    // having been found and already counted in opt.cost above.
-    const savedEnabled = state.rothConvEnabled,
-      savedSmooth = state.smoothWithdrawals;
-    if (options.includeRoth) state.rothConvEnabled = true;
-    if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
-    optimizerState.rothBracketByAge = options.includeRoth ? opt.rothSchedule : null;
-    optimizerState.withdrawalMixByAge = options.includeMix ? opt.mixSchedule : null;
-    const detail = simulate();
-    optimizerState.rothBracketByAge = null;
-    optimizerState.withdrawalMixByAge = null;
-    state.rothConvEnabled = savedEnabled;
-    state.smoothWithdrawals = savedSmooth;
-    const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
-
-    const currentCost = rothScheduleCost(selected);
-    const savings = currentCost - opt.cost;
-    const rothLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
-    const mixLabel = (c) =>
-      !c
-        ? 'Default'
-        : c === 'taxable'
-          ? 'Taxable only'
-          : c === 'traditional'
-            ? 'Traditional only'
-            : c === 'roth'
-              ? 'Roth only'
-              : c === 'balanced'
-                ? 'Balanced (3-way)'
-                : c === 'smoothed'
-                  ? 'Smoothed (tax./trad. only)'
-                  : c === 'taxTradHalf'
-                    ? '50/50 tax./trad.'
-                    : c === 'thirds'
-                      ? 'Even thirds'
-                      : c;
-
-    let notes = '';
-    if (opt.rothTruncated) {
-      notes += ` Your Roth ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.rothYears.at(-1)}) are covered.`;
-    }
-    if (opt.mixTruncated) {
-      notes += ` Your retirement is longer than the ${ROTH_PER_YEAR_MAX_WINDOW} years the withdrawal-mix lever can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.mixYears.at(-1)}) are covered.`;
-    }
-    if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the best combination found so far, which may not be fully optimized.';
-    }
-    let smoothNote = '';
-    if (options.includeSmooth) {
-      smoothNote = opt.smoothWithdrawals
-        ? ' Recommends turning <b>on</b> smoothed withdrawals (drawing taxable and traditional proportionally, instead of taxable-first).'
-        : ' Recommends keeping smoothed withdrawals <b>off</b>.';
-    }
-    const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeMix && 'a per-year withdrawal mix']
-      .filter(Boolean)
-      .join(' + ');
-    if (savings > 1) {
-      summaryEl.innerHTML = `Recommended: ${leverNames || 'the settings below'} — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current settings, without shortening how long the portfolio lasts.${smoothNote}${notes}`;
-    } else {
-      summaryEl.innerHTML = `Your current settings are already at least as good as anything these levers found.${smoothNote}${notes}`;
-    }
-
-    if (!hasPerYear) {
-      tableWrap.hidden = true;
-    } else {
-      tableWrap.hidden = false;
-      const cols = ['Age'];
-      if (options.includeRoth) cols.push('Roth target', 'Conversion $');
-      if (options.includeMix) cols.push('Mix', 'From taxable', 'From traditional', 'From Roth');
-      headEl.innerHTML = `<tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>`;
-      const rothYearSet = new Set(opt.rothYears || []),
-        mixYearSet = new Set(opt.mixYears || []);
-      rowsEl.innerHTML = opt.activeYears
-        .map((age) => {
-          const row = rowsByAge.get(age);
-          const cells = [`<td>${age}</td>`];
-          if (options.includeRoth) {
-            if (!rothYearSet.has(age)) {
-              // Outside this lever's own window (the two windows don't
-              // have to coincide) — "not applicable," distinct from "—"
-              // below, which means evaluated but chose nothing.
-              cells.push(`<td style="opacity:.5">–</td><td style="opacity:.5">–</td>`);
-            } else {
-              const amt = row ? displayValue(row.conversionAmount, row.year) : 0;
-              // See the same-named comment in renderRothPerYearOptimizer
-              // above: a candidate can tie at $0 once that year's room is
-              // already exhausted, so showing a specific target next to $0
-              // would read as a meaningful choice that wasn't really made.
-              cells.push(`<td>${amt < 1 ? '—' : rothLabel(opt.rothSchedule.get(age))}</td><td>${money(amt)}</td>`);
-            }
-          }
-          if (options.includeMix) {
-            // Unlike the Roth column, the $ breakdown here always shows
-            // the year's real taxable/traditional/Roth draw — even when
-            // this age fell outside the mix lever's own search window (no
-            // candidate chosen, so it fell through to
-            // state.smoothWithdrawals/the plain default) or the winning
-            // candidate was 0 ("default," no override) — that's still
-            // genuinely useful information, unlike a Roth conversion
-            // target which has no meaning at all outside its window.
-            const label = mixYearSet.has(age) ? mixLabel(row ? row.mixCandidate : 0) : '–';
-            const fromTaxable = row ? displayValue(row.taxableWithdrawn, row.year) : 0,
-              fromTraditional = row ? displayValue(row.traditionalWithdrawn, row.year) : 0,
-              fromRoth = row ? displayValue(row.rothWithdrawn, row.year) : 0;
-            cells.push(
-              `<td>${label}</td><td>${money(fromTaxable)}</td><td>${money(fromTraditional)}</td><td>${money(fromRoth)}</td>`,
-            );
-          }
-          return `<tr>${cells.join('')}</tr>`;
-        })
-        .join('');
-    }
-    resultEl.hidden = false;
-    // Remembered so the "Apply this schedule" button (next to Optimize,
-    // above) knows exactly what the table below is showing — the button
-    // applies this run's result, not a fresh re-optimization, so what you
-    // see is what you get.
-    optimizerState.lastMultiLeverRun = { opt, options, savings };
-    const applyBtn = document.getElementById('multiLeverApplyBtn'),
-      applyNote = document.getElementById('multiLeverApplyNote');
-    applyBtn.hidden = false;
-    if (savings > 1) {
-      applyBtn.disabled = false;
-      applyNote.textContent = '';
-    } else {
-      applyBtn.disabled = true;
-      applyNote.textContent = "Nothing to apply — your current settings already match what was found.";
-    }
-  }
   // Writes a finished optimizeMultiLever() run's schedule(s) into state so
   // simulate() (the main projection, not just this card's own re-simulation
   // above) picks them up from now on — see appliedRothSchedule/
@@ -2073,120 +1581,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
   // @@shared:20-renderTable begin
 
 
-  function renderChart(series, valueFn = (r) => displayValue(r.total, r.year)) {
-    const canvas = document.getElementById('chart'),
-      rect = canvas.getBoundingClientRect(),
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.max(600, rect.width * dpr);
-    canvas.height = Math.max(300, rect.height * dpr);
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    const w = canvas.width / dpr,
-      h = canvas.height / dpr,
-      p = { l: 66, r: 18, t: 16, b: 40 };
-    const all = series.flatMap((s) => s.sim.rows.map(valueFn)),
-      maxAge = series[0].sim.rows.at(-1).age;
-    let min = Math.min(0, ...all),
-      max = Math.max(1, ...all);
-    if (min < 0) min *= 1.1;
-    max *= 1.08;
-    const x = (age) => p.l + ((age - state.ageA) / (maxAge - state.ageA)) * (w - p.l - p.r);
-    let y, floor, logMin, logMax;
-    if (logScale) {
-      floor = Math.max(1, max * 0.0005);
-      logMax = Math.log10(Math.max(max, floor * 10));
-      logMin = Math.log10(floor);
-      y = (v) =>
-        p.t + ((logMax - Math.log10(Math.max(v, floor))) / (logMax - logMin)) * (h - p.t - p.b);
-    } else {
-      y = (v) => p.t + ((max - v) / (max - min)) * (h - p.t - p.b);
-    }
-    ctx.clearRect(0, 0, w, h);
-    ctx.font = '12px Inter,system-ui';
-    ctx.fillStyle = chartAxisColor();
-    ctx.strokeStyle = chartGridColor();
-    ctx.lineWidth = 1;
-    if (logScale) {
-      for (let i = 0; i <= 6; i++) {
-        const val = Math.pow(10, logMin + (logMax - logMin) * (i / 6)),
-          yy = y(val);
-        ctx.beginPath();
-        ctx.moveTo(p.l, yy);
-        ctx.lineTo(w - p.r, yy);
-        ctx.stroke();
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(compact(val), p.l - 9, yy);
-      }
-    } else {
-      for (let i = 0; i <= 5; i++) {
-        const val = min + (max - min) * (i / 5),
-          yy = y(val);
-        ctx.beginPath();
-        ctx.moveTo(p.l, yy);
-        ctx.lineTo(w - p.r, yy);
-        ctx.stroke();
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(compact(val), p.l - 9, yy);
-      }
-    }
-    Array.from({ length: 7 }, (_, i) => Math.round(state.ageA + (maxAge - state.ageA) * (i / 6)))
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .forEach((age) => {
-        ctx.fillStyle = chartAxisColor();
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(xAxisLabel(age), x(age), h - p.b + 10);
-      });
-    if (!logScale) {
-      const zero = y(0);
-      ctx.strokeStyle = chartZeroLineColor();
-      ctx.beginPath();
-      ctx.moveTo(p.l, zero);
-      ctx.lineTo(w - p.r, zero);
-      ctx.stroke();
-    }
-    series.forEach(({ sim, color, highlight }) => {
-      ctx.beginPath();
-      sim.rows.forEach((r, i) => {
-        const px = x(r.age),
-          py = y(valueFn(r));
-        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-      });
-      ctx.strokeStyle = color;
-      ctx.lineWidth = highlight ? 3 : 2;
-      ctx.globalAlpha = highlight ? 1 : 0.8;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    });
-    const drawRetirementMarker = (chartAge, label, color, offset = 0) => {
-      if (chartAge < state.ageA || chartAge > maxAge) return;
-      const rx = x(chartAge);
-      ctx.save();
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(rx, p.t);
-      ctx.lineTo(rx, h - p.b);
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = color;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(label, rx + 2, p.t + 2 + offset);
-    };
-    drawRetirementMarker(state.retireAgeA, state.singlePerson ? 'Retire' : 'A retires', '#475569');
-    if (!state.singlePerson)
-      drawRetirementMarker(
-        state.ageA + (state.retireAgeB - state.ageB),
-        'B retires',
-        '#0e7490',
-        14,
-      );
-    lastChart = { series, valueFn, x, y, p, w, h, maxAge };
-  }
-  let lastChart = null;
   function clearChartHover() {
     if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
@@ -2601,104 +1995,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
       .join('');
   }
   // @@shared:21-writeStorageNow end
-  function buildPrintReport() {
-    const sim = simulate(),
-      retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
-      end = sim.rows.at(-1),
-      currentInvestable = state.taxable + retirementTotal() + state.cash,
-      fiNumber = sim.currentExpense * fiMultiple(),
-      fireNumber = sim.retirementExpense * fiMultiple(),
-      tenureLabels = { own: 'Own', rent: 'Rent', rentThenBuy: 'Rent, then buy' },
-      stateSelect = document.getElementById('stateTax'),
-      stateLabel = stateSelect?.selectedOptions[0]?.textContent || state.stateTax,
-      genDate = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
-      kv = (pairs) =>
-        `<table class="pr-kv"><tbody>${pairs
-          .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`)
-          .join('')}</tbody></table>`;
-    const resultsTable = kv([
-      [
-        'Retirement age(s)',
-        state.singlePerson
-          ? `Age ${state.retireAgeA}`
-          : `Partner A: ${state.retireAgeA} · Partner B: ${state.retireAgeB}`,
-      ],
-      [
-        'Investable assets at retirement',
-        money(displayValue(retirement.investable, retirement.year)),
-      ],
-      ['Net worth at retirement', money(displayValue(retirement.total, retirement.year))],
-      [
-        'Investments last through',
-        sim.depletedAge
-          ? `Age ${sim.depletedAge} (projected shortfall)`
-          : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+ (not depleted)`,
-      ],
-      ['End assets', money(displayValue(end.total, end.year))],
-      [`FI number (${Number(fiMultiple().toFixed(1))}× today's spending, ${state.fiWithdrawalRate}% withdrawal rate)`, money(fiNumber)],
-      [`FIRE number (${Number(fiMultiple().toFixed(1))}× retirement spending)`, money(fireNumber)],
-      [
-        'Currently funded',
-        `${fiNumber > 0 ? Math.min(999, (currentInvestable / fiNumber) * 100).toFixed(0) : 0}% of FI number`,
-      ],
-    ]);
-    const assumptionsTable = kv([
-      ['Household', state.singlePerson ? 'Single person' : 'Couple'],
-      [
-        'Current age(s)',
-        state.singlePerson ? `${state.ageA}` : `Partner A: ${state.ageA} · Partner B: ${state.ageB}`,
-      ],
-      [
-        'Plan finances through age',
-        state.singlePerson
-          ? `${state.lifeExpectancyA}`
-          : `Partner A: ${state.lifeExpectancyA} · Partner B: ${state.lifeExpectancyB}`,
-      ],
-      [
-        'Current household income',
-        state.singlePerson ? money(state.incomeA) : `${money(state.incomeA)} + ${money(state.incomeB)}`,
-      ],
-      ['Annual household spending', money(state.spending)],
-      ['Housing', tenureLabels[state.tenure] || state.tenure],
-      ['Filing status', state.filingStatus === 'mfj' ? 'Married filing jointly' : 'Single'],
-      ['Resident state', stateLabel],
-      ['Stock return assumption', `${state.returnRate}%`],
-      ['Bond return assumption', `${state.bondReturn}%`],
-      ['HYSA / cash rate assumption', `${state.hysaRate}%`],
-      ['Inflation assumption', `${state.inflation}%`],
-      ['Bond reserve', `${getBondYears()} years of expenses`],
-    ]);
-    const chartCanvas = document.getElementById('chart');
-    let chartImg = '';
-    try {
-      chartImg = `<img src="${chartCanvas.toDataURL('image/png')}" alt="Projected total assets chart">`;
-    } catch (e) {
-      chartImg = '';
-    }
-    const projRows = sim.rows
-      .map(
-        (r) =>
-          `<tr><td>${r.age}${state.singlePerson ? '' : ` / ${r.ageB}`}</td><td>${money(displayValue(r.income, r.year))}</td><td>${money(displayValue(r.expenses, r.year))}</td><td>${money(displayValue(r.tax, r.year))}</td><td>${money(displayValue(r.taxable, r.year))}</td><td>${money(displayValue(r.bonds, r.year))}</td><td>${money(displayValue(r.traditional, r.year))}</td><td>${money(displayValue(r.roth, r.year))}</td><td>${money(displayValue(r.cash, r.year))}</td><td>${money(displayValue(r.homeEquity, r.year))}</td><td>${money(displayValue(r.total, r.year))}</td></tr>`,
-      )
-      .join('');
-    document.getElementById('printReport').innerHTML = `
-      <h1>FIRE Planner — Report</h1>
-      <p class="pr-meta">Generated ${genDate} · Values shown in ${mode === 'real' ? "inflation-adjusted 2026 dollars" : "future nominal dollars"} · Planning estimate only — not tax, investment, or legal advice.</p>
-      <h2>Key results</h2>
-      ${resultsTable}
-      <h2>Key assumptions</h2>
-      ${assumptionsTable}
-      <h2>Projected total assets</h2>
-      ${chartImg}
-      <h2>Year-by-year projection</h2>
-      <table class="pr-proj"><thead><tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Net assets</th></tr></thead><tbody>${projRows}</tbody></table>
-      <p class="pr-disclaimer">"Income" is an estimate of taxable income (wages after retirement contributions, Social Security, pension, RMDs, and any Roth conversion) and excludes brokerage capital gains, which are taxed separately on withdrawal. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/state income tax plus payroll tax. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal tax brackets, state brackets, retirement contribution limits, capital-gains thresholds, RMD tables, Medicare IRMAA tiers, and ACA premium tax credit rules are 2026 planning estimates and held constant in real terms.</p>
-    `;
-  }
   // @@shared:22-exportCsv begin
   function exportCsv() {
     const sim = simulate(),
@@ -2742,89 +2038,8 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     URL.revokeObjectURL(url);
   }
   // @@shared:22-exportCsv end
-  DYN.children = {
-    key: 'children',
-    container: 'childFields',
-    prefix: 'child',
-    noun: 'child',
-    rowTitle: (i) => `Child ${i + 1}`,
-    addLabel: '+ Add a child',
-    note: 'Children you claim as dependents, including planned ones.',
-    tip: "Used for the Child Tax Credit and the credit for other dependents, head of household status, the ACA household size (a larger household has a higher income limit for premium subsidies) and the state child credits and exemptions. A dependent child counts until the end of the year they turn 18, or 23 if they are a full-time student. Spending is NOT adjusted automatically: add what children cost under household spending, additional expenses or spending changes.",
-    fresh: () => ({ birthYear: currentYear, student: false }),
-    fields: [
-      {
-        key: 'birthYear',
-        kind: 'num',
-        label: 'Birth year',
-        short: 'A future year counts from birth',
-        tip: 'The calendar year the child was (or will be) born. A child counts as a dependent for the whole year of birth.',
-        min: CHILD_BIRTH_YEAR_MIN,
-        max: CHILD_BIRTH_YEAR_MAX,
-        step: 1,
-      },
-      {
-        key: 'joinYear',
-        kind: 'num',
-        int: true,
-        blank: true,
-        placeholder: 'From birth',
-        label: 'Joins the household in',
-        short: 'Blank: from the birth year',
-        tip: "For a child who joins the household after birth, such as an adopted child: the year the child is placed with you or moves in. The child counts as a dependent for that whole year and every year after (IRS Publication 501's rule for a child placed for adoption), for the Child Tax Credit, head of household, the ACA household and the state credits. Age still comes from the birth year. Leave blank for a child who has lived with you since birth. The Child Tax Credit assumes the child has a Social Security number; a child with only an adoption number (ATIN) gets the $500 credit for other dependents instead, which is not modeled. The adoption credit is not modeled.",
-        min: CHILD_BIRTH_YEAR_MIN,
-        max: CHILD_BIRTH_YEAR_MAX,
-        step: 1,
-      },
-      {
-        key: 'student',
-        kind: 'check',
-        label: 'Full-time student after 18',
-        short: 'Counts as a dependent through age 23',
-        tip: 'Checked: the child is treated as a qualifying child through the year they turn 23 (a full-time student), instead of through 18. Disabled adult children and other relatives are not modeled.',
-      },
-    ],
-  };
+  addChildrenList();
   // @@shared:23-dynFieldHtml begin
-  function renderDynList(name, force) {
-    const spec = DYN[name],
-      container = document.getElementById(spec.container),
-      items = state[spec.key];
-    if (!container) return;
-    // Skip a rebuild while someone is typing inside this list (it would drop
-    // focus/caret on every keystroke) as long as the row count hasn't changed;
-    // show/hide of dependent fields is handled in place by dynApplyVisibility().
-    if (!force && container.contains(document.activeElement) && container.dataset.rowCount === String(items.length)) {
-      dynApplyVisibility(name);
-      return;
-    }
-    container.dataset.rowCount = String(items.length);
-    const rows = items
-      .map(
-        (item, i) =>
-          `<div class="dyn-row"><div class="dyn-row-head"><b>${escapeHtml(spec.rowTitle(i))}</b><button type="button" class="dyn-remove" data-dyn-remove="${i}" aria-label="Remove ${escapeHtml(spec.rowTitle(i).toLowerCase())}" title="Remove">×</button></div>${spec.fields.map((f) => dynFieldHtml(spec, f, item, i)).join('')}</div>`,
-      )
-      .join('');
-    const full = items.length >= LIST_MAX;
-    container.innerHTML =
-      `<p class="range-note">${escapeHtml(spec.note)}${dynTipBtn(spec.tip)}</p>` +
-      (items.length ? rows : '<p class="dyn-empty">None added yet.</p>') +
-      `<button type="button" class="btn-card dyn-add" data-dyn-add="${name}"${full ? ' disabled title="Up to ' + LIST_MAX + '"' : ''}>${escapeHtml(spec.addLabel)}</button>`;
-    refreshMoneyPreviews(container);
-  }
-  function dynApplyVisibility(name) {
-    const spec = DYN[name],
-      container = document.getElementById(spec.container);
-    if (!container) return;
-    state[spec.key].forEach((item, i) =>
-      spec.fields.forEach((f) => {
-        if (!f.showIf) return;
-        const input = container.querySelector(`[data-dyn-i="${i}"][data-dyn-k="${f.key}"]`),
-          wrap = input && input.closest('[data-dyn-wrap]');
-        if (wrap) wrap.hidden = !f.showIf(item);
-      }),
-    );
-  }
   Object.keys(DYN).forEach((name) => {
     const spec = DYN[name],
       container = document.getElementById(spec.container);
@@ -2876,27 +2091,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
       }
     });
   });
-  function renderLoanFields() {
-    renderDynList('loans');
-  }
-  function renderIncomeSourceFields() {
-    renderDynList('incomeSources');
-  }
-  function renderOneTimeIncomeFields() {
-    renderDynList('oneTimeIncome');
-  }
-  function renderExtraExpenseFields() {
-    renderDynList('extraExpenses');
-  }
-  function renderLumpExpenseFields() {
-    renderDynList('lumpExpenses');
-  }
-  function renderSpendingTierFields() {
-    renderDynList('spendingTiers');
-  }
-  function renderChildFields() {
-    renderDynList('children');
-  }
   // @@shared:23-dynFieldHtml end
   function syncControls() {
     FIELDS.forEach((field) => {
@@ -3640,32 +2834,6 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     render();
     saveInputs();
   }
-  let undoSnapshot = null;
-  let undoToastTimer = null;
-  function snapshotForUndo(label) {
-    undoSnapshot = {
-      label,
-      state: JSON.parse(JSON.stringify(state)),
-      mode,
-      logScale,
-    };
-    showUndoToast(label);
-  }
-  function showUndoToast(label) {
-    const toast = document.getElementById('undoToast');
-    const text = document.getElementById('undoToastText');
-    if (!toast || !text) return;
-    text.textContent = `${label}. `;
-    toast.hidden = false;
-    clearTimeout(undoToastTimer);
-    undoToastTimer = setTimeout(() => hideUndoToast(), 10000);
-  }
-  function hideUndoToast() {
-    const toast = document.getElementById('undoToast');
-    if (toast) toast.hidden = true;
-    clearTimeout(undoToastTimer);
-    undoSnapshot = null;
-  }
   if (undoToastBtnEl) {
     undoToastBtnEl.addEventListener('click', () => {
       if (!undoSnapshot) return;
@@ -3710,321 +2878,7 @@ import { withdrawStandard } from './core/withdraw-standard.js';
   });
   // @@shared:26-setChartView end
   // @@shared:27-syncKeyboardInset begin
-  // The Plan status bar and (on mobile) the Inputs/Dashboard tab switcher
-  // Checking/unchecking a sidebar checkbox (or changing a <select> like
-  // tenure/k401Type) can add or remove other fields elsewhere in the panel
-  // -- singlePerson hides/shows every data-partner-b field across several
-  // groups at once, and most opt-in checkboxes (ACA, LTC, other
-  // income, other loans, survivor, guardrails, Roth conversion/RRSP
-  // meltdown, mega backdoor) show/hide fields within their own group. The
-  // resulting height change shifts everything below the toggle, which can
-  // jump the control the person just clicked out from under their
-  // cursor/finger and lose their place in a long sidebar. Preserve the
-  // toggle's own on-screen position across that reflow instead: this
-  // listener is registered on `document` with capture:true, so it fires
-  // before the field's own `change` listener runs the actual show/hide,
-  // letting it record the toggle's position pre-mutation; two animation
-  // frames later (once layout has settled) it adjusts whichever container
-  // actually scrolls -- the whole page on mobile (`.panel` is
-  // `position:static` there) or `.panel`'s own internal scroll on desktop
-  // -- by the resulting delta, so the toggle itself doesn't visually move.
-  document.addEventListener(
-    'change',
-    (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
-      if (t instanceof HTMLInputElement && t.type !== 'checkbox' && t.type !== 'radio') return;
-      const panel = t.closest('.panel');
-      if (!panel) return;
-      const before = t.getBoundingClientRect().top;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const after = t.getBoundingClientRect().top;
-          const delta = after - before;
-          if (Math.abs(delta) < 1) return;
-          if (window.innerWidth <= 820) {
-            window.scrollBy(0, delta);
-          } else {
-            panel.scrollTop += delta;
-          }
-        });
-      });
-    },
-    true,
-  );
-  // Real-world bug report, still reproducing on-device after the
-  // syncControls()/attachMoneyPreview/dynamic-list fixes above: focus a
-  // text/money field (opens the on-screen keyboard), then drag a slider
-  // elsewhere on the page while the text field's caret is still sitting in
-  // it (never blurred) — the keyboard pops back up over the field, even
-  // though nothing in this file's own code still writes to that field's
-  // `.value` or rebuilds its DOM node (both were audited and swept with
-  // Playwright across every slider in both files, at both desktop and
-  // mobile widths, with zero spurious writes and no focus loss found). This
-  // points to a platform-level quirk rather than a remaining DOM bug: some
-  // mobile browsers/WebViews re-evaluate whether to show the soft keyboard
-  // whenever the page regains "input focus" from a touch gesture, even one
-  // aimed at a completely different control, as long as some element (here,
-  // the text field the person never explicitly left) still technically has
-  // DOM focus. The fix that's actually within this file's control either
-  // way: explicitly blur the old field ourselves, as early in the gesture
-  // as possible, whenever a slider drag begins elsewhere. A field with no
-  // focus gives the OS keyboard nothing to reopen for, regardless of the
-  // exact underlying platform mechanism, and it also matches how a person
-  // would expect a well-behaved page to react to them starting to interact
-  // with something else. `pointerdown` (not `input`, which only fires once
-  // the drag has already started moving the thumb) is used so the blur
-  // happens at the very first touch, before any keyboard-reopen animation
-  // has a chance to begin.
-  document.addEventListener(
-    'pointerdown',
-    (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLInputElement) || t.type !== 'range') return;
-      const active = document.activeElement;
-      if (
-        active &&
-        active !== t &&
-        active instanceof HTMLInputElement &&
-        (active.type === 'text' || active.type === 'number') &&
-        typeof active.blur === 'function'
-      ) {
-        active.blur();
-      }
-    },
-    true,
-  );
-  // Touch/pen vs. page-scroll gesture disambiguation for range sliders.
-  //
-  // On-device testing (Android Chrome, see the slider-gesture-disambiguation
-  // branch's scope doc) ruled out the simpler "just watch touch direction,
-  // never call preventDefault()" approach: touching a native
-  // <input type=range> track snaps its value to the touch point on the very
-  // first touch, before any movement and before any JS runs, and further
-  // movement is then split between dragging the thumb and scrolling the
-  // page, with the scroll throttled to a fraction of the actual finger
-  // travel (confirmed with a diagnostic build: a 10px vertical drag produced
-  // under 2px of page scroll). There's no reliable way to get clean,
-  // deliberate behavior without taking over the whole gesture ourselves.
-  //
-  // A first version of this fix used `touch-action:none` on the slider plus
-  // `preventDefault()` in a pointer event handler, on the theory that
-  // either — or both together — would suppress the browser's native
-  // handling. On-device testing (real Android Chrome) disproved that
-  // theory completely: `getComputedStyle` confirmed `touch-action:none` was
-  // genuinely applying (it correctly stopped the page from panning), and
-  // instrumenting `Event.prototype.preventDefault` confirmed it was
-  // genuinely being called on every `pointerdown`/`pointermove` — and the
-  // slider *still* visibly jumped and dragged regardless. This browser
-  // treats a native `<input type=range>`'s own touch-drag as a default
-  // action that neither `touch-action` nor `preventDefault()` can suppress.
-  // Nothing short of keeping the touch from ever reaching the real input
-  // element in the first place actually works.
-  //
-  // So: `setupRangeTouchCatchers()` (below) wraps every slider in a small
-  // positioned container and inserts an invisible sibling
-  // `.range-touch-catcher` `<div>` directly on top of it. On a
-  // coarse-pointer (touch-primary) device, that catcher — not the real
-  // `<input>` — is what the finger actually lands on, via
-  // `@media(pointer:coarse){.range-touch-catcher{pointer-events:auto}}`
-  // (`pointer-events:none` the rest of the time, so mouse clicks pass
-  // straight through to the real input on every non-touch-primary device,
-  // completely unaffected). A structural guarantee like this is much
-  // stronger than hoping an API call suppresses a default action: the
-  // browser can't run a native default action on an element that never
-  // received the touch to begin with.
-  //
-  // The catcher's own `touch-action` is `pan-y`, not `none` — since it's a
-  // plain `<div>` with no default action of its own, `pan-y` lets the
-  // browser's native compositor-thread scrolling handle a vertical drag
-  // entirely for free (smooth, real momentum, zero JS involved), while
-  // still forbidding the catcher's own default handling of anything
-  // *other* than vertical panning — so a horizontal drag has no competing
-  // native behavior to fight, and this code is free to treat it purely as
-  // a slider drag. (This sidesteps the earlier "touch-action can't be
-  // flipped mid-gesture" problem entirely, because it's never flipped: the
-  // value is fixed from the start, and it's the browser's own native
-  // scrolling — not our JS — that's now doing the "scroll" half of the
-  // decision.)
-  //
-  // A `resolveRangeTarget()` fallback still recognizes a touch that lands
-  // directly on the real `<input>` (an older browser that doesn't support
-  // the `pointer` media feature, or any gap in the catcher's sizing) and
-  // falls back to the original touch-action:none/preventDefault()/manual-
-  // scroll approach for that path — belt-and-suspenders, not load-bearing,
-  // since the catcher is what actually carries the fix on the device this
-  // was tested against.
-  (function () {
-    const DRAG_THRESHOLD = 8; // px of movement before committing to drag-or-scroll
-
-    function setupRangeTouchCatchers() {
-      document.querySelectorAll('input[type=range]').forEach((input) => {
-        if (input.parentElement && input.parentElement.classList.contains('range-touch-wrap')) return;
-        const wrap = document.createElement('span');
-        wrap.className = 'range-touch-wrap';
-        input.parentNode.insertBefore(wrap, input);
-        wrap.appendChild(input);
-        const catcher = document.createElement('div');
-        catcher.className = 'range-touch-catcher';
-        catcher.setAttribute('aria-hidden', 'true');
-        catcher._rangeInput = input; // plain JS property, not a DOM attribute — internal use only
-        wrap.appendChild(catcher);
-      });
-    }
-    setupRangeTouchCatchers();
-
-    const gestures = new Map(); // pointerId -> gesture state
-
-    function isTouchLike(e) {
-      return e.pointerType === 'touch' || e.pointerType === 'pen';
-    }
-
-    // Returns { el, viaCatcher } for a touch/pen event aimed at a slider
-    // (through the catcher, the normal path, or directly at the real
-    // input, the fallback path), or null for anything else.
-    function resolveRangeTarget(e) {
-      const t = e.target;
-      if (t instanceof HTMLElement && t.classList.contains('range-touch-catcher') && t._rangeInput) {
-        return { el: t._rangeInput, viaCatcher: true };
-      }
-      if (t instanceof HTMLInputElement && t.type === 'range') {
-        return { el: t, viaCatcher: false };
-      }
-      return null;
-    }
-
-    // Fallback-path only (see file note above) — same "which container
-    // actually scrolls" split used elsewhere in this file: window on
-    // mobile (.panel is position:static there), .panel's own internal
-    // overflow-y:auto scroll on desktop.
-    function scrollContainerFor(el) {
-      let node = el.parentElement;
-      while (node && node !== document.body) {
-        const cs = getComputedStyle(node);
-        if (
-          (cs.overflowY === 'auto' || cs.overflowY === 'scroll') &&
-          node.scrollHeight > node.clientHeight
-        ) {
-          return node;
-        }
-        node = node.parentElement;
-      }
-      return window;
-    }
-
-    function scrollContainerBy(container, dy) {
-      if (container === window) window.scrollBy(0, dy);
-      else container.scrollTop += dy;
-    }
-
-    // Reimplements the native "tap/drag this X position on the track" math
-    // — needed on both paths, since neither the catcher (not a form
-    // control) nor the fallback path (touch-action:none there) gets this
-    // for free from the browser.
-    function valueFromPointerX(el, clientX) {
-      const rect = el.getBoundingClientRect();
-      const min = Number(el.min) || 0;
-      const max = Number(el.max) || 100;
-      const step = Number(el.step) || 1;
-      let frac = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
-      frac = Math.max(0, Math.min(1, frac));
-      let raw = min + frac * (max - min);
-      raw = Math.round((raw - min) / step) * step + min;
-      return Math.max(min, Math.min(max, raw));
-    }
-
-    function setSliderValue(el, v) {
-      const s = String(v);
-      if (el.value === s) return false;
-      el.value = s;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    }
-
-    document.addEventListener(
-      'pointerdown',
-      (e) => {
-        const target = resolveRangeTarget(e);
-        if (!target) return;
-        // The fallback (direct-input) path only intercepts touch/pen — a
-        // mouse there should behave exactly as native, since touch-action
-        // only affects touch/pen and there's a real native input to drag.
-        // The catcher path has no such native fallback (it's a plain div,
-        // not a form control), and CSS pointer-events doesn't filter by
-        // pointer type — on a coarse-pointer device (e.g. a touchscreen
-        // laptop) a plugged-in mouse would land on the catcher too, so it
-        // must be handled here regardless of pointerType or it would be
-        // silently swallowed.
-        if (!target.viaCatcher && !isTouchLike(e)) return;
-        gestures.set(e.pointerId, {
-          el: target.el,
-          viaCatcher: target.viaCatcher,
-          startX: e.clientX,
-          startY: e.clientY,
-          lastY: e.clientY,
-          decided: null, // null (undecided) | 'drag' | 'scroll'
-          container: null,
-        });
-        // Fallback path only: see the touch-action:none/preventDefault()
-        // note in the file comment above for why this alone isn't
-        // sufficient on every browser — it's the catcher path (see above)
-        // that actually carries the fix.
-        if (!target.viaCatcher && e.cancelable) e.preventDefault();
-      },
-      true,
-    );
-
-    document.addEventListener(
-      'pointermove',
-      (e) => {
-        const g = gestures.get(e.pointerId);
-        if (!g) return;
-        if (!g.viaCatcher && e.cancelable) e.preventDefault(); // fallback path only
-        const dx = e.clientX - g.startX;
-        const dy = e.clientY - g.startY;
-        if (!g.decided) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) < DRAG_THRESHOLD) return;
-          g.decided = Math.abs(dy) > Math.abs(dx) ? 'scroll' : 'drag';
-          if (g.decided === 'scroll') {
-            if (!g.viaCatcher) g.container = scrollContainerFor(g.el);
-            // Catcher path: nothing to do — its own touch-action:pan-y
-            // already lets the browser's native scrolling handle this.
-          } else {
-            try {
-              g.el.setPointerCapture(e.pointerId);
-            } catch (err) {
-              /* not critical — dragging still works without capture */
-            }
-          }
-        }
-        if (g.decided === 'drag') {
-          setSliderValue(g.el, valueFromPointerX(g.el, e.clientX));
-        } else if (!g.viaCatcher) {
-          scrollContainerBy(g.container, -(e.clientY - g.lastY));
-        }
-        g.lastY = e.clientY;
-      },
-      true,
-    );
-
-    function endGesture(e, isCancel) {
-      const g = gestures.get(e.pointerId);
-      if (!g) return;
-      if (!isCancel && g.decided === null) {
-        // Movement never crossed the threshold — a plain tap. Neither path
-        // gets a native tap-to-jump for free (the catcher isn't a form
-        // control; the fallback path's touch-action:none suppresses it),
-        // so this reimplements it directly.
-        setSliderValue(g.el, valueFromPointerX(g.el, e.clientX));
-        g.el.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (g.decided === 'drag') {
-        g.el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      gestures.delete(e.pointerId);
-    }
-    document.addEventListener('pointerup', (e) => endGesture(e, false), true);
-    document.addEventListener('pointercancel', (e) => endGesture(e, true), true);
-  })();
+  wireInputGestures();
   // Everything the status bar shows (retirement age, investable assets at
   // retirement, whether the plan depletes) is already computed by every
   // render() call — no extra cost. The one thing that isn't cheap is the
@@ -4170,12 +3024,8 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     applyTheme();
   });
   applyTheme();
-  setSidebarCollapsed(sidebarCollapsed);
-  document.getElementById('sidebarCollapseBtn').addEventListener('click', () => setSidebarCollapsed(!sidebarCollapsed));
-  document.getElementById('categoryRail')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-cat]');
-    if (btn) setActiveCategory(btn.dataset.cat, { scrollToRail: true });
-  });
+  wireSidebarCollapse();
+  wireCategoryRail();
   // Charts measure their canvas via getBoundingClientRect(), which is only
   // correct once .workspace's grid-template-columns transition has
   // actually finished (same reasoning as the chart-expand feature's
@@ -4206,72 +3056,9 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     window.visualViewport.addEventListener('scroll', syncKeyboardInset);
   }
   // @@shared:27-syncKeyboardInset end
-  // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
-  // fields needed to get any projection running at all (single/partnered,
-  // ages, income, retirement age, starting balances, spending); step 2 is the
-  // existing optional-feature checklist. Every wizard field proxies its real
-  // sidebar control by driving it and dispatching a real input/change event,
-  // so all the existing state-mutation/hide/re-render logic runs exactly
-  // once, from a single source of truth, whether set here or in the sidebar.
-  [
-    ['wizardLtcEnabled', 'ltcEnabled'],
-    ['wizardAcaEnabled', 'acaEnabled'],
-    ['wizardRothConvEnabled', 'rothConvEnabled'],
-    ['wizardMegaBackdoor', 'megaBackdoor'],
-    ['wizardGuardrailsEnabled', 'guardrailsEnabled'],
-    ['wizardSinglePerson', 'singlePerson'],
-  ].forEach(([wizardId, realId]) => {
-    document.getElementById(wizardId).addEventListener('change', (e) => {
-      const real = document.getElementById(realId);
-      real.checked = e.target.checked;
-      real.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-  });
+  wireWizardCheckboxes();
   // @@shared:28-wizardOverlay begin
-  // Every wizard input that proxies a sidebar control names it in data-wizard-mirror: a
-  // change drives the real control with real input/change events, so all the existing
-  // state, visibility and render logic runs once, from one source of truth.
-  document.querySelectorAll('[data-wizard-mirror]').forEach((wizardEl) => {
-    wizardEl.addEventListener('change', (e) => {
-      const real = document.getElementById(wizardEl.dataset.wizardMirror);
-      real.value = e.target.value;
-      real.dispatchEvent(new Event('input', { bubbles: true }));
-      real.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-  });
-  let wizardStep = 1;
-  function renderWizardStep() {
-    wizardSteps.forEach((el, i) => (el.hidden = wizardStep !== i + 1));
-    const current = wizardSteps[wizardStep - 1];
-    document.getElementById('wizardTitle').textContent = current.dataset.title;
-    document.getElementById('wizardStepNote').textContent =
-      `Step ${wizardStep} of ${wizardSteps.length} — ${current.dataset.note}`;
-    document.getElementById('wizardBackBtn').hidden = wizardStep === 1;
-    document.getElementById('wizardNextBtn').hidden = wizardStep === wizardSteps.length;
-    document.getElementById('wizardCloseBtn').hidden = wizardStep === 1;
-    // #wizardModal itself is the scrolling container (overflow:auto) — it's
-    // one persistent element across every step, never recreated, so its
-    // scrollTop carries over from whatever step was showing before. Without
-    // this, clicking "Next" from partway (or all the way) down a long step
-    // left the next step rendered already scrolled to that same position —
-    // often right at the bottom, since the Next button itself sits at the
-    // very end of the step. Reset on every step change (including the initial
-    // open) so each step always starts at its own top.
-    document.getElementById('wizardModal').scrollTop = 0;
-  }
-  document.getElementById('wizardBtn').addEventListener('click', () => {
-    wizardStep = 1;
-    renderWizardStep();
-    wizardOverlay.classList.add('open');
-  });
-  document.getElementById('wizardNextBtn').addEventListener('click', () => {
-    wizardStep = Math.min(wizardSteps.length, wizardStep + 1);
-    renderWizardStep();
-  });
-  document.getElementById('wizardBackBtn').addEventListener('click', () => {
-    wizardStep = Math.max(1, wizardStep - 1);
-    renderWizardStep();
-  });
+  wireWizard();
   document.getElementById('wizardCloseBtn').addEventListener('click', () => {
     wizardOverlay.classList.remove('open');
     // "What's visible after the wizard is done" should be the plan itself,
@@ -4280,18 +3067,7 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     // setMobileView has no visible effect; see the CSS note above).
     setMobileView('dashboard');
   });
-  wizardOverlay.addEventListener('click', (e) => {
-    if (e.target === wizardOverlay) wizardOverlay.classList.remove('open');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') wizardOverlay.classList.remove('open');
-  });
-  // Visible on every wizard step (unlike wizardBackBtn/wizardNextBtn/
-  // wizardCloseBtn, which the wizardStep hidden-toggling logic above
-  // governs) — does exactly what Escape/outside-click already do.
-  document.getElementById('wizardXBtn').addEventListener('click', () => {
-    wizardOverlay.classList.remove('open');
-  });
+  wireWizardDismiss();
   // The tornado chart is only computed while expanded (it's a handful of
   // extra simulate() calls, cheap but pointless work while collapsed), so
   // opening it needs its own trigger since no input necessarily changed.
@@ -4538,11 +3314,7 @@ import { withdrawStandard } from './core/withdraw-standard.js';
   syncKeyboardInset();
   initChartHover();
 
-  makeTableWrapsFocusable();
-  new MutationObserver(() => makeTableWrapsFocusable()).observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
+  wireTableFocus();
 
   if (mc?.registerTool) {
     mc.registerTool({
@@ -4580,27 +3352,7 @@ import { withdrawStandard } from './core/withdraw-standard.js';
     });
   }
   // @@shared:29-dismissFirstRunBanner end
-  // @@shared:block begin
-  // Test-only exports for test_roth_optimizer_per_year.js — specifically
-  // the brute-force-cross-check test, which needs to independently drive
-  // the per-year override and re-score arbitrary candidate schedules to
-  // verify optimizeRothLadderPerYear() actually finds the true global
-  // optimum, not just "some" answer. There's no way to construct that
-  // check through the DOM alone (the UI only ever sets one flat bracket
-  // across a whole window), so these mirror the same
-  // window.fireProjectionRows-style precedent already used above for the
-  // MCP tool hooks: a deliberate, narrow exposure of internal state for
-  // tooling, not an accident to clean up. Harmless in production (no
-  // user data, nothing network-reachable, purely references to functions
-  // that already exist in this closure).
-  window.__test_simulate = simulate;
-  window.__test_simulateHistorical = simulateHistorical;
-  window.__test_runHistoricalCycles = runHistoricalCycles;
-  window.__test_runMonteCarlo = runMonteCarlo;
-  window.__test_refillBondReserve = refillBondReserve;
-  window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
-  window.__test_HIST = HIST;
-  // @@shared:block end
+  installSharedTestHooks();
   window.__test_simulateRaw = simulate;
   window.__test_simulateHistoricalRaw = simulateHistorical;
   // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).

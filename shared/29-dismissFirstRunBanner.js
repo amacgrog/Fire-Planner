@@ -166,11 +166,7 @@
   syncKeyboardInset();
   initChartHover();
 
-  makeTableWrapsFocusable();
-  new MutationObserver(() => makeTableWrapsFocusable()).observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
+  wireTableFocus();
 
   if (mc?.registerTool) {
     mc.registerTool({

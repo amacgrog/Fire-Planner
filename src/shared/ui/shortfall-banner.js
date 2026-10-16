@@ -1,4 +1,7 @@
-  function renderShortfallBanner(selected) {
+import { state } from '../core/store.js';
+import { analyzeShortfallDrivers } from '#country/core/seam-analyzeShortfallDrivers';
+
+  export function renderShortfallBanner(selected) {
     const banner = document.getElementById('shortfallBanner');
     const driver = analyzeShortfallDrivers(selected);
     if (!driver) {
