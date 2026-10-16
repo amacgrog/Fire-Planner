@@ -23,10 +23,21 @@
 // where the run's first statement stood, and imports it. A split declaration is written as `let <name>;` and the statement
 // `<name> = <init>;` (the split's label in the run) stands at its position in the run. A side-effect statement moves only
 // as part of its module's wiring, and only if it can live in a function body unchanged (functionBodyProblem).
+//
+// Stage 4 (design sections 5.2, 5.3, 5.6), options `seamSides`, `wiringRecord`, `pinned`:
+// - `seamSides` ({ <name>: 'ui' | 'core' }, core when absent) puts a seam name's facades under src/<country>/<side>/, imported
+//   as '#country/<side>/seam-<name>'; both countries must have the same facades in core/ and in ui/.
+// - A module import cycle is accepted only when every module in it is under a ui/ directory and passes the load-time guard
+//   (checkLoadTime, with the names it imports from its cycle partners); otherwise it is refused.
+// - A shared region whose remaining lines are blank lines, comments, wiring calls (`<name>();`, <name> in `wiringRecord`
+//   ([{ name, module }], every batch up to this one) and imported into main.js from a ui/ module) and statements whose label is
+//   in `pinned` (the topics file's `main` lists) is emptied: its markers and fragment go, its lines stay in main.js. Shape
+//   alone never counts. Its remaining text must be identical in both planners (checked before the markers go).
 const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
 const { analyze, undeclaredNames } = require('../analyze-closure');
+const { checkLoadTime } = require('./load-time');
 
 const COUNTRIES = ['us', 'canada'];
 const SHARED_MARK = /^\s*\/\/ @@shared:(\S+) (begin|end)\s*$/;
@@ -193,10 +204,33 @@ function importLine(specs, source) {
 const SEAM_PREFIX = 'seam:'; // a need keyed `seam:<name>` is imported from that name's facade
 const seamKey = (name) => `${SEAM_PREFIX}${name}`;
 const SEAM_FACADE = /^seam-(.+)\.js$/;
-const seamFacadeFile = (root, c, name) => path.join(root, 'src', c, 'core', `seam-${name}.js`);
+const SEAM_DIRS = ['core', 'ui'];
+const seamFacadeFile = (root, c, side, name) => path.join(root, 'src', c, side, `seam-${name}.js`);
+const isUiPath = (p) => /^src\/[^/]+\/ui\//.test(posix(p));
 
-function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
+// A path from a strongly connected set of modules back to its first one, for the error text: a -> b -> a.
+function cyclePath(comp, edges) {
+  const inComp = new Set(comp);
+  const start = comp[0];
+  const seen = new Set();
+  const find = (m, trail) => {
+    for (const t of edges.get(m)) {
+      if (t === start) return [...trail, m, t];
+      if (!inComp.has(t) || seen.has(t)) continue;
+      seen.add(t);
+      const p = find(t, [...trail, m]);
+      if (p) return p;
+    }
+    return null;
+  };
+  return find(start, []) || [start, start];
+}
+
+function applyModules(root, modules, { dryRun = false, seam = [], seamSides = {}, wiringRecord = [], pinned = [] } = {}) {
   const seamSet = new Set(seam);
+  const sideOf = (name) => (seamSides[name] === 'ui' ? 'ui' : 'core');
+  const recordNames = new Set(wiringRecord.map((w) => w.name));
+  const pinnedSet = new Set(pinned);
   const facade = { us: new Map(), canada: new Map() }; // seam name -> absolute path of the module that holds it
   const info = Object.fromEntries(COUNTRIES.map((c) => [c, loadCountry(root, c)]));
   const warnings = [];
@@ -420,26 +454,22 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     if (!sameNeeds(m)) throw new Error(`${m.path}: its imports differ between the two planners`);
   }
 
-  // module import cycle check
+  // the module import graph (a seam name's facade is a pass-through to the module that holds it); its cycles are checked
+  // once the module texts exist (below)
   const edges = new Map(modules.map((m) => [m, new Set()]));
+  const importedFrom = new Map(modules.map((m) => [m, new Map()])); // module -> Map(target module -> Set(local names))
   for (const m of modules) {
     for (const c of m.owner === 'shared' ? COUNTRIES : [m.owner]) {
-      for (const [target] of needs.get(m)?.[c] || new Map()) {
+      for (const [target, names] of needs.get(m)?.[c] || new Map()) {
         const file = target.startsWith(SEAM_PREFIX) ? facade[c].get(target.slice(SEAM_PREFIX.length)) : target;
         const t = modules.find((x) => path.join(root, x.path) === file);
-        if (t && t !== m) edges.get(m).add(t);
+        if (!t || t === m) continue;
+        edges.get(m).add(t);
+        if (!importedFrom.get(m).has(t)) importedFrom.get(m).set(t, new Set());
+        names.forEach((_, local) => importedFrom.get(m).get(t).add(local));
       }
     }
   }
-  const state = new Map();
-  const walk = (m, trail) => {
-    if (state.get(m) === 'done') return;
-    if (state.get(m) === 'open') throw new Error(`module import cycle: ${[...trail, m].map((x) => x.path).join(' -> ')}`);
-    state.set(m, 'open');
-    edges.get(m).forEach((t) => walk(t, [...trail, m]));
-    state.set(m, 'done');
-  };
-  modules.forEach((m) => walk(m, []));
 
   // ---- 4. write the modules
   for (const m of modules) {
@@ -450,7 +480,7 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     for (const [target, names] of [...byTarget].sort((a, b) => a[0].localeCompare(b[0]))) {
       const specs = [...names].map(([local, imported]) => ({ local, imported })).sort((a, b) => a.local.localeCompare(b.local));
       const source = target.startsWith(SEAM_PREFIX)
-        ? `#country/core/seam-${target.slice(SEAM_PREFIX.length)}`
+        ? `#country/${sideOf(target.slice(SEAM_PREFIX.length))}/seam-${target.slice(SEAM_PREFIX.length)}`
         : target.startsWith('bare:') ? target.slice(5) : relImport(abs, target);
       importLines.push(importLine(specs, source));
     }
@@ -489,6 +519,51 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     const bad = undeclaredNames(text);
     if (bad.length) throw new Error(`${m.path}: undeclared names ${bad.map((b) => `${b.name} (line ${b.line})`).join(', ')}`);
     files.set(abs, text);
+  }
+
+  // module import cycles (Tarjan): accepted only when every module is under ui/ and each passes the load-time guard with the
+  // names it imports from the other modules of the cycle (design section 5.3)
+  {
+    const index = new Map();
+    const low = new Map();
+    const stack = [];
+    const onStack = new Set();
+    const comps = [];
+    const visit = (v) => {
+      index.set(v, index.size);
+      low.set(v, index.get(v));
+      stack.push(v);
+      onStack.add(v);
+      for (const w of edges.get(v)) {
+        if (!index.has(w)) {
+          visit(w);
+          low.set(v, Math.min(low.get(v), low.get(w)));
+        } else if (onStack.has(w)) low.set(v, Math.min(low.get(v), index.get(w)));
+      }
+      if (low.get(v) !== index.get(v)) return;
+      const comp = [];
+      let w;
+      do {
+        w = stack.pop();
+        onStack.delete(w);
+        comp.push(w);
+      } while (w !== v);
+      if (comp.length > 1) comps.push(comp.sort((a, b) => modules.indexOf(a) - modules.indexOf(b)));
+    };
+    modules.forEach((m) => index.has(m) || visit(m));
+    for (const comp of comps) {
+      const where = `module import cycle: ${cyclePath(comp, edges).map((x) => x.path).join(' -> ')}`;
+      if (!comp.every((m) => isUiPath(m.path))) throw new Error(`${where} (not every module of the cycle is under ui/)`);
+      const problems = [];
+      for (const m of comp) {
+        const cyclePartners = new Set();
+        for (const [t, locals] of importedFrom.get(m)) if (t !== m && comp.includes(t)) locals.forEach((n) => cyclePartners.add(n));
+        for (const p of checkLoadTime(files.get(path.join(root, m.path)), { cyclePartners })) {
+          problems.push(`${m.path} line ${p.line}: ${p.name ? `${p.name}: ` : ''}${p.why}`);
+        }
+      }
+      if (problems.length) throw new Error(`${where}; load-time guard: ${problems.join('; ')}`);
+    }
   }
 
   // ---- 5. rewrite main.js (and the shared fragments)
@@ -553,17 +628,65 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
   };
   const fragmentDir = path.join(root, 'shared');
   const deleted = new Set();
+  // Which regions of a planner's new main.js are emptied: every statement in it a wiring call or pinned, no declaration,
+  // and every other line blank or a comment (design section 5.6).
+  const emptiable = (c, text, lines, regions) => {
+    const model = analyze(text);
+    const nodeAt = iifeNodes(text);
+    const fromUi = new Set();
+    for (const imp of model.imports) {
+      const spec = imp.source;
+      const ui = spec.startsWith('#country/ui/') || (spec.startsWith('.') && isUiPath(path.relative(root, path.resolve(info[c].mainDir, spec))));
+      if (ui && imp.imported === imp.local) fromUi.add(imp.local);
+    }
+    const isWiringCall = (u) => {
+      const node = nodeAt.get(u.startLine);
+      const call = node && node.type === 'ExpressionStatement' ? node.expression : null;
+      if (!call || call.type !== 'CallExpression' || call.optional || call.arguments.length || call.callee.type !== 'Identifier') return false;
+      const name = call.callee.name;
+      return text.slice(node.range[0], node.range[1]) === `${name}();` && recordNames.has(name) && fromUi.has(name);
+    };
+    const out = new Set();
+    for (const r of regions) {
+      // lines are 0-based here; units are 1-based: the content is lines r.contentStart .. r.end - 1
+      const inside = model.units.filter((u) => u.startLine - 1 >= r.contentStart && u.startLine - 1 < r.end);
+      if (!inside.every((u) => u.kind === 'statement' && (pinnedSet.has(u.label) || isWiringCall(u)))) continue;
+      const covered = new Set();
+      inside.forEach((u) => { for (let n = u.startLine - 1; n < u.endLine; n++) covered.add(n); });
+      let inBlock = false;
+      let ok = true;
+      for (let i = r.contentStart; i < r.end && ok; i++) {
+        if (covered.has(i)) continue;
+        const l = lines[i];
+        if (inBlock) inBlock = !/\*\//.test(l);
+        else if (/^\s*\/\*/.test(l)) inBlock = !/\*\/\s*$/.test(l);
+        else ok = l.trim() === '' || /^\s*\/\//.test(l);
+      }
+      if (ok && !inBlock) out.add(r.name);
+    }
+    return out;
+  };
+  const parsedMain = Object.fromEntries(COUNTRIES.map((c) => [c, regionsOf(mainText[c])]));
+  const emptied = Object.fromEntries(COUNTRIES.map((c) => [c, emptiable(c, mainText[c], parsedMain[c].lines, parsedMain[c].regions)]));
+  // the text that stays must read the same in both planners, checked before any marker is removed
+  for (const name of emptied.us) {
+    if (!emptied.canada.has(name)) continue; // emptied in one planner only: refused below
+    const contentOf = (c) => {
+      const r = parsedMain[c].regions.find((x) => x.name === name);
+      return parsedMain[c].lines.slice(r.contentStart, r.end).join('\n');
+    };
+    if (contentOf('us') !== contentOf('canada')) {
+      throw new Error(`region ${name}: the text left after the move differs between the two planners, so it cannot be emptied`);
+    }
+  }
   for (const c of COUNTRIES) {
-    const { lines, regions } = regionsOf(mainText[c]);
+    const { lines, regions } = parsedMain[c];
     const removeLine = new Set();
     for (const r of regions) {
-      const content = lines.slice(r.contentStart, r.end);
-      if (content.every((l) => l.trim() === '' || /^\s*\/\//.test(l))) {
-        const leftovers = content.filter((l) => l.trim() !== '');
-        if (leftovers.length) warnings.push(`${c}: region ${r.name} was emptied; dropped ${leftovers.length} comment line(s) that belonged to no unit`);
-        for (let n = r.begin; n <= r.end; n++) removeLine.add(n);
-        deleted.add(r.name);
-      }
+      if (!emptied[c].has(r.name)) continue;
+      removeLine.add(r.begin); // only the markers go: what is left stays in main.js
+      removeLine.add(r.end);
+      deleted.add(r.name);
     }
     files.set(info[c].file, lines.filter((_, i) => !removeLine.has(i)).join('\n'));
   }
@@ -588,26 +711,35 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     files.set(path.join(fragmentDir, `${name}.js`), null);
   }
 
-  // the country seam facades: one file per name
+  // the country seam facades: one file per name, under core/ or ui/ by the name's side (design section 5.2)
+  for (const [name, side] of Object.entries(seamSides)) {
+    if (side !== 'ui' && side !== 'core') throw new Error(`seam name ${name}: unknown side "${side}" (ui or core)`);
+  }
   const facadeNames = {};
+  const facadeKeys = {}; // '<side>/<name>', for the equality check over both directories
   for (const c of COUNTRIES) {
-    const coreDir = path.join(root, 'src', c, 'core');
-    const names = new Set(facade[c].keys());
-    if (fs.existsSync(coreDir)) {
-      for (const f of fs.readdirSync(coreDir)) {
+    const keys = new Set([...facade[c].keys()].map((name) => `${sideOf(name)}/${name}`));
+    for (const side of SEAM_DIRS) {
+      const dir = path.join(root, 'src', c, side);
+      if (!fs.existsSync(dir)) continue;
+      for (const f of fs.readdirSync(dir)) {
         const hit = SEAM_FACADE.exec(f);
-        if (hit) names.add(hit[1]);
+        if (hit) keys.add(`${side}/${hit[1]}`);
       }
     }
-    facadeNames[c] = [...names].sort();
     for (const [name, target] of facade[c]) {
-      const seamFile = seamFacadeFile(root, c, name);
+      const side = sideOf(name);
+      const other = seamFacadeFile(root, c, side === 'ui' ? 'core' : 'ui', name);
+      if (fs.existsSync(other)) throw new Error(`seam name ${name}: its facade goes under ${side}/ but ${posix(path.relative(root, other))} exists`);
+      const seamFile = seamFacadeFile(root, c, side, name);
       const text = `export { ${name} } from '${relImport(seamFile, target)}';\n`;
       if (!fs.existsSync(seamFile) || readText(seamFile) !== text) files.set(seamFile, text);
     }
+    facadeKeys[c] = [...keys].sort();
+    facadeNames[c] = [...new Set(facadeKeys[c].map((k) => k.slice(k.indexOf('/') + 1)))].sort();
   }
-  if (JSON.stringify(facadeNames.us) !== JSON.stringify(facadeNames.canada)) {
-    throw new Error(`the country seam facades differ: us exports ${facadeNames.us.join(', ')}; canada exports ${facadeNames.canada.join(', ')}`);
+  if (JSON.stringify(facadeKeys.us) !== JSON.stringify(facadeKeys.canada)) {
+    throw new Error(`the country seam facades differ: us exports ${facadeKeys.us.join(', ')}; canada exports ${facadeKeys.canada.join(', ')}`);
   }
 
   // ---- 6. verify the result

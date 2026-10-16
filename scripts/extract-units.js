@@ -26,8 +26,16 @@ if (!modules.length) {
   process.exit(2);
 }
 const dryRun = args.includes('--dry-run');
+// Stage 4: the facade side of each seam name, the wiring functions of every batch up to this one (the cumulative record),
+// and the statements the topics file (named by the manifest) pins to main.js.
+const seamSides = manifest.seamSides || {};
+const wiringRecord = manifest.modules
+  .filter((m) => m.batch <= batch)
+  .flatMap((m) => (m.wiring || []).map((w) => ({ name: w.name, module: m.path })));
+const topics = manifest.topics ? JSON.parse(fs.readFileSync(path.resolve(root, manifest.topics), 'utf8')) : {};
+const pinned = ['shared', 'us', 'canada'].flatMap((k) => (topics[k] && topics[k].main) || []);
 try {
-  const report = applyModules(root, modules, { dryRun, seam: manifest.seam || [] });
+  const report = applyModules(root, modules, { dryRun, seam: manifest.seam || [], seamSides, wiringRecord, pinned });
   console.log(`${dryRun ? '[dry run] ' : ''}batch ${batch}: ${report.modules.length} modules; units moved: us ${report.moved.us}, canada ${report.moved.canada}`);
   if (report.deletedRegions.length) console.log(`regions removed: ${report.deletedRegions.join(', ')}`);
   if (report.seam.us.length) console.log('seam names: ' + report.seam.us.join(', '));
