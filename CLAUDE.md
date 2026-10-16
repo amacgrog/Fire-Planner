@@ -536,7 +536,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   IRAs first. Batch 3B replaces the fractional blend with a per-account status.
 - **Contribution limits and profit sharing (US, E1a).** `PLAN_LIMITS` (2026 values: the $72,000 annual limit, the
   catch-ups outside it, the $360,000 compensation limit; indexed by `limitFactor`) and `allocatePlanRoom(room, amounts,
-  out)` (pure, country-neutral, allocation-free; moves to `shared/` at E1-CA) sit above `retirementContributions`, which
+  out)` (pure, country-neutral, allocation-free; in `src/us/core/payroll-and-plan-limits.js`, to move to `src/shared/core/` at E1-CA) sit above `retirementContributions`, which
   returns the limited `matchA/B`, `profitA/B` and `employerContrib` (the year loop's `employerMatch`). One room per
   partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
   `min(pay, annual limit) - deferrals` (catch-ups outside it); the mega backdoor is further capped at pay less deferral and catch-up (the employee's own money never exceeds pay); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
@@ -739,7 +739,9 @@ between the planners, first remove the difference, then move it into one `src/sh
 goes through a seam). The two `runProjection` year loops are deliberately not shared (`src/us/core/run-projection.js`,
 `src/canada/core/run-projection.js`; see `docs/phase2-refactor-plan.md` section 7, step 4.5): put a new per-year rule in a
 shared stage helper when it is identical in both countries, otherwise edit each loop. Line endings do not matter: the build and
-the analysis tools normalize CRLF to LF on read.
+the analysis tools normalize CRLF to LF on read, and the regroup tool writes LF (including this file and `tests/state_modules.js`);
+git normalizes on commit (`core.autocrlf=true`), so a CRLF checkout shows "LF will be replaced by CRLF" warnings until then and
+nothing needs converting by hand.
 
 ## Shared state and country seams (stage 1 of the module split)
 
@@ -802,8 +804,12 @@ the analysis tools normalize CRLF to LF on read.
   Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
   export the same names. The alias is resolved by the build condition (`us`/`canada`).
 - **UI import cycles and the load-time guard.** Import cycles are allowed only among `ui/` modules (seam facades included; a facade's
-  re-export is a pass-through edge): today one per country, around `render` (country `render` -> decision questions -> `setChartView` ->
-  `render`). `core/` stays acyclic (`tests/core_import.js`). esbuild turns a module's top-level `const` and `let` into `var` and bundles
+  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 13 modules,
+  the nine shared `src/shared/ui/` modules `chart-view-mode.js`, `decision-questions.js`, `estimate-badges.js`, `estimate-review.js`,
+  `mobile-view.js`, `plan-status-bar.js`, `sankey.js`, `tornado.js` and `unusual-warnings.js`, plus that country's `ui/chart-controls.js`,
+  `ui/chart-view.js`, `ui/decision-questions.js` and `ui/render.js`, allowed because every one passes the load-time guard below. It
+  started with the chain country `render` -> decision questions -> `setChartView` -> `render` (an example, not the whole cycle).
+  `core/` stays acyclic (`tests/core_import.js`). esbuild turns a module's top-level `const` and `let` into `var` and bundles
   in dependency order, so a read across a cycle while modules load would give a silent `undefined` (native ESM: a TDZ error). The guard
   (`scripts/lib/load-time.js`, run by `tests/ui_cycles.js` on every `ui/` module, by the applier on a cycle it would create and by the
   regroup tool after every operation): a `ui/` module holds no top-level statement other than declarations (its statements are in
@@ -838,7 +844,10 @@ the analysis tools normalize CRLF to LF on read.
   (`regenerate: npm run gen:...`). After every operation it re-runs the structural guards (facade side, `core/` purity, no cycle touching
   `core/`, the load-time guard, no undeclared name, no initializer reading a later declaration) and bundles both planners to report any
   change in the order the `// load-time:` initializers run; it refuses a name clash, a mutable binding moved without all its writers and
-  UI code moved into `core/`. A failure refuses the whole map. `scripts/extractions/stage4-regroup.json` is the stage 4 tidy.
+  UI code moved into `core/`. It checks every operation, on a staged copy, before it writes anything: a failed check refuses the whole
+  map and writes nothing. Writing is staged files renamed into place at the end, so an operating-system failure during those final
+  renames (a Windows file lock) can still leave a partial application, visible in `git status` (a T12 limit in
+  `docs/superpowers/inventory/stage4-open-items.md`). It writes LF line endings (see "Shared code between the planners"). `scripts/extractions/stage4-regroup.json` is the stage 4 tidy.
 - **The build comparison.** `node scripts/compare-builds.js --base <dir> [--head <dir>] [--ordered]` compares the built planners of two trees
   (each with a built `dist/`) statement by statement: it flattens the IIFEs, expands each wiring function back into its call site (a new
   top-level function called exactly once as `name();`), undoes the split rule, and compares the multisets of statements; `--ordered` also

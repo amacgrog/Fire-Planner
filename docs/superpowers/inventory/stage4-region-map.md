@@ -5,8 +5,8 @@ applied, and the unit-to-region table of the rehearsal inventory (`2c1064f`). St
 left after stage 3; this table says which module now holds the units of each (a region's units extracted in stages 2 and 3 are in
 `stage2-region-map.md` and `stage3-region-map.md`). Module paths are final (after the tidy's renames, merges and moves). The
 eight boot statements of region 29 (`if (hadSavedState) dismissFirstRunBanner();` through `initChartHover();`) stay in each
-planner's `main.js`, pinned there by the topics file. Statements moved into wiring functions, which `main.js` calls where the
-statements used to run. No region, marker or `shared/` fragment is left.
+planner's `main.js`, pinned there by the topics file. Every other statement of a region moved into a wiring function of the module
+listed, and `main.js` calls that function where the statements used to run. No region, marker or `shared/` fragment is left.
 
 | old shared region | module |
 |---|---|
