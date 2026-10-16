@@ -50,7 +50,9 @@ const { buildGraph, cycles } = require('./module-graph');
 const ECMA = 2022;
 const COUNTRIES = ['us', 'canada'];
 const OUTSIDE = ['tests/state_modules.js', 'CLAUDE.md'];
-const DATA_END = /^\s*\/\/ ([A-Z][A-Z_]*):end\s*$/;
+// a data-block marker line, `// NAME:begin` or `// NAME:end` (the form scripts/analyze-closure.js, scripts/lib/extract-units.js
+// and scripts/lib/marker-source.js read; the generators evaluate what lies between the two)
+const DATA_MARK = /^\s*\/\/ ([A-Z][A-Z_]*):(begin|end)\s*$/;
 const DOM_METHODS = /\.(addEventListener|removeEventListener|setSelectionRange|appendChild|removeChild|setAttribute|removeAttribute|querySelector|querySelectorAll|classList|innerHTML|textContent|getBoundingClientRect)\b/;
 const IMPORT_SOURCE = /(?:from|import)\s*['"]([^'"]+)['"]/g;
 const SEAM_FILE = /^src\/(us|canada)\/(core|ui)\/seam-([^/]+)\.js$/;
@@ -337,7 +339,8 @@ function setExport(text, rel, name, on) {
   return text;
 }
 
-// The statement's lines with its contiguous comment block above it (and a `// NAME:end` marker right after it).
+// The statement's lines with its contiguous comment block above it. The walk stops at a data-block marker: an end marker
+// belongs to the block above, never to the declaration after it.
 function chunkOf(text, rel, st, ast) {
   const lines = text.split('\n');
   const { start: s, end: e } = wholeLines(text, st, rel);
@@ -346,6 +349,7 @@ function chunkOf(text, rel, st, ast) {
   let start = s;
   while (start - 1 > floor) {
     const above = lines[start - 2];
+    if (DATA_MARK.test(above)) break;
     if (/^\s*\/\//.test(above)) {
       start--;
       continue;
@@ -366,9 +370,27 @@ function chunkOf(text, rel, st, ast) {
   }
   // never the purpose comment (it is followed by a blank line, so it is not contiguous; this guards line 1 alone)
   if (start === 1 && purposeLines(text) === 2) start = 3;
-  let end = e;
-  if (DATA_END.test(lines[end] || '')) end++;
-  return { start, end, lines: lines.slice(start - 1, end) };
+  return { start, end: e, lines: lines.slice(start - 1, e) };
+}
+// The data blocks of a file, [{ name, begin, end }] (1-based lines), and the first marker name that is not paired (a begin
+// without its end, an end without its begin, or a begin inside another block), or null.
+function dataBlocks(text) {
+  const blocks = [];
+  let open = null;
+  let unpaired = null;
+  text.split('\n').forEach((line, i) => {
+    const m = DATA_MARK.exec(line);
+    if (!m || unpaired) return;
+    if (m[2] === 'begin') {
+      if (open) unpaired = open.name;
+      else open = { name: m[1], begin: i + 1 };
+    } else if (!open || open.name !== m[1]) unpaired = m[1];
+    else {
+      blocks.push({ ...open, end: i + 1 });
+      open = null;
+    }
+  });
+  return { blocks, unpaired: unpaired || (open && open.name) || null };
 }
 const trimBlank = (lines) => {
   let a = 0;
@@ -600,6 +622,8 @@ function regroup(root, operations, { dryRun = false } = {}) {
     for (const rel of touched) {
       if (!staged.has(rel)) continue;
       const text = staged.get(rel);
+      const pairs = dataBlocks(text);
+      if (pairs.unpaired) refuse(`data-block markers are not paired in ${rel}: ${pairs.unpaired}`);
       const bad = undeclaredNames(text);
       if (bad.length) refuse(`undeclared names in ${rel}: ${bad.map((b) => `${b.name} (line ${b.line})`).join(', ')}`);
       // an initializer that runs at load must not read a binding declared later in the file (a TDZ error)
@@ -859,6 +883,8 @@ function regroup(root, operations, { dryRun = false } = {}) {
     if (d.group) refuse(`${name} shares its declaration with other names in ${from}`);
     if (shape.exportList.has(name)) refuse(`${name} is exported through an export list in ${from}`);
     const st = d.st;
+    const block = dataBlocks(fromText).blocks.find((b) => b.begin < st.loc.start.line && st.loc.end.line < b.end);
+    if (block) refuse(`${name} lies inside the data block ${block.name} in ${from} (lines ${block.begin}-${block.end}); a data block does not move`);
     const inside = (node) => node.range[0] >= st.range[0] && node.range[1] <= st.range[1];
     const sm = eslintScope.analyze(shape.ast, { ecmaVersion: ECMA, sourceType: 'module' });
     const modScope = sm.scopes.find((s) => s.type === 'module');

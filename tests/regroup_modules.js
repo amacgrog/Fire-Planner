@@ -11,7 +11,13 @@ const { execFileSync, spawnSync } = require('child_process');
 const esbuild = require('esbuild');
 const { regroup } = require('../scripts/lib/regroup');
 
-const made = [];
+// Every temp directory of this run (fixture trees and the tool's own regroup-* directories, also those of the CLI child
+// processes, which inherit the environment) lives under one private directory, so the leak check below counts only this
+// run's directories and another process running the tool at the same time cannot make it fail.
+const PRIVATE_TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'regroupmodules-test-'));
+for (const k of ['TMPDIR', 'TMP', 'TEMP']) process.env[k] = PRIVATE_TMP;
+if (os.tmpdir() !== PRIVATE_TMP) throw new Error('os.tmpdir() does not follow the environment');
+const made = [PRIVATE_TMP];
 function write(root, rel, text) {
   const full = path.join(root, rel);
   fs.mkdirSync(path.dirname(full), { recursive: true });
@@ -107,10 +113,10 @@ function refuses(root, ops, re, what) {
   assert.deepStrictEqual(snapshot(root), before, `${what}: nothing is written`);
   return err;
 }
-const tmpRegroupDirs = () => fs.readdirSync(os.tmpdir()).filter((n) => /^regroup-(?!test-)/.test(n));
+const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup-(?!test-)/.test(n));
 
 (async () => {
-  const tmpBefore = new Set(tmpRegroupDirs());
+  assert.deepStrictEqual(tmpRegroupDirs(), [], 'the private temp directory starts empty');
 
   // ---- 0. the base fixture builds
   {
@@ -278,6 +284,31 @@ const tmpRegroupDirs = () => fs.readdirSync(os.tmpdir()).filter((n) => /^regroup
     refuses(root, [{ rename: 'src/shared/ui/helper.js', to: 'src/shared/ui/doubling.js' }], /missing export: src\/shared\/ui\/orphan\.js imports nope from \.\/m2\.js, which src\/shared\/ui\/m2\.js does not export/, 'missing export');
   }
 
+  // ---- 5b. data blocks (// NAME:begin ... // NAME:end): markers are never carried away and stay paired
+  {
+    const DB = '// FOO_RULES:begin\nexport const FOO = 1;\n// FOO_RULES:end\nexport function after() {\n  return FOO;\n}\n';
+    // a declaration right after an end marker moves without it
+    const root = tree({ 'src/shared/core/dm.js': DB });
+    regroup(root, [{ move: 'after', from: 'src/shared/core/dm.js', to: 'src/shared/core/after.js' }], {});
+    assert.strictEqual(read(root, 'src/shared/core/dm.js'), '// FOO_RULES:begin\nexport const FOO = 1;\n// FOO_RULES:end\n', 'the end marker stays');
+    assert.strictEqual(read(root, 'src/shared/core/after.js'), "import { FOO } from './dm.js';\n\nexport function after() {\n  return FOO;\n}\n", 'and is not carried');
+    // a declaration inside a block is refused, whole block or not
+    refuses(tree({ 'src/shared/core/dm.js': DB }), [{ move: 'FOO', from: 'src/shared/core/dm.js', to: 'src/shared/core/foo.js' }], /^op 0 \(move FOO .*\): FOO lies inside the data block FOO_RULES in src\/shared\/core\/dm\.js/, 'a move out of a data block');
+    // a merge with a file holding a data block keeps its markers paired
+    const r3 = tree({ 'src/shared/core/dm.js': DB, 'src/shared/core/dn.js': 'export const N = 2;\n' });
+    regroup(r3, [{ merge: ['src/shared/core/dm.js', 'src/shared/core/dn.js'], to: 'src/shared/core/dmn.js' }], {});
+    assert.strictEqual(read(r3, 'src/shared/core/dmn.js'), DB + 'export const N = 2;\n');
+    // the BENEFIT_RULES case in miniature: two blocks in a row with a section comment between them
+    const MINI = '// A_RULES:begin\nexport const A = { a: 1 };\n// A_RULES:end\n// ---- B section ----\n// B rows, pure literals.\n// B_RULES:begin\nexport const B = { b: 2 };\n// B_RULES:end\nexport function useB() {\n  return A.a + B.b;\n}\n';
+    refuses(tree({ 'src/canada/core/rules.js': MINI }), [{ move: 'B', from: 'src/canada/core/rules.js', to: 'src/canada/core/b-rules.js' }], /B lies inside the data block B_RULES in src\/canada\/core\/rules\.js/, 'the BENEFIT_RULES case');
+    const r4 = tree({ 'src/canada/core/rules.js': MINI });
+    regroup(r4, [{ move: 'useB', from: 'src/canada/core/rules.js', to: 'src/canada/core/use-b.js' }], {});
+    assert.ok(read(r4, 'src/canada/core/rules.js').endsWith('// B_RULES:end\n'), 'B_RULES:end stays with its block');
+    assert.ok(!/RULES/.test(read(r4, 'src/canada/core/use-b.js')), 'no marker travels with useB');
+    // the paired check itself runs on every touched file
+    refuses(tree({ 'src/shared/core/half.js': '// HALF_RULES:begin\nexport const H = 1;\n' }), [{ rename: 'src/shared/core/half.js', to: 'src/shared/core/half2.js' }], /data-block markers are not paired in src\/shared\/core\/half2\.js: HALF_RULES/, 'unpaired markers');
+  }
+
   // ---- 6. purpose comments
   {
     const root = tree({
@@ -379,7 +410,7 @@ const tmpRegroupDirs = () => fs.readdirSync(os.tmpdir()).filter((n) => /^regroup
     assert.ok(report.lines.includes('  load-time order (canada): aEl now initializes after bEl'), report.lines.join('\n'));
     assert.ok(report.tempDirs.length >= 2, 'a temp directory per operation and one for the start');
     for (const d of report.tempDirs) {
-      assert.ok(path.basename(d).startsWith('regroup-'), d);
+      assert.ok(path.basename(d).startsWith('regroup-') && path.dirname(d) === PRIVATE_TMP, d);
       assert.ok(!fs.existsSync(d), `temp dir removed: ${d}`);
     }
     assert.strictEqual(await run(root, 'us'), 'ab');
@@ -440,7 +471,7 @@ const tmpRegroupDirs = () => fs.readdirSync(os.tmpdir()).filter((n) => /^regroup
     assert.ok(/nothing was written/.test(refused.stderr) && /op 0 \(rename .*\): src\/shared\/ui\/helper\.js does not exist/.test(refused.stderr), refused.stderr);
   }
 
-  const leaked = tmpRegroupDirs().filter((n) => !tmpBefore.has(n));
+  const leaked = tmpRegroupDirs();
   assert.deepStrictEqual(leaked, [], 'no regroup-* temp directory is left behind');
   console.log('regroup_modules OK');
 })()
@@ -448,4 +479,4 @@ const tmpRegroupDirs = () => fs.readdirSync(os.tmpdir()).filter((n) => /^regroup
     console.error(err);
     process.exitCode = 1;
   })
-  .finally(() => made.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
+  .finally(() => made.reverse().forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
