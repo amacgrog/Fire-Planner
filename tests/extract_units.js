@@ -11,6 +11,7 @@ const { planExtraction } = require('../scripts/lib/extraction-plan');
 const { applyModules } = require('../scripts/lib/extract-units');
 const { statementLabel: labelOf } = require('../scripts/analyze-closure');
 const { checkCountryContract } = require('../scripts/lib/country-contract');
+const { compareScripts } = require('../scripts/compare-builds');
 
 const made = [];
 function write(root, rel, text) {
@@ -97,8 +98,8 @@ function dataFixture() {
   return root;
 }
 
-// Bundles a planner the way the build does and returns what it leaves in window.__out.
-async function run(root, country) {
+// Bundles a planner the way the build does and returns the bundle's text.
+async function bundle(root, country) {
   const result = await esbuild.build({
     entryPoints: [path.join(root, 'src', country, 'main.js')],
     bundle: true,
@@ -107,8 +108,12 @@ async function run(root, country) {
     logLevel: 'silent',
     outfile: 'out.js',
   });
+  return result.outputFiles[0].text;
+}
+// Bundles a planner the way the build does and returns what it leaves in window.__out.
+async function run(root, country) {
   const window = {};
-  vm.runInNewContext(result.outputFiles[0].text, { window });
+  vm.runInNewContext(await bundle(root, country), { window });
   return window.__out;
 }
 const both = async (root) => ({ us: await run(root, 'us'), canada: await run(root, 'canada') });
@@ -303,6 +308,214 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
   applyModules(root, planExtraction(root, { seam: ['g'] }).modules, { seam: ['g'] });
   assert.deepStrictEqual([await runWith(root, 'us'), await runWith(root, 'canada')], [12, 18]);
   assert.deepStrictEqual(leftovers(root), []);
+
+  // ---- stage 4 (Task 7): wiring functions, comment placement, the split, the wiring record
+  const LIB = [
+    'export const out = [];',
+    "export function a() { out.push('a'); }",
+    "export function b() { out.push('b'); }",
+    "export function c() { out.push('c'); }",
+    'export function on(name, fn) { out.push(name + fn()); }',
+    '',
+  ].join('\n');
+  const LIB_IMPORT = "import { a, b, c, on, out } from '../shared/lib.js';";
+  const OUT_TAIL = "  window.__out = out.join('');";
+  // A tree whose planners call the shared lib; `head` is the IIFE's first line.
+  const wireRoot = (usBody, caBody = [], { head = '(() => {', usTail = OUT_TAIL, caTail = OUT_TAIL } = {}) => {
+    const r = newRoot();
+    write(r, 'src/shared/lib.js', LIB);
+    write(r, 'src/us/main.js', [LIB_IMPORT, head, ...usBody, usTail, '})();', ''].join('\n'));
+    write(r, 'src/canada/main.js', [LIB_IMPORT, head, ...caBody, caTail, '})();', ''].join('\n'));
+    return r;
+  };
+  const L = (lines) => labelOf(Array.isArray(lines) ? lines.join('\n') : lines);
+  // a module with wiring runs: wiring is [[name, [labels]], ...]
+  const wmod = (p, owner, units, wiring, extra = {}) => {
+    const per = (v) => (owner === 'shared' ? { us: v, canada: v } : { us: owner === 'us' ? v : [], canada: owner === 'canada' ? v : [] });
+    const stmts = (v) => (owner === 'shared' ? { us: v, canada: v } : { [owner]: v });
+    return { path: p, owner, units: per(units), wiring: wiring.map(([name, s]) => ({ name, statements: stmts(s) })), ...extra };
+  };
+  const COUNTRIES_T = ['us', 'canada'];
+  const noTrailingSpaces = (text) => assert.ok(!/[ \t]+$/m.test(text), `no trailing spaces:\n${text}`);
+
+  // 1. two country statements, the first with a comment, in one run
+  root = wireRoot(['  // note', '  a();', '  b();']);
+  let wireBefore = await both(root);
+  let wireReport = applyModules(root, [wmod('src/us/ui/x.js', 'us', [L('a();'), L('b();')], [['wireX', [L('a();'), L('b();')]]])]);
+  assert.strictEqual(
+    read(root, 'src/us/ui/x.js'),
+    ["import { a, b } from '../../shared/lib.js';", '', '  export function wireX() {', '    // note', '    a();', '    b();', '  }', ''].join('\n'),
+  );
+  assert.strictEqual(
+    read(root, 'src/us/main.js'),
+    ["import { out } from '../shared/lib.js';", "import { wireX } from './ui/x.js';", '(() => {', '  wireX();', OUT_TAIL, '})();', ''].join('\n'),
+  );
+  assert.deepStrictEqual(wireReport.wiring, [{ name: 'wireX', module: 'src/us/ui/x.js' }]);
+  assert.deepStrictEqual(wireReport.moved, { us: 2, canada: 0 });
+  assert.deepStrictEqual(await both(root), wireBefore);
+  assert.deepStrictEqual(wireBefore.us, 'ab');
+
+  // 1b. the module's declarations come first; a blank line inside a statement stays empty
+  const s1b = ["  on('e', () => {", '    a();', '', '    return local();', '  });'];
+  root = wireRoot(['  function local() {', "    return 'l';", '  }', '  // first', ...s1b]);
+  wireBefore = await both(root);
+  applyModules(root, [wmod('src/us/ui/y.js', 'us', ['local', L(s1b)], [['wireY', [L(s1b)]]])]);
+  const yText = read(root, 'src/us/ui/y.js');
+  assert.strictEqual(
+    yText,
+    [
+      "import { a, on } from '../../shared/lib.js';",
+      '',
+      '  function local() {',
+      "    return 'l';",
+      '  }',
+      '  export function wireY() {',
+      '    // first',
+      "    on('e', () => {",
+      '      a();',
+      '',
+      '      return local();',
+      '    });',
+      '  }',
+      '',
+    ].join('\n'),
+  );
+  noTrailingSpaces(yText);
+  assert.deepStrictEqual(await both(root), wireBefore);
+
+  // 2. two runs of one module, interleaved with another module's statement
+  root = wireRoot(['  a();', '  // the middle one', '  b();', '  c();']);
+  wireBefore = await both(root);
+  wireReport = applyModules(root, [
+    wmod('src/us/ui/x.js', 'us', [L('a();'), L('c();')], [['wireA', [L('a();')]], ['wireC', [L('c();')]]]),
+    wmod('src/us/ui/y.js', 'us', [L('b();')], [['wireB', [L('b();')]]]),
+  ]);
+  let usMainW = read(root, 'src/us/main.js');
+  assert.ok(usMainW.includes("import { wireA, wireC } from './ui/x.js';") && usMainW.includes("import { wireB } from './ui/y.js';"), usMainW);
+  assert.ok(usMainW.endsWith(['(() => {', '  wireA();', '  wireB();', '  wireC();', OUT_TAIL, '})();', ''].join('\n')), usMainW);
+  assert.strictEqual(
+    read(root, 'src/us/ui/x.js'),
+    ["import { a, c } from '../../shared/lib.js';", '', '  export function wireA() {', '    a();', '  }', '  export function wireC() {', '    c();', '  }', ''].join('\n'),
+  );
+  assert.ok(read(root, 'src/us/ui/y.js').includes('  export function wireB() {\n    // the middle one\n    b();\n  }\n'));
+  assert.deepStrictEqual(
+    wireReport.wiring,
+    [
+      { name: 'wireA', module: 'src/us/ui/x.js' },
+      { name: 'wireC', module: 'src/us/ui/x.js' },
+      { name: 'wireB', module: 'src/us/ui/y.js' },
+    ],
+  );
+  assert.deepStrictEqual(await both(root), wireBefore);
+  assert.deepStrictEqual(wireBefore.us, 'abc');
+
+  // 3. what can move into a function body: return inside a nested function, a break of the statement's own loop,
+  //    this / arguments / var / a function declaration inside a nested non-arrow function
+  const m3a = ["  on('e', () => {", "    if (!out.length) return 'x';", "    return 'y';", '  });'];
+  const m3b = ['  for (const k of [1, 2]) {', '    if (k > 1) break;', '    a();', '  }'];
+  const m3c = ["  on('f', function () {", '    var self = this;', '    function inner() {', '      return arguments.length;', '    }', '    return String(inner(self) + arguments.length);', '  });'];
+  root = wireRoot([...m3a, ...m3b, ...m3c]);
+  wireBefore = await both(root);
+  applyModules(root, [wmod('src/us/ui/x.js', 'us', [L(m3a), L(m3b), L(m3c)], [['wireX', [L(m3a), L(m3b), L(m3c)]]])]);
+  assert.ok(read(root, 'src/us/ui/x.js').includes('      if (k > 1) break;'));
+  assert.deepStrictEqual(await both(root), wireBefore);
+  assert.deepStrictEqual(wireBefore.us, 'exaf1');
+
+  // 3. ... and what cannot: each refused with what it found, nothing written
+  // (a statement whose var names a binding is labelled by that name, as the analyzer does)
+  const cannot = (body, what, opts, lbl = L(body)) => {
+    refuse(
+      () => wireRoot(body, [], opts),
+      [wmod('src/us/ui/x.js', 'us', [lbl], [['wireX', [lbl]]])],
+      new RegExp(`statement ${lbl.replace(/[$]/g, '\\$&')} cannot move into a function body: ${what}`),
+    );
+  };
+  cannot(['  if (out.length) return;'], 'return');
+  cannot(["  on('e', () => this.y);"], 'this');
+  cannot(["  on('e', () => `one", "  two`);"], 'multi-line literal');
+  cannot(["  a('one\\", "two');"], 'multi-line literal');
+  cannot(['  outer: for (;;) {', '    break outer;', '  }'], 'label');
+  cannot(['  if (out) {', '    var v = 1;', '  }'], 'var', {}, 'v');
+  cannot(['  if (out) {', '    function f() {}', '  }'], 'function declaration');
+  cannot(['  {', '    class C {}', '  }'], 'class declaration');
+  cannot(['  a(arguments);'], 'arguments');
+  cannot(['  await a();'], 'await', { head: '(async () => {' });
+  cannot(['  yield a();'], 'yield', { head: '(function* () {' });
+
+  // the side-effect refusal stays for every statement that is not in its module's wiring
+  refuse(() => wireRoot(['  a();', '  b();']), [wmod('src/us/ui/x.js', 'us', [L('a();'), L('b();')], [['wireX', [L('a();')]]])], /"stmt:\w+" is a side-effect statement/);
+  refuse(
+    () => wireRoot(['  a();', '  b();']),
+    [wmod('src/us/ui/x.js', 'us', [L('a();')], [['wireX', [L('b();')]]]), wmod('src/us/ui/y.js', 'us', [L('b();')], [['wireY', [L('a();')]]])],
+    /is a side-effect statement|not a statement of the module/,
+  );
+  refuse(() => wireRoot(['  a();']), [{ path: 'src/us/ui/x.js', owner: 'us', units: { us: [L('a();')], canada: [] } }], /is a side-effect statement/);
+  // wiring functions live only in ui/ modules
+  refuse(() => wireRoot(['  a();']), [wmod('src/us/core/x.js', 'us', [L('a();')], [['wireX', [L('a();')]]])], /wiring functions live only in ui\//);
+
+  // 4. the split: `let seen = flag;` becomes `let seen;` plus `seen = flag;` at its position in the run
+  const splitBody = ['  let flag = 0;', '  // the first step', '  flag = 2;', '  // seen is read at load', '  let seen = flag;', '  flag = 3;'];
+  const SPLIT_TAIL = '  window.__out = [seen, flag].join();';
+  root = wireRoot(splitBody, [], { usTail: SPLIT_TAIL });
+  const splitBefore = { us: await bundle(root, 'us'), canada: await bundle(root, 'canada') };
+  const splitPlan = planExtraction(root, {
+    topics: {
+      shared: { modules: {}, main: [] },
+      us: { modules: { 'src/us/ui/x.js': { units: [L('flag = 2;'), 'seen', L('flag = 3;')] } }, main: [L(SPLIT_TAIL)] },
+      canada: { modules: {}, main: [L(OUT_TAIL)] },
+    },
+  });
+  const splitMod = splitPlan.modules.find((m) => m.path === 'src/us/ui/x.js');
+  assert.deepStrictEqual(splitMod.splits, [{ name: 'seen', label: L('seen = flag;') }]);
+  assert.deepStrictEqual(splitMod.wiring, [{ name: 'wireX', statements: { us: [L('flag = 2;'), L('seen = flag;'), L('flag = 3;')] } }]);
+  applyModules(root, splitPlan.modules);
+  assert.strictEqual(
+    read(root, 'src/us/ui/x.js'),
+    [
+      '  export let flag = 0;',
+      '  // seen is read at load',
+      '  export let seen;',
+      '  export function wireX() {',
+      '    // the first step',
+      '    flag = 2;',
+      '    seen = flag;',
+      '    flag = 3;',
+      '  }',
+      '',
+    ].join('\n'),
+  );
+  assert.ok(read(root, 'src/us/main.js').includes(['(() => {', '  wireX();', SPLIT_TAIL].join('\n')), read(root, 'src/us/main.js'));
+  for (const c of COUNTRIES_T) {
+    const cmp = compareScripts(splitBefore[c], await bundle(root, c), { ordered: true });
+    assert.deepStrictEqual([cmp.missing, cmp.added, cmp.orderedOk], [[], [], true], `${c}: ${JSON.stringify(cmp.firstOrderDiff)}`);
+  }
+  assert.strictEqual(await run(root, 'us'), '2,3');
+
+  // 5. a shared module: the same text from both planners (and refused when a statement chunk differs by one character)
+  const SH = (stmt) => ['  // @@shared:wire begin', '  // shared note', stmt, '  // @@shared:wire end'];
+  const shRoot = (caStmt = "  on('e', () => 'z');") => {
+    const r = wireRoot(SH("  on('e', () => 'z');"), SH(caStmt));
+    write(r, 'shared/wire.js', "  // shared note\n  on('e', () => 'z');\n");
+    return r;
+  };
+  const LS = L("on('e', () => 'z');");
+  root = shRoot();
+  wireBefore = await both(root);
+  wireReport = applyModules(root, [wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]])]);
+  assert.strictEqual(read(root, 'src/shared/ui/w.js'), ["import { on } from '../lib.js';", '', '  export function wireW() {', '    // shared note', "    on('e', () => 'z');", '  }', ''].join('\n'));
+  for (const c of COUNTRIES_T) {
+    assert.ok(read(root, `src/${c}/main.js`).includes("import { wireW } from '../shared/ui/w.js';\n"), c);
+    assert.ok(read(root, `src/${c}/main.js`).includes('  // @@shared:wire begin\n  wireW();\n  // @@shared:wire end'), c);
+  }
+  assert.strictEqual(read(root, 'shared/wire.js'), '  wireW();\n');
+  assert.deepStrictEqual(wireReport.wiring, [{ name: 'wireW', module: 'src/shared/ui/w.js' }]);
+  assert.deepStrictEqual(await both(root), wireBefore);
+  refuse(() => shRoot("  on('e',  () => 'z');"), [wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]])], /differs between the two planners/);
+  refuse(
+    shRoot,
+    [{ ...wmod('src/shared/ui/w.js', 'shared', [LS], [['wireW', [LS]]]), wiring: [{ name: 'wireW', statements: { us: [LS], canada: [] } }] }],
+    /wiring of src\/shared\/ui\/w\.js differs between the two planners/,
+  );
 
   console.log('extract_units OK');
 })()

@@ -8,7 +8,7 @@
 // and the imports it needs, and adds to main.js the imports it now needs. A shared module is cut from both
 // planners (the text must be identical) and its @@shared region fragment under shared/ is updated or deleted.
 //
-// Side-effect statements are never moved. Everything is verified before anything is written; on any problem it
+// Side-effect statements move only inside a wiring function (below). Everything is verified before anything is written; on any problem it
 // throws and writes nothing (the files are staged next to their targets and renamed into place at the end).
 //
 // Country seam (spec section 14): a shared module may use a country unit only through the names listed in `seam`.
@@ -16,8 +16,16 @@
 // src/<country>/core/seam-<name>.js, that re-exports that name from the module that holds it. One facade per name
 // (not one for all) keeps a shared module from reaching every country module the seam names, which made import
 // cycles. Both countries must have facades for the same names.
+//
+// Stage 4 (design section 5.1): a module may carry `wiring: [{ name, statements: { <country>: [label] } }]` (its runs) and
+// `splits: [{ name, label }]`. Each run's statements (with their carried comment lines) become the body of
+// `export function <name>() { ... }`, indented two more spaces, after the module's declarations; main.js gets `<name>();`
+// where the run's first statement stood, and imports it. A split declaration is written as `let <name>;` and the statement
+// `<name> = <init>;` (the split's label in the run) stands at its position in the run. A side-effect statement moves only
+// as part of its module's wiring, and only if it can live in a function body unchanged (functionBodyProblem).
 const fs = require('fs');
 const path = require('path');
+const espree = require('espree');
 const { analyze, undeclaredNames } = require('../analyze-closure');
 
 const COUNTRIES = ['us', 'canada'];
@@ -29,11 +37,72 @@ function readText(file) {
   return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 }
 
+// The top-level statements of main.js's IIFE, by first line (the analyzer's units carry no syntax tree).
+function iifeNodes(text) {
+  const ast = espree.parse(text, { ecmaVersion: 2022, sourceType: 'module', range: true, loc: true });
+  for (const node of ast.body) {
+    const call = node.type === 'ExpressionStatement' ? node.expression : null;
+    if (call && call.type === 'CallExpression' && /^(Arrow)?FunctionExpression$/.test(call.callee.type) && call.callee.body.type === 'BlockStatement') {
+      return new Map(call.callee.body.body.map((n) => [n.loc.start.line, n]));
+    }
+  }
+  return new Map();
+}
+
+// Why a statement cannot become part of a function body unchanged (design section 5.1), or null. Outside nested functions:
+// return, break / continue not of a loop or switch inside the statement, await, yield, a label, var, a statement-level
+// function or class declaration; outside nested non-arrow functions: this, arguments (an arrow does not bind them);
+// anywhere: a string or template literal over several lines (re-indenting would change its value).
+const LOOPS = new Set(['ForStatement', 'ForInStatement', 'ForOfStatement', 'WhileStatement', 'DoWhileStatement']);
+function functionBodyProblem(root) {
+  let found = null;
+  const visit = (n, ctx, isName) => {
+    if (found || !n || typeof n.type !== 'string') return;
+    if (n.type === 'Literal' && typeof n.value === 'string' && n.raw.includes('\n')) return void (found = 'multi-line literal');
+    if (n.type === 'TemplateElement' && n.value.raw.includes('\n')) return void (found = 'multi-line literal');
+    if (ctx.fn === 0) {
+      if (n.type === 'ReturnStatement') return void (found = 'return');
+      if (n.type === 'BreakStatement' && (n.label || !(ctx.loop || ctx.sw))) return void (found = 'break');
+      if (n.type === 'ContinueStatement' && (n.label || !ctx.loop)) return void (found = 'continue');
+      if (n.type === 'AwaitExpression' || (n.type === 'ForOfStatement' && n.await)) return void (found = 'await');
+      if (n.type === 'YieldExpression') return void (found = 'yield');
+      if (n.type === 'LabeledStatement') return void (found = 'label');
+      if (n.type === 'VariableDeclaration' && n.kind === 'var') return void (found = 'var');
+      if (n.type === 'FunctionDeclaration') return void (found = 'function declaration');
+      if (n.type === 'ClassDeclaration') return void (found = 'class declaration');
+    }
+    if (ctx.nonArrow === 0) {
+      if (n.type === 'ThisExpression') return void (found = 'this');
+      if (n.type === 'Identifier' && n.name === 'arguments' && !isName) return void (found = 'arguments');
+    }
+    let next = ctx;
+    if (/Function/.test(n.type)) next = { fn: ctx.fn + 1, nonArrow: n.type === 'ArrowFunctionExpression' ? ctx.nonArrow : ctx.nonArrow + 1, loop: 0, sw: 0 };
+    else if (n.type === 'PropertyDefinition' || n.type === 'StaticBlock') next = { fn: ctx.fn + 1, nonArrow: ctx.nonArrow + 1, loop: 0, sw: 0 };
+    else if (LOOPS.has(n.type)) next = { ...ctx, loop: ctx.loop + 1 };
+    else if (n.type === 'SwitchStatement') next = { ...ctx, sw: ctx.sw + 1 };
+    for (const key of Object.keys(n)) {
+      if (key === 'range' || key === 'loc' || key === 'parent') continue;
+      // a property name (x.arguments, { arguments: 1 }) is not a reference
+      const name = !n.computed && ((key === 'property' && n.type === 'MemberExpression') || (key === 'key' && /^(Property|PropertyDefinition|MethodDefinition)$/.test(n.type)));
+      const v = n[key];
+      if (Array.isArray(v)) v.forEach((x) => visit(x, next, false));
+      else if (v && typeof v === 'object') visit(v, next, name);
+    }
+  };
+  visit(root, { fn: 0, nonArrow: 0, loop: 0, sw: 0 }, false);
+  return found;
+}
+
+// "    x" -> "      x"; a blank line stays as it is (no trailing spaces are added)
+const indentTwo = (line) => (line.trim() === '' ? line : `  ${line}`);
+const leadingSpace = (line) => /^\s*/.exec(line)[0];
+
 function loadCountry(root, country) {
   const file = path.join(root, 'src', country, 'main.js');
   const text = readText(file);
   const lines = text.split('\n');
   const model = analyze(text);
+  const nodeAt = iifeNodes(text);
   const units = [...model.units].sort((a, b) => a.startLine - b.startLine);
   for (let i = 1; i < units.length; i++) {
     if (units[i].startLine <= units[i - 1].endLine) {
@@ -69,7 +138,28 @@ function loadCountry(root, country) {
     if (DATA_END.test(lines[end] || '')) end++; // the "// NAME:end" marker right after the unit
     chunks.set(u.label, { start, end });
   });
-  return { country, file, lines, model, units, byLabel, chunks, mainDir: path.dirname(file) };
+  return { country, file, text, lines, model, units, byLabel, chunks, nodeAt, mainDir: path.dirname(file) };
+}
+
+// A split declaration (design section 5.1): `let x = <init>;` gives the module `let x;` (its carried comment lines above it)
+// and the run the statement `x = <init>;`, indented two more spaces. Returns { declLines, assignLines, init }.
+function splitParts(info, u, name, where) {
+  const node = info.nodeAt.get(u.startLine);
+  const d = node && node.declarations && node.declarations[0];
+  if (!node || node.type !== 'VariableDeclaration' || node.kind !== 'let' || node.declarations.length !== 1 || d.id.type !== 'Identifier' || d.id.name !== name || !d.init) {
+    throw new Error(`${where}: split ${name} is not a one-name \`let ${name} = <init>;\``);
+  }
+  const lineStart = info.text.lastIndexOf('\n', node.range[0] - 1) + 1;
+  const lineEnd = info.text.indexOf('\n', node.range[1]);
+  const indent = info.text.slice(lineStart, node.range[0]);
+  const tail = info.text.slice(node.range[1], lineEnd < 0 ? info.text.length : lineEnd);
+  if (indent.trim() !== '' || tail.trim() !== '') throw new Error(`${where}: split ${name} shares its lines with other text`);
+  if (info.text.slice(d.init.range[1], node.range[1]).trim() !== ';') throw new Error(`${where}: split ${name} does not end with ";"`);
+  const assign = `${name} = ${info.text.slice(d.init.range[0], d.init.range[1])};`.split('\n');
+  const assignLines = assign.map((l, i) => (i === 0 ? `${indent}  ${l}` : indentTwo(l)));
+  const { start, end } = info.chunks.get(u.label);
+  const declLines = [...info.lines.slice(start - 1, u.startLine - 1), `${indent}let ${name};`, ...info.lines.slice(u.endLine, end)];
+  return { declLines, assignLines, init: d.init };
 }
 
 const chunkLines = (info, label) => {
@@ -115,18 +205,77 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
   // ---- 1. which module takes which unit, per country
   const moduleOf = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()]));
   const seenPaths = new Set();
+  // per module and country: the runs (wiring entries with statements there), and the split declarations by label
+  const runsOf = new Map(); // module -> { us: [{ name, labels }], canada: [...] }
+  const splitOf = new Map(); // module -> { us: Map(split label -> { name, decl, parts }), canada: ... }
+  const splitDecl = Object.fromEntries(COUNTRIES.map((c) => [c, new Map()])); // declaration label -> its splitParts
+  const wiringNames = new Set();
   for (const m of modules) {
     if (seenPaths.has(m.path)) throw new Error(`module path used twice: ${m.path}`);
     seenPaths.add(m.path);
     if (!path.resolve(root, m.path).startsWith(path.join(root, 'src') + path.sep)) throw new Error(`${m.path}: module paths must lie under src/`);
     if (fs.existsSync(path.join(root, m.path))) throw new Error(`${m.path} already exists`);
     const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
+    const wiring = m.wiring || [];
+    const splits = m.splits || []; // never from bindings.colocated: the module's own `splits` entry is the record
+    if ((wiring.length || splits.length) && !/^src\/[^/]+\/ui\//.test(posix(m.path))) {
+      throw new Error(`${m.path}: wiring functions live only in ui/ modules`);
+    }
+    if (m.owner === 'shared') {
+      for (const w of wiring) {
+        if (JSON.stringify((w.statements || {}).us || []) !== JSON.stringify((w.statements || {}).canada || [])) {
+          throw new Error(`wiring of ${m.path} differs between the two planners (${w.name})`);
+        }
+      }
+    }
+    const perCountry = {};
+    const splitsHere = {};
+    for (const c of countries) {
+      const runs = [];
+      const inWiring = new Set();
+      const splitLabels = new Map(splits.map((s) => [s.label, s.name]));
+      for (const w of wiring) {
+        const labels = (w.statements && w.statements[c]) || [];
+        if (!labels.length) continue;
+        if (wiringNames.has(`${c}:${w.name}`)) throw new Error(`wiring function ${w.name} is declared twice in ${c}`);
+        wiringNames.add(`${c}:${w.name}`);
+        if (splitLabels.has(labels[0])) throw new Error(`${m.path}: the run ${w.name} starts with the split assignment of ${splitLabels.get(labels[0])}`);
+        for (const l of labels) {
+          if (inWiring.has(l)) throw new Error(`${m.path}: statement ${l} is in two runs`);
+          inWiring.add(l);
+          if (splitLabels.has(l)) continue;
+          if (!m.units[c] || !m.units[c].includes(l)) throw new Error(`${m.path}: wiring statement "${l}" is not a statement of the module (${c})`);
+        }
+        runs.push({ name: w.name, labels });
+      }
+      perCountry[c] = runs;
+      const byLabel = new Map();
+      for (const s of splits) {
+        if (!inWiring.has(s.label)) throw new Error(`${m.path}: the split assignment of ${s.name} is in no run (${c})`);
+        const decl = (m.units[c] || []).map((l) => info[c].byLabel.get(l)).find((u) => u && u.kind === 'let' && u.names.includes(s.name));
+        if (!decl) throw new Error(`${m.path}: split ${s.name} has no \`let\` declaration among the module's units (${c})`);
+        const parts = splitParts(info[c], decl, s.name, m.path);
+        const problem = functionBodyProblem(parts.init);
+        if (problem) throw new Error(`statement ${s.label} cannot move into a function body: ${problem}`);
+        byLabel.set(s.label, { name: s.name, decl, parts });
+        splitDecl[c].set(decl.label, parts);
+      }
+      splitsHere[c] = byLabel;
+      for (const label of m.units[c] || []) {
+        const u = info[c].byLabel.get(label);
+        if (!u || u.kind !== 'statement') continue;
+        if (!inWiring.has(label)) throw new Error(`${m.path}: "${label}" is a side-effect statement`);
+        const problem = functionBodyProblem(info[c].nodeAt.get(u.startLine));
+        if (problem) throw new Error(`statement ${label} cannot move into a function body: ${problem}`);
+      }
+    }
+    runsOf.set(m, perCountry);
+    splitOf.set(m, splitsHere);
     for (const c of countries) {
       if (!m.units[c] || !m.units[c].length) throw new Error(`${m.path}: no units for ${c}`);
       for (const label of m.units[c]) {
         const u = info[c].byLabel.get(label);
         if (!u) throw new Error(`${m.path}: ${c} has no unit "${label}"`);
-        if (u.kind === 'statement') throw new Error(`${m.path}: "${label}" is a side-effect statement`);
         if (moduleOf[c].has(label)) throw new Error(`${c}: unit "${label}" is in two modules`);
         if (m.owner === 'shared' && u.regionKind !== 'shared') throw new Error(`${m.path}: "${label}" is not in a shared region`);
         moduleOf[c].set(label, m);
@@ -213,6 +362,16 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
       }
     }
   }
+  // main.js calls each wiring function, so it imports it
+  for (const m of modules) {
+    for (const c of COUNTRIES) {
+      for (const run of runsOf.get(m)[c] || []) {
+        const key = path.join(root, m.path);
+        if (!mainImports[c].has(key)) mainImports[c].set(key, new Set());
+        mainImports[c].get(key).add(run.name);
+      }
+    }
+  }
   const sameNeeds = (m) => {
     const render = (c) => JSON.stringify([...(needs.get(m)?.[c] || new Map())].map(([t, names]) => [t, [...names]]).sort());
     return render('us') === render('canada');
@@ -255,12 +414,31 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
         : target.startsWith('bare:') ? target.slice(5) : relImport(abs, target);
       importLines.push(importLine(specs, source));
     }
-    const body = [];
-    for (const label of m.units[c0]) {
-      let lines = chunkLines(info[c0], label);
-      const u = info[c0].byLabel.get(label);
-      if (u.names.some((n) => exportsNeeded.get(m).has(n))) lines = addExport(lines);
-      body.push(...lines);
+    const bodyOf = (c) => {
+      const body = [];
+      for (const label of m.units[c]) {
+        const u = info[c].byLabel.get(label);
+        if (u.kind === 'statement') continue; // written in its wiring function below
+        let lines = splitDecl[c].has(label) ? splitDecl[c].get(label).declLines : chunkLines(info[c], label);
+        if (u.names.some((n) => exportsNeeded.get(m).has(n))) lines = addExport(lines);
+        body.push(...lines);
+      }
+      for (const run of runsOf.get(m)[c] || []) {
+        const first = chunkLines(info[c], run.labels[0])[0];
+        const indent = leadingSpace(first);
+        body.push(`${indent}export function ${run.name}() {`);
+        for (const label of run.labels) {
+          const split = splitOf.get(m)[c].get(label);
+          if (split) body.push(...split.parts.assignLines);
+          else body.push(...chunkLines(info[c], label).map(indentTwo));
+        }
+        body.push(`${indent}}`);
+      }
+      return body;
+    };
+    const body = bodyOf(c0);
+    if (m.owner === 'shared' && bodyOf('canada').join('\n') !== body.join('\n')) {
+      throw new Error(`${m.path}: the module text differs between the two planners`);
     }
     const text = [...importLines, ...(importLines.length ? [''] : []), ...body, ''].join('\n');
     // a data block's begin and end markers must travel together
@@ -301,10 +479,19 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     const sideEffectOnly = [...new Set(decls.map((d) => d.source))].filter((src) => !bound.has(src));
     const importBlock = [...sideEffectOnly.map((src) => `import '${src}';`), ...[...bySource].map(([source, specs]) => importLine(specs, source))];
     const insertAt = decls.length ? decls[0].startLine : 1;
+    // each run leaves `<name>();` where its first statement's chunk started, with that chunk's indentation
+    const calls = new Map(); // line -> call text
+    for (const m of modules) {
+      for (const run of runsOf.get(m)[c] || []) {
+        const { start } = ci.chunks.get(run.labels[0]);
+        calls.set(start, `${leadingSpace(ci.lines[start - 1])}${run.name}();`);
+      }
+    }
     const out = [];
     ci.lines.forEach((line, i) => {
       const n = i + 1;
       if (n === insertAt) out.push(...importBlock);
+      if (calls.has(n)) out.push(calls.get(n));
       if (!remove.has(n)) out.push(line);
     });
     files.set(ci.file, out.join('\n'));
@@ -389,8 +576,11 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
     const bad = undeclaredNames(text);
     if (bad.length) throw new Error(`${c}/main.js: undeclared names after the move: ${bad.map((b) => `${b.name} (line ${b.line})`).join(', ')}`);
     const after = analyze(text).units.length;
-    if (after !== info[c].units.length - moduleOf[c].size) {
-      throw new Error(`${c}/main.js: expected ${info[c].units.length - moduleOf[c].size} units after the move, found ${after}`);
+    // before - moved + runs: each run leaves one call statement behind
+    const runs = modules.reduce((n, m) => n + (runsOf.get(m)[c] || []).length, 0);
+    const expected = info[c].units.length - moduleOf[c].size + runs;
+    if (after !== expected) {
+      throw new Error(`${c}/main.js: expected ${expected} units after the move, found ${after}`);
     }
   }
 
@@ -418,6 +608,7 @@ function applyModules(root, modules, { dryRun = false, seam = [] } = {}) {
       exports: [...exportsNeeded.get(m)].sort(),
     })),
     moved: Object.fromEntries(COUNTRIES.map((c) => [c, moduleOf[c].size])),
+    wiring: modules.flatMap((m) => (m.wiring || []).map((w) => ({ name: w.name, module: m.path }))),
     deletedRegions: [...deleted].sort(),
     seam: facadeNames,
     warnings,
