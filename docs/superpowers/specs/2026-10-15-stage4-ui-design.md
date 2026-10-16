@@ -571,3 +571,8 @@ Found during the implementation (one line each; the task, file and reason are in
   in its in-file TDZ check, and checks writers of `let` / `var` only (T12).
 - The cycle rule flags any module-level name in a marked initializer of a cycle module, even through a shadowing parameter (T12).
 - `DATA_MARK` recognises data-block names of capitals and underscores only, in three tools (T12fix1).
+- Four tools each define a ui/ path their own way (`tests/ui_cycles.js`, the regroup tool, the applier, the module map), and nothing
+  refuses a module outside both `core/` and `ui/` other than `main.js` and `storage-key.js`; one shared definition and that refusal
+  are prerequisites for the core regroup (T17).
+- Misleading `core/` module names: the US `taxFor` and its neighbours live in `src/us/core/standard-deduction.js`, the Canada
+  `newWithdrawal` in `src/canada/core/taxable-basis-key.js`; to be renamed or split in the core regroup (T17).

@@ -120,9 +120,9 @@ function build() {
   return { text: lines.join('\n'), offenders, moduleRows, seamRows };
 }
 
-const bad =args.filter((a) => a !== '--check' && a !== '--require-purpose');
+const bad = args.filter((a) => a !== '--check' && a !== '--require-purpose');
 if (bad.length) {
-  console.error(`module-map.js: unknown argument ${bad.map((a) => `'${a}'`).join(', ')}; expected --check and/or --require-purpose`);
+  console.error(`module-map.js: unknown argument ${bad.map((a) => `'${a}'`).join(', ')}; expected --check and/or --require-purpose, and optionally --root <dir>`);
   process.exit(2);
 }
 const { text, offenders, moduleRows, seamRows } = build();
