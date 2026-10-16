@@ -1,11 +1,8 @@
-import { mode, assignState, assignMode } from '../shared/core/store.js';
-import { assignLogScale } from '../shared/core/chart-prefs.js';
-import { defaults } from './core/defaults.js';
+import { mode, assignState } from '../shared/core/store.js';
 import { syncTopbarHeight } from '../shared/ui/topbar-and-undo.js';
 import { syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/sync-keyboard-inset.js';
 import { normalizeState } from './core/normalize-state.js';
 import { wireCategoryRail } from '../shared/ui/category-rail.js';
-import { snapshotForUndo } from '../shared/ui/undo.js';
 import { addChildrenList } from './ui/dynamic-lists.js';
 import { wireWizardCheckboxes } from './ui/wizard.js';
 import { wireInfoBubble } from '../shared/ui/info-bubble.js';
@@ -22,7 +19,7 @@ import { installTestHooks } from './ui/install-test-hooks.js';
 import { wireExportButtons } from '../shared/ui/export-and-print.js';
 import { wireAutosave } from '../shared/ui/autosave.js';
 import { wireMobileTabs } from '../shared/ui/mobile-view.js';
-import { setChartView, setMode } from '../shared/ui/chart-view-mode.js';
+import { setMode } from '../shared/ui/chart-view-mode.js';
 import { wireSensitivityCard } from '../shared/ui/tornado.js';
 import { wireDecisionCard, wireDecisionQuestions } from '../shared/ui/decision-questions.js';
 import { wireEstimateBadges } from '../shared/ui/estimate-badges.js';
@@ -30,7 +27,7 @@ import { wireEstimateReview } from '../shared/ui/estimate-review.js';
 import { wirePlanStatusBar } from '../shared/ui/plan-status-bar.js';
 import { wireSankeyAge, wireSankeyCard } from '../shared/ui/sankey.js';
 import { wireUnusualWarnings } from '../shared/ui/unusual-warnings.js';
-import { setMcPathCount, wireChartToolbar, wireDollarModeDropdown } from '../shared/ui/chart-toolbar.js';
+import { wireChartToolbar, wireDollarModeDropdown } from '../shared/ui/chart-toolbar.js';
 import { wireChartControls } from './ui/chart-controls.js';
 import { wirePensionButtons } from './ui/pension-buttons.js';
 import { wireRothOptimizerControls } from './ui/roth-optimizer-controls.js';
@@ -47,6 +44,7 @@ import { wireScenarios } from '../shared/ui/scenarios.js';
 import { wireThemeToggle } from '../shared/ui/theme.js';
 import { wireUndoButton } from '../shared/ui/undo-2.js';
 import { wireWizardClose } from '../shared/ui/wizard-2.js';
+import { wireResetButton } from '../shared/ui/reset-plan.js';
 (() => {
   assignState(normalizeState(null));
   loadSidebarPreference();
@@ -115,36 +113,8 @@ import { wireWizardClose } from '../shared/ui/wizard-2.js';
   wireDollarModeDropdown();
   wireDisclaimerLink();
   wireChartToolbar();
-  // @@shared:26-setChartView begin
   wireUndoButton();
-  document.getElementById('resetBtn').addEventListener('click', () => {
-    if (
-      !confirm(
-        "Reset all inputs to the generic example data? This clears what's saved in this browser and can't be undone — export a scenario first if you want to keep what you've entered.",
-      )
-    )
-      return;
-    snapshotForUndo('Reset to example data');
-    assignState({
-      ...defaults,
-      loans: defaults.loans.map((l) => ({ ...l })),
-      spendingTiers: defaults.spendingTiers.map((t) => ({ ...t })),
-      incomeSources: defaults.incomeSources.map((t) => ({ ...t })),
-      oneTimeIncome: defaults.oneTimeIncome.map((t) => ({ ...t })),
-      extraExpenses: defaults.extraExpenses.map((t) => ({ ...t })),
-      lumpExpenses: defaults.lumpExpenses.map((t) => ({ ...t })),
-      children: defaults.children.map((t) => ({ ...t })),
-    });
-    assignMode('real');
-    assignLogScale(false);
-    document.getElementById('logScaleToggle').checked = false;
-    setMcPathCount(1000);
-    syncControls();
-    syncContributionControls();
-    setMode('real');
-    setChartView('3yr');
-  });
-  // @@shared:26-setChartView end
+  wireResetButton();
   wireInputGestures();
   wirePlanStatusBar();
   wireScenarios();
