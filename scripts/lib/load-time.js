@@ -33,11 +33,15 @@ function isInert(node) {
   }
 }
 
+const SHARED_MARKER = /^\s*\/\/ @@shared:\S+ (?:begin|end)\s*$/;
+
 // The contiguous `//` comment block directly above line declStartLine (1-based) starts with `// load-time:`.
 function loadTimeMarker(lines, declStartLine) {
   let i = declStartLine - 2;
   while (i >= 0 && /^\s*\/\//.test(lines[i])) i--;
-  const first = i + 1;
+  let first = i + 1;
+  // a `// @@shared:<name> begin|end` marker line (the sync tool's form) is not part of the comment
+  while (first <= declStartLine - 2 && SHARED_MARKER.test(lines[first])) first++;
   if (first > declStartLine - 2) return { marked: false, reason: '' };
   const m = /^\s*\/\/ load-time:\s*(.*)$/.exec(lines[first]);
   if (!m) return { marked: false, reason: '' };

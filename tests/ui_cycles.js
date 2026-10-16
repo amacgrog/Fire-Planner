@@ -78,6 +78,17 @@ assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
   const d = ['  // load-time: indented', '  let a = f();'];
   assert.strictEqual(loadTimeMarker(d, 2).marked, true, 'indentation is allowed');
   assert.strictEqual(loadTimeMarker(['let a = f();'], 1).marked, false);
+
+  // @@shared marker lines are skipped when finding the first line of the block
+  const MB = '  // @@shared:ids begin';
+  const ME = '  // @@shared:ids end';
+  assert.deepStrictEqual(loadTimeMarker([MB, '  // load-time: r', '  const ids = f();'], 3), { marked: true, reason: 'r' }, '(a) begin marker above the comment');
+  assert.deepStrictEqual(loadTimeMarker(['  // load-time: r', MB, '  const ids = f();'], 3), { marked: true, reason: 'r' }, '(b) marker between the comment and the declaration');
+  assert.strictEqual(loadTimeMarker([MB, '  // other', '  // load-time: x', '  const ids = f();'], 4).marked, false, '(c) the first non-marker line must be load-time');
+  assert.strictEqual(loadTimeMarker([MB, '  const ids = f();'], 2).marked, false, '(d) a block of marker lines only');
+  assert.deepStrictEqual(loadTimeMarker([MB, '', '  // load-time: r', '  const ids = f();'], 4), { marked: true, reason: 'r' }, '(e) blank line above the comment block');
+  assert.strictEqual(loadTimeMarker(['  // load-time: r', '', MB, '  const ids = f();'], 4).marked, false, '(f) a blank line breaks the block');
+  assert.deepStrictEqual(loadTimeMarker([ME, '  // load-time: r', '  const ids = f();'], 3), { marked: true, reason: 'r' }, '(g) end marker above the comment');
 }
 
 // 3. checkLoadTime
@@ -96,6 +107,9 @@ assert.strictEqual(isInert(null), true, 'a missing initializer is inert');
   assert.deepStrictEqual(why('const x = 1;\nconst s = new Set();\n'), ['not inert and not marked']);
   assert.strictEqual(checkLoadTime('const x = 1;\nconst s = new Set();\n')[0].line, 2);
   assert.deepStrictEqual(why('const m = class { static x = f(); };\n'), ['class static']);
+
+  // (h) a shared-region begin marker above the load-time comment
+  assert.deepStrictEqual(why('// @@shared:ids begin\n// load-time: filters an imported constant\nconst ids = f();\n'), []);
 
   // class heritage and computed keys run at load time
   const P = { cyclePartners: new Set(['B']) };
