@@ -777,7 +777,10 @@ Design §5.8.
   operation's index and the problem.
 - **Load-time guard inside import cycles (owner decision 2026-10-16; closes the Task 10 fix B finding; modifies
   `scripts/lib/load-time.js`).** In a module that is part of an import cycle, a marked (`// load-time:`) initializer may
-  reference only browser globals and literals: no function or binding declared in its own module and no import. (The existing
+  reference global names only (browser globals and ES built-ins such as `Set`, `Map`, `Object`, `Math`), plus literals, and
+  never a name declared in its own module or imported (no function or binding declared in the module, no import). A marked
+  `previousUnusualIds = new Set()` in a cycle module (`src/shared/ui/unusual-warnings.js`, a render-cycle member) must keep
+  passing. (The existing
   `cyclePartners` check only saw direct reads of a partner's names; a marked initializer that called a local function which
   read a partner's binding passed.) Outside a cycle the marker rule is unchanged. The cycle membership comes from
   `module-graph.js` (`cycles`), as in `tests/ui_cycles.js`, which applies the rule to every cycle module; the applier's cycle
@@ -806,7 +809,8 @@ Design §5.8.
    body first.
 9. Cycle guard (`tests/ui_cycles.js` and `tests/regroup_modules.js`): a marked initializer calling a function declared in its own
    module: refused when the module is in a cycle, allowed outside a cycle; a marked `document.getElementById('x')`: allowed in
-   a cycle; a marked initializer reading an import in a cycle: refused; a literal or a browser global alone: allowed in a cycle.
+   a cycle; a marked `new Set()` (an ES built-in): allowed in a cycle; a marked `Math.max(1, 2)` or `Object.keys({})`: allowed in a
+   cycle; a marked initializer reading an import in a cycle: refused; a literal or a browser global alone: allowed in a cycle.
 
 - [ ] **Step 1:** Fixtures fail. **Step 2:** Implement; `node tests/regroup_modules.js` prints `regroup_modules OK`.
   **Step 3:** Add it to `test` after `node tests/compare_builds.js` (JSON-aware edit). Run `node tests/ui_cycles.js` on the tree
