@@ -253,8 +253,12 @@ Topic names are fixed by the rehearsal's topics file and reviewed with the manif
 
 ### 5.3 Cycles between UI modules
 
-- The planner no longer throws on a cycle across owners when every unit in it is `ui`: those units get modules of their own
-  (as today) and the cycle stays. A cycle that contains a `core` unit still throws.
+- The planner no longer throws on a cycle across owners when every **module** in it is a `ui/` module (with a topics file, its
+  topics path decides; without one, the module's side): those units get modules of their own (as today) and the cycle stays.
+  A cycle that touches a `core/` module still throws. (Refined during the rehearsal: the first wording, "every unit in it is
+  `ui`", rejected the render cycle, because plain bindings with inert initializers such as `setMobileView` and
+  `reviewingFieldId` are not `ui` to the analyzer although section 5.4 places them in `ui/` modules. The safety condition is
+  per module and is enforced by the applier's load-time check and `tests/ui_cycles.js`.)
 - The applier's module-cycle check accepts a cycle when every module in it is under `ui/` and the **load-time guard** passes.
   The guard is deliberately simple, because a reference check alone is not transitive (a module-scope call to a local
   function that reads a cycle partner's import passes it, and would be a TDZ error in native ESM): **every top-level
@@ -437,7 +441,8 @@ listed and must not get worse), and an independent review of each task.
 
 A non-inert top-level initializer (section 2's definition: a plain reference to another name is not inert) in a `ui/` module, or
 moving out of `main.js`, is allowed to run at load only when the contiguous comment block directly above it starts with
-`// load-time: <reason>` (a reason may continue on the following comment lines), and the reason says why it reads nothing
+`// load-time: <reason>` (a reason may continue on the following comment lines; `@@shared` marker lines are skipped when finding
+the block's first line, so a comment just inside a region still counts: refined during the rehearsal, for `ids` and `theme`), and the reason says why it reads nothing
 that a statement or another function writes. The rule covers `ui/` modules only: about 33 non-inert initializers in `core/`
 modules (for example `src/shared/core/spending-and-loans.js:194`, `src/us/core/new-state-sources.js:17`,
 `src/canada/core/ramq-cap.js:13`) are pure data built at load and are left unmarked; core regrouping (after Stage 4)
