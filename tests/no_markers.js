@@ -22,6 +22,10 @@ for (const f of files) {
     if (l.includes('@@shared')) bad.push(`${path.relative(root, f)}:${i + 1}: ${l.trim()}`);
   });
 }
+if (!files.length) {
+  console.error(`no_markers FAILED: no files under ${path.join(root, 'src')} (wrong --root?)`);
+  process.exit(1);
+}
 if (bad.length) {
   console.error(bad.join('\n'));
   console.error(`no_markers FAILED (${bad.length} marker line${bad.length === 1 ? '' : 's'})`);

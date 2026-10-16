@@ -1,5 +1,5 @@
 // Tests for scripts/lib/extract-units.js (plain Node, fixture trees in tmp).
-// The fixtures are miniatures of the real layout: two planners, some use of a shared store, some country code. After every
+// The fixtures are miniatures of the real layout: two planners, some use of the shared store module, some country code. After every
 // extraction the planners are bundled the way the build does and must produce what they produced before.
 const assert = require('assert');
 const fs = require('fs');
@@ -11,7 +11,6 @@ const { planExtraction } = require('../scripts/lib/extraction-plan');
 const { applyModules, functionBodyProblem } = require('../scripts/lib/extract-units');
 const espree = require('espree');
 const { statementLabel: labelOf } = require('../scripts/analyze-closure');
-const { checkCountryContract } = require('../scripts/lib/country-contract');
 const { compareScripts } = require('../scripts/compare-builds');
 
 const made = [];
@@ -29,7 +28,7 @@ const newRoot = () => {
   return root;
 };
 
-const SHARED_REGION = [
+const STORE_USERS = [
   '  // doubles a number',
   '  const twice = (n) => n * 2;',
   '  function addBase(n) {',
@@ -40,7 +39,7 @@ const mainText = (rate, extra) =>
   [
     "import { state } from '../shared/core/store.js';",
     '(() => {',
-    ...SHARED_REGION,
+    ...STORE_USERS,
     '  // the country rate',
     `  const rate = ${rate};`,
     '  function tax(n) {',
@@ -205,6 +204,25 @@ const both = async (root) => ({ us: await run(root, 'us'), canada: await run(roo
     /data block RULES is split/,
   );
 
+
+  // ---- country seam facades already on disk (owner 'shared' is refused, so applyModules can no longer create them; the
+  // checks over the files that exist stay live). The wrong-side check ("its facade goes under X/ but ... exists") only runs
+  // for a name a shared module reached through the seam, so it is unreachable now and has no fixture.
+  const MOVE = one('src/us/core/x.js', 'us', ['isEven', 'isOdd']);
+  const seamDisk = (files) => () => {
+    const r = fixture();
+    for (const [rel, text] of Object.entries(files)) write(r, rel, text);
+    return r;
+  };
+  const FAC = "export { Q } from './q.js';\n";
+  // equal facades in both countries, same side: accepted, and the report lists the name
+  root = seamDisk({ 'src/us/core/seam-Q.js': FAC, 'src/canada/core/seam-Q.js': FAC })();
+  assert.deepStrictEqual(applyModules(root, MOVE).seam, { us: ['Q'], canada: ['Q'] });
+  // a facade in one country only, on either side, is refused
+  refuse(seamDisk({ 'src/us/core/seam-Q.js': FAC }), MOVE, /the country seam facades differ: us exports core\/Q; canada exports /);
+  refuse(seamDisk({ 'src/canada/ui/seam-Q.js': FAC }), MOVE, /the country seam facades differ: us exports ; canada exports ui\/Q/);
+  // the same name on different sides in the two countries is refused
+  refuse(seamDisk({ 'src/us/core/seam-Q.js': FAC, 'src/canada/ui/seam-Q.js': FAC }), MOVE, /the country seam facades differ: us exports core\/Q; canada exports ui\/Q/);
 
   // ---- stage 3: side-effect imports, bare specifiers, namespace imports, block comments, staged writes, paths
   const mainWith = (importLines, body, tail = '  window.__out = 1;') => [...importLines, '(() => {', ...body, tail, '})();', ''].join('\n');

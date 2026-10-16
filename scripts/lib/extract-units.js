@@ -2,11 +2,10 @@
 // Moves top-level units out of src/<country>/main.js into modules (spec section 13).
 //
 // applyModules(root, modules, { dryRun }) takes the modules of a plan (see extraction-plan.js):
-//   [{ path: 'src/shared/core/pct.js', owner: 'shared' | 'us' | 'canada', units: { us: [label], canada: [label] } }]
+//   [{ path: 'src/shared/core/pct.js', owner: 'us' | 'canada', units: { us: [label], canada: [label] } }]
 // and, for each module, cuts its units (with the contiguous comment lines directly above each one, and a
 // following `// NAME:end` data marker) out of main.js, writes the module with `export` on the names used elsewhere
-// and the imports it needs, and adds to main.js the imports it now needs. A shared module is cut from both
-// planners (the text must be identical).
+// and the imports it needs, and adds to main.js the imports it now needs. owner 'shared' is refused (Task 14: no shared regions remain).
 //
 // Side-effect statements move only inside a wiring function (below). Everything is verified before anything is written; on any problem it
 // throws and writes nothing (the files are staged next to their targets and renamed into place at the end).
