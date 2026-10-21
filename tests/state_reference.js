@@ -2,7 +2,7 @@
 // and Texas. Every expected value is worked by hand in the comment beside it, from the state's own figures:
 // CA 2025 (CalCPA Fast Tax Facts, secondary), NY 2026 rates over the statutory thresholds in the IT-201-I
 // worksheets, PA (pa.gov), CT 2025 (Form CT-1040 TCS and OLR report 2025-R-0152), WA (DOR). Inflation 0 and
-// plan year 0 unless a case says otherwise. The mechanisms themselves are tested in state_mechanisms.js.
+// plan year 0 unless a case says otherwise. The mechanisms themselves are tested in tests/unit/us/state-mechanisms.test.js.
 
 const { chromium } = require('playwright');
 const assert = require('assert');

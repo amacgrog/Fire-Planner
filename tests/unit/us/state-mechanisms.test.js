@@ -1,22 +1,44 @@
-// State income tax mechanisms (US, Batch 7C), each exercised on a synthetic jurisdiction 'zz' that
-// the test adds to STATE_RULES, so the arithmetic is isolated from any real state's figures. Every
-// expected value is worked by hand in the comment beside it. The real reference states are covered
-// in tests/state_reference.js.
+// State income tax mechanisms (US, Batch 7C), each exercised on a synthetic jurisdiction that the test adds to
+// STATE_RULES (through withRuleRow), so the arithmetic is isolated from any real state's figures. Every
+// expected value is worked by hand in the comment beside it (hand-computed literals, never engine output).
+// The real reference states are covered in tests/state_reference.js.
 //
 // The synthetic row is a flat 10% tax with no deduction; each case switches on one mechanism.
+// Converted from tests/state_mechanisms.js (Playwright, one page.evaluate); the old script executed 264 near
+// checks, this file asserts the same 264. Each it block sets up its own world, state, inflation and tax year.
+import { it, expect, afterAll } from 'vitest';
+import { world } from '../helpers/world.js';
+import { withRuleRow } from '../helpers/rules.js';
+import { makeCounter } from '../helpers/count.js';
 
-const { chromium } = require('playwright');
-const assert = require('assert');
-const path = require('path');
+const NEW_COUNT = 264;
+const c = makeCounter();
 
-function checks() {
-  const t = window.__test_tax;
-  const st = window.__test_getState();
-  const R = t.STATE_RULES;
-  const fails = [];
-  const near = (a, b, label) => { if (!(Math.abs(a - b) <= 0.005)) fails.push(label + ': expected ' + b + ', got ' + a); };
+afterAll(({}, suite) => {
+  if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  expect(c.total).toBe(NEW_COUNT);
+});
+
+// Fixed tolerance, as in the old script.
+const near = (a, b, label) => {
+  c.tick();
+  expect(Math.abs(a - b) <= 0.005, label + ': expected ' + b + ', got ' + a).toBe(true);
+};
+
+// A fresh world with the closure the old page.evaluate built once: state (inflation 0, stateTax 'zz'), the 2026
+// tax year, the synthetic-row builder and runner.
+async function setup() {
+  const w = await world();
+  const { STATE_RULES: R } = await w.load('us/core/tax/state-rules.js');
+  const { stateIncomeTax } = await w.load('us/core/tax/state-tax.js');
+  const { taxFor, ordinaryTax } = await w.load('us/core/tax/federal-tax.js');
+  const { standardDeduction } = await w.load('us/core/tax/federal-rules.js');
+  const t = { stateIncomeTax, taxFor, ordinaryTax, standardDeduction };
+  const st = await w.setState();
+  w.setTaxYear(2026);
   st.inflation = 0;
   st.stateTax = 'zz';
+  const setYear = (y) => w.setTaxYear(y);
   const zero3 = { single: 0, mfj: 0, hoh: 0 };
   const idx = (on, o) => Object.assign({ bracketsIndexed: on, standardDeductionIndexed: on, personalExemptionIndexed: on, creditAmountsIndexed: on, creditThresholdsIndexed: on, retirementExclusionIndexed: on }, o);
   const flat = (rate) => ({ kind: 'flat', rate });
@@ -28,19 +50,25 @@ function checks() {
     seniorExemption: { kind: 'none' }, federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false }, schedule: [],
     retirementExclusion: { kind: 'none' }, credits: [], federalTaxSubtraction: 'none', localTax: 'notModeled', notes: '',
   }, o);
-  // The compiled row is cached per code, so each case registers a fresh code.
+  // The compiled row is cached per code, so each case registers a fresh code (withRuleRow allows a code once per world).
   let n = 0;
   const run = (row, sources, filing = 'single', yearIndex = 0) => {
     const code = 'zz' + n++;
-    R[code] = mk(row);
-    st.stateTax = code;
-    const s = Object.assign({ wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] }, sources);
-    const out = t.stateIncomeTax(s, filing, yearIndex);
-    delete R[code];
-    return out;
+    return withRuleRow(R, code, mk(row), () => {
+      st.stateTax = code;
+      const s = Object.assign({ wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] }, sources);
+      return t.stateIncomeTax(s, filing, yearIndex);
+    });
   };
   const kid = (age, o) => Object.assign({ age, student: false, qualifyingChild: true }, o);
   const cols = (v) => ({ single: v, mfj: v, hoh: v });
+  const perP = (o) => Object.assign({ kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 0, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null }, o);
+  const pen = (a, b) => ({ pension: a + b, pensionA: a, pensionB: b, retirement: 0, retirementA: 0, retirementB: 0 });
+  return { w, R, t, st, setYear, zero3, idx, flat, mk, run, kid, cols, perP, pen };
+}
+
+it('column, credit, exemption and indexing mechanisms', async () => {
+  const { st, zero3, idx, flat, run, kid, cols } = await setup();
 
   // --- Benefit recapture (NY-style) ------------------------------------------------------------------
   // Brackets: 4% to 10,000, 5% to 20,000, 6% above. Recapture from AGI 12,000 over 4,000 of AGI; bands: below
@@ -191,13 +219,11 @@ function checks() {
   near(run(qssCredit, { wages: 90000, dependents: kid1 }, 'qss'), 9000 - (500 - 15 * 16.5), 'child credit: a status with its own threshold (qss 75,000)');
   near(run(qssCredit, { wages: 90000, dependents: kid1 }, 'mfj'), 9000 - 500, 'child credit: joint 110,000 still applies to joint filers');
   st.inflation = 0;
+});
 
-  // =====================================================================================================
-  // 7D mechanisms (commit A). The synthetic row is a flat 10% tax unless a case says otherwise.
-  // =====================================================================================================
-  const perP = (o) => Object.assign({ kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 0, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null }, o);
-  const setYear = window.__test_setCurrentYear;
-  setYear(2026);
+it('7D mechanisms (commit A): schedules, deduction phases, per-person exclusions, conformity, senior and threshold rows, taxFor benefits', async () => {
+  const { R, st, t, setYear, idx, flat, mk, run, kid, cols, perP } = await setup();
+
 
   // --- Mechanism 1: scheduled changes ------------------------------------------------------------------
   // Base: 10% and a 1,000 deduction. From 2028 (year index 2): 8% and a 2,000 deduction. Wages 20,000.
@@ -361,21 +387,21 @@ function checks() {
   // --- Mechanism 15 through taxFor: each partner's own benefits reach the state ------------------------------------------------
   // A cap of 30,000 reduced by the filer's own benefits. A (70) has the pension 25,000; B (68) has none. The state tax is the
   // difference from Texas (the federal part is identical).
-  R.zzb = mk({ retirementExclusion: perP({ tiers: [[0, 30000]], reducedBy: 'benefitsReceived' }) });
-  const bp = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 25000, otherB: 0, wageA: 0, wageB: 0, pensionA: 25000, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 70, ageB: 68, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
-  const stateOnly = (p) => { st.stateTax = 'zzb'; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; return a - t.taxFor(p, 0, 0); };
-  near(stateOnly(bp({ ssA: 12000 })), 700, 'taxFor, joint: A\'s own benefits 12,000 leave 18,000 excluded of 25,000');
-  near(stateOnly(bp({ ssB: 12000 })), 0, 'taxFor, joint: B\'s benefits do not reduce A\'s cap (25,000 excluded)');
-  near(stateOnly(bp({ filing: 'single', ssA: 12000 })), 700, 'taxFor, two returns: A\'s return reads A\'s benefits');
-  near(stateOnly(bp({ filing: 'single', ssB: 12000 })), 0, 'taxFor, two returns: B\'s benefits stay on B\'s return');
-  near(stateOnly(bp({ filing: 'single', singlePerson: true, ageB: null, ssA: 12000 })), 700, 'taxFor, one person: reads A\'s benefits');
-  delete R.zzb;
-  setYear(new Date().getFullYear());
+  withRuleRow(R, 'zzb', mk({ retirementExclusion: perP({ tiers: [[0, 30000]], reducedBy: 'benefitsReceived' }) }), () => {
+    const bp = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 25000, otherB: 0, wageA: 0, wageB: 0, pensionA: 25000, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 70, ageB: 68, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
+    const stateOnly = (p) => { st.stateTax = 'zzb'; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; return a - t.taxFor(p, 0, 0); };
+    near(stateOnly(bp({ ssA: 12000 })), 700, 'taxFor, joint: A\'s own benefits 12,000 leave 18,000 excluded of 25,000');
+    near(stateOnly(bp({ ssB: 12000 })), 0, 'taxFor, joint: B\'s benefits do not reduce A\'s cap (25,000 excluded)');
+    near(stateOnly(bp({ filing: 'single', ssA: 12000 })), 700, 'taxFor, two returns: A\'s return reads A\'s benefits');
+    near(stateOnly(bp({ filing: 'single', ssB: 12000 })), 0, 'taxFor, two returns: B\'s benefits stay on B\'s return');
+    near(stateOnly(bp({ filing: 'single', singlePerson: true, ageB: null, ssA: 12000 })), 700, 'taxFor, one person: reads A\'s benefits');
+  });
+});
 
-  // =====================================================================================================
-  // 7D mechanisms (commit B): 7 (federal tax paid), 9 (Social Security rules), 12 (income-tested credits),
-  // 13 (gains shapes) and the flat local tax. Mechanism 11 (circuit breakers) was dropped by the owner.
-  // =====================================================================================================
+it('7D mechanisms (commit B): Social Security rules, income-tested credits, gains shapes, local and lagged federal tax', async () => {
+  const { R, st, t, zero3, idx, flat, mk, run, kid, cols, perP, pen } = await setup();
+  let n = 0;
+
   const pf = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 0, otherB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 50, ageB: 48, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
   const baseWith = (ss, o) => ({ ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: ss, ...o });
   const ssSrc = (o) => ({ pension: 20000, pensionA: 20000, taxableSS: 30000, taxableSSA: 30000, ssBenefits: 30000, ssBenefitsA: 30000, ages: [70], ...o });
@@ -495,14 +521,14 @@ function checks() {
   near(run(loc(itc({ perSenior: null, perDependent: 0, amount: cols(500), limit: null })), { wages: 50000 }), 5350, 'local tax: a state credit does not reduce it (4,500 - 500 + 1,350)');
   // It feeds the federal itemized deduction: single, wages 200,000, property tax 10,000, state tax 20,000 + local 6,000. SALT 36,000 (under the cap)
   // instead of 30,000: 6,000 more deducted at 24% (taxable 164,000 and 170,000 are both in the 24% bracket), so the combined tax rises by 6,000 - 1,440.
-  R['zzloc' + n] = mk(loc({ standardDeduction: zero3 })); R['zzlocz' + n] = mk({}); const locN = n++;
-  const withLocal = (code) => { st.stateTax = code; return t.taxFor(pf({ filing: 'single', singlePerson: true, ageB: null, ageA: 40, otherA: 200000, wageA: 200000, propertyTax: 10000 }), 0, 0); };
-  near(withLocal('zzloc' + locN) - withLocal('zzlocz' + locN), 4560, 'local tax: feeds the federal SALT deduction');
-  delete R['zzloc' + locN]; delete R['zzlocz' + locN];
+  withRuleRow(R, 'zzloc' + n, mk(loc({ standardDeduction: zero3 })), () => withRuleRow(R, 'zzlocz' + n, mk({}), () => {
+    const withLocal = (code) => { st.stateTax = code; return t.taxFor(pf({ filing: 'single', singlePerson: true, ageB: null, ageA: 40, otherA: 200000, wageA: 200000, propertyTax: 10000 }), 0, 0); };
+    near(withLocal('zzloc' + n) - withLocal('zzlocz' + n), 4560, 'local tax: feeds the federal SALT deduction');
+  }));
 
   // --- Mechanism 7: federal income tax paid, from one lagged pass ---------------------------------------------------------------------
   const lag = (o) => ({ federalTaxSubtraction: { kind: 'lagged', placement: 'subtraction', cap: null, phase: null, ...o } });
-  const lagTax = (row, p) => { const code = 'zzl' + n++; R[code] = mk(row); st.stateTax = code; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; const b = t.taxFor(p, 0, 0); delete R[code]; return a - b; };
+  const lagTax = (row, p) => { const code = 'zzl' + n++; return withRuleRow(R, code, mk(row), () => { st.stateTax = code; const a = t.taxFor(p, 0, 0); st.stateTax = 'tx'; const b = t.taxFor(p, 0, 0); return a - b; }); };
   const lp = (o) => pf(Object.assign({ filing: 'single', singlePerson: true, ageB: null, ageA: 40, wageA: 100000, otherA: 100000 }, o));
   // Single, wages 100,000, 2026: taxable 83,900 = 1,240 + 4,560 + 33,500 x 22% = 13,170 of federal tax; state (100,000 - 13,170) x 10%.
   near(lagTax(lag(), lp({})), 8683, 'federal tax paid: single, 13,170 subtracted');
@@ -525,28 +551,32 @@ function checks() {
   near(lagTax(itemizedRow({}), lp({})), 8683, 'federal tax paid, itemized: 13,170 beats the 3,000 standard deduction');
   near(lagTax(itemizedRow({ cap: cap5 }), lp({})), 9500, 'federal tax paid, itemized: capped at 5,000, still above 3,000');
   near(lagTax(itemizedRow({}), lp({ wageA: 20000, otherA: 20000 })), 1700, 'federal tax paid, itemized: 390 of federal tax loses to the 3,000 standard deduction');
+});
+
+it('taxFor plumbing: traditional draw shares and the E1e inherited kinds', async () => {
+  const { R, st, t, zero3, mk, run, kid, cols } = await setup();
 
   // --- Plumbing through taxFor: each partner's discretionary traditional draw follows the account-ledger share ---
   // A retiree couple (A 62, B 50) draws 100,000 from traditional accounts; the synthetic state excludes a filer's own
   // traditional income from 59.5, so only A's part is excluded. The state tax is the difference between the same
   // profile under the synthetic state and under Texas (the federal part is identical: the standard deduction wins).
-  R.zzp = mk({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null } });
   const profile = (o) => Object.assign({ year: 0, filing: 'mfj', singlePerson: false, otherA: 0, otherB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 62, ageB: 50, invOrd: 0, invQual: 0, propertyTax: 0, mortgageInterest: 0, dependents: [] }, o);
-  const stateOf = (p, trad) => { st.stateTax = 'zzp'; const a = t.taxFor(p, 0, trad); st.stateTax = 'tx'; return a - t.taxFor(p, 0, trad); };
-  near(stateOf(profile({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor: A holds 80% of the pool, 80,000 excluded, 20,000 taxed');
-  near(stateOf(profile({}), 100000), 5000, 'taxFor: no ledger share means an even split (50,000 excluded)');
-  near(stateOf(profile({ ownerShareA: 1, ageB: null, singlePerson: true, filing: 'single' }), 100000), 0, 'taxFor: a one-person return holds all of it (100,000 excluded)');
-  // Two separate returns (a couple filing as single): the same split decides whose return carries the draw. The
-  // synthetic state excludes A's 80,000 on A's return and taxes B's 20,000 on B's: 2,000, not the 5,000 an even split gives.
-  const sep = (o) => profile(Object.assign({ filing: 'single' }, o));
-  near(stateOf(sep({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor, two returns: A\'s share of the draw is on A\'s return');
-  near(stateOf(sep({}), 100000), 5000, 'taxFor, two returns: no share means half on each return');
-  // The federal tax follows too (Texas, no state tax): A's 80,000 and B's 20,000 against 50,000 each, standard deduction each.
-  st.stateTax = 'tx';
-  const sd = t.standardDeduction('single', 0, [62]), sdB = t.standardDeduction('single', 0, [50]);
-  const fed = (a, b) => t.ordinaryTax(a, 0, 'single', sd) + t.ordinaryTax(b, 0, 'single', sdB);
-  near(t.taxFor(sep({ ownerShareA: 0.8 }), 0, 100000) - t.taxFor(sep({}), 0, 100000), fed(80000, 20000) - fed(50000, 50000), 'taxFor, two returns: the federal tax follows the split');
-  delete R.zzp;
+  withRuleRow(R, 'zzp', mk({ retirementExclusion: { kind: 'perPerson', pensionMinAge: 0, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, null]], reducedBy: 'none', share: null } }), () => {
+    const stateOf = (p, trad) => { st.stateTax = 'zzp'; const a = t.taxFor(p, 0, trad); st.stateTax = 'tx'; return a - t.taxFor(p, 0, trad); };
+    near(stateOf(profile({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor: A holds 80% of the pool, 80,000 excluded, 20,000 taxed');
+    near(stateOf(profile({}), 100000), 5000, 'taxFor: no ledger share means an even split (50,000 excluded)');
+    near(stateOf(profile({ ownerShareA: 1, ageB: null, singlePerson: true, filing: 'single' }), 100000), 0, 'taxFor: a one-person return holds all of it (100,000 excluded)');
+    // Two separate returns (a couple filing as single): the same split decides whose return carries the draw. The
+    // synthetic state excludes A's 80,000 on A's return and taxes B's 20,000 on B's: 2,000, not the 5,000 an even split gives.
+    const sep = (o) => profile(Object.assign({ filing: 'single' }, o));
+    near(stateOf(sep({ ownerShareA: 0.8 }), 100000), 2000, 'taxFor, two returns: A\'s share of the draw is on A\'s return');
+    near(stateOf(sep({}), 100000), 5000, 'taxFor, two returns: no share means half on each return');
+    // The federal tax follows too (Texas, no state tax): A's 80,000 and B's 20,000 against 50,000 each, standard deduction each.
+    st.stateTax = 'tx';
+    const sd = t.standardDeduction('single', 0, [62]), sdB = t.standardDeduction('single', 0, [50]);
+    const fed = (a, b) => t.ordinaryTax(a, 0, 'single', sd) + t.ordinaryTax(b, 0, 'single', sdB);
+    near(t.taxFor(sep({ ownerShareA: 0.8 }), 0, 100000) - t.taxFor(sep({}), 0, 100000), fed(80000, 20000) - fed(50000, 50000), 'taxFor, two returns: the federal tax follows the split');
+  });
 
   // --- E1e: the five inherited kinds (spec 6.4) -------------------------------------------------------------------------
   // zz: flat 10%, no deduction or exemption, base.ordinary true, Social Security exempt, single column. The filer has a
@@ -594,23 +624,4 @@ function checks() {
   const inhP = sepNy({ inhOn: true, inheritedA: 0, inheritedB: 30000, inhExtraA: 0, inhExtraB: 0, inhExclA: 0, inhExclB: 20000 });
   const twinP = sepNy({ inhOn: false, inheritedB: 0, inhExclB: 0, extraB: 60000 });
   near(nyOf(inhP), nyOf(twinP), 'taxFor two returns, NY: the decedent room on the owning return');
-  st.stateTax = 'tx';
-  return fails;
-}
-
-(async () => {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
-  await page.waitForTimeout(300);
-  const failures = await page.evaluate(checks);
-  await browser.close();
-  assert.deepStrictEqual(errors, [], 'page errors ' + errors);
-  assert.deepStrictEqual(failures, [], 'state mechanisms:\n  ' + failures.join('\n  '));
-  console.log('[US] state mechanism tests passed (recapture, AGI steps, credits, exclusions, columns, indexing)');
-})().catch((e) => {
-  console.error(e);
-  process.exit(1);
 });

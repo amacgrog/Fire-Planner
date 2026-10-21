@@ -74,7 +74,7 @@ holds it. See `README.md` for the full user-facing feature list.
   schedule (federal, each state/province, NIIT, OAS clawback) via
   `window.__test_tax`; run it whenever a bracket or tax function changes.
 - `tests/state_rules.js` — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
-  `tests/state_mechanisms.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
+  `tests/unit/us/state-mechanisms.test.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
   state); not in `npm test`; compare a worktree of the previous commit (run `npm ci && npm run build` in the worktree first) with the working tree (+5% allowed).
@@ -455,7 +455,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
   tax feeds the federal SALT deduction, so a state base must never read a federal deduction or federal tax (a state that
-  deducts federal tax gets one lagged pass, 7D). 7D mechanisms (all data, evaluator in `stateIncomeTax`, hand-computed cases in `tests/state_mechanisms.js`): `schedule` (year-effective
+  deducts federal tax gets one lagged pass, 7D). 7D mechanisms (all data, evaluator in `stateIncomeTax`, hand-computed cases in `tests/unit/us/state-mechanisms.test.js`): `schedule` (year-effective
   rule sets: `[{ fromYear, baseYear?, ...overrides }]`, each building on the one before; a scheduled family holds statutory dollars of its
   base year and indexes from there, `base / taxIndexFactor(baseYear - currentYear)`; only unconditional enacted changes, never revenue
   triggers), `standardDeductionPhase` (`stepDown` / `linear` by state AGI), `seniorExemption` (per filer, optional AGI phase-out),
@@ -1135,7 +1135,7 @@ inherited balance before the draw). Rows carry `inheritedTrad` / `inheritedRoth`
 into `traditional`, `investable`, `traditionalWithdrawn`), `annotateInheritedRows` adds them to the status tooltip, and `estate` /
 `afterTaxValue` count the balances. Hooks: `window.__test_inherited`, `__test_inhForceExtra`, `__test_inhTakeCount`,
 `__test_inhNoDrawCalls`, `__test_inhNoNeedAdj`. Tests: `tests/inherited_accounts.js`, the inherited cases in `tests/state_rules.js`,
-`tests/state_mechanisms.js` and `tests/legacy_state.js`, `test_inherited_accounts.js` (Playwright, not in CI).
+`tests/unit/us/state-mechanisms.test.js` and `tests/legacy_state.js`, `test_inherited_accounts.js` (Playwright, not in CI).
 **Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
 ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.

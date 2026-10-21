@@ -189,7 +189,7 @@ function usChecks() {
   // Every state with a bracket table or flat rate vs. a reference built from
   // its own table (deduction, then per-slice sum from explicit lower bounds).
   // Rows whose tax is just the table (no additions, credits, step-downs or dependent rules): those are checked against the
-  // reference calculation below; the rest are covered by hand-computed cases in state_mechanisms.js and state_reference.js.
+  // reference calculation below; the rest are covered by hand-computed cases in tests/unit/us/state-mechanisms.test.js and state_reference.js.
   const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary && !r.federalConformity.standardDeduction && r.seniorExemption.kind === 'none' && r.localTax === 'notModeled';
   const tableStates = Object.entries(t.STATE_RULES).filter(([, r]) => r.tax.kind !== 'none' && plainRow(r));
   // As rows gain credits, exemptions and conformity they leave this plain check for hand-computed cases (state_7d_households.js).
@@ -245,7 +245,7 @@ function usChecks() {
     }
     st.inflation = 3;
     // Indexing is per family; only a row that indexes everything (or nothing) is held to the plain scaling check below. Mixed rows
-    // (Washington: deduction indexed, its $1 million tier not) are covered in state_mechanisms.js.
+    // (Washington: deduction indexed, its $1 million tier not) are covered in tests/unit/us/state-mechanisms.test.js.
     const flags = Object.values(t.STATE_RULES[code].indexing);
     if (!flags.every(Boolean) && flags.some(Boolean)) continue;
     // A row with scheduled changes changes its own figures from the scheduled year; its cases are in state_7d_households.js.
