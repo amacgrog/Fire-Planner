@@ -1,0 +1,424 @@
+{
+  "operations": [
+    {
+      "move": "standardDeduction",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/tax/federal-rules.js"
+    },
+    {
+      "move": "acaExpectedPct",
+      "from": "src/us/core/aca-and-magi-iteration.js",
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "move": "acaEligibility",
+      "from": "src/us/core/aca-and-magi-iteration.js",
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "move": "acaHouseholdSize",
+      "from": "src/us/core/aca-and-magi-iteration.js",
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "move": "magiCapLeft",
+      "from": "src/us/core/after-tax-value.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "TAXABLE_BASIS_KEY",
+      "from": "src/us/core/cliff-plan-lines.js",
+      "to": "src/us/core/withdrawals/taxable-basis-key.js"
+    },
+    {
+      "move": "newWithdrawal",
+      "from": "src/us/core/cliff-plan-lines.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "APPEAL_EVENT",
+      "from": "src/us/core/cliff-plan-summary.js",
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "move": "applyRothConversion",
+      "from": "src/us/core/grow-balances.js",
+      "to": "src/us/core/withdrawals/roth-conversion.js"
+    },
+    {
+      "move": "inheritedDraw",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "inheritedLedger",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "INH_OUT",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "INH_CTX",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "inheritedYear",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "inheritedApply",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "inheritedClone",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "inheritedRestore",
+      "from": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/inherited.js"
+    },
+    {
+      "move": "returnStatusA",
+      "from": "src/us/core/irmaa-lookback.js",
+      "to": "src/us/core/tax/social-security-tax.js"
+    },
+    {
+      "move": "irmaaSsOf",
+      "from": "src/us/core/irmaa-lookback.js",
+      "to": "src/us/core/tax/social-security-tax.js"
+    },
+    {
+      "move": "bracketCeilingReal",
+      "from": "src/us/core/irmaa-lookback.js",
+      "to": "src/us/core/tax/federal-rules.js"
+    },
+    {
+      "move": "taxableSsOnRow",
+      "from": "src/us/core/magi-for-irmaa-line.js",
+      "to": "src/us/core/tax/social-security-tax.js"
+    },
+    {
+      "move": "QBI_LIMITS",
+      "from": "src/us/core/new-state-sources.js",
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "move": "niitTax",
+      "from": "src/us/core/niit-and-rmd.js",
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "move": "investmentIncome",
+      "from": "src/us/core/niit-and-rmd.js",
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "move": "additionalMedicareTax",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "move": "socialSecurityIncome",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/income/social-security.js"
+    },
+    {
+      "move": "SEPP_SLOTS",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/income/distributions.js"
+    },
+    {
+      "move": "seppElections",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/income/distributions.js"
+    },
+    {
+      "move": "requiredDistributions",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/income/distributions.js"
+    },
+    {
+      "move": "housingForYear",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/income/year-stages.js"
+    },
+    {
+      "move": "filingStatusFor",
+      "from": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "move": "taxableSocialSecurity",
+      "from": "src/us/core/social-security-and-child-credits.js",
+      "to": "src/us/core/tax/social-security-tax.js"
+    },
+    {
+      "move": "SE_OUT",
+      "from": "src/us/core/ss-wage-base.js",
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "move": "federalDeduction",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/tax/federal-rules.js"
+    },
+    {
+      "move": "stateRuleFor",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateRuleForYear",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateIncomeTax",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "fplForHousehold",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "move": "acaNetCost",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "move": "irmaaTiers",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "move": "irmaaSurcharge",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "move": "irmaaTierCeiling",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "move": "irmaaMagiOf",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "move": "irmaaRoomFor",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "move": "solveRothConversionTo",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/roth-conversion.js"
+    },
+    {
+      "move": "buildTaxProfile",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/income/year-stages.js"
+    },
+    {
+      "move": "healthcareCost",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "move": "conversionMagiCeiling",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/roth-conversion.js"
+    },
+    {
+      "move": "magiThresholds",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/cliff-plan/solver.js"
+    },
+    {
+      "move": "lambdaEstimate",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/cliff-plan/solver.js"
+    },
+    {
+      "move": "takeTraditional",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "solveTraditionalForNet",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "fillTraditional",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "takeRoth",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "rothDraw",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "takeInherited",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "solveTraditionalForNetFromNeed",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "move": "afterTaxEndValueUS",
+      "from": "src/us/core/standard-deduction.js",
+      "to": "src/us/core/cliff-plan/solver.js"
+    },
+    {
+      "move": "stateRuleCache",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "compileStateRule",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "compileRow",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "compileRetirement",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateRetirementExclusion",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateFederalTaxAllowance",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "statePhasedDeduction",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateBenefitRecapture",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "graduatedTax",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateCreditAmount",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "countAtLeast",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "countQualifyingChildren",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "stateStepValue",
+      "from": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "move": "WITHDRAWAL_MIX_CANDIDATES",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/withdrawals/mix.js"
+    },
+    {
+      "move": "withdrawalMixWeights",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/withdrawals/mix.js"
+    },
+    {
+      "move": "rothAccountsNew",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothAccountsSeason",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothAccountsClone",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothAccountsRestore",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothAccountsContribute",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothAccountsConvert",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothSlotSplit",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rothSlotApply",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/roth-ledger.js"
+    },
+    {
+      "move": "rule55Applies",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/penalty-status.js"
+    },
+    {
+      "move": "penaltyStatus",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/penalty-status.js"
+    },
+    {
+      "move": "incomeRoom",
+      "from": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/withdrawals/draws.js"
+    }
+  ]
+}

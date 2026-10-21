@@ -1,1 +1,1 @@
-export { renderDecisionCompareTable } from './render-decision-compare-table.js';
+export { renderDecisionCompareTable } from './analysis/decision-compare.js';

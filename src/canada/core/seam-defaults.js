@@ -1,1 +1,1 @@
-export { defaults } from './defaults.js';
+export { defaults } from './inputs/defaults.js';

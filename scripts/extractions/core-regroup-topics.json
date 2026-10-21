@@ -1,0 +1,343 @@
+{
+  "us": {
+    "files": {
+      "federal-deductions": "tax/federal-rules",
+      "itemized-deduction": "tax/federal-rules",
+      "mortgage-interest-share": "tax/federal-rules",
+      "ss-wage-base": "tax/federal-rules",
+      "social-security-and-child-credits": "tax/federal-tax",
+      "state-rules": "tax/state-rules",
+      "new-state-sources": "tax/state-tax",
+      "medicaid-rules": "healthcare/medicaid-rules",
+      "se-health": "healthcare/aca",
+      "aca-and-magi-iteration": "projection/engine-state",
+      "irmaa-tiers": "healthcare/irmaa",
+      "irmaa-lookback": "healthcare/irmaa",
+      "irmaa-appeal-table": "healthcare/irmaa",
+      "magi-for-irmaa-line": "healthcare/irmaa",
+      "payroll-and-plan-limits": "income/contributions",
+      "income-streams-and-lumps": "income/streams-and-lumps",
+      "ss-earnings-test": "income/social-security",
+      "niit-and-rmd": "income/distributions",
+      "withdrawal-mix-and-roth-accounts": "accounts/account-ledger",
+      "trad-group": "accounts/penalty-status",
+      "take-penalized": "withdrawals/draws",
+      "free-traditional": "withdrawals/draws",
+      "release-magi-cap": "withdrawals/draws",
+      "withdraw-standard": "withdrawals/strategies",
+      "draw-mixed-stock-accounts": "withdrawals/strategies",
+      "withdraw-bucket-penalty-aware": "withdrawals/strategies",
+      "bucket-step": "withdrawals/strategies",
+      "bucket-down-penalized-order": "withdrawals/strategies",
+      "bucket-up-penalized-order": "withdrawals/strategies",
+      "pick-live-withdrawal-order": "withdrawals/mix",
+      "solve-roth-conversion": "withdrawals/roth-conversion",
+      "cliff-plan-lines": "cliff-plan/solver",
+      "plan-candidate-better": "cliff-plan/solver",
+      "solver-lambda-mult": "cliff-plan/solver",
+      "lambda-profile": "cliff-plan/solver",
+      "after-tax-value": "cliff-plan/solver",
+      "cliff-plan-summary": "cliff-plan/planning",
+      "refresh-cliff-plan": "cliff-plan/planning",
+      "ensure-test-plan": "cliff-plan/planning",
+      "run-projection": "projection/run-projection",
+      "year-modes": "projection/year-modes",
+      "grow-balances": "projection/balances",
+      "optimize-multi-lever": "optimizer/multi-lever",
+      "roth-per-year": "optimizer/roth-schedule",
+      "standard-deduction": "tax/federal-tax",
+      "defaults": "inputs/defaults",
+      "dyn": "inputs/dyn",
+      "estimate-always-ids": "inputs/field-meta",
+      "mcp-schema-for": "inputs/field-meta",
+      "normalize-lists": "inputs/list-rules",
+      "sensitivity-levers": "analysis/sensitivity-levers",
+      "analyze-shortfall-drivers": "analysis/shortfall-drivers",
+      "render-decision-compare-table": "analysis/decision-compare",
+      "cliff-plan-store": "cliff-plan-store",
+      "optimizer-state": "optimizer-state",
+      "tax-year": "tax-year",
+      "test-hooks": "test-hooks"
+    },
+    "names": {
+      "tax/federal-rules": [
+        "standardDeduction",
+        "federalDeduction",
+        "bracketCeilingReal"
+      ],
+      "tax/federal-tax": [
+        "ordinaryTax",
+        "longTermGainTax",
+        "childCredits",
+        "federalLiabilityForState",
+        "qbiDeduction",
+        "taxFor",
+        "selfEmploymentTax",
+        "wageFica",
+        "payrollTax",
+        "niitTax",
+        "investmentIncome",
+        "additionalMedicareTax",
+        "filingStatusFor",
+        "QBI_LIMITS",
+        "SE_OUT"
+      ],
+      "tax/social-security-tax": [
+        "taxableSocialSecurity",
+        "taxableSsOnRow",
+        "returnStatusA",
+        "irmaaSsOf"
+      ],
+      "tax/state-tax": [
+        "stateRuleFor",
+        "stateRuleForYear",
+        "stateIncomeTax",
+        "compileStateRule",
+        "compileRow",
+        "compileRetirement",
+        "graduatedTax",
+        "countAtLeast",
+        "countQualifyingChildren",
+        "stateStepValue",
+        "stateRetirementExclusion",
+        "stateFederalTaxAllowance",
+        "statePhasedDeduction",
+        "stateBenefitRecapture",
+        "stateCreditAmount",
+        "stateRuleCache"
+      ],
+      "healthcare/aca": [
+        "fplForHousehold",
+        "acaNetCost",
+        "healthcareCost",
+        "acaExpectedPct",
+        "acaEligibility",
+        "acaHouseholdSize"
+      ],
+      "healthcare/irmaa": [
+        "irmaaTiers",
+        "irmaaSurcharge",
+        "irmaaTierCeiling",
+        "irmaaMagiOf",
+        "irmaaRoomFor",
+        "APPEAL_EVENT"
+      ],
+      "income/inherited": [
+        "inheritedDraw",
+        "inheritedLedger",
+        "INH_OUT",
+        "INH_CTX",
+        "inheritedYear",
+        "inheritedApply",
+        "inheritedClone",
+        "inheritedRestore"
+      ],
+      "income/social-security": [
+        "socialSecurityIncome"
+      ],
+      "income/distributions": [
+        "seppElections",
+        "SEPP_SLOTS",
+        "requiredDistributions"
+      ],
+      "accounts/roth-ledger": [
+        "rothAccountsNew",
+        "rothAccountsSeason",
+        "rothAccountsClone",
+        "rothAccountsRestore",
+        "rothAccountsContribute",
+        "rothAccountsConvert",
+        "rothSlotSplit",
+        "rothSlotApply"
+      ],
+      "accounts/penalty-status": [
+        "rule55Applies",
+        "penaltyStatus"
+      ],
+      "withdrawals/draws": [
+        "rothDraw",
+        "solveTraditionalForNet",
+        "fillTraditional",
+        "takeTraditional",
+        "takeRoth",
+        "takeInherited",
+        "solveTraditionalForNetFromNeed",
+        "newWithdrawal",
+        "magiCapLeft",
+        "incomeRoom"
+      ],
+      "withdrawals/mix": [
+        "WITHDRAWAL_MIX_CANDIDATES",
+        "withdrawalMixWeights"
+      ],
+      "withdrawals/taxable-basis-key": [
+        "TAXABLE_BASIS_KEY"
+      ],
+      "withdrawals/roth-conversion": [
+        "solveRothConversionTo",
+        "conversionMagiCeiling",
+        "applyRothConversion"
+      ],
+      "cliff-plan/solver": [
+        "magiThresholds",
+        "lambdaEstimate",
+        "afterTaxEndValueUS"
+      ],
+      "projection/engine-state": [
+        "MAGI_ITER_MAX",
+        "MAGI_ITER_TOL",
+        "cliffPlanCache",
+        "CLIFF_PLAN_CACHE_MAX",
+        "magiStats",
+        "planStats"
+      ],
+      "income/year-stages": [
+        "buildTaxProfile",
+        "housingForYear"
+      ]
+    }
+  },
+  "canada": {
+    "files": {
+      "federal-tax-constants": "tax/rules",
+      "credits-and-gross-up": "tax/rules",
+      "ei-mie": "tax/rules",
+      "fed-medical-threshold": "tax/rules",
+      "oas-recovery": "tax/rules",
+      "prov-tax": "tax/rules",
+      "ramq-cap": "tax/rules",
+      "province-rules": "tax/province-rules",
+      "federal-tax-ca": "tax/tax",
+      "federal-bracket-ceiling-ca": "tax/tax",
+      "benefit-helpers": "benefits/benefits",
+      "get-benefits": "benefits/benefits",
+      "gis-and-rrif": "benefits/benefits",
+      "income-and-housing-per-year": "income/year-stages",
+      "list-amounts-and-home-buyers": "income/year-stages",
+      "take-roth": "withdrawals/draws",
+      "take-traditional": "withdrawals/draws",
+      "withdraw-standard": "withdrawals/strategies",
+      "bucket-step": "withdrawals/strategies",
+      "draw-smooth-stock-accounts": "withdrawals/strategies",
+      "taxable-basis-key": "withdrawals/taxable-basis-key",
+      "run-projection": "projection/run-projection",
+      "year-modes": "projection/year-modes",
+      "grow-balances": "projection/balances",
+      "probate-fee": "analysis/estate",
+      "defaults": "inputs/defaults",
+      "dyn": "inputs/dyn",
+      "fields": "inputs/fields",
+      "normalize-state": "inputs/normalize-state",
+      "estimate-always-ids": "inputs/field-meta",
+      "mcp-schema-for": "inputs/field-meta",
+      "oas-and-rrif": "inputs/field-meta",
+      "sensitivity-levers": "analysis/sensitivity-levers",
+      "analyze-shortfall-drivers": "analysis/shortfall-drivers",
+      "render-decision-compare-table": "analysis/decision-compare"
+    },
+    "names": {
+      "tax/rules": [
+        "OAS_RECOVERY_THRESHOLD",
+        "RRIF_PENSION_AGE"
+      ],
+      "income/year-stages": [
+        "rrifMinPct",
+        "buildTaxProfile",
+        "healthcareCost"
+      ],
+      "benefits/benefits": [
+        "benefitsFor",
+        "gisIncomeRoom"
+      ],
+      "withdrawals/draws": [
+        "solveTraditionalForNet",
+        "solveTraditionalForNetFromNeed",
+        "newWithdrawal"
+      ],
+      "withdrawals/rrsp-meltdown": [
+        "solveMeltdown",
+        "applyRrspMeltdown"
+      ],
+      "projection/balances": [
+        "withdrawRequiredDistributions"
+      ],
+      "analysis/estate": [
+        "afterTaxEstate"
+      ],
+      "benefits/benefit-rules": [
+        "BENEFIT_RULES"
+      ],
+      "tax/tax": [
+        "scaledProgressiveTax",
+        "ontarioHealthPremium"
+      ],
+      "tax/province-rules": [
+        "provinceTaxTreatmentNote",
+        "currentProvince"
+      ]
+    }
+  },
+  "shared": {
+    "files": {
+      "take-cash": "withdrawals/draws",
+      "take-taxable": "withdrawals/draws",
+      "draw-taxable": "withdrawals/draws",
+      "sweep-excess-cash": "withdrawals/draws",
+      "bucket-down-year-order": "withdrawals/bucket-order",
+      "bond-ladder": "withdrawals/bond-ladder",
+      "bond-ladder-rotation": "withdrawals/bond-ladder",
+      "refill-bond-reserve": "withdrawals/bond-ladder",
+      "spending-and-loans": "income/spending-and-loans",
+      "loan-payment-for-year": "income/spending-and-loans",
+      "pension-income": "income/pension-income",
+      "projected-expense": "income/projected-expense",
+      "simulate": "projection/simulate",
+      "simulate-at-real-cagr": "projection/simulate",
+      "monte-carlo-paths": "projection/simulate",
+      "year-sources": "projection/year-sources",
+      "year-factors": "projection/year-factors",
+      "tax-index-factor": "projection/year-factors",
+      "next-guardrail-multiplier": "projection/guardrails",
+      "compact-decision-delta": "analysis/decisions",
+      "decision-end-assets": "analysis/decisions",
+      "find-minimal-spending-cut": "analysis/decisions",
+      "scenario-helpers": "analysis/scenario-helpers",
+      "list-normalization": "inputs/lists",
+      "lists-and-children": "inputs/lists",
+      "dyn-field-helpers": "inputs/dyn-fields",
+      "dyn-field-html": "inputs/dyn-fields",
+      "estimate-checks": "inputs/estimates",
+      "estimates-and-warnings": "inputs/estimates",
+      "money-format": "format/numbers",
+      "basics": "format/numbers",
+      "cagr-colors": "format/charts",
+      "chart-groups": "format/charts",
+      "sankey-hues": "format/charts",
+      "sankey-layout": "format/sankey-layout",
+      "store": "store",
+      "chart-prefs": "chart-prefs",
+      "chart-hover": "format/charts",
+      "field-wiring": "inputs/dyn-fields",
+      "tax-factors": "tax-factors"
+    },
+    "names": {
+      "projection/historical-data": [
+        "HIST"
+      ],
+      "income/spending-and-loans": [
+        "mortgageResultAges"
+      ],
+      "projection/year-factors": [
+        "CURRENT_YEAR"
+      ],
+      "format/numbers": [],
+      "analysis/decisions": [
+        "fiMultiple"
+      ],
+      "format/charts": [
+        "displayValue",
+        "xAxisLabel"
+      ]
+    }
+  }
+}

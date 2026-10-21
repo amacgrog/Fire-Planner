@@ -7355,7 +7355,7 @@ remains is detail to settle when the relevant batch is scoped:
   say what happens to a deceased partner's 401(k) (spousal rollover into the survivor's IRA is the
   realistic answer).
 - Roth IRA basis uses 0 as "not entered" (3A): a true zero basis is entered as $1. If a real blank is
-  wanted, the shared number listener (`src/shared/ui/field-listeners.js`) needs a blank-aware option.
+  wanted, the shared number listener (`src/shared/ui/inputs/field-listeners.js`) needs a blank-aware option.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - EITC (raised in 7A, deliberately not modeled in 7B): a qualifying child plus earned income and
   an investment-income cap. It could matter to a coast-FIRE household with children in low-MAGI

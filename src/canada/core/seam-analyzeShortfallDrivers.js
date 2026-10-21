@@ -1,1 +1,1 @@
-export { analyzeShortfallDrivers } from './analyze-shortfall-drivers.js';
+export { analyzeShortfallDrivers } from './analysis/shortfall-drivers.js';

@@ -1,1 +1,1 @@
-export { FIELDS } from './fields.js';
+export { FIELDS } from './inputs/fields.js';

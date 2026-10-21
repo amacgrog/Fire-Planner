@@ -1,3 +1,5 @@
+// Chart display preferences shared by both planners, with assign functions
+
 // Chart display preferences, shared by the chart code in both planners. Not part of `state` and never
 // saved or exported with a scenario: everything here resets on reload. Readers import the binding (a
 // live view); only this module assigns it, through the assign* functions. No DOM access.

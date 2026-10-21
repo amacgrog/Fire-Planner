@@ -1,1 +1,1 @@
-export { mcpSchemaFor } from './mcp-schema-for.js';
+export { mcpSchemaFor } from './inputs/field-meta.js';

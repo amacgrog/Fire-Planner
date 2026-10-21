@@ -1,1 +1,1 @@
-export { mcpAccepts } from './mcp-schema-for.js';
+export { mcpAccepts } from './inputs/field-meta.js';

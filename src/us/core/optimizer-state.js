@@ -2,6 +2,7 @@
 
 export const ROTH_PER_YEAR_EVAL_BUDGET = 8000; // simulate() calls, hard cap for the whole run (shared across every lever/smooth-branch in one call)
 
+// load-time: a literal object that reads ROTH_PER_YEAR_EVAL_BUDGET, the constant declared above it
 export const optimizerState = {
   // Per-age overrides applied by the optimizers ("Apply" writes them; a mapped 0 or no entry means no override that year).
   rothBracketByAge: null,

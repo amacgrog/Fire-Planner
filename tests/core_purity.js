@@ -11,16 +11,14 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { domGlobalsUsed, DOM_METHODS, stripComments } = require('../scripts/analyze-closure');
+const { isCore, isUi } = require('../scripts/lib/src-paths');
 
 const root = path.join(__dirname, '..');
 const IMPORT_SOURCE = /(?:from|import)\s*['"]([^'"]+)['"]/g;
 
+// every file under src/ that src-paths calls core (the one definition of a side)
 function coreFiles(dir) {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return entry.name === 'core' ? allJs(full) : coreFiles(full);
-    return [];
-  });
+  return allJs(dir).filter((f) => isCore(path.relative(root, f).split(path.sep).join('/')));
 }
 function allJs(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -47,9 +45,10 @@ for (const file of files) {
   for (const [, source] of text.matchAll(IMPORT_SOURCE)) {
     // a relative import is tested on its path under src/ (a checkout under a directory named ui must not count),
     // a '#country/...' specifier on its own text
-    const target = source.startsWith('.') ? path.relative(path.join(root, 'src'), path.resolve(path.dirname(file), source)) : source;
-    const segments = target.split(/[\\/]/);
-    assert.ok(!segments.includes('ui'), `${rel} is under core/ but imports ${source}, a ui/ module`);
+    const intoUi = source.startsWith('.')
+      ? isUi(path.relative(root, path.resolve(path.dirname(file), source)).split(path.sep).join('/'))
+      : source.startsWith('#country/ui/');
+    assert.ok(!intoUi, `${rel} is under core/ but imports ${source}, a ui/ module`);
   }
 }
 console.log(`core_purity OK (${files.length} core files)`);

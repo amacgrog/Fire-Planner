@@ -1,6 +1,6 @@
 // scripts/module-map.js on fixture trees (--root DIR): with no flag it writes docs/superpowers/inventory/module-map.md;
 // --check and --require-purpose, alone or together, only check and never write (the file stays byte-identical, even
-// when it is stale); a ui/ module without a purpose comment fails --require-purpose.
+// when it is stale); a core/ or ui/ module without a purpose comment fails --require-purpose.
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
@@ -23,7 +23,7 @@ const run = (root, ...args) => spawnSync(process.execPath, [cli, '--root', root,
 const mapOf = (root) => fs.readFileSync(path.join(root, MAP), 'utf8');
 
 try {
-  const GOOD = { 'src/shared/ui/x.js': '// Does x.\n\nexport function x() {}\n', 'src/us/core/y.js': 'export const y = 1;\n' };
+  const GOOD = { 'src/shared/ui/x.js': '// Does x.\n\nexport function x() {}\n', 'src/us/core/y.js': '// Holds y.\n\nexport const y = 1;\n' };
   const STALE = 'stale map\r\n';
 
   // no flag: writes the map
@@ -48,8 +48,26 @@ try {
     const root = tree({ ...GOOD, 'src/us/ui/z.js': 'export function z() {}\n', [MAP]: STALE });
     const r = run(root, '--require-purpose');
     assert.strictEqual(r.status, 1);
-    assert.ok(/ui modules without a purpose comment \(1\):\s+src\/us\/ui\/z\.js/.test(r.stderr), r.stderr);
+    assert.ok(/modules without a purpose comment \(1\):\s+src\/us\/ui\/z\.js/.test(r.stderr), r.stderr);
     assert.strictEqual(mapOf(root), STALE);
+  }
+  // a ui/ module below the top of ui/ is held to the same rule; with a purpose comment it is not an offender
+  {
+    const root = tree({ ...GOOD, 'src/shared/ui/charts/x.js': 'export function cx() {}\n', [MAP]: STALE });
+    const r = run(root, '--require-purpose');
+    assert.strictEqual(r.status, 1);
+    assert.ok(/modules without a purpose comment \(1\):\s+src\/shared\/ui\/charts\/x\.js/.test(r.stderr), r.stderr);
+    const ok = tree({ ...GOOD, 'src/shared/ui/charts/x.js': '// Draws x.\n\nexport function cx() {}\n' });
+    assert.strictEqual(run(ok, '--require-purpose').status, 0);
+  }
+  // a core/ module is held to the same rule
+  {
+    const root = tree({ ...GOOD, 'src/us/core/tax/x.js': 'export function x() {}\n' });
+    const r = run(root, '--require-purpose');
+    assert.strictEqual(r.status, 1);
+    assert.ok(/modules without a purpose comment \(1\):\s+src\/us\/core\/tax\/x\.js/.test(r.stderr), r.stderr);
+    const ok = tree({ ...GOOD, 'src/us/core/tax/x.js': '// Holds x.\n\nexport function x() {}\n' });
+    assert.strictEqual(run(ok, '--require-purpose').status, 0);
   }
   // bad arguments
   for (const args of [['--bogus'], ['--root']]) {

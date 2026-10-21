@@ -1,1 +1,1 @@
-export { computeRothOptimizer } from './roth-optimizer.js';
+export { computeRothOptimizer } from './results/roth-optimizer.js';

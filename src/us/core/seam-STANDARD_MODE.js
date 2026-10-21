@@ -1,1 +1,1 @@
-export { STANDARD_MODE } from './year-modes.js';
+export { STANDARD_MODE } from './projection/year-modes.js';

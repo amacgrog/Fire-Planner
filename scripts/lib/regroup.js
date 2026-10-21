@@ -16,7 +16,10 @@
 //   { move: '<name>', from: '<p>', to: '<q>' } one top-level declaration, with its contiguous comment block, cut from
 //                                              `from` and appended to `to` (created if missing); `export` added or
 //                                              removed as uses require, imports rewritten in every file that used it; a
-//                                              source left with no declarations is deleted.
+//                                              source left with no declarations is deleted. A data block's only
+//                                              declaration moves with its block (both markers and the `//` lines above
+//                                              the begin marker); a declaration in a block with other statements is
+//                                              refused.
 // Name clashes are refused (`name clash: <name> in <path>`): one top-level name declared twice, or a declaration sharing
 // its name with an import binding of the same file. A mutable binding moves only with every writer; nothing moves into
 // core/ that uses a browser global, a DOM method or a ui/ module.
@@ -33,8 +36,9 @@
 // `// load-time:` declarations initialize; every change against the order before the operation is reported.
 // Any failure refuses the whole map: an Error `op <i> (<operation>): <problem>`, and nothing is written.
 //
-// Outside src/: exact module path strings in tests/state_modules.js, CLAUDE.md and the region maps
-// (docs/superpowers/inventory/stage{2,3,4}-region-map.md) follow every rename and merge; a name tests/state_modules.js
+// Outside src/: exact module path strings in tests/state_modules.js, CLAUDE.md, the region maps
+// (docs/superpowers/inventory/stage{2,3,4}-region-map.md) and docs/superpowers/inventory/stage4-open-items.md follow
+// every rename and merge; a name tests/state_modules.js
 // reads from a module counts as an importer of it before an export is removed (a move that leaves the test reading the
 // old module is reported as a note); and a generated rule doc (scripts/gen-*-rules.js, which record the path of the
 // module holding their data block) whose source path changed is reported as `regenerate: npm run <script>`.
@@ -48,6 +52,7 @@ const eslintScope = require('eslint-scope');
 const { undeclaredNames, domGlobalsUsed, DOM_GLOBALS, DOM_METHODS, stripComments } = require('../analyze-closure');
 const { checkLoadTime, loadTimeMarker, isInert, referencedNames } = require('./load-time');
 const { buildGraph, cycles } = require('./module-graph');
+const { sideOf, isUi, isCore } = require('./src-paths');
 
 const ECMA = 2022;
 const COUNTRIES = ['us', 'canada'];
@@ -58,6 +63,7 @@ const OUTSIDE = [
   'docs/superpowers/inventory/stage2-region-map.md',
   'docs/superpowers/inventory/stage3-region-map.md',
   'docs/superpowers/inventory/stage4-region-map.md',
+  'docs/superpowers/inventory/stage4-open-items.md',
 ];
 // a data-block marker line, `// NAME:begin` or `// NAME:end` (the form scripts/analyze-closure.js, scripts/lib/extract-units.js
 // and scripts/lib/marker-source.js read; the generators evaluate what lies between the two)
@@ -68,8 +74,6 @@ const SEAM_FILE = /^src\/(us|canada)\/(core|ui)\/seam-([^/]+)\.js$/;
 const pp = path.posix;
 const readText = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 const segments = (rel) => rel.split('/');
-const isUi = (rel) => segments(rel).slice(1, -1).includes('ui');
-const isCore = (rel) => segments(rel).slice(1, -1).includes('core');
 const isMain = (rel) => /^src\/(us|canada)\/main\.js$/.test(rel);
 const countriesOf = (rel) => (rel.startsWith('src/us/') ? ['us'] : rel.startsWith('src/canada/') ? ['canada'] : COUNTRIES);
 const ownerOf = (rel) => (rel.startsWith('src/us/') ? 'us' : rel.startsWith('src/canada/') ? 'canada' : rel.startsWith('src/shared/') ? 'shared' : 'other');
@@ -163,10 +167,11 @@ function shapeOf(text, rel) {
   return { ast, decls, imports, reexports, exportList, statements, facade, isExported };
 }
 
-// The purpose comment: line 1 is a `//` line that does not start with `load-time:`, followed by a blank line.
+// The purpose comment: line 1 is a `//` line that does not start with `load-time:` and is not a data-block marker,
+// followed by a blank line.
 function purposeLines(text) {
   const lines = text.split('\n');
-  if (lines.length >= 2 && /^\s*\/\//.test(lines[0]) && !/^\s*\/\/\s*load-time:/.test(lines[0]) && lines[1].trim() === '') return 2;
+  if (lines.length >= 2 && /^\s*\/\//.test(lines[0]) && !/^\s*\/\/\s*load-time:/.test(lines[0]) && !DATA_MARK.test(lines[0]) && lines[1].trim() === '') return 2;
   return 0;
 }
 
@@ -616,8 +621,8 @@ function regroup(root, operations, { dryRun = false } = {}) {
         const m = DOM_METHODS.exec(stripped);
         if (m) refuse(`core purity: ${rel} calls a DOM method (${m[0]})`);
         for (const [, source] of stripped.matchAll(IMPORT_SOURCE)) {
-          const target = source.startsWith('.') ? targetsOf(rel, source)[0].slice('src/'.length) : source;
-          if (target.split('/').includes('ui')) refuse(`core purity: ${rel} imports ${source}, a ui/ module`);
+          const intoUi = source.startsWith('.') ? isUi(targetsOf(rel, source)[0]) : source.startsWith('#country/ui/');
+          if (intoUi) refuse(`core purity: ${rel} imports ${source}, a ui/ module`);
         }
       }
       const owner = ownerOf(rel);
@@ -704,7 +709,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
         for (const f of comp) inCycle.set(f, comp);
       }
       for (const f of graph.files) {
-        if (!isUi(f) || graph.facades.has(f)) continue;
+        if (!(isUi(f) || isCore(f)) || graph.facades.has(f)) continue;
         const comp = inCycle.get(f);
         let opts = {};
         if (comp) {
@@ -739,6 +744,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
   function checkTarget(rel) {
     if (typeof rel !== 'string' || !/^src\/.+\.js$/.test(rel) || pp.normalize(rel) !== rel) refuse(`${rel}: a target must be a .js path under src/`);
     if (isMain(rel) || SEAM_FILE.test(rel)) refuse(`${rel} cannot be a target`);
+    if (sideOf(rel) === null) refuse(`${rel}: a target must be under src/<owner>/core/ or src/<owner>/ui/ (and not in a core/ or ui/ folder below that)`);
   }
   // every import and re-export declaration (other than in `skip`) whose relative specifier names one of `paths`
   function importersOf(paths, skip = new Set()) {
@@ -843,7 +849,8 @@ function regroup(root, operations, { dryRun = false } = {}) {
       placed.push(...comps[pick]);
       done.add(pick);
     }
-    // exports: a declaration exported only for another member loses its `export`
+    // exports: a declaration exported only for another member loses its `export` (a statement declaring several names
+    // only when every one of them is)
     const intraNames = new Set();
     for (const m of members) {
       for (const st of shapeOf(staged.get(m), m).imports) {
@@ -871,8 +878,9 @@ function regroup(root, operations, { dryRun = false } = {}) {
       let text = staged.get(m);
       const shape0 = shapeOf(text, m);
       if (shape0.reexports.length) refuse(`${m} re-exports from another module; a merge does not move re-exports`);
-      for (const name of shape0.decls.keys()) {
-        if (intraNames.has(name) && !external.has(name)) text = setExport(text, m, name, false);
+      for (const [name, d0] of shape0.decls) {
+        const siblings = [...shape0.decls].filter(([, x]) => x.st === d0.st).map(([n]) => n);
+        if (siblings.every((n) => intraNames.has(n) && !external.has(n))) text = setExport(text, m, name, false);
       }
       const shape = shapeOf(text, m);
       for (const name of shape.decls.keys()) {
@@ -930,7 +938,20 @@ function regroup(root, operations, { dryRun = false } = {}) {
     if (shape.exportList.has(name)) refuse(`${name} is exported through an export list in ${from}`);
     const st = d.st;
     const block = dataBlocks(fromText).blocks.find((b) => b.begin < st.loc.start.line && st.loc.end.line < b.end);
-    if (block) refuse(`${name} lies inside the data block ${block.name} in ${from} (lines ${block.begin}-${block.end}); a data block does not move`);
+    // a declaration inside a data block moves only as the block's one statement, with the whole block and the contiguous
+    // `//` lines above its begin marker (down to another marker or the previous statement)
+    let blockChunk = null;
+    if (block) {
+      const held = shape.ast.body.filter((x) => x.loc.start.line > block.begin && x.loc.end.line < block.end);
+      if (held.length !== 1) refuse(`${name} lies inside the data block ${block.name} in ${from} (lines ${block.begin}-${block.end}) with other statements; a data block moves only with its one declaration`);
+      wholeLines(fromText, st, from);
+      const ls = fromText.split('\n');
+      const idx = shape.ast.body.indexOf(held[0]);
+      const floor = idx > 0 ? shape.ast.body[idx - 1].loc.end.line : 0;
+      let s0 = block.begin;
+      while (s0 - 1 > floor && /^\s*\/\//.test(ls[s0 - 2]) && !DATA_MARK.test(ls[s0 - 2])) s0--;
+      blockChunk = { start: s0, end: block.end, lines: ls.slice(s0 - 1, block.end) };
+    }
     const inside = (node) => node.range[0] >= st.range[0] && node.range[1] <= st.range[1];
     const sm = eslintScope.analyze(shape.ast, { ecmaVersion: ECMA, sourceType: 'module' });
     const modScope = sm.scopes.find((s) => s.type === 'module');
@@ -984,7 +1005,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
     const users = importersOf(new Set([from]), new Set([from])).filter(({ st: x }) => (specsOf(x) || []).some((s) => (x.type === 'ImportDeclaration' ? s.imported : s.local) === name));
     const hadImporters = users.length > 0;
     // ---- `to`
-    const chunk = chunkOf(fromText, from, st, shape.ast);
+    const chunk = blockChunk || chunkOf(fromText, from, st, shape.ast);
     let toText;
     const created = !staged.has(to);
     if (created) toText = '';

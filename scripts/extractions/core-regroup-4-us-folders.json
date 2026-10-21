@@ -1,0 +1,195 @@
+{
+  "operations": [
+    {
+      "rename": "src/us/core/aca-and-magi-iteration.js",
+      "to": "src/us/core/projection/engine-state.js"
+    },
+    {
+      "merge": [
+        "src/us/core/cliff-plan/solver.js",
+        "src/us/core/after-tax-value.js",
+        "src/us/core/cliff-plan-lines.js",
+        "src/us/core/lambda-profile.js",
+        "src/us/core/plan-candidate-better.js",
+        "src/us/core/solver-lambda-mult.js"
+      ],
+      "to": "src/us/core/cliff-plan/solver.js"
+    },
+    {
+      "rename": "src/us/core/analyze-shortfall-drivers.js",
+      "to": "src/us/core/analysis/shortfall-drivers.js"
+    },
+    {
+      "merge": [
+        "src/us/core/bucket-down-penalized-order.js",
+        "src/us/core/bucket-step.js",
+        "src/us/core/bucket-up-penalized-order.js",
+        "src/us/core/draw-mixed-stock-accounts.js",
+        "src/us/core/withdraw-bucket-penalty-aware.js",
+        "src/us/core/withdraw-standard.js"
+      ],
+      "to": "src/us/core/withdrawals/strategies.js"
+    },
+    {
+      "merge": [
+        "src/us/core/cliff-plan-summary.js",
+        "src/us/core/ensure-test-plan.js",
+        "src/us/core/refresh-cliff-plan.js"
+      ],
+      "to": "src/us/core/cliff-plan/planning.js"
+    },
+    {
+      "rename": "src/us/core/defaults.js",
+      "to": "src/us/core/inputs/defaults.js"
+    },
+    {
+      "rename": "src/us/core/dyn.js",
+      "to": "src/us/core/inputs/dyn.js"
+    },
+    {
+      "merge": [
+        "src/us/core/estimate-always-ids.js",
+        "src/us/core/mcp-schema-for.js"
+      ],
+      "to": "src/us/core/inputs/field-meta.js"
+    },
+    {
+      "merge": [
+        "src/us/core/tax/federal-rules.js",
+        "src/us/core/federal-deductions.js",
+        "src/us/core/itemized-deduction.js",
+        "src/us/core/mortgage-interest-share.js",
+        "src/us/core/ss-wage-base.js"
+      ],
+      "to": "src/us/core/tax/federal-rules.js"
+    },
+    {
+      "merge": [
+        "src/us/core/withdrawals/draws.js",
+        "src/us/core/free-traditional.js",
+        "src/us/core/release-magi-cap.js",
+        "src/us/core/take-penalized.js"
+      ],
+      "to": "src/us/core/withdrawals/draws.js"
+    },
+    {
+      "rename": "src/us/core/grow-balances.js",
+      "to": "src/us/core/projection/balances.js"
+    },
+    {
+      "rename": "src/us/core/income-streams-and-lumps.js",
+      "to": "src/us/core/income/streams-and-lumps.js"
+    },
+    {
+      "merge": [
+        "src/us/core/healthcare/irmaa.js",
+        "src/us/core/irmaa-appeal-table.js",
+        "src/us/core/irmaa-lookback.js",
+        "src/us/core/irmaa-tiers.js",
+        "src/us/core/magi-for-irmaa-line.js"
+      ],
+      "to": "src/us/core/healthcare/irmaa.js"
+    },
+    {
+      "rename": "src/us/core/medicaid-rules.js",
+      "to": "src/us/core/healthcare/medicaid-rules.js"
+    },
+    {
+      "merge": [
+        "src/us/core/tax/state-tax.js",
+        "src/us/core/new-state-sources.js"
+      ],
+      "to": "src/us/core/tax/state-tax.js"
+    },
+    {
+      "merge": [
+        "src/us/core/income/distributions.js",
+        "src/us/core/niit-and-rmd.js"
+      ],
+      "to": "src/us/core/income/distributions.js"
+    },
+    {
+      "rename": "src/us/core/normalize-lists.js",
+      "to": "src/us/core/inputs/list-rules.js"
+    },
+    {
+      "rename": "src/us/core/optimize-multi-lever.js",
+      "to": "src/us/core/optimizer/multi-lever.js"
+    },
+    {
+      "rename": "src/us/core/payroll-and-plan-limits.js",
+      "to": "src/us/core/income/contributions.js"
+    },
+    {
+      "merge": [
+        "src/us/core/withdrawals/mix.js",
+        "src/us/core/pick-live-withdrawal-order.js"
+      ],
+      "to": "src/us/core/withdrawals/mix.js"
+    },
+    {
+      "rename": "src/us/core/render-decision-compare-table.js",
+      "to": "src/us/core/analysis/decision-compare.js"
+    },
+    {
+      "rename": "src/us/core/roth-per-year.js",
+      "to": "src/us/core/optimizer/roth-schedule.js"
+    },
+    {
+      "rename": "src/us/core/run-projection.js",
+      "to": "src/us/core/projection/run-projection.js"
+    },
+    {
+      "merge": [
+        "src/us/core/healthcare/aca.js",
+        "src/us/core/se-health.js"
+      ],
+      "to": "src/us/core/healthcare/aca.js"
+    },
+    {
+      "rename": "src/us/core/sensitivity-levers.js",
+      "to": "src/us/core/analysis/sensitivity-levers.js"
+    },
+    {
+      "merge": [
+        "src/us/core/tax/federal-tax.js",
+        "src/us/core/social-security-and-child-credits.js",
+        "src/us/core/standard-deduction.js"
+      ],
+      "to": "src/us/core/tax/federal-tax.js"
+    },
+    {
+      "merge": [
+        "src/us/core/withdrawals/roth-conversion.js",
+        "src/us/core/solve-roth-conversion.js"
+      ],
+      "to": "src/us/core/withdrawals/roth-conversion.js"
+    },
+    {
+      "merge": [
+        "src/us/core/income/social-security.js",
+        "src/us/core/ss-earnings-test.js"
+      ],
+      "to": "src/us/core/income/social-security.js"
+    },
+    {
+      "rename": "src/us/core/state-rules.js",
+      "to": "src/us/core/tax/state-rules.js"
+    },
+    {
+      "merge": [
+        "src/us/core/accounts/penalty-status.js",
+        "src/us/core/trad-group.js"
+      ],
+      "to": "src/us/core/accounts/penalty-status.js"
+    },
+    {
+      "rename": "src/us/core/withdrawal-mix-and-roth-accounts.js",
+      "to": "src/us/core/accounts/account-ledger.js"
+    },
+    {
+      "rename": "src/us/core/year-modes.js",
+      "to": "src/us/core/projection/year-modes.js"
+    }
+  ]
+}

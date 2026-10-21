@@ -35,8 +35,9 @@ Done:
 
 Next, in order (owner, 2026-10-21): every refactor item comes before E4.
 1. **Docs refresh** after the modular build.
-2. **Core regroup:** the one-unit `core/` modules merged and renamed by topic;
-   prerequisites in `docs/superpowers/inventory/stage4-open-items.md` (T17).
+2. **Core regroup: done** (`docs/superpowers/specs/2026-10-21-core-regroup-design.md`,
+   `docs/superpowers/plans/2026-10-21-core-regroup.md`): the one-unit `core/` modules merged and renamed by topic,
+   `core/` and `ui/` now topic folders; T17 of `docs/superpowers/inventory/stage4-open-items.md` resolved.
 3. **Vitest** unit tests for `core/`.
 4. **Stateless engine.**
 5. **TypeScript**, starting with `core/`.

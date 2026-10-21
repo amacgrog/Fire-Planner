@@ -1,6 +1,6 @@
 // The first-run wizard: steps, dismiss and close
 
-import { setMobileView } from './mobile-view.js';
+import { setMobileView } from './layout/mobile-view.js';
 
   // load-time: looks up a static element; reads nothing a statement writes.
   const wizardOverlay = document.getElementById('wizardOverlay');

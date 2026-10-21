@@ -1,1 +1,1 @@
-export { taxFor } from './federal-tax-ca.js';
+export { taxFor } from './tax/tax.js';

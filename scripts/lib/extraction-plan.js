@@ -32,6 +32,7 @@ const path = require('path');
 const espree = require('espree');
 const { analyze, statementLabel } = require('../analyze-closure');
 const { isInert, loadTimeMarker } = require('./load-time');
+const { isUi: isUiPath, isCore: isCorePath } = require('./src-paths');
 
 const COUNTRIES = ['us', 'canada'];
 
@@ -122,7 +123,7 @@ function loadCountry(root, country) {
     importsUi: (u) =>
       u.importUses.some((n) => {
         const abs = importSource.get(n);
-        return !!abs && path.relative(path.join(root, 'src'), abs).split(/[\\/]/).includes('ui');
+        return !!abs && isUiPath(path.relative(root, abs));
       }),
   };
 }
@@ -189,7 +190,7 @@ function planCore(root, options = {}) {
   const uiUnit = (c, u) => u.ui || info[c].importsUi(u) || usesUiSeam(u);
   const isUi = (c, u) =>
     owner(c, u) === 'shared' ? COUNTRIES.some((cc) => uiUnit(cc, info[cc].byLabel.get(u.label) || u)) : uiUnit(c, u);
-  const pathSide = (p) => (p.split('/').includes('ui') ? 'ui' : 'core'); // p: a repo-relative path under src/
+  const pathSide = (p) => (isUiPath(p) ? 'ui' : 'core'); // p: a repo-relative path under src/
 
   for (const name of seamNames) {
     for (const c of COUNTRIES) {
@@ -586,7 +587,7 @@ function planCore(root, options = {}) {
   const modules = merged.map((m, i) => {
     const countries = m.owner === 'shared' ? COUNTRIES : [m.owner];
     if (m.topicPath) {
-      return { path: m.topicPath, owner: m.owner, depth: depth[i], batch: Math.min(depth[i], maxBatch), ui: m.topicPath.split('/').includes('ui'), regions: m.regions, units: m.units };
+      return { path: m.topicPath, owner: m.owner, depth: depth[i], batch: Math.min(depth[i], maxBatch), ui: isUiPath(m.topicPath), regions: m.regions, units: m.units };
     }
     const ui = countries.some((c) => m.units[c].some((l) => uiUnit(c, info[c].byLabel.get(l))));
     const first = m.owner === 'shared' ? null : info[m.owner].byLabel.get(m.units[m.owner][0]);
@@ -765,7 +766,7 @@ function draftTopics(root, options = {}) {
   const out = { shared: { modules: {}, main: [] }, us: { modules: {}, main: [] }, canada: { modules: {}, main: [] } };
   // Lists the statement under its default module ('TODO' when there is none or it is a core/ module); returns the default or null.
   const put = (section, p, label) => {
-    const where = !p || p.split('/').includes('core') ? 'TODO' : p;
+    const where = !p || isCorePath(p) ? 'TODO' : p;
     (out[section].modules[where] = out[section].modules[where] || { units: [] }).units.push(label);
     return where === 'TODO' ? null : where;
   };
