@@ -1,8 +1,8 @@
 // Registers the MCP tools (read_fire_projection and update_fire_assumptions)
 
 import { state } from '../core/store.js';
-import { saveInputs } from './autosave.js';
-import { syncContributionControls } from './sync-contribution-controls.js';
+import { saveInputs } from './plans/autosave.js';
+import { syncContributionControls } from './inputs/sync-contribution-controls.js';
 import { FIELDS } from '#country/ui/seam-FIELDS';
 import { mcpAccepts } from '#country/core/seam-mcpAccepts';
 import { mcpSchemaFor } from '#country/core/seam-mcpSchemaFor';

@@ -1,1 +1,1 @@
-export { buildPrintReport } from './print-report.js';
+export { buildPrintReport } from './plans/print-report.js';

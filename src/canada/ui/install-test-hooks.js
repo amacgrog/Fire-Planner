@@ -6,7 +6,7 @@ import { getBenefits, gisAnnual, gisEmploymentExemption, interpKnots, benefitsFo
 import { cppAndOasIncome, housingForYear, oasAgeFactor, homeBuyerAmounts } from '../core/income/year-stages.js';
 import { probateFee, afterTaxEstate } from '../core/analysis/estate.js';
 import { PROVINCE_RULES } from '../core/tax/province-rules.js';
-import { computeRothOptimizer } from './roth-optimizer.js';
+import { computeRothOptimizer } from './results/roth-optimizer.js';
 import { drawTaxable } from '../../shared/core/withdrawals/draws.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs/lists.js';
 import { displayValue } from '../../shared/core/format/charts.js';

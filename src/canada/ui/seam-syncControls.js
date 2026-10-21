@@ -1,1 +1,1 @@
-export { syncControls } from './sync-controls.js';
+export { syncControls } from './inputs/sync-controls.js';
