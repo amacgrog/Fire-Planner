@@ -44,10 +44,10 @@ docs commits; never `git stash`). Do not push.
   - Then the modular-build refactor, stages 0-4, all done; Stage 4 is merged into `main` by PR #24 (write "merged by
     PR #24" and leave the date to the owner, as the parent design does). Not "in review".
   - Batch E stopped after E3 to do the refactor; E4 (state relocation) is pending.
-  - Remaining feature order: E4 -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the Canada province move later.
-  - Refactor follow-ups: this docs refresh, then the core regroup, then Vitest unit tests for `core/`, then the parent
-    design's section 11 future work. Their order relative to E4 is not decided: list them as a separate track and do not
-    interleave them with the feature order.
+  - Order from here (owner, 2026-10-21): the refactor follow-ups first (this docs refresh, then the core regroup, then
+    Vitest unit tests for `core/`), then the feature batches E4 -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the
+    Canada province move later. The parent design's section 11 future work (stateless engine, TypeScript, centralized
+    writes, Vite, merging the engines) is not scheduled: list it as later work, after the order above.
   - Every PR goes to `main`; work branches are cut from `main`.
 - No version-badge bump: nothing user-facing changes.
 - Prose style: plain, short sentences, matching the surrounding text.
@@ -137,11 +137,12 @@ where to look, and keeps its Phase 0-2 history.
     owner before the next starts.
   - Done: 1, 2, 3A, 3B, 3C (redesigned as the cliff plan, spec `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`),
     7 (7A-7O), the IRMAA MAGI fix, E1-E3. One line each, short.
-  - Next, in order: E4 (state relocation), 5 (optimizer), 4A, 4B (Canada), 6 (Social Security and others), 8 (survivor
-    claim optimizer); later: E5 (real assets) and the Canada province move. Keep each batch's existing one-line scope.
-  - Refactor track (separate, not ordered against E4): the docs refresh, the core regroup (prerequisites in
-    `docs/superpowers/inventory/stage4-open-items.md`, T17), Vitest unit tests for `core/`, then the section 11 future
-    work of `docs/superpowers/specs/2026-10-10-modular-build-design.md`.
+  - Next, in order: first the refactor follow-ups (the docs refresh; the core regroup, prerequisites in
+    `docs/superpowers/inventory/stage4-open-items.md`, T17; Vitest unit tests for `core/`), then E4 (state relocation),
+    5 (optimizer), 4A, 4B (Canada), 6 (Social Security and others), 8 (survivor claim optimizer). Keep each batch's
+    existing one-line scope.
+  - Later, not scheduled: E5 (real assets), the Canada province move, and the section 11 future work of
+    `docs/superpowers/specs/2026-10-10-modular-build-design.md`.
   - Keep the documentation paragraph (reference.md updated once after the last batch).
   - "Not modeled by decision": remove "medical" (7O O2 deducts medical expenses over 7.5% of AGI) and change "local income
     taxes" to "local income taxes (except a flat county rate for MD and IN, 7D)". Keep the rest.
@@ -192,9 +193,9 @@ git commit -m "Docs: roadmap.md is a status page (done, open, next order, the re
     `main`; replace the working-branch bullet (reset to the `tender-meitner` tip, `claude/dazzling-thompson-rp3l5j`) with:
     each batch's branch is cut from `main` after the previous PR merges. Keep the other two bullets.
   - "Execution order": add a dated paragraph at the end, `**Revised 2026-10-21 (owner):**`: Batch E stopped after E3 to
-    do the modular-build refactor (stages 0-4, merged); order from here E4 -> 5 -> 4A -> 4B -> 6 -> 8, E5 and the Canada
-    move later; the refactor follow-ups are a separate track (see `docs/roadmap.md`). Leave the earlier paragraphs as the
-    record.
+    do the modular-build refactor (stages 0-4, merged); the refactor follow-ups come next (docs refresh, core regroup,
+    Vitest for `core/`; see `docs/roadmap.md`), then E4 -> 5 -> 4A -> 4B -> 6 -> 8, with E5 and the Canada move later.
+    Leave the earlier paragraphs as the record.
 
 - [ ] **Step 2: Layout fixes in `docs/next-batches-plan.md`.**
   - "Ground rules", line 160: replace the bullet with: shared code lives in modules under `src/shared/core|ui/` and is
@@ -227,7 +228,8 @@ git commit -m "Docs: roadmap.md is a status page (done, open, next order, the re
   order" paragraphs kept as the record (none in "Review gate", "Ground rules", Batch 4 or "Open items").
 
   Then read the remaining order in `docs/next-batches-plan.md` ("Execution order", the 2026-10-21 paragraph) and in
-  `docs/roadmap.md` ("Current plan"). Expected: the same order, E4 first, and the same refactor track.
+  `docs/roadmap.md` ("Current plan"). Expected: the same order in both: docs refresh, core regroup, Vitest, then E4
+  first among the feature batches.
 
 - [ ] **Step 5: Commit.**
 
