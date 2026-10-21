@@ -44,7 +44,7 @@
       "year-modes": "projection/year-modes",
       "grow-balances": "projection/balances",
       "optimize-multi-lever": "optimizer/multi-lever",
-      "roth-per-year": "optimizer/roth-per-year",
+      "roth-per-year": "optimizer/roth-schedule",
       "standard-deduction": "tax/federal-tax",
       "defaults": "inputs/defaults",
       "dyn": "inputs/dyn",
@@ -79,7 +79,8 @@
         "investmentIncome",
         "additionalMedicareTax",
         "filingStatusFor",
-        "QBI_LIMITS"
+        "QBI_LIMITS",
+        "SE_OUT"
       ],
       "tax/social-security-tax": [
         "taxableSocialSecurity",
@@ -90,7 +91,20 @@
       "tax/state-tax": [
         "stateRuleFor",
         "stateRuleForYear",
-        "stateIncomeTax"
+        "stateIncomeTax",
+        "compileStateRule",
+        "compileRow",
+        "compileRetirement",
+        "graduatedTax",
+        "countAtLeast",
+        "countQualifyingChildren",
+        "stateStepValue",
+        "stateRetirementExclusion",
+        "stateFederalTaxAllowance",
+        "statePhasedDeduction",
+        "stateBenefitRecapture",
+        "stateCreditAmount",
+        "stateRuleCache"
       ],
       "healthcare/aca": [
         "fplForHousehold",
@@ -105,7 +119,8 @@
         "irmaaSurcharge",
         "irmaaTierCeiling",
         "irmaaMagiOf",
-        "irmaaRoomFor"
+        "irmaaRoomFor",
+        "APPEAL_EVENT"
       ],
       "income/inherited": [
         "inheritedDraw",
@@ -123,9 +138,7 @@
       "income/distributions": [
         "seppElections",
         "SEPP_SLOTS",
-        "requiredDistributions",
-        "housingForYear",
-        "buildTaxProfile"
+        "requiredDistributions"
       ],
       "accounts/roth-ledger": [
         "rothAccountsNew",
@@ -139,8 +152,7 @@
       ],
       "accounts/penalty-status": [
         "rule55Applies",
-        "penaltyStatus",
-        "incomeRoom"
+        "penaltyStatus"
       ],
       "withdrawals/draws": [
         "rothDraw",
@@ -151,7 +163,8 @@
         "takeInherited",
         "solveTraditionalForNetFromNeed",
         "newWithdrawal",
-        "magiCapLeft"
+        "magiCapLeft",
+        "incomeRoom"
       ],
       "withdrawals/mix": [
         "WITHDRAWAL_MIX_CANDIDATES",
@@ -162,7 +175,8 @@
       ],
       "withdrawals/roth-conversion": [
         "solveRothConversionTo",
-        "conversionMagiCeiling"
+        "conversionMagiCeiling",
+        "applyRothConversion"
       ],
       "cliff-plan/solver": [
         "magiThresholds",
@@ -176,6 +190,10 @@
         "CLIFF_PLAN_CACHE_MAX",
         "magiStats",
         "planStats"
+      ],
+      "income/year-stages": [
+        "buildTaxProfile",
+        "housingForYear"
       ]
     }
   },
@@ -245,6 +263,17 @@
       ],
       "analysis/estate": [
         "afterTaxEstate"
+      ],
+      "benefits/benefit-rules": [
+        "BENEFIT_RULES"
+      ],
+      "tax/tax": [
+        "scaledProgressiveTax",
+        "ontarioHealthPremium"
+      ],
+      "tax/province-rules": [
+        "provinceTaxTreatmentNote",
+        "currentProvince"
       ]
     }
   },
@@ -281,16 +310,34 @@
       "estimates-and-warnings": "inputs/estimates",
       "money-format": "format/numbers",
       "basics": "format/numbers",
-      "cagr-colors": "format/chart-colors",
-      "chart-groups": "format/chart-colors",
-      "sankey-hues": "format/chart-colors",
+      "cagr-colors": "format/charts",
+      "chart-groups": "format/charts",
+      "sankey-hues": "format/charts",
       "sankey-layout": "format/sankey-layout",
       "store": "store",
       "chart-prefs": "chart-prefs",
-      "chart-hover": "chart-hover",
-      "field-wiring": "field-wiring",
+      "chart-hover": "format/charts",
+      "field-wiring": "inputs/dyn-fields",
       "tax-factors": "tax-factors"
     },
-    "names": {}
+    "names": {
+      "projection/historical-data": [
+        "HIST"
+      ],
+      "income/spending-and-loans": [
+        "mortgageResultAges"
+      ],
+      "projection/year-factors": [
+        "CURRENT_YEAR"
+      ],
+      "format/numbers": [],
+      "analysis/decisions": [
+        "fiMultiple"
+      ],
+      "format/charts": [
+        "displayValue",
+        "xAxisLabel"
+      ]
+    }
   }
 }

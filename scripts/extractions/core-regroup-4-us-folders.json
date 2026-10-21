@@ -133,7 +133,7 @@
     },
     {
       "rename": "src/us/core/roth-per-year.js",
-      "to": "src/us/core/optimizer/roth-per-year.js"
+      "to": "src/us/core/optimizer/roth-schedule.js"
     },
     {
       "rename": "src/us/core/run-projection.js",

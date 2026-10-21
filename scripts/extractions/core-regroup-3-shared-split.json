@@ -1,0 +1,34 @@
+{
+  "operations": [
+    {
+      "move": "HIST",
+      "from": "src/shared/core/basics.js",
+      "to": "src/shared/core/projection/historical-data.js"
+    },
+    {
+      "move": "mortgageResultAges",
+      "from": "src/shared/core/next-guardrail-multiplier.js",
+      "to": "src/shared/core/income/spending-and-loans.js"
+    },
+    {
+      "move": "fiMultiple",
+      "from": "src/shared/core/spending-and-loans.js",
+      "to": "src/shared/core/analysis/decisions.js"
+    },
+    {
+      "move": "displayValue",
+      "from": "src/shared/core/spending-and-loans.js",
+      "to": "src/shared/core/format/charts.js"
+    },
+    {
+      "move": "CURRENT_YEAR",
+      "from": "src/shared/core/spending-and-loans.js",
+      "to": "src/shared/core/projection/year-factors.js"
+    },
+    {
+      "move": "xAxisLabel",
+      "from": "src/shared/core/spending-and-loans.js",
+      "to": "src/shared/core/format/charts.js"
+    }
+  ]
+}

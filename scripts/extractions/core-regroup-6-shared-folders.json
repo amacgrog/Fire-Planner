@@ -21,14 +21,17 @@
     },
     {
       "merge": [
+        "src/shared/core/format/charts.js",
         "src/shared/core/cagr-colors.js",
         "src/shared/core/chart-groups.js",
+        "src/shared/core/chart-hover.js",
         "src/shared/core/sankey-hues.js"
       ],
-      "to": "src/shared/core/format/chart-colors.js"
+      "to": "src/shared/core/format/charts.js"
     },
     {
       "merge": [
+        "src/shared/core/analysis/decisions.js",
         "src/shared/core/compact-decision-delta.js",
         "src/shared/core/decision-end-assets.js",
         "src/shared/core/find-minimal-spending-cut.js"
@@ -47,7 +50,8 @@
     {
       "merge": [
         "src/shared/core/dyn-field-helpers.js",
-        "src/shared/core/dyn-field-html.js"
+        "src/shared/core/dyn-field-html.js",
+        "src/shared/core/field-wiring.js"
       ],
       "to": "src/shared/core/inputs/dyn-fields.js"
     },
@@ -67,6 +71,7 @@
     },
     {
       "merge": [
+        "src/shared/core/income/spending-and-loans.js",
         "src/shared/core/loan-payment-for-year.js",
         "src/shared/core/spending-and-loans.js"
       ],
@@ -102,6 +107,7 @@
     },
     {
       "merge": [
+        "src/shared/core/projection/year-factors.js",
         "src/shared/core/tax-index-factor.js",
         "src/shared/core/year-factors.js"
       ],

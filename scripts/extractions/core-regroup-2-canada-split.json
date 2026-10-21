@@ -56,6 +56,11 @@
       "to": "src/canada/core/projection/balances.js"
     },
     {
+      "move": "provinceTaxTreatmentNote",
+      "from": "src/canada/core/oas-and-rrif.js",
+      "to": "src/canada/core/tax/province-rules.js"
+    },
+    {
       "move": "rrifMinPct",
       "from": "src/canada/core/oas-and-rrif.js",
       "to": "src/canada/core/income/year-stages.js"
@@ -64,6 +69,21 @@
       "move": "OAS_RECOVERY_THRESHOLD",
       "from": "src/canada/core/oas-and-rrif.js",
       "to": "src/canada/core/tax/rules.js"
+    },
+    {
+      "move": "BENEFIT_RULES",
+      "from": "src/canada/core/province-rules.js",
+      "to": "src/canada/core/benefits/benefit-rules.js"
+    },
+    {
+      "move": "scaledProgressiveTax",
+      "from": "src/canada/core/province-rules.js",
+      "to": "src/canada/core/tax/tax.js"
+    },
+    {
+      "move": "ontarioHealthPremium",
+      "from": "src/canada/core/province-rules.js",
+      "to": "src/canada/core/tax/tax.js"
     },
     {
       "move": "newWithdrawal",

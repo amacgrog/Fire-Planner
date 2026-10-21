@@ -45,13 +45,13 @@
     {
       "merge": [
         "src/canada/core/estimate-always-ids.js",
-        "src/canada/core/mcp-schema-for.js",
-        "src/canada/core/oas-and-rrif.js"
+        "src/canada/core/mcp-schema-for.js"
       ],
       "to": "src/canada/core/inputs/field-meta.js"
     },
     {
       "merge": [
+        "src/canada/core/tax/tax.js",
         "src/canada/core/federal-bracket-ceiling-ca.js",
         "src/canada/core/federal-tax-ca.js"
       ],
@@ -88,7 +88,10 @@
       "to": "src/canada/core/analysis/estate.js"
     },
     {
-      "rename": "src/canada/core/province-rules.js",
+      "merge": [
+        "src/canada/core/tax/province-rules.js",
+        "src/canada/core/province-rules.js"
+      ],
       "to": "src/canada/core/tax/province-rules.js"
     },
     {
