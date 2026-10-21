@@ -1,6 +1,6 @@
 import { mode, assignState } from '../shared/core/store.js';
 import { syncTopbarHeight, syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/layout-metrics.js';
-import { normalizeState } from './core/normalize-state.js';
+import { normalizeState } from './core/inputs/normalize-state.js';
 import { wireCategoryRail } from '../shared/ui/category-rail.js';
 import { addChildrenList } from './ui/dynamic-lists.js';
 import { wireWizardCheckboxes } from './ui/wizard.js';

@@ -1,4 +1,4 @@
-import { state } from '../../shared/core/store.js';
+import { state } from '../../../shared/core/store.js';
 
   // "Still estimated" badges + dashboard rollup + guided review nav. A field
   // is "counted" when it's personal (not a pure modeling assumption like
@@ -25,3 +25,15 @@ import { state } from '../../shared/core/store.js';
       gate: () => state.tenure === 'rentThenBuy',
     },
   ];
+  export const mcpSchemaFor = (field) =>
+    field.type === 'number'
+      ? { type: 'number' }
+      : field.type === 'bool'
+        ? { type: 'boolean' }
+        : { type: 'string', enum: field.values };
+  export const mcpAccepts = (field, v) =>
+    field.type === 'number'
+      ? Number.isFinite(v)
+      : field.type === 'bool'
+        ? typeof v === 'boolean'
+        : field.values.includes(v);

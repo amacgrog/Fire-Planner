@@ -1,6 +1,6 @@
-import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../shared/core/find-minimal-spending-cut.js';
-import { simulate } from '../../shared/core/simulate.js';
-import { state } from '../../shared/core/store.js';
+import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../../shared/core/find-minimal-spending-cut.js';
+import { simulate } from '../../../shared/core/simulate.js';
+import { state } from '../../../shared/core/store.js';
 
   // "What's driving this" shortfall analysis: when the selected projection
   // shows a depletion age, first tests "structural" single-lever changes tied

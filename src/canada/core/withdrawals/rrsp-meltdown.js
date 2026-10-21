@@ -1,4 +1,4 @@
-import { federalBracketCeilingCA } from '../federal-bracket-ceiling-ca.js';
+import { federalBracketCeilingCA } from '../tax/tax.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
 

@@ -212,7 +212,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   dropped. Any new enum-like field needs a guard here (see the
   `filingStatus`/`tenure`/`province` pattern) or a bad value can silently
   corrupt the simulation.
-- **`FIELDS` — the field registry** (`src/us/ui/fields.js`, `src/canada/core/fields.js`). Every sidebar
+- **`FIELDS` — the field registry** (`src/us/ui/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
   `update_fire_assumptions` schema/allow-list are all derived from it. Entry
@@ -740,7 +740,7 @@ are gone: `docs/superpowers/inventory/stage{2,3,4}-region-map.md` say which modu
 manifest module with `owner: 'shared'`): write new shared code in `src/shared/` directly. To share code that still differs
 between the planners, first remove the difference, then move it into one `src/shared/` module (a name that differs per country
 goes through a seam). The two `runProjection` year loops are deliberately not shared (`src/us/core/projection/run-projection.js`,
-`src/canada/core/run-projection.js`; see `docs/phase2-refactor-plan.md` section 7, step 4.5): put a new per-year rule in a
+`src/canada/core/projection/run-projection.js`; see `docs/phase2-refactor-plan.md` section 7, step 4.5): put a new per-year rule in a
 shared stage helper when it is identical in both countries, otherwise edit each loop. Line endings do not matter: the build and
 the analysis tools normalize CRLF to LF on read, and the regroup tool writes LF (including this file and `tests/state_modules.js`);
 git normalizes on commit (`core.autocrlf=true`), so a CRLF checkout shows "LF will be replaced by CRLF" warnings until then and

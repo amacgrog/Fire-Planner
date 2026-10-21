@@ -1,10 +1,69 @@
-import { bandValue, BEN, BEN_NO_EXIT, countKids, familyCreditCA } from '../benefit-helpers.js';
-import { gisAnnual, gisEmploymentExemption } from '../gis-and-rrif.js';
 import { BENEFIT_RULES } from './benefit-rules.js';
 import { NO_DEPENDENTS } from '../../../shared/core/lists-and-children.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
 
+  // Income-tested benefits for one year (annual dollars). Fills the module-level scratch object BEN (read the
+  // lines with getBenefits() right after the call; any later benefitsFor call overwrites them) and returns the
+  // total. Allocation-free. Evaluation order: GIS and Allowance first (their results gate the provincial seniors
+  // programs), then the child and sales-tax programs. Same-year income stands in for the prior-year return.
+  // Children whose age is within [minAge, maxAge] (the list is dependentsInYear; allocation-free).
+  export function countKids(kids, minAge, maxAge) {
+    let n = 0;
+    for (let i = 0; i < kids.length; i++) {
+      const a = kids[i].age;
+      if (a >= minAge && a <= maxAge) n++;
+    }
+    return n;
+  }
+  // Family credit in the shape of the CGEB: an amount for the adult, for a spouse or an eligible dependant (a single parent) and for
+  // each child (at most childCap), reduced over a threshold. dependantReplacesChild: the first child of a single parent counts as the
+  // eligible dependant instead of as a child. Amounts and thresholds scale with the plan inflation factor when the row is indexed.
+  function familyCreditCA(R, f, fam, couple, n) {
+    const fx = R.indexing.amountsAndThresholds ? f : 1,
+      m = n > R.childCap ? R.childCap : n;
+    let a = R.adult * fx;
+    if (couple) a += (R.spouse + R.child * m) * fx;
+    else if (m > 0) a += (R.eligibleDependant + R.child * (R.dependantReplacesChild ? m - 1 : m)) * fx;
+    return Math.max(0, a - R.reduction.rate * Math.max(0, fam - R.reduction.from * fx));
+  }
+  // A band table keyed by income: bands of equal width starting at `shift`; income below the first band gets the first value, income past
+  // the last band gets nothing (Manitoba 55 PLUS senior component).
+  function bandValue(T, x) {
+    const k = Math.floor((x - T.shift) / T.width + 1e-9);
+    return k < 0 ? T.values[0] : k >= T.values.length ? 0 : T.values[k];
+  }
+  // Provinces whose programs pay at any income (no income test), so benefitsFor must not take the high-income early exit.
+  const BEN_NO_EXIT = { mb: true, pe: true };
+  export const BEN = { gis: 0, allowance: 0, ccb: 0, cgeb: 0, provChild: 0, provSenior: 0, provCredit: 0, total: 0 };
+  export function getBenefits() {
+    return { ...BEN };
+  }
+  // ---- Income-tested benefit evaluators (7L) ----
+  // Linear interpolation over [income, benefit] knots; zero past the last knot; a repeated income is a cliff.
+  export function interpKnots(k, x) {
+    if (!(x > 0)) x = 0;
+    const n = k.length;
+    if (x >= k[n - 1][0]) return k[n - 1][1];
+    for (let i = 1; i < n; i++) {
+      if (x < k[i][0]) {
+        const xa = k[i - 1][0];
+        return k[i - 1][1] + ((k[i][1] - k[i - 1][1]) * (x - xa)) / (k[i][0] - xa);
+      }
+    }
+    return 0;
+  }
+  // Annual GIS (or Allowance) for one household situation at an annual income (net income less OAS and the
+  // employment exemption, combined for couples). `factor` is the plan inflation factor: amounts and income
+  // cutoffs scale together.
+  export function gisAnnual(situation, income, factor = 1) {
+    return interpKnots(BENEFIT_RULES.gis.situations[situation], income / factor) * factor;
+  }
+  // GIS employment income exemption: the first 5,000 is exempt and half of the next 10,000 (per person).
+  export function gisEmploymentExemption(earned) {
+    const e = BENEFIT_RULES.gis.employmentExemption;
+    return Math.min(earned, e.full) + 0.5 * Math.min(Math.max(earned - e.full, 0), e.halfBand);
+  }
   export function benefitsFor(profile, gains, traditionalExtra) {
     BEN.gis = BEN.allowance = BEN.ccb = BEN.cgeb = BEN.provChild = BEN.provSenior = BEN.provCredit = BEN.total = 0;
     const couple = !profile.singlePerson,

@@ -1,1 +1,1 @@
-export { normalizeState } from '../core/normalize-state.js';
+export { normalizeState } from '../core/inputs/normalize-state.js';

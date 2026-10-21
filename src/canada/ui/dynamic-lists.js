@@ -1,6 +1,6 @@
 // The children list: adds its rows to the sidebar
 
-import { DYN } from '../core/dyn.js';
+import { DYN } from '../core/inputs/dyn.js';
 import { CHILD_BIRTH_YEAR_MAX, CHILD_BIRTH_YEAR_MIN } from '../../shared/core/lists-and-children.js';
 
   export function addChildrenList() {

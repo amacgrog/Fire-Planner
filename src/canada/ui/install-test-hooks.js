@@ -1,24 +1,19 @@
 // Test hooks this planner exposes on window
 
-import { cppContribution, federalTaxCA, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solvePensionSplit, taxFor } from '../core/federal-tax-ca.js';
-import { FIELDS } from '../core/fields.js';
-import { getBenefits } from '../core/get-benefits.js';
-import { gisAnnual, gisEmploymentExemption, interpKnots } from '../core/gis-and-rrif.js';
-import { cppAndOasIncome, housingForYear, oasAgeFactor } from '../core/income-and-housing-per-year.js';
-import { homeBuyerAmounts } from '../core/list-amounts-and-home-buyers.js';
-import { probateFee } from '../core/probate-fee.js';
-import { PROVINCE_RULES } from '../core/province-rules.js';
+import { cppContribution, federalTaxCA, incomeTaxCA, medicalClaimToB, oasClawback, payrollItems, personTaxCA, provincialTaxCA, quebecHsf, quebecPoolAmount, quebecRamq, solvePensionSplit, taxFor, ontarioHealthPremium } from '../core/tax/tax.js';
+import { FIELDS } from '../core/inputs/fields.js';
+import { getBenefits, gisAnnual, gisEmploymentExemption, interpKnots, benefitsFor, gisIncomeRoom } from '../core/benefits/benefits.js';
+import { cppAndOasIncome, housingForYear, oasAgeFactor, homeBuyerAmounts } from '../core/income/year-stages.js';
+import { probateFee, afterTaxEstate } from '../core/analysis/estate.js';
+import { PROVINCE_RULES } from '../core/tax/province-rules.js';
 import { computeRothOptimizer } from './roth-optimizer.js';
 import { drawTaxable } from '../../shared/core/draw-taxable.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
-import { benefitsFor, gisIncomeRoom } from '../core/benefits/benefits.js';
-import { afterTaxEstate } from '../core/analysis/estate.js';
 import { solveTraditionalForNet, solveTraditionalForNetFromNeed } from '../core/withdrawals/draws.js';
 import { BENEFIT_RULES } from '../core/benefits/benefit-rules.js';
-import { ontarioHealthPremium } from '../core/tax/tax.js';
 
   export function installTestHooks() {
     window.__test_getState = () => state;

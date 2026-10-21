@@ -1,1 +1,1 @@
-export { BUCKET_MODE } from './year-modes.js';
+export { BUCKET_MODE } from './projection/year-modes.js';

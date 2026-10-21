@@ -1,1 +1,1 @@
-export { housingForYear } from './income-and-housing-per-year.js';
+export { housingForYear } from './income/year-stages.js';

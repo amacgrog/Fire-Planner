@@ -1,6 +1,6 @@
-import { clampRetireAgeA, clampRetireAgeB } from '../../shared/core/lists-and-children.js';
-import { money } from '../../shared/core/money-format.js';
-import { state } from '../../shared/core/store.js';
+import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/lists-and-children.js';
+import { money } from '../../../shared/core/money-format.js';
+import { state } from '../../../shared/core/store.js';
 
   const clampLifeExpectancyA = () =>
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));

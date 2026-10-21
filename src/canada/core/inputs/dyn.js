@@ -1,5 +1,5 @@
 import { defaults } from './defaults.js';
-import { DYN_GROWTH_FIELDS } from '../../shared/core/dyn-field-helpers.js';
+import { DYN_GROWTH_FIELDS } from '../../../shared/core/dyn-field-helpers.js';
 
   export const DYN = {
     loans: {

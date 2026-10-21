@@ -1,1 +1,1 @@
-export { FIELDS } from '../core/fields.js';
+export { FIELDS } from '../core/inputs/fields.js';

@@ -1,4 +1,4 @@
-import { taxFor } from '../federal-tax-ca.js';
+import { taxFor } from '../tax/tax.js';
 
   // How much RRSP to withdraw to net `targetNet` after tax, by bisection over
   // [0, min(balance, 3*target + 1)]. Used for the smooth-withdrawal RRSP share.
@@ -61,4 +61,21 @@ import { taxFor } from '../federal-tax-ca.js';
       traditionalWithdrawn: rmd,
       taxableWithdrawn: 0,
     };
+  }
+  // TFSA withdrawals are tax-free, so the net cash is simply what is taken.
+  // `bucket` is 'roth' | 'bondRoth' (the TFSA and its bond bucket).
+  export function takeRoth(wd, bucket, amount) {
+    const from = Math.min(wd.bal[bucket], amount);
+    wd.bal[bucket] -= from;
+    return from;
+  }
+  // RRSP/RRIF withdrawals are fully taxable income. `bucket` is 'traditional' |
+  // 'bondTraditional'; `solver` picks the bisection bracket.
+  export function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet) {
+    const { bal } = wd;
+    const { fromTrad, tradNet } = solver(bal[bucket], amount, wd.taxableGainGross, wd.traditionalGross, wd.profile);
+    bal[bucket] -= fromTrad;
+    wd.traditionalGross += fromTrad;
+    wd.traditionalWithdrawn += fromTrad;
+    return tradNet;
   }
