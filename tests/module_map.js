@@ -51,6 +51,15 @@ try {
     assert.ok(/ui modules without a purpose comment \(1\):\s+src\/us\/ui\/z\.js/.test(r.stderr), r.stderr);
     assert.strictEqual(mapOf(root), STALE);
   }
+  // a ui/ module below the top of ui/ is held to the same rule; with a purpose comment it is not an offender
+  {
+    const root = tree({ ...GOOD, 'src/shared/ui/charts/x.js': 'export function cx() {}\n', [MAP]: STALE });
+    const r = run(root, '--require-purpose');
+    assert.strictEqual(r.status, 1);
+    assert.ok(/ui modules without a purpose comment \(1\):\s+src\/shared\/ui\/charts\/x\.js/.test(r.stderr), r.stderr);
+    const ok = tree({ ...GOOD, 'src/shared/ui/charts/x.js': '// Draws x.\n\nexport function cx() {}\n' });
+    assert.strictEqual(run(ok, '--require-purpose').status, 0);
+  }
   // bad arguments
   for (const args of [['--bogus'], ['--root']]) {
     const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });

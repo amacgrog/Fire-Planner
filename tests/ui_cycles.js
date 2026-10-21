@@ -8,6 +8,7 @@ const path = require('path');
 const espree = require('espree');
 const { isInert, loadTimeMarker, checkLoadTime } = require('../scripts/lib/load-time');
 const { buildGraph, cycles } = require('../scripts/lib/module-graph');
+const { isUi } = require('../scripts/lib/src-paths');
 
 const made = [];
 function write(root, rel, text) {
@@ -34,10 +35,10 @@ function checkTree(root, country) {
   const inCycle = new Map();
   for (const c of cyc) {
     for (const f of c) inCycle.set(f, c);
-    for (const f of c) if (!f.split('/').includes('ui')) problems.push(`${country}: cycle member outside ui/: ${f} (${c.join(' <-> ')})`);
+    for (const f of c) if (!isUi(f)) problems.push(`${country}: cycle member outside ui/: ${f} (${c.join(' <-> ')})`);
   }
   for (const f of graph.files) {
-    if (!f.split('/').includes('ui')) continue;
+    if (!isUi(f)) continue;
     const code = fs.readFileSync(path.join(root, f), 'utf8');
     const c = inCycle.get(f);
     let found;

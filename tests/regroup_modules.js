@@ -276,6 +276,12 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
       { move: 'el', from: 'src/shared/ui/dom.js', to: 'src/shared/core/k.js' },
     ], /^op 1 \(move el/, 'refusal names its operation');
   }
+  // a target must be under src/<owner>/core/ or ui/, and not in a core/ or ui/ folder below that (src-paths)
+  {
+    const root = tree({ 'src/us/core/a.js': 'export function a() {\n  return 1;\n}\n' });
+    refuses(root, [{ rename: 'src/us/core/a.js', to: 'src/us/misc/a.js' }], /src\/us\/misc\/a\.js: a target must be under src\/<owner>\/core\/ or src\/<owner>\/ui\//, 'a rename to a folder that is neither core nor ui');
+    refuses(root, [{ rename: 'src/us/core/a.js', to: 'src/us/core/ui/a.js' }], /src\/us\/core\/ui\/a\.js: a target must be under/, 'a rename to a ui folder below core');
+  }
 
   {
     // a named import its module does not export is refused even in a module the planners do not reach (the build alone

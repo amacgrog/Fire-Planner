@@ -13,6 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
+const { isUi, isFacade } = require('./lib/src-paths');
 
 const argv = process.argv.slice(2);
 const rootAt = argv.indexOf('--root');
@@ -93,7 +94,7 @@ function build() {
     if (/^seam-.*\.js$/.test(base)) entry.seams.push(...names);
     else {
       entry.modules.push({ rel, names, purpose });
-      if (/(^|\/)ui$/.test(dir) && purpose === NO_PURPOSE) offenders.push(rel);
+      if (isUi(rel) && !isFacade(rel) && purpose === NO_PURPOSE) offenders.push(rel);
     }
   }
   const lines = [

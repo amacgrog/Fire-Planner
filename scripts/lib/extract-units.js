@@ -32,6 +32,7 @@ const path = require('path');
 const espree = require('espree');
 const { analyze, undeclaredNames } = require('../analyze-closure');
 const { checkLoadTime } = require('./load-time');
+const { isUi } = require('./src-paths');
 
 const COUNTRIES = ['us', 'canada'];
 const SHARED_MARK = /^\s*\/\/ @@shared:(\S+) (begin|end)\s*$/;
@@ -197,7 +198,6 @@ function importLine(specs, source) {
 
 const SEAM_FACADE = /^seam-(.+)\.js$/;
 const SEAM_DIRS = ['core', 'ui'];
-const isUiPath = (p) => /^src\/[^/]+\/ui\//.test(posix(p));
 
 // A path from a strongly connected set of modules back to its first one, for the error text: a -> b -> a.
 function cyclePath(comp, edges) {
@@ -491,7 +491,7 @@ function applyModules(root, modules, { dryRun = false, seamSides = {} } = {}) {
     modules.forEach((m) => index.has(m) || visit(m));
     for (const comp of comps) {
       const where = `module import cycle: ${cyclePath(comp, edges).map((x) => x.path).join(' -> ')}`;
-      if (!comp.every((m) => isUiPath(m.path))) throw new Error(`${where} (not every module of the cycle is under ui/)`);
+      if (!comp.every((m) => isUi(m.path))) throw new Error(`${where} (not every module of the cycle is under ui/)`);
       const problems = [];
       for (const m of comp) {
         const cyclePartners = new Set();

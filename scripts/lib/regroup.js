@@ -48,6 +48,7 @@ const eslintScope = require('eslint-scope');
 const { undeclaredNames, domGlobalsUsed, DOM_GLOBALS, DOM_METHODS, stripComments } = require('../analyze-closure');
 const { checkLoadTime, loadTimeMarker, isInert, referencedNames } = require('./load-time');
 const { buildGraph, cycles } = require('./module-graph');
+const { sideOf, isUi, isCore } = require('./src-paths');
 
 const ECMA = 2022;
 const COUNTRIES = ['us', 'canada'];
@@ -68,8 +69,6 @@ const SEAM_FILE = /^src\/(us|canada)\/(core|ui)\/seam-([^/]+)\.js$/;
 const pp = path.posix;
 const readText = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 const segments = (rel) => rel.split('/');
-const isUi = (rel) => segments(rel).slice(1, -1).includes('ui');
-const isCore = (rel) => segments(rel).slice(1, -1).includes('core');
 const isMain = (rel) => /^src\/(us|canada)\/main\.js$/.test(rel);
 const countriesOf = (rel) => (rel.startsWith('src/us/') ? ['us'] : rel.startsWith('src/canada/') ? ['canada'] : COUNTRIES);
 const ownerOf = (rel) => (rel.startsWith('src/us/') ? 'us' : rel.startsWith('src/canada/') ? 'canada' : rel.startsWith('src/shared/') ? 'shared' : 'other');
@@ -616,8 +615,8 @@ function regroup(root, operations, { dryRun = false } = {}) {
         const m = DOM_METHODS.exec(stripped);
         if (m) refuse(`core purity: ${rel} calls a DOM method (${m[0]})`);
         for (const [, source] of stripped.matchAll(IMPORT_SOURCE)) {
-          const target = source.startsWith('.') ? targetsOf(rel, source)[0].slice('src/'.length) : source;
-          if (target.split('/').includes('ui')) refuse(`core purity: ${rel} imports ${source}, a ui/ module`);
+          const intoUi = source.startsWith('.') ? isUi(targetsOf(rel, source)[0]) : source.startsWith('#country/ui/');
+          if (intoUi) refuse(`core purity: ${rel} imports ${source}, a ui/ module`);
         }
       }
       const owner = ownerOf(rel);
@@ -739,6 +738,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
   function checkTarget(rel) {
     if (typeof rel !== 'string' || !/^src\/.+\.js$/.test(rel) || pp.normalize(rel) !== rel) refuse(`${rel}: a target must be a .js path under src/`);
     if (isMain(rel) || SEAM_FILE.test(rel)) refuse(`${rel} cannot be a target`);
+    if (sideOf(rel) === null) refuse(`${rel}: a target must be under src/<owner>/core/ or src/<owner>/ui/ (and not in a core/ or ui/ folder below that)`);
   }
   // every import and re-export declaration (other than in `skip`) whose relative specifier names one of `paths`
   function importersOf(paths, skip = new Set()) {
