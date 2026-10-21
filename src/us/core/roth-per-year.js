@@ -1,4 +1,4 @@
-import { displayValue } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 
   // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of

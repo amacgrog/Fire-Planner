@@ -2,7 +2,7 @@
 
 import { pct } from '../core/basics.js';
 import { money } from '../core/money-format.js';
-import { displayValue } from '../core/spending-and-loans.js';
+import { displayValue } from '../core/format/charts.js';
 import { state } from '../core/store.js';
 
   export function renderTable(sim) {

@@ -2,7 +2,7 @@
 
 import { compact } from '../../shared/core/money-format.js';
 import { simulate } from '../../shared/core/simulate.js';
-import { displayValue, fiMultiple } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';
 import { renderTable } from '../../shared/ui/projection-table.js';
@@ -28,6 +28,7 @@ import { renderGroupSummaries } from './render-group-summaries.js';
 import { renderMultiLeverAppliedStatus } from './roth-optimizer.js';
 import { stateTaxTreatmentNote } from './state-tax-treatment-note.js';
 import { updateChartXAxisButtons } from './chart-controls.js';
+import { fiMultiple } from '../../shared/core/analysis/decisions.js';
 
   export function render() {
     // The cliff plan for this state, before anything projects (every run below applies it).

@@ -1,7 +1,7 @@
 // The sensitivity (tornado) chart and its card
 
 import { compact } from '../core/money-format.js';
-import { displayValue } from '../core/spending-and-loans.js';
+import { displayValue } from '../core/format/charts.js';
 import { chartAxisColor, chartZeroLineColor, isDarkTheme } from './chart-colors.js';
 import { render } from '#country/ui/seam-render';
 import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';

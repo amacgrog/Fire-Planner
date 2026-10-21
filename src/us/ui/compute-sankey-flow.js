@@ -1,7 +1,7 @@
 // Works out the cash-flow Sankey flows for one year
 
 import { sankeyHue } from '../../shared/core/sankey-hues.js';
-import { displayValue } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 import { isDarkTheme } from '../../shared/ui/chart-colors.js';
 
   // Builds the source/use category breakdown for a single projection year,

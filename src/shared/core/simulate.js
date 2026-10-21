@@ -1,4 +1,4 @@
-import { HIST } from './basics.js';
+import { HIST } from './projection/historical-data.js';
 import { bootstrapReturnSeries } from './monte-carlo-paths.js';
 import { state } from './store.js';
 import { assignHistTaxFactors, histTaxFactors } from './tax-factors.js';

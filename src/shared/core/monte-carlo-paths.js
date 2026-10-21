@@ -1,4 +1,4 @@
-import { HIST } from './basics.js';
+import { HIST } from './projection/historical-data.js';
 
   // Monte Carlo via block bootstrap: instead of drawing each year's return
   // independently (which has no memory of real market behavior — no mean

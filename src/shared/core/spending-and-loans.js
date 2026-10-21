@@ -1,6 +1,5 @@
 import { pct } from './basics.js';
-import { chartXAxisMode } from './chart-prefs.js';
-import { mode, state } from './store.js';
+import { state } from './store.js';
 
   export function mortgagePayment(principal, annualRate, years) {
     if (!principal || !years) return 0;
@@ -25,10 +24,6 @@ import { mode, state } from './store.js';
     return best
       ? best.amount * itemGrowthFactor(best, year, 'expense', inflationFactor, incomeFactor)
       : state.spending * inflationFactor;
-  }
-  // Retirement-number multiplier for the safe withdrawal rate (4% -> 25x).
-  export function fiMultiple() {
-    return 100 / Math.max(0.5, Number(state.fiWithdrawalRate) || 4);
   }
   export function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
     if (item.flat) return 1; // fixed dollar amount at the occurrence — no growth
@@ -182,26 +177,4 @@ import { mode, state } from './store.js';
       originalPrincipal,
       payoffYear: payoffYear < 0 ? null : payoffYear,
     };
-  }
-  export function displayValue(n, yearIndex) {
-    return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
-  }
-  // Real calendar year for row.year === 0 ("now"), used only to label the
-  // chart x-axis in 'year' mode — computed once from the device clock
-  // rather than hardcoded, unlike the "2026 dollars" real-dollar-mode
-  // label elsewhere, since a chart axis that's visibly wrong past this
-  // year would be a lot more obviously broken than a dollar-mode label.
-  export const CURRENT_YEAR = new Date().getFullYear();
-  // Converts an internal chart `age` (always Partner A's age — every row
-  // from simulate()/simulateHistorical() carries one) to whatever the
-  // person picked for the x-axis via chartXAxisMode. All three are a
-  // simple affine transform of the same age value, so this is the only
-  // place that needs to know about chartXAxisMode; x(age)/y(value) pixel
-  // mapping and the mousemove age lookup stay entirely in Partner-A-age
-  // space and are untouched by this setting.
-  export function xAxisLabel(age) {
-    if (chartXAxisMode === 'ageB' && !state.singlePerson)
-      return Math.round(age - state.ageA + state.ageB);
-    if (chartXAxisMode === 'year') return CURRENT_YEAR + Math.round(age - state.ageA);
-    return Math.round(age);
   }

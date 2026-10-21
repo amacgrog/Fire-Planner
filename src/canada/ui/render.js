@@ -7,7 +7,7 @@ import { annotateRothOptimizer } from './roth-optimizer.js';
 import { updateChartXAxisButtons } from './chart-controls.js';
 import { compact } from '../../shared/core/money-format.js';
 import { simulate } from '../../shared/core/simulate.js';
-import { displayValue, fiMultiple } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';
 import { renderTable } from '../../shared/ui/projection-table.js';
@@ -22,6 +22,7 @@ import { renderScenarioComparison } from '../../shared/ui/scenario-comparison.js
 import { renderShortfallBanner } from '../../shared/ui/shortfall-banner.js';
 import { renderTornadoChart } from '../../shared/ui/tornado.js';
 import { renderUnusualAssumptions } from '../../shared/ui/unusual-warnings.js';
+import { fiMultiple } from '../../shared/core/analysis/decisions.js';
 
   export function render() {
     document.body.classList.toggle('single-person', !!state.singlePerson);

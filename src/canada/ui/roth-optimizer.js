@@ -3,7 +3,7 @@
 import { afterTaxEstate } from '../core/analysis/estate.js';
 import { money } from '../../shared/core/money-format.js';
 import { simulate } from '../../shared/core/simulate.js';
-import { displayValue } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 
   export function computeRothOptimizer(selected) {

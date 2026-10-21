@@ -1,6 +1,6 @@
 // Test hooks shared by both planners, exposed on window
 
-import { HIST } from '../core/basics.js';
+import { HIST } from '../core/projection/historical-data.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../core/simulate.js';
 import { refillBondReserve } from '../core/refill-bond-reserve.js';
 import { rotateIntoBondLadder } from '../core/bond-ladder-rotation.js';

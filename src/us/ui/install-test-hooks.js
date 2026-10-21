@@ -1,6 +1,6 @@
 // Test hooks this planner exposes on window (US engine and plan hooks)
 
-import { HIST } from '../../shared/core/basics.js';
+import { HIST } from '../../shared/core/projection/historical-data.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/simulate.js';
 import { mortgageSchedule } from '../../shared/core/spending-and-loans.js';

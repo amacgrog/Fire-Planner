@@ -1,7 +1,7 @@
 import { countKids } from '../benefit-helpers.js';
 import { homeBuyerAmounts } from '../list-amounts-and-home-buyers.js';
 import { dependentsInYear } from '../../../shared/core/lists-and-children.js';
-import { CURRENT_YEAR } from '../../../shared/core/spending-and-loans.js';
+import { CURRENT_YEAR } from '../../../shared/core/projection/year-factors.js';
 import { state } from '../../../shared/core/store.js';
 import { solvePensionSplit, payrollItems } from '../federal-tax-ca.js';
 import { medicalGrowth } from '../../../shared/core/year-factors.js';

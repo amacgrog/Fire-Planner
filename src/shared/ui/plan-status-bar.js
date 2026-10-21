@@ -2,7 +2,7 @@
 
 import { compact } from '../core/money-format.js';
 import { runHistoricalCycles, simulate } from '../core/simulate.js';
-import { displayValue } from '../core/spending-and-loans.js';
+import { displayValue } from '../core/format/charts.js';
 import { state } from '../core/store.js';
 import { setMobileView } from './mobile-view.js';
 import { syncPanelMaxHeight, syncPlanStatusOffsets } from './layout-metrics.js';

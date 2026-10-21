@@ -11,7 +11,7 @@ import { PROVINCE_RULES } from '../core/province-rules.js';
 import { computeRothOptimizer } from './roth-optimizer.js';
 import { drawTaxable } from '../../shared/core/draw-taxable.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
-import { displayValue } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
 import { benefitsFor, gisIncomeRoom } from '../core/benefits/benefits.js';

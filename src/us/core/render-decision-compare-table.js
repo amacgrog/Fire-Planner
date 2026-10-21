@@ -1,7 +1,7 @@
 import { escapeHtml } from '../../shared/core/basics.js';
 import { decisionEndAssets } from '../../shared/core/decision-end-assets.js';
 import { compact } from '../../shared/core/money-format.js';
-import { displayValue } from '../../shared/core/spending-and-loans.js';
+import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 
   export function renderDecisionCompareTable(rows) {

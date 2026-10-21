@@ -1,5 +1,5 @@
 import { compact } from './money-format.js';
-import { displayValue } from './spending-and-loans.js';
+import { displayValue } from './format/charts.js';
 
   // "Explore a question" menu: a handful of pre-wired comparisons over
   // logic that already exists elsewhere (simulate()'s retireAgeA/B override
