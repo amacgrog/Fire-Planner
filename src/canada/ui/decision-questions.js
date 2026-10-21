@@ -1,8 +1,8 @@
 // The text of the decision-question cards
 
-import { decisionDeltaPhrase } from '../../shared/core/decision-end-assets.js';
-import { money } from '../../shared/core/money-format.js';
-import { runHistoricalCycles, simulate } from '../../shared/core/simulate.js';
+import { decisionDeltaPhrase } from '../../shared/core/analysis/decisions.js';
+import { money } from '../../shared/core/format/numbers.js';
+import { runHistoricalCycles, simulate } from '../../shared/core/projection/simulate.js';
 import { state } from '../../shared/core/store.js';
 import { setChartView } from '../../shared/ui/chart-view-mode.js';
 import { switchToDashboardTab } from '../../shared/ui/mobile-view.js';

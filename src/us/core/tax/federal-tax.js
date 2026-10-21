@@ -1,8 +1,8 @@
 import { filingKey, NIIT_THRESHOLD, taxYearOf, FILING, filingRow, GAIN_BANDS, ORDINARY_BRACKETS, SS_WAGE_BASE, standardDeduction, federalDeduction } from './federal-rules.js';
-import { clamp, pct } from '../../../shared/core/basics.js';
+import { clamp, pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
-import { dependentsInYear, NO_DEPENDENTS } from '../../../shared/core/lists-and-children.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { dependentsInYear, NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { SOURCES_A, SOURCES_B, SOURCES_JOINT, SOURCES_SINGLE, stateRuleFor, stateIncomeTax } from './state-tax.js';
 import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
 

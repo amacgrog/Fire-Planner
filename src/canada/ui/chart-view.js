@@ -1,13 +1,12 @@
 // Draws the selected chart view (the projection and its comparison lines)
 
 import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './chart-controls.js';
-import { pct } from '../../shared/core/basics.js';
+import { pct } from '../../shared/core/format/numbers.js';
 import { assignChartShiftMode, chartGapPartner, chartShiftMode, chartView, mcPathCount } from '../../shared/core/chart-prefs.js';
-import { runHistoricalCycles, runMonteCarlo, simulate } from '../../shared/core/simulate.js';
-import { simulateAtRealCagr } from '../../shared/core/simulate-at-real-cagr.js';
-import { cagrColors } from '../../shared/core/cagr-colors.js';
+import { runHistoricalCycles, runMonteCarlo, simulate, simulateAtRealCagr } from '../../shared/core/projection/simulate.js';
+import { cagrColors } from '../../shared/core/format/charts.js';
 import { mode, state } from '../../shared/core/store.js';
-import { getBondYears } from '../../shared/core/year-factors.js';
+import { getBondYears } from '../../shared/core/projection/year-factors.js';
 import { renderMonteCarloChart } from '../../shared/ui/monte-carlo-chart.js';
 import { renderChart } from '../../shared/ui/projection-chart.js';
 

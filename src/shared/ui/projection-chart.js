@@ -1,7 +1,7 @@
 // Draws the main projection chart
 
 import { logScale } from '../core/chart-prefs.js';
-import { compact } from '../core/money-format.js';
+import { compact } from '../core/format/numbers.js';
 import { xAxisLabel, displayValue } from '../core/format/charts.js';
 import { state } from '../core/store.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colors.js';

@@ -1,6 +1,6 @@
 // Wires the sensitivity lever checkboxes
 
-import { simulate } from '../../shared/core/simulate.js';
+import { simulate } from '../../shared/core/projection/simulate.js';
 import { renderTornadoChart } from '../../shared/ui/tornado.js';
 
   export function wireSensitivityLevers() {

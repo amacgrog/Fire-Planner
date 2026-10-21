@@ -1,4 +1,4 @@
-import { money } from './money-format.js';
+import { money } from '../format/numbers.js';
 
   // Scenarios: named snapshots of the full input state, kept in memory for
   // this tab and optionally exported to a JSON file for safekeeping. Every

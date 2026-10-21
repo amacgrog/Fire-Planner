@@ -1,6 +1,6 @@
 // Renders the Roth optimizer result card
 
-import { money } from '../core/money-format.js';
+import { money } from '../core/format/numbers.js';
 import { state } from '../core/store.js';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
 

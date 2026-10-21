@@ -1,6 +1,6 @@
 // Wires the export and print buttons
 
-import { simulate } from '../core/simulate.js';
+import { simulate } from '../core/projection/simulate.js';
 import { state } from '../core/store.js';
 import { buildPrintReport } from '#country/ui/seam-buildPrintReport';
 

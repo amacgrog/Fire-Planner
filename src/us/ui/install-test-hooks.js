@@ -1,13 +1,13 @@
 // Test hooks this planner exposes on window (US engine and plan hooks)
 
 import { HIST } from '../../shared/core/projection/historical-data.js';
-import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
-import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/simulate.js';
-import { mortgageSchedule } from '../../shared/core/spending-and-loans.js';
+import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs/lists.js';
+import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/projection/simulate.js';
+import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, state } from '../../shared/core/store.js';
 import { assignHistTaxFactors, histTaxFactors } from '../../shared/core/tax-factors.js';
-import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
-import { historicalYearSource, standardYearSource } from '../../shared/core/year-sources.js';
+import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
+import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/scenario-comparison.js';
 import { magiStats, planStats } from '../core/projection/engine-state.js';
 import { afterTaxValue, yearPlanCandidates, planCandidateBetter, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../core/cliff-plan/solver.js';

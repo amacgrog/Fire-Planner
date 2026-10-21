@@ -1,4 +1,4 @@
-import { pct } from '../../../shared/core/basics.js';
+import { pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { rule55Applies, penaltyStatus } from './penalty-status.js';
 

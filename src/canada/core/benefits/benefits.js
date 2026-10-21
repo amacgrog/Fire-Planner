@@ -1,7 +1,7 @@
 import { BENEFIT_RULES } from './benefit-rules.js';
-import { NO_DEPENDENTS } from '../../../shared/core/lists-and-children.js';
+import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
   // Income-tested benefits for one year (annual dollars). Fills the module-level scratch object BEN (read the
   // lines with getBenefits() right after the call; any later benefitsFor call overwrites them) and returns the

@@ -1,6 +1,6 @@
 // The "Estimated" badges on default fields
 
-import { isEstimateCountable } from '../core/estimate-checks.js';
+import { isEstimateCountable } from '../core/inputs/estimates.js';
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { ids } from './field-ids.js';

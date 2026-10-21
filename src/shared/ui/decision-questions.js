@@ -1,7 +1,7 @@
 // Renders and wires the decision-question cards
 
-import { escapeHtml } from '../core/basics.js';
-import { compactDecisionDelta } from '../core/compact-decision-delta.js';
+import { escapeHtml } from '../core/format/numbers.js';
+import { compactDecisionDelta } from '../core/analysis/decisions.js';
 import { switchToDashboardTab } from './mobile-view.js';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCompareTable';

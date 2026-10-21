@@ -1,7 +1,7 @@
 // Computes and renders the Roth optimizer, per-year and multi-lever results
 
-import { money } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/simulate.js';
+import { money } from '../../shared/core/format/numbers.js';
+import { simulate } from '../../shared/core/projection/simulate.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimizer/multi-lever.js';

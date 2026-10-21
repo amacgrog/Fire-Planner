@@ -1,6 +1,6 @@
 // Add, remove and edit handlers for the add-as-you-go lists
 
-import { LIST_MAX } from '../core/lists-and-children.js';
+import { LIST_MAX } from '../core/inputs/lists.js';
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { dynApplyVisibility, renderDynList } from './dynamic-lists.js';

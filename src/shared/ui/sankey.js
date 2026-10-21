@@ -1,8 +1,8 @@
 // The cash-flow Sankey: draws it and wires its card and age control
 
-import { compact, money } from '../core/money-format.js';
-import { simulate } from '../core/simulate.js';
-import { layoutSankeyColumn, sankeyRibbonPath } from '../core/sankey-layout.js';
+import { compact, money } from '../core/format/numbers.js';
+import { simulate } from '../core/projection/simulate.js';
+import { layoutSankeyColumn, sankeyRibbonPath } from '../core/format/sankey-layout.js';
 import { isDarkTheme } from './chart-colors.js';
 import { computeSankeyFlow } from '#country/ui/seam-computeSankeyFlow';
 import { render } from '#country/ui/seam-render';

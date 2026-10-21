@@ -1,6 +1,6 @@
 import { federalBracketCeilingCA } from '../tax/tax.js';
 import { state } from '../../../shared/core/store.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
   export function solveMeltdown(otherIncome, maxAvailable, yearIndex) {
     if (maxAvailable <= 0) return 0;

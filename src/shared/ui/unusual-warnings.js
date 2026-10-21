@@ -1,7 +1,6 @@
 // The unusual-assumption warnings
 
-import { unusualAssumptionImpact } from '../core/estimate-checks.js';
-import { computeUnusualAssumptions, UNUSUAL_RANGES } from '../core/estimates-and-warnings.js';
+import { unusualAssumptionImpact, computeUnusualAssumptions, UNUSUAL_RANGES } from '../core/inputs/estimates.js';
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { setMobileView, switchToDashboardTab } from './mobile-view.js';

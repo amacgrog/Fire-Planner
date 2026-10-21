@@ -1,6 +1,6 @@
 import { currentProvince } from '../tax/province-rules.js';
 import { state } from '../../../shared/core/store.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { personTaxCA } from '../tax/tax.js';
 
   // After-tax estate (7N N8), a display figure that changes no projection. At the last death the RRSP/RRIF is income on the final

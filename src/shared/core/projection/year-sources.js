@@ -1,6 +1,6 @@
-import { pct } from './basics.js';
-import { state } from './store.js';
-import { histTaxFactors } from './tax-factors.js';
+import { pct } from '../format/numbers.js';
+import { state } from '../store.js';
+import { histTaxFactors } from '../tax-factors.js';
 
   // ---- Year sources and modes for runProjection() ----
   // A year source supplies each year's market inputs: yearInputs(year) returns the stock

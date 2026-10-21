@@ -1,6 +1,6 @@
 // Sets the chart view and the chart mode
 
-import { CHART_GROUPS } from '../core/chart-groups.js';
+import { CHART_GROUPS } from '../core/format/charts.js';
 import { assignChartView, assignLastProjectionView, assignLogScale } from '../core/chart-prefs.js';
 import { assignMode, mode } from '../core/store.js';
 import { saveInputs } from './autosave.js';

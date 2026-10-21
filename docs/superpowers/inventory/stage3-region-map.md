@@ -8,15 +8,15 @@ moves of single declarations), so a region whose units were split by a move is l
 
 | old shared region | module |
 |---|---|
-| 01-LIST_MAX | src/shared/core/list-normalization.js |
-| 04-isEstimateCountable | src/shared/core/estimate-checks.js |
-| 06-histTaxFactors | src/shared/core/tax-index-factor.js |
-| 09-sweepExcessCash | src/shared/core/bond-ladder-rotation.js |
-| 10-refillBondReserve | src/shared/core/refill-bond-reserve.js |
-| 11-makeProjectedExpense | src/shared/core/projected-expense.js |
-| 13-simulate | src/shared/core/simulate.js |
-| 14-findMinimalSpendingCut | src/shared/core/find-minimal-spending-cut.js |
-| BUCKET_DOWN_YEAR_ORDER | src/shared/core/bucket-down-year-order.js |
-| drawTaxable | src/shared/core/draw-taxable.js |
-| simulateAtRealCagr | src/shared/core/simulate-at-real-cagr.js |
-| takeTaxable | src/shared/core/take-taxable.js |
+| 01-LIST_MAX | src/shared/core/inputs/lists.js |
+| 04-isEstimateCountable | src/shared/core/inputs/estimates.js |
+| 06-histTaxFactors | src/shared/core/projection/year-factors.js |
+| 09-sweepExcessCash | src/shared/core/withdrawals/bond-ladder.js |
+| 10-refillBondReserve | src/shared/core/withdrawals/bond-ladder.js |
+| 11-makeProjectedExpense | src/shared/core/income/projected-expense.js |
+| 13-simulate | src/shared/core/projection/simulate.js |
+| 14-findMinimalSpendingCut | src/shared/core/analysis/decisions.js |
+| BUCKET_DOWN_YEAR_ORDER | src/shared/core/withdrawals/bucket-order.js |
+| drawTaxable | src/shared/core/withdrawals/draws.js |
+| simulateAtRealCagr | src/shared/core/projection/simulate.js |
+| takeTaxable | src/shared/core/withdrawals/draws.js |

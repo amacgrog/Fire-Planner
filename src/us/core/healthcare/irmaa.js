@@ -1,7 +1,7 @@
 import { state } from '../../../shared/core/store.js';
 import { filingKey, SS_BASE } from '../tax/federal-rules.js';
 import { taxableSsOnRow, taxableSocialSecurity } from '../tax/social-security-tax.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
   // E3 (spec 5.2): the IRMAA appeal events of a run, per person, by first post-event year E (the year after the last
   // working year, or the death year): 0 none, 1 the end of a W-2 or self-employed stream, 2 a main-job retirement, 3 a

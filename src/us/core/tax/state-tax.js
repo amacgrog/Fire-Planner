@@ -1,8 +1,8 @@
 import { INH_DECEDENT, INH_EXEMPT, NO_AGES, SS_AGI_TESTED, SS_EXEMPT, SS_PHASE, SS_SHARE, SS_SUBTRACTION, SS_TIERED, STATE_RULES, SCHEDULE_FAMILIES, NO_BASE_YEARS, SS_TAXED, INH_CODE, INH_ORDINARY, INH_HEIR, INH_HEIR_ANY } from './state-rules.js';
 import { state } from '../../../shared/core/store.js';
 import { taxYearOf, seniorDeduction, standardDeduction } from './federal-rules.js';
-import { NO_DEPENDENTS } from '../../../shared/core/lists-and-children.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { currentYear } from '../tax-year.js';
 
   export function stateRuleFor(code) {

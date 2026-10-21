@@ -1,11 +1,10 @@
 // Builds the printable report
 
-import { escapeHtml } from '../../shared/core/basics.js';
-import { money } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/simulate.js';
+import { escapeHtml, money } from '../../shared/core/format/numbers.js';
+import { simulate } from '../../shared/core/projection/simulate.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { mode, state } from '../../shared/core/store.js';
-import { getBondYears } from '../../shared/core/year-factors.js';
+import { getBondYears } from '../../shared/core/projection/year-factors.js';
 import { retirementTotal } from '../core/accounts/account-ledger.js';
 import { fiMultiple } from '../../shared/core/analysis/decisions.js';
 

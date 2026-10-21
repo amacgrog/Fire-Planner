@@ -1,7 +1,7 @@
-import { LIST_MAX } from '../../../shared/core/lists-and-children.js';
-import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/spending-and-loans.js';
+import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
+import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
-import { medicalGrowth } from '../../../shared/core/year-factors.js';
+import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 
   // This year's amounts from the add-as-you-go lists: recurring extra income
   // and extra expenses (active between their start and end age, growing with

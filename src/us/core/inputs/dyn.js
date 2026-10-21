@@ -1,4 +1,4 @@
-import { DYN_GROWTH_FIELDS } from '../../../shared/core/dyn-field-helpers.js';
+import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
 import { state } from '../../../shared/core/store.js';
 import { defaults } from './defaults.js';
 

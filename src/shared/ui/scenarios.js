@@ -1,7 +1,7 @@
 // Saved scenarios: wires the save, load, compare and import controls
 
-import { escapeHtml } from '../core/basics.js';
-import { cloneState } from '../core/scenario-helpers.js';
+import { escapeHtml } from '../core/format/numbers.js';
+import { cloneState } from '../core/analysis/scenario-helpers.js';
 import { assignScenarios, assignState, compareIds, scenarios, state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { dismissFirstRunBanner } from './saved-plan.js';

@@ -1,7 +1,7 @@
 // The one-line summaries on the collapsed sidebar groups (US fields)
 
-import { compact } from '../../shared/core/money-format.js';
-import { mortgagePayment } from '../../shared/core/spending-and-loans.js';
+import { compact } from '../../shared/core/format/numbers.js';
+import { mortgagePayment } from '../../shared/core/income/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
 import { seppElections } from '../core/income/distributions.js';
 import { openingAccounts, retirementTotal, sumSlots } from '../core/accounts/account-ledger.js';

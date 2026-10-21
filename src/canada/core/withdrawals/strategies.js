@@ -1,7 +1,6 @@
 import { takeTraditional, solveTraditionalForNetFromNeed, solveTraditionalForNet, takeRoth } from './draws.js';
 import { state } from '../../../shared/core/store.js';
-import { takeTaxable } from '../../../shared/core/take-taxable.js';
-import { takeCash, takeHomeEquity } from '../../../shared/core/take-cash.js';
+import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
 
   // Smooth withdrawals (the only mix mode Canada has): the year's need is split
   // between taxable and RRSP/RRIF in proportion to their balances, shared by the

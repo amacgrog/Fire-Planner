@@ -1,5 +1,5 @@
-import { pct } from '../../../shared/core/basics.js';
-import { LIST_MAX } from '../../../shared/core/lists-and-children.js';
+import { pct } from '../../../shared/core/format/numbers.js';
+import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
 
   // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----

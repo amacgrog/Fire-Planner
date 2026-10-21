@@ -6,20 +6,17 @@ import { cppAndOasIncome, housingForYear, requiredDistributions, retirementContr
 import { newWithdrawal } from '../withdrawals/draws.js';
 import { withdrawStandard } from '../withdrawals/strategies.js';
 import { routeSurplus } from './year-modes.js';
-import { paychecksPerYear, pct } from '../../../shared/core/basics.js';
-import { makeProjectedExpense } from '../../../shared/core/projected-expense.js';
-import { planBondLadder } from '../../../shared/core/bond-ladder.js';
-import { withdrawBucket } from '../../../shared/core/bucket-down-year-order.js';
-import { loanPaymentForYear } from '../../../shared/core/loan-payment-for-year.js';
-import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/next-guardrail-multiplier.js';
-import { pensionIncome } from '../../../shared/core/pension-income.js';
-import { baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule } from '../../../shared/core/spending-and-loans.js';
+import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
+import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
+import { planBondLadder, rotateIntoBondLadder } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
+import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
+import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
+import { pensionIncome } from '../../../shared/core/income/pension-income.js';
 import { state } from '../../../shared/core/store.js';
-import { rotateIntoBondLadder } from '../../../shared/core/bond-ladder-rotation.js';
-import { sweepExcessCash } from '../../../shared/core/sweep-excess-cash.js';
-import { getBondYears, medicalGrowth } from '../../../shared/core/year-factors.js';
+import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
+import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.js';
-import { mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two

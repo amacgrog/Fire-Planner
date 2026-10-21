@@ -1,6 +1,6 @@
 // The sidebar field search
 
-import { escapeHtml } from '../core/basics.js';
+import { escapeHtml } from '../core/format/numbers.js';
 import { activeCategory, setActiveCategory } from './category-rail.js';
 import { setMobileView } from './mobile-view.js';
 

@@ -1,9 +1,8 @@
 // Renders the add-as-you-go lists (loans, income, expenses, tiers)
 
-import { escapeHtml } from '../core/basics.js';
-import { dynTipBtn } from '../core/dyn-field-helpers.js';
-import { dynFieldHtml } from '../core/dyn-field-html.js';
-import { LIST_MAX } from '../core/lists-and-children.js';
+import { escapeHtml } from '../core/format/numbers.js';
+import { dynTipBtn, dynFieldHtml } from '../core/inputs/dyn-fields.js';
+import { LIST_MAX } from '../core/inputs/lists.js';
 import { state } from '../core/store.js';
 import { refreshMoneyPreviews } from './money-format.js';
 import { DYN } from '#country/core/seam-DYN';

@@ -1,13 +1,13 @@
-import { NO_DEPENDENTS, dependentsInYear, qualifyingChildCount } from '../../../shared/core/lists-and-children.js';
+import { NO_DEPENDENTS, dependentsInYear, qualifyingChildCount } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { acaHouseholdSize, fplForHousehold } from '../healthcare/aca.js';
 import { filingKey, SENIOR_DEDUCTION_LAST_YEAR, SENIOR_PHASE_START, taxYearOf, filingRow } from '../tax/federal-rules.js';
 import { IRMAA_TIERS, magiForIrmaaLine, irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
 import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
 import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
-import { pct } from '../../../shared/core/basics.js';
+import { pct } from '../../../shared/core/format/numbers.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 
   // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded

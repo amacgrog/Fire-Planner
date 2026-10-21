@@ -1,13 +1,12 @@
 import { PROVINCE_RULES } from '../tax/province-rules.js';
-import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/spending-and-loans.js';
+import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 import { countKids } from '../benefits/benefits.js';
-import { dependentsInYear } from '../../../shared/core/lists-and-children.js';
-import { CURRENT_YEAR } from '../../../shared/core/projection/year-factors.js';
+import { dependentsInYear } from '../../../shared/core/inputs/lists.js';
+import { CURRENT_YEAR, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { solvePensionSplit, payrollItems } from '../tax/tax.js';
-import { medicalGrowth } from '../../../shared/core/year-factors.js';
 import { BENEFIT_RULES } from '../benefits/benefit-rules.js';
-import { pct } from '../../../shared/core/basics.js';
+import { pct } from '../../../shared/core/format/numbers.js';
 
   // Home buyers' amounts for a first-time buyer in the purchase year (7N N10): the federal 10,000 and the province's own
   // (Saskatchewan 15,000 from 2025, Quebec 10,000 = the 1,400 maximum at its 14% rate), each a non-refundable credit base.

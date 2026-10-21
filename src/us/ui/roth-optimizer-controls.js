@@ -1,6 +1,6 @@
 // Controls and wiring for the Roth optimizer card and its applied schedule
 
-import { simulate } from '../../shared/core/simulate.js';
+import { simulate } from '../../shared/core/projection/simulate.js';
 import { state } from '../../shared/core/store.js';
 import { saveInputs } from '../../shared/ui/autosave.js';
 import { syncContributionControls } from '../../shared/ui/sync-contribution-controls.js';

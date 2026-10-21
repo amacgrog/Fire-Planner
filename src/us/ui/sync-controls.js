@@ -1,6 +1,6 @@
 // Pushes state into the sidebar controls (the non-contribution fields)
 
-import { isDomWired } from '../../shared/core/field-wiring.js';
+import { isDomWired } from '../../shared/core/inputs/dyn-fields.js';
 import { state } from '../../shared/core/store.js';
 import { syncFieldOut, syncFieldDom } from '../../shared/ui/field-dom-sync.js';
 import { dynApplyVisibility, renderLoanFields } from '../../shared/ui/dynamic-lists.js';

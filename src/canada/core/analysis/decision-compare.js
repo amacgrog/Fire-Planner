@@ -1,6 +1,5 @@
-import { escapeHtml } from '../../../shared/core/basics.js';
-import { decisionEndAssets } from '../../../shared/core/decision-end-assets.js';
-import { compact } from '../../../shared/core/money-format.js';
+import { escapeHtml, compact } from '../../../shared/core/format/numbers.js';
+import { decisionEndAssets } from '../../../shared/core/analysis/decisions.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { state } from '../../../shared/core/store.js';
 

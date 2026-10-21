@@ -1,12 +1,30 @@
-import { HIST } from './projection/historical-data.js';
-import { bootstrapReturnSeries } from './monte-carlo-paths.js';
-import { state } from './store.js';
-import { assignHistTaxFactors, histTaxFactors } from './tax-factors.js';
+import { HIST } from './historical-data.js';
+import { state } from '../store.js';
+import { assignHistTaxFactors, histTaxFactors } from '../tax-factors.js';
 import { historicalYearSource, standardYearSource } from './year-sources.js';
 import { BUCKET_MODE } from '#country/core/seam-BUCKET_MODE';
 import { runProjection } from '#country/core/seam-runProjection';
 import { STANDARD_MODE } from '#country/core/seam-STANDARD_MODE';
+import { pct } from '../format/numbers.js';
 
+  // Monte Carlo via block bootstrap: instead of drawing each year's return
+  // independently (which has no memory of real market behavior — no mean
+  // reversion, no regime clustering, no macro coherence between stocks,
+  // bonds, and inflation), each simulated path is built by randomly
+  // stitching together contiguous 5-year blocks of the actual 1928-2025
+  // historical record. Every block is something that really happened, so a
+  // path structurally cannot contain an unrealistic run (e.g. decades of
+  // one-directional returns) the way independent-draw Monte Carlo can.
+  const MC_BLOCK_SIZE = 5;
+  function bootstrapReturnSeries(length) {
+    const series = [],
+      maxStart = HIST.length - MC_BLOCK_SIZE;
+    while (series.length < length) {
+      const s = Math.floor(Math.random() * (maxStart + 1));
+      for (let i = 0; i < MC_BLOCK_SIZE && series.length < length; i++) series.push(HIST[s + i]);
+    }
+    return series;
+  }
   export function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     return runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB });
   }
@@ -53,4 +71,18 @@ import { STANDARD_MODE } from '#country/core/seam-STANDARD_MODE';
     }
     const successRate = paths.filter((p) => !p.depletedAge).length / paths.length;
     return { paths, successRate, projectionYears };
+  }
+  // Real-CAGR sweep: temporarily overrides the nominal investment return with
+  // the nominal rate equivalent to the given real CAGR compounded on top of
+  // the current inflation input, then restores it. Bond/HYSA yields and
+  // retirement dates are left untouched, so this isolates sensitivity to the
+  // main portfolio return assumption alone.
+  export function simulateAtRealCagr(realCagrPct) {
+    const infl = pct(state.inflation),
+      nominal = ((1 + realCagrPct / 100) * (1 + infl) - 1) * 100,
+      saved = state.returnRate;
+    state.returnRate = nominal;
+    const result = simulate();
+    state.returnRate = saved;
+    return result;
   }

@@ -1,6 +1,6 @@
 // Pushes state into the contribution controls
 
-import { isDomWired } from '../core/field-wiring.js';
+import { isDomWired } from '../core/inputs/dyn-fields.js';
 import { state } from '../core/store.js';
 import { syncFieldOut, syncFieldDom } from './field-dom-sync.js';
 import { renderChildFields, renderExtraExpenseFields, renderIncomeSourceFields, renderLumpExpenseFields, renderOneTimeIncomeFields, renderSpendingTierFields } from './dynamic-lists.js';

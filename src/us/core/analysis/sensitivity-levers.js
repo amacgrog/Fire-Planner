@@ -1,4 +1,4 @@
-import { simulate } from '../../../shared/core/simulate.js';
+import { simulate } from '../../../shared/core/projection/simulate.js';
 import { state } from '../../../shared/core/store.js';
 
   // Sensitivity ("tornado") analysis: for each of a handful of key

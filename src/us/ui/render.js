@@ -1,10 +1,10 @@
 // The render() function: redraws every result from the current state
 
-import { compact } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/simulate.js';
+import { compact } from '../../shared/core/format/numbers.js';
+import { simulate } from '../../shared/core/projection/simulate.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { mode, state } from '../../shared/core/store.js';
-import { getBondYears } from '../../shared/core/year-factors.js';
+import { getBondYears } from '../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../shared/ui/projection-table.js';
 import { renderDecisionQuestionPreviews } from '../../shared/ui/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../shared/ui/estimate-badges.js';

@@ -1,6 +1,6 @@
 // The plan headline sentence on the dashboard
 
-import { compact } from '../core/money-format.js';
+import { compact } from '../core/format/numbers.js';
 import { displayValue } from '../core/format/charts.js';
 import { mode, state } from '../core/store.js';
 

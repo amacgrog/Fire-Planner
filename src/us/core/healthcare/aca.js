@@ -1,9 +1,8 @@
 import { state } from '../../../shared/core/store.js';
-import { qualifyingChildCount } from '../../../shared/core/lists-and-children.js';
+import { qualifyingChildCount } from '../../../shared/core/inputs/lists.js';
 import { taxYearOf } from '../tax/federal-rules.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { hasChildAtMost, MEDICAID_RULES, medicaidLimit } from './medicaid-rules.js';
-import { medicalGrowth } from '../../../shared/core/year-factors.js';
 import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbackSplit, irmaaSurcharge, irmaaMagiOf } from './irmaa.js';
 import { testHooks } from '../test-hooks.js';
 

@@ -1,8 +1,8 @@
 // Computes and annotates the Roth and RRSP optimizer results
 
 import { afterTaxEstate } from '../core/analysis/estate.js';
-import { money } from '../../shared/core/money-format.js';
-import { simulate } from '../../shared/core/simulate.js';
+import { money } from '../../shared/core/format/numbers.js';
+import { simulate } from '../../shared/core/projection/simulate.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 

@@ -1,6 +1,6 @@
 // Input listeners for the registered sidebar fields
 
-import { isDomWired } from '../core/field-wiring.js';
+import { isDomWired } from '../core/inputs/dyn-fields.js';
 import { state } from '../core/store.js';
 import { saveInputs } from './autosave.js';
 import { syncFieldOut } from './field-dom-sync.js';

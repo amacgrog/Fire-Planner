@@ -1,5 +1,5 @@
-import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/lists-and-children.js';
-import { money } from '../../../shared/core/money-format.js';
+import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/inputs/lists.js';
+import { money } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 
   const clampLifeExpectancyA = () =>

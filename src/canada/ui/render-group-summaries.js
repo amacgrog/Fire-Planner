@@ -1,7 +1,7 @@
 // The one-line summaries on the collapsed sidebar groups
 
-import { compact } from '../../shared/core/money-format.js';
-import { mortgagePayment } from '../../shared/core/spending-and-loans.js';
+import { compact } from '../../shared/core/format/numbers.js';
+import { mortgagePayment } from '../../shared/core/income/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
 
   // Cheap, string-only sidebar group summaries — no simulate() calls, just

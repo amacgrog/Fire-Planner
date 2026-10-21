@@ -1,4 +1,4 @@
-import { state } from './store.js';
+import { state } from '../store.js';
 
   // Pension income for the year (which partner(s) are covered is set by
   // state.pensionCoverage; the single-person case always uses Partner A's

@@ -1,4 +1,4 @@
-import { state } from './store.js';
+import { state } from '../store.js';
 
   // Guyton-Klinger guardrails (simplified): compares last withdrawal year's
   // draw rate to the rate at the first withdrawal. A rate more than 20% above

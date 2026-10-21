@@ -1,7 +1,7 @@
-import { pct } from '../../../shared/core/basics.js';
+import { pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { mortgageInterestShare, filingRow, taxYearOf } from '../tax/federal-rules.js';
-import { dependentsInYear } from '../../../shared/core/lists-and-children.js';
+import { dependentsInYear } from '../../../shared/core/inputs/lists.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 
   // Shelter cost for one year: rent, or (once a home is owned) mortgage payment

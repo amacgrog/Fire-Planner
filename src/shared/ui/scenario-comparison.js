@@ -1,9 +1,8 @@
 // Scenario metrics and the side-by-side comparison
 
-import { escapeHtml } from '../core/basics.js';
-import { compact, money } from '../core/money-format.js';
-import { simulate } from '../core/simulate.js';
-import { deltaAge, deltaMoney, overlayColors } from '../core/scenario-helpers.js';
+import { escapeHtml, compact, money } from '../core/format/numbers.js';
+import { simulate } from '../core/projection/simulate.js';
+import { deltaAge, deltaMoney, overlayColors } from '../core/analysis/scenario-helpers.js';
 import { displayValue } from '../core/format/charts.js';
 import { assignState, compareIds, scenarios, state } from '../core/store.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colors.js';

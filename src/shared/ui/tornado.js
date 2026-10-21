@@ -1,6 +1,6 @@
 // The sensitivity (tornado) chart and its card
 
-import { compact } from '../core/money-format.js';
+import { compact } from '../core/format/numbers.js';
 import { displayValue } from '../core/format/charts.js';
 import { chartAxisColor, chartZeroLineColor, isDarkTheme } from './chart-colors.js';
 import { render } from '#country/ui/seam-render';

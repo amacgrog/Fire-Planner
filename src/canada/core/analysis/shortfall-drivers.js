@@ -1,5 +1,5 @@
-import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../../shared/core/find-minimal-spending-cut.js';
-import { simulate } from '../../../shared/core/simulate.js';
+import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../../shared/core/analysis/decisions.js';
+import { simulate } from '../../../shared/core/projection/simulate.js';
 import { state } from '../../../shared/core/store.js';
 
   // "What's driving this" shortfall analysis: when the selected projection

@@ -2,7 +2,7 @@ import { countKids, benefitsFor } from '../benefits/benefits.js';
 import { AGE_AMOUNT, AGE_AMOUNT_REDUCTION, AGE_AMOUNT_THRESHOLD, FEDERAL_ELIGIBLE_DTC, PENSION_INCOME_AMOUNT, CPP_ENHANCED_RATE, EI_MIE, EMPLOYMENT_AMOUNT, PAY, QC_WORKERS_DEDUCTION_MAX, QC_WORKERS_DEDUCTION_RATE, FED_MEDICAL_THRESHOLD, FED_BPA_ENHANCED, FED_BPA_MIN, FED_BPA_PHASE_END, FED_BPA_PHASE_START, FED_CAPS, FED_CREDIT_RATE, FED_RATES, RRIF_PENSION_AGE, OAS_RECOVERY_THRESHOLD, OAS_RECOVERY, PROV_TAX, RAMQ_CAP } from './rules.js';
 import { currentProvince } from './province-rules.js';
 import { state } from '../../../shared/core/store.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
   // Same loop as progressiveTax, with the caps scaled by `f` in place of a scaled copy.
   function scaledProgressiveTax(income, caps, rates, f) {

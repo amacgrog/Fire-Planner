@@ -1,8 +1,8 @@
 import { accountsConvert } from '../accounts/account-ledger.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { FILING, filingRow, taxYearOf, itemizedDeduction, standardDeduction, bracketCeilingReal } from '../tax/federal-rules.js';
 import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
-import { qualifyingChildCount } from '../../../shared/core/lists-and-children.js';
+import { qualifyingChildCount } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
 import { acaHouseholdSize, fplForHousehold } from '../healthcare/aca.js';
 import { magiForIrmaaLine, irmaaTierCeiling, irmaaMagiOf, irmaaRoomFor } from '../healthcare/irmaa.js';

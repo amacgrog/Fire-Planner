@@ -7,11 +7,11 @@ import { cppAndOasIncome, housingForYear, oasAgeFactor, homeBuyerAmounts } from 
 import { probateFee, afterTaxEstate } from '../core/analysis/estate.js';
 import { PROVINCE_RULES } from '../core/tax/province-rules.js';
 import { computeRothOptimizer } from './roth-optimizer.js';
-import { drawTaxable } from '../../shared/core/draw-taxable.js';
-import { dependentsInYear, qualifyingChildCount } from '../../shared/core/lists-and-children.js';
+import { drawTaxable } from '../../shared/core/withdrawals/draws.js';
+import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs/lists.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
-import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { solveTraditionalForNet, solveTraditionalForNetFromNeed } from '../core/withdrawals/draws.js';
 import { BENEFIT_RULES } from '../core/benefits/benefit-rules.js';
 

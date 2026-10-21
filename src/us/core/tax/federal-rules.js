@@ -1,5 +1,5 @@
 import { currentYear } from '../tax-year.js';
-import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
+import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
   // ---- Federal deductions --------------------------------------------------
   // The tax year of plan year `yearIndex` is `currentYear + yearIndex` (the clock
