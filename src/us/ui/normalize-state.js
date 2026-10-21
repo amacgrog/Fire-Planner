@@ -1,8 +1,8 @@
 // Cleans a raw or saved state into a valid one (normalizeState)
 
 import { normalizeLists } from '../../shared/core/list-normalization.js';
-import { defaults } from '../core/defaults.js';
-import { normalizeUsLumps, normalizeUsStreams } from '../core/normalize-lists.js';
+import { defaults } from '../core/inputs/defaults.js';
+import { normalizeUsLumps, normalizeUsStreams } from '../core/inputs/list-rules.js';
 import { FIELDS } from './fields.js';
 
   export function normalizeState(raw) {

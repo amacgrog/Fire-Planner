@@ -1,13 +1,11 @@
 import { state } from '../../../shared/core/store.js';
 import { qualifyingChildCount } from '../../../shared/core/lists-and-children.js';
-import { taxYearOf } from '../federal-deductions.js';
+import { taxYearOf } from '../tax/federal-rules.js';
 import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
-import { hasChildAtMost, MEDICAID_RULES, medicaidLimit } from '../medicaid-rules.js';
+import { hasChildAtMost, MEDICAID_RULES, medicaidLimit } from './medicaid-rules.js';
 import { medicalGrowth } from '../../../shared/core/year-factors.js';
-import { irmaaAppealWindow } from '../irmaa-appeal-table.js';
-import { irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbackSplit } from '../irmaa-lookback.js';
+import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbackSplit, irmaaSurcharge, irmaaMagiOf } from './irmaa.js';
 import { testHooks } from '../test-hooks.js';
-import { irmaaSurcharge, irmaaMagiOf } from './irmaa.js';
 
   export function acaExpectedPct(ratioFpl, enhanced) {
     if (enhanced) {
@@ -252,4 +250,25 @@ import { irmaaSurcharge, irmaaMagiOf } from './irmaa.js';
           factor * medicalGrowth(year)
       : 0;
     return { healthcare, ltc, usesMagiEstimate, premA, premB, appealA, appealB, inYearA, inYearB };
+  }
+  // E1c: the self-employed health insurance deduction (IRC 162(l)) for the year's premiums (`healthcare`: marketplace after
+  // the credit, the flat premium, Medicare and IRMAA; all of it is insurance for the household). A person may deduct it
+  // only in a year without employer coverage of their own or through a spouse (profile.seAllowX), up to their net
+  // self-employment earned income (sePlanNetX: profit less half the SE tax and the Solo 401(k) plan money, IRC 401(c)(2);
+  // a traditional IRA does not reduce it). One return: the
+  // household's premiums, up to both caps (either spouse may claim the family's). Two returns: each person's own part
+  // (premA includes the children). Pure; fills `out`.
+  export const SE_HEALTH = [0, 0];
+  export function seHealthDeduction(healthcare, premA, premB, twoReturns, profile, out) {
+    const capA = profile.seAllowA ? profile.sePlanNetA || 0 : 0,
+      capB = profile.seAllowB ? profile.sePlanNetB || 0 : 0;
+    if (twoReturns) {
+      out[0] = Math.min(premA, capA);
+      out[1] = Math.min(premB, capB);
+    } else {
+      const total = Math.min(healthcare, capA + capB);
+      out[0] = Math.min(total, capA);
+      out[1] = total - out[0];
+    }
+    return out;
   }

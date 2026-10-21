@@ -3,7 +3,7 @@
 import { clampRetireAgeA, clampRetireAgeB } from '../../shared/core/lists-and-children.js';
 import { money } from '../../shared/core/money-format.js';
 import { state } from '../../shared/core/store.js';
-import { clampLifeExpectancyA, clampLifeExpectancyB } from '../core/normalize-lists.js';
+import { clampLifeExpectancyA, clampLifeExpectancyB } from '../core/inputs/list-rules.js';
 
   // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
   const clampProfitSharing = (key) => {

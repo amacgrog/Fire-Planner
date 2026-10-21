@@ -369,7 +369,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `c.irmaaGrowthA/B`) in a year with an in-year candidate. The plan's `irmaaAt`, lines and `irmaaChecks` use this year's
   filing status (the return SSA will read); `irmaaFiling2` is gone. Test: `tests/irmaa_appeal.js`.
   Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
-- **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table in `src/us/core/medicaid-rules.js`
+- **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table in `src/us/core/healthcare/medicaid-rules.js`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
   `nonExpansion` (ten states), `adultCoverage` (Wisconsin 1.0), `ptcFloor` (1.0) and `workRequirement` (`fromYear` 2027,
   `exemptChildMaxAge` 13). `acaNetCost` applies it before the credit schedule, so `healthcareCost` and the 400% guard still share one function:
@@ -412,7 +412,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   between two shared partials (`medicalInflation` ends before it,
   `propertyTaxGrowth` starts after it) so each planner can word its label
   differently; keep it outside the shared partials.
-- **Filing-status table (US, `FILING`, in `src/us/core/federal-deductions.js`).** Each status row names, per
+- **Filing-status table (US, `FILING`, in `src/us/core/tax/federal-rules.js`).** Each status row names, per
   parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, ctc), which
   data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
   `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
@@ -425,7 +425,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
   status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
   branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
-- **State income tax (US, `STATE_RULES` in `src/us/core/state-rules.js`, evaluated by `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
+- **State income tax (US, `STATE_RULES` in `src/us/core/tax/state-rules.js`, evaluated by `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
   50 states and DC, matching the `#stateTax` options) and one generic evaluator, `stateIncomeTax(sources, filing,
   yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/state_rules.js` fails on
   a missing field or a state missing from the table): `status` (always `researched`: `source` URL + `asOf` year; the `migrated` status of 7C is gone), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
@@ -539,7 +539,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   IRAs first. Batch 3B replaces the fractional blend with a per-account status.
 - **Contribution limits and profit sharing (US, E1a).** `PLAN_LIMITS` (2026 values: the $72,000 annual limit, the
   catch-ups outside it, the $360,000 compensation limit; indexed by `limitFactor`) and `allocatePlanRoom(room, amounts,
-  out)` (pure, country-neutral, allocation-free; in `src/us/core/payroll-and-plan-limits.js`, to move to `src/shared/core/` at E1-CA) sit above `retirementContributions`, which
+  out)` (pure, country-neutral, allocation-free; in `src/us/core/income/contributions.js`, to move to `src/shared/core/` at E1-CA) sit above `retirementContributions`, which
   returns the limited `matchA/B`, `profitA/B` and `employerContrib` (the year loop's `employerMatch`). One room per
   partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
   `min(pay, annual limit) - deferrals` (catch-ups outside it); the mega backdoor is further capped at pay less deferral and catch-up (the employee's own money never exceeds pay); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
@@ -739,7 +739,7 @@ are gone: `docs/superpowers/inventory/stage{2,3,4}-region-map.md` say which modu
 `tests/no_markers.js` keeps `@@shared` markers out of `src/`. The extraction tool no longer makes shared modules (it refuses a
 manifest module with `owner: 'shared'`): write new shared code in `src/shared/` directly. To share code that still differs
 between the planners, first remove the difference, then move it into one `src/shared/` module (a name that differs per country
-goes through a seam). The two `runProjection` year loops are deliberately not shared (`src/us/core/run-projection.js`,
+goes through a seam). The two `runProjection` year loops are deliberately not shared (`src/us/core/projection/run-projection.js`,
 `src/canada/core/run-projection.js`; see `docs/phase2-refactor-plan.md` section 7, step 4.5): put a new per-year rule in a
 shared stage helper when it is identical in both countries, otherwise edit each loop. Line endings do not matter: the build and
 the analysis tools normalize CRLF to LF on read, and the regroup tool writes LF (including this file and `tests/state_modules.js`);
@@ -1008,7 +1008,7 @@ every `bridge*` key — note `normalizeState` spreads unknown keys, so any
 retired field must be deleted explicitly or it re-migrates on every load.
 **Income streams, owner and kind (US, E1b).** A stream row also carries `owner` ('A'/'B'), `kind` ('other' = Not earned /
 `'wages'` = W-2) and a contribution panel (`contribute`, `deferralType`, `deferralPct`, `matchPct`, `afterTaxPct`, `personalPct`),
-normalized by the US-only `normalizeUsStreams(s, raw)` (`src/us/core/normalize-lists.js`; the shared `normalizeLists`
+normalized by the US-only `normalizeUsStreams(s, raw)` (`src/us/core/inputs/list-rules.js`; the shared `normalizeLists`
 keeps only the common keys, so these are read from `raw`, aligned to the filtered list; anything but a literal `'B'` / `'wages'` /
 `true` / `'roth'` is the legacy meaning). Canada's streams are unchanged until E1-CA. The shared list renderer
 (now `src/shared/core/dyn-field-html.js`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, ctx, out)`

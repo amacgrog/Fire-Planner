@@ -1,7 +1,7 @@
-import { ALL_FREE, accountsDrawGroup, accountsSetFromDollars } from '../withdrawal-mix-and-roth-accounts.js';
-import { tradGroup, rothFreeCaps } from '../trad-group.js';
-import { taxFor } from '../standard-deduction.js';
-import { INH_DECEDENT } from '../state-rules.js';
+import { ALL_FREE, accountsDrawGroup, accountsSetFromDollars } from '../accounts/account-ledger.js';
+import { tradGroup, rothFreeCaps } from '../accounts/penalty-status.js';
+import { taxFor } from '../tax/federal-tax.js';
+import { INH_DECEDENT } from '../tax/state-rules.js';
 import { testHooks } from '../test-hooks.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
 
@@ -164,7 +164,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   // so the caller can add it to traditionalGross (ordinary income, and the MAGI lag); `penalty`
   // is the 10% early-withdrawal penalty, which the caller adds to earlyPenalty; `tax` is the
   // income tax the earnings add.
-  export function rothDraw(R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status, caps = null, dry = false) {
+  function rothDraw(R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status, caps = null, dry = false) {
     const none = { gross: 0, net: 0, penalty: 0, earn: 0, tax: 0 };
     const capSum = caps ? caps.reduce((sum, c) => sum + c, 0) : 0,
       avail = caps ? capSum : bucketBal;
@@ -306,4 +306,60 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   // part of the ceiling.
   export function incomeRoom(magiSafeRoom, conversionAmount) {
     return Math.max(0, magiSafeRoom - conversionAmount);
+  }
+  // Penalty-free traditional dollars available to a discretionary draw this year.
+  export function freeTraditional(wd) {
+    return tradGroup(wd, false).share * (wd.bal.traditional + wd.bal.bondTraditional);
+  }
+  // Lifts the cap and takes any remaining need from penalty-free traditional money (stocks, then the bond
+  // bucket): runs before penalized money and before home equity, so a target never strands money.
+  export function releaseMagiCap(wd, solver) {
+    if (!wd.magiCap || wd.magiCap.off) return;
+    wd.magiCap.off = true;
+    if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
+    if (wd.need > 0 && wd.bal.bondTraditional > 0)
+      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
+  }
+  export function takePenalized(wd, solverStocks) {
+    const { bal } = wd,
+      pen = tradGroup(wd, true);
+    for (let guard = 0; wd.need > 0.005 && guard < 40; guard++) {
+      const cands = [];
+      if (pen.share > 0)
+        for (const [bucket, solver] of [['traditional', solverStocks], ['bondTraditional', solveTraditionalForNetFromNeed]]) {
+          const cap = bal[bucket] * tradGroup(wd, true).share;
+          if (cap > 0)
+            cands.push({
+              probe: () => {
+                const r = solver(cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1);
+                return { gross: r.fromTrad, net: r.tradNet };
+              },
+              run: () => takeTraditional(wd, bucket, wd.need, solver, true),
+            });
+        }
+      for (const bucket of ['roth', 'bondRoth'])
+        for (let i = 0; i < 4; i++) {
+          const room = wd.accts.roth[i] * bal[bucket];
+          if (!(room > 0)) continue;
+          const caps = [0, 0, 0, 0];
+          caps[i] = room;
+          cands.push({
+            probe: () => {
+              const pool = bal.roth + bal.bondRoth,
+                d = rothDraw(wd.rothAccts, wd.accts.roth, pool, bal[bucket], wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, wd.status, caps, true);
+              return { gross: d.gross, net: d.net };
+            },
+            run: () => takeRoth(wd, bucket, wd.need, caps),
+          });
+        }
+      let best = null;
+      for (const c of cands) {
+        const pr = c.probe();
+        if (!(pr.gross > 1e-9)) continue;
+        const cost = 1 - pr.net / pr.gross;
+        if (!best || cost < best.cost - 1e-5) best = { c, cost };
+      }
+      if (!best) return;
+      wd.need = Math.max(0, wd.need - best.c.run());
+    }
   }

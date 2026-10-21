@@ -5,7 +5,7 @@ import { state } from '../../shared/core/store.js';
 import { syncFieldOut, syncFieldDom } from '../../shared/ui/field-dom-sync.js';
 import { dynApplyVisibility, renderLoanFields } from '../../shared/ui/dynamic-lists.js';
 import { refreshMoneyPreviews } from '../../shared/ui/money-format.js';
-import { revealHidden } from '../core/normalize-lists.js';
+import { revealHidden } from '../core/inputs/list-rules.js';
 import { FIELDS } from './fields.js';
 
   export function syncControls() {

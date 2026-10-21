@@ -1,1 +1,1 @@
-export { taxFor } from './standard-deduction.js';
+export { taxFor } from './tax/federal-tax.js';

@@ -1,5 +1,5 @@
 import { mode, assignState } from '../shared/core/store.js';
-import { REVEAL_BY_ID } from './core/normalize-lists.js';
+import { REVEAL_BY_ID } from './core/inputs/list-rules.js';
 import { syncTopbarHeight, syncKeyboardInset, syncPanelMaxHeight } from '../shared/ui/layout-metrics.js';
 import { FIELDS } from './ui/fields.js';
 import { normalizeState } from './ui/normalize-state.js';

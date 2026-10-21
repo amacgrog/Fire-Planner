@@ -4,9 +4,9 @@ import { money } from '../../shared/core/money-format.js';
 import { simulate } from '../../shared/core/simulate.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
-import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimize-multi-lever.js';
+import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimizer/multi-lever.js';
 import { optimizerState } from '../core/optimizer-state.js';
-import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../core/roth-per-year.js';
+import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../core/optimizer/roth-schedule.js';
 
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>

@@ -1,4 +1,4 @@
-import { openingRothBasisSlots } from '../withdrawal-mix-and-roth-accounts.js';
+import { openingRothBasisSlots } from './account-ledger.js';
 
   // Roth early-access rules, one ledger per Roth account, in ACCOUNT_SLOTS order (Roth IRA A,
   // Roth 401(k) A, Roth IRA B, Roth 401(k) B). Roth IRA (IRC 408A(d)(4), Treas. Reg. 1.408A-6

@@ -4,7 +4,7 @@ import { money } from '../../shared/core/money-format.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 import { APPEAL_EVENT } from '../core/healthcare/irmaa.js';
-import { taxYearOf } from '../core/federal-deductions.js';
+import { taxYearOf } from '../core/tax/federal-rules.js';
 
   // 3C: the year table's status cell explains the solver's choice for that year (title tooltip). US only (renderTable
   // is a shared region).

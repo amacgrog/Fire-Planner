@@ -1,4 +1,4 @@
-import { filingKey, SS_BASE } from '../federal-deductions.js';
+import { filingKey, SS_BASE } from './federal-rules.js';
 
   // The filing status of Partner A's own return in a two-return year (A claims the children), as taxFor's two-filer branch.
   export function returnStatusA(dependents) {

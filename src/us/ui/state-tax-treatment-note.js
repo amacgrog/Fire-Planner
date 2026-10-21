@@ -1,7 +1,7 @@
 // The note under the state selector describing how the state is taxed
 
 import { state } from '../../shared/core/store.js';
-import { STATE_RULES } from '../core/state-rules.js';
+import { STATE_RULES } from '../core/tax/state-rules.js';
 
   export function stateTaxTreatmentNote() {
     const stateName = (

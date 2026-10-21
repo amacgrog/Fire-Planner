@@ -1,20 +1,144 @@
-import { dependentsInYear, qualifyingChildCount } from '../../../shared/core/lists-and-children.js';
+import { NO_DEPENDENTS, dependentsInYear, qualifyingChildCount } from '../../../shared/core/lists-and-children.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/tax-index-factor.js';
 import { acaHouseholdSize, fplForHousehold } from '../healthcare/aca.js';
-import { filingKey, SENIOR_DEDUCTION_LAST_YEAR, SENIOR_PHASE_START, taxYearOf, filingRow } from '../federal-deductions.js';
-import { IRMAA_TIERS } from '../irmaa-tiers.js';
-import { magiForIrmaaLine } from '../magi-for-irmaa-line.js';
-import { MEDICAID_RULES, medicaidLimit } from '../medicaid-rules.js';
-import { CTC_MAX_AGE, CTC_PHASE_START } from '../social-security-and-child-credits.js';
-import { NO_THRESHOLDS, LAMBDA_MAX, SOLVER_LAMBDA_MULT, TAU_GAIN_MAX } from '../solver-lambda-mult.js';
+import { filingKey, SENIOR_DEDUCTION_LAST_YEAR, SENIOR_PHASE_START, taxYearOf, filingRow } from '../tax/federal-rules.js';
+import { IRMAA_TIERS, magiForIrmaaLine, irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
+import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
+import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/basics.js';
-import { LAMBDA_PROFILE } from '../lambda-profile.js';
-import { rmdDivisor, rmdStartAge } from '../niit-and-rmd.js';
-import { irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
-import { taxFor } from '../standard-deduction.js';
+import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 
+  // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded
+  // taxable gains at tauGain, Roth, cash, bond principal and home equity at face value.
+  export function afterTaxValue(bal, lambda, tauGain) {
+    const gain = Math.max(0, bal.taxable - bal.taxableBasis) + Math.max(0, bal.bondTaxable - bal.bondTaxableBasis);
+    let v = bal.taxable + bal.bondTaxable - gain * tauGain + (bal.traditional + bal.bondTraditional) * (1 - lambda) + bal.roth + bal.bondRoth + bal.cash + bal.home;
+    // E1e: the open inherited accounts (appended, and only when there are any: a legacy score is the same double).
+    if (bal.inheritedTrad + bal.inheritedRoth > 0) v += bal.inheritedTrad * (1 - lambda) + bal.inheritedRoth;
+    return v;
+  }
+  // No plan this year (the natural draw).
+  export const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '' });
+  export const NO_PLANS = Object.freeze([]);
+  // A line's family (cliff plan): 'aca' (medicaid, acaFloor, aca400), 'irmaa' (irmaa1 ... irmaa5) or 'tax' (the senior-deduction
+  // and child-tax-credit phase-outs, never a candidate).
+  export function lineFamily(id) {
+    return id.startsWith('irmaa') ? 'irmaa' : id === 'senior' || id === 'ctc' ? 'tax' : 'aca';
+  }
+  // The year's candidate plans for the phased year (planMode 'choose'; spec 13.5-13.7 of the 3C design, section 4 of the cliff
+  // plan), read off the converged natural year (c.natMagi, its conversion c.natConv, its cappable discretionary traditional
+  // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable) and gains c.gain), at most three,
+  // in this order:
+  // - 'under': a cap just under a line at or below the natural MAGI, with NO conversion that year. Only at a real cliff
+  //   (13.7 B): premium + IRMAA just over the line more than $1 above just under it (costNear, this year's premium and
+  //   the IRMAA charged two years on). Tax kinks (the child-tax-credit and senior-deduction phase-outs) are not cliffs.
+  //   The nearest such line, and (13.6) the line with the largest cliff when it is another one (ties go to the nearer
+  //   line): the full premium can lift the natural MAGI over an IRMAA tier above the ACA 400% line. Each is offered
+  //   only when the natural draw took traditional money the cap can limit and the natural MAGI less its conversion
+  //   is still over that line: if only the conversion puts the year over a line the plan does nothing (the
+  //   conversion ceiling sized it inside its tier on purpose), so it never spends Roth to make room for a conversion.
+  // - 'fill': just over the nearest FLOOR above the natural MAGI (the first line in reach where this year's premium
+  //   plus IRMAA is lower just over it than just under it: the Medicaid line with Medicaid declined, the 100% credit
+  //   floor without Medicaid; just over a cliff, the 400% line or an IRMAA tier, costs more and is skipped), only
+  //   with penalty-free traditional money (c.canFill).
+  // Lines count only inside the reach: from the MAGI with no discretionary draw and no conversion (c.lo) to the
+  // MAGI with the conversion and no draw plus REACH_GROSS_UP x the need (c.hi). c.thresholds is sorted by MAGI.
+  // Each candidate carries its line's id and ret. Returns NO_PLANS when none.
+  // The eligibility tests, shared by choose (yearPlanCandidates) and apply so the two cannot drift. c carries the converged
+  // natural year: natTrad (its cappable traditional draw), natMagi, natConv, lo, hi, canFill. Which side of the natural MAGI a
+  // line is on is tested by the caller.
+  // A stay-under: the natural draw took traditional money the cap can limit, the natural MAGI less its conversion is over the
+  // line, and the target is inside the reach.
+  export function underEligible(t, c) {
+    return c.natTrad > 0 && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo;
+  }
+  // A fill: penalty-free traditional money, and the target inside the reach.
+  export function fillEligible(t, c) {
+    return c.canFill && t.magi + 1 <= c.hi;
+  }
+  export function underPlanOf(t) {
+    return { kind: 'under', magi: t.magi - 1, label: t.label, id: t.id, ret: t.ret };
+  }
+  export function fillPlanOf(t) {
+    return { kind: 'fill', magi: t.magi + 1, label: t.label, id: t.id, ret: t.ret };
+  }
+  export function yearPlanCandidates(c) {
+    let out = NO_PLANS;
+    const gain = c.gain,
+      costNear = (m) => c.premiumAt(m - c.magiBase - gain, gain) + c.irmaaAt(m - c.magiBase - gain, gain),
+      offerUnder = (t) => underEligible(t, c),
+      underOf = underPlanOf;
+    let near = null,
+      big = null,
+      bigJump = 0;
+    for (const t of c.thresholds) {
+      if (t.magi > c.natMagi) break;
+      if (t.magi - 1 < c.lo) continue;
+      const jump = costNear(t.magi + 1) - costNear(t.magi - 1);
+      if (jump <= 1) continue;
+      near = t;
+      if (jump >= bigJump) {
+        big = t;
+        bigJump = jump;
+      }
+    }
+    if (near && offerUnder(near)) out = [underOf(near)];
+    if (big && big !== near && offerUnder(big)) out = out === NO_PLANS ? [underOf(big)] : [out[0], underOf(big)];
+    if (c.canFill) {
+      for (const t of c.thresholds) {
+        if (t.magi <= c.natMagi || !fillEligible(t, c)) continue;
+        if (costNear(t.magi + 1) < costNear(t.magi - 1)) {
+          const fill = fillPlanOf(t);
+          out = out === NO_PLANS ? [fill] : [...out, fill];
+          break;
+        }
+      }
+    }
+    return out;
+  }
+  // The future tax on one traditional dollar (lambda) and on one dollar of long-term gain (tauGain), read
+  // from three synthetic future years: Partner A's first RMD year, a midpoint, and a survivor year (the year
+  // after the first death: the survivor-modeling death year, else the earlier life expectancy) or the plan's
+  // last year. Each walks today's traditional pool forward at the plan's real return, net of the traditional
+  // share of this year's need (c.need, c.tradShare; both 0: no draws). A sample prices the traditional income
+  // the walk assumes that year, the larger of the RMD on the owner's age and that year's draw (spec 13.2); if
+  // the draws empty the pool before a sample year, the sample moves to the year that empties it. It adds Social
+  // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (on
+  // Medicare's MAGI, irmaaMagiOf: only the taxable part of Social Security; per person on two returns) over a step
+  // of 10% of that income (at least $1,000), under this year's tax law and indexing.
+  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
+  // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
+  // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
+  // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer
+  // intents. Lifetime real tax plus healthcare is reported, never ranked.
+  export function planCandidateBetter(a, b) {
+    const da = a.depletedAge == null ? Infinity : a.depletedAge,
+      db = b.depletedAge == null ? Infinity : b.depletedAge;
+    if (da !== db) return da > db;
+    if (a.value > b.value + 1) return true;
+    if (b.value > a.value + 1) return false;
+    return a.n < b.n;
+  }
+  // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
+  // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
+  // just over a floor, the stock-account order, whose accounts fund the draw) by dry-running the year's
+  // real withdrawal, and keeps the one that leaves the most after-tax wealth, with traditional dollars
+  // worth (1 - lambda). See docs/superpowers/specs/2026-10-06-per-year-solver-3c-design.md.
+  export const SOLVER_LAMBDA_MULT = 1,
+    REACH_GROSS_UP = 2,
+    LAMBDA_MAX = 0.6,
+    TAU_GAIN_MAX = 0.5;
+  // The year's federal MAGI lines, in household MAGI: the ACA floor (100%), the Medicaid line and the 400%
+  // cliff for partners on the individual market; the IRMAA tier edges from 63 (retired); the senior-
+  // deduction phase-out start (65+, through 2028); the child-tax-credit phase-out start. With two returns
+  // each return's line is translated into household MAGI through that return's share of the traditional
+  // draw (the solver prices candidates with the real functions, so the translation only places them).
+  // State-law cliffs are priced by taxFor but are not candidates (documented gap).
+  // With c.lo / c.hi (the year's reach) only the lines in (lo, hi] are kept, the only ones the solver uses, and a
+  // year with none returns a shared empty list (the skip path allocates no line objects).
+  export const NO_THRESHOLDS = Object.freeze([]);
   export function magiThresholds(c) {
     const out = [],
       y = c.year,

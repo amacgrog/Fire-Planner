@@ -1,1 +1,1 @@
-export { runProjection } from './run-projection.js';
+export { runProjection } from './projection/run-projection.js';

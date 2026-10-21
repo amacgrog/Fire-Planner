@@ -6,7 +6,7 @@ import { simulate } from '../../shared/core/simulate.js';
 import { displayValue } from '../../shared/core/format/charts.js';
 import { mode, state } from '../../shared/core/store.js';
 import { getBondYears } from '../../shared/core/year-factors.js';
-import { retirementTotal } from '../core/withdrawal-mix-and-roth-accounts.js';
+import { retirementTotal } from '../core/accounts/account-ledger.js';
 import { fiMultiple } from '../../shared/core/analysis/decisions.js';
 
   export function buildPrintReport() {

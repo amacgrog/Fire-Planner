@@ -1,7 +1,7 @@
 // Adds the Social Security unusual-assumption warnings
 
 import { UNUSUAL_RANGES } from '../../shared/core/estimates-and-warnings.js';
-import { fraText, SS_EARNINGS_TEST_2026, ssBeforeRetirementCase } from '../core/ss-earnings-test.js';
+import { fraText, SS_EARNINGS_TEST_2026, ssBeforeRetirementCase } from '../core/income/social-security.js';
 
   export function addSocialSecurityWarnings() {
     ['A', 'B'].forEach((p) =>

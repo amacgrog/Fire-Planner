@@ -1,4 +1,4 @@
-import { singleLifeFactor } from '../niit-and-rmd.js';
+import { singleLifeFactor } from './distributions.js';
 
   // ---- E1e: inherited traditional and Roth IRA / 401(k) accounts (spec sections 6.1, 6.2) ----
   // One inherited row's draw (traditional) or payout (Roth) in draw year k. b = start-of-year balance, r = the year's stock
