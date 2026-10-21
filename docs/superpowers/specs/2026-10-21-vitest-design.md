@@ -108,7 +108,7 @@ All eight recommendations of the brainstorm were accepted by the owner as writte
 | 8 | Dependency | `vitest` is a pinned `devDependency` (exact version, like `esbuild` and `playwright`). Nothing is installed until this design is approved. |
 
 Calls I made that were not asked (the owner may overrule): the file layout and naming of section 5.1, the pilot suites of
-section 7, the completeness guard of section 6, and the version rule of section 5.5.
+section 7, the reset guard of section 6, and the version rule of section 5.5.
 
 ## 5. Design
 
@@ -121,7 +121,7 @@ section 7, the completeness guard of section 6, and the version rule of section 
         world.js                 resetWorld(), setState(patch), year pinning
         engine.js                simulateUs()/simulateCa() wrappers that match the old hooks
       clock.js                   pins the system time; first setupFile, imports nothing from src/
-      shared/*.test.js           run in both projects (includes guard-core.test.js, the country-agnostic scan)
+      shared/*.test.js           run in both projects (includes guard-reset.test.js and guard-exact.test.js, the `toBeCloseTo` scan)
       us/*.test.js               US project only (includes guard-normalize.test.js)
       canada/*.test.js           Canada project only (includes guard-normalize.test.js for Canada's core normalizeState)
 
@@ -225,12 +225,19 @@ jsdom, no browser mode).
   0.005`, the new one does exactly that, written out; most use none.
 - Hand-computed figures stay as the literals (or the hand-derivation) the original had. A converted test never computes its
   expected value from the code under test.
-- A test in `tests/unit/` that mentions `toBeCloseTo` fails a small scan (`tests/unit/guard.test.js`) so the rule survives.
-- `tests/unit/guard.test.js` also holds the **completeness guard** (my call): it scans `src/**/core/**/*.js` for `export let`
-  and for exported `Map` / `Set` / plain-object stores it knows by name and fails if one is not in `world.js`'s reset list or
-  in an explicit "self-validating or scratch" allow-list with a reason. A new piece of module state in `core/` is then a
-  failing test until someone decides how it resets. The scan reads the same stripped-comment text the purity scan does.
-- `tests/unit/guard.test.js` asserts the US `normalizeState` imports in plain Node with no DOM (the section 3 wrinkle): a
+- A test in `tests/unit/` that mentions `toBeCloseTo` fails a small scan (`tests/unit/shared/guard-exact.test.js`) so the rule survives.
+- **The reset guard** (my call, owner's requirement 2026-10-21: it must need no maintenance, in particular no allow-list), `tests/unit/shared/guard-reset.test.js`,
+  tests behavior, not source text. In each project: (1) in a fresh world, run a fixed sample of the scenarios in
+  `tests/snapshot_scenarios.js` (plain data; spread across standard, retirement-age shifts and historical paths, and, for the
+  US, with the cliff plan on) and record every output number; (2) dirty the world with a heavy different workload (a Monte
+  Carlo run, a historical run, the optimizer, a plan-changing state, a changed inflation and tax year); (3) call
+  `resetWorld()` and re-run (1). The outputs must be identical, compared exactly (`Object.is` per number). State that survives
+  the reset and changes a result fails the test; memos and scratch objects never change a result, so they need no list.
+  Pass or fail is this equality and nothing else. When it fails, the message also names the exported values of any `core/`
+  module (found by globbing `src/**/core/**/*.js` and importing each, no list) that differ from a fresh import, as a pointer
+  to the cause; that listing is diagnostic only and never fails the test by itself. The fix for a failure is a line in
+  `world.js`. Limit: it catches only a leak the sampled scenarios exercise; the sample is large to make that unlikely.
+- `tests/unit/us/guard-normalize.test.js` asserts the US `normalizeState` imports in plain Node with no DOM (the section 3 wrinkle): a
   future `FIELDS` change that touches `document` at load fails here.
 
 ## 7. First wave and the conversion procedure
@@ -276,7 +283,7 @@ forces the two-config fallback, shared tests run once per `vitest run --config` 
    `#country/*` alias resolves per project (compare against `tests/country_contract.js`), the Canada clock pin works, the
    Node 22 and 24 runs agree, and a trivial `simulate()` test runs in both projects. Record the numbers (section 10).
 2. **Config and helpers:** `vitest.config.js`, `tests/unit/setup.js`, `helpers/world.js`, `helpers/engine.js`,
-   `guard.test.js`, the npm scripts, the `npm test` entry. `package.json` and the lockfile change here, nowhere earlier.
+   `guard-reset.test.js`, `guard-normalize.test.js`, `guard-exact.test.js`, the npm scripts, the `npm test` entry. `package.json` and the lockfile change here, nowhere earlier.
 3. **Pilot conversions** (section 7), one commit each.
 4. **Remaining first-wave batches** (section 7).
 5. **Docs:** `CLAUDE.md` (Commands: the new scripts; Files: `tests/unit/` and which scripts moved; "Where a new test goes";
