@@ -5,18 +5,18 @@ Branch: `claude/dazzling-thompson-rp3l5j`, cut from `claude/tender-meitner-a3bo5
 Source of scope: `docs/roadmap.md` ("After Phase 2" and "Phase 3") and
 `docs/phase2-refactor-plan.md` appendix A.3 / A.5 / A.6 / A.7.
 
+The branches named above and in "Review gate" are history: every PR now goes to
+`main` (owner, 2026-10-21).
+
 This plan is sequential on purpose: every numeric batch touches `runProjection()`
 and regenerates the exact-match snapshots, so parallel branches would conflict.
 
 ## Review gate (decided)
 
-- Each batch (and each sub-batch) is **one pull request into
-  `claude/tender-meitner-a3bo59`**, never into `main`. The owner reviews and
-  merges it before the next batch starts.
-- Work for the next batch begins only after the previous PR is merged: the
-  working branch is then reset to the updated `tender-meitner` tip and the
-  next batch's commits go on top (the working branch is
-  `claude/dazzling-thompson-rp3l5j`; its merged history is never reused).
+- Each batch (and each sub-batch) is **one pull request into `main`**. The
+  owner reviews and merges it before the next batch starts.
+- Work for the next batch begins only after the previous PR is merged: each
+  batch's branch is cut from `main` after that merge.
 - A PR is opened only when the owner asks for it (or this plan's batch is
   declared ready); the PR description lists the commits, the before/after
   tables for any intended number changes, and the `npm test` result.
@@ -37,7 +37,7 @@ and regenerates the exact-match snapshots, so parallel branches would conflict.
    stop working.
 4. The Canada optimizer port is its own sub-batch (4B), separate from Canada
    mixed withdrawals (4A).
-5. PR-per-batch into `tender-meitner`, reviewed before moving on (above).
+5. PR-per-batch into `tender-meitner`, reviewed before moving on (above). Replaced 2026-10-21: every PR goes to `main`.
 6. Batch 2 adds **no new fields**: Medicare is always delayed while a partner is
    working (no checkbox); itemizing is only state income tax + property tax
    (under the SALT cap) + mortgage interest, using inputs already tracked.
@@ -136,6 +136,15 @@ primitives so 3A can swap the account model underneath without redoing it. The
 tax update (7) goes before Canada mixing and the optimizer because both consume
 tax costs. Batches 4-6 are the owner's to reorder when reviewed.
 
+**Revised 2026-10-21 (owner):** Batch E stopped after E3 to do the modular-build
+refactor (stages 0-4, merged into `main`). The whole refactor track comes next:
+the docs refresh, the core regroup, Vitest unit tests for `core/`, then the
+section 11 items of `docs/superpowers/specs/2026-10-10-modular-build-design.md`
+(stateless engine, TypeScript, centralized state writes, Vite, merging the US and
+Canada engines; see `docs/roadmap.md`). Then E4 -> 5 -> 4A -> 4B -> 6 -> 8, with
+E5 and the Canada province move later. Merging the engines lands before E4, so E4
+and every later batch are written against the merged engine.
+
 ## Ground rules (every item)
 
 - One commit per item. The `README.md` feature list, `CLAUDE.md` (when
@@ -157,8 +166,11 @@ tax costs. Batches 4-6 are the owner's to reorder when reviewed.
 - New enum/bool/number fields go in the field registry (one entry), get a
   `normalizeState` guard, appear in the MCP schema, and need a
   `tests/legacy_state.js` case so old saves still load.
-- Shared code lives in `shared/` and is synced with `scripts/sync-shared.js`
-  (`npm test` runs `--check`). Edit the canonical fragment, then sync.
+- Shared code lives in modules under `src/shared/core|ui/`, imported by both
+  planners; country code lives under `src/<country>/core|ui/` and is reached
+  from shared code through `#country/core/seam-<name>`. Edit `src/`, never
+  `dist/`; `npm test` builds first. Details: `CLAUDE.md` ("Modules and the
+  extraction tool", "Shared state and country seams").
 - Before/after report for every batch that changes projection numbers: default
   scenario plus the historical and Monte Carlo success rates (fixed seed), kept
   in the commit message and in the batch's notes (consolidated into
@@ -187,6 +199,11 @@ The README and `CLAUDE.md` still follow the "same PR" rule because the README is
 user-facing and `CLAUDE.md` is what future sessions read first.
 
 ## What the engine looks like now (relevant facts)
+
+> **Update (2026-10-21):** these facts date from the start of this plan
+> (2026-10-03). The line numbers and the mode switches listed are gone, and the
+> standard deduction was centralized in Batch 2. `CLAUDE.md`'s "Architecture,
+> per planner file" is current.
 
 - One engine per planner: `runProjection({ mode, source, retireAgeA, retireAgeB })`.
   `mode` is `STANDARD_MODE` or `BUCKET_MODE` (US ~line 5064), with switches
@@ -2806,10 +2823,12 @@ mutated copy of the planner, green on the real code):
 per-year solver and the Batch 5 outer search together, instead of a two-order live mix plus a port of
 `optimizeMultiLever`:
 - **4A:** move the scoring and candidate loop (`chooseYearPlan`, `afterTaxValue`, the dry-run primitives) into a
-  `shared/` fragment; Canada supplies its own kink list (OAS recovery threshold, GIS and Allowance cutoffs, CCB
+  module under `src/shared/core/`; Canada supplies its own kink list
+  (OAS recovery threshold, GIS and Allowance cutoffs, CCB
   bands, the age-amount range, the provincial lines in `BENEFIT_RULES`), its lambda inputs (RRIF minimums,
   CPP/OAS, `personTaxCA` and the benefits through Canada's net `taxFor`) and TFSA as the zero-income source
-  (the US Roth slot, no basis ledger). Pension splitting (`solvePensionSplit`) runs before a draw is scored.
+  (the US Roth slot, no basis ledger). Pension splitting (`solvePensionSplit`) runs before a draw is scored. The shared module reaches
+  these Canada pieces through `#country/core/seam-<name>` facades (`CLAUDE.md`, "The country seam").
 - **4B:** port Batch 5's outer search over `m` (and its Apply refinement) with the RRSP meltdown as the
   conversion lever. 4A and 4B may merge into one PR if the shared core makes 4B small.
 The text below is the pre-3C plan; keep its tests, hooks and interactions, read "live mix" as the solver's
@@ -2818,13 +2837,13 @@ order choice and "the optimizer port" as the outer search.
 Prerequisite check before starting: how much of the withdrawal module is shared
 today. Phase 2 step 4.5 shared helpers only and left the year loops per-country,
 so this batch may need to extract the mix code from `withdrawStandard` into a
-`shared/` fragment first (Batch 3 step 1 defines the hook shape).
+module under `src/shared/core/` first (Batch 3 step 1 defines the hook shape).
 
 1. **Federal age amount and pension income credits: moved to Batch 7 (7J)**
    (owner decision; same machinery as the provincial credits). By the time this
    batch runs, `personTaxCA` already has them.
    **Depends on 3C and 5 (both before this batch):** 3C's solver is US-only code today; 4A moves its core
-   into a `shared/` fragment (see the redesign note above), and the Canadian `incomeRoom` hook below becomes
+   into a module under `src/shared/core/` (see the redesign note above), and the Canadian `incomeRoom` hook below becomes
    Canada's kink list for it (OAS recovery, GIS, age amount).
 2. **Mixed withdrawals** for taxable / RRSP-RRIF / TFSA using the shared module
    and these hooks: `penaltyFraction` always 0, `incomeRoom` = room under the
@@ -2864,7 +2883,7 @@ Starts only after 4A is merged, since the mix lever needs the Canada mix modes.
   provincial benefits), summed in real dollars. Without the benefit term the
   search would happily raise income through a GIS cliff. Rows must expose
   `benefits` as their own column (Batch 7L requirement).
-- Reuse as much of the US optimizer as can live in `shared/`.
+- Reuse as much of the US optimizer as can live in `src/shared/core/`.
 - Interactions to test: pension splitting (`solvePensionSplit()`), the OAS
   clawback threshold, and the 4A mix. Applied schedules persist in `state` and
   need `normalizeState` guards and legacy-state cases.
@@ -3792,6 +3811,9 @@ room is computed from a MAGI that already contains the same year's estimated
 draw) and how Batch 3B resolved the early-retiree pre-retirement bond-bucket
 strategy (the 10% penalty on reserve draws). The per-batch note sections are then removed from this
 file, leaving the plan as a record of scope and decisions.
+The intro, "Files", the update notes and the testing checklist of
+`docs/reference.md` were already refreshed for the modular build on 2026-10-21
+(`docs/superpowers/plans/2026-10-21-docs-refresh.md`); the consolidation keeps them.
 
 ---
 
@@ -7333,7 +7355,7 @@ remains is detail to settle when the relevant batch is scoped:
   say what happens to a deceased partner's 401(k) (spousal rollover into the survivor's IRA is the
   realistic answer).
 - Roth IRA basis uses 0 as "not entered" (3A): a true zero basis is entered as $1. If a real blank is
-  wanted, the shared `24-syncContributionControls` number listener needs a blank-aware option.
+  wanted, the shared number listener (`src/shared/ui/field-listeners.js`) needs a blank-aware option.
 - CPI 2025: confirm to two decimals from the BLS index level (see Batch 6).
 - EITC (raised in 7A, deliberately not modeled in 7B): a qualifying child plus earned income and
   an investment-income cap. It could matter to a coast-FIRE household with children in low-MAGI
