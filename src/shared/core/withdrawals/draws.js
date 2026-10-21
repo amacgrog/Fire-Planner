@@ -1,3 +1,5 @@
+// Shared draw primitives: taxable sale, cash, home equity and excess-cash sweep
+
 import { clamp } from '../format/numbers.js';
 import { taxFor } from '#country/core/seam-taxFor';
 import { state } from '../store.js';

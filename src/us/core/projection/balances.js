@@ -1,3 +1,5 @@
+// US per-year balance growth and required-distribution withdrawals
+
 import { state } from '../../../shared/core/store.js';
 
   // One year of growth on every account. Stocks (taxable/traditional/Roth),

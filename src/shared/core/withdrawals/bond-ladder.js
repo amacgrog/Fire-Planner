@@ -1,3 +1,5 @@
+// Bond ladder planning, rotation into it and bond-reserve refill
+
 import { drawTaxable } from './draws.js';
 
   // Pre-retirement bond-ladder build: ramps linearly over the years available

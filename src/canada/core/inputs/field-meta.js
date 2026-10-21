@@ -1,3 +1,5 @@
+// Canada estimate-badge field sets and the MCP input schema derived from FIELDS
+
 import { state } from '../../../shared/core/store.js';
 
   // "Still estimated" badges + dashboard rollup + guided review nav. A field

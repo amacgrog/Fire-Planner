@@ -1,3 +1,5 @@
+// normalizeState for Canada: merges a raw saved state over defaults with guards
+
 import { defaults } from './defaults.js';
 import { FIELDS } from './fields.js';
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';

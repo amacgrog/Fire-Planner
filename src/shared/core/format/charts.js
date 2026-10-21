@@ -1,3 +1,5 @@
+// Chart formatting helpers: display values, x-axis labels, hues and chart groups
+
 import { pct } from './numbers.js';
 import { mode, state } from '../store.js';
 import { chartXAxisMode, chartView } from '../chart-prefs.js';

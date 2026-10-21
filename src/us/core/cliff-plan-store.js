@@ -1,3 +1,5 @@
+// cliffPlanStore: the US cliff plan, its key, report and compute counters
+
 // The kept cliff plan and what it was made for (written by refreshCliffPlan, src/us/core/refresh-cliff-plan.js, and by
 // the __test_setCliffPlan hook; read by planForState, src/us/core/run-projection.js). Declared as one object so every
 // module that plans or reads the plan shares it. No DOM access.

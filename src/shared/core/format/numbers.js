@@ -1,3 +1,5 @@
+// Number and text formatting helpers: money, pct, compact, clamp, escapeHtml
+
   export const pct = (n) => (n || 0) / 100;
   export const escapeHtml = (s) =>
     String(s).replace(

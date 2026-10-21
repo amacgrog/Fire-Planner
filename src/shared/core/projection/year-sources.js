@@ -1,3 +1,5 @@
+// Year sources for runProjection: the standard and historical market inputs
+
 import { pct } from '../format/numbers.js';
 import { state } from '../store.js';
 import { histTaxFactors } from '../tax-factors.js';

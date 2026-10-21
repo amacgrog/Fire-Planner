@@ -1,3 +1,5 @@
+// US inherited account ledger: scheduled draws, growth, clone and restore
+
 import { singleLifeFactor } from './distributions.js';
 
   // ---- E1e: inherited traditional and Roth IRA / 401(k) accounts (spec sections 6.1, 6.2) ----

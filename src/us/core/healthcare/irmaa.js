@@ -1,3 +1,5 @@
+// US IRMAA tiers, lookback, appeal window and the MAGI conversions for them
+
 import { state } from '../../../shared/core/store.js';
 import { filingKey, SS_BASE } from '../tax/federal-rules.js';
 import { taxableSsOnRow, taxableSocialSecurity } from '../tax/social-security-tax.js';
@@ -99,6 +101,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     if (L < 0 && state.irmaaPriorKnown && marriedAtDeath && L <= deathYear) return 'mfj';
     return filingHistory ? filingHistory[Math.max(0, L)] : filing;
   }
+  // load-time: a literal data table (uses the global Infinity); reads nothing else
   // Medicare IRMAA — 2026 Part B + Part D surcharge tiers (CMS, Nov 2025),
   // applied per Medicare-enrolled partner against MAGI from two simulated
   // years prior (the household's own entries for the first two plan years, if

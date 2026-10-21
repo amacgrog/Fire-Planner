@@ -1,3 +1,5 @@
+// MEDICAID_RULES: the US Medicaid and premium-credit floor data and lookups
+
 import { state } from '../../../shared/core/store.js';
 
   // ACA premium tax credit — 2026 plan year reverts to the pre-2021 structure:

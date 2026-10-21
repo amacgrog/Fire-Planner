@@ -1,3 +1,5 @@
+// US early-withdrawal penalty status: Rule of 55, Roth free caps, penalized money
+
 import { state } from '../../../shared/core/store.js';
 
   // Rule of 55 (IRC 72(t)(2)(A)(v)): a partner who has stopped working in or after the year they

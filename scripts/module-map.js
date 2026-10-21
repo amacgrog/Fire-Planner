@@ -4,7 +4,7 @@
 //
 //   node scripts/module-map.js                   write the file (only with no flag)
 //   node scripts/module-map.js --check           exit 1 if the file is stale; writes nothing
-//   node scripts/module-map.js --require-purpose exit 1 if a ui/ module (not a seam facade) has no purpose comment;
+//   node scripts/module-map.js --require-purpose exit 1 if a core/ or ui/ module (not a seam facade) has no purpose comment;
 //                                                writes nothing (`npm test` runs `--check --require-purpose`)
 //   --root DIR                                   run on another tree (default: this repository; tests/module_map.js)
 //
@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const espree = require('espree');
-const { isUi, isFacade } = require('./lib/src-paths');
+const { isUi, isCore, isFacade } = require('./lib/src-paths');
 
 const argv = process.argv.slice(2);
 const rootAt = argv.indexOf('--root');
@@ -94,7 +94,7 @@ function build() {
     if (/^seam-.*\.js$/.test(base)) entry.seams.push(...names);
     else {
       entry.modules.push({ rel, names, purpose });
-      if (isUi(rel) && !isFacade(rel) && purpose === NO_PURPOSE) offenders.push(rel);
+      if ((isUi(rel) || isCore(rel)) && !isFacade(rel) && purpose === NO_PURPOSE) offenders.push(rel);
     }
   }
   const lines = [
@@ -140,7 +140,7 @@ if (args.includes('--check')) {
   console.log(`module-map.md: ${moduleRows} module rows, ${seamRows} facade rows`);
 }
 if (args.includes('--require-purpose') && offenders.length) {
-  console.error(`ui modules without a purpose comment (${offenders.length}):\n  ` + offenders.join('\n  '));
+  console.error(`core/ and ui/ modules without a purpose comment (${offenders.length}):\n  ` + offenders.join('\n  '));
   failed = true;
 }
 process.exit(failed ? 1 : 0);

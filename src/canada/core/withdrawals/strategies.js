@@ -1,3 +1,5 @@
+// Canada withdrawal strategies: standard cascade and the bucket-step table
+
 import { takeTraditional, solveTraditionalForNetFromNeed, solveTraditionalForNet, takeRoth } from './draws.js';
 import { state } from '../../../shared/core/store.js';
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';

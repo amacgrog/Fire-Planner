@@ -1,3 +1,5 @@
+// List normalization, children and dependents, retirement-age clamps, LIST_MAX
+
 import { state } from '../store.js';
 import { defaults } from '#country/core/seam-defaults';
 
@@ -19,6 +21,7 @@ import { defaults } from '#country/core/seam-defaults';
   export const LIST_MAX = 10;
   export const CHILD_BIRTH_YEAR_MIN = 1950,
     CHILD_BIRTH_YEAR_MAX = 2100;
+  // load-time: freezes an empty array; reads nothing
   // Federal "qualifying child" age limits (IRC 152(c)(3)): under 19 at the end of the tax year,
   // or under 24 for a full-time student. A child counts for the whole year of birth (age 0).
   // Disabled-at-any-age children and qualifying relatives are not modeled. Each credit applies its

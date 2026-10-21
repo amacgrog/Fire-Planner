@@ -1,3 +1,5 @@
+// The default state object for the US planner: every input's default
+
   export const defaults = {
     singlePerson: false,
     stateTax: 'ma',

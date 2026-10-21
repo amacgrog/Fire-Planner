@@ -1,3 +1,5 @@
+// Canada per-year stages: CPP/OAS, housing, contributions, health cost, tax profile
+
 import { PROVINCE_RULES } from '../tax/province-rules.js';
 import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';

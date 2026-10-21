@@ -1,8 +1,11 @@
+// US income stream and one-time income amounts for a year, by owner and kind
+
 import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
 import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 
+  // load-time: a literal scratch object whose arrays are sized by LIST_MAX, imported from a module outside any cycle
   // This year's amounts from the add-as-you-go lists: recurring extra income
   // and extra expenses (active between their start and end age, growing with
   // inflation or their own rate), one-time income at an exact age, and lump

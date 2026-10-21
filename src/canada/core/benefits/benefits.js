@@ -1,3 +1,5 @@
+// Evaluates Canada income-tested benefits (GIS, CCB, provincial) for a tax profile
+
 import { BENEFIT_RULES } from './benefit-rules.js';
 import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';

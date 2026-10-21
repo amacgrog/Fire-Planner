@@ -1,3 +1,5 @@
+// FIELDS: the Canada field registry that wires every sidebar control to state
+
 import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/inputs/lists.js';
 import { money } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';

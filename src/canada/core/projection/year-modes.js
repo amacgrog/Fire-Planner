@@ -1,3 +1,5 @@
+// Canada standard and bucket run modes, and the surplus-routing step
+
   // A year with income above spending, tax and contributions: the surplus first tops cash
   // up to the reserve, then (bucket strategy in an up year, bondTarget not null) rebuilds
   // the bond reserve, and the rest is invested in taxable. This year's contributions then

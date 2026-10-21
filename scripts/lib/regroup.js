@@ -709,7 +709,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
         for (const f of comp) inCycle.set(f, comp);
       }
       for (const f of graph.files) {
-        if (!isUi(f) || graph.facades.has(f)) continue;
+        if (!(isUi(f) || isCore(f)) || graph.facades.has(f)) continue;
         const comp = inCycle.get(f);
         let opts = {};
         if (comp) {

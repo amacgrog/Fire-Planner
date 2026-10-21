@@ -1,3 +1,5 @@
+// US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
+
 import { state } from '../../../shared/core/store.js';
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
 import { magiCapLeft, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
@@ -127,10 +129,12 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       if (wd.need > 0) takePenalized(wd, solveTraditionalForNetFromNeed);
     },
   };
+  // load-time: maps step names to BUCKET_STEP entries; BUCKET_STEP is declared earlier in this file
   // The bucket strategy while penalized money exists (US): the same two years, but every step draws
   // only penalty-free money, cash and the bond reserve come before Roth basis in an up year too, and a
   // penalized tier (cheapest per dollar) runs just before home equity.
   const BUCKET_DOWN_PENALIZED_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'roth', 'penalized', 'home'].map((k) => BUCKET_STEP[k]);
+  // load-time: maps step names to BUCKET_STEP entries; BUCKET_STEP is declared earlier in this file
   const BUCKET_UP_PENALIZED_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'roth', 'penalized', 'home'].map((k) => BUCKET_STEP[k]);
   export function withdrawBucketPenaltyAware(wd, opts) {
     const { yearReturn, bondTarget } = opts;

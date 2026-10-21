@@ -1,7 +1,11 @@
+// withdrawBucket: the bucket strategy's down-year and up-year step orders
+
 import { refillBondReserve } from './bond-ladder.js';
 import { BUCKET_STEP } from '#country/core/seam-BUCKET_STEP';
 
+  // load-time: maps step names to BUCKET_STEP entries; BUCKET_STEP is imported from a module outside any cycle
   const BUCKET_DOWN_YEAR_ORDER = ['cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'stocks', 'home'].map((k) => BUCKET_STEP[k]);
+  // load-time: maps step names to BUCKET_STEP entries; BUCKET_STEP is imported from a module outside any cycle
   const BUCKET_UP_YEAR_ORDER = ['stocks', 'cash', 'bondTaxable', 'bondTraditional', 'bondRoth', 'home'].map((k) => BUCKET_STEP[k]);
   // The bucket-strategy withdrawal used by simulateHistorical(): cash and bonds
   // are a sequence-risk reserve. In a market-down year (yearReturn < 0) spending

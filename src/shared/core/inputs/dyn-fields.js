@@ -1,3 +1,5 @@
+// Field-spec HTML builders and growth fields for the add-as-you-go lists
+
 import { escapeHtml } from '../format/numbers.js';
 
   // ---- "Add another" lists: loans, recurring income, one-time income, ----------

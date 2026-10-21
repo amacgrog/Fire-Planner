@@ -1,3 +1,5 @@
+// Guardrail spending state: new state, withdrawal record and spending multiplier
+
 import { state } from '../store.js';
 
   // Guyton-Klinger guardrails (simplified): compares last withdrawal year's

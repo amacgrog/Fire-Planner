@@ -1,5 +1,8 @@
+// PROVINCE_RULES: one data row per province, and the current province lookup
+
 import { state } from '../../../shared/core/store.js';
 
+  // load-time: a literal data table (uses the global Infinity); reads nothing else
   // 2026 provincial rules for all 10 provinces (no territories), one data row each
   // and one evaluator, `provincialTaxCA`. The block between the `PROVINCE_RULES:begin`
   // and `end` comments is pure literals so `scripts/gen-province-rules.js` can read it

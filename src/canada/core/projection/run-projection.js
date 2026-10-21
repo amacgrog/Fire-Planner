@@ -1,3 +1,5 @@
+// runProjection: the Canada year-by-year drawdown and compounding engine
+
 import { BEN, benefitsFor } from '../benefits/benefits.js';
 import { investmentIncomeCA, OAS_RECOVERY } from '../tax/rules.js';
 import { payrollTax, taxFor } from '../tax/tax.js';

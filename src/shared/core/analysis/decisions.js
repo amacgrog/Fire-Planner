@@ -1,3 +1,5 @@
+// Decision helpers: FI multiple, minimal retirement delay and spending cut searches
+
 import { state } from '../store.js';
 import { compact } from '../format/numbers.js';
 import { displayValue } from '../format/charts.js';

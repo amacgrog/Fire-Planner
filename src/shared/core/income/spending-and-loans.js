@@ -1,3 +1,5 @@
+// Spending tiers, growth factors, mortgage and loan schedules, lump expenses
+
 import { state } from '../store.js';
 import { pct } from '../format/numbers.js';
 

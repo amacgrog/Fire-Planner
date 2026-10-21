@@ -1,3 +1,5 @@
+// US per-year stages: the tax profile builder and the housing cost for a year
+
 import { pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { mortgageInterestShare, filingRow, taxYearOf } from '../tax/federal-rules.js';

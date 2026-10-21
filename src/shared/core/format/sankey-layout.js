@@ -1,3 +1,5 @@
+// Sankey layout math: stacks node columns and builds ribbon paths
+
   // Stacks `nodes` top-to-bottom over [y0,y1] proportional to value/total.
   // Returns each node's true (exact) y-range plus a gap-inset draw range
   // (the "surface gap" spacer that visually separates touching bands

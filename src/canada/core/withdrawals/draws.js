@@ -1,3 +1,5 @@
+// Canada withdrawal object and the RRSP/RRIF and TFSA draw solvers
+
 import { taxFor } from '../tax/tax.js';
 
   // How much RRSP to withdraw to net `targetNet` after tax, by bisection over

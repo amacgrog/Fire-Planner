@@ -1,3 +1,5 @@
+// US Roth account ledger: contributions, conversions, seasoning and slot splits
+
 import { openingRothBasisSlots } from './account-ledger.js';
 
   // Roth early-access rules, one ledger per Roth account, in ACCOUNT_SLOTS order (Roth IRA A,

@@ -1,3 +1,5 @@
+// makeProjectedExpense: builds the per-year household expense reader
+
 import { baseSpendingNominal, itemGrowthFactor } from './spending-and-loans.js';
 import { state } from '../store.js';
 import { medicalGrowth } from '../projection/year-factors.js';

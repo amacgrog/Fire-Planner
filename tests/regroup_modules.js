@@ -372,10 +372,10 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
     assert.strictEqual(read(r6, 'src/us/core/y.js'), '// Y_RULES:begin\n\nexport const Y = { a: 1 };\n// Y_RULES:end\n', 'line-1 marker: the block moves whole');
     assert.ok(!/RULES/.test(read(r6, 'src/us/core/r.js')), `line-1 marker: no marker left\n${read(r6, 'src/us/core/r.js')}`);
     // a block right after the import lines: no import line moves
-    const r7 = tree({ 'src/us/core/r.js': "import { k } from '../../shared/core/k.js';\n// Y_RULES:begin\nexport const Y = { a: k };\n// Y_RULES:end\nexport function f() {\n  return Y.a + k;\n}\n" });
+    const r7 = tree({ 'src/us/core/r.js': "import { k } from '../../shared/core/k.js';\n// Y_RULES:begin\nexport const Y = { a: () => k };\n// Y_RULES:end\nexport function f() {\n  return Y.a() + k;\n}\n" });
     regroup(r7, moveY, {});
-    assert.strictEqual(read(r7, 'src/us/core/y.js'), "import { k } from '../../shared/core/k.js';\n\n// Y_RULES:begin\nexport const Y = { a: k };\n// Y_RULES:end\n");
-    assert.strictEqual(read(r7, 'src/us/core/r.js'), "import { k } from '../../shared/core/k.js';\nimport { Y } from './y.js';\nexport function f() {\n  return Y.a + k;\n}\n");
+    assert.strictEqual(read(r7, 'src/us/core/y.js'), "import { k } from '../../shared/core/k.js';\n\n// Y_RULES:begin\nexport const Y = { a: () => k };\n// Y_RULES:end\n");
+    assert.strictEqual(read(r7, 'src/us/core/r.js'), "import { k } from '../../shared/core/k.js';\nimport { Y } from './y.js';\nexport function f() {\n  return Y.a() + k;\n}\n");
     // into an existing target that ends with another data block: both blocks stay paired
     const r8 = tree({ 'src/us/core/r.js': R, 'src/us/core/y.js': '// Z_RULES:begin\nexport const Z = 2;\n// Z_RULES:end\n' });
     regroup(r8, moveY, {});

@@ -1,3 +1,5 @@
+// US withdrawal object and the MAGI-capped traditional, Roth, penalized and inherited draws
+
 import { ALL_FREE, accountsDrawGroup, accountsSetFromDollars } from '../accounts/account-ledger.js';
 import { tradGroup, rothFreeCaps } from '../accounts/penalty-status.js';
 import { taxFor } from '../tax/federal-tax.js';

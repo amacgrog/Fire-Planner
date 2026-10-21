@@ -1,3 +1,5 @@
+// After-tax estate and provincial probate fees for the Canada projection
+
 import { currentProvince } from '../tax/province-rules.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';

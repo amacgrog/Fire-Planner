@@ -1,3 +1,5 @@
+// Finds which Canada inputs drive a projected shortfall, by what-if re-runs
+
 import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../../shared/core/analysis/decisions.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { state } from '../../../shared/core/store.js';

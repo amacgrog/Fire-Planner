@@ -1,3 +1,5 @@
+// US federal tax: brackets, gains, NIIT, payroll, child credits, taxFor
+
 import { filingKey, NIIT_THRESHOLD, taxYearOf, FILING, filingRow, GAIN_BANDS, ORDINARY_BRACKETS, SS_WAGE_BASE, standardDeduction, federalDeduction } from './federal-rules.js';
 import { clamp, pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';

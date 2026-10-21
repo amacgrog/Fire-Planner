@@ -1,3 +1,5 @@
+// Canada per-year balance growth and required-distribution withdrawals
+
 import { state } from '../../../shared/core/store.js';
 
   // Takes the year's mandatory distribution (RMD + 72(t) SEPP) out of the

@@ -1,3 +1,5 @@
+// Canada federal and payroll tax constants, rate tables and scratch result objects
+
 import { clamp, pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 
@@ -104,6 +106,7 @@ import { state } from '../../../shared/core/store.js';
     FED_BPA_ENHANCED = 1623, // 16,452 - 14,829
     FED_BPA_PHASE_START = 181440,
     FED_BPA_PHASE_END = 258482;
+  // load-time: two literal arrays (uses the global Infinity); reads nothing else
   // The federal brackets as flat arrays (no per-call allocation); scaledProgressiveTax multiplies the caps by the index factor.
   export const FED_CAPS = [58523, 117045, 181440, 258482, Infinity],
     FED_RATES = [0.14, 0.205, 0.26, 0.2929, 0.33];
@@ -124,6 +127,7 @@ import { state } from '../../../shared/core/store.js';
   // have none (their forms were read). Not built: Ontario's dependants with an impairment, the LIFT credit (Schedule ON428-A), and the
   // reduction passing between spouses when the household's income is split unevenly beyond the family limit.
   export const PROV_TAX = { last: 0, pre: 0, fed: 0 };
+  // load-time: creates an empty cache Map; reads nothing
   // Quebec health contributions (7N N7), charged on the Quebec return like the Ontario Health Premium. (1) The Health Services Fund
   // contribution on income other than employment income and OAS (Revenu Quebec Schedule F, 2025-12; the 2026 thresholds are in the Finance
   // Quebec parameters, Table 3): nil to the first threshold, 1% of the excess to 150, flat to the second threshold, then 150 plus 1% of the

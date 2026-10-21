@@ -1,3 +1,5 @@
+// US multi-lever and per-year Roth ladder optimizers
+
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { state } from '../../../shared/core/store.js';
 import { optimizerState } from '../optimizer-state.js';

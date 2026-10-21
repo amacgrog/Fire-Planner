@@ -1,3 +1,5 @@
+// US Social Security income by year, with the earnings test and claiming text
+
 import { state } from '../../../shared/core/store.js';
 import { currentYear } from '../tax-year.js';
 

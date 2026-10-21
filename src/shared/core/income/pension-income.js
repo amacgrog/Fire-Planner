@@ -1,3 +1,5 @@
+// pensionIncome: a partner's pension and annuity income for one year
+
 import { state } from '../store.js';
 
   // Pension income for the year (which partner(s) are covered is set by

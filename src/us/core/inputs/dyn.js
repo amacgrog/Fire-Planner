@@ -1,7 +1,10 @@
+// DYN: the US add-as-you-go list specs (loans, income, expenses, children)
+
 import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
 import { state } from '../../../shared/core/store.js';
 import { defaults } from './defaults.js';
 
+  // load-time: builds the list specs and calls DYN_GROWTH_FIELDS (a function of a module outside any cycle); defaults and state are read only inside arrows
   export const DYN = {
     loans: {
       key: 'loans',

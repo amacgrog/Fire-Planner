@@ -1,6 +1,9 @@
+// DYN: the Canada add-as-you-go list specs (loans, income, expenses, children)
+
 import { defaults } from './defaults.js';
 import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
 
+  // load-time: builds the list specs and calls DYN_GROWTH_FIELDS (a function of a module outside any cycle); defaults is read only inside arrows
   export const DYN = {
     loans: {
       key: 'loans',

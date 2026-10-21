@@ -1,7 +1,10 @@
+// Year factors: current year, bond years, medical growth and tax index factor
+
 import { clamp, pct } from '../format/numbers.js';
 import { state } from '../store.js';
 import { histTaxFactors } from '../tax-factors.js';
 
+  // load-time: reads the device clock (new Date()) once; reads no other name
   // Real calendar year for row.year === 0 ("now"), used only to label the
   // chart x-axis in 'year' mode — computed once from the device clock
   // rather than hardcoded, unlike the "2026 dollars" real-dollar-mode
@@ -22,6 +25,7 @@ import { histTaxFactors } from '../tax-factors.js';
     const v = Number(state.bondYears);
     return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
   }
+  // load-time: starts the memo key at the global NaN; reads nothing else
   // US: Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
   // FICA wage base all index by this factor. In the deterministic projection
   // it is the steady state.inflation compounded by yearIndex; inside

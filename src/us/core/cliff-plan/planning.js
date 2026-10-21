@@ -1,3 +1,5 @@
+// Cliff plan planning: refresh the plan, its summary line and test-plan hook
+
 import { state } from '../../../shared/core/store.js';
 import { cliffPlanStore } from '../cliff-plan-store.js';
 import { optimizerState } from '../optimizer-state.js';

@@ -1,3 +1,5 @@
+// Renders the decision-compare table rows for the Canada planner
+
 import { escapeHtml, compact } from '../../../shared/core/format/numbers.js';
 import { decisionEndAssets } from '../../../shared/core/analysis/decisions.js';
 import { displayValue } from '../../../shared/core/format/charts.js';

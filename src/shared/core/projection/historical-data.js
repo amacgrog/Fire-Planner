@@ -1,3 +1,5 @@
+// HIST: embedded 1928-2025 stock, inflation and bond return dataset
+
   // S&P 500 calendar-year total returns (dividends reinvested), US CPI
   // inflation, and 10-year US Treasury bond total returns, 1928-2025.
   // Source: Damodaran/NYU Stern "Historical Returns on Stocks, Bonds and Bills" (histretSP.xls,

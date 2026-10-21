@@ -1,3 +1,5 @@
+// Scenario helpers: state cloning, delta formatting and overlay colors
+
 import { money } from '../format/numbers.js';
 
   // Scenarios: named snapshots of the full input state, kept in memory for

@@ -1,3 +1,5 @@
+// US list rules: stream and lump normalization, life-expectancy clamps, reveal map
+
 import { state } from '../../../shared/core/store.js';
 
   // E1b: income stream owner, kind and retirement-contribution panel (US; Canada carries none of these keys until E1-CA).
@@ -46,6 +48,7 @@ import { state } from '../../../shared/core/store.js';
     (state.lifeExpectancyA = Math.min(110, Math.max(state.lifeExpectancyA, state.ageA + 1)));
   export const clampLifeExpectancyB = () =>
     (state.lifeExpectancyB = Math.min(110, Math.max(state.lifeExpectancyB, state.ageB + 1)));
+  // load-time: creates an empty Map; reads nothing
   // Registry reveals by element id, so code that shows or hides a whole group of elements (the partner-B
   // loop in syncControls) does not undo a reveal that hides one of them.
   export const REVEAL_BY_ID = new Map();

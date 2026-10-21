@@ -1,3 +1,5 @@
+// US sensitivity (tornado) levers: the assumptions swept up and down
+
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { state } from '../../../shared/core/store.js';
 

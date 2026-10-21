@@ -1,3 +1,5 @@
+// Per-year cliff solver: MAGI thresholds, lambda estimate, candidates, after-tax value
+
 import { NO_DEPENDENTS, dependentsInYear, qualifyingChildCount } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
@@ -19,8 +21,10 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
     if (bal.inheritedTrad + bal.inheritedRoth > 0) v += bal.inheritedTrad * (1 - lambda) + bal.inheritedRoth;
     return v;
   }
+  // load-time: freezes a literal object; reads nothing
   // No plan this year (the natural draw).
   export const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '' });
+  // load-time: freezes an empty array; reads nothing
   export const NO_PLANS = Object.freeze([]);
   // A line's family (cliff plan): 'aca' (medicaid, acaFloor, aca400), 'irmaa' (irmaa1 ... irmaa5) or 'tax' (the senior-deduction
   // and child-tax-credit phase-outs, never a candidate).
@@ -98,6 +102,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
     }
     return out;
   }
+  // load-time: a literal profile that reads NO_DEPENDENTS, imported from a module outside any cycle
   // The future tax on one traditional dollar (lambda) and on one dollar of long-term gain (tauGain), read
   // from three synthetic future years: Partner A's first RMD year, a midpoint, and a survivor year (the year
   // after the first death: the survivor-modeling death year, else the earlier life expectancy) or the plan's
@@ -130,6 +135,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
     REACH_GROSS_UP = 2,
     LAMBDA_MAX = 0.6,
     TAU_GAIN_MAX = 0.5;
+  // load-time: freezes an empty array; reads nothing
   // The year's federal MAGI lines, in household MAGI: the ACA floor (100%), the Medicaid line and the 400%
   // cliff for partners on the individual market; the IRMAA tier edges from 63 (retired); the senior-
   // deduction phase-out start (65+, through 2028); the child-tax-credit phase-out start. With two returns

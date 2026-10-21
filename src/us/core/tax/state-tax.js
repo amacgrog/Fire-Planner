@@ -1,3 +1,5 @@
+// stateIncomeTax: the generic evaluator for STATE_RULES rows, with scratch sources
+
 import { INH_DECEDENT, INH_EXEMPT, NO_AGES, SS_AGI_TESTED, SS_EXEMPT, SS_PHASE, SS_SHARE, SS_SUBTRACTION, SS_TIERED, STATE_RULES, SCHEDULE_FAMILIES, NO_BASE_YEARS, SS_TAXED, INH_CODE, INH_ORDINARY, INH_HEIR, INH_HEIR_ANY } from './state-rules.js';
 import { state } from '../../../shared/core/store.js';
 import { taxYearOf, seniorDeduction, standardDeduction } from './federal-rules.js';
@@ -187,6 +189,7 @@ import { currentYear } from '../tax-year.js';
     if (rule.localRate > 0) tax += income * rule.localRate;
     return tax;
   }
+  // load-time: creates a null-prototype cache object; reads nothing
   // Each row is resolved once per state code into flat arrays (no allocation per call).
   const stateRuleCache = Object.create(null);
   function compileStateRule(code) {
@@ -566,6 +569,7 @@ import { currentYear } from '../tax-year.js';
       inherited: 0, inheritedA: 0, inheritedB: 0, inheritedExclA: 0, inheritedExclB: 0,
     };
   }
+  // load-time: builds the four scratch source objects with newStateSources, a function declared in this file that reads NO_DEPENDENTS from a module outside any cycle
   export const SOURCES_JOINT = newStateSources(2),
     SOURCES_SINGLE = newStateSources(1),
     SOURCES_A = newStateSources(1),

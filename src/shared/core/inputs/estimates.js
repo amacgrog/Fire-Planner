@@ -1,3 +1,5 @@
+// Unusual-assumption ranges and the estimate-countable rules for field badges
+
 import { decisionDeltaPhrase } from '../analysis/decisions.js';
 import { simulate } from '../projection/simulate.js';
 import { state } from '../store.js';

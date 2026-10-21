@@ -1,3 +1,5 @@
+// runProjection: the US engine, with the cliff plan computation and lookup
+
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
 import { planBondLadder, rotateIntoBondLadder } from '../../../shared/core/withdrawals/bond-ladder.js';

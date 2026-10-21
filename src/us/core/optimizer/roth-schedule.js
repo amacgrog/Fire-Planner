@@ -1,3 +1,5 @@
+// US Roth conversion schedule cost and the per-year optimizer search limits
+
 import { displayValue } from '../../../shared/core/format/charts.js';
 
   // Per-year multi-lever optimizer -------------------------------------

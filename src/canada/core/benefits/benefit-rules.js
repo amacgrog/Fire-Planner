@@ -1,3 +1,5 @@
+// BENEFIT_RULES: the Canada income-tested benefit programs as data rows
+
   // ---- Income-tested benefits (7L) ----
   // One row per program; evaluators in benefitsFor read these by kind. Pure literals between the
   // begin and end markers (scripts/gen-benefit-rules.js evaluates the block). Amounts are annual

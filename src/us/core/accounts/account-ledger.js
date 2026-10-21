@@ -1,3 +1,5 @@
+// US per-account share ledger: contributions, conversions, draws and opening balances
+
 import { pct } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { rule55Applies, penaltyStatus } from './penalty-status.js';
@@ -17,6 +19,7 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
       return penaltyStatus(kind, own[0], { rule55: rule55Applies(own[1], own[2], partner) });
     });
   }
+  // load-time: maps [0, 1, 2, 3] to literal objects; reads nothing
   export const ALL_FREE = [0, 1, 2, 3].map(() => ({ free: true, qualified: true }));
   // Account ledger. The engine's balances stay pooled (bal.traditional +
   // bal.bondTraditional, bal.roth + bal.bondRoth: tax, RMDs, ACA/IRMAA, the bond

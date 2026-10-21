@@ -1,4 +1,5 @@
-// Import cycles in src/ may exist only among ui/ modules, and every ui/ module must pass the load-time guard
+// Import cycles in src/ may exist only among ui/ modules, and every ui/ and core/ module must pass the load-time guard
+// (core/ modules are never in a cycle, so they get the non-cycle rule)
 // (stage 4 design sections 5.2, 5.3 and 6.4). Fixture trees run first (they test scripts/lib/load-time.js and
 // scripts/lib/module-graph.js), then the real tree.
 const assert = require('assert');
@@ -8,7 +9,7 @@ const path = require('path');
 const espree = require('espree');
 const { isInert, loadTimeMarker, checkLoadTime } = require('../scripts/lib/load-time');
 const { buildGraph, cycles } = require('../scripts/lib/module-graph');
-const { isUi } = require('../scripts/lib/src-paths');
+const { isUi, isCore } = require('../scripts/lib/src-paths');
 
 const made = [];
 function write(root, rel, text) {
@@ -38,7 +39,7 @@ function checkTree(root, country) {
     for (const f of c) if (!isUi(f)) problems.push(`${country}: cycle member outside ui/: ${f} (${c.join(' <-> ')})`);
   }
   for (const f of graph.files) {
-    if (!isUi(f)) continue;
+    if (!(isUi(f) || isCore(f))) continue;
     const code = fs.readFileSync(path.join(root, f), 'utf8');
     const c = inCycle.get(f);
     let found;
@@ -215,6 +216,14 @@ try {
   assert.deepStrictEqual(t3.cycles, [['src/shared/core/c.js', 'src/shared/ui/a.js']]);
   assert.strictEqual(t3.problems.length, 1);
   assert.ok(/outside ui\/: src\/shared\/core\/c\.js/.test(t3.problems[0]), t3.problems[0]);
+
+  // a core/ module is held to the load-time guard too: an unmarked initializer is reported, a marked one passes
+  const root3b = tree({ 'src/us/core/x.js': 'export const v = f();\n' });
+  const t3b = checkTree(root3b, 'us');
+  assert.strictEqual(t3b.problems.length, 1, t3b.problems.join('\n'));
+  assert.ok(/core\/x\.js:1 v not inert and not marked/.test(t3b.problems[0]), t3b.problems[0]);
+  const root3c = tree({ 'src/us/core/x.js': '// load-time: calls f; reads nothing\nexport const v = f();\n' });
+  assert.deepStrictEqual(checkTree(root3c, 'us').problems, []);
 
   // a self-import is a cycle; an unmarked initializer in a ui module outside any cycle fails
   const root4 = tree({

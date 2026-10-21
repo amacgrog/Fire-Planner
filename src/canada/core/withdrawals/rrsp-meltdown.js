@@ -1,3 +1,5 @@
+// Canada RRSP meltdown: fills a tax bracket with RRSP withdrawals each year
+
 import { federalBracketCeilingCA } from '../tax/tax.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';

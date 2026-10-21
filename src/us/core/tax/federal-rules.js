@@ -1,3 +1,5 @@
+// US federal tax tables, filing-status rows and deduction functions
+
 import { currentYear } from '../tax-year.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
@@ -68,6 +70,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   export const GAIN_BANDS = { mfj: [98900, 613700], single: [49450, 545500], hoh: [66200, 579600] };
   // Social Security taxation: [lower base, upper base, cap on the 50% tier].
   export const SS_BASE = { mfj: [32000, 44000, 6000], single: [25000, 34000, 4500] };
+  // load-time: a literal data table (uses the global Infinity); reads nothing else
   export const ORDINARY_BRACKETS = {
     mfj: [
       [24800, 0.1],

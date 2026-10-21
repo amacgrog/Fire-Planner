@@ -1,3 +1,5 @@
+// US Roth conversion: the bracket fill, the MAGI ceiling and applying it
+
 import { accountsConvert } from '../accounts/account-ledger.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { FILING, filingRow, taxYearOf, itemizedDeduction, standardDeduction, bracketCeilingReal } from '../tax/federal-rules.js';

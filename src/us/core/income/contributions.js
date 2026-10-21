@@ -1,3 +1,5 @@
+// US retirement contributions: plan limits, employer match, Solo 401(k) and stream plans
+
 import { pct } from '../../../shared/core/format/numbers.js';
 import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
@@ -70,6 +72,7 @@ import { state } from '../../../shared/core/store.js';
     }
     return out;
   }
+  // load-time: allocates scratch arrays sized by LIST_MAX, imported from a module outside any cycle
   // 401(k) / IRA / mega-backdoor and employer (match, profit sharing) contributions for one year. Wages are already
   // zero for a partner who has retired, and for B in single-person mode, which zeroes every pay-based amount. The
   // limits come from PLAN_LIMITS (2026 values scaled by limitFactor). Each partner's annual-additions room (the lesser

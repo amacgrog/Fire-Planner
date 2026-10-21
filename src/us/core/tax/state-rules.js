@@ -1,3 +1,5 @@
+// STATE_RULES: one data row per US jurisdiction, with the inherited-tax kind codes
+
 import { state } from '../../../shared/core/store.js';
 
   // ---------------------------------------------------------------------------
@@ -3153,6 +3155,7 @@ import { state } from '../../../shared/core/store.js';
   export const NO_AGES = [];
   // E1e: how a row treats an inherited traditional draw (STATE_RULES.inherited, spec 6.4).
   export const INH_ORDINARY = 0, INH_EXEMPT = 1, INH_HEIR = 2, INH_HEIR_ANY = 3, INH_DECEDENT = 4;
+  // load-time: a literal map that reads the INH_* constants declared above it
   export const INH_CODE = { ordinary: INH_ORDINARY, exempt: INH_EXEMPT, heir: INH_HEIR, heirAnyAge: INH_HEIR_ANY, decedent: INH_DECEDENT };
   // Shown under every state's note: what no row models.
   export const STATE_TAX_NOT_MODELED_NOTE =
