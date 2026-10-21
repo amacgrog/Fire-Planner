@@ -1,6 +1,6 @@
 import { state } from '../../shared/core/store.js';
 import { optimizerState } from './optimizer-state.js';
-import { solveRothConversionTo } from './standard-deduction.js';
+import { solveRothConversionTo } from './withdrawals/roth-conversion.js';
 
   // Per-year bracket override for the multi-lever optimizer
   // (optimizeRothLadderPerYear() below) — null in normal operation, so

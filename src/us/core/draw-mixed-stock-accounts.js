@@ -1,11 +1,11 @@
 import { state } from '../../shared/core/store.js';
 import { takeTaxable } from '../../shared/core/take-taxable.js';
-import { magiCapLeft } from './after-tax-value.js';
+import { magiCapLeft, takeTraditional, takeRoth } from './withdrawals/draws.js';
 import { optimizerState } from './optimizer-state.js';
 import { pickLiveWithdrawalOrder } from './pick-live-withdrawal-order.js';
-import { takeRoth, takeTraditional } from './standard-deduction.js';
 import { rothFreeCaps, tradGroup } from './trad-group.js';
-import { accountsDrawGroup, withdrawalMixWeights } from './withdrawal-mix-and-roth-accounts.js';
+import { accountsDrawGroup } from './withdrawal-mix-and-roth-accounts.js';
+import { withdrawalMixWeights } from './withdrawals/mix.js';
 
   // The mix modes that decide how a year's need is split across the stock accounts
   // (taxable / traditional / Roth), shared by the standard cascade and the bucket

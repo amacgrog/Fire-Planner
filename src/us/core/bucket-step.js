@@ -2,7 +2,7 @@ import { takeCash, takeHomeEquity } from '../../shared/core/take-cash.js';
 import { takeTaxable } from '../../shared/core/take-taxable.js';
 import { drawMixedStockAccounts } from './draw-mixed-stock-accounts.js';
 import { releaseMagiCap } from './release-magi-cap.js';
-import { solveTraditionalForNetFromNeed, takeInherited, takeRoth, takeTraditional } from './standard-deduction.js';
+import { solveTraditionalForNetFromNeed, takeTraditional, takeRoth, takeInherited } from './withdrawals/draws.js';
 import { takePenalized } from './take-penalized.js';
 
   // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).

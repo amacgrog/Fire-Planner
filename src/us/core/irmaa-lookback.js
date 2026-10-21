@@ -1,15 +1,5 @@
 import { state } from '../../shared/core/store.js';
-import { filingKey, ORDINARY_BRACKETS } from './federal-deductions.js';
 
-  // The filing status of Partner A's own return in a two-return year (A claims the children), as taxFor's two-filer branch.
-  export function returnStatusA(dependents) {
-    if (dependents) for (let i = 0; i < dependents.length; i++) if (dependents[i].qualifyingChild) return 'hoh';
-    return 'single';
-  }
-  // The benefit on a household or one-person return (the survivor remap puts the survivor's benefit in slot A).
-  export function irmaaSsOf(profile) {
-    return profile.singlePerson ? profile.ssA || 0 : (profile.ssA || 0) + (profile.ssB || 0);
-  }
   // MAGI that IRMAA is assessed on for a given plan year: the return filed two
   // years earlier. For the first two plan years that return predates the plan,
   // so use the household's own entries when provided (irmaaPriorKnown), else
@@ -56,16 +46,4 @@ import { filingKey, ORDINARY_BRACKETS } from './federal-deductions.js';
     const L = year - 2;
     if (L < 0 && state.irmaaPriorKnown && marriedAtDeath && L <= deathYear) return 'mfj';
     return filingHistory ? filingHistory[Math.max(0, L)] : filing;
-  }
-  // Roth conversion ladder — converts traditional balances to Roth each year
-  // in the chosen window, solving for the gross conversion that fills
-  // ordinary taxable income up to the top of the selected federal bracket
-  // (recomputing taxable Social Security as the conversion is added).
-  export function bracketCeilingReal(pctTarget, filing) {
-    // Every bracket but the open-ended top one, as [percent, ceiling].
-    const brackets = ORDINARY_BRACKETS[filingKey(filing, 'brackets')]
-      .filter(([cap]) => cap !== Infinity)
-      .map(([cap, rate]) => [Math.round(rate * 100), cap]);
-    const found = brackets.find(([p]) => p === pctTarget);
-    return found ? found[1] : brackets[brackets.length - 1][1];
   }

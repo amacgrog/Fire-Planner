@@ -3,7 +3,7 @@
 import { compact } from '../../shared/core/money-format.js';
 import { mortgagePayment } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
-import { seppElections } from '../core/payroll-and-plan-limits.js';
+import { seppElections } from '../core/income/distributions.js';
 import { openingAccounts, retirementTotal, sumSlots } from '../core/withdrawal-mix-and-roth-accounts.js';
 
   // Cheap, string-only sidebar group summaries — no simulate() calls, just

@@ -1,5 +1,4 @@
 import { state } from '../../shared/core/store.js';
-import { accountsConvert, rothAccountsConvert } from './withdrawal-mix-and-roth-accounts.js';
 
   // One year of growth on every account. Stocks (taxable/traditional/Roth),
   // bonds (the three bond-reserve buckets) and cash each grow at their own
@@ -24,16 +23,4 @@ import { accountsConvert, rothAccountsConvert } from './withdrawal-mix-and-roth-
     const rmdFromTraditional = Math.min(bal.traditional, rmd);
     bal.traditional = Math.max(0, bal.traditional - rmdFromTraditional);
     bal.bondTraditional = Math.max(0, bal.bondTraditional - (rmd - rmdFromTraditional));
-  }
-  // Moves a Roth conversion from the traditional balance (then the traditional
-  // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
-  // seasoning clock for penalty-free access.
-  export function applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive) {
-    if (conversionAmount <= 0) return;
-    const to = accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount, seppActive);
-    const fromTradConv = Math.min(bal.traditional, conversionAmount);
-    bal.traditional -= fromTradConv;
-    bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
-    bal.roth += conversionAmount;
-    rothAccountsConvert(rothAccts, to, year);
   }

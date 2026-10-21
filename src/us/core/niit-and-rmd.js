@@ -1,17 +1,5 @@
-import { clamp, pct } from '../../shared/core/basics.js';
-import { state } from '../../shared/core/store.js';
-import { filingKey, NIIT_THRESHOLD } from './federal-deductions.js';
 import { currentYear } from './tax-year.js';
 
-  export function niitTax(magi, netInvestmentIncome, filing = 'mfj') {
-    return (
-      0.038 *
-      Math.min(
-        Math.max(0, netInvestmentIncome),
-        Math.max(0, magi - NIIT_THRESHOLD[filingKey(filing, 'niit')]),
-      )
-    );
-  }
   // SECURE 2.0: RMDs begin at 75 for people born in 1960 or later, and at 73 for
   // those born 1951-1959. Birth year is estimated from today's age (the planner
   // only collects age), so `currentYear` (from `core/tax-year.js`) is a live binding tests can pin.
@@ -83,25 +71,4 @@ import { currentYear } from './tax-year.js';
   export function singleLifeFactor(age) {
     const a = Math.round(age);
     return a >= 120 ? 1.0 : a <= 0 ? SINGLE_LIFE_TABLE[0] : SINGLE_LIFE_TABLE[a];
-  }
-  // Annual taxable investment income on the taxable brokerage account and
-  // the taxable bond reserve/cash. Dividends and interest are part of the
-  // modeled total return (never added on top of it), but unlike unrealized
-  // growth they are taxed in the year they are paid: non-qualified
-  // dividends and interest as ordinary income, qualified dividends at
-  // long-term gain rates. Computed on start-of-year balances. Reinvested
-  // dividends/interest raise cost basis (see the callers) so the gain
-  // realized at sale is not taxed a second time. Taxable-bond interest uses
-  // the planner's bond return assumption as its yield in both engines.
-  export function investmentIncome(taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
-    const divTotal = Math.max(0, taxableBal) * pct(state.dividendYield),
-      qualified = divTotal * clamp(pct(state.qualifiedDivPct), 0, 1),
-      bondInterest = Math.max(0, bondTaxableBal) * Math.max(0, bondRate),
-      cashInterest = Math.max(0, cashBal) * Math.max(0, cashRate);
-    return {
-      ordinary: divTotal - qualified + bondInterest + cashInterest,
-      qualified,
-      divTotal,
-      bondInterest,
-    };
   }

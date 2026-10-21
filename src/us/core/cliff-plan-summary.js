@@ -26,6 +26,3 @@
     }
     return text;
   }
-  // E3: the status cell also names an IRMAA appeal (form SSA-44) where one lowered a partner's charge (appended to the title;
-  // US only, renderTable is shared).
-  export const APPEAL_EVENT = ['', 'end of a job', 'retirement', "spouse's death"];

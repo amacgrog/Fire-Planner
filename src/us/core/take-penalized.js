@@ -1,4 +1,4 @@
-import { rothDraw, solveTraditionalForNetFromNeed, takeRoth, takeTraditional } from './standard-deduction.js';
+import { solveTraditionalForNetFromNeed, takeTraditional, takeRoth, rothDraw } from './withdrawals/draws.js';
 import { tradGroup } from './trad-group.js';
 
   export function takePenalized(wd, solverStocks) {

@@ -1,10 +1,3 @@
-import { filingKey, SS_BASE } from './federal-deductions.js';
-import { taxableSsOnRow } from './magi-for-irmaa-line.js';
-
-  export function taxableSocialSecurity(benefits, otherIncome, filing = 'mfj') {
-    const [lower, upper, base] = SS_BASE[filingKey(filing, 'ss')];
-    return taxableSsOnRow(benefits, otherIncome, lower, upper, base);
-  }
   // Federal child credits for one return (IRC 24). 2026 amounts (Rev. Proc. 2025-32, via
   // secondary sources): the Child Tax Credit is $2,200 per child aged 16 or under at year end,
   // of which at most $1,700 is refundable (the ACTC, 15% of earned income over $2,500), both

@@ -2,7 +2,7 @@ import { simulate } from '../../shared/core/simulate.js';
 import { state } from '../../shared/core/store.js';
 import { optimizerState } from './optimizer-state.js';
 import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from './roth-per-year.js';
-import { WITHDRAWAL_MIX_CANDIDATES } from './withdrawal-mix-and-roth-accounts.js';
+import { WITHDRAWAL_MIX_CANDIDATES } from './withdrawals/mix.js';
 
   export function optimizeMultiLever(selected, options) {
     const includeRoth = !!(options && options.includeRoth),

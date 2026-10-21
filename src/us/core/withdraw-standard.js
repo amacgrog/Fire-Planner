@@ -2,7 +2,7 @@ import { takeCash, takeHomeEquity } from '../../shared/core/take-cash.js';
 import { takeTaxable } from '../../shared/core/take-taxable.js';
 import { drawMixedStockAccounts } from './draw-mixed-stock-accounts.js';
 import { releaseMagiCap } from './release-magi-cap.js';
-import { solveTraditionalForNet, solveTraditionalForNetFromNeed, takeInherited, takeRoth, takeTraditional } from './standard-deduction.js';
+import { solveTraditionalForNetFromNeed, takeTraditional, solveTraditionalForNet, takeRoth, takeInherited } from './withdrawals/draws.js';
 import { takePenalized } from './take-penalized.js';
 
   // The standard (non-bucket) withdrawal strategy, used by simulate(). First the

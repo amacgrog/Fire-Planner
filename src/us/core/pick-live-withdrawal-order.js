@@ -1,5 +1,6 @@
 import { drawTaxable } from '../../shared/core/draw-taxable.js';
-import { solveTraditionalForNet, taxFor } from './standard-deduction.js';
+import { taxFor } from './standard-deduction.js';
+import { solveTraditionalForNet } from './withdrawals/draws.js';
 
   // Live, always-cheap sibling of the multi-lever optimizer's full
   // lifetime coordinate-ascent search above — the search is too expensive

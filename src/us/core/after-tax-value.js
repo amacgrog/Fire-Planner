@@ -7,9 +7,3 @@
     if (bal.inheritedTrad + bal.inheritedRoth > 0) v += bal.inheritedTrad * (1 - lambda) + bal.inheritedRoth;
     return v;
   }
-  // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
-  // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
-  export function magiCapLeft(wd) {
-    const c = wd.magiCap;
-    return !c || c.off ? Infinity : Math.max(0, c.limit - wd.traditionalGross - wd.taxableGainGross);
-  }

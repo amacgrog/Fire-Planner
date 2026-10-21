@@ -1,5 +1,3 @@
-import { ALL_FREE } from './withdrawal-mix-and-roth-accounts.js';
-
   // No plan this year (the natural draw).
   export const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '' });
   export const NO_PLANS = Object.freeze([]);
@@ -78,43 +76,4 @@ import { ALL_FREE } from './withdrawal-mix-and-roth-accounts.js';
       }
     }
     return out;
-  }
-  // ---- Withdrawal building blocks ----
-  export const TAXABLE_BASIS_KEY = { taxable: 'taxableBasis', bondTaxable: 'bondTaxableBasis' };
-  // A year's discretionary withdrawal in progress. `need` is the cash still to
-  // be raised; the other fields accumulate what the draws did, for tax, MAGI
-  // and the cash-flow display. traditionalGross starts at the Roth conversion
-  // (ordinary income already this year) and traditionalWithdrawn at the
-  // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
-  // bond-reserve buckets into their parent tax status (same tax treatment,
-  // just parked in the reserve) so the Sankey does not undercount them.
-  export function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null }) {
-    return {
-      // E1e: the inherited ledger (null in a legacy run), the last-resort draws of the pass by post-remap slot, and the slot map and compiled
-      // state rule the step reads (null without a ledger: nothing is allocated per pass in a legacy run).
-      inh,
-      inheritedGrossA: 0,
-      inheritedGrossB: 0,
-      inhPost: inh === null ? null : inh.post,
-      inhRule,
-      bal,
-      seppActive,
-      rothAccts,
-      accts,
-      status: ALL_FREE,
-      penaltyAware: false,
-      profile,
-      need: 0,
-      taxableGainGross: 0,
-      traditionalGross: conversionAmount,
-      traditionalWithdrawn: rmd,
-      cappableTraditional: 0,
-      taxableWithdrawn: 0,
-      rothWithdrawn: 0,
-      earlyPenalty: 0,
-      mixCandidate: null,
-      magiCap: null,
-      onlyPartner: -1,
-      taxAwareOrder: null,
-    };
   }
