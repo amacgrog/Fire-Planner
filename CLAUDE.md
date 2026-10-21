@@ -56,7 +56,7 @@ holds it. See `README.md` for the full user-facing feature list.
   `scripts/lib/country-contract.js`), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js`
   (no browser global, DOM method call or `ui/` import in any `src/**/core/` file; it reads only `core/` files),
   `tests/core_import.js` (every `core/` module imports in plain Node, one fresh process per module), `tests/ui_cycles.js` (import
-  cycles only among `ui/` modules: a cycle with a member outside `ui/` fails; and every `ui/` module passes the load-time guard),
+  cycles only among `ui/` modules: a cycle with a member outside `ui/` fails; and every `ui/` and `core/` module passes the load-time guard),
   `tests/main_entry.js` (each `main.js` is imports plus one IIFE of calls and if statements), `tests/doc_paths.js` (every
   module path under `src/` named in this file and in `docs/superpowers/inventory/*.md` exists), `tests/module_map.js` (the module-map
   script's write and check modes, on fixture trees), `tests/no_bare_imports.js` (no
@@ -823,14 +823,14 @@ nothing needs converting by hand.
   imports each `core/` module alone in a fresh process, which catches a load-order failure across a cycle, but does not
   refuse a cycle as such). esbuild turns a module's top-level `const` and `let` into `var` and bundles
   in dependency order, so a read across a cycle while modules load would give a silent `undefined` (native ESM: a TDZ error). The guard
-  (`scripts/lib/load-time.js`, run by `tests/ui_cycles.js` on every `ui/` module, by the applier on a cycle it would create and by the
-  regroup tool after every operation): a `ui/` module holds no top-level statement other than declarations (its statements are in
+  (`scripts/lib/load-time.js`, run by `tests/ui_cycles.js` on every `ui/` and `core/` module, by the applier on a cycle it would create and by the
+  regroup tool after every operation): a `ui/` or `core/` module holds no top-level statement other than declarations (its statements are in
   wiring functions, which run from `main.js` after every module has loaded), and every top-level initializer must be **inert**
   (literals, template literals without expressions, function, arrow and class expressions, unary operators on those, object and array
   literals of inert values; a reference to another name is not inert), or carry a comment block directly above it whose first line is
   `// load-time: <reason>` saying why it reads nothing a statement or another function writes. In a module that is part of an import
-  cycle, a marked initializer may use only global names (browser globals and ES built-ins such as `Set`) and literals. `core/` initializers are exempt (they are
-  pure data built at load). A `let x = <init>` that read start-up state was split by the tool into `let x;` plus `x = <init>;` inside
+  cycle, a marked initializer may use only global names (browser globals and ES built-ins such as `Set`) and literals. `core/` modules are held to the same guard; they are never in a cycle, so a marked
+  initializer there may also read earlier constants of its own file and its imports. A `let x = <init>` that read start-up state was split by the tool into `let x;` plus `x = <init>;` inside
   the module's wiring function (`hasPersonalizedData` in `src/shared/ui/saved-plan.js`, set by `loadSavedState()`).
 - **State.** Cross-module state goes through the `assign…` functions described above. A UI binding (`theme`, `sidebarCollapsed`,
   `wizardStep`, ...) is a module-level `let` in the one `ui/` module that holds all its writers, exported for reading only; a module that
@@ -838,9 +838,8 @@ nothing needs converting by hand.
   one function lives in that function's module (for example `taxFactorInflation`, the memo of `taxIndexFactor`).
 - **The module map.** `npm run analyze` writes `docs/superpowers/inventory/module-map.md` (`scripts/module-map.js`): one table per directory,
   one row per module with its exports and purpose; seam facades are one row per directory. `npm test` runs `module-map.js --check
-  --require-purpose`, so the map must be current and every `ui/` module (not a facade) needs a **purpose comment**: line 1 of the file, a
-  `//` line that does not start with `load-time:`, followed by a blank line (so it never joins the first unit's comment block). `core/`
-  modules show "(no purpose comment)" until the core regrouping.
+  --require-purpose`, so the map must be current and every `core/` and `ui/` module (not a facade) needs a **purpose comment**: line 1 of the file, a
+  `//` line that does not start with `load-time:`, followed by a blank line (so it never joins the first unit's comment block).
 - **Data blocks.** A `// NAME:begin ... // NAME:end` block (`STATE_RULES`, `MEDICAID_RULES`, `PROVINCE_RULES`, `BENEFIT_RULES`) is moved whole
   with both markers. `scripts/gen-*-rules.js` find it in whichever file holds it (`scripts/lib/marker-source.js`) and evaluate the text with
   `export` removed.
@@ -866,7 +865,7 @@ nothing needs converting by hand.
   (each with a built `dist/`) statement by statement: it flattens the IIFEs, expands each wiring function back into its call site (a new
   top-level function called exactly once as `name();`), undoes the split rule, and compares the multisets of statements; `--ordered` also
   requires the statements that are not declarations to run in the same order. Run both modes after any change that only moves code; a
-  feature changes statements on purpose. The order of declaration initializers is not compared (the load-time guard covers `ui/`).
+  feature changes statements on purpose. The order of declaration initializers is not compared (the load-time guard covers `ui/` and `core/`).
 
 ## Where new code goes
 
