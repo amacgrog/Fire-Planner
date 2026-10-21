@@ -96,7 +96,7 @@ holds it. See `README.md` for the full user-facing feature list.
   at most 5x one `off` projection, four households). `tests/solver_gap.js` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
   `window.__test_setOptimizerBudget`) on three short plans; cost, after-tax end value, amounts converted (about a minute).
-  `tests/tax_caches.js` (in `npm test`) — the
+  `tests/unit/us/tax-caches.test.js` (Vitest, in `npm test`) — the
   guard for the tax-code memos and the per-row `needsPerPerson` flag: identical doubles (`Object.is`), never a tolerance.
 - `tests/benefit_rules.js` / `tests/gis_tables.js` / `tests/benefits.js` — the Canada income-tested benefit table coverage, every row of the ESDC GIS tables against the fitted knots, and hand-computed benefit cases (see "Income-tested benefits"); `docs/sources/` holds the ESDC tables and the extraction script.
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
@@ -352,7 +352,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   162(l) terms of the pass (`magiBase`, the `estUsed` line, the medical expense, the convergence test, `realizedMagi`); the Solo terms of
   `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
   `state.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
-  `tests/tax_caches.js`.
+  `tests/unit/us/tax-caches.test.js`.
   **IRMAA appeal and the lookback's filing status (US, E3).** The household lookback charges on the tiers of the lookback
   return's filing status (`irmaaFilingHistory`, written once per year before `hcArgs`; `irmaaLookbackFiling`: years 0 and 1
   read year 0's status, except an entered prior return from before a married partner's death, which is joint), so a survivor's
@@ -450,7 +450,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   writes the per-person fields (`pensionA/B`, `retirementA/B`, `ssBenefitsA/B`, `taxableSSA/B`) only when the row's
   `needsPerPerson` flag is set (`compileRow`: a per-person retirement kind or the age-and-AGI-tiered Social Security kind;
   `compileStateRule` ORs in the scheduled variants), so **a new mechanism that reads a per-person field must set that flag**
-  (`tests/tax_caches.js` runs every state with the flag forced on for all rows and fails on a difference, and pins which rows
+  (`tests/unit/us/tax-caches.test.js` runs every state with the flag forced on for all rows and fails on a difference, and pins which rows
   carry it). `stateIncomeTax` and its credit helpers must keep nothing from `sources` (it is reused on the next call). Each
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
@@ -502,7 +502,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   (the other solvers already did). Measured and rejected, do not retry: a memo inside `standardDeduction`, a conformity-
   deduction cache, and a 4-slot memo of the federal pass (the lagged pass reused by the main pass) all cost as much to look up as
   they save. A memo must be keyed on every input it reads (so it never needs clearing) and give the very double the uncached
-  path gives; verify with `tests/tax_caches.js` and the snapshots.
+  path gives; verify with `tests/unit/us/tax-caches.test.js` and the snapshots.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
