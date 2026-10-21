@@ -1,6 +1,6 @@
 // Builds the printable report
 
-import { afterTaxEstate } from '../core/federal-tax-ca.js';
+import { afterTaxEstate } from '../core/analysis/estate.js';
 import { escapeHtml } from '../../shared/core/basics.js';
 import { money } from '../../shared/core/money-format.js';
 import { simulate } from '../../shared/core/simulate.js';

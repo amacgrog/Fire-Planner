@@ -1,5 +1,5 @@
-import { rrifMinPct } from './oas-and-rrif.js';
-import { BENEFIT_RULES } from './province-rules.js';
+import { rrifMinPct } from './income/year-stages.js';
+import { BENEFIT_RULES } from './benefits/benefit-rules.js';
 import { pct } from '../../shared/core/basics.js';
 import { state } from '../../shared/core/store.js';
 

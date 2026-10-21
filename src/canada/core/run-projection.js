@@ -1,11 +1,11 @@
 import { BEN } from './benefit-helpers.js';
 import { investmentIncomeCA } from './credits-and-gross-up.js';
-import { benefitsFor, buildTaxProfile, payrollTax, solveMeltdown, taxFor } from './federal-tax-ca.js';
-import { applyRrspMeltdown, growBalances, healthcareCost } from './grow-balances.js';
+import { payrollTax, taxFor } from './federal-tax-ca.js';
+import { growBalances } from './grow-balances.js';
 import { cppAndOasIncome, housingForYear, requiredDistributions, retirementContributions } from './income-and-housing-per-year.js';
-import { listAmountsForYear, withdrawRequiredDistributions } from './list-amounts-and-home-buyers.js';
+import { listAmountsForYear } from './list-amounts-and-home-buyers.js';
 import { OAS_RECOVERY } from './oas-recovery.js';
-import { newWithdrawal } from './taxable-basis-key.js';
+import { newWithdrawal } from './withdrawals/draws.js';
 import { withdrawStandard } from './withdraw-standard.js';
 import { routeSurplus } from './year-modes.js';
 import { paychecksPerYear, pct } from '../../shared/core/basics.js';
@@ -20,6 +20,10 @@ import { state } from '../../shared/core/store.js';
 import { rotateIntoBondLadder } from '../../shared/core/bond-ladder-rotation.js';
 import { sweepExcessCash } from '../../shared/core/sweep-excess-cash.js';
 import { getBondYears, medicalGrowth } from '../../shared/core/year-factors.js';
+import { benefitsFor } from './benefits/benefits.js';
+import { solveMeltdown, applyRrspMeltdown } from './withdrawals/rrsp-meltdown.js';
+import { buildTaxProfile, healthcareCost } from './income/year-stages.js';
+import { withdrawRequiredDistributions } from './projection/balances.js';
 
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two

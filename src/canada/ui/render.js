@@ -1,6 +1,6 @@
 // The render() function: redraws every result from the current state
 
-import { provinceTaxTreatmentNote } from '../core/oas-and-rrif.js';
+import { provinceTaxTreatmentNote } from '../core/tax/province-rules.js';
 import { renderChartView } from './chart-view.js';
 import { renderGroupSummaries } from './render-group-summaries.js';
 import { annotateRothOptimizer } from './roth-optimizer.js';

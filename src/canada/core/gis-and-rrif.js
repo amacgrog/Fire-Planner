@@ -1,10 +1,5 @@
-import { BENEFIT_RULES } from './province-rules.js';
+import { BENEFIT_RULES } from './benefits/benefit-rules.js';
 
-  // The planner converts the RRSP to a RRIF at 71 (see rrifMinPct). CRA counts RRIF payments as
-  // pension income from 65, but a withdrawal from an RRSP that is not an annuity or RRIF payment
-  // is not pension income at any age, so the discretionary draw earns the pension income amount
-  // only once the account is a RRIF (7K fix of the 7J rule, which counted it from 65).
-  export const RRIF_PENSION_AGE = 71;
   // ---- Income-tested benefit evaluators (7L) ----
   // Linear interpolation over [income, benefit] knots; zero past the last knot; a repeated income is a cliff.
   export function interpKnots(k, x) {
