@@ -1,11 +1,6 @@
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { state } from '../../shared/core/store.js';
 
-  // Real-CAGR sweep: temporarily overrides the nominal investment return with
-  // the nominal rate equivalent to the given real CAGR compounded on top of
-  // the current inflation input, then restores it. Bond/HYSA yields and
-  // retirement dates are left untouched, so this isolates sensitivity to the
-  // main portfolio return assumption alone.
   // Sensitivity ("tornado") analysis: for each of a handful of key
   // assumptions, sweeps it up and down by a fixed amount (mutate/simulate/
   // restore, same pattern as simulateAtRealCagr() below) and records the

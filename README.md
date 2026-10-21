@@ -12,9 +12,8 @@ MIT licensed — see [LICENSE](LICENSE).
 ## Files
 
 - `index.html` — landing page template linking to both tools; the build copies it into `dist/`, where its relative links to the planners resolve (at the repo root they point at files that do not exist)
-- `src/us/`, `src/canada/` — the source of each planner (`index.html`, `main.js`, and modules under `core/` and `ui/`); `src/shared/` holds the code, the stylesheet and the HTML partials both planners use
+- `src/us/`, `src/canada/` — the source of each planner: `index.html` (the markup shell), `main.js` (the entry point: it only calls the start-up functions, in order) and modules under `core/` (the tax code and the engine, no DOM) and `ui/` (rendering, controls, listeners, wizard, MCP tools, test hooks); `src/shared/` holds the modules (`core/`, `ui/`), the stylesheet and the HTML partials both planners use. `docs/superpowers/inventory/module-map.md` lists every module with what it exports and what it is for; `npm run analyze` regenerates it (and `npm test` fails while it is stale)
 - `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a single self-contained file (nothing is fetched at runtime). `dist/` is not committed; it is published to GitHub Pages by CI
-- `shared/` + `scripts/sync-shared.js` — canonical copies of the script regions that are still identical in both planners' `main.js` (shrinking as code moves into `src/shared/` modules); `npm run sync` writes them into the sources and `npm test` fails if they drift
 - `CLAUDE.md` — architecture notes and gotchas for Claude Code (or any AI assistant) working in this repo
 
 ## Shared capabilities
@@ -159,13 +158,13 @@ The built files use **stable filenames** — always `Planner_US.html` / `Planner
 
 ## Testing
 
-`npm test` builds `dist/` and also checks that the shared regions are identical in both planners, the snapshot of every projection scenario, field wiring and legacy saved-state loading.
+`npm test` builds `dist/` and also checks that the generated rule docs and the module map are current, the structure of the modules (no browser code in `core/`, import cycles only among `ui/` modules, no undeclared names), the snapshot of every projection scenario, field wiring and legacy saved-state loading.
 
-`npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. There is no automated coverage of the UI itself beyond this; changes to interactive behavior are currently verified ad hoc (e.g. with Playwright) rather than via a committed test file.
+`npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. Beyond `tests/snapshot_ui.js` (each sidebar control's wiring, the MCP schema, a clean load at desktop and phone width, the rendered results text), interactive behavior is checked by the ad hoc Playwright scripts `test_*.js` at the repo root (committed, run one at a time with `node test_foo.js`, not part of CI).
 
 ## Making an update
 
-Edit the files under `src/<country>/` (`npm run dev` rebuilds `dist/` on every save), run `npm test`, then commit. Code shared by both planners lives in modules under `src/shared/`; the few script regions that remain between `@@shared:<name> begin/end` markers are edited in the fragment in `shared/` (or in one planner source with `npm run sync -- --pull <file>`), then `npm run sync`. See `CLAUDE.md`.
+Edit the files under `src/<country>/` (`npm run dev` rebuilds `dist/` on every save), run `npm test`, then commit. Code shared by both planners lives once, in modules under `src/shared/`, and both planners import it; country code lives under `src/<country>/`. A new module gets a one-line purpose comment on line 1 (required for `ui/` modules), then `npm run analyze` to update the module map. See `CLAUDE.md` ("Adding UI code" and "Modules, the entry point and the tools").
 
 1. Edit `src/`, never `dist/`.
 2. Run `npm test`; it builds first.

@@ -11,32 +11,61 @@ in `src/<country>/` (`index.html` markup shell, `main.js`, and modules) and `src
 self-contained `dist/Planner_US.html` / `dist/Planner_Canada.html` with the CSS and
 JS inlined. The built file needs no server and no network: opening it in a browser
 is the whole runtime. `dist/` is gitignored and published to GitHub Pages by CI;
-**edit `src/`, never `dist/`**. (Code identical in both planners is still kept in
-sync by the dev-time `scripts/sync-shared.js`, which is being replaced by real
-module imports; see "Shared code between the planners" and
-`docs/superpowers/specs/2026-10-10-modular-build-design.md`. Plans, specs and notes
+**edit `src/`, never `dist/`**. Code both planners use is one module under `src/shared/`
+that each planner imports (see "Shared code between the planners" and
+`docs/superpowers/specs/2026-10-10-modular-build-design.md`). Plans, specs and notes
 dated before 2026-10-11 describe the old layout, where `Planner_*.html` at the repo
-root was the source.) See `README.md` for the full user-facing feature list.
+root was the source; notes written before stage 4 name shared code by its `@@shared`
+region, and `docs/superpowers/inventory/stage{2,3,4}-region-map.md` say which module now
+holds it. See `README.md` for the full user-facing feature list.
 
 ## Files
 
 - `src/us/` and `src/canada/` — each planner's source: `index.html` (markup shell with
   `{{css}}` and `{{js}}` placeholders and `<!-- @@include name -->` lines) and `main.js`
-  (what has not been extracted into modules yet: one IIFE plus an import block). Most of the
-  code now lives in modules: `src/<country>/core|ui/` for country code and `src/shared/core|ui/`
-  for code both planners use (see "Modules and the extraction tool" below).
+  (the entry point: an import block and one IIFE of start-up calls, no declarations). All the
+  code lives in modules: `src/<country>/core|ui/` for country code and `src/shared/core|ui/`
+  for code both planners use (see "Modules, the entry point and the tools" below).
+  `docs/superpowers/inventory/module-map.md` lists every module with its exports and purpose.
 - `scripts/build.js` + `scripts/lib/assemble-html.js` — the build. `dist/Planner_US.html`
   and `dist/Planner_Canada.html` are its output (gitignored). **Stable filenames**:
   never rename these or create version-numbered copies — every update is a `git commit`
   to `src/`, and the built names never change.
 - `scripts/analyze-closure.js` — writes `docs/superpowers/inventory/closure-*.md`, the
-  per-declaration dependency inventory the module split is planned from.
+  per-unit dependency inventory of each `main.js` the module split was planned from (today
+  59 US / 54 Canada units, all statements). `scripts/module-map.js` writes
+  `docs/superpowers/inventory/module-map.md`; `npm run analyze` runs both.
+- `docs/superpowers/inventory/` — the generated inventory and module map, the region maps
+  (`stage2-region-map.md`, `stage3-region-map.md`, `stage4-region-map.md`: which module holds each
+  old `@@shared` region's units) and `stage4-open-items.md` (the deferred limits and cleanups of stage 4).
 - `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: `store.js` (`state`, `mode`, `scenarios`, `compareIds`), `chart-prefs.js` (the chart display preferences), `tax-factors.js` (`histTaxFactors`). `src/shared/ui/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
 - `src/shared/styles/styles.css` and `src/shared/partials/*.html` — the stylesheet and the shared HTML partials. Edit them there:
   `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
 - `scripts/plan-extraction.js` + `scripts/extract-units.js` (code in `scripts/lib/extraction-plan.js`, `extract-units.js`,
-  `marker-source.js`) — the tool that moved top-level units out of `main.js` into modules. `scripts/extractions/stage2.json` and `stage3.json` are the plans it applied (every module with its unit labels and batch; stage 3 also records the seam names and the mutable-binding report) and `names.json` the module-name overrides. `scripts/compare-builds.js --base DIR` compares the built planners of two trees statement by statement (run it after any change that only moves code).
-- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js` (no browser global in any `src/**/core/` file), `tests/core_import.js` (every `core/` module imports in plain Node, one fresh process per module), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` (the extraction tool and its helper, on fixture trees).
+  `marker-source.js`) — the tool that moved top-level units out of `main.js` into modules. `scripts/extractions/stage2.json`,
+  `stage3.json` and `stage4.json` are the plans it applied (every module with its unit labels and batch; from stage 3 the seam
+  names and the mutable-binding report, in stage 4 also the facade side of each seam name and each module's wiring functions);
+  `stage4-topics.json` placed every stage 4 unit and statement, `stage4-reserved.json` lists the names a wiring function may not
+  take, `stage4-expected.json` the stage's recorded numbers, and `names.json` the module-name overrides of stages 2-3.
+- `scripts/regroup-modules.js` (code in `scripts/lib/regroup.js`) — renames, merges and moves modules by a map
+  (`scripts/extractions/stage4-regroup.json` is the stage 4 tidy). `scripts/lib/load-time.js` (inert initializers, the
+  `// load-time:` marker, the load-time guard) and `scripts/lib/module-graph.js` (the import graph per country) are shared by
+  the tools and `tests/ui_cycles.js`. `scripts/compare-builds.js --base DIR [--ordered]` compares the built planners of two
+  trees statement by statement (run it after any change that only moves code; see "Modules, the entry point and the tools").
+- `tests/state_modules.js` (the state modules in plain Node), `tests/country_contract.js` (the `#country` seam contract, code in
+  `scripts/lib/country-contract.js`), `tests/closure_names.js` (no undeclared name in any `src/**/*.js`), `tests/core_purity.js`
+  (no browser global, DOM method call or `ui/` import in any `src/**/core/` file; it reads only `core/` files),
+  `tests/core_import.js` (every `core/` module imports in plain Node, one fresh process per module), `tests/ui_cycles.js` (import
+  cycles only among `ui/` modules: a cycle with a member outside `ui/` fails; and every `ui/` module passes the load-time guard),
+  `tests/main_entry.js` (each `main.js` is imports plus one IIFE of calls and if statements), `tests/doc_paths.js` (every
+  module path under `src/` named in this file and in `docs/superpowers/inventory/*.md` exists), `tests/module_map.js` (the module-map
+  script's write and check modes, on fixture trees), `tests/no_bare_imports.js` (no
+  `import './x.js';` in `src/`), `tests/module_names.js` (no module file name ending in `-<digits>.js`), `tests/no_markers.js`
+  (no `@@shared` marker anywhere in `src/`), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` /
+  `tests/regroup_modules.js` / `tests/compare_builds.js` (the extraction tool, its helper, the regroup tool and the build
+  comparison, on fixture trees), `tests/closure_analyzer.js` (the analyzer), `tests/assemble_html.js` (`assembleHtml`),
+  `tests/build_output.js` (what `npm run build` wrote to `dist/`), `tests/planner_path.js` (`tests/helpers/planner-path.js`, which
+  finds the built planner, fails with a clear message when it is not built).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
@@ -142,9 +171,14 @@ root was the source.) See `README.md` for the full user-facing feature list.
 
 ## Commands
 
-- `npm test` — builds `dist/` first, then runs the sync/generator checks, `tests/golden.js`
-  and the rest of the chain (requires `playwright`; `npm install` first if `node_modules`
-  isn't present). Must stay exact-to-the-cent.
+- `npm test` — builds `dist/` first, then runs the generator checks (`gen-*-rules.js --check`),
+  the module-map check (`module-map.js --check --require-purpose`), the build and tool tests and
+  the structural guards (`assemble_html` through `module_names` in `package.json`), then
+  `tests/golden.js` and the rest of the chain (requires `playwright`; `npm install` first if
+  `node_modules` isn't present). Must stay exact-to-the-cent.
+- `npm run analyze` — rewrites `docs/superpowers/inventory/closure-*.md` and `module-map.md`.
+  Run it after adding, renaming or removing a module (or changing a module's exports or line-1
+  purpose comment): `npm test` fails while the module map is stale.
 - `npm run build` — writes `dist/`. `npm run dev` rebuilds on every change under `src/`
   with inline source maps: edit, save, refresh the browser. The built script carries a
   `"use strict";` banner (the app runs in strict mode), and esbuild renames identifiers in
@@ -154,18 +188,20 @@ root was the source.) See `README.md` for the full user-facing feature list.
   not wired into CI or `npm test`). Add/extend one of these when you add a
   feature and actually run it. Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever
   `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
-- Syntax-check a planner without a browser: `node --check src/us/main.js` (it is plain
-  JS), or load the built file in Playwright and watch `page.on('pageerror')`.
+- Syntax-check without a browser: `node --check src/us/ui/render.js` (any module; `src/` is plain
+  ESM), or `npm run build` (esbuild fails on a syntax error in any module), or load the built file
+  in Playwright and watch `page.on('pageerror')`.
 - There is no lint step. The only build step is the esbuild bundle; the delivered file
   is still a single self-contained HTML file that needs no server.
 - CI: `.github/workflows/test.yml` runs `npm test` (which builds first) on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). On pushes to `main` the `deploy` job publishes that same artifact to GitHub Pages instead of rebuilding.
 
 ## Architecture, per planner file
 
-Each planner's `main.js` is one IIFE holding the DOM code (`render`, `syncControls`, charts, wizard, MCP wiring) and the side-effect
-statements; the tax code, the engine (`taxFor`, `runProjection`, `simulate`, the withdrawal solvers), `defaults` and (Canada) `normalizeState`
-live in modules since stages 2 and 3. The bullets below say "the function X"; find it with `grep -rn "function X" src` (and
-`docs/superpowers/inventory/stage3-region-map.md` for the old shared regions). Core shape:
+Every declaration lives in a module: the tax code, the engine (`taxFor`, `runProjection`, `simulate`, the withdrawal solvers) and
+`defaults` under `core/`, the DOM code (`render`, `syncControls`, the charts, the wizard, the MCP tools, the listeners) under `ui/`;
+each planner's `main.js` only calls the start-up functions (see "Modules, the entry point and the tools"). The bullets below say
+"the function X"; find it with `grep -rn "function X" src`, or by topic in `docs/superpowers/inventory/module-map.md`
+(`docs/superpowers/inventory/stage{2,3,4}-region-map.md` for the old shared regions). Core shape:
 
 - `defaults` — the full default state object (every input field's default
   value, including nested arrays like `loans`, `spendingTiers`,
@@ -176,7 +212,7 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   dropped. Any new enum-like field needs a guard here (see the
   `filingStatus`/`tenure`/`province` pattern) or a bad value can silently
   corrupt the simulation.
-- **`FIELDS` — the field registry** (just above `normalizeState`). Every sidebar
+- **`FIELDS` — the field registry** (`src/us/ui/fields.js`, `src/canada/core/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
   `update_fire_assumptions` schema/allow-list are all derived from it. Entry
@@ -333,7 +369,7 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   `c.irmaaGrowthA/B`) in a year with an in-year candidate. The plan's `irmaaAt`, lines and `irmaaChecks` use this year's
   filing status (the return SSA will read); `irmaaFiling2` is gone. Test: `tests/irmaa_appeal.js`.
   Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
-- **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table just above `fplForHousehold`
+- **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table in `src/us/core/medicaid-rules.js`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
   `nonExpansion` (ten states), `adultCoverage` (Wisconsin 1.0), `ptcFloor` (1.0) and `workRequirement` (`fromYear` 2027,
   `exemptChildMaxAge` 13). `acaNetCost` applies it before the credit schedule, so `healthcareCost` and the 400% guard still share one function:
@@ -376,7 +412,7 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   between two shared partials (`medicalInflation` ends before it,
   `propertyTaxGrowth` starts after it) so each planner can word its label
   differently; keep it outside the shared partials.
-- **Filing-status table (US, `FILING`, just above `standardDeduction`).** Each status row names, per
+- **Filing-status table (US, `FILING`, in `src/us/core/federal-deductions.js`).** Each status row names, per
   parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, ctc), which
   data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
   `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
@@ -389,7 +425,7 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
   status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
   branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
-- **State income tax (US, `STATE_RULES`, just above `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
+- **State income tax (US, `STATE_RULES` in `src/us/core/state-rules.js`, evaluated by `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
   50 states and DC, matching the `#stateTax` options) and one generic evaluator, `stateIncomeTax(sources, filing,
   yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/state_rules.js` fails on
   a missing field or a state missing from the table): `status` (always `researched`: `source` URL + `asOf` year; the `migrated` status of 7C is gone), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
@@ -460,7 +496,7 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   contributions; extra income streams are not earned income. The no-children path returns a shared constant and
   leaves the float order of the sum untouched (snapshot-exact). The two-filer branch puts the credits on Partner A.
 - **Tax-code hot-path rules (7D part 2).** `taxFor` is the hottest function (a withdrawal solve probes it 25 to 50 times
-  per year), so: `taxIndexFactor(yearIndex)` (now `src/shared/core/year-factors.js`; see the region map) remembers the plan's own factor per whole
+  per year), so: `taxIndexFactor(yearIndex)` (`src/shared/core/tax-index-factor.js`, with its memo `taxFactorInflation`) remembers the plan's own factor per whole
   year index while `state.inflation` is the value it was computed for (`Math.pow` was a fifth of a projection; the historical
   path still reads its own per-run array first); `drawTaxable`'s bisection computes the no-draw `taxFor` once, not per probe
   (the other solvers already did). Measured and rejected, do not retry: a memo inside `standardDeduction`, a conformity-
@@ -503,7 +539,7 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   IRAs first. Batch 3B replaces the fractional blend with a per-account status.
 - **Contribution limits and profit sharing (US, E1a).** `PLAN_LIMITS` (2026 values: the $72,000 annual limit, the
   catch-ups outside it, the $360,000 compensation limit; indexed by `limitFactor`) and `allocatePlanRoom(room, amounts,
-  out)` (pure, country-neutral, allocation-free; moves to `shared/` at E1-CA) sit above `retirementContributions`, which
+  out)` (pure, country-neutral, allocation-free; in `src/us/core/payroll-and-plan-limits.js`, to move to `src/shared/core/` at E1-CA) sit above `retirementContributions`, which
   returns the limited `matchA/B`, `profitA/B` and `employerContrib` (the year loop's `employerMatch`). One room per
   partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
   `min(pay, annual limit) - deferrals` (catch-ups outside it); the mega backdoor is further capped at pay less deferral and catch-up (the employee's own money never exceeds pay); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
@@ -603,9 +639,9 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
   sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
   state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
-  `render()`). The state-replacement sites are NOT edited (all sit in shared regions, and a clear at the comparison swap
+  `render()`). The state-replacement sites are NOT edited (all are shared code under `src/shared/`, and a clear at the comparison swap
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
-  without restoring must call `render()`. Tests: the US-only hooks after `// @@shared:block end` redefine
+  without restoring must call `render()`. Tests: the US hooks (`src/us/ui/install-test-hooks.js`, installed after the shared ones) redefine
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
   `__test_accountTrace` to re-plan when the state's JSON or the tax year changed (`ensureTestPlan`, never called from production code; it also
   wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_rothScheduleCost` and
@@ -674,8 +710,9 @@ live in modules since stages 2 and 3. The bullets below say "the function X"; fi
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
   Sankey; routes every source through a single neutral hub node rather than
   drawing direct source→expense ribbons (no per-dollar tracking exists).
-- MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) near the
-  bottom of the script, registered if `document.modelContext` exists. The input
+- MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
+  `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
+  `main.js`) if `document.modelContext` exists. The input
   schema and the `execute` allow-list are derived from `FIELDS` (every numeric
   field plus each `mcp: true` entry), so a new field needs no MCP edit.
 - Mobile layout is a pure CSS toggle (`#workspace[data-mobile-view]`), not app
@@ -692,35 +729,31 @@ on an ancestor silently breaks `position:sticky` everywhere on the page — use
 `overflow-x:clip` instead, and verify sticky behavior with a real scroll
 gesture, not `window.scrollTo()` + an overflow-width check).
 
-## Shared code between the planners (marked regions)
+## Shared code between the planners
 
-Code that is byte-identical in both planners lives between
-`// @@shared:<name> begin` / `end` marker comments, with the canonical copy in
-`shared/<name>.js`. Never edit one planner's region alone: edit the fragment and run `npm run sync`, or
-edit a planner source in place, then `npm run sync -- --pull src/us/main.js` (copies
-back to `shared/`) and `npm run sync` (updates the other planner). Regions live in each
-planner's `main.js` only (`//` markers); the stylesheet and the HTML partials are build-time
-includes (above). `npm test` runs
-`scripts/sync-shared.js --check` first, so drift fails CI. Not a build step:
-the planners stay self-contained and run by opening the file. To make code
-shared that currently differs, first remove the difference (see
-`docs/phase2-refactor-plan.md` section 7), then wrap it in a new region (add
-the markers to both files plus a `shared/` fragment). **New shared code goes in a
-module under `src/shared/`, not in a region**: regions are what is left of the old mechanism and
-shrink as units are extracted (`docs/superpowers/inventory/stage2-region-map.md` and `stage3-region-map.md` say where each
-old region's units went). The two `runProjection` year
-loops are deliberately not shared (see plan section 7, step 4.5): put a new
-per-year rule in a shared stage helper when it is identical in both
-countries, otherwise edit each loop. Line endings do not matter: the sync, build and analysis tools normalize CRLF to LF on read.
+Code both planners use lives once, in a module under `src/shared/core/` or `src/shared/ui/`, and both planners import it, so it
+is identical in both by construction (the stylesheet and the HTML partials under `src/shared/styles/` and `src/shared/partials/`
+are build-time includes, above). Country code lives in `src/<country>/core|ui/`; shared code reaches it only through the seam
+facades (`#country/core/seam-<name>`, `#country/ui/seam-<name>`; below). The old `@@shared` regions and `scripts/sync-shared.js`
+are gone: `docs/superpowers/inventory/stage{2,3,4}-region-map.md` say which module now holds each old region's units, and
+`tests/no_markers.js` keeps `@@shared` markers out of `src/`. The extraction tool no longer makes shared modules (it refuses a
+manifest module with `owner: 'shared'`): write new shared code in `src/shared/` directly. To share code that still differs
+between the planners, first remove the difference, then move it into one `src/shared/` module (a name that differs per country
+goes through a seam). The two `runProjection` year loops are deliberately not shared (`src/us/core/run-projection.js`,
+`src/canada/core/run-projection.js`; see `docs/phase2-refactor-plan.md` section 7, step 4.5): put a new per-year rule in a
+shared stage helper when it is identical in both countries, otherwise edit each loop. Line endings do not matter: the build and
+the analysis tools normalize CRLF to LF on read, and the regroup tool writes LF (including this file and `tests/state_modules.js`);
+git normalizes on commit (`core.autocrlf=true`), so a CRLF checkout shows "LF will be replaced by CRLF" warnings until then and
+nothing needs converting by hand.
 
 ## Shared state and country seams (stage 1 of the module split)
 
 - **Cross-module mutable state lives in modules, not in the closure.** `state`, `mode`, `scenarios` and `compareIds` are in
-  `src/shared/core/store.js`; the nine chart preferences in `chart-prefs.js`; `histTaxFactors` in `tax-factors.js`. `main.js` and
-  the shared fragments import them and read them as before. **To change one, call its `assign<Name>` function** (`assignState`,
+  `src/shared/core/store.js`; the nine chart preferences in `chart-prefs.js`; `histTaxFactors` in `tax-factors.js`. The modules
+  that use them import them. **To change one, call its `assign<Name>` function** (`assignState`,
   `assignMode`, `assignLogScale`, ...): assigning to an import is a build error (`Cannot assign to import`). The names are
   `assign…` because `set…` is taken by UI handlers (`setMode`, `setChartView`) that do more than assign. A new binding that
-  more than one future module will write belongs in one of these modules (or a new one next to them), not in `main.js`.
+  several modules write belongs in one of these modules (or a new one next to them).
 - **US-only state** is in `src/us/core/`: `cliffPlanStore` (`.plan`, `.key`, `.report`, `.forState`, `.year`, `.overrides`,
   `.computed`, `.computes`: the fields the "Per-year solver and the cliff plan" bullet above calls `cliffPlan`, `cliffPlanKey`,
   `cliffPlanReport`, `cliffPlanState`, `cliffPlanYear`, `cliffPlanOverrides`, `cliffPlanComputed`, `cliffPlanComputes`),
@@ -735,57 +768,130 @@ countries, otherwise edit each loop. Line endings do not matter: the sync, build
   To add a seam: create `src/us/<name>.js` and `src/canada/<name>.js`, import from `#country/<name>` in shared code, run
   `node tests/country_contract.js`.
 - **Checks that guard this:** `tests/closure_names.js` fails on any name a source file under `src/` uses without declaring (esbuild does not
-  report that; stage 1 edits remove declarations), `npm run analyze` regenerates `docs/superpowers/inventory/` (run it at the
-  start of each later stage), and `src/**/core/` files must not touch `document`, `window`, `localStorage` or `navigator`.
+  report that; stage 1 edits remove declarations), `npm run analyze` regenerates `docs/superpowers/inventory/` (the closure
+  inventory and the module map), and `src/**/core/` files must not touch `document`, `window`, `localStorage` or `navigator`.
 
-## Modules and the extraction tool (stages 2 and 3 of the module split)
+## Modules, the entry point and the tools (stages 2-4 of the module split)
 
-- **Where code lives now.** Units are top-level statements of the planner IIFE. Stage 2 moved the first four dependency layers, stage 3 every
-  remaining DOM-free unit that does not depend on the eight UI bindings below: byte-identical shared code under `src/shared/core|ui/`,
-  country-only code under `src/<country>/core|ui/`. A module is under `core/` when none of its units uses a browser global, calls a DOM method
-  on an element, or imports a `ui/` module (`tests/core_purity.js` enforces all three), and under `ui/` otherwise. Module names come from
-  `scripts/extractions/names.json`; the first unit's name or the old region's name is used where there is no override (a second module from the
-  same region gets a `-2` suffix). Module files keep the two-space indentation they had inside the IIFE (the tool moves text verbatim; do not
-  reformat a module in a commit that also changes it). To find a unit: `grep -rn "function taxFor" src`, or
-  `docs/superpowers/inventory/stage3-region-map.md` for an old shared region.
-- **The country seam.** Shared code that needs a country name imports it from that name's own facade, `#country/core/seam-<name>`
-  (one import line per name), a one-line module each country has (`src/us/core/seam-<name>.js`, `src/canada/core/seam-<name>.js`:
-  `export { <name> } from './<module>.js';`). One facade per name, not one for all: a single facade reached every country module it named
-  and made one large import cycle per country, so some `core/` modules could not be imported first in plain Node. The ten facades are
-  `taxFor`, `runProjection`, `defaults`, `BUCKET_STEP`, `BUCKET_MODE`, `STANDARD_MODE`, `ESTIMATE_ALWAYS_IDS`, `ESTIMATE_GATED_GROUPS`,
-  `TAXABLE_BASIS_KEY` and `housingForYear`. The tool writes the facades; the manifest's `seam` list is the names allowed through them: eleven
-  in stage 3 (`normalizeState` is allowed but no shared module uses it yet, so it has no facade). Adding a name means a country unit of that
-  name in both planners (or an existing facade in both). `tests/country_contract.js` checks that both countries export the same names. The
-  alias is resolved by the build condition (`us`/`canada`).
-- **What stayed in `main.js` and why.** Side-effect statements (listeners, test hooks, initialisation: moving them changes execution order); all
-  DOM code and what depends on it (`render`, `syncControls`, the charts, the wizard, the MCP wiring); and the eight mutable bindings that have
-  several writers or a statement writer (`theme`, `sidebarCollapsed`, `hadSavedState`, `infoBubbleBtn`, `reviewingFieldId`, `setMobileView`,
-  `undoSnapshot`, `wizardStep`). The planner lists these in its `bindings.<country>.needsDecision`; each is decided in stage 4, either by
-  combining its writers into one module with it or by giving it an `assign<Name>` state module (needed whenever a statement writes it).
-- **Mutable bindings that did move.** A `let` written by exactly one function and no statement moves into that function's module; in stage 3
-  that is `taxFactorInflation` (the memo of `taxIndexFactor`, in `src/shared/core/year-factors-2.js`). It is that function's private state. The
-  other such bindings (the timers, tooltip elements and `lastRothOptimizer`) belong to UI functions and move with them in stage 4. A module that
-  exports a `let` is read by others as a live binding; they must not assign it (esbuild: `Cannot assign to import`).
-- **Adding or moving code.** Put new shared code in a module under `src/shared/core|ui/` and import it (relative path); new country code in
-  `src/<country>/core|ui/`. Do not add `@@shared` regions. A name a module uses must be declared in it or imported (`tests/closure_names.js`
-  fails otherwise: esbuild does not report an undeclared identifier). Cross-module state goes through the `assign…` functions described above.
-  esbuild turns a module's top-level `const` and `let` into `var` when it bundles, so a use before initialization does not throw: it reads
-  `undefined`. A module-level initializer must only use modules it imports; `tests/core_import.js` (each `core/` module imported first, in
-  plain Node) catches an order dependency.
+- **Where code lives.** Stage 2 moved the first four dependency layers out of the planner IIFE, stage 3 every remaining DOM-free unit,
+  stage 4 the UI layer and every side-effect statement (design `docs/superpowers/specs/2026-10-15-stage4-ui-design.md`). Shared code is under
+  `src/shared/core|ui/`, country code under `src/<country>/core|ui/`. A module is under `core/` when none of its units uses a browser global,
+  calls a DOM method on an element, or imports a `ui/` module, and under `ui/` otherwise. `tests/core_purity.js` checks only that
+  `core/` files reference no DOM (browser globals, DOM method calls) and import nothing from `ui/`; it does not check that a
+  module under `ui/` needs to be there. `ui/`
+  modules are named and grouped by topic (`theme.js`, `sidebar.js`, `wizard.js`, `info-bubble.js`, `undo.js`, `mobile-view.js`,
+  `scenarios.js`, `chart-controls.js`, `mcp-tools.js`, `src/us/ui/fields.js` for `FIELDS`, ...); many `core/` modules still hold one unit
+  (regrouping them is follow-up work). No module name ends in `-<digits>` (`tests/module_names.js`). Module files keep the two-space
+  indentation they had inside the IIFE (the tools move text verbatim; do not reformat a module in a commit that also changes it). To find
+  a unit: `grep -rn "function taxFor" src`, or the module map below.
+- **`main.js` is the entry point.** Each planner's `main.js` holds no declaration: an import block, then one IIFE that runs, in start-up
+  order, the **wiring calls** (`wireThemeToggle();`, `loadSavedState();`, `wireWizard();`, ...), the start-up statements pinned there
+  (US `FIELDS.forEach(... REVEAL_BY_ID.set ...)` and `assignState(normalizeState(null));`, Canada `assignState(normalizeState(null));`),
+  the boot sequence (`if (hadSavedState) dismissFirstRunBanner();` through `initChartHover();`), `wireTableFocus();`, and last
+  `registerMcpTools();`, `installSharedTestHooks();` and `installTestHooks();`. A **wiring function** is an exported function of a `ui/`
+  module whose body is a run of former top-level statements (listeners, start-up reads), called once, from `main.js`, where those
+  statements used to run; so a listener lives next to the code it drives and the start-up order is unchanged. Wiring functions live only
+  in `ui/` modules, never in `core/`.
+- **Rule 3 (test hooks and MCP; design section 5.7).** `window.__test_*` hooks and the MCP tool registration are installed only from
+  `main.js`, by calling `registerMcpTools()`, `installSharedTestHooks()` and `installTestHooks()`, in that order. They are defined in
+  dedicated `ui/` modules (`src/shared/ui/mcp-tools.js`, `src/shared/ui/install-test-hooks.js`, `src/<country>/ui/install-test-hooks.js`),
+  never in `core/`. The country installer runs last because it redefines some shared hooks (the US `__test_simulate`,
+  `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo`). (`src/us/core/test-hooks.js` is different: the
+  engine's test-only counters.)
+- **The country seam.** Shared code that needs a country name imports it from that name's own facade (one import line per name), a
+  one-line module each country has (`export { render } from './render.js';`): `src/<country>/core/seam-<name>.js`, imported as
+  `#country/core/seam-<name>`, or `src/<country>/ui/seam-<name>.js`, imported as `#country/ui/seam-<name>`. A name's facade
+  is under `ui/` in both countries if either country's module for it is under `ui/` (shared code imports one specifier for both countries),
+  else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
+  DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
+  name; the regroup tool moves facades by this rule. There are 24 seam names (`scripts/extractions/stage4.json`, `seam`): under
+  `ui/` `render`, `syncControls`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
+  `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `SENSITIVITY_LEVERS`, `mcpSchemaFor`, ...). One
+  facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
+  Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
+  export the same names. The alias is resolved by the build condition (`us`/`canada`).
+- **UI import cycles and the load-time guard.** Import cycles are allowed only among `ui/` modules (seam facades included; a facade's
+  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 13 modules,
+  the nine shared `src/shared/ui/` modules `chart-view-mode.js`, `decision-questions.js`, `estimate-badges.js`, `estimate-review.js`,
+  `mobile-view.js`, `plan-status-bar.js`, `sankey.js`, `tornado.js` and `unusual-warnings.js`, plus that country's `ui/chart-controls.js`,
+  `ui/chart-view.js`, `ui/decision-questions.js` and `ui/render.js`, allowed because every one passes the load-time guard below. It
+  started with the chain country `render` -> decision questions -> `setChartView` -> `render` (an example, not the whole cycle).
+  `core/` stays acyclic: `tests/ui_cycles.js` refuses any import cycle with a member outside `ui/` (`tests/core_import.js`
+  imports each `core/` module alone in a fresh process, which catches a load-order failure across a cycle, but does not
+  refuse a cycle as such). esbuild turns a module's top-level `const` and `let` into `var` and bundles
+  in dependency order, so a read across a cycle while modules load would give a silent `undefined` (native ESM: a TDZ error). The guard
+  (`scripts/lib/load-time.js`, run by `tests/ui_cycles.js` on every `ui/` module, by the applier on a cycle it would create and by the
+  regroup tool after every operation): a `ui/` module holds no top-level statement other than declarations (its statements are in
+  wiring functions, which run from `main.js` after every module has loaded), and every top-level initializer must be **inert**
+  (literals, template literals without expressions, function, arrow and class expressions, unary operators on those, object and array
+  literals of inert values; a reference to another name is not inert), or carry a comment block directly above it whose first line is
+  `// load-time: <reason>` saying why it reads nothing a statement or another function writes. In a module that is part of an import
+  cycle, a marked initializer may use only global names (browser globals and ES built-ins such as `Set`) and literals. `core/` initializers are exempt (they are
+  pure data built at load). A `let x = <init>` that read start-up state was split by the tool into `let x;` plus `x = <init>;` inside
+  the module's wiring function (`hasPersonalizedData` in `src/shared/ui/saved-plan.js`, set by `loadSavedState()`).
+- **State.** Cross-module state goes through the `assign…` functions described above. A UI binding (`theme`, `sidebarCollapsed`,
+  `wizardStep`, ...) is a module-level `let` in the one `ui/` module that holds all its writers, exported for reading only; a module that
+  exports a `let` is read by others as a live binding, and they must not assign it (esbuild: `Cannot assign to import`). A `let` written by
+  one function lives in that function's module (for example `taxFactorInflation`, the memo of `taxIndexFactor`).
+- **The module map.** `npm run analyze` writes `docs/superpowers/inventory/module-map.md` (`scripts/module-map.js`): one table per directory,
+  one row per module with its exports and purpose; seam facades are one row per directory. `npm test` runs `module-map.js --check
+  --require-purpose`, so the map must be current and every `ui/` module (not a facade) needs a **purpose comment**: line 1 of the file, a
+  `//` line that does not start with `load-time:`, followed by a blank line (so it never joins the first unit's comment block). `core/`
+  modules show "(no purpose comment)" until the core regrouping.
 - **Data blocks.** A `// NAME:begin ... // NAME:end` block (`STATE_RULES`, `MEDICAID_RULES`, `PROVINCE_RULES`, `BENEFIT_RULES`) is moved whole
   with both markers. `scripts/gen-*-rules.js` find it in whichever file holds it (`scripts/lib/marker-source.js`) and evaluate the text with
   `export` removed.
-- **Using the tool again.** `node scripts/plan-extraction.js [--core-only] [--max-layer=N] [--max-batch=N] [--seam=a,b] > plan.json` prints a
-  plan for the current source; `node scripts/extract-units.js --manifest plan.json --batch N [--dry-run]` applies one batch and writes nothing
-  unless every check passes (it stages its files and renames them into place). After a batch: `node scripts/sync-shared.js --check`,
-  `npm run build`, `node scripts/compare-builds.js --base <tree built before the batch>` and `npm test`. Where the units of a shared region and a
-  country run would import each other as whole modules, the planner gives them modules of their own and joins what it can again; about 29 of the
-  38 stage 3 modules hold one unit, and merging them by topic is follow-up work.
+- **The extraction tool.** `node scripts/plan-extraction.js [--core-only] [--max-layer=N] [--max-batch=N] [--seam=a,b] [--topics=FILE]
+  [--reserved=FILE] > plan.json` prints a plan for the current `main.js`; `node scripts/extract-units.js --manifest plan.json --batch N
+  [--dry-run]` applies one batch and writes nothing unless every check passes (it stages its files and renames them into place). It
+  creates country modules only: a manifest module with `owner: 'shared'` is refused (no shared region remains to extract from), so new
+  shared code is written in `src/shared/` directly. Little is left for it: `main.js` holds only calls.
+- **The regroup tool.** `node scripts/regroup-modules.js --map <file> [--dry-run]` applies a map of renames (`{ "rename": old, "to": new }`),
+  merges (`{ "merge": [paths], "to": path }`) and moves of one top-level declaration with its comments (`{ "move": name, "from": path, "to":
+  path }`), in order; `--dry-run` prints what it would do and writes nothing. It rewrites every import in `src/` (relative paths and seam
+  facades), the exact module paths in `tests/state_modules.js`, in this file and in the region maps
+  (`docs/superpowers/inventory/stage{2,3,4}-region-map.md`), and counts the names `tests/state_modules.js` reads from a module
+  as importers before it removes an export (`tests/doc_paths.js` checks every module path under `src/` in these docs exists), and reports a generated rule doc whose source path changed
+  (`regenerate: npm run gen:...`). After every operation it re-runs the structural guards (facade side, `core/` purity, no cycle touching
+  `core/`, the load-time guard, no undeclared name, no initializer reading a later declaration) and bundles both planners to report any
+  change in the order the `// load-time:` initializers run; it refuses a name clash, a mutable binding moved without all its writers and
+  UI code moved into `core/`. It checks every operation, on a staged copy, before it writes anything: a failed check refuses the whole
+  map and writes nothing. Writing is staged files renamed into place at the end, so an operating-system failure during those final
+  renames (a Windows file lock) can still leave a partial application, visible in `git status` (a T12 limit in
+  `docs/superpowers/inventory/stage4-open-items.md`). It writes LF line endings (see "Shared code between the planners"). `scripts/extractions/stage4-regroup.json` is the stage 4 tidy.
+- **The build comparison.** `node scripts/compare-builds.js --base <dir> [--head <dir>] [--ordered]` compares the built planners of two trees
+  (each with a built `dist/`) statement by statement: it flattens the IIFEs, expands each wiring function back into its call site (a new
+  top-level function called exactly once as `name();`), undoes the split rule, and compares the multisets of statements; `--ordered` also
+  requires the statements that are not declarations to run in the same order. Run both modes after any change that only moves code; a
+  feature changes statements on purpose. The order of declaration initializers is not compared (the load-time guard covers `ui/`).
+
+## Adding UI code
+
+- **Markup:** `src/<country>/index.html`, or a shared partial in `src/shared/partials/`, as before.
+- **Behavior on an existing topic:** a function in that topic's module (find it in `docs/superpowers/inventory/module-map.md`). A
+  listener that belongs at an existing point of start-up goes inside the module's wiring function; one that needs its own point gets a
+  new exported wiring function, called once from `main.js` where it should run.
+- **UI state:** a module-level `let`, assigned only in its own module; another module that must write it calls an `assign<Name>`
+  function the module exports. Reading it elsewhere is a live import.
+- **A new topic:** a new module under `src/shared/ui/` (both planners) or `src/<country>/ui/`, whose line 1 is a one-line purpose
+  comment followed by a blank line (the module map reads it), then `npm run analyze` to update the module map.
+- **A country name in shared UI code:** import it from `#country/ui/seam-<name>` (or `#country/core/seam-<name>` for a `core/` name);
+  a new name needs a facade in both countries (see "The country seam").
+- **Initializers:** in a `ui/` module, a module-level initializer that computes something (anything but literals, functions, arrows,
+  classes, and object or array literals of those) runs when the module loads. It needs a comment block directly above it that starts
+  with `// load-time: <reason>`, saying why it reads nothing a statement or another function writes; otherwise compute it inside a
+  wiring function. In a module that is part of an import cycle, a marked initializer may use only global names and literals
+  (`tests/ui_cycles.js` checks both).
+- **Test hooks and MCP tools:** in `src/<country>/ui/install-test-hooks.js` / `src/shared/ui/install-test-hooks.js` and
+  `src/shared/ui/mcp-tools.js` (rule 3 above), never in `core/`.
+- **The guards:** `tests/closure_names.js` (undeclared names), `tests/ui_cycles.js`, `tests/no_bare_imports.js`, `tests/module_names.js`,
+  `tests/main_entry.js`, `tests/doc_paths.js`, the module-map check, all in `npm test`. The ordered build comparison is for refactors only; a feature changes the statements on purpose.
 
 ## US vs. Canada: same shape, different names, not a find-and-replace
 
 (Shared warnings: `UNUSUAL_RANGES` lives in `src/shared/core/estimates-and-warnings.js` and accepts an item with `check()` and `message()` instead of a
-range; the US pushes its Social Security-before-retirement items onto it just after the region ends (7O O5), so the region stays identical in both files.)
+range; the US pushes its Social Security-before-retirement items onto it in `addSocialSecurityWarnings()` (`src/us/ui/unusual-warnings.js`,
+called from `main.js` right after the shared `wireUnusualWarnings()`; 7O O5), so the shared module stays the same for both planners.)
 
 The two planners share overall structure but diverge in ways that make blind
 copy-paste silently wrong — always read both files' relevant sections side by
@@ -815,14 +921,14 @@ side before porting a feature:
   A-dies must equal B-dies) guards both.
 - **Canada federal credits (7J).** `federalTaxCA(income, yearIndex, extraCreditBase)` takes the basic personal amount as a 14% credit (`FED_CREDIT_RATE`; $16,452 phasing to $14,829 over `FED_BPA_PHASE_START`-`FED_BPA_PHASE_END`, keyed on net income), never as a deduction at the marginal rate, floored at zero. `personTaxCA(ordinary, gains, yearIndex, dtcBase, age, pensionIncome)` computes the age amount (65+, 15% clawback over the threshold, both indexed) and the pension income amount ($2,000, **not indexed**) in `ageAndPensionCreditBase` and passes the sum as `extraCreditBase`; Quebec's 0.835 abatement applies after them. Per-person data comes from `buildTaxProfile` (`ageA/B`, `penA/B` = eligible pension income after the split transfer; from `RRIF_PENSION_AGE` = 71 `taxFor` adds the discretionary RRSP/RRIF draw as RRIF income: an RRSP withdrawal is not pension income before the RRIF conversion, 7K); a profile without them reads as under 65. `solvePensionSplit(..., ageA, ageB)` sees the credits and, with a 65+ partner, scans a 48-cell grid, refines inside the best cell and also tries the equal-income transfer (combined tax is non-convex through the clawback; under 65 it is the original ternary search). Brackets apply to income itself, so `solveMeltdown` fills to the bracket cap with no BPA term.
 - **OAS recovery tax (Canada, 7N N1).** `personTaxCA(..., partnerPool, oas)` takes the OAS the person received and charges the recovery tax on the return's full net income: 15% over `OAS_RECOVERY_THRESHOLD` (95,323, indexed), up to the OAS. As on the T1 the repayment is deducted from net income first (line 23500, so the brackets and the age amount see the lower figure) and added to the tax payable (line 42200); credits do not reduce it and Quebec's abatement does not touch it. `incomeTaxCA` passes `profile.oasA/oasB` (already on the profile since 7L; the survivor remap puts the survivor's OAS in slot A) and leaves each return's recovery in the module scratch `OAS_RECOVERY.a/.b` (written only when a return has OAS; read it right after the `taxFor` call whose income you want). Because Canada `taxFor` is the net cost, every draw solver prices the 15% with no solver change. `solvePensionSplit(..., ageA, ageB, oasA, oasB)` carries the OAS so the kink is inside its objective. In the year loop the cash flow starts from GROSS OAS and `tax` includes the recovery; the row keeps `ss` (CPP plus OAS, a field name inherited from the US planner) net of the recovery, adds `oasClawback`, and reports `tax` WITHOUT the recovery (as `benefits` is added back), so tables and the Sankey show each amount once. Tests: `tests/oas_recovery.js` (engine), the OAS section of `tests/tax_brackets.js`, the high-income scenario of `tests/survivor_symmetry.js`. `tests/bench_canada.js --base DIR` is the Canada timing gate (interleaved, one process).
-- **After-tax estate (Canada, 7N N8; display only).** `runProjection` attaches the final balances as a NON-ENUMERABLE `estate` property (`traditional`, `taxable`, `taxableBasis`, `roth`, `cash`, `homeEquity`), so the result's own fields and every snapshot are unchanged. `afterTaxEstate(sim)` = last row's total less the tax the RRSP/RRIF and the deemed gains (50% inclusion) add to one final return (stacked on the last survivor's share of the last year's income, via `personTaxCA`) less `probateFee(rule, taxable + cash + home equity)`; registered accounts and the TFSA are assumed to pass by beneficiary designation (outside probate). Row family `probate` per province (`steps` flat fees up to a limit, `base` the fee above the last step, `bands` marginal rates per $1,000 or part: Ontario 15 over 50,000, BC 6 and 14, Alberta steps to 525, Saskatchewan 7, Manitoba and Quebec none, New Brunswick, Nova Scotia, PEI, Newfoundland and Labrador per their statutes). Shown beside End assets in the printed report; `computeRothOptimizer` ranks by the highest after-tax estate among the plans that do not shorten the portfolio (it used to minimize lifetime tax; lifetime tax stays in the table); `renderRothOptimizer` is a SHARED region (both planners' text must stay identical), so the Canada-only `annotateRothOptimizer`, called right after it from `render()` and fed by `lastRothOptimizer`, rewrites the summary and the five-column rows. Tests: `tests/estate.js`.
+- **After-tax estate (Canada, 7N N8; display only).** `runProjection` attaches the final balances as a NON-ENUMERABLE `estate` property (`traditional`, `taxable`, `taxableBasis`, `roth`, `cash`, `homeEquity`), so the result's own fields and every snapshot are unchanged. `afterTaxEstate(sim)` = last row's total less the tax the RRSP/RRIF and the deemed gains (50% inclusion) add to one final return (stacked on the last survivor's share of the last year's income, via `personTaxCA`) less `probateFee(rule, taxable + cash + home equity)`; registered accounts and the TFSA are assumed to pass by beneficiary designation (outside probate). Row family `probate` per province (`steps` flat fees up to a limit, `base` the fee above the last step, `bands` marginal rates per $1,000 or part: Ontario 15 over 50,000, BC 6 and 14, Alberta steps to 525, Saskatchewan 7, Manitoba and Quebec none, New Brunswick, Nova Scotia, PEI, Newfoundland and Labrador per their statutes). Shown beside End assets in the printed report; `computeRothOptimizer` ranks by the highest after-tax estate among the plans that do not shorten the portfolio (it used to minimize lifetime tax; lifetime tax stays in the table); `renderRothOptimizer` is SHARED code (`src/shared/ui/roth-optimizer-card.js`, one text for both planners), so the Canada-only `annotateRothOptimizer`, called right after it from `render()` and fed by `lastRothOptimizer`, rewrites the summary and the five-column rows. Tests: `tests/estate.js`.
 - **Quebec health contributions (Canada, 7N N7).** Row family `healthContributions` (Quebec only). `incomeTaxCA` (Quebec only) adds, per return, the Health Services Fund contribution `quebecHsf(non-employment income)` (net income less wages, OAS and the dividend gross-up; 1% from the first threshold to 150, flat, then 1% from the second to 1,000; caps unindexed) and the RAMQ premium `quebecRamq(family income, couple, kids, yearIndex)` for each partner with no wages this year (every retired adult; owner decision), and adds the premium to the medical expenses. The premium table is the 2025 Schedule K scaled by 777.48 / 755 to the 2026 calendar maximum; the income at which it reaches the maximum is cached (`RAMQ_CAP`) so a household above it costs one comparison. Cost: not per call but call volume (the extra 1,900 of yearly need pushes more years into two-account draws); see the 7N notes. Tests: `tests/quebec_health.js`.
 - **Low-income provincial tax reductions (Canada, 7N N6).** Row family `lowIncomeReduction` (null in AB, SK, MB and QC, whose forms have none), figures from the CRA 2025 provincial forms (British Columbia: the 2026 T4127 figures). `kind: 'perReturn'` (Ontario: `multiplier x (basic + child x redKids)` less the tax, off the tax) and `kind: 'income'` (British Columbia: `basic - rate x (net income - base)`) run inside `provincialTaxCA` after the dividend credit and before Ontario's health premium (`redKids` = children born in the last 18 years, claimed by the higher-income partner); `kind: 'family'` (NB, NL, NS, PE) is one household reduction worked out in `incomeTaxCA` by `lowIncomeFamilyReduction` (basic, spouse or eligible dependant, children, PEI age amounts, less a rate on adjusted family income over a base, limited to the sum of both returns' provincial tax, which each `provincialTaxCA` call leaves in the scratch `PROV_TAX.last`). Nova Scotia's 1,000 age tax credit is per return. Amounts index with the BPA flag. `solvePensionSplit` mirrors Ontario's children through `pay.rk`; the family reduction is not in its objective. Not built: Ontario's dependants with an impairment and the LIFT credit (Schedule ON428-A). Tests: the N6 block of `tests/tax_brackets.js`.
 - **Medical expense credit (Canada, 7N N5).** `profile.medical` is the year's eligible expenses: the private health premium plus the WHOLE LTC cost (`healthcareCost` now runs before `buildTaxProfile`; owner decision: nursing-home care). One claim a household: `medicalClaimToB(netA, netB, yearIndex)` names the preferred claimant (the lower net income unless that partner is under the basic personal amount), and `incomeTaxCA` and `solvePensionSplit` price the other partner too, keeping the cheaper, only when the preferred return had no federal or provincial tax left for the credit (read from `PROV_TAX.fed` / `PROV_TAX.pre`, written by every `personTaxCA` call) and the other return has some; in Ontario with a 70+ spouse both claimants are always priced on tax less the Seniors Care at Home credit, whose floor depends on the claimant (keep that test a plain `state.province` comparison: reading the rule row in this hot function measured 1.2 to 1.35x slower in every province) (a 65+ partner owes nothing up to about 27,700, so the preferred claim could be wasted; 7N review fix; the low-income reduction and surtax interplay is not priced). `personTaxCA(..., provDeduction, medical)` adds `max(0, medical - min(3% of net income, FED_MEDICAL_THRESHOLD x factor))` to the federal credit base; `provincialTaxCA(..., extraCredit, medical)` does the same from the row family `medical: { threshold, familyIncome }` (Quebec: no dollar floor, 3% of family income). Ontario's refundable Seniors Care at Home credit (`careAtHome` row family; `careAtHomeCredit`) is subtracted in `incomeTaxCA` (net tax can be negative). `solvePensionSplit(..., kids, pay)` mirrors the claimant through `pay.med`. Not built: the federal top-up tax credit, Quebec's refundable medical credit. Tests: the N5 block of `tests/tax_brackets.js`, `tests/medical_credit.js`.
 - **Payroll items and the home buyers' amount (Canada, 7N N4 and N10).** `payrollItems(wages, yearIndex)` fills the scratch object `PAY` (read it right after the call; the test hook returns a copy): `cash` (CPP or QPP, CPP2, EI at `payroll.eiRate`, QPIP), `fedCredit` (base CPP/QPP = `pensionRate` less the 1% first additional, plus EI, QPIP and the $1,501 Canada employment amount), `provCredit` (the same without the employment amount; zero in Quebec, which gives no credit for them), `deduction` (the enhanced CPP/QPP: 1% on the band plus the 4% second tier; a deduction from income federally, provincially and in Quebec) and `provDeduction` (Quebec's workers deduction, 6% to $1,450, provincial only). It is computed once a year in `buildTaxProfile` (never inside the solvers): the deduction lowers `otherA/B`, the credit bases ride on the profile as `fedCreditA/B`, `provCreditA/B`, `provDedA/B` (the survivor remap moves B's into slot A) and `personTaxCA(..., childKids, fedCredit, provCredit, provDeduction)` applies them; `solvePensionSplit(..., kids, pay)` takes the same numbers as one object so the split sees them. `payrollTax` returns `cash` for both earners (the cash cost reaches the engine through it). The home buyers' amount is a flat non-refundable credit base in the `rentThenBuy` purchase year (`housingYear.homeValue !== null`): the federal 10,000 and the row's `homeBuyer.amount` (Saskatchewan 15,000, Quebec 10,000; every other province none), on the higher-income partner's return. Not built: Quebec's tax credit for access to homeownership (up to 5,875), the EI/CPP effects of a person who works past 70. Tests: the N4/N10 block of `tests/tax_brackets.js`, `tests/payroll_credits.js` (engine, including the purchase-year plumbing).
 - **Spouse, eligible-dependant and child amounts (Canada, 7N N3).** Federal: `federalTaxCA(income, yearIndex, extraCreditBase, claimMinus)` adds `max(0, bpa - claimMinus)` to the credit base, where `bpa` is the claimant's own phased basic personal amount (16,452 to 14,829) and `claimMinus` is the spouse's net income (0 for a dependant child; -1 means no claim). Provincial: each `PROVINCE_RULES` row has `spouse: { amount, threshold }` (CRA TD1 forms 2026; `null` for Quebec) and `childAmount` (Saskatchewan only: 8,358 for each child under 18 besides the one claimed as the eligible dependant); the credit amount is `clamp(amount + threshold - spouse net income, 0, amount)` and indexes with the BPA flag (Manitoba frozen). Quebec has no spouse amount, and its additional amount for a person living alone (single-parent family; 2,681 for 2026) is NOT built: the primary rule (Revenu Quebec guide line 361) gives it only to someone living with a child 18 or over in post-secondary studies who is not entitled to the Family Allowance, so a parent of a minor child gets nothing (the living-alone amount already covers a single parent). `personTaxCA(..., oas, spouseNet, depKids, childKids)`: `spouseNet >= 0` is a spouse claim, `depKids > 0` a single claimant's eligible dependant (one child; the rest are child-amount children), `childKids` the children whose child amount this return claims. `incomeTaxCA` decides who claims: the higher-income partner claims the spouse amount (A on a tie) and the lower-income parent the children (A on a tie); a single person or survivor claims the dependant. `solvePensionSplit(..., oasA, oasB, kids)` mirrors the same rule on the post-transfer incomes (a test that re-prices the split must mirror it too: `claimNets` in `tests/tax_brackets.js`). Children under 18 come from `profile.dependents` (`countKids(deps, 0, 17)`). Not built: the transfer of a spouse's unused amounts. Tests: the N3 block of `tests/tax_brackets.js`, `tests/dependant_amounts.js` (engine), the child scenarios of `tests/survivor_symmetry.js`.
 - **Provincial tax (Canada, `PROVINCE_RULES`, 7K).** One data row per province (the 10; no territories) between the `// PROVINCE_RULES:begin` / `end` comments (pure literals, read by `scripts/gen-province-rules.js`, which writes `docs/province-tax-rules.md`; `npm run gen:provinces`; `npm test` fails if it is stale and runs `tests/province_rules.js`, the coverage test). A row declares every field: `creditRate` (the lowest bracket rate: every non-refundable amount is worth that), `brackets`, `bpa` (amount, optional `phase` down to a floor: Manitoba only in 2026; Nova Scotia's phase-down is gone), `age` (amount, threshold, 15% reduction rate, optional unreduced `supplement`: Saskatchewan), `pension` (the provincial maximum), `pooled` (Quebec: age, retirement-income (the lesser of $3,541 and 1.25 times the pension or RRIF income) and living-alone amounts, reduced together by 18.75% of family income over $42,955; a couple's two pools are added and reduced once, each spouse taking a share in proportion to their own amounts: `quebecPoolAmount` and the `partnerPool` argument), `payroll` (CPP or QPP rate and Quebec's QPIP premium; `cppContribution` reads it), `dividend.eligible`, Ontario's `surtax` and `healthPremium`, `indexing` (one boolean per family: Manitoba's schedule is frozen; AB, ON and NS pension amounts are indexed, the flat $1,000 ones are not) and `verified` (primary or secondary per family). `compileProvince` splits each row once per code; `provincialTaxCA(income, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool, spouseNet, depKids, childKids)` allocates nothing: tax on the brackets, less credits at `creditRate` (floored at zero), then Ontario's surtax on that, then the eligible dividend credit against provincial tax only (federal and provincial dividend credits are floored separately; Ontario's surtax comes before its dividend credit, as on form ON428), then the Health Premium (on taxable income, not reduced by credits). `familyIncome` is read only by Quebec: a number for a couple (built in `taxFor` and `solvePensionSplit`), `null` for a single filer or survivor (own income, lives alone). Quebec's 16.5% abatement applies after the federal credits, the dividend credit included. **Not modeled:** a spouse's transfer of unused amounts, non-eligible Canadian dividends (taxed like interest), the Ontario LIFT credit (low-income tax reductions are built in 7N N6 for ON, BC, NB, NL, NS and PE; AB, SK, MB and QC have none). The paid benefits and the Ontario property-tax/rent credit are modeled in 7L (`BENEFIT_RULES`, below). To add a family, add the field to every row, the coverage test and the generator. Verification status and the backlog are in the 7K notes in `docs/next-batches-plan.md`.
-- **Income-tested benefits (Canada, `BENEFIT_RULES`, 7L).** One pure-literal data row per program between the `// BENEFIT_RULES:begin` / `end` comments (read by `scripts/gen-benefit-rules.js`, which writes `docs/benefits-rules.md`; `npm run gen:benefits`; `npm test` fails if it is stale and runs `tests/benefit_rules.js`, the coverage test). Row kinds: `gisAllowance` (the six ESDC household situations as `[income, annual benefit]` knots fitted to tables 1 to 5, interpolated by `interpKnots` / `gisAnnual`, scaled with the plan inflation factor), `oasPension` (the 75-plus factor 1.10 and the recommended 2026 amount: **update for 2027**, quarterly-indexed), `familyCredit` (CGEB, Ontario Sales Tax Credit), `childSchedule` (CCB, Ontario Child Benefit, BC Family Benefit, ACFB, Quebec Family Allowance), `seniorSupplement` (Alberta Seniors Benefit), `occupancyCredit` (from rent or property tax: Ontario Energy and Property Tax Credit and senior homeowners grant; 7M adds the New Brunswick property tax allowance, the Nova Scotia seniors property tax rebate, which reads `BEN.gis` and `BEN.allowance`, and the Manitoba homeowners credit, seniors school tax rebate and renters credit, the Manitoba figures are those of the 2025 Form MB479 and scale with plan inflation, the renters credit is limited by the rent paid and the seniors rebate by the tax left after the homeowners credit, the others are unindexed; the coverage test allows scope `on`, `mb`, `ns`, `nb`; the Manitoba homeowners credit proxies school taxes by the whole property tax) and `quebecCredit` (solidarity credit, work premium). Each row has `source`, `asOf`, `retrieved`, `verified` per family (primary or secondary), `indexing` and `dependsOn`. `benefitsFor(profile, gains, traditionalExtra)` fills the module-level scratch object `BEN` (read with `getBenefits()`; the next call overwrites it), allocation-free, in a fixed order (GIS and Allowance first, then the child and credit programs by `state.province`), with an early exit for a household with no children above 125,000 (skipped for Manitoba, whose homeowners and renters credits have no income test). **Net-tax design:** Canada `taxFor` is `incomeTaxCA(...) - benefitsFor(...)` (the benefits are tax-free cash, so net cash is identical to a separate inflow), which lets the shared `drawTaxable` and the Canada solvers price lost benefits as a cost of withdrawing without editing the shared region; rows keep `tax` gross and add `benefits` plus one field per line (`benefitGis`, `benefitAllowance`, `benefitCcb`, `benefitCgeb`, `benefitProvChild`, `benefitProvSenior`, `benefitProvCredit`). Profile fields for it: `oasA/B`, `earnedA/B`, `survivor`, `dependents` (from `dependentsInYear`), `rentPaid`, `propertyTaxPaid` (from `housingForYear`). Same-year income stands in for the prior-year return (an engine convention). `gisIncomeRoom` is the hook the Canada mixed-withdrawal batch (4A) reads. Step cliffs (7M): the New Brunswick allowance tiers and the Nova Scotia rebate (which stops when GIS stops, up to 800) drop in a step, which used to leave the net at the top of the `drawTaxable` bracket (`need * 3 + 1`) below the need and return a negative net (measured: Nova Scotia, single 70, property tax 3,000, other income 32,212, need 100: net -563). `drawTaxable` and the two Canada RRSP solvers (`solveTraditionalForNet`, `solveTraditionalForNetFromNeed`) now widen the bracket (doubling, at most 12 times, up to the pool) only when the net at its top is short of the need, so every draw that did not need it is bit-identical (the snapshots did not move) and the extra cost is one tax evaluation per call (measured +3 to +7 percent, ten percent noise). At a cliff the net is not monotone, so the result is a valid draw, not necessarily the smallest sale. Test: `tests/benefits.js`, "Step cliffs and the withdrawal solvers". Known approximation: where a benefit phases IN as income rises (the CGEB single supplement at 2 percent, later the ACFB and work premium), the net of a taxable sale can exceed the gross, and the shared `drawTaxable` bisection (which starts at the amount needed) over-sells by up to that phase-in amount. 7M completes the ten provinces: the child benefits, family and low-income credits and seniors programs of SK (Low-Income Tax Credit, Income Plan), MB (Child Benefit, 55 PLUS junior component), NS (Child Benefit, Affordable Living Tax Credit), NB (Child Tax Benefit, Working Income Supplement, School Supplement, HST credit, Low-Income Seniors Benefit), NL (Child Benefit, Income Supplement, Seniors Benefit) and PEI (Child Benefit, Island Essentials Benefit) are `childSchedule`, `familyCredit` and `seniorSupplement` rows with a `case` each in `benefitsFor`. Helpers: `countKids(kids, minAge, maxAge)` and `familyCreditCA(R, f, fam, couple, n)` (the CGEB shape: adult, spouse or eligible dependant, per child with an optional `childCap`, reduced over a threshold; `indexing.amountsAndThresholds` decides whether `f` applies). `BEN_NO_EXIT` lists the provinces whose programs pay at any income, which skip the 125,000 early exit: Manitoba (the homeowners and renters credits; the Child Benefit and 55 PLUS are income-tested) and PEI (the Island Essentials Benefit pays at least 175 at any income). Several shapes are readings and are marked secondary in their rows: the Saskatchewan Seniors Income Plan follows its regulation (RRS c S-25.1 Reg 3 s. 5(2), read from the consolidation through SR 39/2023): the maximum falls by 1.90, 2.10 or 6.55 dollars per dollar of base GIS reduction, which is a straight line from the maximum at no income to the published nil point for a single person, a couple and a spouse on the Allowance (190 bands of 24 and 155 bands of 48 reproduce 4,560 and 7,440), and flat at the maximum to income 9,184 then to the published 11,568 for a pensioner whose spouse is not a pensioner (the regulation formula alone gives about 11,822) and the Manitoba Child Benefit is a straight line between the published full-benefit income and the published nil point, the Saskatchewan credit rate is derived from the published maximum and nil income, the Manitoba 55 PLUS senior component (Regulation 65/90 tables by household type) and the NL Nutrition Supplement (150 a month a child under five, with the Child Benefit) are built from their primary pages, the NL Income Supplement phases IN with family income between 15,000 and 20,000 (the known `drawTaxable` phase-in limitation; the NB Working Income Supplement phases in on earned income, which a withdrawal does not change), the Manitoba 55 PLUS junior component is not paid to someone who receives the Allowance (an OAS Act benefit), and the Saskatchewan single-parent amount (eligible dependant plus child amounts) is a reading. Not built: the CSV export has no benefit columns (the export is a shared region); the NL pregnancy and birth parts of the Nutrition Supplement; the PEI provincial property tax credit (needs the assessed value), Manitoba Rent Assist and the Nova Scotia heating rebate (inputs we do not have); disability benefits; low-income tax reductions; the prior-year lookback. Tests: `tests/benefit_rules.js`, `tests/gis_tables.js` (every row of the ESDC tables, from `docs/sources/gis-tables-2026q4.json`), `tests/benefits.js` (hand-computed cases citing the page or statute).
+- **Income-tested benefits (Canada, `BENEFIT_RULES`, 7L).** One pure-literal data row per program between the `// BENEFIT_RULES:begin` / `end` comments (read by `scripts/gen-benefit-rules.js`, which writes `docs/benefits-rules.md`; `npm run gen:benefits`; `npm test` fails if it is stale and runs `tests/benefit_rules.js`, the coverage test). Row kinds: `gisAllowance` (the six ESDC household situations as `[income, annual benefit]` knots fitted to tables 1 to 5, interpolated by `interpKnots` / `gisAnnual`, scaled with the plan inflation factor), `oasPension` (the 75-plus factor 1.10 and the recommended 2026 amount: **update for 2027**, quarterly-indexed), `familyCredit` (CGEB, Ontario Sales Tax Credit), `childSchedule` (CCB, Ontario Child Benefit, BC Family Benefit, ACFB, Quebec Family Allowance), `seniorSupplement` (Alberta Seniors Benefit), `occupancyCredit` (from rent or property tax: Ontario Energy and Property Tax Credit and senior homeowners grant; 7M adds the New Brunswick property tax allowance, the Nova Scotia seniors property tax rebate, which reads `BEN.gis` and `BEN.allowance`, and the Manitoba homeowners credit, seniors school tax rebate and renters credit, the Manitoba figures are those of the 2025 Form MB479 and scale with plan inflation, the renters credit is limited by the rent paid and the seniors rebate by the tax left after the homeowners credit, the others are unindexed; the coverage test allows scope `on`, `mb`, `ns`, `nb`; the Manitoba homeowners credit proxies school taxes by the whole property tax) and `quebecCredit` (solidarity credit, work premium). Each row has `source`, `asOf`, `retrieved`, `verified` per family (primary or secondary), `indexing` and `dependsOn`. `benefitsFor(profile, gains, traditionalExtra)` fills the module-level scratch object `BEN` (read with `getBenefits()`; the next call overwrites it), allocation-free, in a fixed order (GIS and Allowance first, then the child and credit programs by `state.province`), with an early exit for a household with no children above 125,000 (skipped for Manitoba, whose homeowners and renters credits have no income test). **Net-tax design:** Canada `taxFor` is `incomeTaxCA(...) - benefitsFor(...)` (the benefits are tax-free cash, so net cash is identical to a separate inflow), which lets the shared `drawTaxable` and the Canada solvers price lost benefits as a cost of withdrawing without editing the shared `drawTaxable` (`src/shared/core/draw-taxable.js`); rows keep `tax` gross and add `benefits` plus one field per line (`benefitGis`, `benefitAllowance`, `benefitCcb`, `benefitCgeb`, `benefitProvChild`, `benefitProvSenior`, `benefitProvCredit`). Profile fields for it: `oasA/B`, `earnedA/B`, `survivor`, `dependents` (from `dependentsInYear`), `rentPaid`, `propertyTaxPaid` (from `housingForYear`). Same-year income stands in for the prior-year return (an engine convention). `gisIncomeRoom` is the hook the Canada mixed-withdrawal batch (4A) reads. Step cliffs (7M): the New Brunswick allowance tiers and the Nova Scotia rebate (which stops when GIS stops, up to 800) drop in a step, which used to leave the net at the top of the `drawTaxable` bracket (`need * 3 + 1`) below the need and return a negative net (measured: Nova Scotia, single 70, property tax 3,000, other income 32,212, need 100: net -563). `drawTaxable` and the two Canada RRSP solvers (`solveTraditionalForNet`, `solveTraditionalForNetFromNeed`) now widen the bracket (doubling, at most 12 times, up to the pool) only when the net at its top is short of the need, so every draw that did not need it is bit-identical (the snapshots did not move) and the extra cost is one tax evaluation per call (measured +3 to +7 percent, ten percent noise). At a cliff the net is not monotone, so the result is a valid draw, not necessarily the smallest sale. Test: `tests/benefits.js`, "Step cliffs and the withdrawal solvers". Known approximation: where a benefit phases IN as income rises (the CGEB single supplement at 2 percent, later the ACFB and work premium), the net of a taxable sale can exceed the gross, and the shared `drawTaxable` bisection (which starts at the amount needed) over-sells by up to that phase-in amount. 7M completes the ten provinces: the child benefits, family and low-income credits and seniors programs of SK (Low-Income Tax Credit, Income Plan), MB (Child Benefit, 55 PLUS junior component), NS (Child Benefit, Affordable Living Tax Credit), NB (Child Tax Benefit, Working Income Supplement, School Supplement, HST credit, Low-Income Seniors Benefit), NL (Child Benefit, Income Supplement, Seniors Benefit) and PEI (Child Benefit, Island Essentials Benefit) are `childSchedule`, `familyCredit` and `seniorSupplement` rows with a `case` each in `benefitsFor`. Helpers: `countKids(kids, minAge, maxAge)` and `familyCreditCA(R, f, fam, couple, n)` (the CGEB shape: adult, spouse or eligible dependant, per child with an optional `childCap`, reduced over a threshold; `indexing.amountsAndThresholds` decides whether `f` applies). `BEN_NO_EXIT` lists the provinces whose programs pay at any income, which skip the 125,000 early exit: Manitoba (the homeowners and renters credits; the Child Benefit and 55 PLUS are income-tested) and PEI (the Island Essentials Benefit pays at least 175 at any income). Several shapes are readings and are marked secondary in their rows: the Saskatchewan Seniors Income Plan follows its regulation (RRS c S-25.1 Reg 3 s. 5(2), read from the consolidation through SR 39/2023): the maximum falls by 1.90, 2.10 or 6.55 dollars per dollar of base GIS reduction, which is a straight line from the maximum at no income to the published nil point for a single person, a couple and a spouse on the Allowance (190 bands of 24 and 155 bands of 48 reproduce 4,560 and 7,440), and flat at the maximum to income 9,184 then to the published 11,568 for a pensioner whose spouse is not a pensioner (the regulation formula alone gives about 11,822) and the Manitoba Child Benefit is a straight line between the published full-benefit income and the published nil point, the Saskatchewan credit rate is derived from the published maximum and nil income, the Manitoba 55 PLUS senior component (Regulation 65/90 tables by household type) and the NL Nutrition Supplement (150 a month a child under five, with the Child Benefit) are built from their primary pages, the NL Income Supplement phases IN with family income between 15,000 and 20,000 (the known `drawTaxable` phase-in limitation; the NB Working Income Supplement phases in on earned income, which a withdrawal does not change), the Manitoba 55 PLUS junior component is not paid to someone who receives the Allowance (an OAS Act benefit), and the Saskatchewan single-parent amount (eligible dependant plus child amounts) is a reading. Not built: the CSV export has no benefit columns (the export is shared code, `exportCsv` in `src/shared/ui/export-and-print.js`); the NL pregnancy and birth parts of the Nutrition Supplement; the PEI provincial property tax credit (needs the assessed value), Manitoba Rent Assist and the Nova Scotia heating rebate (inputs we do not have); disability benefits; low-income tax reductions; the prior-year lookback. Tests: `tests/benefit_rules.js`, `tests/gis_tables.js` (every row of the ESDC tables, from `docs/sources/gis-tables-2026q4.json`), `tests/benefits.js` (hand-computed cases citing the page or statute).
 - US models a 10% early-withdrawal penalty (`ruleOf55A`/`ruleOf55B`: Rule of 55
   elected per partner, covering that partner's 401(k)s only through
   `rule55Applies(working, retireAge, partner)`; an old save's household
@@ -902,7 +1008,7 @@ every `bridge*` key — note `normalizeState` spreads unknown keys, so any
 retired field must be deleted explicitly or it re-migrates on every load.
 **Income streams, owner and kind (US, E1b).** A stream row also carries `owner` ('A'/'B'), `kind` ('other' = Not earned /
 `'wages'` = W-2) and a contribution panel (`contribute`, `deferralType`, `deferralPct`, `matchPct`, `afterTaxPct`, `personalPct`),
-normalized by the US-only `normalizeUsStreams(s, raw)` (just below the shared `01-LIST_MAX` region; the shared `normalizeLists`
+normalized by the US-only `normalizeUsStreams(s, raw)` (`src/us/core/normalize-lists.js`; the shared `normalizeLists`
 keeps only the common keys, so these are read from `raw`, aligned to the filtered list; anything but a literal `'B'` / `'wages'` /
 `true` / `'roth'` is the legacy meaning). Canada's streams are unchanged until E1-CA. The shared list renderer
 (now `src/shared/core/dyn-field-html.js`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, ctx, out)`
@@ -1029,7 +1135,7 @@ Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
 ## First-run wizard
 
 `#wizardModal` is a list of `[data-wizard-step]` panels in document order, each carrying its own
-`data-title` and `data-note` (the shared `28-wizardOverlay` fragment adds "Step i of N"). The US wizard
+`data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). The US wizard
 has three: basics, balances (taxable, cash, the eight retirement accounts, a Roth-basis callout) and
 the optional questions; Canada has two. Every input names the sidebar control it proxies in
 `data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup,

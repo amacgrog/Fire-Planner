@@ -1,3 +1,5 @@
+// The one-line summaries on the collapsed sidebar groups
+
 import { compact } from '../../shared/core/money-format.js';
 import { mortgagePayment } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';

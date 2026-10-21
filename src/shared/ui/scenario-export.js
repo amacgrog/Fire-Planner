@@ -1,3 +1,5 @@
+// Exports one scenario or all scenarios to a file
+
 import { scenarios } from '../core/store.js';
 import { SCENARIO_SCHEMA_VERSION } from './storage.js';
 

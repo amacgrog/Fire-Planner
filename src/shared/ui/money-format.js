@@ -1,3 +1,5 @@
+// In-place dollar formatting for money fields
+
   // Dollar-amount fields (class="money") show live comma formatting right
   // in the field ("$1,850,000") — a plain <input type="number"> can't do
   // this itself (a number input strips anything that isn't a numeral), so

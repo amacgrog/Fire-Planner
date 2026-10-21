@@ -1,5 +1,5 @@
-// Test-only counters and switches the engine reads or bumps; the window.__test_* hooks in main.js set them.
-// Kept in one object so the engine does not own test state. No DOM access.
+// Test-only counters and switches the engine reads or bumps; the window.__test_* hooks that set and read them are
+// installed by src/us/ui/install-test-hooks.js. Kept in one object so the engine does not own test state. No DOM access.
 export const testHooks = {
   irmaaInYearCalls: 0, // how many times healthcareCost priced an in-year appeal candidate
   inhTakeCount: 0, // takeInherited calls that get past the null gate

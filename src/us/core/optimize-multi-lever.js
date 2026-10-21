@@ -1,4 +1,4 @@
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { state } from '../../shared/core/store.js';
 import { optimizerState } from './optimizer-state.js';
 import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from './roth-per-year.js';

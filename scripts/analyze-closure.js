@@ -8,6 +8,7 @@
 // A "unit" is one top-level statement of the IIFE in src/<country>/main.js (a function, a class, a
 // let/const/var statement, or a side-effect statement such as an event-listener registration).
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const espree = require('espree');
 const eslintScope = require('eslint-scope');
@@ -20,6 +21,10 @@ const DOM_GLOBALS = new Set([
   'CustomEvent', 'Event', 'FileReader', 'Image', 'XMLSerializer', 'DOMParser', 'MutationObserver',
   'ResizeObserver', 'IntersectionObserver', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'Element', 'Node', 'self', 'top',
 ]);
+// A DOM method called on an element (core/ code calls none: tests/core_purity.js and scripts/lib/regroup.js read this).
+const DOM_METHODS = /\.(addEventListener|removeEventListener|setSelectionRange|appendChild|removeChild|setAttribute|removeAttribute|querySelector|querySelectorAll|classList|innerHTML|textContent|getBoundingClientRect)\b/;
+// Code without its comments, for the DOM_METHODS and import-source text checks (a `//` after `:` is kept, for URLs).
+const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 // Names every JS host has (Math, Object, setTimeout, ...); anything else that is free is "unknown".
 const KNOWN_GLOBALS = new Set(Object.getOwnPropertyNames(globalThis));
 
@@ -102,6 +107,19 @@ function stronglyConnected(units) {
   };
   for (const u of units) if (!meta.has(u)) visit(u);
   return components;
+}
+
+// Statement units have no name, so their label is a hash of their normalized text (whitespace runs
+// collapsed to one space, trimmed): it survives edits elsewhere and reformatting. __setLabelHash is a
+// test hook (it returns a function that restores the real hash).
+const sha1Hex = (text) => crypto.createHash('sha1').update(text).digest('hex');
+let labelHash = sha1Hex;
+const normalizeStatement = (text) => text.replace(/\s+/g, ' ').trim();
+const statementLabel = (text) => 'stmt:' + labelHash(normalizeStatement(text)).slice(0, 8);
+function __setLabelHash(fn) {
+  const previous = labelHash;
+  labelHash = fn;
+  return () => { labelHash = previous; };
 }
 
 function analyze(code) {
@@ -214,7 +232,28 @@ function analyze(code) {
     }
   }
 
-  const label = (u) => (u.names.length ? u.names.join(', ') : `statement@${u.startLine}`);
+  // Statement labels: hash of the normalized text; a repeat inside one scope (a shared region, or the
+  // code outside regions) gets #2, #3; the same label in two scopes, or two texts with one hash prefix, throws.
+  const prefixOwner = new Map(); // bare label -> { text, line }
+  const seenInScope = new Map(); // scope -> Map(bare label -> count)
+  const taken = new Map(); // final label -> line
+  for (const u of units) {
+    if (u.names.length) { u.label = u.names.join(', '); continue; }
+    const text = normalizeStatement(code.slice(u.node.range[0], u.node.range[1]));
+    const bare = statementLabel(text);
+    const owner = prefixOwner.get(bare);
+    if (owner && owner.text !== text) throw new Error(`statement label collision: ${bare} at lines ${owner.line} and ${u.startLine}`);
+    if (!owner) prefixOwner.set(bare, { text, line: u.startLine });
+    const scope = u.region ? `region:${u.region.startLine}` : 'outside';
+    if (!seenInScope.has(scope)) seenInScope.set(scope, new Map());
+    const counts = seenInScope.get(scope);
+    const n = (counts.get(bare) || 0) + 1;
+    counts.set(bare, n);
+    u.label = n === 1 ? bare : `${bare}#${n}`;
+    if (taken.has(u.label)) throw new Error(`duplicate statement label: ${u.label} at lines ${taken.get(u.label)} and ${u.startLine}`);
+    taken.set(u.label, u.startLine);
+  }
+  const label = (u) => u.label;
   const components = stronglyConnected(units);
   return {
     units: units.map((u) => ({
@@ -236,6 +275,7 @@ function analyze(code) {
       declaredIn: label(m.unit),
       line: m.unit.startLine,
       writers: m.writers.map(label).sort(),
+      writerLines: Object.fromEntries(m.writers.map((w) => [label(w), w.startLine])),
     })),
     cycles: components.filter((c) => c.length > 1).map((c) => c.map(label).sort()),
     order: components.map((c) => c.map(label).sort()),
@@ -281,7 +321,7 @@ function render(model, title) {
   out.push('| name | declared (line) | region | written by |', '|---|---|---|---|');
   for (const m of model.mutables) {
     const owner = byLabel.get(m.declaredIn);
-    out.push(`| \`${m.name}\` | ${m.line} | ${owner.region || '-'} | ${m.writers.join(', ')} |`);
+    out.push(`| \`${m.name}\` | ${m.line} | ${owner.region || '-'} | ${m.writers.map((w) => (w.startsWith('stmt:') ? `${w} (line ${m.writerLines[w]})` : w)).join(', ')} |`);
   }
   out.push('');
 
@@ -336,7 +376,7 @@ function domGlobalsUsed(code) {
     .map((ref) => ({ name: ref.identifier.name, line: ref.identifier.loc.start.line }));
 }
 
-module.exports = { analyze, render, undeclaredNames, domGlobalsUsed };
+module.exports = { analyze, render, undeclaredNames, domGlobalsUsed, statementLabel, __setLabelHash, DOM_GLOBALS, DOM_METHODS, stripComments };
 
 if (require.main === module) {
   const root = path.join(__dirname, '..');

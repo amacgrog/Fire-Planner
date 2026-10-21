@@ -1,3 +1,5 @@
+// Theme-aware chart colors
+
   export function isDarkTheme() {
     return document.documentElement.getAttribute('data-theme') === 'dark';
   }

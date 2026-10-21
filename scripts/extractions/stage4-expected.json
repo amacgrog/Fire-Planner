@@ -1,0 +1,906 @@
+{
+  "base": "9405d96",
+  "adhocBaseline": {
+    "test_apply_optimizer_schedule.js": 0,
+    "test_children.js": 0,
+    "test_contribution_limits.js": 0,
+    "test_dynamic_lists.js": 0,
+    "test_income_streams.js": 0,
+    "test_info_tips.js": 0,
+    "test_inherited_accounts.js": 0,
+    "test_irmaa_appeal.js": 0,
+    "test_live_withdrawal_mix.js": 0,
+    "test_lump_income.js": 0,
+    "test_mobile_category_rail.js": 0,
+    "test_multi_lever_optimizer.js": 0,
+    "test_roth_optimizer_per_year.js": 0,
+    "test_rule55_sepp_fields.js": 0,
+    "test_self_employment.js": 0,
+    "test_spending_and_fi_widgets.js": 0,
+    "test_ss_before_retirement_warning.js": 0,
+    "test_state_notes.js": 0,
+    "test_wizard_accounts.js": 0
+  },
+  "batches": {
+    "0": {
+      "extractDryRun": [
+        "[dry run] batch 0: 22 modules; units moved: us 69, canada 67",
+        "regions removed: 15-renderPlanHeadline, activeCategory, block",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, defaults, housingForYear, runProjection, taxFor",
+        "wiring functions: addChildrenList, wireWizardCheckboxes, wireCategoryRail, wireInfoBubble, wireInputGestures, installSharedTestHooks, loadSidebarPreference, wireSidebarCollapse, wireTableFocus, wireWizard, wireWizardDismiss, addChildrenList, addSocialSecurityWarnings, wireWizardCheckboxes"
+      ],
+      "extractApply": [
+        "batch 0: 22 modules; units moved: us 69, canada 67",
+        "regions removed: 15-renderPlanHeadline, activeCategory, block",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, defaults, housingForYear, runProjection, taxFor",
+        "wiring functions: addChildrenList, wireWizardCheckboxes, wireCategoryRail, wireInfoBubble, wireInputGestures, installSharedTestHooks, loadSidebarPreference, wireSidebarCollapse, wireTableFocus, wireWizard, wireWizardDismiss, addChildrenList, addSocialSecurityWarnings, wireWizardCheckboxes"
+      ],
+      "modules": 22,
+      "unitsMoved": {
+        "us": 69,
+        "canada": 67
+      },
+      "regionsRemoved": [
+        "15-renderPlanHeadline",
+        "activeCategory",
+        "block"
+      ],
+      "seamNames": [
+        "BUCKET_MODE",
+        "BUCKET_STEP",
+        "DYN",
+        "ESTIMATE_ALWAYS_IDS",
+        "ESTIMATE_GATED_GROUPS",
+        "FIELDS",
+        "STANDARD_MODE",
+        "TAXABLE_BASIS_KEY",
+        "analyzeShortfallDrivers",
+        "defaults",
+        "housingForYear",
+        "runProjection",
+        "taxFor"
+      ],
+      "wiringFunctions": [
+        "addChildrenList",
+        "wireWizardCheckboxes",
+        "wireCategoryRail",
+        "wireInfoBubble",
+        "wireInputGestures",
+        "installSharedTestHooks",
+        "loadSidebarPreference",
+        "wireSidebarCollapse",
+        "wireTableFocus",
+        "wireWizard",
+        "wireWizardDismiss",
+        "addChildrenList",
+        "addSocialSecurityWarnings",
+        "wireWizardCheckboxes"
+      ],
+      "closureNames": {
+        "line": "closure_names OK (213 files)",
+        "count": 213
+      },
+      "corePurity": {
+        "line": "core_purity OK (156 core files)",
+        "count": 156
+      },
+      "uiCycles": {
+        "line": "ui_cycles OK (0 cycles)",
+        "count": 0,
+        "cycles": {
+          "us": [],
+          "canada": []
+        }
+      },
+      "mainJsLines": {
+        "us": 3595,
+        "canada": 3125
+      },
+      "comparePrevious": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 219 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 144 statements identical"
+        ],
+        "ordered": {
+          "us": 219,
+          "canada": 144
+        }
+      },
+      "compareBase": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 219 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 144 statements identical"
+        ],
+        "ordered": {
+          "us": 219,
+          "canada": 144
+        }
+      },
+      "newDashModules": [],
+      "adhoc": {
+        "test_apply_optimizer_schedule.js": 0,
+        "test_children.js": 0,
+        "test_contribution_limits.js": 0,
+        "test_dynamic_lists.js": 0,
+        "test_income_streams.js": 0,
+        "test_info_tips.js": 0,
+        "test_inherited_accounts.js": 0,
+        "test_irmaa_appeal.js": 0,
+        "test_live_withdrawal_mix.js": 0,
+        "test_lump_income.js": 0,
+        "test_mobile_category_rail.js": 0,
+        "test_multi_lever_optimizer.js": 0,
+        "test_roth_optimizer_per_year.js": 0,
+        "test_rule55_sepp_fields.js": 0,
+        "test_self_employment.js": 0,
+        "test_spending_and_fi_widgets.js": 0,
+        "test_ss_before_retirement_warning.js": 0,
+        "test_state_notes.js": 0,
+        "test_wizard_accounts.js": 0
+      },
+      "fullSuiteLast": "exit 0",
+      "scratchCommit": "e381200b1ae51bd73af7449d715c53049518294f"
+    },
+    "1": {
+      "extractDryRun": [
+        "[dry run] batch 1: 11 modules; units moved: us 22, canada 26",
+        "regions removed: 20-renderTable, 22-exportCsv",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, defaults, housingForYear, normalizeState, runProjection, taxFor",
+        "wiring functions: installTestHooks, wireExportButtons, loadSavedState, wireFirstRunBanner"
+      ],
+      "extractApply": [
+        "batch 1: 11 modules; units moved: us 22, canada 26",
+        "regions removed: 20-renderTable, 22-exportCsv",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, defaults, housingForYear, normalizeState, runProjection, taxFor",
+        "wiring functions: installTestHooks, wireExportButtons, loadSavedState, wireFirstRunBanner"
+      ],
+      "modules": 11,
+      "unitsMoved": {
+        "us": 22,
+        "canada": 26
+      },
+      "regionsRemoved": [
+        "20-renderTable",
+        "22-exportCsv"
+      ],
+      "seamNames": [
+        "BUCKET_MODE",
+        "BUCKET_STEP",
+        "DYN",
+        "ESTIMATE_ALWAYS_IDS",
+        "ESTIMATE_GATED_GROUPS",
+        "FIELDS",
+        "STANDARD_MODE",
+        "TAXABLE_BASIS_KEY",
+        "analyzeShortfallDrivers",
+        "buildPrintReport",
+        "computeRothOptimizer",
+        "defaults",
+        "housingForYear",
+        "normalizeState",
+        "runProjection",
+        "taxFor"
+      ],
+      "wiringFunctions": [
+        "installTestHooks",
+        "wireExportButtons",
+        "loadSavedState",
+        "wireFirstRunBanner"
+      ],
+      "closureNames": {
+        "line": "closure_names OK (230 files)",
+        "count": 230
+      },
+      "corePurity": {
+        "line": "core_purity OK (156 core files)",
+        "count": 156
+      },
+      "uiCycles": {
+        "line": "ui_cycles OK (0 cycles)",
+        "count": 0,
+        "cycles": {
+          "us": [],
+          "canada": []
+        }
+      },
+      "mainJsLines": {
+        "us": 2809,
+        "canada": 2363
+      },
+      "comparePrevious": {
+        "lines": [
+          "Planner_US.html: base 791 statements, head 791; missing from head 0, new in head 0",
+          "ordered: 193 statements identical",
+          "Planner_Canada.html: base 512 statements, head 512; missing from head 0, new in head 0",
+          "ordered: 118 statements identical"
+        ],
+        "ordered": {
+          "us": 193,
+          "canada": 118
+        }
+      },
+      "compareBase": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 220 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 145 statements identical"
+        ],
+        "ordered": {
+          "us": 220,
+          "canada": 145
+        }
+      },
+      "newDashModules": [],
+      "adhoc": {
+        "test_apply_optimizer_schedule.js": 0,
+        "test_children.js": 0,
+        "test_contribution_limits.js": 0,
+        "test_dynamic_lists.js": 0,
+        "test_income_streams.js": 0,
+        "test_info_tips.js": 0,
+        "test_inherited_accounts.js": 0,
+        "test_irmaa_appeal.js": 0,
+        "test_live_withdrawal_mix.js": 0,
+        "test_lump_income.js": 0,
+        "test_mobile_category_rail.js": 0,
+        "test_multi_lever_optimizer.js": 0,
+        "test_roth_optimizer_per_year.js": 0,
+        "test_rule55_sepp_fields.js": 0,
+        "test_self_employment.js": 0,
+        "test_spending_and_fi_widgets.js": 0,
+        "test_ss_before_retirement_warning.js": 0,
+        "test_state_notes.js": 0,
+        "test_wizard_accounts.js": 0
+      },
+      "fullSuiteLast": "exit 0",
+      "scratchCommit": "316380379d25a4fb88d7c38b1b641aec77f5567d"
+    },
+    "2": {
+      "extractDryRun": [
+        "[dry run] batch 2: 1 modules; units moved: us 4, canada 4",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, defaults, housingForYear, normalizeState, runProjection, taxFor",
+        "wiring functions: wireAutosave"
+      ],
+      "extractApply": [
+        "batch 2: 1 modules; units moved: us 4, canada 4",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, defaults, housingForYear, normalizeState, runProjection, taxFor",
+        "wiring functions: wireAutosave"
+      ],
+      "modules": 1,
+      "unitsMoved": {
+        "us": 4,
+        "canada": 4
+      },
+      "regionsRemoved": [],
+      "seamNames": [
+        "BUCKET_MODE",
+        "BUCKET_STEP",
+        "DYN",
+        "ESTIMATE_ALWAYS_IDS",
+        "ESTIMATE_GATED_GROUPS",
+        "FIELDS",
+        "STANDARD_MODE",
+        "TAXABLE_BASIS_KEY",
+        "analyzeShortfallDrivers",
+        "buildPrintReport",
+        "computeRothOptimizer",
+        "defaults",
+        "housingForYear",
+        "normalizeState",
+        "runProjection",
+        "taxFor"
+      ],
+      "wiringFunctions": [
+        "wireAutosave"
+      ],
+      "closureNames": {
+        "line": "closure_names OK (231 files)",
+        "count": 231
+      },
+      "corePurity": {
+        "line": "core_purity OK (156 core files)",
+        "count": 156
+      },
+      "uiCycles": {
+        "line": "ui_cycles OK (0 cycles)",
+        "count": 0,
+        "cycles": {
+          "us": [],
+          "canada": []
+        }
+      },
+      "mainJsLines": {
+        "us": 2784,
+        "canada": 2338
+      },
+      "comparePrevious": {
+        "lines": [
+          "Planner_US.html: base 790 statements, head 790; missing from head 0, new in head 0",
+          "ordered: 188 statements identical",
+          "Planner_Canada.html: base 509 statements, head 509; missing from head 0, new in head 0",
+          "ordered: 110 statements identical"
+        ],
+        "ordered": {
+          "us": 188,
+          "canada": 110
+        }
+      },
+      "compareBase": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 220 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 145 statements identical"
+        ],
+        "ordered": {
+          "us": 220,
+          "canada": 145
+        }
+      },
+      "newDashModules": [],
+      "adhoc": {
+        "test_apply_optimizer_schedule.js": 0,
+        "test_children.js": 0,
+        "test_contribution_limits.js": 0,
+        "test_dynamic_lists.js": 0,
+        "test_income_streams.js": 0,
+        "test_info_tips.js": 0,
+        "test_inherited_accounts.js": 0,
+        "test_irmaa_appeal.js": 0,
+        "test_live_withdrawal_mix.js": 0,
+        "test_lump_income.js": 0,
+        "test_mobile_category_rail.js": 0,
+        "test_multi_lever_optimizer.js": 0,
+        "test_roth_optimizer_per_year.js": 0,
+        "test_rule55_sepp_fields.js": 0,
+        "test_self_employment.js": 0,
+        "test_spending_and_fi_widgets.js": 0,
+        "test_ss_before_retirement_warning.js": 0,
+        "test_state_notes.js": 0,
+        "test_wizard_accounts.js": 0
+      },
+      "fullSuiteLast": "exit 0",
+      "scratchCommit": "a8bba1a4b45e475588673c081c7a13cd94475108"
+    },
+    "3": {
+      "extractDryRun": [
+        "[dry run] batch 3: 13 modules; units moved: us 50, canada 50",
+        "regions removed: 03-hadSavedState, 04-isEstimateCountable, 17-renderDecisionQuestionPreviews, 18-computeSensitivity, 19-layoutSankeyColumn, renderTornadoChart",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DECISION_QUESTIONS, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, SENSITIVITY_LEVERS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, computeSankeyFlow, defaults, housingForYear, normalizeState, render, renderDecisionCompareTable, runProjection, taxFor",
+        "wiring functions: wireDecisionCard, wireDecisionQuestions, wireEstimateBadges, wireEstimateReview, wireMobileTabs, wirePlanStatusBar, wireSankeyCard, wireSankeyAge, wireSensitivityCard, wireUnusualWarnings"
+      ],
+      "extractApply": [
+        "batch 3: 13 modules; units moved: us 50, canada 50",
+        "regions removed: 03-hadSavedState, 04-isEstimateCountable, 17-renderDecisionQuestionPreviews, 18-computeSensitivity, 19-layoutSankeyColumn, renderTornadoChart",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DECISION_QUESTIONS, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, SENSITIVITY_LEVERS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, computeSankeyFlow, defaults, housingForYear, normalizeState, render, renderDecisionCompareTable, runProjection, taxFor",
+        "wiring functions: wireDecisionCard, wireDecisionQuestions, wireEstimateBadges, wireEstimateReview, wireMobileTabs, wirePlanStatusBar, wireSankeyCard, wireSankeyAge, wireSensitivityCard, wireUnusualWarnings"
+      ],
+      "modules": 13,
+      "unitsMoved": {
+        "us": 50,
+        "canada": 50
+      },
+      "regionsRemoved": [
+        "03-hadSavedState",
+        "04-isEstimateCountable",
+        "17-renderDecisionQuestionPreviews",
+        "18-computeSensitivity",
+        "19-layoutSankeyColumn",
+        "renderTornadoChart"
+      ],
+      "seamNames": [
+        "BUCKET_MODE",
+        "BUCKET_STEP",
+        "DECISION_QUESTIONS",
+        "DYN",
+        "ESTIMATE_ALWAYS_IDS",
+        "ESTIMATE_GATED_GROUPS",
+        "FIELDS",
+        "SENSITIVITY_LEVERS",
+        "STANDARD_MODE",
+        "TAXABLE_BASIS_KEY",
+        "analyzeShortfallDrivers",
+        "buildPrintReport",
+        "computeRothOptimizer",
+        "computeSankeyFlow",
+        "defaults",
+        "housingForYear",
+        "normalizeState",
+        "render",
+        "renderDecisionCompareTable",
+        "runProjection",
+        "taxFor"
+      ],
+      "wiringFunctions": [
+        "wireDecisionCard",
+        "wireDecisionQuestions",
+        "wireEstimateBadges",
+        "wireEstimateReview",
+        "wireMobileTabs",
+        "wirePlanStatusBar",
+        "wireSankeyCard",
+        "wireSankeyAge",
+        "wireSensitivityCard",
+        "wireUnusualWarnings"
+      ],
+      "closureNames": {
+        "line": "closure_names OK (254 files)",
+        "count": 254
+      },
+      "corePurity": {
+        "line": "core_purity OK (160 core files)",
+        "count": 160
+      },
+      "uiCycles": {
+        "line": "ui_cycles OK (2 cycles)",
+        "count": 2,
+        "cycles": {
+          "us": [
+            [
+              "src/shared/ui/chart-view-mode.js",
+              "src/shared/ui/decision-questions.js",
+              "src/shared/ui/estimate-badges.js",
+              "src/shared/ui/estimate-review.js",
+              "src/shared/ui/mobile-view.js",
+              "src/shared/ui/plan-status-bar.js",
+              "src/shared/ui/sankey.js",
+              "src/shared/ui/tornado.js",
+              "src/shared/ui/unusual-warnings.js",
+              "src/us/ui/decision-questions.js",
+              "src/us/ui/render.js"
+            ]
+          ],
+          "canada": [
+            [
+              "src/canada/ui/decision-questions.js",
+              "src/canada/ui/render.js",
+              "src/shared/ui/chart-view-mode.js",
+              "src/shared/ui/decision-questions.js",
+              "src/shared/ui/estimate-badges.js",
+              "src/shared/ui/estimate-review.js",
+              "src/shared/ui/mobile-view.js",
+              "src/shared/ui/plan-status-bar.js",
+              "src/shared/ui/sankey.js",
+              "src/shared/ui/tornado.js",
+              "src/shared/ui/unusual-warnings.js"
+            ]
+          ]
+        }
+      },
+      "mainJsLines": {
+        "us": 1458,
+        "canada": 1027
+      },
+      "comparePrevious": {
+        "lines": [
+          "Planner_US.html: base 791 statements, head 791; missing from head 0, new in head 0",
+          "ordered: 188 statements identical",
+          "Planner_Canada.html: base 510 statements, head 510; missing from head 0, new in head 0",
+          "ordered: 110 statements identical"
+        ],
+        "ordered": {
+          "us": 188,
+          "canada": 110
+        }
+      },
+      "compareBase": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 220 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 145 statements identical"
+        ],
+        "ordered": {
+          "us": 220,
+          "canada": 145
+        }
+      },
+      "newDashModules": [],
+      "adhoc": {
+        "test_apply_optimizer_schedule.js": 0,
+        "test_children.js": 0,
+        "test_contribution_limits.js": 0,
+        "test_dynamic_lists.js": 0,
+        "test_income_streams.js": 0,
+        "test_info_tips.js": 0,
+        "test_inherited_accounts.js": 0,
+        "test_irmaa_appeal.js": 0,
+        "test_live_withdrawal_mix.js": 0,
+        "test_lump_income.js": 0,
+        "test_mobile_category_rail.js": 0,
+        "test_multi_lever_optimizer.js": 0,
+        "test_roth_optimizer_per_year.js": 0,
+        "test_rule55_sepp_fields.js": 0,
+        "test_self_employment.js": 0,
+        "test_spending_and_fi_widgets.js": 0,
+        "test_ss_before_retirement_warning.js": 0,
+        "test_state_notes.js": 0,
+        "test_wizard_accounts.js": 0
+      },
+      "fullSuiteLast": "exit 0",
+      "scratchCommit": "43e1aae44d4a6bb1a88af36e430c18e1407e7198"
+    },
+    "4": {
+      "extractDryRun": [
+        "[dry run] batch 4: 23 modules; units moved: us 89, canada 74",
+        "regions removed: 02-CHART_GROUPS, 21-writeStorageNow, 23-dynFieldHtml, 24-syncContributionControls, 25-setMcPathCount, 27-syncKeyboardInset, 28-wizardOverlay, 29-dismissFirstRunBanner, ids",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DECISION_QUESTIONS, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, SENSITIVITY_LEVERS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, computeSankeyFlow, defaults, housingForYear, mcpAccepts, mcpSchemaFor, normalizeState, render, renderDecisionCompareTable, runProjection, syncControls, taxFor",
+        "wiring functions: wireChartControls, wirePensionButtons, wireRothOptimizerControls, wireSensitivityLevers, wireDollarModeDropdown, wireChartToolbar, wireDisclaimerLink, wireDynamicListEditing, wireFieldListeners, wireFieldSearch, wireHeadlineTiles, wireHousingButtons, wireLayoutListeners, registerMcpTools, wireScenarios, wireThemeToggle, wireUndoButton, wireWizardClose, wireChartViewButtons, wireChartShiftButtons, wireContributionButtons, wireFilingStatusButtons, wirePensionButtons, wireRothOptimizerControls, wireSensitivityLevers"
+      ],
+      "extractApply": [
+        "batch 4: 23 modules; units moved: us 89, canada 74",
+        "regions removed: 02-CHART_GROUPS, 21-writeStorageNow, 23-dynFieldHtml, 24-syncContributionControls, 25-setMcPathCount, 27-syncKeyboardInset, 28-wizardOverlay, 29-dismissFirstRunBanner, ids",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DECISION_QUESTIONS, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, SENSITIVITY_LEVERS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, computeSankeyFlow, defaults, housingForYear, mcpAccepts, mcpSchemaFor, normalizeState, render, renderDecisionCompareTable, runProjection, syncControls, taxFor",
+        "wiring functions: wireChartControls, wirePensionButtons, wireRothOptimizerControls, wireSensitivityLevers, wireDollarModeDropdown, wireChartToolbar, wireDisclaimerLink, wireDynamicListEditing, wireFieldListeners, wireFieldSearch, wireHeadlineTiles, wireHousingButtons, wireLayoutListeners, registerMcpTools, wireScenarios, wireThemeToggle, wireUndoButton, wireWizardClose, wireChartViewButtons, wireChartShiftButtons, wireContributionButtons, wireFilingStatusButtons, wirePensionButtons, wireRothOptimizerControls, wireSensitivityLevers"
+      ],
+      "modules": 23,
+      "unitsMoved": {
+        "us": 89,
+        "canada": 74
+      },
+      "regionsRemoved": [
+        "02-CHART_GROUPS",
+        "21-writeStorageNow",
+        "23-dynFieldHtml",
+        "24-syncContributionControls",
+        "25-setMcPathCount",
+        "27-syncKeyboardInset",
+        "28-wizardOverlay",
+        "29-dismissFirstRunBanner",
+        "ids"
+      ],
+      "seamNames": [
+        "BUCKET_MODE",
+        "BUCKET_STEP",
+        "DECISION_QUESTIONS",
+        "DYN",
+        "ESTIMATE_ALWAYS_IDS",
+        "ESTIMATE_GATED_GROUPS",
+        "FIELDS",
+        "SENSITIVITY_LEVERS",
+        "STANDARD_MODE",
+        "TAXABLE_BASIS_KEY",
+        "analyzeShortfallDrivers",
+        "buildPrintReport",
+        "computeRothOptimizer",
+        "computeSankeyFlow",
+        "defaults",
+        "housingForYear",
+        "mcpAccepts",
+        "mcpSchemaFor",
+        "normalizeState",
+        "render",
+        "renderDecisionCompareTable",
+        "runProjection",
+        "syncControls",
+        "taxFor"
+      ],
+      "wiringFunctions": [
+        "wireChartControls",
+        "wirePensionButtons",
+        "wireRothOptimizerControls",
+        "wireSensitivityLevers",
+        "wireDollarModeDropdown",
+        "wireChartToolbar",
+        "wireDisclaimerLink",
+        "wireDynamicListEditing",
+        "wireFieldListeners",
+        "wireFieldSearch",
+        "wireHeadlineTiles",
+        "wireHousingButtons",
+        "wireLayoutListeners",
+        "registerMcpTools",
+        "wireScenarios",
+        "wireThemeToggle",
+        "wireUndoButton",
+        "wireWizardClose",
+        "wireChartViewButtons",
+        "wireChartShiftButtons",
+        "wireContributionButtons",
+        "wireFilingStatusButtons",
+        "wirePensionButtons",
+        "wireRothOptimizerControls",
+        "wireSensitivityLevers"
+      ],
+      "closureNames": {
+        "line": "closure_names OK (283 files)",
+        "count": 283
+      },
+      "corePurity": {
+        "line": "core_purity OK (164 core files)",
+        "count": 164
+      },
+      "uiCycles": {
+        "line": "ui_cycles OK (2 cycles)",
+        "count": 2,
+        "cycles": {
+          "us": [
+            [
+              "src/shared/ui/chart-view-mode.js",
+              "src/shared/ui/decision-questions.js",
+              "src/shared/ui/estimate-badges.js",
+              "src/shared/ui/estimate-review.js",
+              "src/shared/ui/mobile-view.js",
+              "src/shared/ui/plan-status-bar.js",
+              "src/shared/ui/sankey.js",
+              "src/shared/ui/tornado.js",
+              "src/shared/ui/unusual-warnings.js",
+              "src/us/ui/decision-questions.js",
+              "src/us/ui/render.js"
+            ]
+          ],
+          "canada": [
+            [
+              "src/canada/ui/decision-questions.js",
+              "src/canada/ui/render.js",
+              "src/shared/ui/chart-view-mode.js",
+              "src/shared/ui/decision-questions.js",
+              "src/shared/ui/estimate-badges.js",
+              "src/shared/ui/estimate-review.js",
+              "src/shared/ui/mobile-view.js",
+              "src/shared/ui/plan-status-bar.js",
+              "src/shared/ui/sankey.js",
+              "src/shared/ui/tornado.js",
+              "src/shared/ui/unusual-warnings.js"
+            ]
+          ]
+        }
+      },
+      "mainJsLines": {
+        "us": 496,
+        "canada": 183
+      },
+      "comparePrevious": {
+        "lines": [
+          "Planner_US.html: base 794 statements, head 794; missing from head 0, new in head 0",
+          "ordered: 181 statements identical",
+          "Planner_Canada.html: base 513 statements, head 513; missing from head 0, new in head 0",
+          "ordered: 103 statements identical"
+        ],
+        "ordered": {
+          "us": 181,
+          "canada": 103
+        }
+      },
+      "compareBase": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 220 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 145 statements identical"
+        ],
+        "ordered": {
+          "us": 220,
+          "canada": 145
+        }
+      },
+      "newDashModules": [
+        "src/shared/ui/undo-2.js",
+        "src/shared/ui/wizard-2.js"
+      ],
+      "adhoc": {
+        "test_apply_optimizer_schedule.js": 0,
+        "test_children.js": 0,
+        "test_contribution_limits.js": 0,
+        "test_dynamic_lists.js": 0,
+        "test_income_streams.js": 0,
+        "test_info_tips.js": 0,
+        "test_inherited_accounts.js": 0,
+        "test_irmaa_appeal.js": 0,
+        "test_live_withdrawal_mix.js": 0,
+        "test_lump_income.js": 0,
+        "test_mobile_category_rail.js": 0,
+        "test_multi_lever_optimizer.js": 0,
+        "test_roth_optimizer_per_year.js": 0,
+        "test_rule55_sepp_fields.js": 0,
+        "test_self_employment.js": 0,
+        "test_spending_and_fi_widgets.js": 0,
+        "test_ss_before_retirement_warning.js": 0,
+        "test_state_notes.js": 0,
+        "test_wizard_accounts.js": 0
+      },
+      "fullSuiteLast": "exit 0",
+      "scratchCommit": "6ddaee6d515a673d422a8a13be4126fd74c3a474"
+    },
+    "5": {
+      "extractDryRun": [
+        "[dry run] batch 5: 2 modules; units moved: us 67, canada 1",
+        "regions removed: 26-setChartView",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DECISION_QUESTIONS, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, SENSITIVITY_LEVERS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, computeSankeyFlow, defaults, housingForYear, mcpAccepts, mcpSchemaFor, normalizeState, render, renderDecisionCompareTable, runProjection, syncControls, taxFor",
+        "wiring functions: wireResetButton, installTestHooks"
+      ],
+      "extractApply": [
+        "batch 5: 2 modules; units moved: us 67, canada 1",
+        "regions removed: 26-setChartView",
+        "seam names: BUCKET_MODE, BUCKET_STEP, DECISION_QUESTIONS, DYN, ESTIMATE_ALWAYS_IDS, ESTIMATE_GATED_GROUPS, FIELDS, SENSITIVITY_LEVERS, STANDARD_MODE, TAXABLE_BASIS_KEY, analyzeShortfallDrivers, buildPrintReport, computeRothOptimizer, computeSankeyFlow, defaults, housingForYear, mcpAccepts, mcpSchemaFor, normalizeState, render, renderDecisionCompareTable, runProjection, syncControls, taxFor",
+        "wiring functions: wireResetButton, installTestHooks"
+      ],
+      "modules": 2,
+      "unitsMoved": {
+        "us": 67,
+        "canada": 1
+      },
+      "regionsRemoved": [
+        "26-setChartView"
+      ],
+      "seamNames": [
+        "BUCKET_MODE",
+        "BUCKET_STEP",
+        "DECISION_QUESTIONS",
+        "DYN",
+        "ESTIMATE_ALWAYS_IDS",
+        "ESTIMATE_GATED_GROUPS",
+        "FIELDS",
+        "SENSITIVITY_LEVERS",
+        "STANDARD_MODE",
+        "TAXABLE_BASIS_KEY",
+        "analyzeShortfallDrivers",
+        "buildPrintReport",
+        "computeRothOptimizer",
+        "computeSankeyFlow",
+        "defaults",
+        "housingForYear",
+        "mcpAccepts",
+        "mcpSchemaFor",
+        "normalizeState",
+        "render",
+        "renderDecisionCompareTable",
+        "runProjection",
+        "syncControls",
+        "taxFor"
+      ],
+      "wiringFunctions": [
+        "wireResetButton",
+        "installTestHooks"
+      ],
+      "closureNames": {
+        "line": "closure_names OK (285 files)",
+        "count": 285
+      },
+      "corePurity": {
+        "line": "core_purity OK (164 core files)",
+        "count": 164
+      },
+      "uiCycles": {
+        "line": "ui_cycles OK (2 cycles)",
+        "count": 2,
+        "cycles": {
+          "us": [
+            [
+              "src/shared/ui/chart-view-mode.js",
+              "src/shared/ui/decision-questions.js",
+              "src/shared/ui/estimate-badges.js",
+              "src/shared/ui/estimate-review.js",
+              "src/shared/ui/mobile-view.js",
+              "src/shared/ui/plan-status-bar.js",
+              "src/shared/ui/sankey.js",
+              "src/shared/ui/tornado.js",
+              "src/shared/ui/unusual-warnings.js",
+              "src/us/ui/decision-questions.js",
+              "src/us/ui/render.js"
+            ]
+          ],
+          "canada": [
+            [
+              "src/canada/ui/decision-questions.js",
+              "src/canada/ui/render.js",
+              "src/shared/ui/chart-view-mode.js",
+              "src/shared/ui/decision-questions.js",
+              "src/shared/ui/estimate-badges.js",
+              "src/shared/ui/estimate-review.js",
+              "src/shared/ui/mobile-view.js",
+              "src/shared/ui/plan-status-bar.js",
+              "src/shared/ui/sankey.js",
+              "src/shared/ui/tornado.js",
+              "src/shared/ui/unusual-warnings.js"
+            ]
+          ]
+        }
+      },
+      "mainJsLines": {
+        "us": 185,
+        "canada": 153
+      },
+      "comparePrevious": {
+        "lines": [
+          "Planner_US.html: base 736 statements, head 736; missing from head 0, new in head 0",
+          "ordered: 125 statements identical",
+          "Planner_Canada.html: base 460 statements, head 460; missing from head 0, new in head 0",
+          "ordered: 55 statements identical"
+        ],
+        "ordered": {
+          "us": 125,
+          "canada": 55
+        }
+      },
+      "compareBase": {
+        "lines": [
+          "Planner_US.html: base 816 statements, head 816; missing from head 0, new in head 0",
+          "ordered: 220 statements identical",
+          "Planner_Canada.html: base 538 statements, head 538; missing from head 0, new in head 0",
+          "ordered: 145 statements identical"
+        ],
+        "ordered": {
+          "us": 220,
+          "canada": 145
+        }
+      },
+      "newDashModules": [],
+      "adhoc": {
+        "test_apply_optimizer_schedule.js": 0,
+        "test_children.js": 0,
+        "test_contribution_limits.js": 0,
+        "test_dynamic_lists.js": 0,
+        "test_income_streams.js": 0,
+        "test_info_tips.js": 0,
+        "test_inherited_accounts.js": 0,
+        "test_irmaa_appeal.js": 0,
+        "test_live_withdrawal_mix.js": 0,
+        "test_lump_income.js": 0,
+        "test_mobile_category_rail.js": 0,
+        "test_multi_lever_optimizer.js": 0,
+        "test_roth_optimizer_per_year.js": 0,
+        "test_rule55_sepp_fields.js": 0,
+        "test_self_employment.js": 0,
+        "test_spending_and_fi_widgets.js": 0,
+        "test_ss_before_retirement_warning.js": 0,
+        "test_state_notes.js": 0,
+        "test_wizard_accounts.js": 0
+      },
+      "fullSuiteLast": "exit 0",
+      "scratchCommit": "fa25acd49cc261af0496b2257715ec156e6ffc6a"
+    }
+  },
+  "adhocAfter": {
+    "test_apply_optimizer_schedule.js": 0,
+    "test_children.js": 0,
+    "test_contribution_limits.js": 0,
+    "test_dynamic_lists.js": 0,
+    "test_income_streams.js": 0,
+    "test_info_tips.js": 0,
+    "test_inherited_accounts.js": 0,
+    "test_irmaa_appeal.js": 0,
+    "test_live_withdrawal_mix.js": 0,
+    "test_lump_income.js": 0,
+    "test_mobile_category_rail.js": 0,
+    "test_multi_lever_optimizer.js": 0,
+    "test_roth_optimizer_per_year.js": 0,
+    "test_rule55_sepp_fields.js": 0,
+    "test_self_employment.js": 0,
+    "test_spending_and_fi_widgets.js": 0,
+    "test_ss_before_retirement_warning.js": 0,
+    "test_state_notes.js": 0,
+    "test_wizard_accounts.js": 0
+  },
+  "endState": {
+    "sharedMarkers": {
+      "us": 0,
+      "canada": 0
+    },
+    "closureSummary": {
+      "us": "top-level units: 59 (0 functions, 0 const, 0 let, 0 var, 0 classes, 59 side-effect statements)",
+      "canada": "top-level units: 54 (0 functions, 0 const, 0 let, 0 var, 0 classes, 54 side-effect statements)"
+    },
+    "iifeStatements": {
+      "us": {
+        "total": 59,
+        "wiringCalls": 49,
+        "main": 10
+      },
+      "canada": {
+        "total": 54,
+        "wiringCalls": 45,
+        "main": 9
+      }
+    },
+    "mainJsLines": {
+      "us": 185,
+      "canada": 153
+    }
+  }
+}

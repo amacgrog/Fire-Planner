@@ -14,7 +14,9 @@ const value = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 const manifestFile = value('--manifest');
-const batch = Number(value('--batch'));
+// a missing --batch (null; undefined when it is the last argument) is a usage error, not batch 0
+const batchArg = value('--batch');
+const batch = batchArg === null || batchArg === undefined || !/^\d+$/.test(batchArg) ? NaN : Number(batchArg);
 if (!manifestFile || Number.isNaN(batch)) {
   console.error('usage: node scripts/extract-units.js --manifest <file> --batch <n> [--dry-run]');
   process.exit(2);
@@ -26,12 +28,13 @@ if (!modules.length) {
   process.exit(2);
 }
 const dryRun = args.includes('--dry-run');
+// Stage 4: the facade side of each seam name.
+const seamSides = manifest.seamSides || {};
 try {
-  const report = applyModules(root, modules, { dryRun, seam: manifest.seam || [] });
+  const report = applyModules(root, modules, { dryRun, seamSides });
   console.log(`${dryRun ? '[dry run] ' : ''}batch ${batch}: ${report.modules.length} modules; units moved: us ${report.moved.us}, canada ${report.moved.canada}`);
-  if (report.deletedRegions.length) console.log(`regions removed: ${report.deletedRegions.join(', ')}`);
   if (report.seam.us.length) console.log('seam names: ' + report.seam.us.join(', '));
-  report.warnings.forEach((w) => console.log(`warning: ${w}`));
+  if (report.wiring.length) console.log('wiring functions: ' + report.wiring.map((w) => w.name).join(', '));
 } catch (err) {
   console.error(`extraction failed, nothing was written: ${err.message}`);
   process.exit(1);

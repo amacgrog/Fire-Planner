@@ -1,7 +1,12 @@
 import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../shared/core/find-minimal-spending-cut.js';
-import { simulate } from '../../shared/core/monte-carlo-paths-2.js';
+import { simulate } from '../../shared/core/simulate.js';
 import { state } from '../../shared/core/store.js';
 
+  // "What's driving this" shortfall analysis: when the selected projection
+  // shows a depletion age, first tests "structural" single-lever changes tied
+  // to a specific input (LTC off, healthcare premiums off) by temporarily
+  // mutating state and re-running simulate(), then restoring state exactly —
+  // same mutate/simulate/restore pattern as simulateAtRealCagr().
   export function analyzeShortfallDrivers(selected) {
     if (!selected.depletedAge) return null;
     const structuralCandidates = [];

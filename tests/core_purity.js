@@ -1,17 +1,18 @@
 // Files under src/**/core/ must not touch the DOM or browser storage (spec section 3, rule 1): they have to be
 // importable in plain Node. Uses scope analysis, so comments, strings and local names that happen to be called
-// `window` or `document` do not count. Three more rules (spec section 14):
+// `window` or `document` do not count. Two more rules (spec section 14):
 //  - a core file calls no DOM method on an element it is handed (a global-free helper can still be DOM code);
-//  - a core file imports nothing from a ui/ directory (core code cannot depend on DOM code);
-//  - the same holds for the '#country/...' seam: a country's seam facades (core/seam-<name>.js) live in core/ and
-//    re-export core names only.
+//  - a core file imports nothing from a ui/ directory (core code cannot depend on DOM code), by a relative path or a
+//    '#country/ui/...' specifier (so a core/ seam facade re-exporting a ui/ module fails too).
+// That is all it checks. It reads only core/ files: it does not check that a ui/ module needs to be under ui/, nor that a
+// ui/ seam facade belongs there (stage 4 design section 5.2; the regroup tool moves facades by that rule).
+// DOM_METHODS and stripComments come from scripts/analyze-closure.js (shared with scripts/lib/regroup.js).
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { domGlobalsUsed } = require('../scripts/analyze-closure');
+const { domGlobalsUsed, DOM_METHODS, stripComments } = require('../scripts/analyze-closure');
 
 const root = path.join(__dirname, '..');
-const DOM_METHODS = /\.(addEventListener|removeEventListener|setSelectionRange|appendChild|removeChild|setAttribute|removeAttribute|querySelector|querySelectorAll|classList|innerHTML|textContent|getBoundingClientRect)\b/;
 const IMPORT_SOURCE = /(?:from|import)\s*['"]([^'"]+)['"]/g;
 
 function coreFiles(dir) {
@@ -28,7 +29,6 @@ function allJs(dir) {
     return entry.name.endsWith('.js') ? [full] : [];
   });
 }
-const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 const files = coreFiles(path.join(root, 'src'));
 assert.ok(files.length > 0, 'expected core/ files');

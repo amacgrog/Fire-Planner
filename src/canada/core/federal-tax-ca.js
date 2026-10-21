@@ -15,7 +15,7 @@ import { RAMQ_CAP } from './ramq-cap.js';
 import { dependentsInYear, NO_DEPENDENTS } from '../../shared/core/lists-and-children.js';
 import { CURRENT_YEAR } from '../../shared/core/spending-and-loans.js';
 import { state } from '../../shared/core/store.js';
-import { taxIndexFactor } from '../../shared/core/year-factors-2.js';
+import { taxIndexFactor } from '../../shared/core/tax-index-factor.js';
 
   export function federalTaxCA(income, yearIndex, extraCreditBase = 0, claimMinus = -1) {
     const factor = taxIndexFactor(yearIndex);
