@@ -86,9 +86,20 @@ Anti-goals (failures even if the tests are green):
   - The `taxIndexFactor` memo in `src/shared/core/projection/year-factors.js` (`taxFactorInflation`): keyed on the
     inflation value it was computed for, so it needs no clearing (`tests/tax_caches.js` pins this), but it is state a test
     must know about.
-  - Module-private scratch objects (`SOURCES_*`, `STREAM_OUT`, `LUMP_OUT`, `SE_*`, `BEN`, `PAY`, ...) that are overwritten on
-    every call. They hold nothing across calls by contract; the reset does not touch them (it cannot reach them), and the
-    stateless-engine work owns them.
+  - **Compiled caches keyed by a name or an object, private to their modules** (a reset cannot reach them):
+    `stateRuleCache` (`src/us/core/tax/state-tax.js`, keyed by state code), `medicaidLimitCache`
+    (`src/us/core/healthcare/medicaid-rules.js`), `PROVINCE_COMPILED` (`src/canada/core/tax/province-rules.js`), `RAMQ_CAP`
+    (`src/canada/core/tax/rules.js`, keyed by rule-object identity) and `taxFactorByYear` (the per-year array next to the
+    `taxIndexFactor` memo). They are correct as long as the rule tables they were compiled from do not change under them.
+    The tables (`STATE_RULES`, `PROVINCE_RULES`, `BENEFIT_RULES`) are exported plain objects that tests edit: `tests/state_mechanisms.js`
+    registers a synthetic row `R['zz' + n++]` per case, and `tests/tax_caches.js` flips `needsPerPerson` on the compiled rule
+    objects. Section 5.3 sets the rules for this.
+  - Module-private scratch objects (`SOURCES_*`, `STREAM_OUT`, `LUMP_OUT`, `SE_OUT`, `SE_HEALTH`, `INH_OUT`, `PAY`, `BEN`,
+    `OAS_RECOVERY`, `PROV_TAX`, ...), some of them exported. They hold nothing across calls by contract (read right after the
+    call that fills them: `getBenefits()` after `benefitsFor`, the `PROV_TAX` / `OAS_RECOVERY` reads in `tests/tax_brackets.js`),
+    so a test that reads them immediately is safe, and the reset does not touch them. The stateless-engine work owns them.
+  - `REVEAL_BY_ID` (`src/us/core/inputs/list-rules.js`): filled only by `main.js` at start-up, empty under Vitest; no numeric
+    path reads it.
 - **Time.** `currentYear` (US) and `CURRENT_YEAR` (Canada) come from the clock at import. Hand-computed tests need a fixed
   year; today's Playwright scripts pin the clock in the page. Vitest tests pin it too (section 5).
 
@@ -139,12 +150,20 @@ folder. A shared test file runs once per project and so exercises both countries
 name reads it from `process.env`-free context: the project sets a `define`d `COUNTRY` constant the helpers read, so a
 shared test can branch on the country without importing a seam.
 
-How the condition is passed (a Vite resolve condition versus the Node `--conditions` flag on the worker, through
-`execArgv`) depends on Vitest's current behavior and is the first thing the implementation verifies (section 8, step 1): the
-requirement is that `node --conditions=us`'s resolution and Vitest's resolve to the same file for every `#country/...`
-specifier (checkable: the test imports each seam facade and compares its exports to `tests/country_contract.js`'s list).
-If one mechanism fails, the other is the fallback; if neither works under Vitest, fall back to two config files and an
-npm script per country.
+`src/` is not in `node_modules`, so Vite inlines it and **Vite's resolver, not Node's `--conditions` flag, resolves the
+`#country/*` specifiers** (the flag affects only externalized dependencies). The mechanisms to try, strongest first, are:
+(a) `resolve.conditions` per project, which must repeat Vite's default conditions because a custom list replaces them
+(and, for server-side code, check whether `ssr.resolve.conditions` is the knob that applies); (b) a `resolve.alias` entry
+per project that maps `^#country/(.*)` straight to `src/<country>/$1.js` (independent of conditions, and it mirrors what
+`src/package.json` already says); (c) two config files and a script per country. The requirement is that every `#country/...`
+specifier resolves to the same file as `node --conditions=<c>` does (checkable: the test imports each seam facade and compares
+its exports to `tests/country_contract.js`'s list). The config is `vitest.config.mjs` (not `.js`: the root `package.json` is
+not `type: module`).
+
+The country reaches a shared test through `inject('country')` (a per-project `test.provide`), not a build-time `define`; a
+shared test file never imports a country module statically. Helpers that need one (`engine.js`'s US `ensureTestPlan` from
+`src/us/core/cliff-plan/planning.js`) load it by dynamic `import()` in the branch for that country, so the Canada project never
+loads a US module and the reverse.
 
 ### 5.3 State reset (the per-test world)
 
@@ -162,13 +181,24 @@ The reset assigns through the existing `assign…` functions and mutates the exp
 module's internals by another route. **`TEST_YEAR` is 2026**: the year most hand-computed tests assume (2026 tax tables).
 A test that needs another year calls `setTaxYear(y)`.
 
+**Rule tables and compiled caches.** `resetWorld()` records the key set of `STATE_RULES`, `PROVINCE_RULES` and `BENEFIT_RULES` the
+first time it runs in a file and deletes any key a test added since (it never rewrites a row, so a test must also restore a
+row it edited). The compiled caches are keyed by code, so: (1) a test that registers a synthetic row uses a code that has
+never been used in that file, from one file-level counter that is never restarted (`zz0`, `zz1`, ...), and no `it` restarts it;
+(2) a test that edits a compiled rule object or a table row restores it in `try/finally`, so a failing assertion cannot
+leave a dirty cache for the next test. These are conversion rules (section 7), and `tests/unit/helpers/rules.js` provides
+`withRuleRow(code, row, fn)` (register, run, delete in `finally`) and `withCompiledFlag(code, key, value, fn)`.
+
 Time: `CURRENT_YEAR` is a module-level constant read from the clock at import, in `src/shared/core/projection/year-factors.js`,
 so it exists in both planners; the US additionally has `currentYear` in `src/us/core/tax-year.js` (assignable, which the
 reset does through `assignCurrentYear`, and what `__test_setCurrentYear` does). Canada has no setter for its year. Both
 projects therefore pin the clock before any `src/` import: `clock.js`, the first `setupFiles` entry, calls
 `vi.setSystemTime(new Date(2026, 0, 1))` and imports nothing from `src/` (without fake timers enabled, `setSystemTime` mocks
 only `Date`, so timers are unaffected). `world.js` asserts `CURRENT_YEAR === TEST_YEAR` once per file, so a drift fails loudly.
-A test that needs a different `CURRENT_YEAR` (none known) sets the system time at the top of its own file before its imports,
+Pinning 2026 changes one old script's behavior: `tests/state_mechanisms.js` runs on the real year today (it calls
+`setYear(new Date().getFullYear())`); the converted suite uses the pinned year, which is the stable choice. Random numbers:
+`bootstrapReturnSeries` (`simulate.js`) uses `Math.random`, so an exact test never calls `runMonteCarlo` unseeded: it uses a
+`rowFn` or a seeded series. A test that needs a different `CURRENT_YEAR` (none known) sets the system time at the top of its own file before its imports,
 which the isolated module graph allows; a test that needs a different US year calls `setTaxYear(y)`.
 
 `setState(patch)` is `assignState(normalizeState(patch))`. `tests/legacy_balances.js` is CommonJS: `legacyToAccounts` is pure and a Vitest file may import it (Vitest loads CommonJS
@@ -222,21 +252,26 @@ jsdom, no browser mode).
   check is written out the same way, not turned into `toBe`; a `-0` failure from a `toBe` that replaced a `strictEqual` cannot
   occur, and one that replaced a looser check is the conversion's mistake, fixed by restoring the old comparison. If it
   exposes a real `-0`, it is reported, not hidden. A converted assertion keeps the tolerance of the original, no looser: if the old test compared with `Math.abs(a - b) <
-  0.005`, the new one does exactly that, written out; most use none.
+  0.005`, the new one does exactly that, written out; the four pilot suites use tolerances in places (`state_mechanisms` and `benefits` a `near` of 0.005, `qbi` 1e-9 and 1e-12), which are written out unchanged; `tax_caches` compares with `Object.is` only.
 - Hand-computed figures stay as the literals (or the hand-derivation) the original had. A converted test never computes its
   expected value from the code under test.
 - A test in `tests/unit/` that mentions `toBeCloseTo` fails a small scan (`tests/unit/shared/guard-exact.test.js`) so the rule survives.
-- **The reset guard** (my call, owner's requirement 2026-10-21: it must need no maintenance, in particular no allow-list), `tests/unit/shared/guard-reset.test.js`,
-  tests behavior, not source text. In each project: (1) in a fresh world, run a fixed sample of the scenarios in
-  `tests/snapshot_scenarios.js` (plain data; spread across standard, retirement-age shifts and historical paths, and, for the
-  US, with the cliff plan on) and record every output number; (2) dirty the world with a heavy different workload (a Monte
-  Carlo run, a historical run, the optimizer, a plan-changing state, a changed inflation and tax year); (3) call
-  `resetWorld()` and re-run (1). The outputs must be identical, compared exactly (`Object.is` per number). State that survives
-  the reset and changes a result fails the test; memos and scratch objects never change a result, so they need no list.
+- **The reset guard** (my call; owner's requirement 2026-10-21: it must need no maintenance, in particular no allow-list),
+  `tests/unit/shared/guard-reset.test.js`, tests behavior, not source text. In each project: (1) in a fresh world, run a
+  fixed sample of about 40 scenarios per country (their definitions come from `scenarios(isUS)` in `tests/snapshot_scenarios.js`,
+  loaded with `createRequire`, and their old-vocabulary patches through `legacyToAccounts`) and record every output number;
+  (2) dirty the world with a heavy different workload; (3) `resetWorld()` and re-run (1). The outputs must be identical,
+  compared exactly (`Object.is` per number). The guard needs determinism, not the snapshot hashes, so it runs the scenarios
+  through its own small runner (`tests/unit/helpers/scenario-runner.js`, with its own seeded series) rather than copying
+  `PAGE_RUNNER` from `tests/snapshot.js`, and `tests/snapshot.js` is not touched. **Dirtying must hit what a scenario run
+  does not overwrite on its own:** a swapped `state`, a changed US `currentYear`, a non-empty `optimizerState` override, a
+  populated `cliffPlanStore` and `cliffPlanCache`, non-zero `magiStats` / `planStats`, a changed inflation and a historical run.
   Pass or fail is this equality and nothing else. When it fails, the message also names the exported values of any `core/`
-  module (found by globbing `src/**/core/**/*.js` and importing each, no list) that differ from a fresh import, as a pointer
-  to the cause; that listing is diagnostic only and never fails the test by itself. The fix for a failure is a line in
-  `world.js`. Limit: it catches only a leak the sampled scenarios exercise; the sample is large to make that unlikely.
+  module (found by globbing `src/**/core/**/*.js` and importing each, no list) that differ from a fresh import, as a pointer to
+  the cause; that listing is diagnostic and never fails the test by itself. The fix for a failure is a line in `world.js`.
+  **Limits, stated plainly:** it catches only a leak that a sampled scenario exercises and that the scenarios do not overwrite on
+  their own; it cannot see the private compiled caches (the section 5.3 rules cover those instead); its runtime is measured in
+  step 1 (section 10).
 - `tests/unit/us/guard-normalize.test.js` asserts the US `normalizeState` imports in plain Node with no DOM (the section 3 wrinkle): a
   future `FIELDS` change that touches `document` at load fails here.
 
@@ -265,6 +300,9 @@ Procedure for each suite (a conversion is one commit):
    (`ok(desc, ...)`) or an `assert` call. Where the script loops over a grid and prints one line per case, the new suite uses
    `it.each` (one test per case); where it prints one line for a whole loop, one `it` with the loop's `expect`s. For a script
    that prints only a final count, count its `assert` calls once with a throwaway wrapper that is not committed.
+   Also: take `state` inside each test (a `const st = state` at file scope points at the object `resetWorld()` replaced), and
+   follow the rule-table rules of section 5.3. The stand-in for `__test_tax` is built per suite from the `core/` names that
+   suite uses; it never copies the hook object wholesale (Canada's contains `computeRothOptimizer`, a `ui/` import).
 2. Run old and new once against the same commit; the new suite's test count equals the old named-check count, and the
    commit message records both numbers.
 3. For a suite with a non-trivial number of cases, a mutation check: change one constant in the code under test (a bracket
@@ -312,7 +350,8 @@ The final review of a conversion asks one question: can the old script's every c
 
 ## 11. Risks
 
-- **Alias resolution under Vitest** (section 5.2): the one structural unknown; step 1 exists to answer it first.
+- **Alias resolution under Vitest** (section 5.2): the one structural unknown, with three ordered mechanisms; step 1 exists to answer it first. Also unverified until then: `vi.setSystemTime` without fake timers taking effect before `src/` loads, importing CommonJS test helpers (`createRequire` is the planned way), and Vitest 5's Node range.
+- **Stale compiled caches:** the main way a converted suite can silently differ from its old script (section 5.3 rules; the reset guard cannot see them).
 - **Hidden order dependence:** a converted suite that relied on the page's start-up state (the `render()` that ran before
   the hook was called) will pass or fail differently from the old script. The conversion procedure's step 2 (same counts,
   same commit) catches the failure; the cause is usually state the old page had and the world reset does not.
