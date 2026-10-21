@@ -38,7 +38,7 @@ holds it. See `README.md` for the full user-facing feature list.
 - `docs/superpowers/inventory/` — the generated inventory and module map, the region maps
   (`stage2-region-map.md`, `stage3-region-map.md`, `stage4-region-map.md`: which module holds each
   old `@@shared` region's units) and `stage4-open-items.md` (the deferred limits and cleanups of stage 4).
-- `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: `store.js` (`state`, `mode`, `scenarios`, `compareIds`), `chart-prefs.js` (the chart display preferences), `tax-factors.js` (`histTaxFactors`). `src/shared/ui/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
+- `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: at its top the state modules `store.js` (`state`, `mode`, `scenarios`, `compareIds`), `chart-prefs.js` (the chart display preferences) and `tax-factors.js` (`histTaxFactors`); every other module is in a topic folder (see "Where new code goes"). `src/shared/ui/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
 - `src/shared/styles/styles.css` and `src/shared/partials/*.html` — the stylesheet and the shared HTML partials. Edit them there:
   `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
 - `scripts/plan-extraction.js` + `scripts/extract-units.js` (code in `scripts/lib/extraction-plan.js`, `extract-units.js`,
@@ -753,7 +753,9 @@ nothing needs converting by hand.
   that use them import them. **To change one, call its `assign<Name>` function** (`assignState`,
   `assignMode`, `assignLogScale`, ...): assigning to an import is a build error (`Cannot assign to import`). The names are
   `assign…` because `set…` is taken by UI handlers (`setMode`, `setChartView`) that do more than assign. A new binding that
-  several modules write belongs in one of these modules (or a new one next to them).
+  several modules write belongs in one of these modules (or a new one next to them, at the top of `core/`).
+  The state modules sit at the top of their `core/`, beside the seam facades: shared `store.js`, `chart-prefs.js`, `tax-factors.js`;
+  US `tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`. Every other `core/` module is in a topic folder.
 - **US-only state** is in `src/us/core/`: `cliffPlanStore` (`.plan`, `.key`, `.report`, `.forState`, `.year`, `.overrides`,
   `.computed`, `.computes`: the fields the "Per-year solver and the cliff plan" bullet above calls `cliffPlan`, `cliffPlanKey`,
   `cliffPlanReport`, `cliffPlanState`, `cliffPlanYear`, `cliffPlanOverrides`, `cliffPlanComputed`, `cliffPlanComputes`),
@@ -779,9 +781,10 @@ nothing needs converting by hand.
   calls a DOM method on an element, or imports a `ui/` module, and under `ui/` otherwise. `tests/core_purity.js` checks only that
   `core/` files reference no DOM (browser globals, DOM method calls) and import nothing from `ui/`; it does not check that a
   module under `ui/` needs to be there. `ui/`
-  modules are named and grouped by topic (`theme.js`, `sidebar.js`, `wizard.js`, `info-bubble.js`, `undo.js`, `mobile-view.js`,
-  `scenarios.js`, `chart-controls.js`, `mcp-tools.js`, `src/us/ui/fields.js` for `FIELDS`, ...); many `core/` modules still hold one unit
-  (regrouping them is follow-up work). No module name ends in `-<digits>` (`tests/module_names.js`). Module files keep the two-space
+  modules are named by topic (`theme.js`, `sidebar.js`, `wizard.js`, `info-bubble.js`, `undo.js`, `mobile-view.js`,
+  `scenarios.js`, `chart-controls.js`, `mcp-tools.js`, `src/us/ui/fields.js` for `FIELDS`, ...). `core/` is split into topic folders
+  (the core regroup, 2026-10; see "Where new code goes") and a file is named by what it holds, not after its first unit;
+  `scripts/plan-regroup.js` (maps in `scripts/extractions/core-regroup-*.json`) and the regroup tool are how modules move. No module name ends in `-<digits>` (`tests/module_names.js`). Module files keep the two-space
   indentation they had inside the IIFE (the tools move text verbatim; do not reformat a module in a commit that also changes it). To find
   a unit: `grep -rn "function taxFor" src`, or the module map below.
 - **`main.js` is the entry point.** Each planner's `main.js` holds no declaration: an import block, then one IIFE that runs, in start-up
@@ -865,6 +868,31 @@ nothing needs converting by hand.
   requires the statements that are not declarations to run in the same order. Run both modes after any change that only moves code; a
   feature changes statements on purpose. The order of declaration initializers is not compared (the load-time guard covers `ui/`).
 
+## Where new code goes
+
+Code is placed by topic. Each `core/` has these folders (a folder exists only where the side has code for it; read them with
+`find src/*/core -mindepth 1 -maxdepth 1 -type d`):
+
+- `tax/` — US: the federal rules and deductions (`federal-rules.js`), `taxFor` and the tax functions (`federal-tax.js`), Social
+  Security taxation, state tax and `STATE_RULES`. Canada: the tax rules, `PROVINCE_RULES` and the tax functions.
+- `benefits/` — Canada: `BENEFIT_RULES` and `benefitsFor`.
+- `healthcare/` — US: ACA, Medicaid (`MEDICAID_RULES`), IRMAA and the 162(l) deduction. (Canada's flat `healthcareCost` is in
+  `income/year-stages.js`.)
+- `income/` — the per-year stages: contributions, income streams, Social Security (CPP and OAS in Canada), pensions, required
+  distributions, housing and loans, `buildTaxProfile`.
+- `accounts/` — US: the account and Roth ledgers and the early-withdrawal penalty status.
+- `withdrawals/` — the withdrawal strategies, the draws and solvers, the Roth conversion (US) and RRSP meltdown (Canada).
+- `cliff-plan/` — US: the per-year solver and the cliff plan.
+- `projection/` — the engine (`runProjection`, the year modes and sources, factors), the historical data, guardrails, `simulate`.
+- `optimizer/` — US: the Roth and multi-lever optimizers.
+- `inputs/` — `defaults`, the `DYN` list specs, `FIELDS` metadata, the list rules, normalization and the estimate checks.
+- `analysis/` — sensitivity, decision comparison, shortfall drivers, estate (Canada) and other read-only reports on a projection.
+- `format/` — shared: number and chart formatting, the Sankey layout.
+
+Rules: the state modules (above) and the seam facades stay at the top of `core/`; a new topic gets a new folder only when no
+existing one fits; there is no `core` or `ui` folder inside a side's tree (`tests/src_paths.js`). After adding or moving a module,
+run `npm run analyze`.
+
 ## Adding UI code
 
 - **Markup:** `src/<country>/index.html`, or a shared partial in `src/shared/partials/`, as before.
@@ -873,7 +901,7 @@ nothing needs converting by hand.
   new exported wiring function, called once from `main.js` where it should run.
 - **UI state:** a module-level `let`, assigned only in its own module; another module that must write it calls an `assign<Name>`
   function the module exports. Reading it elsewhere is a live import.
-- **A new topic:** a new module under `src/shared/ui/` (both planners) or `src/<country>/ui/`, whose line 1 is a one-line purpose
+- **A new topic:** a new module in its topic folder under `src/shared/ui/` (both planners) or `src/<country>/ui/`, whose line 1 is a one-line purpose
   comment followed by a blank line (the module map reads it), then `npm run analyze` to update the module map.
 - **A country name in shared UI code:** import it from `#country/ui/seam-<name>` (or `#country/core/seam-<name>` for a `core/` name);
   a new name needs a facade in both countries (see "The country seam").
@@ -881,7 +909,8 @@ nothing needs converting by hand.
   classes, and object or array literals of those) runs when the module loads. It needs a comment block directly above it that starts
   with `// load-time: <reason>`, saying why it reads nothing a statement or another function writes; otherwise compute it inside a
   wiring function. In a module that is part of an import cycle, a marked initializer may use only global names and literals
-  (`tests/ui_cycles.js` checks both).
+  (`tests/ui_cycles.js` checks both). The same rule applies to a `core/` module (it is not in a cycle, so the marked initializer may also read
+  earlier constants of its own file and imports).
 - **Test hooks and MCP tools:** in `src/<country>/ui/install-test-hooks.js` / `src/shared/ui/install-test-hooks.js` and
   `src/shared/ui/mcp-tools.js` (rule 3 above), never in `core/`.
 - **The guards:** `tests/closure_names.js` (undeclared names), `tests/ui_cycles.js`, `tests/no_bare_imports.js`, `tests/module_names.js`,
