@@ -872,7 +872,7 @@ new feature needs to touch both:
 
    > **Update (modular build, stages 0-4, 2026-10):** the snippet below is for
    > the old single-file layout. Today run `node --check` on each module you
-   > edited (for example `node --check src/us/ui/render.js`; `src/` is plain ESM)
+   > edited (for example `node --check src/us/ui/results/render.js`; `src/` is plain ESM)
    > or `npm run build` (esbuild fails on a syntax error in any module), then load
    > the built file in Playwright and watch `pageerror`.
 

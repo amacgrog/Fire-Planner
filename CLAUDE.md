@@ -60,7 +60,7 @@ holds it. See `README.md` for the full user-facing feature list.
   `tests/main_entry.js` (each `main.js` is imports plus one IIFE of calls and if statements), `tests/doc_paths.js` (every
   module path under `src/` named in this file and in `docs/superpowers/inventory/*.md` exists), `tests/module_map.js` (the module-map
   script's write and check modes, on fixture trees), `tests/no_bare_imports.js` (no
-  `import './x.js';` in `src/`), `tests/module_names.js` (no module file name ending in `-<digits>.js`), `tests/no_markers.js`
+  `import './x.js';` in `src/`), `tests/module_names.js` (no module file name ending in `-<digits>.js`), `tests/src_paths.js` (every file under `src/` has a side: `core/`, `ui/` or entry), `tests/no_markers.js`
   (no `@@shared` marker anywhere in `src/`), `tests/extraction_plan.js` / `tests/extract_units.js` / `tests/marker_source.js` /
   `tests/regroup_modules.js` / `tests/compare_builds.js` (the extraction tool, its helper, the regroup tool and the build
   comparison, on fixture trees), `tests/closure_analyzer.js` (the analyzer), `tests/assemble_html.js` (`assembleHtml`),

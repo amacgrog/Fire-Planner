@@ -80,7 +80,7 @@ Anti-goals (a failure even if it works):
 - **Same names across shared, US and Canada** for the same topic (my call): `withdrawals/` exists in all three where each
   has withdrawal code, so a reader looks in the same place.
 - **What stays at the top of `core/`** (my call): the state modules that CLAUDE.md's "Shared state and country seams"
-  describes as state homes (`store.js`, `chart-prefs.js`, `tax-factors.js`, `chart-hover.js` and the shared ones; US
+  describes as state homes (`store.js`, `chart-prefs.js`, `tax-factors.js` and the shared ones (note: `chart-hover.js` was a state module in the plan's first draft; in the tree it was merged into `src/shared/core/format/charts.js` as `chartHoverEnabled`, and the DOM hover code is `src/shared/ui/charts/chart-hover.js`); US
   `tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`) and every seam facade
   (`#country/core/seam-<name>` and `#country/ui/seam-<name>` keep their paths; their targets change). At the top of `ui/`:
   the facades, `mcp-tools.js`, the test-hook installers and the wizard.
