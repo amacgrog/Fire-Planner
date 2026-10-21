@@ -192,6 +192,11 @@ Docs change in the same stage as the code they describe.
 **Memory:** at the end, save project memories for the layout and `core`/`ui` rule and
 for the docs-per-stage rule.
 
+**Done (2026-10-21).** The living-doc rewrites were finished: `docs/reference.md`,
+`docs/roadmap.md`, `docs/phase2-refactor-plan.md`, plus `docs/next-batches-plan.md` (plan
+`docs/superpowers/plans/2026-10-21-docs-refresh.md`). The memory items are covered by `CLAUDE.md`; no separate
+memory is needed, since the repo records the layout.
+
 ## 9. Risks
 
 - **Hoisting and closure assumptions.** Functions used before their definition, or
@@ -235,6 +240,9 @@ for the docs-per-stage rule.
     `wizard`, `estimates`
 
 ## 11. Future work (not part of this refactor)
+
+**Scheduled 2026-10-21 (owner):** all five items run, in the order of `docs/roadmap.md`, after the
+core regroup and Vitest and before feature batch E4; each gets its own design.
 
 - **Stateless engine.** Goal: `runProjection` is a pure function of explicit inputs. It
   does not read the store, does not mutate its inputs, and has no module-level mutable

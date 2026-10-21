@@ -3,33 +3,31 @@
 Detailed, chronological guidance for Claude Code (or any AI assistant) working
 in this repo — the deep-dive companion to the root `CLAUDE.md`, which covers
 commands and a condensed architecture summary. Consult this file for the full
-history behind any gotcha it references.
+history behind any gotcha it references. Sections are chronological, so the
+file names and layout in older sections describe the code as it was then; the
+current layout is in `CLAUDE.md` ("Files", "Modules and the extraction tool").
 
 ## What this is
 
 Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators
-for a couple or single person — one for the US, one for Canada. Everything
-(markup, CSS, and JS) lives in one `<script>` block per file; there is no
-build step, no bundler, no framework, and no server. Opening the `.html` file
-in a browser is the entire deployment. See `README.md` for the full feature
-list from a user's perspective — this file is about how to work in the code.
+for a couple or single person — one for the US, one for Canada. The source lives
+in `src/` as ES modules; `npm run build` (esbuild) bundles each planner into one
+self-contained `dist/Planner_US.html` / `dist/Planner_Canada.html` with the CSS
+and JS inlined. The built file needs no server and no network, and CI publishes
+`dist/` to GitHub Pages. See `README.md` for the full feature list from a user's
+perspective and `CLAUDE.md` for the layout — this file is about how to work in
+the code.
 
 ## Files
 
-- `Planner_US.html` / `Planner_Canada.html` — the two apps. Each is fully
-  self-contained (~4,500–4,700 lines including the inline `<script>`).
-  **Stable filenames**: never rename these or create version-numbered copies
-  (`Planner_US_v2.html`, etc.) — every update is a `git commit` to the same
-  file, not a rename-and-fix-links exercise. See "Versioning" in README.md.
-- `index.html` — a small landing page linking to both tools.
-- `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
-  checks, run via `npm test`. This is the only test wired into CI
-  (`.github/workflows/test.yml`).
+The full file list is `CLAUDE.md`'s "Files" section. This file adds one point:
+
 - `test_*.js` (repo root) — a suite of Playwright scripts covering UI/feature
   behavior (scenarios, Monte Carlo, life expectancy, FHSA, income sources,
   hover tooltips, expenses, the historical backtest, etc). These are **not**
-  run by `npm test` or CI — run them individually with `node test_foo.js`.
-  They open the actual `.html` file with a headless Chromium
+  run by `npm test` or CI — run them individually with `node test_foo.js`,
+  after `npm run build` (they read whatever `dist/` holds).
+  They open the built `dist/*.html` file with a headless Chromium
   (`playwright.chromium.launch()` + `file://` URL) and assert against live
   DOM/state, not against a mocked harness. When you add a feature, add or
   extend one of these rather than only relying on `tests/golden.js`, and
@@ -37,7 +35,15 @@ list from a user's perspective — this file is about how to work in the code.
 
 ## Architecture, per planner file
 
-Each planner is one big IIFE. The core shape:
+> **Update (modular build, stages 0-4, 2026-10):** each planner is no longer one
+> IIFE. The units below now live in modules under `src/<country>/core|ui/` and
+> `src/shared/core|ui/`, and `main.js` only calls the start-up functions. Find a
+> unit with `grep -rn "function X" src` or in
+> `docs/superpowers/inventory/module-map.md`. The descriptions of what each unit
+> does still hold unless a later section says otherwise; `CLAUDE.md`'s
+> "Architecture, per planner file" is current.
+
+Each planner was one big IIFE. The core shape:
 
 - `defaults` — the full default state object (every input field's default
   value, including nested arrays like `loans`, `spendingTiers`,
@@ -863,6 +869,13 @@ new feature needs to touch both:
    expected literal before splicing, write back) so you don't accidentally
    edit the wrong copy.
 3. After editing, **syntax-check both files** before running anything else:
+
+   > **Update (modular build, stages 0-4, 2026-10):** the snippet below is for
+   > the old single-file layout. Today run `node --check` on each module you
+   > edited (for example `node --check src/us/ui/render.js`; `src/` is plain ESM)
+   > or `npm run build` (esbuild fails on a syntax error in any module), then load
+   > the built file in Playwright and watch `pageerror`.
+
    ```bash
    node -e "
    const fs = require('fs');
@@ -3473,7 +3486,9 @@ setting."
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
-2. Syntax-check both `.html` files (see snippet above).
+2. For a single-script run, `npm run build` first (or keep `npm run dev`
+   running), since `node tests/x.js` and `node test_foo.js`
+   read whatever `dist/` holds.
 3. Run the specific `test_*.js` file(s) relevant to what changed, plus a
    broad sweep of the rest if the change touches `simulate()`/
    `simulateHistorical()`, `syncControls()`/`syncContributionControls()`,
@@ -6682,6 +6697,13 @@ Decisions worth keeping:
   value each fail `tests/field_registry.js`.
 
 ### Phase 2 step 4: shared regions between the planners
+
+> **Update (modular build, stages 0-4, 2026-10):** superseded. The regions were
+> dissolved into modules in stages 2-4, and `scripts/sync-shared.js` and the last
+> marker were removed in Stage 4; `tests/no_markers.js` keeps markers out of
+> `src/`. See `docs/superpowers/specs/2026-10-10-modular-build-design.md`. The
+> engine decision below still holds: the two `runProjection` year loops stay
+> per-country.
 - `scripts/sync-shared.js` keeps byte-identical code in a single canonical copy
   (`shared/<name>.js|.css|.html`); each planner holds a copy between
   `@@shared:<name> begin/end` markers (comment style picks the type: `//`, `/* */`,

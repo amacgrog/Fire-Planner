@@ -1,49 +1,77 @@
 # Roadmap
 
-Planned work, in priority order, as of 2026-10-02 (`main` at `50c160c`, US V69 /
-Canada V32). Sources: the earlier modeling-refinement list (what is done / not
-done is folded in below) and an external review of the US engine's ACA / IRMAA /
-payroll-tax handling.
+Planned work, in priority order. Sources: the earlier modeling-refinement list
+(what is done / not done is folded in below) and an external review of the US
+engine's ACA / IRMAA / payroll-tax handling.
 
-**Status:** Phase 1 is complete and merged to `main` (US V74 / Canada V33).
-Phases 2 and 3 are **not** merged back from the same branch: each is started
-in its own session/branch.
+**Status (as of 2026-10-21):** on `main`: Phases 1 and 2, Batches 1, 2, 3, 7 and
+E1-E3, the cliff plan, the IRMAA MAGI fix and the modular-build refactor (stages
+0-4); US V130 / Canada V60. Every PR goes to `main`. The detailed plan and the
+live order are `docs/next-batches-plan.md`; this page says what is done, what is
+open and where to look.
 
 ## Current plan (supersedes the Phase 3 and "After Phase 2" lists where they differ)
 
 The detailed, decision-annotated plan is `docs/next-batches-plan.md`. Each batch
-(or sub-batch) is one PR into `claude/tender-meitner-a3bo59`, reviewed by the
-owner before the next starts. Order:
+(or sub-batch) is one PR into `main`, reviewed by the owner before the next
+starts.
 
-1. **Historical parity (2B)** and gradual bond refill.
-2. **US tax and Medicare:** Medicare always delayed while working; age-based
-   deductions; senior deduction through 2028; simplified itemizing (state income
-   tax + property tax under the SALT cap + mortgage interest); no new fields.
-3. **Retirement accounts and early-withdrawal rules:** 3A per-partner account
-   model (traditional IRA, traditional 401(k), Roth IRA, Roth 401(k); Roth IRA
-   and Roth 401(k) basis), 3B penalty-aware withdrawal order, 72(t) per account,
-   Rule of 55 on 401(k)s only, 3C safe-MAGI room on every withdrawal path.
-7. **Dependents and the tax update** (runs after Batch 3): children list; US
-   federal child tax credit and premium-tax-credit review; state rules table for
-   all 50 states and DC (one PR for the bulk); Canadian federal age amount and
-   pension credit; provincial rules table for all ten provinces (one PR); Canada
-   income-tested benefits (GIS and Allowance, CCB, GST/HST credit).
-4. **Canada:** 4A mixed withdrawals, 4B optimizer port.
-5. **Optimizer:** selectable objective, remove the 30-year cap if affordable,
-   wording.
-6. **Social Security and others:** guided PIA estimate, claim-age rules, spousal
-   and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age
-   basis; loose ends.
-8. **Social Security survivor-claim optimizer** (after everything above):
-   searches when a surviving spouse should start the survivor benefit and their
-   own benefit, and when to switch, in both orders.
+Done:
+- **1. Historical parity (2B)** and gradual bond refill.
+- **2. US tax and Medicare:** Medicare delayed while working, age-based and senior
+  deductions, simplified itemizing.
+- **3. Retirement accounts and early-withdrawal rules:** 3A per-partner account
+  model, 3B penalty-aware withdrawals, 72(t) per account and Rule of 55; 3C
+  redesigned as the cliff plan
+  (`docs/superpowers/specs/2026-10-07-cliff-plan-design.md`).
+- **7. Dependents and the tax update** (7A-7O): children, US federal credits, the
+  state rules table (50 states and DC), the Canadian federal credits, the
+  provincial rules table, the income-tested benefits.
+- **IRMAA MAGI fix.**
+- **E1-E3 (life events):** income character (E1a-E1e: contribution limits, income
+  streams, self-employment, one-time income, inherited accounts), E2 adoption, E3
+  the IRMAA appeal. Batch E stopped after E3 to do the modular-build refactor.
+- **Modular build, stages 0-4** (below).
+
+Next, in order (owner, 2026-10-21): every refactor item comes before E4.
+1. **Docs refresh** after the modular build.
+2. **Core regroup:** the one-unit `core/` modules merged and renamed by topic;
+   prerequisites in `docs/superpowers/inventory/stage4-open-items.md` (T17).
+3. **Vitest** unit tests for `core/`.
+4. **Stateless engine.**
+5. **TypeScript**, starting with `core/`.
+6. **Centralized state writes** (and subscriptions).
+7. **Vite** hot reload, as a dev-only layer.
+8. **Merging the US and Canada engines.**
+
+Items 4-8 are section 11 of
+`docs/superpowers/specs/2026-10-10-modular-build-design.md`. They are ordered by
+dependency (the stateless engine's ratchet tests need Vitest; TypeScript is easier
+on explicit inputs; merging the engines is the largest and goes last); each gets
+its own design before it starts, and the owner may reorder them.
+
+Then the feature batches:
+- **E4. State relocation (US).**
+- **5. Optimizer:** selectable objective, remove the 30-year cap if affordable,
+  wording.
+- **4. Canada:** 4A mixed withdrawals, 4B optimizer port.
+- **6. Social Security and others:** guided PIA estimate, claim-age rules, spousal
+  and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age
+  basis; loose ends.
+- **8. Social Security survivor-claim optimizer** (after everything above):
+  searches when a surviving spouse should start the survivor benefit and their
+  own benefit, and when to switch, in both orders.
+
+Later, not scheduled: E5 (real assets) and the Canada province move.
 
 Documentation: `docs/reference.md` is updated once, after the last batch, from
-the per-batch "Batch notes" kept in `docs/next-batches-plan.md`.
+the per-batch "Batch notes" kept in `docs/next-batches-plan.md` (the one exception
+so far: the modular-build refresh of its layout sections, 2026-10-21).
 
-Not modeled by decision: charitable and medical itemized deductions, Medicare
-late-enrollment penalties, the Social Security earnings test, WEP/GPO
-(repealed), territories (Canada), local income taxes.
+Not modeled by decision: charitable itemized deductions, Medicare late-enrollment
+penalties, the Social Security earnings test, WEP/GPO (repealed), territories
+(Canada), local income taxes (except a flat county rate for MD and IN, 7D).
+Medical expenses over 7.5% of AGI are deducted since 7O.
 
 ## Phase 0: baseline
 - `npm test` green (golden, historical_tax_indexing, dividend_income,
@@ -75,7 +103,7 @@ survivor-income loose end was checked in this phase and was a real bug (fixed,
 with the US extra-income variant; see `docs/reference.md`).
 
 ## Phase 2: refactor (separate branch, not merged back) — done
-All four items are complete (see `docs/phase2-refactor-plan.md`; item 4 is shared regions kept in sync by `scripts/sync-shared.js`, with the two `runProjection` year loops deliberately left per-country). Deferred follow-ups are listed under "After Phase 2".
+All four items are complete (see `docs/phase2-refactor-plan.md`; item 4 was shared regions kept in sync by `scripts/sync-shared.js`, later replaced by the modular build (below), with the two `runProjection` year loops deliberately left per-country). Deferred follow-ups are listed under "After Phase 2".
 No behavior change; `npm test` must stay identical throughout.
 1. Merge `simulate()` and `simulateHistorical()` into one engine; only the
    per-year return/inflation source differs.
@@ -84,28 +112,35 @@ No behavior change; `npm test` must stay identical throughout.
 3. Consolidate the `ids` / `syncControls` / `syncContributionControls` wiring
    into a single field registry.
 4. Share structure between the US and Canada planners (files stay
-   self-contained; no build step).
+   self-contained; no build step). (Superseded by the modular build.)
+
+## Modular build (stages 0-4) — done
+The source moved to `src/` as ES modules, with an esbuild build to one
+self-contained file per planner in `dist/` and GitHub Pages published from CI; no
+behavior change. Specs: `docs/superpowers/specs/2026-10-10-modular-build-design.md`
+and `docs/superpowers/specs/2026-10-15-stage4-ui-design.md`. Stage 4 was merged by
+PR #24. The follow-ups are in "Current plan".
 
 ## Phase 3: remaining items (a branch per group)
-- **Medicare enrollment:** configurable (still working at 65, employer
+- **Done (Batch 2).** **Medicare enrollment:** configurable (still working at 65, employer
   coverage, delayed Part B).
-- **Optimizer:** user-selectable objective (lifetime tax, healthcare cost,
+- **Open: Batch 5.** **Optimizer:** user-selectable objective (lifetime tax, healthcare cost,
   ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced); raise or remove
   the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if performance allows; reword UI
   as "searches for a tax-efficient strategy" (coordinate ascent over a
   discontinuous objective is not a global optimum).
-- **Itemized deductions** (mortgage interest, charity/QCD, medical, SALT) and
+- **Done (Batch 2; medical in 7O).** **Itemized deductions** (mortgage interest, charity/QCD, medical, SALT) and
   **age-based deductions** (65+ additional standard deduction, the temporary
   senior deduction with phase-out). Build together; verify current IRS rules
   and the SALT cap first.
-- **State-tax scope:** state clearly in the UI that the state model is
+- **Done in part (7C/7D: each state's notes show under the selector; local taxes only for MD and IN).** **State-tax scope:** state clearly in the UI that the state model is
   simplified (no local taxes, some credits, state itemizing, pension exclusions,
   after-tax IRA basis, some capital-gain rules, phase-outs).
-- **Social Security:** ssa.gov estimate assumes earnings continue to claiming
+- **Open: Batch 6.** **Social Security:** ssa.gov estimate assumes earnings continue to claiming
   (too high for an early retiree); no trust-fund benefit-cut scenario; spousal
   and survivor rules simplified.
-- **HSA** account type.
-- **Canada:** federal age amount and pension income credits (verify current
+- **Open: Batch 6.** **HSA** account type.
+- **Age and pension credits done (7J); CPP/OAS claim ages open (Batch 6).** **Canada:** federal age amount and pension income credits (verify current
   amounts); CPP/OAS claim-age adjustments (a design decision, since it changes
   saved scenarios).
 
@@ -113,20 +148,20 @@ No behavior change; `npm test` must stay identical throughout.
 Done in a follow-up branch started once the exact refactor (2A) is green, in
 this order, each its own commit with a before/after on the default scenario's
 historical and Monte Carlo success rates:
-- **Historical parity (2B):** the backtest/Monte Carlo engine gains what the
+- **Done (Batch 1).** **Historical parity (2B):** the backtest/Monte Carlo engine gains what the
   standard engine already has: pre-retirement bond ladder (sized from plan
   inflation), smooth withdrawals, applied/override and live withdrawal mix,
   MAGI safe room, the `age` argument to `solveRothConversion`, and the extra
   row columns (US all; Canada ladder, smooth, columns only).
-- **Gradual bond refill (historical only):** in up years move at most one year
+- **Done (Batch 1).** **Gradual bond refill (historical only):** in up years move at most one year
   of that year's expenses from stocks into the bond bucket until it reaches its
   target (today it refills all at once). The standard projection never refills.
   Down years: cash, then bond buckets, then stocks via the mix modes.
-- **Penalty-aware mixed withdrawals (US, both engines):** when the 10% early
+- **Done (3B).** **Penalty-aware mixed withdrawals (US, both engines):** when the 10% early
   penalty applies, draw taxable first, honor Rule of 55 / 72(t), and apply the
   mix (smooth/applied/live) only where no penalty is owed. Changes standard
   and historical numbers together; see `docs/phase2-refactor-plan.md` A.5.
-- **Use the safe-MAGI room wherever withdrawals are chosen (US):** today
+- **Superseded (3C, by the cliff plan).** **Use the safe-MAGI room wherever withdrawals are chosen (US):** today
   `magiSafeRoom` (the headroom under the ACA 400%-FPL cliff and the next IRMAA
   tier) caps only the Roth conversion and the live withdrawal mix. The default
   draw, smooth withdrawals, and the applied/optimizer mix schedules ignore it, so
@@ -138,7 +173,7 @@ historical and Monte Carlo success rates:
   penalty-aware mixing change; it changes standard and historical numbers, so a
   before/after on the default scenario is required. See
   `docs/phase2-refactor-plan.md` A.7.
-- **Canada mixed withdrawals:** taxable / RRSP / TFSA mix, with the OAS
+- **Open: Batch 4A.** **Canada mixed withdrawals:** taxable / RRSP / TFSA mix, with the OAS
   clawback threshold as the income-room limit and no penalty gating; needs the
   shared withdrawal module from Phase 2 first (A.6).
 

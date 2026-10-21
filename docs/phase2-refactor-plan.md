@@ -1,5 +1,9 @@
 # Phase 2 refactor plan
 
+> **Status (2026-10-21):** a record of Phase 2. Its step 4 (shared regions, option A) was
+> later replaced by option B, a `src/` tree with a bundler, in the modular build
+> (`docs/superpowers/specs/2026-10-10-modular-build-design.md`); `scripts/sync-shared.js` no longer exists.
+
 Scope: the four Phase 2 items in `docs/roadmap.md`. **No behavior change.**
 Branch: `claude/tender-meitner-a3bo59` (based on `15d5d00`, the Phase 1 merge;
 US V74 / Canada V33). Not merged back to `main` until every step below is
@@ -282,7 +286,7 @@ options are:
 | Option | How | Cost / risk |
 |---|---|---|
 | **A (recommended): marked shared regions + sync script** | Wrap the byte-identical code in `// @@shared:<name> begin/end` markers inside both files. `scripts/sync-shared.js` owns the canonical copy (`shared/*.js` fragments), rewrites the regions in both HTML files, and `--check` fails CI if they drift. Opening either `.html` file needs nothing else. | Not a build step in the "required to run" sense (outputs are committed), but it is a dev-time tool; CLAUDE.md's "no build step" text must be reworded to "no build step needed to run; shared regions are synced by `scripts/sync-shared.js`." |
-| B: a `src/` tree + a bundler producing the two files | Real modules | Introduces a build; contradicts the project's central design. Not recommended. |
+| B: a `src/` tree + a bundler producing the two files | Real modules | Introduces a build; contradicts the project's central design. Not recommended. (Adopted later; see the status note at the top.) |
 | C: leave duplicated, add a drift test only | `tests/shared_drift.js` compares the 126 identical functions | Cheapest, but every shared edit is still done twice by hand. |
 
 Plan for A, in order:
