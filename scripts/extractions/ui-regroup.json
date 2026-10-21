@@ -1,0 +1,324 @@
+{
+  "operations": [
+    {
+      "rename": "src/shared/ui/chart-colors.js",
+      "to": "src/shared/ui/charts/chart-colors.js"
+    },
+    {
+      "rename": "src/shared/ui/chart-hover.js",
+      "to": "src/shared/ui/charts/chart-hover.js"
+    },
+    {
+      "rename": "src/shared/ui/chart-toolbar.js",
+      "to": "src/shared/ui/charts/chart-toolbar.js"
+    },
+    {
+      "rename": "src/shared/ui/chart-view-mode.js",
+      "to": "src/shared/ui/charts/chart-view-mode.js"
+    },
+    {
+      "rename": "src/shared/ui/monte-carlo-chart.js",
+      "to": "src/shared/ui/charts/monte-carlo-chart.js"
+    },
+    {
+      "rename": "src/shared/ui/projection-chart.js",
+      "to": "src/shared/ui/charts/projection-chart.js"
+    },
+    {
+      "rename": "src/shared/ui/tornado.js",
+      "to": "src/shared/ui/charts/tornado.js"
+    },
+    {
+      "rename": "src/shared/ui/sankey.js",
+      "to": "src/shared/ui/charts/sankey.js"
+    },
+    {
+      "rename": "src/shared/ui/landscape-fullscreen.js",
+      "to": "src/shared/ui/charts/landscape-fullscreen.js"
+    },
+    {
+      "rename": "src/shared/ui/field-dom-sync.js",
+      "to": "src/shared/ui/inputs/field-dom-sync.js"
+    },
+    {
+      "rename": "src/shared/ui/field-ids.js",
+      "to": "src/shared/ui/inputs/field-ids.js"
+    },
+    {
+      "rename": "src/shared/ui/field-listeners.js",
+      "to": "src/shared/ui/inputs/field-listeners.js"
+    },
+    {
+      "rename": "src/shared/ui/field-search.js",
+      "to": "src/shared/ui/inputs/field-search.js"
+    },
+    {
+      "rename": "src/shared/ui/dynamic-list-editing.js",
+      "to": "src/shared/ui/inputs/dynamic-list-editing.js"
+    },
+    {
+      "rename": "src/shared/ui/dynamic-lists.js",
+      "to": "src/shared/ui/inputs/dynamic-lists.js"
+    },
+    {
+      "rename": "src/shared/ui/money-format.js",
+      "to": "src/shared/ui/inputs/money-format.js"
+    },
+    {
+      "rename": "src/shared/ui/housing-buttons.js",
+      "to": "src/shared/ui/inputs/housing-buttons.js"
+    },
+    {
+      "rename": "src/shared/ui/input-gestures.js",
+      "to": "src/shared/ui/inputs/input-gestures.js"
+    },
+    {
+      "rename": "src/shared/ui/category-rail.js",
+      "to": "src/shared/ui/inputs/category-rail.js"
+    },
+    {
+      "rename": "src/shared/ui/sync-contribution-controls.js",
+      "to": "src/shared/ui/inputs/sync-contribution-controls.js"
+    },
+    {
+      "rename": "src/shared/ui/info-bubble.js",
+      "to": "src/shared/ui/inputs/info-bubble.js"
+    },
+    {
+      "rename": "src/shared/ui/estimate-badges.js",
+      "to": "src/shared/ui/inputs/estimate-badges.js"
+    },
+    {
+      "rename": "src/shared/ui/estimate-review.js",
+      "to": "src/shared/ui/inputs/estimate-review.js"
+    },
+    {
+      "rename": "src/shared/ui/headline-tiles.js",
+      "to": "src/shared/ui/results/headline-tiles.js"
+    },
+    {
+      "rename": "src/shared/ui/plan-status-bar.js",
+      "to": "src/shared/ui/results/plan-status-bar.js"
+    },
+    {
+      "rename": "src/shared/ui/render-plan-headline.js",
+      "to": "src/shared/ui/results/render-plan-headline.js"
+    },
+    {
+      "rename": "src/shared/ui/shortfall-banner.js",
+      "to": "src/shared/ui/results/shortfall-banner.js"
+    },
+    {
+      "rename": "src/shared/ui/projection-table.js",
+      "to": "src/shared/ui/results/projection-table.js"
+    },
+    {
+      "rename": "src/shared/ui/table-focus.js",
+      "to": "src/shared/ui/results/table-focus.js"
+    },
+    {
+      "rename": "src/shared/ui/decision-questions.js",
+      "to": "src/shared/ui/results/decision-questions.js"
+    },
+    {
+      "rename": "src/shared/ui/roth-optimizer-card.js",
+      "to": "src/shared/ui/results/roth-optimizer-card.js"
+    },
+    {
+      "rename": "src/shared/ui/unusual-warnings.js",
+      "to": "src/shared/ui/results/unusual-warnings.js"
+    },
+    {
+      "rename": "src/shared/ui/autosave.js",
+      "to": "src/shared/ui/plans/autosave.js"
+    },
+    {
+      "rename": "src/shared/ui/storage.js",
+      "to": "src/shared/ui/plans/storage.js"
+    },
+    {
+      "rename": "src/shared/ui/saved-plan.js",
+      "to": "src/shared/ui/plans/saved-plan.js"
+    },
+    {
+      "rename": "src/shared/ui/reset-plan.js",
+      "to": "src/shared/ui/plans/reset-plan.js"
+    },
+    {
+      "rename": "src/shared/ui/undo.js",
+      "to": "src/shared/ui/plans/undo.js"
+    },
+    {
+      "rename": "src/shared/ui/scenarios.js",
+      "to": "src/shared/ui/plans/scenarios.js"
+    },
+    {
+      "rename": "src/shared/ui/scenario-comparison.js",
+      "to": "src/shared/ui/plans/scenario-comparison.js"
+    },
+    {
+      "rename": "src/shared/ui/scenario-export.js",
+      "to": "src/shared/ui/plans/scenario-export.js"
+    },
+    {
+      "rename": "src/shared/ui/export-and-print.js",
+      "to": "src/shared/ui/plans/export-and-print.js"
+    },
+    {
+      "rename": "src/shared/ui/layout-listeners.js",
+      "to": "src/shared/ui/layout/layout-listeners.js"
+    },
+    {
+      "rename": "src/shared/ui/layout-metrics.js",
+      "to": "src/shared/ui/layout/layout-metrics.js"
+    },
+    {
+      "rename": "src/shared/ui/mobile-view.js",
+      "to": "src/shared/ui/layout/mobile-view.js"
+    },
+    {
+      "rename": "src/shared/ui/theme.js",
+      "to": "src/shared/ui/layout/theme.js"
+    },
+    {
+      "rename": "src/shared/ui/sidebar.js",
+      "to": "src/shared/ui/layout/sidebar.js"
+    },
+    {
+      "rename": "src/shared/ui/disclaimer-link.js",
+      "to": "src/shared/ui/layout/disclaimer-link.js"
+    },
+    {
+      "rename": "src/us/ui/chart-controls.js",
+      "to": "src/us/ui/charts/chart-controls.js"
+    },
+    {
+      "rename": "src/us/ui/chart-view.js",
+      "to": "src/us/ui/charts/chart-view.js"
+    },
+    {
+      "rename": "src/us/ui/compute-sankey-flow.js",
+      "to": "src/us/ui/charts/compute-sankey-flow.js"
+    },
+    {
+      "rename": "src/us/ui/sensitivity.js",
+      "to": "src/us/ui/charts/sensitivity.js"
+    },
+    {
+      "rename": "src/us/ui/fields.js",
+      "to": "src/us/ui/inputs/fields.js"
+    },
+    {
+      "rename": "src/us/ui/normalize-state.js",
+      "to": "src/us/ui/inputs/normalize-state.js"
+    },
+    {
+      "rename": "src/us/ui/sync-controls.js",
+      "to": "src/us/ui/inputs/sync-controls.js"
+    },
+    {
+      "rename": "src/us/ui/contribution-buttons.js",
+      "to": "src/us/ui/inputs/contribution-buttons.js"
+    },
+    {
+      "rename": "src/us/ui/filing-status-buttons.js",
+      "to": "src/us/ui/inputs/filing-status-buttons.js"
+    },
+    {
+      "rename": "src/us/ui/pension-buttons.js",
+      "to": "src/us/ui/inputs/pension-buttons.js"
+    },
+    {
+      "rename": "src/us/ui/dynamic-lists.js",
+      "to": "src/us/ui/inputs/dynamic-lists.js"
+    },
+    {
+      "rename": "src/us/ui/render-group-summaries.js",
+      "to": "src/us/ui/inputs/render-group-summaries.js"
+    },
+    {
+      "rename": "src/us/ui/state-tax-treatment-note.js",
+      "to": "src/us/ui/inputs/state-tax-treatment-note.js"
+    },
+    {
+      "rename": "src/us/ui/render.js",
+      "to": "src/us/ui/results/render.js"
+    },
+    {
+      "rename": "src/us/ui/decision-questions.js",
+      "to": "src/us/ui/results/decision-questions.js"
+    },
+    {
+      "rename": "src/us/ui/roth-optimizer.js",
+      "to": "src/us/ui/results/roth-optimizer.js"
+    },
+    {
+      "rename": "src/us/ui/roth-optimizer-controls.js",
+      "to": "src/us/ui/results/roth-optimizer-controls.js"
+    },
+    {
+      "rename": "src/us/ui/table-annotations.js",
+      "to": "src/us/ui/results/table-annotations.js"
+    },
+    {
+      "rename": "src/us/ui/unusual-warnings.js",
+      "to": "src/us/ui/results/unusual-warnings.js"
+    },
+    {
+      "rename": "src/us/ui/print-report.js",
+      "to": "src/us/ui/plans/print-report.js"
+    },
+    {
+      "rename": "src/canada/ui/chart-controls.js",
+      "to": "src/canada/ui/charts/chart-controls.js"
+    },
+    {
+      "rename": "src/canada/ui/chart-view.js",
+      "to": "src/canada/ui/charts/chart-view.js"
+    },
+    {
+      "rename": "src/canada/ui/compute-sankey-flow.js",
+      "to": "src/canada/ui/charts/compute-sankey-flow.js"
+    },
+    {
+      "rename": "src/canada/ui/sensitivity.js",
+      "to": "src/canada/ui/charts/sensitivity.js"
+    },
+    {
+      "rename": "src/canada/ui/pension-buttons.js",
+      "to": "src/canada/ui/inputs/pension-buttons.js"
+    },
+    {
+      "rename": "src/canada/ui/dynamic-lists.js",
+      "to": "src/canada/ui/inputs/dynamic-lists.js"
+    },
+    {
+      "rename": "src/canada/ui/render-group-summaries.js",
+      "to": "src/canada/ui/inputs/render-group-summaries.js"
+    },
+    {
+      "rename": "src/canada/ui/sync-controls.js",
+      "to": "src/canada/ui/inputs/sync-controls.js"
+    },
+    {
+      "rename": "src/canada/ui/render.js",
+      "to": "src/canada/ui/results/render.js"
+    },
+    {
+      "rename": "src/canada/ui/decision-questions.js",
+      "to": "src/canada/ui/results/decision-questions.js"
+    },
+    {
+      "rename": "src/canada/ui/roth-optimizer.js",
+      "to": "src/canada/ui/results/roth-optimizer.js"
+    },
+    {
+      "rename": "src/canada/ui/roth-optimizer-controls.js",
+      "to": "src/canada/ui/results/roth-optimizer-controls.js"
+    },
+    {
+      "rename": "src/canada/ui/print-report.js",
+      "to": "src/canada/ui/plans/print-report.js"
+    }
+  ]
+}

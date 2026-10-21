@@ -1,0 +1,74 @@
+{
+  "operations": [
+    {
+      "move": "benefitsFor",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/benefits/benefits.js"
+    },
+    {
+      "move": "gisIncomeRoom",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/benefits/benefits.js"
+    },
+    {
+      "move": "solveMeltdown",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/withdrawals/rrsp-meltdown.js"
+    },
+    {
+      "move": "afterTaxEstate",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/analysis/estate.js"
+    },
+    {
+      "move": "buildTaxProfile",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/income/year-stages.js"
+    },
+    {
+      "move": "solveTraditionalForNet",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/withdrawals/draws.js"
+    },
+    {
+      "move": "solveTraditionalForNetFromNeed",
+      "from": "src/canada/core/federal-tax-ca.js",
+      "to": "src/canada/core/withdrawals/draws.js"
+    },
+    {
+      "move": "RRIF_PENSION_AGE",
+      "from": "src/canada/core/gis-and-rrif.js",
+      "to": "src/canada/core/tax/rules.js"
+    },
+    {
+      "move": "applyRrspMeltdown",
+      "from": "src/canada/core/grow-balances.js",
+      "to": "src/canada/core/withdrawals/rrsp-meltdown.js"
+    },
+    {
+      "move": "healthcareCost",
+      "from": "src/canada/core/grow-balances.js",
+      "to": "src/canada/core/income/year-stages.js"
+    },
+    {
+      "move": "withdrawRequiredDistributions",
+      "from": "src/canada/core/list-amounts-and-home-buyers.js",
+      "to": "src/canada/core/projection/balances.js"
+    },
+    {
+      "move": "rrifMinPct",
+      "from": "src/canada/core/oas-and-rrif.js",
+      "to": "src/canada/core/income/year-stages.js"
+    },
+    {
+      "move": "OAS_RECOVERY_THRESHOLD",
+      "from": "src/canada/core/oas-and-rrif.js",
+      "to": "src/canada/core/tax/rules.js"
+    },
+    {
+      "move": "newWithdrawal",
+      "from": "src/canada/core/taxable-basis-key.js",
+      "to": "src/canada/core/withdrawals/draws.js"
+    }
+  ]
+}

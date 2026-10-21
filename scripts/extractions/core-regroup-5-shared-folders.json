@@ -1,0 +1,115 @@
+{
+  "operations": [
+    {
+      "merge": [
+        "src/shared/core/basics.js",
+        "src/shared/core/money-format.js"
+      ],
+      "to": "src/shared/core/format/numbers.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/bond-ladder-rotation.js",
+        "src/shared/core/bond-ladder.js",
+        "src/shared/core/refill-bond-reserve.js"
+      ],
+      "to": "src/shared/core/withdrawals/bond-ladder.js"
+    },
+    {
+      "rename": "src/shared/core/bucket-down-year-order.js",
+      "to": "src/shared/core/withdrawals/bucket-order.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/cagr-colors.js",
+        "src/shared/core/chart-groups.js",
+        "src/shared/core/sankey-hues.js"
+      ],
+      "to": "src/shared/core/format/chart-colors.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/compact-decision-delta.js",
+        "src/shared/core/decision-end-assets.js",
+        "src/shared/core/find-minimal-spending-cut.js"
+      ],
+      "to": "src/shared/core/analysis/decisions.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/draw-taxable.js",
+        "src/shared/core/sweep-excess-cash.js",
+        "src/shared/core/take-cash.js",
+        "src/shared/core/take-taxable.js"
+      ],
+      "to": "src/shared/core/withdrawals/draws.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/dyn-field-helpers.js",
+        "src/shared/core/dyn-field-html.js"
+      ],
+      "to": "src/shared/core/inputs/dyn-fields.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/estimate-checks.js",
+        "src/shared/core/estimates-and-warnings.js"
+      ],
+      "to": "src/shared/core/inputs/estimates.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/list-normalization.js",
+        "src/shared/core/lists-and-children.js"
+      ],
+      "to": "src/shared/core/inputs/lists.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/loan-payment-for-year.js",
+        "src/shared/core/spending-and-loans.js"
+      ],
+      "to": "src/shared/core/income/spending-and-loans.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/monte-carlo-paths.js",
+        "src/shared/core/simulate-at-real-cagr.js",
+        "src/shared/core/simulate.js"
+      ],
+      "to": "src/shared/core/projection/simulate.js"
+    },
+    {
+      "rename": "src/shared/core/next-guardrail-multiplier.js",
+      "to": "src/shared/core/projection/guardrails.js"
+    },
+    {
+      "rename": "src/shared/core/pension-income.js",
+      "to": "src/shared/core/income/pension-income.js"
+    },
+    {
+      "rename": "src/shared/core/projected-expense.js",
+      "to": "src/shared/core/income/projected-expense.js"
+    },
+    {
+      "rename": "src/shared/core/sankey-layout.js",
+      "to": "src/shared/core/format/sankey-layout.js"
+    },
+    {
+      "rename": "src/shared/core/scenario-helpers.js",
+      "to": "src/shared/core/analysis/scenario-helpers.js"
+    },
+    {
+      "merge": [
+        "src/shared/core/tax-index-factor.js",
+        "src/shared/core/year-factors.js"
+      ],
+      "to": "src/shared/core/projection/year-factors.js"
+    },
+    {
+      "rename": "src/shared/core/year-sources.js",
+      "to": "src/shared/core/projection/year-sources.js"
+    }
+  ]
+}

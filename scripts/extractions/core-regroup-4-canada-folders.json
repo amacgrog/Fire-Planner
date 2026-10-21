@@ -1,0 +1,123 @@
+{
+  "operations": [
+    {
+      "rename": "src/canada/core/analyze-shortfall-drivers.js",
+      "to": "src/canada/core/analysis/shortfall-drivers.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/benefits/benefits.js",
+        "src/canada/core/benefit-helpers.js",
+        "src/canada/core/get-benefits.js",
+        "src/canada/core/gis-and-rrif.js"
+      ],
+      "to": "src/canada/core/benefits/benefits.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/bucket-step.js",
+        "src/canada/core/draw-smooth-stock-accounts.js",
+        "src/canada/core/withdraw-standard.js"
+      ],
+      "to": "src/canada/core/withdrawals/strategies.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/tax/rules.js",
+        "src/canada/core/credits-and-gross-up.js",
+        "src/canada/core/ei-mie.js",
+        "src/canada/core/fed-medical-threshold.js",
+        "src/canada/core/federal-tax-constants.js",
+        "src/canada/core/oas-recovery.js",
+        "src/canada/core/prov-tax.js",
+        "src/canada/core/ramq-cap.js"
+      ],
+      "to": "src/canada/core/tax/rules.js"
+    },
+    {
+      "rename": "src/canada/core/defaults.js",
+      "to": "src/canada/core/inputs/defaults.js"
+    },
+    {
+      "rename": "src/canada/core/dyn.js",
+      "to": "src/canada/core/inputs/dyn.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/estimate-always-ids.js",
+        "src/canada/core/mcp-schema-for.js",
+        "src/canada/core/oas-and-rrif.js"
+      ],
+      "to": "src/canada/core/inputs/field-meta.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/federal-bracket-ceiling-ca.js",
+        "src/canada/core/federal-tax-ca.js"
+      ],
+      "to": "src/canada/core/tax/tax.js"
+    },
+    {
+      "rename": "src/canada/core/fields.js",
+      "to": "src/canada/core/inputs/fields.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/projection/balances.js",
+        "src/canada/core/grow-balances.js"
+      ],
+      "to": "src/canada/core/projection/balances.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/income/year-stages.js",
+        "src/canada/core/income-and-housing-per-year.js",
+        "src/canada/core/list-amounts-and-home-buyers.js"
+      ],
+      "to": "src/canada/core/income/year-stages.js"
+    },
+    {
+      "rename": "src/canada/core/normalize-state.js",
+      "to": "src/canada/core/inputs/normalize-state.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/analysis/estate.js",
+        "src/canada/core/probate-fee.js"
+      ],
+      "to": "src/canada/core/analysis/estate.js"
+    },
+    {
+      "rename": "src/canada/core/province-rules.js",
+      "to": "src/canada/core/tax/province-rules.js"
+    },
+    {
+      "rename": "src/canada/core/render-decision-compare-table.js",
+      "to": "src/canada/core/analysis/decision-compare.js"
+    },
+    {
+      "rename": "src/canada/core/run-projection.js",
+      "to": "src/canada/core/projection/run-projection.js"
+    },
+    {
+      "rename": "src/canada/core/sensitivity-levers.js",
+      "to": "src/canada/core/analysis/sensitivity-levers.js"
+    },
+    {
+      "merge": [
+        "src/canada/core/withdrawals/draws.js",
+        "src/canada/core/take-roth.js",
+        "src/canada/core/take-traditional.js"
+      ],
+      "to": "src/canada/core/withdrawals/draws.js"
+    },
+    {
+      "rename": "src/canada/core/taxable-basis-key.js",
+      "to": "src/canada/core/withdrawals/taxable-basis-key.js"
+    },
+    {
+      "rename": "src/canada/core/year-modes.js",
+      "to": "src/canada/core/projection/year-modes.js"
+    }
+  ]
+}
