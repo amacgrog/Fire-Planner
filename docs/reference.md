@@ -871,9 +871,10 @@ new feature needs to touch both:
 3. After editing, **syntax-check both files** before running anything else:
 
    > **Update (modular build, stages 0-4, 2026-10):** the snippet below is for
-   > the old single-file layout. Today run `node --check` on a plain-JS source
-   > file (`node --check src/us/main.js`) or `npm run build` (esbuild fails on a
-   > syntax error), then load the built file in Playwright and watch `pageerror`.
+   > the old single-file layout. Today run `node --check` on each module you
+   > edited (for example `node --check src/us/ui/render.js`; `src/` is plain ESM)
+   > or `npm run build` (esbuild fails on a syntax error in any module), then load
+   > the built file in Playwright and watch `pageerror`.
 
    ```bash
    node -e "
