@@ -63,18 +63,28 @@ for (const owner of OWNERS) {
     src.split('\n').forEach((l, i) => {
       const m = DATA.exec(l);
       if (!m) return;
-      if (m[2] === 'begin') open = i + 1;
-      else {
+      if (m[2] === 'begin' && open === null) open = i + 1;
+      else if (m[2] === 'end' && open !== null) {
         blocks.push([open, i + 1]);
         open = null;
-      }
+      } else problems.push(`${rel}:${i + 1}: data-block markers are not paired (${m[1]})`);
     });
+    if (open !== null) problems.push(`${rel}:${open}: a data block is not closed`);
     const ast = espree.parse(src, { ecmaVersion: 2022, sourceType: 'module', loc: true });
     const list = [];
     for (let st of ast.body) {
-      if (st.type === 'ImportDeclaration') continue;
+      if (st.type === 'ImportDeclaration') {
+        // names are resolved by their declared name, so a renamed import would be missed
+        for (const s of st.specifiers) {
+          if (s.type !== 'ImportSpecifier' || s.imported.name !== s.local.name) problems.push(`${rel}:${st.loc.start.line}: an import that renames or is not named (${s.local.name}); not supported`);
+        }
+        continue;
+      }
       if (st.type === 'ExportNamedDeclaration') {
-        if (!st.declaration) continue;
+        if (!st.declaration) {
+          problems.push(`${rel}:${st.loc.start.line}: an export list or re-export; not supported`);
+          continue;
+        }
         st = st.declaration;
       }
       let names;
@@ -87,21 +97,27 @@ for (const owner of OWNERS) {
       const blk = blocks.find(([b, e]) => b < st.loc.start.line && st.loc.end.line < e);
       const blockShared = !!blk && ast.body.filter((x) => x.loc.start.line > blk[0] && x.loc.end.line < blk[1]).length > 1;
       const refs = new Set();
+      const writes = new Set();
       walk(st, (n) => {
         if (n.type === 'Identifier') refs.add(n.name);
+        if (n.type === 'AssignmentExpression' && n.left.type === 'Identifier') writes.add(n.left.name);
+        if (n.type === 'UpdateExpression' && n.argument.type === 'Identifier') writes.add(n.argument.name);
       });
       for (const name of names) {
-        const u = { owner, rel, base, name, kind: st.kind, fixed: names.length > 1 || blockShared, refs, deps: [] };
+        const u = { owner, rel, base, name, kind: st.kind, fixed: names.length > 1 || blockShared, refs, writes, writers: [], deps: [] };
+        if (units.has(`${owner}:${name}`)) problems.push(`${rel}: ${name} is declared twice in ${owner}`);
         units.set(`${owner}:${name}`, u);
         list.push(u);
       }
     }
-    // a let or var assigned outside its own declaration moves only with its writers: keep it in place
+    // a let or var assigned by another declaration of its module moves only with its writers: keep it in place
+    // (an assignment to a local of the same name counts too: an over-approximation)
     for (const u of list) {
       if (u.kind !== 'let' && u.kind !== 'var') continue;
-      const write = new RegExp(`(^|[^\\w$.])${u.name}\\s*([-+*/%]?=(?!=)|\\+\\+|--)`, 'm');
-      if (list.some((x) => x !== u && x.refs.has(u.name)) && write.test(src)) u.fixed = true;
+      u.writers = list.filter((x) => x !== u && x.writes.has(u.name));
+      if (u.writers.length) u.fixed = true;
     }
+    if (!list.length) problems.push(`${rel}: a module with no top-level declaration`);
     fileUnits.set(rel, list);
   }
 }
@@ -112,6 +128,9 @@ for (const u of units.values()) {
   t = t ? t[0] : (sec.files || {})[u.base];
   if (!t) problems.push(`${u.rel}: no topic for ${u.base} (${u.name})`);
   u.target = t ? pathOf(u.owner, t) : null;
+}
+for (const u of units.values()) {
+  for (const w of u.writers) if (w.target !== u.target) problems.push(`${u.rel}: ${w.name} writes ${u.name} but goes to ${w.target}, not ${u.target}`);
 }
 for (const sec of Object.values(topics)) {
   for (const names of Object.values(sec.names || {})) for (const n of names) if (![...units.values()].some((u) => u.name === n)) problems.push(`names: ${n} is not a top-level declaration`);
@@ -124,7 +143,7 @@ for (const u of units.values()) {
       const d = units.get(`${o}:${r}`);
       if (!d) continue;
       u.deps.push(d);
-      if (o !== 'shared' || u.owner === 'shared') break;
+      if (o === u.owner) break; // a shared name reaches both countries' declarations, as the seam facades do
     }
   }
 }

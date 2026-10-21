@@ -62,7 +62,12 @@ nothing new) and `npm test`: exit 0 after batches 1-3; after batches 4-6 only `t
 strings, not brace patterns; Task 2 step 5 writes those paths out). With that line corrected, `npm test` exited 0. The `ui/` map
 then applied on top (80 operations, 104 files written), ordered comparison clean, `npm test` exit 0. After the core batches,
 84 core modules lacked a purpose comment (all but `src/us/core/optimizer-state.js`) and 33 initializers were unmarked. Without the grouped-export fix the US folder batch is refused (`missing export: ... REACH_GROSS_UP`); without
-the open-items rewrite `tests/doc_paths.js` fails on stale paths in `stage4-open-items.md`. A separate reviewer applied the
+the open-items rewrite `tests/doc_paths.js` fails on stale paths in `stage4-open-items.md`. A focused review of Task 2's data-block move and
+`scripts/plan-regroup.js` led to the revised move code in Task 2 step 4 (checked on batches 1 and 2: `BENEFIT_RULES` moves with
+its 5-line section comment, `province-rules.js` keeps no trace of it) and to stricter generator checks (a shared name now reaches
+both countries' declarations, so Canada's seam links count in the loop check; unpaired markers, duplicate names, export lists,
+renamed imports, empty modules and a `let` whose writer goes elsewhere are refused); the generator still reproduces the six maps
+byte for byte. A separate reviewer applied the
 first version of the maps the same way and found nothing that changes behavior; it also confirmed that the multiset of `//`
 comment lines in `core/` is unchanged (no comment is dropped).
 
@@ -151,7 +156,11 @@ git commit -m "T17: one definition of a source path's side (scripts/lib/src-path
     `{ move: 'Y', from: 'src/us/core/r.js', to: 'src/us/core/y.js' }`. The run succeeds; `y.js` holds the note line, both markers and
     the declaration in that order; `r.js` keeps `X` and `f`, no marker, and imports `Y` from `./y.js`.
   - *Data-block move refused:* a block holding two declarations; moving one is refused with a message naming the block and
-    saying `with other statements`.
+    saying `with other statements`. Also refused: a block whose one line holds two statements
+    (`export const Y = { a: 1 }; const Z = 2;`).
+  - *Data-block edge cases that succeed:* a begin marker on line 1 followed by a blank line (both markers move; the source keeps
+    no marker); a block right after the import lines (no import line moves); a CRLF source file (same result as LF); a move into
+    an existing target that already ends with another data block (both blocks end up paired in the target).
   - *Two existing fixtures change meaning* (section "5b. data blocks" of `tests/regroup_modules.js`): "a declaration inside a block
     is refused, whole block or not" (moving `FOO` out of `DB`) and "the BENEFIT_RULES case" (moving `B` out of `MINI`) asserted the
     old refusal. Turn both into positive cases: `FOO` moves with both markers and nothing of `FOO_RULES` is left in `dm.js`; `B`
@@ -170,26 +179,32 @@ git commit -m "T17: one definition of a source path's side (scripts/lib/src-path
 ```
 
 - [ ] **Step 4: The data-block move.** Replace the refusal `a data block does not move` in `move` with: when the declaration lies
-  inside a data block, refuse unless every other line of the block (between its markers) is blank or a `//` comment; otherwise
-  the moved chunk is the block from its begin marker to its end marker, extended upward over the contiguous `//` lines above the
-  begin marker (stopping at another data marker and never taking a purpose comment on line 1), and it is used in place of
-  `chunkOf(...)`. The rehearsed code:
+  inside a data block, refuse unless it is the block's only top-level statement (checked on the AST, so two statements on one
+  line are caught) and it has its lines to itself (`wholeLines`, as `chunkOf` checks); then the moved chunk is the block from its
+  begin marker to its end marker, extended upward over the contiguous `//` lines above the begin marker, stopping at another data
+  marker or at the end of the previous top-level statement (as `chunkOf` does; a purpose comment is never reached because the
+  blank line after it stops the walk), and it is used in place of `chunkOf(...)`. Revised after the focused review of
+  2026-10-21 (the rehearsed version tested lines, not the AST, and had no floor):
 
 ```js
     let blockChunk = null;
     if (block) {
+      const held = shape.ast.body.filter((x) => x.loc.start.line > block.begin && x.loc.end.line < block.end);
+      if (held.length !== 1) refuse(`${name} lies inside the data block ${block.name} in ${from} (lines ${block.begin}-${block.end}) with other statements; a data block moves only with its one declaration`);
+      wholeLines(fromText, st, from);
       const ls = fromText.split('\n');
-      const alone = ls.slice(block.begin, block.end - 1).every((l, k) => { const ln = block.begin + 1 + k; return (ln >= st.loc.start.line && ln <= st.loc.end.line) || /^\s*(\/\/.*)?$/.test(l); });
-      if (!alone) refuse(`${name} lies inside the data block ${block.name} in ${from} (lines ${block.begin}-${block.end}) with other statements; a data block moves only with its one declaration`);
+      const idx = shape.ast.body.indexOf(held[0]);
+      const floor = idx > 0 ? shape.ast.body[idx - 1].loc.end.line : 0;
       let s0 = block.begin;
-      while (s0 > 1 && /^\s*\/\//.test(ls[s0 - 2]) && !DATA_MARK.test(ls[s0 - 2])) s0--;
-      if (s0 === 1 && purposeLines(fromText) === 2) s0 = 3;
+      while (s0 - 1 > floor && /^\s*\/\//.test(ls[s0 - 2]) && !DATA_MARK.test(ls[s0 - 2])) s0--;
       blockChunk = { start: s0, end: block.end, lines: ls.slice(s0 - 1, block.end) };
     }
 ```
 
-  and `const chunk = blockChunk || chunkOf(fromText, from, st, shape.ast);`. Update the header's `move` line to say a data block's
-  only declaration moves with its block.
+  and `const chunk = blockChunk || chunkOf(fromText, from, st, shape.ast);` (the name `held` avoids the `inside` helper declared
+  below it). Also make `purposeLines` return 0 when line 1 is a data marker (`&& !DATA_MARK.test(lines[0])`): a `// X:begin` on
+  line 1 is not a purpose comment (this also corrects `chunkOf`'s line-1 guard). Update the header's `move` line to say a data
+  block's only declaration moves with its block.
 - [ ] **Step 5: Open items.** Add `'docs/superpowers/inventory/stage4-open-items.md'` to `OUTSIDE`; name it in the header's
   "Outside src/" sentence. In `stage4-open-items.md`, write out the brace-form paths of modules the maps move, so the tool can
   follow them: line 82 `src/{us,canada}/core/analyze-shortfall-drivers.js`, line 113 `src/{us,canada}/ui/sensitivity.js` and
