@@ -44,10 +44,13 @@ docs commits; never `git stash`). Do not push.
   - Then the modular-build refactor, stages 0-4, all done; Stage 4 is merged into `main` by PR #24 (write "merged by
     PR #24" and leave the date to the owner, as the parent design does). Not "in review".
   - Batch E stopped after E3 to do the refactor; E4 (state relocation) is pending.
-  - Order from here (owner, 2026-10-21): the refactor follow-ups first (this docs refresh, then the core regroup, then
-    Vitest unit tests for `core/`), then the feature batches E4 -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the
-    Canada province move later. The parent design's section 11 future work (stateless engine, TypeScript, centralized
-    writes, Vite, merging the engines) is not scheduled: list it as later work, after the order above.
+  - Order from here (owner, 2026-10-21): every refactor item comes before E4. The refactor track, in order: (1) this
+    docs refresh, (2) the core regroup, (3) Vitest unit tests for `core/`, then the parent design's section 11 items:
+    (4) stateless engine, (5) TypeScript, (6) centralized state writes, (7) Vite hot reload, (8) merging the US and
+    Canada engines. Then the feature batches E4 -> 5 -> 4A -> 4B -> 6 -> 8. E5 (real assets) and the Canada province
+    move later. Items 4-8 are ordered by dependency (the stateless engine's ratchet tests need Vitest; TypeScript is
+    easier on explicit inputs; merging the engines is the largest and goes last); each gets its own design before it
+    starts, and the owner may reorder them. Say both of those in the docs.
   - Every PR goes to `main`; work branches are cut from `main`.
 - No version-badge bump: nothing user-facing changes.
 - Prose style: plain, short sentences, matching the surrounding text.
@@ -137,12 +140,12 @@ where to look, and keeps its Phase 0-2 history.
     owner before the next starts.
   - Done: 1, 2, 3A, 3B, 3C (redesigned as the cliff plan, spec `docs/superpowers/specs/2026-10-07-cliff-plan-design.md`),
     7 (7A-7O), the IRMAA MAGI fix, E1-E3. One line each, short.
-  - Next, in order: first the refactor follow-ups (the docs refresh; the core regroup, prerequisites in
-    `docs/superpowers/inventory/stage4-open-items.md`, T17; Vitest unit tests for `core/`), then E4 (state relocation),
-    5 (optimizer), 4A, 4B (Canada), 6 (Social Security and others), 8 (survivor claim optimizer). Keep each batch's
-    existing one-line scope.
-  - Later, not scheduled: E5 (real assets), the Canada province move, and the section 11 future work of
-    `docs/superpowers/specs/2026-10-10-modular-build-design.md`.
+  - Next, in order: first the refactor track of Global Constraints, items 1-8 (the core regroup with its prerequisites in
+    `docs/superpowers/inventory/stage4-open-items.md`, T17; the section 11 items described as in
+    `docs/superpowers/specs/2026-10-10-modular-build-design.md` section 11), then E4 (state relocation), 5 (optimizer),
+    4A, 4B (Canada), 6 (Social Security and others), 8 (survivor claim optimizer). Keep each batch's existing one-line
+    scope.
+  - Later, not scheduled: E5 (real assets) and the Canada province move.
   - Keep the documentation paragraph (reference.md updated once after the last batch).
   - "Not modeled by decision": remove "medical" (7O O2 deducts medical expenses over 7.5% of AGI) and change "local income
     taxes" to "local income taxes (except a flat county rate for MD and IN, 7D)". Keep the rest.
@@ -193,8 +196,10 @@ git commit -m "Docs: roadmap.md is a status page (done, open, next order, the re
     `main`; replace the working-branch bullet (reset to the `tender-meitner` tip, `claude/dazzling-thompson-rp3l5j`) with:
     each batch's branch is cut from `main` after the previous PR merges. Keep the other two bullets.
   - "Execution order": add a dated paragraph at the end, `**Revised 2026-10-21 (owner):**`: Batch E stopped after E3 to
-    do the modular-build refactor (stages 0-4, merged); the refactor follow-ups come next (docs refresh, core regroup,
-    Vitest for `core/`; see `docs/roadmap.md`), then E4 -> 5 -> 4A -> 4B -> 6 -> 8, with E5 and the Canada move later.
+    do the modular-build refactor (stages 0-4, merged); the whole refactor track comes next (docs refresh, core
+    regroup, Vitest for `core/`, then stateless engine, TypeScript, centralized state writes, Vite, merging the engines;
+    see `docs/roadmap.md`), then E4 -> 5 -> 4A -> 4B -> 6 -> 8, with E5 and the Canada move later. Add that merging the
+    engines lands before E4, so E4 and later batches are written against the merged engine.
     Leave the earlier paragraphs as the record.
 
 - [ ] **Step 2: Layout fixes in `docs/next-batches-plan.md`.**
@@ -228,7 +233,7 @@ git commit -m "Docs: roadmap.md is a status page (done, open, next order, the re
   order" paragraphs kept as the record (none in "Review gate", "Ground rules", Batch 4 or "Open items").
 
   Then read the remaining order in `docs/next-batches-plan.md` ("Execution order", the 2026-10-21 paragraph) and in
-  `docs/roadmap.md` ("Current plan"). Expected: the same order in both: docs refresh, core regroup, Vitest, then E4
+  `docs/roadmap.md` ("Current plan"). Expected: the same order in both: refactor items 1-8 of Global Constraints, then E4
   first among the feature batches.
 
 - [ ] **Step 5: Commit.**
@@ -246,7 +251,10 @@ git commit -m "Docs: next-batches-plan (PRs to main, order from E4, src/ layout 
 - [ ] **Step 1: Mark section 8 done.** Add one line at the end of section 8: the living-doc rewrites were finished on
   2026-10-21 (`docs/reference.md`, `docs/roadmap.md`, `docs/phase2-refactor-plan.md`, plus `docs/next-batches-plan.md`;
   plan `docs/superpowers/plans/2026-10-21-docs-refresh.md`); the memory items are covered by CLAUDE.md (no separate
-  memory is needed, since the repo records the layout).
+  memory is needed, since the repo records the layout). Also add one line at the top of section 11: scheduled
+  2026-10-21 (owner): all five items run, in the order of `docs/roadmap.md`, after the core regroup and Vitest and before
+  feature batch E4; each gets its own design. Leave section 1's non-goals as they are (they scope this refactor, and the
+  merge is a later project, which is still true).
 
 - [ ] **Step 2: Path check.** Every path this plan's edits added must exist.
 
