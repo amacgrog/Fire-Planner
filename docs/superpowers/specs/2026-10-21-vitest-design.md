@@ -405,6 +405,36 @@ The final review of a conversion asks one question: can the old script's every c
   made `npm test` faster, not a requirement).
 - The pinned `vitest` version and the Node 22 / 24 results.
 
+### Spike results (2026-10-21, step 1; scratch worktree, discarded)
+
+- **Version:** `vitest` 5.0.3 (2026-09-30), the only 5.x at least 14 days old on 2026-10-21 (5.0.4 is 2026-10-12, 5.0.5 is
+  2026-10-15). It brings Vite 8.3.5; `esbuild` stays 0.28.2 (deduped, no nested copy) and `npm run build` still works.
+- **`#country/*` mechanism:** a plain per-project `resolve.conditions` **fails** ("No known conditions for #country/..."). Winner:
+  mechanism (a'), `ssr: { resolve: { conditions: [country, 'node', 'import', 'module', 'default'] } }` per project; mechanism (b),
+  a per-project `resolve.alias` `{ find: /^#country\/(.*)$/, replacement: <abs src/<country>> + '/$1.js' }`, also passes. Choose
+  (a') (it mirrors `src/package.json`); (b) is the fallback. Verified per country: `shared/ui/plans/storage.js` loads, and
+  `src/<country>/storage-key.js` and `src/<country>/core/seam-taxFor.js` resolve to the right country.
+- **Config details that work:** two inline projects with `extends: false`, `test.provide: { country }` with `inject('country')`,
+  `pool: 'forks'`, `isolate: true`, `setupFiles: [clock.js]` with `vi.setSystemTime(new Date(2026, 0, 1))` (then `CURRENT_YEAR`
+  is 2026 in both projects), CommonJS helpers through `createRequire` (`scenarios(true)` returns 577 US scenarios and
+  `scenarios(false)` 376 Canada ones), `load(rel)` as `import(/* @vite-ignore */ new URL('../../../src/' + rel,
+  import.meta.url).href)`: two loads in one world are the same instance, `vi.resetModules()` makes the next load a new
+  instance, a live binding read through the namespace sees `assignMode`.
+- **`ENGINE_ROWS`:** `simulate(50, 50)` for `normalizeState({ retireAgeA: 50 })` returns **58 rows in both countries**.
+- **Mechanism R reload cost:** median **15.1 ms** (US) and **12.5 ms** (Canada) per reload of the engine, historical data,
+  `normalizeState` and the tax rules; 50 reloads total 0.78 s and 0.67 s. Far inside the limits (100 ms median, 5 s for 40
+  reloads): **`RESET_MECHANISM = R`**. A full spike run (both projects, 14 tests) takes about 2 s.
+- **Node 22.12 versus 24.21: the engine's last bits differ.** `Math.pow` returns different last bits for 8 of 82 sampled
+  values (for example `Math.pow(1.025, 14)` is `1.4129738209737657` on Node 24.21 and `1.4129738209737654` on Node 22.12), so
+  `taxIndexFactor` and the `simulate` rows hash differently between the two Nodes, while `stateIncomeTax` over all 51 codes
+  hashes identically. CI runs Node 22 and developers Node 24. Consequence: a Vitest assertion that compares an engine result
+  with a literal derived from one Node's output can pass locally and fail in CI. Hand-computed literals (exact decimal
+  arithmetic, with the old scripts' tolerances) and comparisons inside one process (the `taxIndexFactor` guard) are safe. The
+  plan therefore drops a golden-hash test and instead runs every converted suite on both Nodes (Task 7); a suite that fails on
+  one Node is reported, not tolerance-loosened. Recommended follow-up for the owner: run CI on the same Node major as
+  development (a one-line `node-version` change), since the unit tests are the first tests that run the engine in Node rather
+  than in Chromium.
+
 ## 11. Risks
 
 - **Alias resolution under Vitest** (section 5.2): the one structural unknown, with three ordered mechanisms; step 1 exists to answer it first. Also unverified until then: `vi.setSystemTime` without fake timers taking effect before `src/` loads, importing CommonJS test helpers (`createRequire` is the planned way), and Vitest 5's Node range.
@@ -414,6 +444,7 @@ The final review of a conversion asks one question: can the old script's every c
   same commit) catches the failure; the cause is usually state the old page had and the world reset does not.
 - **Clock-dependent code:** anything that reads the clock beyond `currentYear` / `CURRENT_YEAR` (none known). The Canada
   pin and the guard's assertion make a new one visible.
+- **Node version drift in `Math.pow`** (spike result above): exact comparisons of engine output against a literal can differ between Node 22 and Node 24; Task 7 runs every converted suite on both.
 - **Vitest major-version churn** (5.x is recent): pin exactly, upgrade deliberately.
 
 ## 12. Left to the builder
