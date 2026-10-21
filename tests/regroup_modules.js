@@ -159,6 +159,27 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
     assert.deepStrictEqual(await bothRun(root), EXPECTED, 'fixture 2 builds');
   }
 
+  // ---- 2b. a grouped declaration (`export const A = 1, B = 2;`) keeps its export while any of its names is needed
+  // outside the merge
+  {
+    const grouped = {
+      'src/us/core/a.js': 'export const A = 1,\n    B = 2;\n',
+      'src/us/core/b.js': "import { A } from './a.js';\n\nexport function useA() {\n  return A;\n}\n",
+      'src/us/core/c.js': "import { B } from './a.js';\n\nexport function useB() {\n  return B;\n}\n",
+    };
+    const root = tree(grouped);
+    regroup(root, [{ merge: ['src/us/core/a.js', 'src/us/core/b.js'], to: 'src/us/core/a.js' }], {});
+    assert.ok(/^export const A = 1,$/m.test(read(root, 'src/us/core/a.js')), `B is external: the export stays\n${read(root, 'src/us/core/a.js')}`);
+    assert.ok(read(root, 'src/us/core/c.js').startsWith("import { B } from './a.js';\n"), 'c.js still imports B from a.js');
+    // both names imported only by the other member: the export goes
+    const root2 = tree({
+      'src/us/core/a.js': grouped['src/us/core/a.js'],
+      'src/us/core/b.js': "import { A, B } from './a.js';\n\nexport function useA() {\n  return A + B;\n}\n",
+    });
+    regroup(root2, [{ merge: ['src/us/core/a.js', 'src/us/core/b.js'], to: 'src/us/core/a.js' }], {});
+    assert.ok(/^const A = 1,$/m.test(read(root2, 'src/us/core/a.js')) && !/export const A/.test(read(root2, 'src/us/core/a.js')), `both internal: no export\n${read(root2, 'src/us/core/a.js')}`);
+  }
+
   // ---- 3. move a function between modules
   {
     const root = tree();
@@ -298,19 +319,67 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
     regroup(root, [{ move: 'after', from: 'src/shared/core/dm.js', to: 'src/shared/core/after.js' }], {});
     assert.strictEqual(read(root, 'src/shared/core/dm.js'), '// FOO_RULES:begin\nexport const FOO = 1;\n// FOO_RULES:end\n', 'the end marker stays');
     assert.strictEqual(read(root, 'src/shared/core/after.js'), "import { FOO } from './dm.js';\n\nexport function after() {\n  return FOO;\n}\n", 'and is not carried');
-    // a declaration inside a block is refused, whole block or not
-    refuses(tree({ 'src/shared/core/dm.js': DB }), [{ move: 'FOO', from: 'src/shared/core/dm.js', to: 'src/shared/core/foo.js' }], /^op 0 \(move FOO .*\): FOO lies inside the data block FOO_RULES in src\/shared\/core\/dm\.js/, 'a move out of a data block');
+    // a block's only declaration moves with the whole block
+    const r2 = tree({ 'src/shared/core/dm.js': DB });
+    regroup(r2, [{ move: 'FOO', from: 'src/shared/core/dm.js', to: 'src/shared/core/foo.js' }], {});
+    assert.strictEqual(read(r2, 'src/shared/core/foo.js'), '// FOO_RULES:begin\nexport const FOO = 1;\n// FOO_RULES:end\n', 'FOO moves with both markers');
+    assert.strictEqual(read(r2, 'src/shared/core/dm.js'), "import { FOO } from './foo.js';\n\nexport function after() {\n  return FOO;\n}\n", 'nothing of FOO_RULES is left');
     // a merge with a file holding a data block keeps its markers paired
     const r3 = tree({ 'src/shared/core/dm.js': DB, 'src/shared/core/dn.js': 'export const N = 2;\n' });
     regroup(r3, [{ merge: ['src/shared/core/dm.js', 'src/shared/core/dn.js'], to: 'src/shared/core/dmn.js' }], {});
     assert.strictEqual(read(r3, 'src/shared/core/dmn.js'), DB + 'export const N = 2;\n');
     // the BENEFIT_RULES case in miniature: two blocks in a row with a section comment between them
     const MINI = '// A_RULES:begin\nexport const A = { a: 1 };\n// A_RULES:end\n// ---- B section ----\n// B rows, pure literals.\n// B_RULES:begin\nexport const B = { b: 2 };\n// B_RULES:end\nexport function useB() {\n  return A.a + B.b;\n}\n';
-    refuses(tree({ 'src/canada/core/rules.js': MINI }), [{ move: 'B', from: 'src/canada/core/rules.js', to: 'src/canada/core/b-rules.js' }], /B lies inside the data block B_RULES in src\/canada\/core\/rules\.js/, 'the BENEFIT_RULES case');
+    const r5 = tree({ 'src/canada/core/rules.js': MINI });
+    regroup(r5, [{ move: 'B', from: 'src/canada/core/rules.js', to: 'src/canada/core/b-rules.js' }], {});
+    assert.strictEqual(read(r5, 'src/canada/core/b-rules.js'), '// ---- B section ----\n// B rows, pure literals.\n// B_RULES:begin\nexport const B = { b: 2 };\n// B_RULES:end\n', 'the BENEFIT_RULES case: B moves with its section comment and markers');
+    assert.strictEqual(
+      read(r5, 'src/canada/core/rules.js'),
+      "import { B } from './b-rules.js';\n\n// A_RULES:begin\nexport const A = { a: 1 };\n// A_RULES:end\nexport function useB() {\n  return A.a + B.b;\n}\n",
+      'A_RULES stays whole',
+    );
     const r4 = tree({ 'src/canada/core/rules.js': MINI });
     regroup(r4, [{ move: 'useB', from: 'src/canada/core/rules.js', to: 'src/canada/core/use-b.js' }], {});
     assert.ok(read(r4, 'src/canada/core/rules.js').endsWith('// B_RULES:end\n'), 'B_RULES:end stays with its block');
     assert.ok(!/RULES/.test(read(r4, 'src/canada/core/use-b.js')), 'no marker travels with useB');
+    // a block with its comment above: the note and both markers move, the purpose comment and X stay
+    const R = '// Purpose of r.\n\nexport const X = 1;\n// note about Y\n// Y_RULES:begin\nexport const Y = { a: 1 };\n// Y_RULES:end\nexport function f() { return Y.a; }\n';
+    const Y_OUT = '// note about Y\n// Y_RULES:begin\nexport const Y = { a: 1 };\n// Y_RULES:end\n';
+    const R_OUT = "// Purpose of r.\n\nimport { Y } from './y.js';\n\nexport const X = 1;\nexport function f() { return Y.a; }\n";
+    const moveY = [{ move: 'Y', from: 'src/us/core/r.js', to: 'src/us/core/y.js' }];
+    for (const [eol, what] of [['\n', 'LF'], ['\r\n', 'CRLF']]) {
+      const ry = tree({ 'src/us/core/r.js': R.replace(/\n/g, eol) });
+      regroup(ry, moveY, {});
+      assert.strictEqual(read(ry, 'src/us/core/y.js'), Y_OUT, `${what}: y.js holds the note, both markers and Y`);
+      assert.strictEqual(read(ry, 'src/us/core/r.js'), R_OUT, `${what}: r.js keeps X and f, no marker, imports Y`);
+    }
+    // refused: a block holding two declarations, or one line holding two statements
+    refuses(
+      tree({ 'src/us/core/r.js': '// Y_RULES:begin\nexport const Y = { a: 1 };\nexport const Z = 2;\n// Y_RULES:end\n' }),
+      moveY,
+      /^op 0 \(move Y .*\): Y lies inside the data block Y_RULES in src\/us\/core\/r\.js \(lines 1-4\) with other statements/,
+      'a block holding two declarations',
+    );
+    refuses(
+      tree({ 'src/us/core/r.js': '// Y_RULES:begin\nexport const Y = { a: 1 }; const Z = 2;\n// Y_RULES:end\nexport function z() {\n  return Z;\n}\n' }),
+      moveY,
+      /Y lies inside the data block Y_RULES in src\/us\/core\/r\.js \(lines 1-3\) with other statements/,
+      'a block line holding two statements',
+    );
+    // a begin marker on line 1 followed by a blank line is not a purpose comment: both markers move
+    const r6 = tree({ 'src/us/core/r.js': '// Y_RULES:begin\n\nexport const Y = { a: 1 };\n// Y_RULES:end\nexport function f() {\n  return Y.a;\n}\n' });
+    regroup(r6, moveY, {});
+    assert.strictEqual(read(r6, 'src/us/core/y.js'), '// Y_RULES:begin\n\nexport const Y = { a: 1 };\n// Y_RULES:end\n', 'line-1 marker: the block moves whole');
+    assert.ok(!/RULES/.test(read(r6, 'src/us/core/r.js')), `line-1 marker: no marker left\n${read(r6, 'src/us/core/r.js')}`);
+    // a block right after the import lines: no import line moves
+    const r7 = tree({ 'src/us/core/r.js': "import { k } from '../../shared/core/k.js';\n// Y_RULES:begin\nexport const Y = { a: k };\n// Y_RULES:end\nexport function f() {\n  return Y.a + k;\n}\n" });
+    regroup(r7, moveY, {});
+    assert.strictEqual(read(r7, 'src/us/core/y.js'), "import { k } from '../../shared/core/k.js';\n\n// Y_RULES:begin\nexport const Y = { a: k };\n// Y_RULES:end\n");
+    assert.strictEqual(read(r7, 'src/us/core/r.js'), "import { k } from '../../shared/core/k.js';\nimport { Y } from './y.js';\nexport function f() {\n  return Y.a + k;\n}\n");
+    // into an existing target that ends with another data block: both blocks stay paired
+    const r8 = tree({ 'src/us/core/r.js': R, 'src/us/core/y.js': '// Z_RULES:begin\nexport const Z = 2;\n// Z_RULES:end\n' });
+    regroup(r8, moveY, {});
+    assert.strictEqual(read(r8, 'src/us/core/y.js'), '// Z_RULES:begin\nexport const Z = 2;\n// Z_RULES:end\n\n' + Y_OUT);
     // the paired check itself runs on every touched file
     refuses(tree({ 'src/shared/core/half.js': '// HALF_RULES:begin\nexport const H = 1;\n' }), [{ rename: 'src/shared/core/half.js', to: 'src/shared/core/half2.js' }], /data-block markers are not paired in src\/shared\/core\/half2\.js: HALF_RULES/, 'unpaired markers');
   }
@@ -479,7 +548,7 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
 
   // ---- 13. outside src/: the region maps follow a rename; a name tests/state_modules.js reads keeps its export
   {
-    const maps = ['stage2', 'stage3', 'stage4'].map((s) => `docs/superpowers/inventory/${s}-region-map.md`);
+    const maps = [...['stage2', 'stage3', 'stage4'].map((s) => `docs/superpowers/inventory/${s}-region-map.md`), 'docs/superpowers/inventory/stage4-open-items.md'];
     const root = tree(Object.fromEntries(maps.map((m) => [m, '| helpers | `src/shared/ui/helper.js` (all units) |\n'])));
     const report = regroup(root, [{ rename: 'src/shared/ui/helper.js', to: 'src/shared/ui/doubling.js' }], {});
     for (const m of maps) {

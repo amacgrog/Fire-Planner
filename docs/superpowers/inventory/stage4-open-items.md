@@ -79,7 +79,7 @@ behavior a later change could trip over (each is also listed in section 10 of `d
 - T12fix1 | tests/regroup_modules.js | `made.reverse()` mutates `made` (runs once, in `finally`). | Harmless.
 - T13, T13fix | src/shared/ui/input-gestures.js:1, disclaimer-link.js:1 | The purpose lines are long (about 230 and 118 characters; typical 40-110). | Cosmetic.
 - T13 | src/shared/core/tax-index-factor.js:6-21 | The indexing comment (US and Canada texts) sits above the memo comment, not directly above `taxIndexFactor`. | Cosmetic.
-- T13 | src/{us,canada}/core/analyze-shortfall-drivers.js ~9 | A moved comment ends mid-sentence ("... simulateAtRealCagr(). These"), truncated in the base and moved verbatim. | Comment pass later.
+- T13 | src/us/core/analyze-shortfall-drivers.js and src/canada/core/analyze-shortfall-drivers.js ~9 | A moved comment ends mid-sentence ("... simulateAtRealCagr(). These"), truncated in the base and moved verbatim. | Comment pass later.
 - T14 | scripts/analyze-closure.js:27, 324; scripts/lib/load-time.js:36, 43; scripts/lib/extraction-plan.js:15; scripts/lib/extract-units.js:37; tests/closure_analyzer.js, tests/extraction_plan.js | `@@shared` region handling stays, inert (no marker remains in src/); the fixtures still use markers. | By the plan: removal larger than it is worth.
 - T14 | tests/no_markers.js | No committed red fixture (`--root DIR` makes one easy). | Optional self-test.
 - T14fu | scripts/lib/extract-units.js | The header example uses a `src/shared` path with a country owner; section comments jump from 1 to 3; single-element leftovers (`[m.owner]`); `seamSides` is only validated (no effect) and its comment, and the CLI's, overstate it. | Cosmetic.
@@ -110,12 +110,12 @@ behavior a later change could trip over (each is also listed in section 10 of `d
 - T11b2 | src/shared/ui/autosave.js | The module's description sat above `writeStorageNow` only. | The tidy wrote a purpose comment on line 1.
 - T11b3 | plan Task 12 | The cycle rule had to allow ES built-ins (`new Set()` in `unusual-warnings.js`). | Plan `ae8fc8f`, implemented in Task 12.
 - T11b3 | seam sides | `seam-syncControls` did not exist yet; `SENSITIVITY_LEVERS` and `renderDecisionCompareTable` are core-side. | Created in batch 4; recorded.
-- T11b4 (owner ruling) | src/{us,canada}/ui/sensitivity.js (byte-identical) and src/{us,canada}/ui/pension-buttons.js (identical bodies) | Stay out of Stage 4. | Candidates to become shared modules later (a seam change, not a regroup operation).
+- T11b4 (owner ruling) | src/us/ui/sensitivity.js and src/canada/ui/sensitivity.js (byte-identical) and src/us/ui/pension-buttons.js and src/canada/ui/pension-buttons.js (identical bodies) | Stay out of Stage 4. | Candidates to become shared modules later (a seam change, not a regroup operation).
 - T11b5, T12fix1, T13, T14 | process | The implementer staged before the full suite finished (the controller re-ran it, `exit 0`); one `sed -i` on a test file and two logs in /tmp (no repo impact); a report misplaced one copy of the Real-CAGR comment (end state correct); generator docs rewritten without `--check` and reverted. | Process notes; no code impact.
 - T12 | real map dry run | Verbose load-time order report for ops 9, 11 and 17 (marked document lookups and literals only). | Reviewed in Task 13 step 2.
 - T13 (owner ruling) | src/shared/core/estimate-checks.js, estimates-and-warnings.js | Near-twin names with different contents. | Stay as they are until the core regrouping.
 - T13 (owner ruling) | src/shared/core/dyn-field-html.js, field-wiring.js; chart-hover.js and money-format.js in core/ and ui/ | Names kept: they describe what they hold, and the core/ui pairs are the intended split of one topic. src/shared/core has no `decision-questions.js` (only shared/ui, us/ui and canada/ui do). | Owner ruling at the Task 13 checkpoint.
-- T13 (owner ruling) | src/{us,canada}/ui/dynamic-lists.js:1 | Purpose wording ("The children list: adds its rows to the sidebar") left as is. | Owner ruling.
+- T13 (owner ruling) | src/us/ui/dynamic-lists.js:1 and src/canada/ui/dynamic-lists.js:1 | Purpose wording ("The children list: adds its rows to the sidebar") left as is. | Owner ruling.
 - T13 | src/shared/ui/disclaimer-link.js:1 | The purpose line was vague. | Reworded (`01172a6`); its length is under Tidiness.
 - T13 | src/us/ui/fields.js:1 | The purpose line covers `FIELDS` only; the module also holds `clampProfitSharing` (a `FIELDS` `onInput`). | Reviewer: fine as is.
 - T14 | scripts/lib/extract-units.js | Dead `owner === 'shared'` branches and the unreachable wrong-side facade check. | Removed (`aa66c0f`).
