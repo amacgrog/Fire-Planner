@@ -44,7 +44,7 @@ const SERIES = [
   assert.strictEqual(edge[0], 0, 'zero at the single cutoff');
   assert.strictEqual(edge[1], 0, 'zero far above the cutoff');
   assert(Math.abs(edge[2] - 13666.8) < 1e-9, 'maximum at zero income (1,138.90 a month, 12 times)');
-  assert(edge[3] > 3000 && edge[4] === 0, 'table 4 ends at 42,768, where the younger spouse Allowance ends (benefitsFor continues on table 3: tests/benefits.js)');
+  assert(edge[3] > 3000 && edge[4] === 0, 'table 4 ends at 42,768, where the younger spouse Allowance ends (benefitsFor continues on table 3: tests/unit/canada/benefits.test.js)');
   await browser.close();
   assert.deepStrictEqual(errors, [], 'page errors ' + errors);
   console.log('gis tables ok');

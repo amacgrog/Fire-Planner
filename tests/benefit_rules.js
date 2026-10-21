@@ -1,5 +1,5 @@
 // Coverage test for BENEFIT_RULES (Canada): every program present, every field explicit, schema ranges.
-// Evaluators are tested with hand-computed cases in tests/benefits.js and against ESDC tables in tests/gis_tables.js.
+// Evaluators are tested with hand-computed cases in tests/unit/canada/benefits.test.js and against ESDC tables in tests/gis_tables.js.
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
