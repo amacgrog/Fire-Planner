@@ -3486,8 +3486,8 @@ setting."
 ## Testing checklist for any change
 
 1. `npm test` (golden math tests — must stay exact-to-the-cent).
-2. `npm test` builds first; for a single-script run, `npm run build` first (or
-   keep `npm run dev` running), since `node tests/x.js` and `node test_foo.js`
+2. For a single-script run, `npm run build` first (or keep `npm run dev`
+   running), since `node tests/x.js` and `node test_foo.js`
    read whatever `dist/` holds.
 3. Run the specific `test_*.js` file(s) relevant to what changed, plus a
    broad sweep of the rest if the change touches `simulate()`/

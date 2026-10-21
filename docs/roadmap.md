@@ -65,7 +65,8 @@ Then the feature batches:
 Later, not scheduled: E5 (real assets) and the Canada province move.
 
 Documentation: `docs/reference.md` is updated once, after the last batch, from
-the per-batch "Batch notes" kept in `docs/next-batches-plan.md`.
+the per-batch "Batch notes" kept in `docs/next-batches-plan.md` (the one exception
+so far: the modular-build refresh of its layout sections, 2026-10-21).
 
 Not modeled by decision: charitable itemized deductions, Medicare late-enrollment
 penalties, the Social Security earnings test, WEP/GPO (repealed), territories

@@ -1,7 +1,7 @@
 # Implementation plan: batches after Phase 2
 
 Branch: `claude/dazzling-thompson-rp3l5j`, cut from `claude/tender-meitner-a3bo59`
-(`5383063`: Phase 2 complete, US V75 / Canada V34). `main` is not involved.
+(`5383063`: Phase 2 complete, US V75 / Canada V34). At the time, `main` was not involved.
 Source of scope: `docs/roadmap.md` ("After Phase 2" and "Phase 3") and
 `docs/phase2-refactor-plan.md` appendix A.3 / A.5 / A.6 / A.7.
 
@@ -201,7 +201,7 @@ user-facing and `CLAUDE.md` is what future sessions read first.
 ## What the engine looks like now (relevant facts)
 
 > **Update (2026-10-21):** these facts date from the start of this plan
-> (2026-10-03). The line numbers and the mode switches listed are gone, and the
+> (2026-10-03). The line numbers and every mode switch listed except `bucketStrategy` are gone, and the
 > standard deduction was centralized in Batch 2. `CLAUDE.md`'s "Architecture,
 > per planner file" is current.
 
