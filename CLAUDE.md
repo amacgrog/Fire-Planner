@@ -136,7 +136,7 @@ holds it. See `README.md` for the full user-facing feature list.
 - `tests/account_ledger.js` — the US per-account share ledger (contribution routing,
   conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
   how the eight account inputs, the Roth basis rules, single-person mode and the opening
-  ownership ratio feed the engine; `tests/contribution_limits.js` — the plan limits, catch-ups,
+  ownership ratio feed the engine; `tests/unit/us/contribution-limits.test.js` (Vitest, in `npm test`) — the plan limits, catch-ups,
   compensation limit, contribution order and profit sharing (hand-computed). `tests/legacy_balances.js` — test helper that turns the old
   pooled vocabulary (`traditional`, `roth`, `traditionalSharePctA`, `rothBasisPct`) into the
   per-partner account fields (`legacyToAccounts` for state patches, `translateFieldList` and
@@ -545,7 +545,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   partner is filled in the order deferrals, match, profit sharing, after-tax (mega backdoor); the room is
   `min(pay, annual limit) - deferrals` (catch-ups outside it); the mega backdoor is further capped at pay less deferral and catch-up (the employee's own money never exceeds pay); match and profit sharing count pay only up to the compensation limit. `profitSharingPctA/B` (0-25, clamped in
   `normalizeState` and while typing) is the employer's share of pay into the traditional 401(k). Partner income
-  (`incomeA/B`) is a money field, not a slider. Optional `min` / `max` on a `FIELDS` number entry bound MCP input only (`mcpAccepts`, US-only; profit sharing 0-25). Test: `tests/contribution_limits.js`.
+  (`incomeA/B`) is a money field, not a slider. Optional `min` / `max` on a `FIELDS` number entry bound MCP input only (`mcpAccepts`, US-only; profit sharing 0-25). Test: `tests/unit/us/contribution-limits.test.js`.
 - **Self-employment (US, E1c; spec `docs/superpowers/specs/2026-10-08-e1c-self-employment-design.md`).** `incomeKindA/B` (`'wages'` default,
   `'self'`; a `choice` field with `manual: true` and `mcp: true`) says what the partner's main income is. In the year loop
   `seMainA/B` is the main income when the kind is `self` and the partner works (the same `incomeFactor` growth), `wageA/B` the W-2 amount
