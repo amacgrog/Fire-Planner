@@ -43,7 +43,8 @@ the entry point and the tools", "Where new code goes", "Where a new test goes" a
   the stage ends.
 - The context is passed explicitly as the first argument (`fn(ctx, ...)`), `taxFor` included. Never a module-level
   "current context" binding set around a run (spec section 9, anti-goals), except the temporary `LIVE_CTX` bridge of
-  stage 3, which reads the store and is gone from every engine module by the end of Task 12.
+  stage 3, which reads the store and is gone from every module in `runProjection`'s closure by the end of Task 12 and
+  from every module by Task 16.
 - No new per-call allocation on a hot path (CLAUDE.md hot-path rules). The Canada `state.province === 'on'` tests stay
   plain comparisons (`ctx.inputs.province === 'on'`).
 - Module files keep their two-space indentation; every new `core/` or `ui/` module starts with a one-line `//` purpose
@@ -76,6 +77,26 @@ the entry point and the tools", "Where new code goes", "Where a new test goes" a
 - **A caller whose signature change JavaScript does not catch** (a changed arity is not a build error): every task
   greps all of `src/` and `tests/` for each changed function name (not only its own folder) and updates every caller in
   the same commit; the parity bundle and the snapshots catch what slips.
+
+## Households with a cliff plan (used by Tasks 1, 3 and 14)
+
+The default household and most simple ones plan to `{ intents: {}, family: 'none' }`, and `apply` with an empty plan
+runs exactly like `off` (`tests/unit/us/historical-parity.test.js` lines 52-60). A check run only on such households
+cannot see a plan-selection mistake (third plan review, 2026-10-22, confirmed by a probe). Every check of plan selection
+therefore also runs these US households from `tests/snapshot_scenarios.js` (the exported `scenarios` list, looked up by name;
+convert its legacy balance fields with `legacyToAccounts` from `tests/legacy_balances.js`, as the snapshot runner does;
+the `PLAN_G58` patch below is already converted):
+
+- **`PLAN_G58`**, `G single 58 aca default`: `singlePerson: true, children: [], ageA/ageB/retireAgeA/retireAgeB: 58,
+  lifeExpectancyA/B: 95, acaEnabled: true, acaEnhanced: false, stateTax: 'tx', rothConvEnabled: true, rothConvBracket: 22,
+  rothConvStartAge: 58, rothConvEndAge: 72, withdrawalMixEnabled: false, smoothWithdrawals: false, ruleOf55A/B: false,
+  sepp72tK401A: false, taxable: 300000, spending: 60000, trad401kA: 1500000, rothIraA: 200000`, every other account 0,
+  `rothIraBasisA: 0`. Its kept plan has three `under aca400` intents (ages 62-64), and one of its 22 tornado variants gets
+  a different plan on the no-refresh path, so the refresh and no-refresh tornado results differ.
+- **`PLAN_G62`**, `G mfj 62 aca 400% smooth` (the neighbouring row of the same table).
+
+A check that relies on these asserts, in each tree, that the kept plan of `PLAN_G58` and `PLAN_G62` has at least one
+intent (else it fails: "the plan household no longer plans; pick another"), so it cannot silently go blind.
 
 ---
 
@@ -161,7 +182,8 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
   a survivor (`survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 80`); a child (`children: [{ birthYear: 2015 }]`);
   US: an inherited IRA (`oneTimeIncome: [{ age: 50, amount: 100000, kind: 'inheritedTrad' }]`), self-employment
   (`incomeKindA: 'self'`), a one-time wages lump, a loan, `stateTax: 'ny'`, `'ca'`, `'pa'`; Canada: `province: 'qc'`,
-  `'ns'`, `'mb'`, a single person with OAS. Two helpers: `async setup(w, patch)` (`await w.setState(patch)`) and a **synchronous** `runAll(eng, HIST)` that only
+  `'ns'`, `'mb'`, a single person with OAS; US also `PLAN_G58` and `PLAN_G62` (section "Households with a cliff plan";
+  assert each has at least one intent after a refresh). Two helpers: `async setup(w, patch)` (`await w.setState(patch)`) and a **synchronous** `runAll(eng, HIST)` that only
   runs and returns `JSON.stringify([simulate(), simulateHistorical((y) => HIST[(y + 10) % HIST.length])])`. Cases (each in its own `it`,
   each with a fresh `world()`):
   - `identical inputs give identical output`: `setup` then `runAll` twice, `expect(b).toBe(a)`, for every scenario.
@@ -172,10 +194,14 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
     it (every nested object and array), then `expect(() => runAll(eng, HIST)).not.toThrow()` (synchronous: never put
     `setup` or anything async inside the `expect`), then `expect(store.state).toBe(s)` and `expect(Object.isFrozen(s)).toBe(true)`.
     Check once by hand that it bites: a temporary `state.spending = 1` inside `simulate` makes it fail; revert.
-  - `nested planning gives the same historical run` (US, cliff guard on): world 1 sets the state and calls
+  - `nested planning gives the same historical run` (US, `PLAN_G58`): world 1 sets the state and calls
     `simulateHistoricalRaw` (no refresh: the plan is computed nested at the start of the run and cached); world 2 sets
     the same state, calls `refreshCliffPlan()` (`w.load('us/core/cliff-plan/planning.js')`), then
-    `simulateHistoricalRaw` with the same path; `expect(json2).toBe(json1)`.
+    `simulateHistoricalRaw` with the same path; `expect(json2).toBe(json1)`; also assert world 1's run applied a non-empty
+    plan (its rows carry at least one `cliffChoice`, or `planStats.intentYears` rose). This pins that the nested plan is
+    the same plan; it cannot see "planning read the path's factors", because `historicalYearSource` fills the array only
+    in `yearInputs` (`year-sources.js` line 40), after planning, so the array is still empty when planning runs. The
+    guard against reusing a factor array is the `identical inputs` case.
   Use `makeCounter` and assert the check count in `afterAll` (CLAUDE.md "Where a new test goes", rule 3); the scenario
   lists differ by country, so the expected count branches on `inject('country')`.
 - [ ] **Step 2: Run it.** `npx vitest run tests/unit/shared/engine-ratchet.test.js` and
@@ -207,21 +233,26 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
     themselves are not engine modules and are not checked.
   - Check A: the set of engine modules that reach the store equals `stillReaching[country]` exactly (a new one fails with
     "now reaches the store: X"; a listed one that no longer reaches it fails with "remove X from stillReaching").
-  - Check B: every top-level binding of an engine module that is a `let`/`var`, or a `const` whose initializer is an
+  - Check B applies to engine modules only; a `mutables` entry for a file that is not an engine module (an adapter, or a
+    module not yet reachable) fails ("not an engine module: X"), so entries are added in the task that makes the file
+    an engine module. Check B: every top-level binding of an engine module that is a `let`/`var`, or a `const` whose initializer is an
     object or array literal, `new Map/Set/WeakMap/Array/<typed array>`, or a call, is listed under `mutables[file][name]`;
     an unlisted one fails ("unregistered module-level mutable"); a listed name that no longer exists fails too.
   - Fill the JSON from the current tree: `stillReaching` is whatever Check A finds today (about 40 US + shared, 27 Canada +
     shared, spec section 3); classify `mutables` by spec section 5 (memo: `taxFactorByYear`, `taxFactorInflation`,
     `stateRuleCache`, `PROVINCE_COMPILED`, `medicaidLimitCache`, `RAMQ_CAP`; scratch: the spec's list plus any the scan
     finds; constant: rule tables, step tables, mode objects, `HIST`, the bucket orders; counters `magiStats`, `planStats` are `"counter"` (they stay, as the US stats sinks) and
-    `cliffPlanCache` is `"cache"` until Task 5 moves it out of the engine; `CURRENT_YEAR` (a load-time clock read) and
-    `NO_OVERRIDES` / `NO_TEST` (Task 4) are `"constant"`; the `contributions.js` buffers the scan finds beyond the
+    `cliffPlanCache` is `"cache"` until Task 5 moves it out of the engine; `CURRENT_YEAR` (a load-time clock read) is
+    `"constant"` (`NO_OVERRIDES` / `NO_TEST` are registered in Task 5, when `run-context.js` becomes an engine module); the `contributions.js` buffers the scan finds beyond the
     spec's list (`STREAM_REQ`, `STREAM_GOT`, `STREAM_ROOMS`, `STREAM_LIMITS`, `SOLO_P`, `SOLO_GOT`, `SOLO_IN`, `PLAN_GOT`)
     are `"scratch"`). A binding that fits none of the
     spec's kinds is reported to the owner, not classified by guess.
 - [ ] **Step 2: Run it.** `node tests/engine_purity.js`. Expected: `engine purity: N modules still reach the store (us),
-  M (canada); K registered mutables` and exit 0. Then check that it bites: temporarily add `let x = 0;` to
-  `src/us/core/tax/federal-tax.js`, run, expect exit 1 naming it, revert.
+  M (canada); K registered mutables` and exit 0, with N = 42 of 49 US engine modules and M = 27 of 34 Canada ones (an
+  independent probe's count with these definitions; if yours differs, find out why before pinning it). Then check that
+  both checks bite: temporarily add `let x = 0;` to `src/us/core/tax/federal-tax.js` (Check B must fail naming it), and
+  temporarily import `state` from `store.js` into `src/us/core/projection/year-modes.js` (Check A must fail naming it
+  and its importers); revert both.
 - [ ] **Step 3: Commit** (`test: engine purity guard (shrinking list, mutable registry)`).
 
 ### Task 3: The analysis parity hook and script
@@ -254,12 +285,14 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
   - US: `perYear`: `optimizeRothLadderPerYear` and `multiLever`: `optimizeMultiLever(…, { includeRoth: true, includeMix: true, includeSmooth: true })`
     (match the option names in `src/us/core/optimizer/multi-lever.js`), each with
     `optimizerState.rothPerYearEvalBudget` set to 200 for the call and restored; `scheduleCost`: `rothScheduleCost` of
-    the multi-lever result's schedule; `card`: the real US Roth optimizer card, not a copy: call
+    the run the multi-lever result describes (`rothScheduleCost` takes a run result, `roth-schedule.js` line 41: price
+    the `simulate()` made with the result's schedule applied, as the optimizer card does); `card`: the real US Roth optimizer card, not a copy: call
     `renderRothPerYearOptimizer(simulate())` and `renderMultiLeverOptimizer(simulate(), <the options above>)` (the
     Playwright page has their DOM) with the budget set to 200, and record the `innerHTML` of the rows and summary
     elements they write (`#rothPerYearRows`, `#multiLeverRows` and their summaries; read the ids from the functions),
-    then restore the optimizer state they leave (`lastMultiLeverRun`, the override maps); `planEndValue`: `afterTaxEndValueUS` of a `choose` run on one historical path, priced while
-    that path's factors are set (as `__test_runPlanMode` with `rowFn` does today). Strip functions and `Map`s to arrays so
+    then restore the optimizer state they leave (`lastMultiLeverRun`, the override maps); `planEndValue`: `afterTaxEndValueUS` of an `apply` run with the kept plan (and of an `off` run) on one historical
+    path with `endValue: true`, as `tests/solver_scan.js` lines 139-140 call `__test_runPlanMode` (`choose` is for the
+    deterministic run only), priced while that path's factors are set. Strip functions and `Map`s to arrays so
     the bundle serializes.
 - [ ] **Step 1: Add the hook** in both installers (and export `computeSensitivity`); it must not change `state` (assert in the hook:
   `JSON.stringify(state)` before and after are equal, else throw). Add `window.__test_replaceState` to the shared
@@ -267,11 +300,16 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
   `src/us/ui/install-test-hooks.js` line 94); Canada has none today, and the US installer may keep redefining it.
 - [ ] **Step 2: Write `tests/analysis_parity.js --base DIR [--households default,survivor,...]`.** Modeled on
   `tests/plan_off_anchor.js`: one Playwright browser, one page per tree and country (`plannerPath(file, root)`), clock
-  installed at `2026-06-15T12:00:00Z`. Households: the Task 1 scenarios (US and Canada lists) plus one that depletes
-  (spending far above income), so the tornado's peak-value metric is exercised. For each household:
+  installed at `2026-06-15T12:00:00Z`. Households: the Task 1 scenarios (US and Canada lists, `PLAN_G58` and
+  `PLAN_G62` included) plus one that depletes (spending far above income), so the tornado's peak-value metric is
+  exercised; `--households` with an unknown name or no household exits 1. The bundle has no Monte Carlo and no other
+  random path (only fixed `HIST` paths). For each household:
   (a) `__test_replaceState(patch)`, `__test_refreshCliffPlan()` (US), bundle; (b) `__test_replaceState(patch)` with no
   refresh, bundle (the no-refresh path, Review Focus 1). Compare `JSON.stringify` of each bundle between the two trees;
-  print `identical / different` per household and the first differing key; exit 1 on any difference.
+  print `identical / different` per household and the first differing key; exit 1 on any difference. Two self-checks,
+  in each tree, exit 1 when they fail: `PLAN_G58` and `PLAN_G62` keep a plan with at least one intent; and for
+  `PLAN_G58` the refresh and no-refresh `sensitivity` bundles **differ** (proof that pass (b) exercises the no-refresh
+  rule).
 - [ ] **Step 3: Run it** against this tree itself (`npm run build`, copy `dist/` to a scratch dir, `--base` that dir).
   Expected: all identical. Run `npm test`. Expected: PASS.
 - [ ] **Step 4: Commit** (`test: analysis parity hook and script`).
@@ -338,6 +376,9 @@ commit and keep a built worktree of it: it is the `--base` of every later `analy
     today), `refreshCliffPlan()`, `ensureTestPlan()`, `cliffPlanCache`, `CLIFF_PLAN_CACHE_MAX` in
     `src/us/core/cliff-plan/planning.js` (moved; `planForState`'s body unchanged except that it compares and
     stringifies its argument instead of `state`, and plans with `computeCliffPlan(newRunContext({ inputs, taxYear: currentYear, overrides, stats, test }))`).
+    `refreshCliffPlan` builds its context the same way, with `newRunContext` directly: `planning.js` never imports
+    `store-context.js` (which imports `planForState` from it; the reverse import would be a `core/` cycle, refused by
+    `tests/ui_cycles.js`).
   - `standardYearSource(inputs)`, `historicalYearSource(inputs, rowFn, taxFactors)` (writes `taxFactors[year]`).
   - `simulateWith(ctx, retireAgeA = ctx.inputs.retireAgeA, retireAgeB = ctx.inputs.retireAgeB)` and
     `simulateHistoricalWith(ctx, rowFn, retireAgeA = …, retireAgeB = …)` in `runs.js` (pure; the historical one expects
@@ -365,9 +406,16 @@ commit and keep a built worktree of it: it is the `--base` of every later `analy
   Task 16);
   `tests/unit/helpers/us-plan.js` and `src/us/ui/install-test-hooks.js` (`__test_runPlanMode`, `__test_planTrace`,
   `__test_rowFnFor`, `__test_planForState()`, which takes no argument) build their context with
-  `storeContext({ plan, planMode })` and the plan mode they pass today (keep
+  `storeContext({ plan, planMode, taxFactors: rowFn ? [] : null })` (and assign the legacy binding to `ctx.taxFactors`
+  around a `rowFn` run, as today). `storeContext` treats the plan options as given only when `planMode !== undefined`:
+  then it uses `plan` and `planMode` as passed and never calls `planForState` (which would run nested projections that
+  bump `magiStats`, read as deltas by tests); when `planMode` is undefined it ignores `plan` and plans with
+  `planForState(state)` (as `tests/cliff_plan.js` lines 27-28 rely on: `{ planMode: undefined, plan: null, rowFn }` plans
+  today). Keep (keep
   `us-plan.js` in step with the installer, as its header says).
-- [ ] **Step 4: Update the registry**: add `src/shared/core/projection/simulate.js` and `src/us/core/cliff-plan/planning.js` to
+- [ ] **Step 4: Update the registry**: register `NO_OVERRIDES` / `NO_TEST` (`run-context.js` is now an engine module)
+  as `"constant"`; a module-level constant in `store-context.js` (such as a stats object) needs a `// load-time:` marker
+  but no entry (adapters are not checked); add `src/shared/core/projection/simulate.js` and `src/us/core/cliff-plan/planning.js` to
   `adapters` (they are the store-reading layer above the engine); remove `cliffPlanCache` from `engine-state.js`'s entries
   (now in `planning.js`, an adapter; `CLIFF_PLAN_CACHE_MAX` is a number and was never listed); remove `simulate.js`
   (an adapter now) and `year-sources.js` (no longer imports the store) from `stillReaching`; every other engine module stays (the engine still imports `state`).
@@ -463,9 +511,11 @@ field); `stateRuleFor(code)` stays code-keyed (memo). Canada: `personTaxCA`, `pr
 - [ ] Steps: the stage 3 procedure. The `profile` gets no context field (spec section 3, spike finding). The Canada
   `tax-brackets.test.js` (about 145 direct calls) changes only by the added argument; review that diff with
   `git diff --word-diff` and check no number changed.
-- [ ] **Timing checkpoint** (after the commit): `taxFor` and the solvers now have their final shape (`runProjection`
-  passes its own `ctx`, section "The context"), so run `node tests/bench_runs_interleaved.js --base <stage 1 tree> --rounds 15`
-  and `node tests/bench_canada.js --base <stage 1 tree>`. A regression found here is fixed in this task, not later.
+- [ ] **Timing checkpoint, informational** (after the commit): `node tests/bench_runs_interleaved.js --base <stage 1 tree> --rounds 15`
+  and `node tests/bench_canada.js --base <stage 1 tree>`; record the numbers in the commit message or the stage report.
+  `taxFor` is not in its final shape yet (the healthcare and withdrawal callers still pass `LIVE_CTX` until Tasks 9
+  and 11), so a slowdown here is not a failure; repeat the run after Task 11, which binds: a regression there is fixed
+  before Task 12.
 
 ### Task 9: `healthcare/` (US)
 
@@ -498,7 +548,9 @@ into two commits (US, then Canada + shared) if the diff is large. Scratch object
 ### Task 11: `accounts/` and `withdrawals/` (US, Canada, shared)
 
 **Files:** `src/us/core/accounts/{account-ledger,penalty-status}.js`, `src/us/core/withdrawals/{roth-conversion,strategies,draws,mix}.js`,
-`src/canada/core/withdrawals/{strategies,rrsp-meltdown}.js`, `src/shared/core/withdrawals/draws.js`, and callers.
+`src/canada/core/withdrawals/{strategies,rrsp-meltdown,draws}.js` (Canada's `newWithdrawal`, line 56, must set `wd.ctx`
+too, since the shared `takeTaxable` / `takeHomeEquity` read it), `src/shared/core/withdrawals/{draws,bond-ladder}.js`
+(`bond-ladder.js` calls `drawTaxable` with a profile and no `wd`, lines 32 and 83: it takes `ctx`), and callers.
 `optimizerState.rothBracketByAge` → `ctx.overrides.rothBracketByAge` (`roth-conversion.js`),
 `optimizerState.withdrawalMixByAge` → `ctx.overrides.withdrawalMixByAge` (`strategies.js`);
 `testHooks.inhTakeCount++` → `ctx.stats.hooks.inhTakeCount++` (`draws.js`). The withdrawal object `wd` carries the
@@ -526,8 +578,9 @@ in the year loops becomes `inputs.x` with `const inputs = ctx.inputs` at the top
 - [ ] **Step 1:** The stage 3 procedure for these files.
 - [ ] **Step 2:** `grep -rln "seam-LIVE_CTX\|live-context.js" src/*/core src/shared/core` lists no module in
   `runProjection`'s closure (analysis and optimizer modules may still use it until Stage 4; UI none). `stillReaching`
-  holds only analysis and optimizer modules (through `simulate.js`, `LIVE_CTX`, the store or `format/charts.js`'s
-  `displayValue`); `run-projection.js` and `runs.js` are off it.
+  holds only analysis and optimizer modules and `src/shared/core/format/charts.js` (an engine module through the
+  analysis closure; it reads `mode` and `state` for `displayValue` until Stage 4); `run-projection.js` and `runs.js` are
+  off it.
 - [ ] **Step 3 (stage gate):** `npm test`; `node tests/plan_off_anchor.js --base <main worktree>`;
   `node tests/analysis_parity.js --base <stage 1 tree>`; `node tests/bench_runs_interleaved.js --base <stage 1 tree> --rounds 15`;
   `node tests/bench_runs_interleaved.js --base <stage 1 tree> --household appeal`; `node tests/bench_canada.js --base <stage 1 tree>`;
@@ -566,7 +619,7 @@ in the year loops becomes `inputs.x` with `const inputs = ctx.inputs` at the top
 `src/shared/core/inputs/estimates.js` (`unusualAssumptionImpact`; `core/inputs/` is outside the engine, so it may build
 its context with `variantContext` itself), and every caller, at least: `src/shared/ui/charts/tornado.js`,
 `src/{us,canada}/ui/charts/chart-view.js` (`simulateAtRealCagr`), `src/{us,canada}/ui/plans/print-report.js` and
-`src/{us,canada}/ui/results/render.js` (`fiMultiple`), Canada `print-report.js` (`afterTaxEstate`),
+`src/{us,canada}/ui/results/render.js` (`fiMultiple`), Canada `print-report.js` (`afterTaxEstate(ctx, sim)`),
 `src/shared/ui/results/shortfall-banner.js` (`analyzeShortfallDrivers`), `src/shared/ui/results/decision-questions.js`
 (`renderDecisionCompareTable`), the unusual-warnings UI that calls `unusualAssumptionImpact`, and the Task 3 hook.
 Grep all of `src/` and `tests/` for each changed name.
@@ -584,16 +637,24 @@ Grep all of `src/` and `tests/` for each changed name.
   no-refresh optimizer trial is planned while its maps are live (Review Focus).
 - **Core analysis never imports the store layer** (spec section 2, point 2): every core function that runs variants
   takes a context factory `contextFor(variant, overrides?) => ctx` from its caller and runs with `simulateWith(ctx, …)`
-  (`src/shared/core/projection/runs.js`). The UI builds it: `const contextFor = (v, o) => variantContext(state, v, { overrides: o })`.
+  (`src/shared/core/projection/runs.js`). The UI gets it from one helper, `stateContextFor()` (in
+  `src/shared/ui/results/` or next to `install-test-hooks.js`; returns `(v, o) => variantContext(state, v, { overrides: o })`
+  with the store's current `state` object as the base), and every UI caller (`tornado.js`, `shortfall-banner.js`, both
+  `chart-view.js`, the decision questions, the Roth optimizer cards) and the Task 3 hook use that helper, so the hook
+  exercises the same wiring as the UI. The base must be the store's `state` object itself, never a copy, or the
+  identity rule is lost.
 - Lever shape (both countries): `{ id, label, run(base, contextFor, endValue) }` → `{ decrease, increase }`; `run` builds
   each variant as `{ ...base, field: value }` (the retirement-age lever runs `simulateWith(contextFor(base), a, b)`), and
   `endValue(sim, inputs)` receives the variant's inputs.
-- `computeSensitivity(selected, base, contextFor, displayMode)` in `tornado.js`:
+- `computeSensitivity(selected, base, contextFor, displayMode, leverIds)` in `tornado.js` (`leverIds` as added in Task 3:
+  default the checked `#sensLeverToggles` boxes; the hook passes every id):
   `endValue = (sim, inputs) => displayValueOf(displayMode, inputs.inflation, …)` (the variant's inflation: Review Focus).
 - `findMinimalSpendingCut(selected, base, contextFor, displayMode)`, `findMinimalRetirementDelay(selected, base, contextFor, displayMode)`,
   `fiMultiple(inputs)`, `decisionEndAssets(sim, inputs, displayMode)`, `decisionDeltaPhrase(fromSim, toSim, inputs, displayMode)`,
   `analyzeShortfallDrivers(selected, base, contextFor)`, `renderDecisionCompareTable(rows, inputs, displayMode)`,
-  `simulateAtRealCagr(base, contextFor, realCagrPct)`, Canada `afterTaxEstate(sim, inputs)`,
+  `simulateAtRealCagr(base, contextFor, realCagrPct)`, Canada `afterTaxEstate(ctx, sim)` (it prices tax through `taxIndexFactor`,
+  `personTaxCA` and the province, which take a context from Tasks 7-8; `computeRothOptimizer` passes the variant's
+  context, `print-report.js` `storeContext({ withPlan: false })`; mirrors `afterTaxEndValueUS(ctx, sim)`),
   `unusualAssumptionImpact(item, currentSim, base, displayMode)` (its `decisionDeltaPhrase` call runs after today's
   restore, so it passes the **base** inputs, not the variant's; the same holds for every `decisionDeltaPhrase` /
   `renderDecisionCompareTable` call in the decision questions, which today also run after the restore). Exact parameter lists are the implementer's call where a
@@ -628,7 +689,9 @@ helper calls them; grep all of `src/` and `tests/` for each changed name.
   `(selected, options)`): each trial runs
   `simulateWith(contextFor(trialInputs, { rothBracketByAge, withdrawalMixByAge }))` where `trialInputs` is
   `{ ...base, rothConvEnabled: …, rothConvBracket: …, smoothWithdrawals: … }`; no write to `state` or `optimizerState`.
-  `budget` replaces the read of `optimizerState.rothPerYearEvalBudget` (the UI and the hook pass it);
+  `budget` replaces the read of `optimizerState.rothPerYearEvalBudget` (the UI and the hook pass
+  `optimizerState.rothPerYearEvalBudget` itself, not the constant, so `__test_setOptimizerBudget`, `tests/solver_gap.js`
+  and the bundle's budget of 200 keep working);
   `optimizerState.lastMultiLeverRun` stays UI state, written by the UI.
 - `rothScheduleCost(sim, inputs, displayMode)`.
 - `decision-questions.js` (both): each `run()` builds copies of `state` (`{ ...state, tenure: 'own' }`, …) and runs
