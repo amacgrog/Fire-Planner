@@ -7,9 +7,7 @@ import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
 import { pensionIncome } from '../../../shared/core/income/pension-income.js';
-import { state } from '../../../shared/core/store.js';
 import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
-import { assignHistTaxFactors, histTaxFactors } from '../../../shared/core/tax-factors.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
@@ -61,35 +59,36 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       testCtl = ctx.test;
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null;
-    const singlePerson = !!state.singlePerson;
+    const inputs = ctx.inputs;
+    const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     // Only the historical source reports a start year; it also adds cumFactor to each row.
     const isHistorical = source.startYear !== undefined;
     // Partner A's share of the pooled traditional balance (normalizeState
     // already clamps this to 0-100) — see traditionalShareA/B below.
-    const opening = openingAccounts();
-    const hysa = pct(state.hysaRate),
-      wageGrowth = pct(state.incomeGrowth),
-      homeGrowth = pct(state.homeGrowth);
-    const futureBuy = state.tenure === 'rentThenBuy' ? futureHomePurchase(homeGrowth) : null;
+    const opening = openingAccounts(ctx.inputs);
+    const hysa = pct(inputs.hysaRate),
+      wageGrowth = pct(inputs.incomeGrowth),
+      homeGrowth = pct(inputs.homeGrowth);
+    const futureBuy = inputs.tenure === 'rentThenBuy' ? futureHomePurchase(ctx, homeGrowth) : null;
     const bal = {
-      taxable: state.taxable,
-      taxableBasis: state.taxable * pct(state.basisRatio),
+      taxable: inputs.taxable,
+      taxableBasis: inputs.taxable * pct(inputs.basisRatio),
       bondTaxable: 0,
       bondTaxableBasis: 0,
       bondTraditional: 0,
       bondRoth: 0,
       traditional: sumSlots(opening.trad),
       roth: sumSlots(opening.roth),
-      cash: state.cash,
-      home: state.tenure === 'own' ? state.homeValue : 0,
-      mortgage: state.tenure === 'own' ? state.mortgage : 0,
+      cash: inputs.cash,
+      home: inputs.tenure === 'own' ? inputs.homeValue : 0,
+      mortgage: inputs.tenure === 'own' ? inputs.mortgage : 0,
       // E1e: the open inherited accounts (sums of the ledger; always present so the shape is fixed).
       inheritedTrad: 0,
       inheritedRoth: 0,
     };
-    const schedule = mortgageSchedule(),
-      loans = loanSchedules(),
+    const schedule = mortgageSchedule(ctx),
+      loans = loanSchedules(ctx),
       rows = [],
       // Cliff plan (apply): the IRMAA stay-unders kept on a household return, checked after the loop (planStats).
       irmaaChecks = [],
@@ -106,9 +105,9 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // E3: each year's filing status, the IRMAA lookback's tier table (spec 5.1).
       irmaaFilingHistory = [];
     // Per-account Roth contribution/conversion ledgers (see rothAccountsNew).
-    const rothAccts = rothAccountsNew();
+    const rothAccts = rothAccountsNew(ctx.inputs);
     // Per-account shares of the traditional and Roth pools (see accountsNew).
-    const accts = accountsNew();
+    const accts = accountsNew(ctx.inputs);
     let depletedAge = null,
       firstWithdrawal = 0;
     let endTax = null;
@@ -147,54 +146,54 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     // through probate before the estate passes to the survivor) — the
     // mortgage is untouched since it's secured by jointly-titled real
     // estate. Only meaningful once both partners are otherwise retired.
-    const deceasedIsA = state.survivorEnabled && !singlePerson && state.survivorPartner === 'A',
-      deceasedIsB = state.survivorEnabled && !singlePerson && state.survivorPartner === 'B',
+    const deceasedIsA = inputs.survivorEnabled && !singlePerson && inputs.survivorPartner === 'A',
+      deceasedIsB = inputs.survivorEnabled && !singlePerson && inputs.survivorPartner === 'B',
       deathYear = deceasedIsA
-        ? state.survivorDeathAge - state.ageA
+        ? inputs.survivorDeathAge - inputs.ageA
         : deceasedIsB
-          ? state.survivorDeathAge - state.ageB
+          ? inputs.survivorDeathAge - inputs.ageB
           : Infinity;
     // A partner who dies before their retirement age stops working at death (E1b): every rule keyed on the
     // retirement age (wages, contributions, health premiums, the both-retired year, the bond ladder) follows.
-    if (deceasedIsA) retireAgeA = Math.min(retireAgeA, state.survivorDeathAge);
-    if (deceasedIsB) retireAgeB = Math.min(retireAgeB, state.survivorDeathAge);
+    if (deceasedIsA) retireAgeA = Math.min(retireAgeA, inputs.survivorDeathAge);
+    if (deceasedIsB) retireAgeB = Math.min(retireAgeB, inputs.survivorDeathAge);
     // E3 (spec 5.1): whether the couple was married when a partner died (the lookback reads joint tiers for entered returns from
     // before the death). False without a death, in single-person mode, or for an unmarried couple.
-    const marriedAtDeath = deathYear < Infinity && !singlePerson && (state.marryLater ? state.ageA + deathYear >= state.marriageAgeA : state.filingStatus === 'mfj');
+    const marriedAtDeath = deathYear < Infinity && !singlePerson && (inputs.marryLater ? inputs.ageA + deathYear >= inputs.marriageAgeA : inputs.filingStatus === 'mfj');
     // E1e: the inherited accounts of this run (null for every state without an inherited row).
-    const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB });
+    const inh = inheritedLedger(inputs.oneTimeIncome, { ageA: inputs.ageA, ageB: inputs.ageB, single: singlePerson, currentYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB });
     if (inh !== null) {
       for (let i = 0; i < inh.n; i++) if (inh.open[i] === 1) { if (inh.roth[i]) bal.inheritedRoth += inh.bal[i]; else bal.inheritedTrad += inh.bal[i]; }
     }
     const retirementYear = singlePerson
-      ? Math.max(0, retireAgeA - state.ageA)
-      : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
-    const bondYears = getBondYears();
+      ? Math.max(0, retireAgeA - inputs.ageA)
+      : Math.max(0, retireAgeA - inputs.ageA, retireAgeB - inputs.ageB);
+    const bondYears = getBondYears(ctx.inputs);
     // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
     // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
-    const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
+    const projectedExpense = makeProjectedExpense(ctx, { infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
     const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
     const projectionYears = singlePerson
-      ? Math.max(0, state.lifeExpectancyA - state.ageA)
-      : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
+      ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA)
+      : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
     // E3 (spec 5.2): the IRMAA appeal events of this run (null for most runs). Built after the death clamp of retireAgeA/B.
-    const appeal = irmaaAppealTable({ singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears });
+    const appeal = irmaaAppealTable(ctx, { singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears });
     // Cliff plan: growth of the IRMAA tiers over the two-year lookback, at the plan's assumed inflation.
     const irmaaGrowth2 = (1 + source.inflation) * (1 + source.inflation);
-    for (let age = state.ageA, year = 0; year <= projectionYears; age++, year++) {
+    for (let age = inputs.ageA, year = 0; year <= projectionYears; age++, year++) {
       const { stockReturn, bondReturn, bondYield, factor, limitFactor } = source.yearInputs(year);
-      const ageB = singlePerson ? null : state.ageB + year,
+      const ageB = singlePerson ? null : inputs.ageB + year,
         workingA = age < retireAgeA,
         workingB = !singlePerson && ageB < retireAgeB,
         working = workingA || workingB,
         isSurvivorPeriod = year >= deathYear;
       const incomeFactor = Math.pow(1 + wageGrowth, year);
       // E1c: a self-employed partner's main income is business profit, not wages.
-      const seMainA = workingA && state.incomeKindA === 'self' ? state.incomeA * incomeFactor : 0,
-        seMainB = workingB && state.incomeKindB === 'self' ? state.incomeB * incomeFactor : 0;
-      const wageA = workingA && state.incomeKindA !== 'self' ? state.incomeA * incomeFactor : 0,
-        wageB = workingB && state.incomeKindB !== 'self' ? state.incomeB * incomeFactor : 0;
-      const { extraIncome, streams, lumps, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({
+      const seMainA = workingA && inputs.incomeKindA === 'self' ? inputs.incomeA * incomeFactor : 0,
+        seMainB = workingB && inputs.incomeKindB === 'self' ? inputs.incomeB * incomeFactor : 0;
+      const wageA = workingA && inputs.incomeKindA !== 'self' ? inputs.incomeA * incomeFactor : 0,
+        wageB = workingB && inputs.incomeKindB !== 'self' ? inputs.incomeB * incomeFactor : 0;
+      const { extraIncome, streams, lumps, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear(ctx, {
         age, ageB, year, factor, incomeFactor, single: singlePerson,
         deadA: deceasedIsA && year >= deathYear, deadB: deceasedIsB && year >= deathYear,
       });
@@ -223,27 +222,27 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // contribution and no coverage, so it never touches `streams`).
       const ssWagesA = lumpYear ? streams.wagesA + lumpWagesA : streams.wagesA,
         ssWagesB = lumpYear ? streams.wagesB + lumpWagesB : streams.wagesB;
-      const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA && state.incomeKindA !== 'self' ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
-        healthPremiumB = !singlePerson && workingB && state.incomeKindB !== 'self' ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      const paychecks = paychecksPerYear[inputs.payFrequency] || 26;
+      const healthPremiumA = workingA && inputs.incomeKindA !== 'self' ? inputs.healthPremiumA * paychecks * factor * medicalGrowth(ctx, year) : 0,
+        healthPremiumB = !singlePerson && workingB && inputs.incomeKindB !== 'self' ? inputs.healthPremiumB * paychecks * factor * medicalGrowth(ctx, year) : 0;
       // E1c: self-employment profit per person (main income plus self streams), SE tax, its deductible half and the net
       // earnings that carry the Additional Medicare Tax. Social Security wages (net of the premium) use up the wage base.
       const seA = seMainA + streams.selfA,
         seB = seMainB + streams.selfB;
       let seTaxA = 0, halfA = 0, seNeA = 0, seTaxB = 0, halfB = 0, seNeB = 0;
       if (seA > 0) {
-        selfEmploymentTax(seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, ssWagesA - streams.premiumA), year, SE_OUT);
+        selfEmploymentTax(ctx, seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, ssWagesA - streams.premiumA), year, SE_OUT);
         seTaxA = SE_OUT.tax; halfA = SE_OUT.half; seNeA = SE_OUT.ne;
       }
       if (seB > 0) {
-        selfEmploymentTax(seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, ssWagesB - streams.premiumB), year, SE_OUT);
+        selfEmploymentTax(ctx, seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, ssWagesB - streams.premiumB), year, SE_OUT);
         seTaxB = SE_OUT.tax; halfB = SE_OUT.half; seNeB = SE_OUT.ne;
       }
       // E1c: employer health coverage this year: a W-2 main job while working, or a W-2 stream with a premium. It replaces
       // "working" in every health-insurance rule (marketplace eligibility, Medicare, IRMAA); `workingX` keeps its meaning
       // for pay, contributions and account statuses.
-      const employerA = (workingA && state.incomeKindA !== 'self') || streams.coverA,
-        employerB = (workingB && state.incomeKindB !== 'self') || streams.coverB;
+      const employerA = (workingA && inputs.incomeKindA !== 'self') || streams.coverA,
+        employerB = (workingB && inputs.incomeKindB !== 'self') || streams.coverB;
       let wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB - streams.premiumA - streams.premiumB + seMainA + seMainB;
       // E1d: the taxable part of the year's one-time income enters the cash flow (appended: the old sum order is unchanged).
@@ -251,16 +250,16 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
         employerContrib: employerMatch, streamWageCutA, streamWageCutB, soloPlanCutA, soloPlanCutB, soloIraCutA, soloIraCutB,
-      } = retirementContributions({
+      } = retirementContributions(ctx, {
         wageA, wageB, age, ageB, singlePerson, limitFactor,
         streamList: streams.contrib, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB,
         seA, seB, seMainA, seMainB, halfA, halfB,
       });
       const { ssA, ssB, ss } =
-        socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+        socialSecurityIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
-        pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
-      const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B, seppSlots, seppActive, seppLocked } = requiredDistributions({
+        pensionIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+      const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B, seppSlots, seppActive, seppLocked } = requiredDistributions(ctx, {
         traditional: bal.traditional,
         bondTraditional: bal.bondTraditional,
         age,
@@ -275,21 +274,21 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         retireAgeA,
         retireAgeB,
       });
-      const housingYear = housingForYear(year, factor, schedule, futureBuy);
+      const housingYear = housingForYear(ctx, year, factor, schedule, futureBuy);
       const housing = housingYear.housing;
       if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
-      const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
-      const { filing } = filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear });
+      const { loanPayment } = loanPaymentForYear(ctx, { year, deathYear, isSurvivorPeriod, loans });
+      const { filing } = filingStatusFor(ctx, { age, singlePerson, isSurvivorPeriod, year, deathYear });
       // E1c: 162(l) is barred in a year the person has employer coverage, or could join a spouse's employer plan (an
       // unticked box means no affordable offer; an unmarried partner's employer never bars it).
       const jointYear = filingRow(filing).joint && !singlePerson && !isSurvivorPeriod,
-        seAllowA = seA > 0 && !employerA && !(jointYear && employerB && state.employerCoversSpouseB),
-        seAllowB = seB > 0 && !employerB && !(jointYear && employerA && state.employerCoversSpouseA);
+        seAllowA = seA > 0 && !employerA && !(jointYear && employerB && inputs.employerCoversSpouseB),
+        seAllowB = seB > 0 && !employerB && !(jointYear && employerA && inputs.employerCoversSpouseA);
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
-      const inv = investmentIncome(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
-      const { otherA, otherB, profile } = buildTaxProfile({
+      const inv = investmentIncome(ctx, bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
+      const { otherA, otherB, profile } = buildTaxProfile(ctx, {
         wageA,
         wageB,
         traditionalContribA,
@@ -348,7 +347,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // year; the pass-top base the last resort (Task 6) adds to.
       let inhExclBaseA = 0, inhExclBaseB = 0;
       if (inh !== null && inhDraw > 0) {
-        const yr = stateRuleForYear(year);
+        const yr = stateRuleForYear(ctx, year);
         if (yr && yr.inhKind === INH_DECEDENT) {
           for (let i = 0; i < inh.n; i++) {
             if (inh.roth[i] || !(inh.draw[i] > 0)) continue;
@@ -364,7 +363,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
       irmaaFilingHistory[year] = filing; // E3: once per year, before any healthcareCost call (spec 5.1, round 1 M2)
-      const [acaEligibleA, acaEligibleB] = acaEligibility({
+      const [acaEligibleA, acaEligibleB] = acaEligibility(ctx, {
         age,
         ageB,
         workingA: employerA,
@@ -444,10 +443,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           planTr = null;
         const ownerShareA0 = profile.ownerShareA;
         let cover2 = 0;
-        if (state.incomeSources.length > 0) {
+        if (inputs.incomeSources.length > 0) {
           COVER_CTX.ageA = age + 2; COVER_CTX.ageB = singlePerson ? null : ageB + 2; COVER_CTX.single = singlePerson;
           COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
-          cover2 = streamCoverBits(state.incomeSources, COVER_CTX);
+          cover2 = streamCoverBits(inputs.incomeSources, COVER_CTX);
         }
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
@@ -485,7 +484,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // remainingMagiRoom.
         let magiSafeRoom = Infinity;
         const convertsThisYear =
-          state.rothConvEnabled && age >= state.rothConvStartAge && age <= state.rothConvEndAge;
+          inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge;
         // The ceiling is computed every year: it sizes a conversion and bounds the withdrawal order.
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
@@ -493,7 +492,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         let preMagiA = 0,
           preMagiB = 0;
         if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain, estInhA, estInhB);
-        const magiCeiling = conversionMagiCeiling({
+        const magiCeiling = conversionMagiCeiling(ctx, {
           acaEligibleA,
           acaEligibleB,
           singlePerson,
@@ -574,7 +573,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             profile.seHealthA = ra;
             profile.seHealthB = rb;
           }
-          lastCost = healthcareCost(hcArgs);
+          lastCost = healthcareCost(ctx, hcArgs);
           const c = lastCost.healthcare;
           hcArgs.magiProxy = magiProxy;
           hcArgs.magiA = magiA;
@@ -590,8 +589,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // The tier table is this year's return's filing status (E3, spec 5.1).
         const year2 = year + 2,
           survivor2 = year2 >= deathYear,
-          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((state.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
-          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((state.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
+          medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((inputs.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
+          medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((inputs.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
@@ -603,11 +602,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             profile.seHealthA = ra;
             profile.seHealthB = rb;
             return (
-              (medA ? irmaaSurcharge(irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
-              (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
+              (medA ? irmaaSurcharge(ctx, irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
+              (medB ? irmaaSurcharge(ctx, irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
+          const s = irmaaSurcharge(ctx, irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
@@ -627,13 +626,13 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             ? Math.max(0, (lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense) + inhNeedAdj)
             : Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
           yearLambdaNeed = lambdaNeed;
-          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0 }));
+          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0, ctx }));
         };
         // Phased year: a stay-under plan converts nothing; a fill keeps the natural year's conversion, never more than this
         // pass's ceiling allows (spec 13.5).
         if (convertsThisYear && !(phased && yearPlan.kind === 'under')) {
           const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
-          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+          conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
@@ -658,16 +657,16 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
         if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
         const baseSpend =
-          baseSpendingNominal(age, year, factor, incomeFactor) *
-          guardrailSpendingMultiplier(guardrails, working) *
-          (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
+          baseSpendingNominal(ctx, age, year, factor, incomeFactor) *
+          guardrailSpendingMultiplier(ctx, guardrails, working) *
+          (isSurvivorPeriod ? pct(inputs.survivorSpendingPct) : 1);
         if (lumpYear) guardrails.prevPortfolio = null; // E1d decision 11: the year after a lump year holds
         // acaEligibleA/B (computed above, before the Roth-conversion guard) say
         // which partners are on the individual market this year.
         hcArgs.magiProxy = magiProxy;
         hcArgs.magiA = magiA;
         hcArgs.magiB = magiB;
-        const hcOut = healthcareCost(hcArgs);
+        const hcOut = healthcareCost(ctx, hcArgs);
         let healthcare = hcOut.healthcare;
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
@@ -699,8 +698,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself, less the
         // premiums deducted under 162(l). Set every pass: it follows the premium, which follows this pass's MAGI estimate.
         profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
-        const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+        const ficaTax = payrollTax(ctx, { wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
+        const tax = taxFor(ctx, profile, 0, conversionAmount) + ficaTax;
         // E1e decisions 15, 16 (spec 6.7): the need as if the inheritance were not there: the scheduled draw net of its own tax and of
         // the premium credit it costs this year. One taxFor and one healthcareCost per pass, only in a draw year.
         if (inhDraw > 0 && !testCtl.inhNoNeedAdj) {
@@ -710,12 +709,12 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // the premium at the pass's MAGI less the draw (each return less its own share in a two-return year)
           hcArgs.magiProxy = magiProxy - inhDraw;
           if (twoReturns) { hcArgs.magiA = magiA - iA; hcArgs.magiB = magiB - iB; }
-          const hcNoDraw = healthcareCost(hcArgs).healthcare;
+          const hcNoDraw = healthcareCost(ctx, hcArgs).healthcare;
           hcArgs.magiProxy = magiProxy; hcArgs.magiA = magiA; hcArgs.magiB = magiB;
           profile.otherA = oA - iA; profile.otherB = oB - iB;
           profile.inheritedA = 0; profile.inheritedB = 0; profile.inhOn = false; profile.inhExclA = 0; profile.inhExclB = 0;
           profile.medicalExpense = seLive ? hcNoDraw + ltc - (seRealA + seRealB) : hcNoDraw + ltc;
-          const taxNoDraw = taxFor(profile, 0, conversionAmount) + ficaTax;
+          const taxNoDraw = taxFor(ctx, profile, 0, conversionAmount) + ficaTax;
           // restore from the saved doubles, never by adding the draw back ((x - d) + d !== x)
           profile.otherA = oA; profile.otherB = oB; profile.inheritedA = iA; profile.inheritedB = iB; profile.inhOn = on;
           profile.inhExclA = eA; profile.inhExclB = eB; profile.medicalExpense = med;
@@ -753,7 +752,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             rothContrib;
         // E1e: the scheduled inherited traditional draw is cash (appended after both strategies' sums: a legacy year is unchanged).
         if (inhDraw > 0) flow += inhDraw;
-        growBalances(bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
+        growBalances(ctx, bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
         if (inh !== null) inheritedApply(inh, bal, stockReturn, factor, year);
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
         // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
@@ -766,16 +765,16 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive);
         bal.cash += oneTimeAmount;
         if (inhRothPayout > 0) bal.cash += inhRothPayout; // E1e: the inherited Roth payout is a transfer (no tax, no MAGI)
-        const reserveTarget = state.cashReserve * factor;
+        const reserveTarget = inputs.cashReserve * factor;
         sweepExcessCash(bal, reserveTarget);
         // Ramp linearly over whatever time is actually available before
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
-        const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
+        const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount);
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
-        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(year) });
+        const wd = newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year) });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -793,14 +792,14 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             rothContrib,
           });
           if (ladderGain > 0) {
-            totalTax = ficaTax + taxFor(profile, ladderGain, conversionAmount);
+            totalTax = ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
           }
           // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
           if (!lumpYear && inhNeedAdj > 0 && -flow + inhNeedAdj > 0) {
             const n = Math.max(0, -flow - lumpExpense + inhNeedAdj);
             if (!working && year === retirementYear) firstWithdrawal = n;
-            recordGuardrailWithdrawal(guardrails, n, guardrailPortfolioNow, working);
+            recordGuardrailWithdrawal(ctx, guardrails, n, guardrailPortfolioNow, working);
           }
         } else {
           wd.need = -flow;
@@ -808,14 +807,14 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           if (!lumpYear) {
             const recorded = inhNeedAdj !== 0 ? Math.max(0, wd.need - lumpExpense + inhNeedAdj) : Math.max(0, wd.need - lumpExpense);
             if (!working && year === retirementYear) firstWithdrawal = recorded;
-            recordGuardrailWithdrawal(guardrails, recorded, guardrailPortfolioNow, working);
+            recordGuardrailWithdrawal(ctx, guardrails, recorded, guardrailPortfolioNow, working);
           }
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
           // penalty from an account unless its owner is 59.5+ or the account is a 401(k) covered
           // by Rule of 55; see accountStatuses.
           const statusCtx = { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB };
-          wd.status = accountStatuses(statusCtx);
+          wd.status = accountStatuses(ctx.inputs, statusCtx);
           wd.penaltyAware = hasPenalizedMoney(wd);
           const wopts = mode.bucketStrategy
             ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) }
@@ -834,7 +833,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
           }
           if (wd.need > 1 && !depletedAge) depletedAge = age;
-          totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+          totalTax = ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
@@ -1011,7 +1010,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             profile.seHealthB = seRealB;
           }
           profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
-          const taxAfter = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+          const taxAfter = ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           bal.cash += refund + (totalTax - taxAfter);
           totalTax = taxAfter;
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
@@ -1020,7 +1019,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
           if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
           guardrails.initialWR = guardrailSnapshot.initialWR;
-          if (!lumpYear) recordGuardrailWithdrawal(guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
+          if (!lumpYear) recordGuardrailWithdrawal(ctx, guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
@@ -1042,7 +1041,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
+                  ? magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
@@ -1193,7 +1192,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // E1e: the open inherited accounts are investable (appended: a legacy year is the same double).
           investable = inh === null ? investableHousehold : investableHousehold + bal.inheritedTrad + bal.inheritedRoth,
           homeEquity =
-            state.tenure === 'own' || state.tenure === 'rentThenBuy'
+            inputs.tenure === 'own' || inputs.tenure === 'rentThenBuy'
               ? Math.max(0, bal.home - bal.mortgage)
               : 0,
           total = investable + homeEquity - loanBalance;
@@ -1252,11 +1251,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // E3 (spec 5.6): a year whose IRMAA charge an appeal lowered (flat scalars, only in those rows: historical_parity
         // compares non-numbers with !==).
         if (appealYrA >= 0) {
-          row.irmaaAppealYearA = taxYearOf(appealYrA);
+          row.irmaaAppealYearA = taxYearOf(ctx, appealYrA);
           row.irmaaAppealKindA = irmaaAppealKind(appeal.eventA, year, appealYrA);
         }
         if (appealYrB >= 0) {
-          row.irmaaAppealYearB = taxYearOf(appealYrB);
+          row.irmaaAppealYearB = taxYearOf(ctx, appealYrB);
           row.irmaaAppealKindB = irmaaAppealKind(appeal.eventB, year, appealYrB);
         }
         if (yearPlan.kind !== 'none') {
@@ -1311,14 +1310,14 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       retirementExpense: ladder.ladderTranches[0],
       ladderTarget: ladder.ladderTarget,
       ...(isHistorical ? { startYear: source.startYear } : null),
-      ...mortgageResultAges(futureBuy, schedule),
+      ...mortgageResultAges(ctx, futureBuy, schedule),
     };
     // Cliff plan scan measure (spec 6, "Known, accepted"): a path stay-under under an IRMAA line saves nothing when the
     // path's own charged tier puts both MAGIs in the same tier.
     for (const c of irmaaChecks) {
       if (c.y > projectionYears) continue;
       planStats.irmaaStayUnders++;
-      if (irmaaSurcharge(c.nat, c.filing, c.y) === irmaaSurcharge(c.trial, c.filing, c.y)) planStats.irmaaZeroSaving++;
+      if (irmaaSurcharge(ctx, c.nat, c.filing, c.y) === irmaaSurcharge(ctx, c.trial, c.filing, c.y)) planStats.irmaaZeroSaving++;
     }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
@@ -1346,46 +1345,41 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     });
     return result;
   }
-  // Every candidate is a standard (deterministic) run: afterTaxEndValueUS reads the run's own tax law, which a historical
-  // run's per-path tax factors no longer carry once it returns (standard runs only).
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
-  // plan variable. Every run is a standard run with no tax factors (taxFactors: null). Planning never sees a historical path's
-  // tax factors: the legacy histTaxFactors binding is saved, set to null and restored around the runs (until Task 12).
-  // Until Stage 3 the engine reads the store: call with inputs === state and the store's override maps.
+  // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
+  // sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
+  // only the context (no store binding), so a nested plan at the start of a historical run needs no save / restore.
   export function computeCliffPlan(ctx) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
-    const prevFactors = histTaxFactors;
-    assignHistTaxFactors(null);
-    try {
-      const run = (planMode, plan) =>
-        runProjection(newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
-      const infl = pct(inputs.inflation);
-      // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
-      const measure = (family, intents, sim) => {
-        let cost = 0;
-        for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
-        return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(sim), cost };
-      };
-      const chosen = run('choose', null),
-        all = chosen.cliffIntents,
-        pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
-      const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
-      // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
-      const cands = [measure('none', {}, fams.size ? run('off', null) : chosen)];
-      if (fams.size > 1)
-        for (const fam of ['aca', 'irmaa']) {
-          const sub = pick(fam);
-          cands.push(measure(fam, sub, run('apply', { intents: sub })));
-        }
-      if (fams.size) cands.push(measure('all', all, chosen));
-      let best = cands[0];
-      for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
-      return {
-        plan: { intents: best.intents, family: best.family },
-        report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
-      };
-    } finally {
-      assignHistTaxFactors(prevFactors);
-    }
+    const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
+      // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year, no
+      // tax factors), as every candidate run has them.
+      runCtx = ctxFor('off', null),
+      run = (planMode, plan) => runProjection(ctxFor(planMode, plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+    const infl = pct(inputs.inflation);
+    // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
+    const measure = (family, intents, sim) => {
+      let cost = 0;
+      for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
+      return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(runCtx, sim), cost };
+    };
+    const chosen = run('choose', null),
+      all = chosen.cliffIntents,
+      pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
+    const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
+    // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
+    const cands = [measure('none', {}, fams.size ? run('off', null) : chosen)];
+    if (fams.size > 1)
+      for (const fam of ['aca', 'irmaa']) {
+        const sub = pick(fam);
+        cands.push(measure(fam, sub, run('apply', { intents: sub })));
+      }
+    if (fams.size) cands.push(measure('all', all, chosen));
+    let best = cands[0];
+    for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
+    return {
+      plan: { intents: best.intents, family: best.family },
+      report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
+    };
   }

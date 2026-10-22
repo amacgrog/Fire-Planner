@@ -1,15 +1,12 @@
 // US Social Security income by year, with the earnings test and claiming text
 
-import { state } from '../../../shared/core/store.js';
-import { currentYear } from '../tax-year.js';
-
   // Social Security for the year, each partner's own benefit once they reach
   // their claiming age, inflated by `factor`. In the survivor period the
   // household keeps the greater of the two benefits (a simplified
   // survivor-benefit swap, not the full PIA/FRA rules).
-  export function socialSecurityIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
-    let ssA = (age >= state.ssStartAgeA ? state.ssMonthlyA * 12 : 0) * factor,
-      ssB = singlePerson ? 0 : (ageB >= state.ssStartAgeB ? state.ssMonthlyB * 12 : 0) * factor;
+  export function socialSecurityIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+    let ssA = (age >= ctx.inputs.ssStartAgeA ? ctx.inputs.ssMonthlyA * 12 : 0) * factor,
+      ssB = singlePerson ? 0 : (ageB >= ctx.inputs.ssStartAgeB ? ctx.inputs.ssMonthlyB * 12 : 0) * factor;
     if (isSurvivorPeriod) {
       // Simplified survivor-benefit swap: the survivor keeps the greater
       // of the two benefits (each computed as if both were still alive),
@@ -39,12 +36,12 @@ import { currentYear } from '../tax-year.js';
     if (birthYear >= 1960) return 67 * 12;
     return 66 * 12 + 2 * (birthYear - 1954);
   }
-  export function ssBeforeRetirementCase(p) {
-    if (p === 'B' && state.singlePerson) return null;
-    const start = state['ssStartAge' + p],
-      retire = state['retireAge' + p],
-      fra = fullRetirementAgeMonths(currentYear - state['age' + p]) / 12;
-    if (!(state['ssMonthly' + p] > 0) || !(state['income' + p] > 0)) return null;
+  export function ssBeforeRetirementCase(ctx, p) {
+    if (p === 'B' && ctx.inputs.singlePerson) return null;
+    const start = ctx.inputs['ssStartAge' + p],
+      retire = ctx.inputs['retireAge' + p],
+      fra = fullRetirementAgeMonths(ctx.taxYear - ctx.inputs['age' + p]) / 12;
+    if (!(ctx.inputs['ssMonthly' + p] > 0) || !(ctx.inputs['income' + p] > 0)) return null;
     return start < retire && start < fra ? { start, retire, fra } : null;
   }
   export function fraText(fra) {

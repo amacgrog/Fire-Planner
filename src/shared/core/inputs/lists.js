@@ -1,6 +1,5 @@
-// List normalization, children and dependents, retirement-age clamps, LIST_MAX
+// List normalization, children and dependents, LIST_MAX
 
-import { state } from '../store.js';
 import { defaults } from '#country/core/seam-defaults';
 
   // Normalizes any raw/partial state object (a legacy autosave, an imported
@@ -31,8 +30,8 @@ import { defaults } from '#country/core/seam-defaults';
   // each child born by then. A child with a join year (E2: adoption) counts from that year, for the
   // whole year; age is still from the birth year. A missing join year compares false (from birth).
   // Returns a shared empty array when there are none (hot path).
-  export function dependentsInYear(taxYear) {
-    const kids = state.children;
+  export function dependentsInYear(inputs, taxYear) {
+    const kids = inputs.children;
     if (!kids || !kids.length) return NO_DEPENDENTS;
     const out = [];
     for (const c of kids) {
@@ -43,28 +42,11 @@ import { defaults } from '#country/core/seam-defaults';
     }
     return out;
   }
-  export function qualifyingChildCount(taxYear) {
+  export function qualifyingChildCount(inputs, taxYear) {
     let n = 0;
-    for (const d of dependentsInYear(taxYear)) if (d.qualifyingChild) n++;
+    for (const d of dependentsInYear(inputs, taxYear)) if (d.qualifyingChild) n++;
     return n;
   }
-  // ---- Field registry ----
-  // Every sidebar control that maps straight onto a `state` key is declared here ONCE, and the
-  // input listeners, the DOM sync (syncControls / syncContributionControls), `ids`, and the MCP
-  // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
-  // and one entry here (plus a hook only if it has a side effect).
-  //   key       the `state` key and the element id
-  //   type      'number' (input/range; money fields are read with non-digits stripped),
-  //             'bool' (checkbox), or 'choice' (select / button group with a value list)
-  //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
-  //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
-  //   inlineOut also refresh the label immediately on input
-  //   resync    call syncControls() on input (the field has clamping side effects or labels)
-  //   syncAfter 'contrib': call syncContributionControls() after the edit is saved
-  //   onInput   clamps / cross-field side effects that run right after state is updated
-  // The order of the numeric entries is the order of the MCP schema's properties.
-  export const clampRetireAgeA = () => (state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA)));
-  export const clampRetireAgeB = () => (state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB)));
   export function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);

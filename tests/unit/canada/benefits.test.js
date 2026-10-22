@@ -45,12 +45,21 @@ const par = (o) => prof({ ageA: 40, ageB: 40, singlePerson: false, ...o }); // a
 async function setup() {
   const w = await world();
   const state = await w.setState();
-  const ben = await w.load('canada/core/benefits/benefits.js');
-  const tax = await w.load('canada/core/tax/tax.js');
-  const ys = await w.load('canada/core/income/year-stages.js');
-  const shared = await w.load('shared/core/withdrawals/draws.js');
-  const canada = await w.load('canada/core/withdrawals/draws.js');
-  const yf = await w.load('shared/core/projection/year-factors.js');
+  const benMod = await w.load('canada/core/benefits/benefits.js');
+  const taxMod = await w.load('canada/core/tax/tax.js');
+  // The functions that take the run context first get one built from the store at each call (the hook's old signatures).
+  const now = await w.ctxBuilder(), live = (fn) => (...a) => fn(now(), ...a);
+  const ben = { ...benMod, benefitsFor: live(benMod.benefitsFor), gisIncomeRoom: live(benMod.gisIncomeRoom) };
+  const tax = { ...taxMod, taxFor: live(taxMod.taxFor), incomeTaxCA: live(taxMod.incomeTaxCA) };
+  const ysMod = await w.load('canada/core/income/year-stages.js');
+  const ys = { ...ysMod, cppAndOasIncome: live(ysMod.cppAndOasIncome), housingForYear: live(ysMod.housingForYear) };
+  const sharedMod = await w.load('shared/core/withdrawals/draws.js');
+  const shared = { ...sharedMod, drawTaxable: live(sharedMod.drawTaxable) };
+  const canadaMod = await w.load('canada/core/withdrawals/draws.js');
+  const canada = { ...canadaMod, solveTraditionalForNet: live(canadaMod.solveTraditionalForNet), solveTraditionalForNetFromNeed: live(canadaMod.solveTraditionalForNetFromNeed) };
+  const yf0 = await w.load('shared/core/projection/year-factors.js');
+  const yctx = await w.ctx();
+  const yf = { taxIndexFactor: (y) => yf0.taxIndexFactor(yctx, y) };
   const e = await engine(w);
   // benefitsFor, then a copy of the scratch object.
   const bn = (p, g = 0, tr = 0) => { ben.benefitsFor(p, g, tr); return { ...ben.getBenefits() }; };

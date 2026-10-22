@@ -159,8 +159,9 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
   context (from Task 7 on). In stages 2-3 the two agree (`inputs === state`, `taxFactors` is the binding's array, the
   same override maps), and the hot path then has its final shape as soon as its folder is converted, so the Task 8
   benchmark measures it.
-- **US contexts always carry `stats`.** Every US context is built by `storeContext`, `variantContext`, `LIVE_CTX` or
-  `w.ctx()`, all of which set the sinks; engine code bumps `ctx.stats.…` without a null check. A US context built any
+- **US contexts always carry `stats`.** Every US context is built by `newRunContext` through `storeContext`, `variantContext`,
+  `planning.js`'s `planningContext`, `computeCliffPlan`'s `ctxFor` or `w.ctx()` / `w.ctxBuilder()` (`LIVE_CTX`, a getters object, set
+  them too but must never reach an engine function: see the Stage 4 amendments), all of which set the sinks; engine code bumps `ctx.stats.…` without a null check. A US context built any
   other way must pass `stats` explicitly.
 - **The legacy `histTaxFactors` binding stays until Task 16.** While `LIVE_CTX` exists, its `taxFactors` getter reads the
   binding, so every place that sets it today keeps setting it to the run's own array (`simulateHistorical` in
@@ -562,8 +563,9 @@ engine modules a code instead of the store: `stateTaxTipText(code)` (`src/us/cor
 `provinceTaxTreatmentNote(code)` (`src/canada/core/tax/province-rules.js` line 323), callers passing
 `state.stateTax` / `state.province`. Split
 into two commits (US, then Canada + shared) if the diff is large. Scratch objects (`STREAM_PLAN`, `SOLO_PLAN`,
-`STREAM_OUT`, `LUMP_OUT`, `INH_OUT`, `INH_CTX`, `STREAM_CTX`, `COVER_CTX`, `PLAN_REQ`) stay; `INH_CTX.year` reads
-`ctx.taxYear`.
+`STREAM_OUT`, `LUMP_OUT`, `INH_OUT`, `INH_CTX`, `STREAM_CTX`, `COVER_CTX`, `PLAN_REQ`) stay. (Amended after Task 10: `INH_CTX.year` is a year index and stays one; the inherited ledger's
+calendar year already comes from `ctx.taxYear` through `inheritedLedger`'s `currentYear` field since Task 5. Turning
+`INH_CTX.year` into a tax year would change behavior.)
 
 - [ ] Steps: the stage 3 procedure.
 
@@ -597,6 +599,17 @@ in the year loops becomes `inputs.x` with `const inputs = ctx.inputs` at the top
 `computeCliffPlan`'s `assignHistTaxFactors(null)` save / restore and the `tax-factors.js` import from
 `run-projection.js` (section "The context"): after this task no module in its closure reads the binding.
 
+**Amendment (after Task 11, 2026-10-22):** the Task 11 timing gate failed for the US (+10..+14% against the stage 1
+tree; Canada passed). The bisect put the cost at Task 7 and a CPU profile put it in `taxFor`'s self time: `LIVE_CTX`
+(an object of getters, a different hidden class from `newRunContext`'s literal) still reached `taxFor`,
+`taxIndexFactor` and the other hot functions through `cliff-plan/solver.js`, so their context property loads stayed
+polymorphic for every run. Replacing those `LIVE_CTX` uses with a plain context brought the US gate to -1.4..+3.3%.
+Rule from here on: **every context that reaches an engine function has `newRunContext`'s shape**; `LIVE_CTX` must not
+reach a hot function. So this task also takes Canada `src/canada/core/analysis/estate.js` off the bridge (moved forward
+from Task 14): `afterTaxEstate(ctx, sim)`, `computeRothOptimizer` passing the context of the run it prices, and
+`print-report.js` and the tests `storeContext({ withPlan: false })` (or `w.ctx()`). After this task no module uses
+`LIVE_CTX`; Task 16 still deletes the files. Task 11's gate is carried to this task's Step 3, which binds.
+
 - [ ] **Step 1:** The stage 3 procedure for these files.
 - [ ] **Step 2:** `grep -rln "seam-LIVE_CTX\|live-context.js" src/*/core src/shared/core` lists no module in
   `runProjection`'s closure (analysis and optimizer modules may still use it until Stage 4; UI none). `stillReaching`
@@ -614,6 +627,43 @@ in the year loops becomes `inputs.x` with `const inputs = ctx.inputs` at the top
 ---
 
 ## Stage 4 (PR 4): the callers
+
+**Amendments after Stage 3 (2026-10-22, from the whole-stage review; they bind Tasks 13-16 and override their text
+where the two differ):**
+- **One context shape, nested objects included.** Task 11 measured that a second context shape reaching the hot
+  functions (`taxFor`, `taxIndexFactor`, ...) even once leaves their property loads polymorphic for every later run
+  (US +10..+14%). The engine also reads the nested objects on per-year paths (`ctx.overrides.rothBracketByAge` in
+  `roth-conversion.js`, `ctx.overrides.withdrawalMixByAge` in `strategies.js`, `ctx.stats` / `ctx.test` in
+  `run-projection.js`). So every US context is built by `newRunContext` with: `overrides` a fresh two-key literal
+  `{ rothBracketByAge, withdrawalMixByAge }` (never `optimizerState` itself, never the frozen `NO_OVERRIDES`), `test` a
+  fresh `{ inhForce, inhNoNeedAdj }` literal, `stats: US_STATS`. Task 14 factors the store-reading part into one helper
+  that `storeContext`, `planning.js`'s `planningContext` and `variantContext` share (today the two literals are
+  written in three places). Every `contextFor` a core function receives, in production and in Vitest, comes from
+  `variantContext` / `storeContext` / `w.ctx`-style factories, never a hand literal.
+- **Task 14 Step 1 adds a shape test** to `tests/unit/shared/run-context.test.js`: for `storeContext`, `variantContext`,
+  `stateContextFor()(v)` and `w.ctx()`, `Object.keys(ctx)` is the key list, and in the US `Object.keys(ctx.overrides)` is
+  the two keys, `Object.isFrozen(ctx.overrides)` is false and `ctx.stats` is `US_STATS` (`toBe`).
+- **Task 16 Step 3:** warm each tree's page with one `__test_analysisBundle()` call before the
+  `bench_runs_interleaved.js` rounds (add a `--warm-analysis` flag to the script if it has none, used for both trees), so
+  a variant-context shape slip shows in the binding gate and not only in `bench_heavy.js`'s noise. Every timing base
+  stays the stage 1 tree, and `plan_off_anchor.js --base` is the stage 1 tree too (it descends from `4834615`).
+- **Already done in Stage 3:** Canada `afterTaxEstate(ctx, sim)` and its `print-report.js` caller (Task 12). Task 14
+  drops `estate.js` and the Canada print report from its files; the clause "`computeRothOptimizer` passes the variant's
+  context" moves to Task 15: the Canada card passes `afterTaxEstate` the context its trial ran with (today
+  `src/canada/ui/results/roth-optimizer.js` builds a second store context for it). No analysis module imports `LIVE_CTX`
+  any more ("These modules drop their ... `LIVE_CTX` ..." in Task 14 is moot for it).
+- **Task 16 Files also include** `tests/unit/shared/run-context.test.js` (its `LIVE_CTX` case uses
+  `assignHistTaxFactors`; delete the case with the bridge) and the renames that remove the second meaning of `ctx` in
+  the engine: the per-call info objects of `streamAmountsForYear`, `lumpAmountsForYear`, `streamCoverBits`
+  (`src/us/core/income/streams-and-lumps.js`) and `inheritedLedger` (`src/us/core/income/inherited.js`, whose
+  `currentYear` field becomes `taxYear`) and the `__test_streamAmountsForYear` hook's parameter become `yearCtx` (names
+  only: the objects, their fields' values and every number stay). Optional in Task 16: move `CURRENT_YEAR` (a clock
+  read at load time) out of `year-factors.js`, which is in the engine closure, to a module only the adapters and the UI
+  import.
+- **Task 16 Step 2 CLAUDE.md:** the seam count is 26 today (with `LIVE_CTX`); after `variantContext` is added and
+  `LIVE_CTX` deleted it is again 26. Record the remaining convention differences for item 5 (functions taking `inputs`
+  rather than `ctx`: the account ledger, `penalty-status.js`, `getBondYears`, `dependentsInYear`,
+  `qualifyingChildCount`, `hasChildAtMost`; `lambdaEstimate({ ..., ctx })`; the draws reading `wd.ctx`).
 
 ### Task 13: `displayValueOf`
 
@@ -674,7 +724,7 @@ Grep all of `src/` and `tests/` for each changed name.
 - `findMinimalSpendingCut(selected, base, contextFor, displayMode)`, `findMinimalRetirementDelay(selected, base, contextFor, displayMode)`,
   `fiMultiple(inputs)`, `decisionEndAssets(sim, inputs, displayMode)`, `decisionDeltaPhrase(fromSim, toSim, inputs, displayMode)`,
   `analyzeShortfallDrivers(selected, base, contextFor)`, `renderDecisionCompareTable(rows, inputs, displayMode)`,
-  `simulateAtRealCagr(base, contextFor, realCagrPct)`, Canada `afterTaxEstate(ctx, sim)` (it prices tax through `taxIndexFactor`,
+  `simulateAtRealCagr(base, contextFor, realCagrPct)`, Canada `afterTaxEstate(ctx, sim)` (already done in Task 12, amendment; it prices tax through `taxIndexFactor`,
   `personTaxCA` and the province, which take a context from Tasks 7-8; `computeRothOptimizer` passes the variant's
   context, `print-report.js` `storeContext({ withPlan: false })`; mirrors `afterTaxEndValueUS(ctx, sim)`),
   `unusualAssumptionImpact(item, currentSim, base, displayMode)` (its `decisionDeltaPhrase` call runs after today's

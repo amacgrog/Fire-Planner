@@ -17,6 +17,7 @@ import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
 import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCompareTable';
 import { analyzeShortfallDrivers } from '#country/core/seam-analyzeShortfallDrivers';
 import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
+import { storeContext } from '#country/core/seam-storeContext';
 
   // The country's part of the analysis bundle, set by the country installer (assignCountryAnalysis):
   // { renderChartView, cagrSims() } and, US only, begin(), perMode() and once(opts).
@@ -152,8 +153,12 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     window.__test_simulateHistorical = simulateHistorical;
     window.__test_runHistoricalCycles = runHistoricalCycles;
     window.__test_runMonteCarlo = runMonteCarlo;
-    window.__test_refillBondReserve = refillBondReserve;
-    window.__test_rotateIntoBondLadder = rotateIntoBondLadder;
+    // Old signatures: a withdrawal object without a run context gets one built from the store.
+    window.__test_refillBondReserve = (wd, ...a) => {
+      if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });
+      return refillBondReserve(wd, ...a);
+    };
+    window.__test_rotateIntoBondLadder = (...a) => rotateIntoBondLadder(storeContext({ withPlan: false }), ...a);
     window.__test_HIST = HIST;
     // Replaces state the way load / undo / reset do, without render() (the US installer redefines it the same way).
     window.__test_replaceState = (raw) => {

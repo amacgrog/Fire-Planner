@@ -1,7 +1,6 @@
 // US per-account share ledger: contributions, conversions, draws and opening balances
 
 import { pct } from '../../../shared/core/format/numbers.js';
-import { state } from '../../../shared/core/store.js';
 import { rule55Applies, penaltyStatus } from './penalty-status.js';
 
   // Each account's early-withdrawal status this year, one per ACCOUNT_SLOTS slot (IRA A, 401(k) A,
@@ -10,13 +9,13 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
   // period) are inherited by the spouse as beneficiary: penalty-free and, with the 5-year clock
   // assumed met, tax-free. Everyone else is judged by their own age.
   const SLOT_KINDS = ['ira', 'k401', 'ira', 'k401'];
-  export function accountStatuses({ age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB }) {
+  export function accountStatuses(inputs, { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB }) {
     const dead = isSurvivorPeriod ? (deceasedIsA ? 0 : 1) : -1;
     return SLOT_KINDS.map((kind, i) => {
       const partner = i < 2 ? 0 : 1;
       if (partner === dead) return { free: true, qualified: true };
       const own = partner === 0 ? [age, workingA, retireAgeA] : [ageB, workingB, retireAgeB];
-      return penaltyStatus(kind, own[0], { rule55: rule55Applies(own[1], own[2], partner) });
+      return penaltyStatus(kind, own[0], { rule55: rule55Applies(inputs, own[1], own[2], partner) });
     });
   }
   // load-time: maps [0, 1, 2, 3] to literal objects; reads nothing
@@ -39,24 +38,24 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
   // Share of a Roth IRA balance assumed to be contributions when no basis is entered.
   const ROTH_BASIS_ASSUMED_PCT = 50;
   // The four retirement accounts' opening balances from the inputs, in ACCOUNT_SLOTS
-  // order. Partner B's accounts are ignored in single-person mode.
-  export function openingAccounts() {
-    const single = !!state.singlePerson,
+  // order (from the plan inputs `inputs`). Partner B's accounts are ignored in single-person mode.
+  export function openingAccounts(inputs) {
+    const single = !!inputs.singlePerson,
       b = (v) => (single ? 0 : v);
     return {
-      trad: [state.tradIraA, state.trad401kA, b(state.tradIraB), b(state.trad401kB)],
-      roth: [state.rothIraA, state.roth401kA, b(state.rothIraB), b(state.roth401kB)],
+      trad: [inputs.tradIraA, inputs.trad401kA, b(inputs.tradIraB), b(inputs.trad401kB)],
+      roth: [inputs.rothIraA, inputs.roth401kA, b(inputs.rothIraB), b(inputs.roth401kB)],
     };
   }
   export const sumSlots = (a) => a[0] + a[1] + a[2] + a[3];
   // All retirement-account money (traditional + Roth, both partners unless single-person).
-  export function retirementTotal() {
-    const o = openingAccounts();
+  export function retirementTotal(inputs) {
+    const o = openingAccounts(inputs);
     return sumSlots(o.trad) + sumSlots(o.roth);
   }
   // Each account's opening share of its pool (equal split of an empty pool: nothing to divide).
-  export function accountsNew() {
-    const o = openingAccounts(),
+  export function accountsNew(inputs) {
+    const o = openingAccounts(inputs),
       shares = (a) => {
         const total = sumSlots(a);
         return total > 0 ? a.map((x) => x / total) : [0.25, 0.25, 0.25, 0.25];
@@ -66,13 +65,13 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
   // Opening Roth basis (contributions) per Roth account, in ACCOUNT_SLOTS order: the entered Roth
   // IRA basis (or the assumed share of the balance when none is entered, never more than the
   // balance) and the Roth 401(k) balance times its basis slider, for each partner.
-  export function openingRothBasisSlots() {
-    const o = openingAccounts().roth,
+  export function openingRothBasisSlots(inputs) {
+    const o = openingAccounts(inputs).roth,
       partner = (p, i) => {
-        const entered = state['rothIraBasis' + p];
+        const entered = inputs['rothIraBasis' + p];
         return [
           entered > 0 ? Math.min(o[i], entered) : o[i] * pct(ROTH_BASIS_ASSUMED_PCT),
-          o[i + 1] * pct(state['roth401kBasisPct' + p]),
+          o[i + 1] * pct(inputs['roth401kBasisPct' + p]),
         ];
       };
     return [...partner('A', 0), ...partner('B', 2)];

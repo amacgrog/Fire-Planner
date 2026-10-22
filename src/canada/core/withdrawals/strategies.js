@@ -1,7 +1,6 @@
 // Canada withdrawal strategies: standard cascade and the bucket-step table
 
 import { takeTraditional, solveTraditionalForNetFromNeed, solveTraditionalForNet, takeRoth } from './draws.js';
-import { state } from '../../../shared/core/store.js';
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
 
   // Smooth withdrawals (the only mix mode Canada has): the year's need is split
@@ -12,7 +11,7 @@ import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/with
   // solveTraditionalForNetFromNeed). Written against the take*() primitives so the
   // account model can change underneath.
   function drawSmoothStockAccounts(wd, solver) {
-    if (!state.smoothWithdrawals) return false;
+    if (!wd.ctx.inputs.smoothWithdrawals) return false;
     const { bal } = wd;
     const pool = bal.taxable + bal.traditional;
     if (pool > 0 && wd.need > 0) {

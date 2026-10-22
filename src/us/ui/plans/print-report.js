@@ -12,7 +12,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
       end = sim.rows.at(-1),
-      currentInvestable = state.taxable + retirementTotal() + state.cash,
+      currentInvestable = state.taxable + retirementTotal(state) + state.cash,
       fiNumber = sim.currentExpense * fiMultiple(),
       fireNumber = sim.retirementExpense * fiMultiple(),
       tenureLabels = { own: 'Own', rent: 'Rent', rentThenBuy: 'Rent, then buy' },
@@ -77,7 +77,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
       ['Bond return assumption', `${state.bondReturn}%`],
       ['HYSA / cash rate assumption', `${state.hysaRate}%`],
       ['Inflation assumption', `${state.inflation}%`],
-      ['Bond reserve', `${getBondYears()} years of expenses`],
+      ['Bond reserve', `${getBondYears(state)} years of expenses`],
     ]);
     const chartCanvas = document.getElementById('chart');
     let chartImg = '';

@@ -41,7 +41,10 @@ async function setup() {
   const state = await w.setState();
   w.setTaxYear(2026);
   const hooks = await usContributions(w);
-  const fed = await w.load('us/core/tax/federal-tax.js');
+  const fedMod = await w.load('us/core/tax/federal-tax.js');
+  // taxFor and payrollTax take the run context first: each call gets one built from the store as it is then.
+  const now = await w.ctxBuilder();
+  const fed = { ...fedMod, taxFor: (...a) => fedMod.taxFor(now(), ...a), payrollTax: (...a) => fedMod.payrollTax(now(), ...a) };
   const { STATE_RULES } = await w.load('us/core/tax/state-rules.js');
   const e = await engine(w);
   return { w, state, hooks, fed, STATE_RULES, e };

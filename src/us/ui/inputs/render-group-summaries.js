@@ -4,6 +4,7 @@ import { compact } from '../../../shared/core/format/numbers.js';
 import { mortgagePayment } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 import { seppElections } from '../../core/income/distributions.js';
+import { storeContext } from '../../core/projection/store-context.js';
 import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/account-ledger.js';
 
   // Cheap, string-only sidebar group summaries — no simulate() calls, just
@@ -63,10 +64,10 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
     setGroupState('spendingGroupState', spendingText);
 
     // Assets: taxable + traditional + Roth as "invested", cash separately.
-    const invested = (state.taxable || 0) + retirementTotal();
+    const invested = (state.taxable || 0) + retirementTotal(state);
     setGroupState('assetsGroupState', `${compact(invested)} invested · ${compact(state.cash || 0)} cash`);
     {
-      const o = openingAccounts();
+      const o = openingAccounts(state);
       setGroupState(
         'retirementAccountsGroupState',
         `${compact(sumSlots(o.trad))} traditional · ${compact(sumSlots(o.roth))} Roth`,
@@ -184,13 +185,13 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
       state.guardrailsEnabled ||
       state.rothConvEnabled ||
       (state.ruleOf55A || state.ruleOf55B) ||
-      seppElections().length
+      seppElections(storeContext({ withPlan: false })).length
     ) {
       const parts = [];
       if (state.guardrailsEnabled) parts.push('Guyton-Klinger');
       if (state.rothConvEnabled) parts.push('Roth ladder on');
       if (state.ruleOf55A || state.ruleOf55B) parts.push('Rule of 55');
-      const sepp = seppElections();
+      const sepp = seppElections(storeContext({ withPlan: false }));
       if (sepp.length) parts.push(`72(t) SEPP (${sepp.length} account${sepp.length > 1 ? 's' : ''})`);
       setGroupState('withdrawalStrategyGroupState', `✓ ${parts.join(' · ')}`, true);
     } else {

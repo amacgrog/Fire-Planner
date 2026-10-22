@@ -194,7 +194,7 @@ it('(d) survivor', async () => {
 });
 
 it('(c) lines: the irmaa1 line is the translated edge', async () => {
-  const { st, irmaa, solver } = await setup();
+  const { w, st, irmaa, solver } = await setup();
   // A single 66-year-old with a 40,000 benefit. The first tier, 109,000 of IRMAA MAGI, is at x + 34,000 = 109,000 (the 85%
   // cap binds: provisional 95,000), x = 75,000: engine MAGI 115,000. Ids and families unchanged.
   const saved = JSON.parse(JSON.stringify(st));
@@ -206,9 +206,11 @@ it('(c) lines: the irmaa1 line is the translated edge', async () => {
   });
   let lines;
   try {
+    // The run context, built after the state patch (the state object is patched in place).
+    const runCtx = await w.ctx();
     lines = {
-      withSs: solver.magiThresholds(ctx(40000)).find((l) => l.id === 'irmaa1'),
-      noSs: solver.magiThresholds(ctx(0)).find((l) => l.id === 'irmaa1'),
+      withSs: solver.magiThresholds(runCtx, ctx(40000)).find((l) => l.id === 'irmaa1'),
+      noSs: solver.magiThresholds(runCtx, ctx(0)).find((l) => l.id === 'irmaa1'),
       inverse: irmaa.magiForIrmaaLine(109000, 40000, 'single'),
     };
   } finally {
@@ -253,14 +255,15 @@ it('(f) conversion ceiling and (g) no benefit, no change', async () => {
 // The search, then lambda for X and Y at the P found. X: Social Security 40,000 and pension P (each partner on two
 // returns); Y: no benefit and pension P + 34,000.
 async function lambdaPair(common, onePerson) {
-  const { st, irmaa, solver } = await setup();
+  const { w, st, irmaa, solver } = await setup();
+  const ctx = await w.ctx();
   const saved = JSON.parse(JSON.stringify(st));
   const tradPool = 500000,
     divisors = [26.5, 21.1, 16.0],
     lam = (ssMonthly, pension) => {
       for (const k of Object.keys(st)) delete st[k];
       Object.assign(st, JSON.parse(JSON.stringify(saved)), common, { ssMonthlyA: ssMonthly, pensionYearlyA: pension }, onePerson ? {} : { ssMonthlyB: ssMonthly, pensionYearlyB: pension });
-      return solver.lambdaEstimate({ tradPool, year: 0, singlePerson: onePerson, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1 });
+      return solver.lambdaEstimate({ tradPool, year: 0, singlePerson: onePerson, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1, ctx });
     };
   try {
     const ss = (40000 / 12) * 12;
@@ -278,8 +281,8 @@ async function lambdaPair(common, onePerson) {
           med = irmaa.irmaaMagiOf(eng, ss, 'single'),
           medUp = irmaa.irmaaMagiOf(eng + s, ss, 'single');
         if (Math.abs(med - (eng - ss + 0.85 * ss)) > 1e-6) atCap = false;
-        const engCross = irmaa.irmaaSurcharge(eng + s, 'single', 0) !== irmaa.irmaaSurcharge(eng, 'single', 0),
-          medCross = irmaa.irmaaSurcharge(medUp, 'single', 0) !== irmaa.irmaaSurcharge(med, 'single', 0);
+        const engCross = irmaa.irmaaSurcharge(ctx, eng + s, 'single', 0) !== irmaa.irmaaSurcharge(ctx, eng, 'single', 0),
+          medCross = irmaa.irmaaSurcharge(ctx, medUp, 'single', 0) !== irmaa.irmaaSurcharge(ctx, med, 'single', 0);
         if (engCross && !medCross) crosses = true;
       }
       if (atCap && crosses) found = P;

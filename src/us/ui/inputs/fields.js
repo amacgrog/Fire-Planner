@@ -1,6 +1,6 @@
 // The FIELDS registry: every sidebar control that maps onto a state key
 
-import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/inputs/lists.js';
+import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/inputs/clamps.js';
 import { money } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/list-rules.js';

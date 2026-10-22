@@ -2,7 +2,6 @@
 
 import { pct } from '../../../shared/core/format/numbers.js';
 import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
-import { state } from '../../../shared/core/store.js';
 
   // ---- Per-year helpers shared by simulate() and simulateHistoricalCore() ----
   // IRS limits for employer plans and IRAs, 2026 values (IRS Notice 2025-67 and News Release IR-2025-111); every one is
@@ -173,7 +172,7 @@ import { state } from '../../../shared/core/store.js';
   }
   const PLAN_REQ = [0, 0],
     PLAN_GOT = [0, 0]; // allocatePlanRoom scratch: [match, profit sharing]
-  export function retirementContributions({ wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0, seA = 0, seB = 0, seMainA = 0, seMainB = 0, halfA = 0, halfB = 0 }) {
+  export function retirementContributions(ctx, { wageA, wageB, age, ageB, singlePerson, limitFactor, streamList = NO_STREAM_LIST, streamWagesA = 0, streamWagesB = 0, seA = 0, seB = 0, seMainA = 0, seMainB = 0, halfA = 0, halfB = 0 }) {
     const catchupBaseA =
         age >= 60 && age <= 63
           ? PLAN_LIMITS.catchUp60to63 * limitFactor
@@ -189,32 +188,32 @@ import { state } from '../../../shared/core/store.js';
             : 0;
     const baseLimitA = PLAN_LIMITS.deferral * limitFactor,
       baseLimitB = PLAN_LIMITS.deferral * limitFactor;
-    const kBaseA = Math.min(wageA, baseLimitA) * pct(state.k401PctA),
-      kBaseB = Math.min(wageB, baseLimitB) * pct(state.k401PctB);
+    const kBaseA = Math.min(wageA, baseLimitA) * pct(ctx.inputs.k401PctA),
+      kBaseB = Math.min(wageB, baseLimitB) * pct(ctx.inputs.k401PctB);
     const catchupRoomA = Math.max(0, Math.min(wageA - kBaseA, catchupBaseA)),
       catchupRoomB = Math.max(0, Math.min(wageB - kBaseB, catchupBaseB));
-    const kCatchupA = catchupRoomA * pct(state.catchupPctA),
-      kCatchupB = catchupRoomB * pct(state.catchupPctB);
+    const kCatchupA = catchupRoomA * pct(ctx.inputs.catchupPctA),
+      kCatchupB = catchupRoomB * pct(ctx.inputs.catchupPctB);
     const kA = kBaseA + kCatchupA,
       kB = kBaseB + kCatchupB;
     // SECURE 2.0: catch-up contributions must be Roth once prior-year FICA
     // wages exceed ~$150k (2026-indexed); approximated here using the
     // current-year modeled wage.
     const rothCatchupThreshold = PLAN_LIMITS.rothCatchUpWages * limitFactor,
-      catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : state.k401Type,
-      catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : state.k401Type;
+      catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : ctx.inputs.k401Type,
+      catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : ctx.inputs.k401Type;
     const iraLimitA = (PLAN_LIMITS.ira + (age >= 50 ? PLAN_LIMITS.iraCatchUp : 0)) * limitFactor,
       iraLimitB = singlePerson ? 0 : (PLAN_LIMITS.ira + (ageB >= 50 ? PLAN_LIMITS.iraCatchUp : 0)) * limitFactor;
-    const iraA = Math.min(wageA, iraLimitA) * pct(state.iraPctA),
-      iraB = Math.min(wageB, iraLimitB) * pct(state.iraPctB);
+    const iraA = Math.min(wageA, iraLimitA) * pct(ctx.inputs.iraPctA),
+      iraB = Math.min(wageB, iraLimitB) * pct(ctx.inputs.iraPctB);
     const traditionalContribA =
-      (state.k401Type === 'traditional' ? kBaseA : 0) +
+      (ctx.inputs.k401Type === 'traditional' ? kBaseA : 0) +
       (catchupTypeA === 'traditional' ? kCatchupA : 0) +
-      (state.iraType === 'traditional' ? iraA : 0);
+      (ctx.inputs.iraType === 'traditional' ? iraA : 0);
     const traditionalContribB =
-      (state.k401Type === 'traditional' ? kBaseB : 0) +
+      (ctx.inputs.k401Type === 'traditional' ? kBaseB : 0) +
       (catchupTypeB === 'traditional' ? kCatchupB : 0) +
-      (state.iraType === 'traditional' ? iraB : 0);
+      (ctx.inputs.iraType === 'traditional' ? iraB : 0);
     const traditionalContribSalary = traditionalContribA + traditionalContribB;
     // The annual-additions room (IRC 415(c)): the lesser of the limit and 100% of pay, less the deferrals; catch-ups are
     // outside it. A plan in operation fills it in this order: deferrals as elected, the match, profit sharing, then
@@ -223,20 +222,20 @@ import { state } from '../../../shared/core/store.js';
       compLimit = PLAN_LIMITS.compensation * limitFactor;
     const compA = Math.min(wageA, compLimit),
       compB = Math.min(wageB, compLimit);
-    PLAN_REQ[0] = compA * pct(state.matchA);
-    PLAN_REQ[1] = compA * pct(state.profitSharingPctA);
+    PLAN_REQ[0] = compA * pct(ctx.inputs.matchA);
+    PLAN_REQ[1] = compA * pct(ctx.inputs.profitSharingPctA);
     const leftA = allocatePlanRoom(Math.min(wageA, annualAdditionLimit) - kBaseA, PLAN_REQ, PLAN_GOT);
     const matchA = PLAN_GOT[0],
       profitA = PLAN_GOT[1];
-    PLAN_REQ[0] = compB * pct(state.matchB);
-    PLAN_REQ[1] = compB * pct(state.profitSharingPctB);
+    PLAN_REQ[0] = compB * pct(ctx.inputs.matchB);
+    PLAN_REQ[1] = compB * pct(ctx.inputs.profitSharingPctB);
     const leftB = allocatePlanRoom(Math.min(wageB, annualAdditionLimit) - kBaseB, PLAN_REQ, PLAN_GOT);
     const matchB = PLAN_GOT[0],
       profitB = PLAN_GOT[1];
     // After-tax money is the employee's own, like the deferral and catch-up, so it comes out of pay: at most the pay left
     // after them (the room above already keeps annual additions within 100% of pay; catch-ups sit outside that room).
-    const megaA = state.megaBackdoor ? Math.min(leftA, Math.max(0, wageA - kA)) * pct(state.megaPctA) : 0,
-      megaB = state.megaBackdoor ? Math.min(leftB, Math.max(0, wageB - kB)) * pct(state.megaPctB) : 0;
+    const megaA = ctx.inputs.megaBackdoor ? Math.min(leftA, Math.max(0, wageA - kA)) * pct(ctx.inputs.megaPctA) : 0,
+      megaB = ctx.inputs.megaBackdoor ? Math.min(leftB, Math.max(0, wageB - kB)) * pct(ctx.inputs.megaPctB) : 0;
     // Contributing W-2 streams (E1b): what the salary left of each person's limits, then the streams in list order.
     STREAM_ROOMS.deferral[0] = Math.max(0, baseLimitA - kBaseA);
     STREAM_ROOMS.deferral[1] = singlePerson ? 0 : Math.max(0, baseLimitB - kBaseB);
@@ -247,34 +246,34 @@ import { state } from '../../../shared/core/store.js';
     STREAM_LIMITS.annualAdditions = annualAdditionLimit;
     STREAM_LIMITS.compensation = compLimit;
     STREAM_LIMITS.rothCatchUpWages = rothCatchupThreshold;
-    const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, state.iraType === 'traditional', STREAM_PLAN);
+    const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, ctx.inputs.iraType === 'traditional', STREAM_PLAN);
     // E1c: the Solo 401(k) and IRA of self-employment, after every W-2 plan (the rooms the salary and W-2 streams left).
     let so = NO_SOLO;
     if (seA + seB > 0) {
       const P = SOLO_IN;
       P.se[0] = seA; P.se[1] = seB; P.half[0] = halfA; P.half[1] = halfB; P.main[0] = seMainA; P.main[1] = seMainB;
-      P.mainPct[0].deferral = state.k401PctA; P.mainPct[0].catchUp = state.catchupPctA; P.mainPct[0].profit = state.profitSharingPctA;
-      P.mainPct[0].afterTax = state.megaPctA; P.mainPct[0].ira = state.iraPctA;
-      P.mainPct[1].deferral = state.k401PctB; P.mainPct[1].catchUp = state.catchupPctB; P.mainPct[1].profit = state.profitSharingPctB;
-      P.mainPct[1].afterTax = state.megaPctB; P.mainPct[1].ira = state.iraPctB;
+      P.mainPct[0].deferral = ctx.inputs.k401PctA; P.mainPct[0].catchUp = ctx.inputs.catchupPctA; P.mainPct[0].profit = ctx.inputs.profitSharingPctA;
+      P.mainPct[0].afterTax = ctx.inputs.megaPctA; P.mainPct[0].ira = ctx.inputs.iraPctA;
+      P.mainPct[1].deferral = ctx.inputs.k401PctB; P.mainPct[1].catchUp = ctx.inputs.catchupPctB; P.mainPct[1].profit = ctx.inputs.profitSharingPctB;
+      P.mainPct[1].afterTax = ctx.inputs.megaPctB; P.mainPct[1].ira = ctx.inputs.iraPctB;
       P.w2Comp[0] = wageA + streamWagesA - iraA - (sp.trad[0] + sp.roth[0]);
       P.w2Comp[1] = wageB + streamWagesB - iraB - (sp.trad[2] + sp.roth[2]);
       P.iraLeft[0] = iraLimitA - iraA - (sp.trad[0] + sp.roth[0]);
       P.iraLeft[1] = iraLimitB - iraB - (sp.trad[2] + sp.roth[2]);
       P.list = streamList; P.rooms = STREAM_ROOMS;
       P.annualAdditions = annualAdditionLimit; P.compensation = compLimit;
-      P.mainRoth = state.k401Type === 'roth'; P.iraPretax = state.iraType === 'traditional'; P.megaOn = !!state.megaBackdoor;
+      P.mainRoth = ctx.inputs.k401Type === 'roth'; P.iraPretax = ctx.inputs.iraType === 'traditional'; P.megaOn = !!ctx.inputs.megaBackdoor;
       so = soloPlanContributions(P, SOLO_PLAN);
     }
     const rothContribA =
-      (state.k401Type === 'roth' ? kBaseA : 0) +
+      (ctx.inputs.k401Type === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
-      (state.iraType === 'roth' ? iraA : 0) +
+      (ctx.inputs.iraType === 'roth' ? iraA : 0) +
       megaA;
     const rothContribB =
-      (state.k401Type === 'roth' ? kBaseB : 0) +
+      (ctx.inputs.k401Type === 'roth' ? kBaseB : 0) +
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
-      (state.iraType === 'roth' ? iraB : 0) +
+      (ctx.inputs.iraType === 'roth' ? iraB : 0) +
       megaB;
     // The Solo terms are added after today's terms and only when the year has self-employment.
     const soOn = so !== NO_SOLO;
@@ -289,22 +288,22 @@ import { state } from '../../../shared/core/store.js';
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
-        (state.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
-        (state.k401Type === 'traditional' ? kBaseA : 0) +
+        (ctx.inputs.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
+        (ctx.inputs.k401Type === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
           matchA +
           profitA + sp.trad[1],
-        (state.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
-        (state.k401Type === 'traditional' ? kBaseB : 0) +
+        (ctx.inputs.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
+        (ctx.inputs.k401Type === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
           matchB +
           profitB + sp.trad[3],
       ],
       roth: [
-        (state.iraType === 'roth' ? iraA : 0) + sp.roth[0],
-        (state.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
-        (state.iraType === 'roth' ? iraB : 0) + sp.roth[2],
-        (state.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
+        (ctx.inputs.iraType === 'roth' ? iraA : 0) + sp.roth[0],
+        (ctx.inputs.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
+        (ctx.inputs.iraType === 'roth' ? iraB : 0) + sp.roth[2],
+        (ctx.inputs.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
       ],
     };
     if (soOn) {

@@ -1,13 +1,10 @@
 // US required distributions: RMD start age and divisors, SEPP, single-life factor
 
-import { currentYear } from '../tax-year.js';
-import { state } from '../../../shared/core/store.js';
-
   // SECURE 2.0: RMDs begin at 75 for people born in 1960 or later, and at 73 for
   // those born 1951-1959. Birth year is estimated from today's age (the planner
-  // only collects age), so `currentYear` (from `core/tax-year.js`) is a live binding tests can pin.
-  export function rmdStartAge(currentAge) {
-    return currentYear - Math.round(currentAge) >= 1960 ? 75 : 73;
+  // only collects age), so the context's tax year (`ctx.taxYear`) is the year it counts from.
+  export function rmdStartAge(ctx, currentAge) {
+    return ctx.taxYear - Math.round(currentAge) >= 1960 ? 75 : 73;
   }
   export function rmdDivisor(age) {
     const table = {
@@ -88,10 +85,10 @@ import { state } from '../../../shared/core/store.js';
     { on: 'sepp72tK401B', from: 'sepp72tK401AgeB', partner: 1 },
   ];
   // The accounts currently elected for 72(t) (Partner B's only for a couple).
-  export function seppElections() {
-    return SEPP_SLOTS.filter((sl) => state[sl.on] && !(sl.partner === 1 && state.singlePerson));
+  export function seppElections(ctx) {
+    return SEPP_SLOTS.filter((sl) => ctx.inputs[sl.on] && !(sl.partner === 1 && ctx.inputs.singlePerson));
   }
-  export function requiredDistributions({
+  export function requiredDistributions(ctx, {
     traditional,
     bondTraditional,
     age,
@@ -121,9 +118,9 @@ import { state } from '../../../shared/core/store.js';
         singlePerson || isSurvivorPeriod
           ? traditionalBeforeRmd
           : traditionalBeforeRmd * (1 - ownerShareA);
-    let rmdA = age >= rmdStartAge(state.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
+    let rmdA = age >= rmdStartAge(ctx, ctx.inputs.ageA) ? traditionalShareA / rmdDivisor(age) : 0,
       rmdB =
-        !singlePerson && ageB >= rmdStartAge(state.ageB)
+        !singlePerson && ageB >= rmdStartAge(ctx, ctx.inputs.ageB)
           ? traditionalShareB / rmdDivisor(ageB)
           : 0;
     // 72(t) SEPP (IRC 72(t)(2)(A)(iv), Notice 2022-6 RMD method), elected per account: a mandatory,
@@ -141,9 +138,9 @@ import { state } from '../../../shared/core/store.js';
     const deadPartner = isSurvivorPeriod ? (deceasedIsA ? 0 : 1) : -1;
     SEPP_SLOTS.forEach((sl, i) => {
       const p = sl.partner;
-      if (!state[sl.on] || p === deadPartner) return;
+      if (!ctx.inputs[sl.on] || p === deadPartner) return;
       const [ownerAge, working, retire] = p === 0 ? [age, workingA, retireAgeA] : [ageB, workingB, retireAgeB],
-        entered = Number(state[sl.from]) || 0,
+        entered = Number(ctx.inputs[sl.from]) || 0,
         start = Math.max(retire, entered > 0 ? entered : retire),
         end = Math.max(start + 5, 59.5);
       if (working || start >= 59.5 || ownerAge < start || ownerAge >= end) return;

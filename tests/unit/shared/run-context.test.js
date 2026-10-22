@@ -113,3 +113,41 @@ it.runIf(isUS)('with planMode undefined the plan is the planForState plan, whate
   expect(again.plan).toBe(ctx.plan);
   expect(again.planMode).toBe('apply');
 });
+
+it('LIVE_CTX reads the live store', async () => {
+  const w = await world();
+  const store = await w.load('shared/core/store.js');
+  const rc = await w.load('shared/core/projection/run-context.js');
+  const { LIVE_CTX } = await w.load(`${country}/core/projection/live-context.js`);
+  expect(Object.keys(LIVE_CTX)).toStrictEqual(KEYS);
+  await w.setState({ spending: 71000 });
+  expect(LIVE_CTX.inputs).toBe(store.state);
+  const first = LIVE_CTX.inputs;
+  await w.setState({ spending: 72000 });
+  expect(LIVE_CTX.inputs).toBe(store.state);
+  expect(LIVE_CTX.inputs === first).toBe(false);
+  expect(LIVE_CTX.plan).toBe(null);
+  expect(LIVE_CTX.planMode).toBe('off');
+  if (isUS) {
+    w.setTaxYear(2027);
+    expect(LIVE_CTX.taxYear).toBe(2027);
+    const tf = await w.load('shared/core/tax-factors.js');
+    const arr = [1, 2];
+    tf.assignHistTaxFactors(arr);
+    expect(LIVE_CTX.taxFactors).toBe(arr);
+    tf.assignHistTaxFactors(null);
+    expect(LIVE_CTX.taxFactors).toBe(null);
+    const es = await w.load('us/core/projection/engine-state.js');
+    expect(LIVE_CTX.stats.magi).toBe(es.magiStats);
+    expect(LIVE_CTX.stats).toBe(LIVE_CTX.stats);
+    const opt = await w.load('us/core/optimizer-state.js');
+    expect(LIVE_CTX.overrides).toBe(opt.optimizerState);
+    expect(LIVE_CTX.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false });
+  } else {
+    expect(LIVE_CTX.taxYear).toBe(2026);
+    expect(LIVE_CTX.stats).toBe(null);
+    expect(LIVE_CTX.overrides).toBe(rc.NO_OVERRIDES);
+    expect(LIVE_CTX.test).toBe(rc.NO_TEST);
+    expect(LIVE_CTX.taxFactors).toBe(null);
+  }
+});

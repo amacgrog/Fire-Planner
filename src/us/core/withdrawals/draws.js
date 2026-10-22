@@ -4,7 +4,6 @@ import { ALL_FREE, accountsDrawGroup, accountsSetFromDollars } from '../accounts
 import { tradGroup, rothFreeCaps } from '../accounts/penalty-status.js';
 import { taxFor } from '../tax/federal-tax.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
-import { testHooks } from '../test-hooks.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
 
   // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
@@ -19,8 +18,9 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   // (ordinary income already this year) and traditionalWithdrawn at the
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
-  // just parked in the reserve) so the Sankey does not undercount them.
-  export function newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null }) {
+  // just parked in the reserve) so the Sankey does not undercount them. `ctx` is the run context every draw
+  // and solver of the year reads (wd.ctx).
+  export function newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null }) {
     return {
       // E1e: the inherited ledger (null in a legacy run), the last-resort draws of the pass by post-remap slot, and the slot map and compiled
       // state rule the step reads (null without a ledger: nothing is allocated per pass in a legacy run).
@@ -48,6 +48,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
       magiCap: null,
       onlyPartner: -1,
       taxAwareOrder: null,
+      ctx,
     };
   }
   // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection bracket (see
@@ -62,6 +63,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
     if (!penalized && !uncapped && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
     if (!(cap > 0)) return 0;
     const { fromTrad, tradNet, penalty } = solver(
+      wd.ctx,
       cap,
       amount,
       wd.taxableGainGross,
@@ -86,6 +88,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   // mix/smoothed/default branches and the live greedy picker below don't
   // each carry their own copy of this loop.
   export function solveTraditionalForNet(
+    ctx,
     traditionalBal,
     targetNet,
     taxableGainGross,
@@ -94,14 +97,14 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
     penalizedFraction,
   ) {
     if (traditionalBal <= 0 || targetNet <= 0) return { fromTrad: 0, tradNet: 0, penalty: 0 };
-    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    const baseTax = taxFor(ctx, profile, taxableGainGross, traditionalGross);
     let lo = 0,
       hi = Math.min(traditionalBal, targetNet * 6 + 1);
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2,
         net =
           mid -
-          (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+          (taxFor(ctx, profile, taxableGainGross, traditionalGross + mid) - baseTax) -
           mid * 0.1 * penalizedFraction;
       if (net < targetNet) lo = mid;
       else hi = mid;
@@ -109,25 +112,25 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
     const fromTrad = Math.min(traditionalBal, hi),
       penalty = fromTrad * 0.1 * penalizedFraction,
       tradNet =
-        fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
+        fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
     return { fromTrad, tradNet, penalty };
   }
   // "Fill to the line": `gross` more from penalty-free traditional money (stocks, then bonds), the after-tax
   // proceeds kept as cash. Returns the gross drawn.
   export function fillTraditional(wd, gross) {
-    const { bal } = wd;
+    const { bal, ctx } = wd;
     let left = gross;
     for (const bucket of ['traditional', 'bondTraditional']) {
       if (!(left > 0)) break;
       const { slots, share } = tradGroup(wd, false),
         from = Math.min(left, bal[bucket] * share);
       if (!(from > 0)) continue;
-      const before = taxFor(wd.profile, wd.taxableGainGross, wd.traditionalGross);
+      const before = taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross);
       accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, from);
       bal[bucket] -= from;
       wd.traditionalGross += from;
       wd.traditionalWithdrawn += from;
-      bal.cash += from - (taxFor(wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
+      bal.cash += from - (taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
       left -= from;
     }
     return gross - left;
@@ -139,6 +142,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
     const { bal } = wd;
     if (!caps && wd.penaltyAware) caps = rothFreeCaps(wd, bucket);
     const d = rothDraw(
+      wd.ctx,
       wd.rothAccts,
       wd.accts.roth,
       bal.roth + bal.bondRoth,
@@ -166,7 +170,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   // so the caller can add it to traditionalGross (ordinary income, and the MAGI lag); `penalty`
   // is the 10% early-withdrawal penalty, which the caller adds to earlyPenalty; `tax` is the
   // income tax the earnings add.
-  function rothDraw(R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status, caps = null, dry = false) {
+  function rothDraw(ctx, R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status, caps = null, dry = false) {
     const none = { gross: 0, net: 0, penalty: 0, earn: 0, tax: 0 };
     const capSum = caps ? caps.reduce((sum, c) => sum + c, 0) : 0,
       avail = caps ? capSum : bucketBal;
@@ -204,10 +208,10 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
       apply(c0.sp, flat);
       return { gross: flat, net: flat, penalty: 0, earn: 0, tax: 0 };
     }
-    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    const baseTax = taxFor(ctx, profile, taxableGainGross, traditionalGross);
     const cost = (gross) => {
       const c = pieces(gross),
-        tax = c.earn > 0 ? taxFor(profile, taxableGainGross, traditionalGross + c.earn) - baseTax : 0;
+        tax = c.earn > 0 ? taxFor(ctx, profile, taxableGainGross, traditionalGross + c.earn) - baseTax : 0;
       return { ...c, tax, net: gross - tax - c.penalty };
     };
     let lo = 0,
@@ -235,7 +239,8 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   export function takeInherited(wd) {
     const inh = wd.inh;
     if (inh === null) return;
-    testHooks.inhTakeCount++;
+    const ctx = wd.ctx;
+    ctx.stats.hooks.inhTakeCount++;
     if (!(wd.need > 0)) return;
     const { bal, profile } = wd;
     for (let i = 0; i < inh.n && wd.need > 0; i++) {
@@ -256,11 +261,11 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
         ex0 = profile[exKey],
         excl0 = profile[exclKey],
         room = decedent ? Math.max(0, wd.inhRule.inhCap - inh.draw[i] - inh.lastResort[i]) : 0;
-      const baseTax = taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
+      const baseTax = taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross);
       const netAt = (x) => {
         profile[exKey] = ex0 + x;
         if (decedent) profile[exclKey] = excl0 + Math.min(x, room);
-        return x - (taxFor(profile, wd.taxableGainGross, wd.traditionalGross) - baseTax);
+        return x - (taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) - baseTax);
       };
       let lo = 0,
         hi = Math.min(inh.bal[i], 6 * wd.need + 1);
@@ -285,23 +290,23 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
   // different values (~1e-7 relative), so both are kept until the numerics are
   // unified deliberately; the bond-reserve draw and the historical engine use
   // this one.
-  export function solveTraditionalForNetFromNeed(traditionalBal, need, taxableGainGross, traditionalGross, profile, penalizedFraction) {
+  export function solveTraditionalForNetFromNeed(ctx, traditionalBal, need, taxableGainGross, traditionalGross, profile, penalizedFraction) {
     if (traditionalBal <= 0 || need <= 0) return { fromTrad: 0, tradNet: 0, penalty: 0 };
-    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    const baseTax = taxFor(ctx, profile, taxableGainGross, traditionalGross);
     let lo = need,
       hi = need * 6 + 1;
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2,
         net =
           mid -
-          (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax) -
+          (taxFor(ctx, profile, taxableGainGross, traditionalGross + mid) - baseTax) -
           mid * 0.1 * penalizedFraction;
       if (net < need) lo = mid;
       else hi = mid;
     }
     const fromTrad = Math.min(traditionalBal, hi),
       penalty = fromTrad * 0.1 * penalizedFraction,
-      tradNet = fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
+      tradNet = fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
     return { fromTrad, tradNet, penalty };
   }
   // Safe-MAGI headroom left for discretionary draws this year: the conversion has already used
@@ -333,7 +338,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
           if (cap > 0)
             cands.push({
               probe: () => {
-                const r = solver(cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1);
+                const r = solver(wd.ctx, cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1);
                 return { gross: r.fromTrad, net: r.tradNet };
               },
               run: () => takeTraditional(wd, bucket, wd.need, solver, true),
@@ -348,7 +353,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
           cands.push({
             probe: () => {
               const pool = bal.roth + bal.bondRoth,
-                d = rothDraw(wd.rothAccts, wd.accts.roth, pool, bal[bucket], wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, wd.status, caps, true);
+                d = rothDraw(wd.ctx, wd.rothAccts, wd.accts.roth, pool, bal[bucket], wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, wd.status, caps, true);
               return { gross: d.gross, net: d.net };
             },
             run: () => takeRoth(wd, bucket, wd.need, caps),

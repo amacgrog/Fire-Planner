@@ -5,11 +5,9 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
 import { FILING, filingRow, taxYearOf, itemizedDeduction, standardDeduction, bracketCeilingReal } from '../tax/federal-rules.js';
 import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { qualifyingChildCount } from '../../../shared/core/inputs/lists.js';
-import { state } from '../../../shared/core/store.js';
 import { acaHouseholdSize, fplForHousehold } from '../healthcare/aca.js';
 import { magiForIrmaaLine, irmaaTierCeiling, irmaaMagiOf, irmaaRoomFor } from '../healthcare/irmaa.js';
 import { rothAccountsConvert } from '../accounts/roth-ledger.js';
-import { optimizerState } from '../optimizer-state.js';
 
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
@@ -25,9 +23,9 @@ import { optimizerState } from '../optimizer-state.js';
   }
   // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
   // maxAvailable. solveRothConversion above resolves the bracket (schedule, override or setting) and calls it.
-  function solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct) {
+  function solveRothConversionTo(ctx, profile, maxAvailable, yearIndex, bracketPct) {
     if (maxAvailable <= 0 || bracketPct === 0) return 0;
-    const factor = taxIndexFactor(yearIndex),
+    const factor = taxIndexFactor(ctx, yearIndex),
       filing = FILING[profile.filing] ? profile.filing : 'single',
       joint = filingRow(filing).joint;
     // Conservative lower bound on the deduction: age-adjusted standard, or the
@@ -35,8 +33,8 @@ import { optimizerState } from '../optimizer-state.js';
     // income tax and the senior deduction depend on the conversion itself, so
     // they are left out (a slightly smaller deduction converts a bit less).
     const deduction = Math.max(
-        standardDeduction(filing, yearIndex, joint ? [profile.ageA, profile.ageB] : [profile.ageA]),
-        itemizedDeduction(yearIndex, 0, 0, profile.propertyTax || 0, profile.mortgageInterest || 0),
+        standardDeduction(ctx, filing, yearIndex, joint ? [profile.ageA, profile.ageB] : [profile.ageA]),
+        itemizedDeduction(ctx, yearIndex, 0, 0, profile.propertyTax || 0, profile.mortgageInterest || 0),
       ),
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {
@@ -76,7 +74,7 @@ import { optimizerState } from '../optimizer-state.js';
   //    line is on the engine's MAGI (the ACA definition).
   // preConvMagi is MAGI before any conversion, including the iteration's
   // estimate of this year's discretionary withdrawals.
-  export function conversionMagiCeiling({
+  export function conversionMagiCeiling(ctx, {
     acaEligibleA,
     acaEligibleB,
     singlePerson,
@@ -96,21 +94,22 @@ import { optimizerState } from '../optimizer-state.js';
     shareA = 0.5,
     profile,
   }) {
+    const inputs = ctx.inputs;
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
       // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
       // never occur in the survivor period or single-person mode, so the household branch's survivor
       // guards are not needed here.)
       let room = Infinity;
-      const kids = qualifyingChildCount(taxYearOf(year)),
+      const kids = qualifyingChildCount(inputs, taxYearOf(ctx, year)),
         allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
-      if (state.acaEnabled && !state.acaEnhanced) {
-        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(1 + kids, year) * 4, preMagiA, shareA));
-        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(1, year) * 4, preMagiB, 1 - shareA));
+      if (inputs.acaEnabled && !inputs.acaEnhanced) {
+        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(ctx, 1 + kids, year) * 4, preMagiA, shareA));
+        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
       }
       const p = profile;
-      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
-      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
+      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
+      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
       return preConvMagi + room;
     }
       let magiCeiling = Infinity;
@@ -120,10 +119,10 @@ import { optimizerState } from '../optimizer-state.js';
       // bracket is worth.
       // Only partners actually on the individual market (see
       // acaEligibility) are exposed to the subsidy cliff.
-      if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
+      if (inputs.acaEnabled && !inputs.acaEnhanced && (acaEligibleA || acaEligibleB)) {
         magiCeiling = Math.min(
           magiCeiling,
-          fplForHousehold(acaHouseholdSize(singlePerson, isSurvivorPeriod, year), year) * 4,
+          fplForHousehold(ctx, acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, year), year) * 4,
         );
       }
       // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
@@ -136,7 +135,7 @@ import { optimizerState } from '../optimizer-state.js';
         (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
       ) {
         const ssH = irmaaSsOf(profile);
-        magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
+        magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
       }
     return magiCeiling;
   }
@@ -153,7 +152,7 @@ import { optimizerState } from '../optimizer-state.js';
   // its "not found" branch and return the top bracket, the opposite of
   // what 0 is supposed to mean), so it's checked before bracketCeilingReal
   // is ever called.
-  export function solveRothConversion(profile, maxAvailable, yearIndex, ageKey) {
+  export function solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey) {
     if (maxAvailable <= 0) return 0;
     // Transient optimizer-search override takes priority (set only for the
     // duration of one simulate() call, see above); next, a schedule
@@ -161,11 +160,13 @@ import { optimizerState } from '../optimizer-state.js';
     // (state.appliedRothSchedule, see defaults/normalizeState) — both are
     // keyed by Partner A's age, so both engines (simulate() and
     // simulateHistorical()) pass the age. Falls through to the flat bracket.
+    const inputs = ctx.inputs,
+      byAge = ctx.overrides.rothBracketByAge;
     const bracketPct =
-      optimizerState.rothBracketByAge && optimizerState.rothBracketByAge.has(ageKey)
-        ? optimizerState.rothBracketByAge.get(ageKey)
-        : state.appliedRothSchedule && Object.prototype.hasOwnProperty.call(state.appliedRothSchedule, ageKey)
-          ? state.appliedRothSchedule[ageKey]
-          : state.rothConvBracket;
-    return solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct);
+      byAge && byAge.has(ageKey)
+        ? byAge.get(ageKey)
+        : inputs.appliedRothSchedule && Object.prototype.hasOwnProperty.call(inputs.appliedRothSchedule, ageKey)
+          ? inputs.appliedRothSchedule[ageKey]
+          : inputs.rothConvBracket;
+    return solveRothConversionTo(ctx, profile, maxAvailable, yearIndex, bracketPct);
   }

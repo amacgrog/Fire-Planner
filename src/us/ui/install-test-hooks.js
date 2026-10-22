@@ -127,6 +127,11 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     return out;
   }
 
+  // A hook with the old signature of an engine function that now takes the run context first: the context is built from the
+  // store at each call (no plan), so a test that patches the state between calls sees its patch.
+  function withStoreCtx(fn) {
+    return (...a) => fn(storeContext({ withPlan: false }), ...a);
+  }
   export function installTestHooks() {
     assignCountryAnalysis({
       renderChartView,
@@ -150,14 +155,14 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
     window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
     // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
-    // endValue: also the ending after-tax value (afterTaxEndValueUS, priced while a path's own tax factors are still set) and
+    // endValue: also the ending after-tax value (afterTaxEndValueUS, priced with the run's own context: a path's own tax factors) and
     // the ending Roth / traditional / taxable balances (tests/solver_scan.js).
     window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false, endValue = false }) => {
       const tr = planTrace ? [] : null;
       let sim, value, estate;
       const measure = () => {
         if (!endValue) return;
-        value = afterTaxEndValueUS(sim);
+        value = afterTaxEndValueUS(ctx, sim);
         const e = sim.estate;
         estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
       };
@@ -232,7 +237,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       }
       return rowFnFor;
     })();
-    window.__test_afterTaxEndValueUS = afterTaxEndValueUS;
+    // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has.
+    window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(storeContext({ withPlan: false }), sim);
     window.__test_optimizeRothLadderPerYear = (...a) => (ensureTestPlan(), optimizeRothLadderPerYear(...a));
     window.__test_optimizeMultiLever = (...a) => (ensureTestPlan(), optimizeMultiLever(...a));
     window.__test_rothScheduleCost = (...a) => (ensureTestPlan(), rothScheduleCost(...a));
@@ -248,12 +254,12 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
     window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
     window.__test_withdrawalMixWeights = withdrawalMixWeights;
-    window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
+    window.__test_pickLiveWithdrawalOrder = withStoreCtx(pickLiveWithdrawalOrder);
     window.__test_getState = () => state;
     window.__test_syncControls = () => syncControls();
-    window.__test_accountStatuses = accountStatuses;
+    window.__test_accountStatuses = (c) => accountStatuses(state, c);
     window.__test_normalizeState = normalizeState;
-    window.__test_children = { dependentsInYear, qualifyingChildCount, acaHouseholdSize, hasChildAtMost };
+    window.__test_children = { dependentsInYear: (y) => dependentsInYear(state, y), qualifyingChildCount: (y) => qualifyingChildCount(state, y), acaHouseholdSize: withStoreCtx(acaHouseholdSize), hasChildAtMost: (taxYear, maxAge) => hasChildAtMost(state, taxYear, maxAge) };
     window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
       ensureTestPlan();
       const trace = [];
@@ -297,8 +303,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       Object.assign(state, patch);
       try { return fn(); } finally { Object.assign(state, saved); }
     };
-    window.__test_payrollTax = payrollTax;
-    window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
+    window.__test_payrollTax = withStoreCtx(payrollTax);
+    window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(storeContext({ withPlan: false }), se, w, y, SE_OUT) });
     window.__test_streamCoverBits = streamCoverBits;
     window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];
     window.__test_soloPlanContributions = (q) => {
@@ -321,14 +327,14 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       try {
         Object.assign(state, patch);
         if (Array.isArray(args.streamList)) args = { ...args, streamList: { n: args.streamList.length, items: args.streamList } };
-        return retirementContributions(args);
+        return retirementContributions(storeContext({ withPlan: false }), args);
       } finally {
         for (const k of Object.keys(state)) delete state[k];
         Object.assign(state, saved);
       }
     };
-    window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, accountStatuses };
-    window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
+    window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies: (...a) => rule55Applies(state, ...a), rothSlotSplit, accountStatuses: (c) => accountStatuses(state, c) };
+    window.__test_accounts = { accountsNew: () => accountsNew(state), accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
     window.__test_FIELDS = FIELDS;
     window.__test_mcpAccepts = (key, v) => mcpAccepts(FIELDS.find((f) => f.key === key), v);
     window.__test_setCurrentYear = (y) => { assignCurrentYear(y); };
@@ -353,8 +359,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       return planTrace;
     };
     window.__test_solver = {
-      magiThresholds,
-      lambdaEstimate,
+      magiThresholds: (c) => magiThresholds(storeContext({ withPlan: false }), c),
+      lambdaEstimate: (o) => lambdaEstimate({ ...o, ctx: storeContext({ withPlan: false }) }),
       afterTaxValue,
       returnMagis,
       takeTraditional,
@@ -363,11 +369,12 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       freeTraditional,
       withdrawStandard,
       magiCapLeft,
+      // Raw: the tests pass it as a draw's `solver`, which the draw calls with the withdrawal's context first.
       solveTraditionalForNet,
       newTestWithdrawal: (balPatch, profile) =>
-        newWithdrawal({
+        newWithdrawal(storeContext({ withPlan: false }), {
           bal: { taxable: 0, taxableBasis: 0, bondTaxable: 0, bondTaxableBasis: 0, bondTraditional: 0, bondRoth: 0, traditional: 0, roth: 0, cash: 0, home: 0, mortgage: 0, ...balPatch },
-          rothAccts: rothAccountsNew(),
+          rothAccts: rothAccountsNew(state),
           accts: { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] },
           seppActive: [false, false, false, false],
           profile,
@@ -375,8 +382,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
           rmd: 0,
         }),
     };
-    window.__test_qbiDeduction = qbiDeduction;
-    window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor };
+    window.__test_qbiDeduction = withStoreCtx(qbiDeduction);
+    window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule: withStoreCtx(mortgageSchedule), SENIOR_DEDUCTION_LAST_YEAR, acaNetCost: withStoreCtx(acaNetCost), additionalMedicareTax, irmaaSurcharge: withStoreCtx(irmaaSurcharge), irmaaTierCeiling: withStoreCtx(irmaaTierCeiling), irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
     window.__test_applyMultiLeverSchedule = (opt, options) => {
       ensureTestPlan();
       optimizerState.lastMultiLeverRun = { opt, options, savings: 2 };

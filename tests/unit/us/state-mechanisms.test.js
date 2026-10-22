@@ -33,7 +33,9 @@ async function setup() {
   const { stateIncomeTax } = await w.load('us/core/tax/state-tax.js');
   const { taxFor, ordinaryTax } = await w.load('us/core/tax/federal-tax.js');
   const { standardDeduction } = await w.load('us/core/tax/federal-rules.js');
-  const t = { stateIncomeTax, taxFor, ordinaryTax, standardDeduction };
+  // Each call gets a context built from the store as it is then (the cases change the state code and the tax year).
+  const now = await w.ctxBuilder(), live = (fn) => (...a) => fn(now(), ...a);
+  const t = { stateIncomeTax: live(stateIncomeTax), taxFor: live(taxFor), ordinaryTax: live(ordinaryTax), standardDeduction: live(standardDeduction) };
   const st = await w.setState();
   w.setTaxYear(2026);
   st.inflation = 0;

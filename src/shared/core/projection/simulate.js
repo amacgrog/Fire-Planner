@@ -38,7 +38,8 @@ import { pct } from '../format/numbers.js';
   // back up from the same order. Cash/HYSA and mortgage still use the fixed rates from the
   // sidebar, since no historical series is loaded for either.
   // The context is built first (US: planForState, whose nested planning runs see no tax factors), then the run's fresh
-  // factor array is also assigned to the legacy histTaxFactors binding (read by taxIndexFactor) for the run's duration.
+  // factor array is also assigned to the legacy histTaxFactors binding for the run's duration (no engine module reads it since
+  // Stage 3: taxIndexFactor reads ctx.taxFactors; it goes with the LIVE_CTX bridge in Task 16).
   export function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     const ctx = storeContext({ taxFactors: [] });
     const prevTaxFactors = histTaxFactors;

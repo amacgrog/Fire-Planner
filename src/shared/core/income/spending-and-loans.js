@@ -1,26 +1,25 @@
 // Spending tiers, growth factors, mortgage and loan schedules, lump expenses
 
-import { state } from '../store.js';
 import { pct } from '../format/numbers.js';
 
   // Mortgage payoff and rent-then-buy fields that both engines return.
-  export function mortgageResultAges(futureBuy, schedule) {
-    const payoffYear = state.tenure === 'rentThenBuy' ? futureBuy.payoffYear : schedule.payoffYear;
+  export function mortgageResultAges(ctx, futureBuy, schedule) {
+    const payoffYear = ctx.inputs.tenure === 'rentThenBuy' ? futureBuy.payoffYear : schedule.payoffYear;
     return {
-      payoffAge: payoffYear === null ? null : state.ageA + payoffYear,
-      buyAge: state.tenure === 'rentThenBuy' ? state.buyAge : null,
+      payoffAge: payoffYear === null ? null : ctx.inputs.ageA + payoffYear,
+      buyAge: ctx.inputs.tenure === 'rentThenBuy' ? ctx.inputs.buyAge : null,
     };
   }
   // Total "other loans" payment for the year. In the survivor period the
   // remaining balance is paid off as a lump sum in the year of death
   // (approximating debts settled through probate) and nothing is owed after.
-  export function loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans }) {
+  export function loanPaymentForYear(ctx, { year, deathYear, isSurvivorPeriod, loans }) {
     const loanPayment = isSurvivorPeriod && year > deathYear
       ? 0
       : year === deathYear
         ? loans.reduce(
             (sum, l, i) =>
-              sum + (year > 0 ? l.balances[year - 1] : Number(state.loans[i]?.balance) || 0),
+              sum + (year > 0 ? l.balances[year - 1] : Number(ctx.inputs.loans[i]?.balance) || 0),
             0,
           )
         : loans.reduce((sum, l) => sum + (l.payments[year] || 0), 0);
@@ -42,13 +41,13 @@ import { pct } from '../format/numbers.js';
   // nominal dollars: the active spending change that started latest (a change
   // is active from its start age through its end age, inclusive), grown by
   // its own rule; otherwise the base "Annual household spending" inflated.
-  export function baseSpendingNominal(age, year, inflationFactor, incomeFactor) {
+  export function baseSpendingNominal(ctx, age, year, inflationFactor, incomeFactor) {
     let best = null;
-    for (const t of state.spendingTiers)
+    for (const t of ctx.inputs.spendingTiers)
       if (age >= t.startAge && age <= t.endAge && (!best || t.startAge > best.startAge)) best = t;
     return best
       ? best.amount * itemGrowthFactor(best, year, 'expense', inflationFactor, incomeFactor)
-      : state.spending * inflationFactor;
+      : ctx.inputs.spending * inflationFactor;
   }
   export function itemGrowthFactor(item, year, kind, inflationFactor, incomeFactor) {
     if (item.flat) return 1; // fixed dollar amount at the occurrence — no growth
@@ -63,8 +62,8 @@ import { pct } from '../format/numbers.js';
     if (age === first) return true;
     return every > 0 && age > first && age <= e.untilAge && (age - first) % every === 0;
   }
-  export function loanSchedules() {
-    return state.loans.map((loan) => {
+  export function loanSchedules(ctx) {
+    return ctx.inputs.loans.map((loan) => {
       let balance = Math.max(0, Number(loan.balance) || 0),
         rate = pct(Number(loan.rate) || 0) / 12,
         term = Math.max(0, Number(loan.term) || 0),
@@ -136,21 +135,21 @@ import { pct } from '../format/numbers.js';
   // forward), the one-time cash outlay (full price if paying cash, or down
   // payment + closing costs if financing), and the resulting mortgage
   // schedule.
-  export function futureHomePurchase(homeGrowth) {
-    const buyYear = Math.max(0, Math.round(state.buyAge - state.ageA));
-    const homeValueAtPurchase = state.homeValue * Math.pow(1 + homeGrowth, buyYear);
-    const downPayment = state.buyCash
+  export function futureHomePurchase(ctx, homeGrowth) {
+    const buyYear = Math.max(0, Math.round(ctx.inputs.buyAge - ctx.inputs.ageA));
+    const homeValueAtPurchase = ctx.inputs.homeValue * Math.pow(1 + homeGrowth, buyYear);
+    const downPayment = ctx.inputs.buyCash
       ? homeValueAtPurchase
-      : homeValueAtPurchase * pct(state.buyDownPct);
-    const closingCosts = state.buyCash ? 0 : homeValueAtPurchase * pct(state.buyClosingPct);
-    const loanPrincipal = state.buyCash ? 0 : Math.max(0, homeValueAtPurchase - downPayment);
+      : homeValueAtPurchase * pct(ctx.inputs.buyDownPct);
+    const closingCosts = ctx.inputs.buyCash ? 0 : homeValueAtPurchase * pct(ctx.inputs.buyClosingPct);
+    const loanPrincipal = ctx.inputs.buyCash ? 0 : Math.max(0, homeValueAtPurchase - downPayment);
     const purchaseCash = downPayment + closingCosts;
-    const buyTermYears = state.buyTerm;
+    const buyTermYears = ctx.inputs.buyTerm;
     const buySchedule = buildDeferredMortgage(
       loanPrincipal,
-      pct(state.mortgageRate),
+      pct(ctx.inputs.mortgageRate),
       buyTermYears,
-      state.buyExtraPrincipal,
+      ctx.inputs.buyExtraPrincipal,
       buyYear,
       100,
     );
@@ -163,11 +162,11 @@ import { pct } from '../format/numbers.js';
       payoffYear: payoffIdx < 0 ? null : payoffIdx,
     };
   }
-  export function mortgageSchedule() {
+  export function mortgageSchedule(ctx) {
     const payments = [],
       balances = [],
       interest = [];
-    let balance = state.tenure === 'own' ? state.mortgage : 0;
+    let balance = ctx.inputs.tenure === 'own' ? ctx.inputs.mortgage : 0;
     // The level payment is fixed at origination by the *original* principal
     // and term, not by whatever balance happens to be left today — extra
     // principal already paid shortens the payoff, it doesn't change the
@@ -175,17 +174,17 @@ import { pct } from '../format/numbers.js';
     // amount is entered (e.g. an older saved scenario), which reproduces
     // the old (slightly wrong, but harmless-if-no-extra-payments) behavior
     // rather than breaking silently.
-    const originalPrincipal = state.mortgagePrincipal > 0 ? state.mortgagePrincipal : balance,
-      scheduled = mortgagePayment(originalPrincipal, pct(state.mortgageRate), state.mortgageYears),
-      rate = pct(state.mortgageRate) / 12,
-      maxYears = Math.max(0, state.mortgageYears);
+    const originalPrincipal = ctx.inputs.mortgagePrincipal > 0 ? ctx.inputs.mortgagePrincipal : balance,
+      scheduled = mortgagePayment(originalPrincipal, pct(ctx.inputs.mortgageRate), ctx.inputs.mortgageYears),
+      rate = pct(ctx.inputs.mortgageRate) / 12,
+      maxYears = Math.max(0, ctx.inputs.mortgageYears);
     for (let year = 0; year <= Math.max(70, maxYears); year++) {
       let paid = 0,
         interestPaid = 0;
       for (let month = 0; month < 12 && balance > 0 && year < maxYears; month++) {
         const monthInterest = balance * rate,
           scheduledPrincipal = Math.max(0, scheduled - monthInterest),
-          principal = Math.min(balance, scheduledPrincipal + state.extraPrincipal);
+          principal = Math.min(balance, scheduledPrincipal + ctx.inputs.extraPrincipal);
         balance -= principal;
         paid += monthInterest + principal;
         interestPaid += monthInterest;

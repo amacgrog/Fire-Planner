@@ -7,9 +7,10 @@ export async function usContributions(w) {
   const contrib = await w.load('us/core/income/contributions.js');
   const fed = await w.load('us/core/tax/federal-tax.js');
   const store = await w.load('shared/core/store.js');
+  const now = await w.ctxBuilder();
   return guardWorld(w, {
     // __test_selfEmploymentTax
-    selfEmploymentTax: (se, wages, y) => ({ ...fed.selfEmploymentTax(se, wages, y, fed.SE_OUT) }),
+    selfEmploymentTax: (se, wages, y) => ({ ...fed.selfEmploymentTax(now(), se, wages, y, fed.SE_OUT) }),
     // __test_allocatePlanRoom
     allocatePlanRoom(room, amounts) {
       const out = [];
@@ -34,7 +35,7 @@ export async function usContributions(w) {
       try {
         Object.assign(state, patch);
         if (Array.isArray(args.streamList)) args = { ...args, streamList: { n: args.streamList.length, items: args.streamList } };
-        return structuredClone(contrib.retirementContributions(args)); // a copy: the old hook returned a serialized one
+        return structuredClone(contrib.retirementContributions(now(), args)); // a copy: the old hook returned a serialized one
       } finally {
         for (const k of Object.keys(state)) delete state[k];
         Object.assign(state, saved);

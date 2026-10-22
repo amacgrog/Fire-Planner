@@ -1,9 +1,7 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
-import { state } from '../../../shared/core/store.js';
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
 import { magiCapLeft, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
-import { optimizerState } from '../optimizer-state.js';
 import { pickLiveWithdrawalOrder, withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup } from '../accounts/penalty-status.js';
 import { accountsDrawGroup } from '../accounts/account-ledger.js';
@@ -23,12 +21,14 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // strategies keep their own, see solveTraditionalForNetFromNeed). Written
   // against the take*() primitives so the account model can change underneath.
   function drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver }) {
-    const { bal } = wd;
+    const { bal, ctx } = wd,
+      inputs = ctx.inputs,
+      mixByAge = ctx.overrides.withdrawalMixByAge;
     const mixCandidate =
-      optimizerState.withdrawalMixByAge && optimizerState.withdrawalMixByAge.has(age)
-        ? optimizerState.withdrawalMixByAge.get(age)
-        : state.appliedMixSchedule && Object.prototype.hasOwnProperty.call(state.appliedMixSchedule, age)
-          ? state.appliedMixSchedule[age]
+      mixByAge && mixByAge.has(age)
+        ? mixByAge.get(age)
+        : inputs.appliedMixSchedule && Object.prototype.hasOwnProperty.call(inputs.appliedMixSchedule, age)
+          ? inputs.appliedMixSchedule[age]
           : 0;
     // Mix weights see only the money this tier may use: penalty-free traditional (and, while penalized
     // money exists, penalty-free Roth).
@@ -45,11 +45,12 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       if (traditionalShare > 0 && freeTrad > 0)
         wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       if (rothShare > 0 && freeRoth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
-    } else if (state.withdrawalMixEnabled && wd.need > 0) {
+    } else if (inputs.withdrawalMixEnabled && wd.need > 0) {
       // 'live' is a display-only marker, not a WITHDRAWAL_MIX_CANDIDATES id.
       wd.mixCandidate = 'live';
       const free = tradGroup(wd, false),
         live = pickLiveWithdrawalOrder(
+          ctx,
           wd.need,
           bal.taxable,
           wd.magiCap ? Math.min(freeTrad, magiCapLeft(wd)) : freeTrad,
@@ -71,7 +72,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       wd.cappableTraditional += live.fromTraditional;
       wd.earlyPenalty += live.penalty;
       wd.need = live.remainingNeed;
-    } else if (state.smoothWithdrawals) {
+    } else if (inputs.smoothWithdrawals) {
       const pool = bal.taxable + freeTrad;
       if (pool > 0 && wd.need > 0) {
         const taxableShare = wd.need * (bal.taxable / pool),

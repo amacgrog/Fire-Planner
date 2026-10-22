@@ -73,11 +73,12 @@ async function setup() {
   const st = await w.setState();
   st.inflation = 0;
   st.province = 'on';
+  const ctx = await w.ctx();
   const t = {
-    federalTaxCA: tx.federalTaxCA, provincialTaxCA: tx.provincialTaxCA, personTaxCA: tx.personTaxCA, oasClawback: tx.oasClawback,
-    ontarioHealthPremium: tx.ontarioHealthPremium, PROVINCE_RULES, incomeTax: tx.incomeTaxCA, cppContribution: tx.cppContribution,
-    quebecPoolAmount: tx.quebecPoolAmount, solvePensionSplit: tx.solvePensionSplit, medicalClaimToB: tx.medicalClaimToB,
-    payrollItems: (wages, y) => ({ ...tx.payrollItems(wages, y) }), homeBuyerAmounts, taxIndexFactor,
+    federalTaxCA: (...a) => tx.federalTaxCA(ctx, ...a), provincialTaxCA: (...a) => tx.provincialTaxCA(ctx, ...a), personTaxCA: (...a) => tx.personTaxCA(ctx, ...a), oasClawback: (...a) => tx.oasClawback(ctx, ...a),
+    ontarioHealthPremium: tx.ontarioHealthPremium, PROVINCE_RULES, incomeTax: (...a) => tx.incomeTaxCA(ctx, ...a), cppContribution: (...a) => tx.cppContribution(ctx, ...a),
+    quebecPoolAmount: (...a) => tx.quebecPoolAmount(ctx, ...a), solvePensionSplit: (...a) => tx.solvePensionSplit(ctx, ...a), medicalClaimToB: (...a) => tx.medicalClaimToB(ctx, ...a),
+    payrollItems: (wages, y) => ({ ...tx.payrollItems(ctx, wages, y) }), homeBuyerAmounts, taxIndexFactor: (y) => taxIndexFactor(ctx, y),
   };
   return { w, st, t };
 }

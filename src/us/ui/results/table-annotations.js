@@ -5,6 +5,7 @@ import { displayValue } from '../../../shared/core/format/charts.js';
 import { state } from '../../../shared/core/store.js';
 import { APPEAL_EVENT } from '../../core/healthcare/irmaa.js';
 import { taxYearOf } from '../../core/tax/federal-rules.js';
+import { storeContext } from '../../core/projection/store-context.js';
 
   // 3C: the year table's status cell explains the solver's choice for that year (title tooltip). US only (renderTable
   // is a shared region).
@@ -35,12 +36,13 @@ import { taxYearOf } from '../../core/tax/federal-rules.js';
     }
   }
   export function annotateAppealRows(sim) {
+    const ctx = storeContext({ withPlan: false });
     for (const tr of document.querySelectorAll('#projectionRows tr')) {
       const age = Number(tr.cells[0] && tr.cells[0].textContent),
         r = sim.rows.find((x) => x.age === age),
         cell = tr.querySelector('.table-status');
       if (!r || !cell || (r.irmaaAppealYearA === undefined && r.irmaaAppealYearB === undefined)) continue;
-      const was = taxYearOf(r.year - 2),
+      const was = taxYearOf(ctx, r.year - 2),
         parts = [];
       for (const P of ['A', 'B']) {
         const used = r['irmaaAppealYear' + P];

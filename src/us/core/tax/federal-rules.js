@@ -1,6 +1,5 @@
 // US federal tax tables, filing-status rows and deduction functions
 
-import { currentYear } from '../tax-year.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
   // ---- Federal deductions --------------------------------------------------
@@ -30,8 +29,8 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   const SALT_PHASE_START_2025 = 500000;
   // Acquisition-debt limit for mortgage interest (permanent after the 2025 act).
   const MORTGAGE_DEBT_LIMIT = 750000;
-  export function taxYearOf(yearIndex) {
-    return currentYear + Math.floor(yearIndex);
+  export function taxYearOf(ctx, yearIndex) {
+    return ctx.taxYear + Math.floor(yearIndex);
   }
   // Standard deduction: the 2026 base (Rev. Proc. 2025-32) plus the additional
   // amount for each filer on the return aged 65+ ($1,650 married / $2,050
@@ -105,8 +104,8 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // `magi` is the return's income before it. The 6% phase-out reduces EACH eligible
   // person's $6,000 by the same amount, so two eligible spouses lose it entirely at
   // $250,000 joint MAGI (one eligible spouse also at $250,000), a single filer at $175,000.
-  export function seniorDeduction(filing, yearIndex, ages, magi) {
-    if (taxYearOf(yearIndex) > SENIOR_DEDUCTION_LAST_YEAR) return 0;
+  export function seniorDeduction(ctx, filing, yearIndex, ages, magi) {
+    if (taxYearOf(ctx, yearIndex) > SENIOR_DEDUCTION_LAST_YEAR) return 0;
     let seniors = 0;
     for (const a of ages) if (a >= 65) seniors++;
     if (!seniors) return 0;
@@ -119,8 +118,8 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       )
     );
   }
-  export function saltCap(yearIndex, magi) {
-    const year = taxYearOf(yearIndex);
+  export function saltCap(ctx, yearIndex, magi) {
+    const year = taxYearOf(ctx, yearIndex);
     if (year > SALT_CAP_LAST_YEAR) return SALT_CAP_FLOOR;
     const cap = SALT_CAP_BY_YEAR[Math.max(2025, year)],
       start = SALT_PHASE_START_2025 * Math.pow(1.01, Math.max(0, year - 2025));
@@ -131,15 +130,15 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // caller), plus the medical expenses over 7.5% of AGI (IRC 213(a), a permanent
   // floor; `magi` stands in for AGI). Charitable gifts and QCDs are not modeled.
   const MEDICAL_FLOOR_PCT = 0.075;
-  export function itemizedDeduction(yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
+  export function itemizedDeduction(ctx, yearIndex, magi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
     return (
-      Math.min(saltCap(yearIndex, magi), Math.max(0, stateTaxPaid) + Math.max(0, propertyTax)) +
+      Math.min(saltCap(ctx, yearIndex, magi), Math.max(0, stateTaxPaid) + Math.max(0, propertyTax)) +
       Math.max(0, mortgageInterest) +
       Math.max(0, medical - MEDICAL_FLOOR_PCT * Math.max(0, magi))
     );
   }
-  export function standardDeduction(filing, yearIndex, ages = []) {
-    const factor = taxIndexFactor(yearIndex);
+  export function standardDeduction(ctx, filing, yearIndex, ages = []) {
+    const factor = taxIndexFactor(ctx, yearIndex);
     let deduction = STD_DEDUCTION[filingKey(filing, 'deduction')] * factor;
     const extra = STD_EXTRA_65[filingKey(filing, 'extraAge')] * factor;
     for (const a of ages) if (a >= 65) deduction += extra;
@@ -160,14 +159,14 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // What one return deducts: the larger of the (age-adjusted) standard deduction
   // and the itemized total, plus the senior deduction on top of either. `agi` is
   // the return's income before the deduction (it stands in for MAGI).
-  export function federalDeduction(filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
-    let deduction = standardDeduction(filing, yearIndex, ages);
+  export function federalDeduction(ctx, filing, yearIndex, ages, agi, stateTaxPaid, propertyTax, mortgageInterest, medical = 0) {
+    let deduction = standardDeduction(ctx, filing, yearIndex, ages);
     if (stateTaxPaid > 0 || propertyTax > 0 || mortgageInterest > 0 || (medical > 0 && medical > MEDICAL_FLOOR_PCT * agi))
       deduction = Math.max(
         deduction,
-        itemizedDeduction(yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest, medical),
+        itemizedDeduction(ctx, yearIndex, agi, stateTaxPaid, propertyTax, mortgageInterest, medical),
       );
-    return deduction + seniorDeduction(filing, yearIndex, ages, agi);
+    return deduction + seniorDeduction(ctx, filing, yearIndex, ages, agi);
   }
   // Share of mortgage interest that is deductible given the original loan size.
   export function mortgageInterestShare(originalPrincipal) {

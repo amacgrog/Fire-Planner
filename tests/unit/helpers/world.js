@@ -42,6 +42,15 @@ export async function world() {
       const { storeContext } = await load(country === 'us' ? 'us/core/projection/store-context.js' : 'canada/core/projection/store-context.js');
       return storeContext({ withPlan: false, ...opts });
     },
+    // A synchronous builder: each call builds a context from the store as it is then (its state and tax year), as the window
+    // hooks do; for a wrapper that keeps a function's old signature across setState / setTaxYear.
+    async ctxBuilder(opts = {}) {
+      const { storeContext } = await load(country === 'us' ? 'us/core/projection/store-context.js' : 'canada/core/projection/store-context.js');
+      return () => {
+        assertCurrent('world.ctxBuilder');
+        return storeContext({ withPlan: false, ...opts });
+      };
+    },
     setTaxYear(y) {
       assertCurrent('world.setTaxYear');
       if (!taxYear) throw new Error('setTaxYear: Canada has no tax-year setter');
