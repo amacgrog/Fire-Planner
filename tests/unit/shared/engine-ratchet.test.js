@@ -25,11 +25,18 @@ const LISTS = {
 
 const SCENARIOS = households(isUS);
 
-const PAIRS = isUS
-  ? [['default', 'survivor'], ['child', 'ny'], ['PLAN_G58', 'default']]
-  : [['default', 'survivor'], ['child', 'qc'], ['ns', 'single with OAS']];
-
 const patchOf = (name) => SCENARIOS.find(([n]) => n === name)[1];
+
+// Each pair: two households and, optionally, the tax year the second runs under (US). The last pairs vary the memo keys:
+// a different inflation (the taxIndexFactor memo) and, in the US, a different tax year between the runs.
+const PAIRS = [
+  ...(isUS
+    ? [['default', 'survivor'], ['child', 'ny'], ['PLAN_G58', 'default']]
+    : [['default', 'survivor'], ['child', 'qc'], ['ns', 'single with OAS']]
+  ).map(([na, nb]) => ({ label: na + '/' + nb, pa: patchOf(na), pb: patchOf(nb) })),
+  { label: 'inflation 4', pa: patchOf('default'), pb: { ...patchOf('default'), inflation: 4 } },
+  ...(isUS ? [{ label: 'tax year 2027', pa: patchOf('default'), pb: patchOf('default'), yb: 2027 }] : []),
+];
 
 async function setup(w, patch) {
   return w.setState(patch);
@@ -68,27 +75,33 @@ it('identical inputs give identical output', async () => {
 });
 
 it('order does not matter', async () => {
-  for (const [na, nb] of PAIRS) {
-    const pa = patchOf(na);
-    const pb = patchOf(nb);
+  for (const { label, pa, pb, yb } of PAIRS) {
+    // The first household always runs under the default year, the second under yb when given.
+    const yearA = (w) => (yb ? w.setTaxYear(2026) : undefined);
+    const yearB = (w) => (yb ? w.setTaxYear(yb) : undefined);
     let a1, b1, a2, a0, b0;
     {
       const { w, HIST, eng } = await start(pa);
       a1 = runAll(eng, HIST);
+      yearB(w);
       await setup(w, pb);
       b1 = runAll(eng, HIST);
+      yearA(w);
       await setup(w, pa);
       a2 = runAll(eng, HIST);
     }
     {
       const { w, HIST, eng } = await start(pb);
+      yearB(w);
+      await setup(w, pb);
       b0 = runAll(eng, HIST);
+      yearA(w);
       await setup(w, pa);
       a0 = runAll(eng, HIST);
     }
-    c.expect(a2, na + ' after ' + nb).toBe(a1);
-    c.expect(a0, na + ' second world').toBe(a1);
-    c.expect(b0, nb + ' second world').toBe(b1);
+    c.expect(a2, label + ' first again').toBe(a1);
+    c.expect(a0, label + ' second world').toBe(a1);
+    c.expect(b0, label + ' second household, second world').toBe(b1);
   }
 });
 
@@ -98,6 +111,12 @@ it('a deep-frozen state runs', async () => {
     : [['lists', LISTS]];
   for (const [name, patch] of patches) {
     const { w, HIST, eng } = await start(patch);
+    if (isUS && name.startsWith('PLAN_')) {
+      const { refreshCliffPlan } = await w.load('us/core/cliff-plan/planning.js');
+      const { cliffPlanStore } = await w.load('us/core/cliff-plan-store.js');
+      refreshCliffPlan();
+      c.expect(Object.keys(cliffPlanStore.plan.intents).length > 0, name + ' plans').toBe(true);
+    }
     const store = await w.load('shared/core/store.js');
     const s = store.state;
     for (const k of Object.keys(LISTS)) {
@@ -141,5 +160,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 46 : 26);
+  expect(c.total).toBe(isUS ? 53 : 29);
 });

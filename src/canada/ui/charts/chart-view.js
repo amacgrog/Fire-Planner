@@ -12,6 +12,9 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
 
   // The CAGR lines the last CAGR view drew (label, end total, depletion age); read by the analysis test hook.
   export let lastCagrSims = null;
+  export function assignLastCagrSims(v) {
+    lastCagrSims = v;
+  }
   export function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
       subEl = document.getElementById('chartSub'),

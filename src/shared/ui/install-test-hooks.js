@@ -7,7 +7,7 @@ import { assignMode, assignState, mode, state } from '../core/store.js';
 import { assignChartView, chartView } from '../core/chart-prefs.js';
 import { compactDecisionDelta, findMinimalRetirementDelay, findMinimalSpendingCut } from '../core/analysis/decisions.js';
 import { UNUSUAL_RANGES, unusualAssumptionImpact } from '../core/inputs/estimates.js';
-import { computeSensitivity, lastSensitivity, renderTornadoChart } from './charts/tornado.js';
+import { assignLastSensitivity, computeSensitivity, lastSensitivity, renderTornadoChart } from './charts/tornado.js';
 import { renderShortfallBanner } from './results/shortfall-banner.js';
 import { renderDecisionQuestionPreviews } from './results/decision-questions.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
@@ -73,10 +73,13 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     out.rothOptimizer = computeRothOptimizer(simulate());
     // The UI entry points, called the way render() calls them.
     const ui = {};
+    // Reset first: a render that returned early would otherwise leave the previous call's value.
+    assignLastSensitivity(null);
     renderTornadoChart(simulate());
     ui.tornado = lastSensitivity;
     if (countryAnalysis) {
       const savedView = chartView;
+      countryAnalysis.resetCagrSims();
       assignChartView('cagr');
       try {
         countryAnalysis.renderChartView(simulate());
@@ -90,7 +93,11 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     renderDecisionQuestionPreviews();
     ui.decisions = analysisHtml('decisionQuestions');
     renderUnusualAssumptions(simulate());
-    ui.unusual = analysisHtml('unusualAssumptionsList');
+    const banner = document.getElementById('unusualAssumptionsBanner');
+    ui.unusual = {
+      list: analysisHtml('unusualAssumptionsList'),
+      banner: banner ? { hidden: banner.hidden, display: banner.style.display } : null,
+    };
     out.ui = ui;
     if (countryAnalysis && countryAnalysis.perMode) out.us = countryAnalysis.perMode();
     return out;

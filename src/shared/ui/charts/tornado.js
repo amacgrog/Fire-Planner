@@ -8,6 +8,9 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
 
   // The last result renderTornadoChart computed ({ baseline, results, usePeak }); read by the analysis test hook.
   export let lastSensitivity = null;
+  export function assignLastSensitivity(v) {
+    lastSensitivity = v;
+  }
   // leverIds: the levers to sweep (default: the checked #sensLeverToggles boxes).
   export function computeSensitivity(selected, leverIds) {
     const finalValue = (sim) => {

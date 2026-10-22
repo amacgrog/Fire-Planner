@@ -43,7 +43,7 @@ import { syncControls } from './inputs/sync-controls.js';
 import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
 import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js';
-import { lastCagrSims, renderChartView } from './charts/chart-view.js';
+import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
 import { renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
 import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
@@ -130,6 +130,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     assignCountryAnalysis({
       renderChartView,
       cagrSims: () => lastCagrSims,
+      resetCagrSims: () => assignLastCagrSims(null),
       // Plans cached by an earlier bundle are dropped, so a bundle does not depend on what ran before it. Within a bundle
       // the cache is cleared only here: a later entry can reuse a plan an earlier entry cached (an optimizer trial reusing
       // the plan of the first trial with the same inputs). That is intended: it mirrors the UI, where the cache carries
